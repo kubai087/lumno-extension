@@ -406,6 +406,25 @@
         textWrapper.appendChild(title);
         
         if (suggestion.type === 'history') {
+          const urlLine = document.createElement('span');
+          urlLine.textContent = suggestion.url || '';
+          urlLine.style.cssText = `
+            all: unset !important;
+            color: #2563EB !important;
+            font-size: 12px !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+            text-decoration: none !important;
+            display: inline-block !important;
+            max-width: 60% !important;
+            line-height: 1.4 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          `;
+          textWrapper.appendChild(urlLine);
           const historyTag = document.createElement('span');
           historyTag.textContent = '历史';
           historyTag.style.cssText = `
@@ -454,6 +473,28 @@
         }
         
         if (suggestion.type === 'bookmark') {
+          if (suggestion.path) {
+            const bookmarkPath = document.createElement('span');
+            bookmarkPath.textContent = suggestion.path;
+            bookmarkPath.style.cssText = `
+              all: unset !important;
+              color: #2563EB !important;
+              font-size: 12px !important;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+              text-decoration: none !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              max-width: 100% !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              line-height: 1.2 !important;
+              display: inline-block !important;
+              vertical-align: middle !important;
+            `;
+            textWrapper.appendChild(bookmarkPath);
+          }
           const bookmarkTag = document.createElement('span');
           bookmarkTag.textContent = '书签';
           bookmarkTag.style.cssText = `
