@@ -114,7 +114,7 @@
     const rightIcon = document.createElement('img');
     rightIcon.id = config.rightIconId || '_x_extension_search_right_icon_2024_unique_';
     const runtimeUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
-      ? chrome.runtime.getURL('lumno.png')
+      ? chrome.runtime.getURL('lumno-input-light.png')
       : '';
     rightIcon.src = config.rightIconUrl || runtimeUrl;
     rightIcon.alt = config.rightIconAlt || 'Lumno';
