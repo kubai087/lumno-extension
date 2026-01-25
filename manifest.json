@@ -11,19 +11,20 @@
          }
       }
    },
-   "description": "Replaces the generic new tab page with a search engine similar to Arc.",
+   "description": "A lightweight new-tab search and quick navigation overlay for Chromium browsers.",
    "chrome_url_overrides": {
       "newtab": "newtab.html"
    },
    "host_permissions": [ "\u003Call_urls>" ],
    "icons": {
-      "128": "arc.png",
-      "16": "arc.png",
-      "48": "arc.png"
+      "128": "lumno.png",
+      "16": "lumno.png",
+      "48": "lumno.png"
    },
    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1RGFk/57tTpEoXZG1SLLtmRATFm0g92LSHOEZCQ+HQKppfg1fX+JCuGR42Yq3DeWdHe7LHzdYecAKCCvRj0xm+/7d/rnvIDeJGLKAIhEz/4GT89oxkvGtu0qmqxJCkuMNFLLv+RzjXSSKF6x6CoFOYvAA3AoQeZAPRjIl/ZWmrc/R5v8dGL2IazAuI1WRBNUUkTZZKWok1UdCTvBaOnSr7FwX1XZCdrg+ISAuWEC/eSj9vCJ/NrxRalFLX7Ajcexyd5vqAMBThdBm3+8AVly3c7d+EBepJ1QmSDNzwDyfZVcvlhU0YIK6+71JzoDr1RrihQX8zBJXRvTJWpWsRECawIDAQAB",
    "manifest_version": 3,
-   "name": "Arc Search",
+   "name": "Lumno",
+   "author": "Kubai087",
    "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks" ],
    "update_url": "https://clients2.google.com/service/update2/crx",
    "version": "1.0.0"

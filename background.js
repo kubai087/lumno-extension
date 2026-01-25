@@ -383,7 +383,7 @@ function toggleBlackRectangle(tabs) {
     document.head.appendChild(scrollbarStyle);
     
     if (typeof window._x_extension_createSearchInput_2024_unique_ !== 'function') {
-      console.warn('Arc Search: input UI helper not available.');
+      console.warn('Lumno: input UI helper not available.');
       removeOverlay(overlay);
       return;
     }
