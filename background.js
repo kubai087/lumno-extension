@@ -320,12 +320,13 @@ async function getSearchSuggestions(query) {
           faviconUrl = item.url + '/favicon.ico';
         }
         
-        const suggestion = {
+          const suggestion = {
             type: 'history',
             title: item.title,
             url: item.url,
             favicon: faviconUrl,
-            score: score
+            score: score,
+            lastVisitTime: item.lastVisitTime || 0
           };
           suggestions.push(suggestion);
           processedUrls.add(item.url);
@@ -448,8 +449,20 @@ async function getSearchSuggestions(query) {
       }
     });
     
-    // Sort by relevance score (highest first)
-    suggestions.sort((a, b) => (b.score || 0) - (a.score || 0));
+    // Sort by top site, then recency, then relevance
+    suggestions.sort((a, b) => {
+      const aTop = a.isTopSite || a.type === 'topSite';
+      const bTop = b.isTopSite || b.type === 'topSite';
+      if (aTop !== bTop) {
+        return aTop ? -1 : 1;
+      }
+      const aVisit = a.lastVisitTime || 0;
+      const bVisit = b.lastVisitTime || 0;
+      if (aVisit !== bVisit) {
+        return bVisit - aVisit;
+      }
+      return (b.score || 0) - (a.score || 0);
+    });
     
     // Remove duplicates and limit results
     const uniqueSuggestions = suggestions.filter((suggestion, index, self) => 
@@ -459,7 +472,26 @@ async function getSearchSuggestions(query) {
     // Also remove duplicates by title to avoid similar entries
     let finalSuggestions = uniqueSuggestions.filter((suggestion, index, self) => 
       index === self.findIndex(s => s.title.toLowerCase() === suggestion.title.toLowerCase())
-    ).slice(0, 8);
+    );
+
+    const hostCounts = new Map();
+    finalSuggestions = finalSuggestions.filter((suggestion) => {
+      if (!suggestion.url) {
+        return true;
+      }
+      let hostname = '';
+      try {
+        hostname = new URL(suggestion.url).hostname.toLowerCase();
+      } catch (e) {
+        return true;
+      }
+      const current = hostCounts.get(hostname) || 0;
+      if (current >= 2) {
+        return false;
+      }
+      hostCounts.set(hostname, current + 1);
+      return true;
+    }).slice(0, 8);
 
     if (finalSuggestions.length === 0 && fallbackTopSites.length > 0) {
       const fallbackResults = fallbackTopSites.slice(0, 3).map((site, index) => {
