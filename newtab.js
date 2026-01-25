@@ -606,5 +606,4 @@
 
   root.appendChild(inputParts.container);
   root.appendChild(suggestionsContainer);
-  setTimeout(() => inputParts.input.focus(), 100);
 })();
