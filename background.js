@@ -314,7 +314,7 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(item.url);
-          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=16`;
+          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
         } catch (e) {
           // Fallback to direct favicon URL
           faviconUrl = item.url + '/favicon.ico';
@@ -370,7 +370,7 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(site.url);
-          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=16`;
+          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
         } catch (e) {
           faviconUrl = site.url + '/favicon.ico';
         }
@@ -402,7 +402,7 @@ async function getSearchSuggestions(query) {
           let faviconUrl = '';
           try {
             const urlObj = new URL(bookmark.url);
-            faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=16`;
+            faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
           } catch (e) {
             // Fallback to direct favicon URL
             faviconUrl = bookmark.url + '/favicon.ico';
@@ -498,7 +498,7 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(site.url);
-          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=16`;
+          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
         } catch (e) {
           faviconUrl = site.url + '/favicon.ico';
         }
@@ -610,6 +610,7 @@ function toggleBlackRectangle(tabs) {
       inputId: '_x_extension_search_input_2024_unique_',
       iconId: '_x_extension_search_icon_2024_unique_',
       containerId: '_x_extension_input_container_2024_unique_',
+      rightIconUrl: chrome.runtime.getURL('lumno.png'),
       showUnderlineWhenEmpty: true
     });
     const searchInput = inputParts.input;

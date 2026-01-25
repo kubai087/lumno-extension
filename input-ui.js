@@ -22,7 +22,7 @@
     input.style.cssText = `
       all: unset !important;
       width: 100% !important;
-      padding: 20px 22px 20px 50px !important;
+      padding: 20px 64px 20px 50px !important;
       background: transparent !important;
       border: none !important;
       border-bottom: 1px solid #E5E7EB !important;
@@ -111,6 +111,36 @@
     `;
     applyStyleOverrides(icon, config.iconStyleOverrides);
 
+    const rightIcon = document.createElement('img');
+    rightIcon.id = config.rightIconId || '_x_extension_search_right_icon_2024_unique_';
+    const runtimeUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+      ? chrome.runtime.getURL('lumno.png')
+      : '';
+    rightIcon.src = config.rightIconUrl || runtimeUrl;
+    rightIcon.alt = config.rightIconAlt || 'Lumno';
+    rightIcon.style.cssText = `
+      all: unset !important;
+      position: absolute !important;
+      right: 14px !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      width: 28px !important;
+      height: 28px !important;
+      border-radius: 8px !important;
+      z-index: 2 !important;
+      box-sizing: border-box !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+      text-decoration: none !important;
+      list-style: none !important;
+      outline: none !important;
+      background: transparent !important;
+      display: block !important;
+      object-fit: cover !important;
+    `;
+    applyStyleOverrides(rightIcon, config.rightIconStyleOverrides);
+
     const container = document.createElement('div');
     container.id = config.containerId || '_x_extension_input_container_2024_unique_';
     container.style.cssText = `
@@ -137,7 +167,10 @@
 
     container.appendChild(icon);
     container.appendChild(input);
+    if (config.showRightIcon !== false) {
+      container.appendChild(rightIcon);
+    }
 
-    return { container: container, input: input, icon: icon };
+    return { container: container, input: input, icon: icon, rightIcon: rightIcon };
   };
 })();
