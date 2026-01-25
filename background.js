@@ -60,6 +60,32 @@ async function getSearchSuggestions(query) {
   const suggestions = [];
   
   try {
+    // Get Google suggestion keywords
+    const googleSuggestions = await new Promise((resolve) => {
+      fetch(`https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`)
+        .then((response) => response.json())
+        .then((data) => {
+          if (Array.isArray(data) && Array.isArray(data[1])) {
+            resolve(data[1].slice(0, 5));
+          } else {
+            resolve([]);
+          }
+        })
+        .catch(() => resolve([]));
+    });
+
+    googleSuggestions.forEach((suggestion) => {
+      if (suggestion && suggestion !== query) {
+        suggestions.push({
+          type: 'googleSuggest',
+          title: suggestion,
+          url: `https://www.google.com/search?q=${encodeURIComponent(suggestion)}`,
+          favicon: 'https://www.google.com/favicon.ico',
+          score: 200
+        });
+      }
+    });
+
     // Get history items with broader search
     const historyItems = await new Promise((resolve) => {
       chrome.history.search({
@@ -125,9 +151,56 @@ async function getSearchSuggestions(query) {
       return score;
     }
     
+    function isSearchEngineResultUrl(url) {
+      try {
+        const parsedUrl = new URL(url);
+        const hostname = parsedUrl.hostname.toLowerCase();
+        const path = parsedUrl.pathname.toLowerCase();
+        const searchHosts = [
+          'google.',
+          'bing.com',
+          'baidu.com',
+          'duckduckgo.com',
+          'search.yahoo.com',
+          'yandex.com',
+          'sogou.com',
+          'so.com'
+        ];
+        const isKnownHost = searchHosts.some((host) => hostname.includes(host));
+        if (!isKnownHost) {
+          return false;
+        }
+        const searchPaths = [
+          '/search',
+          '/s',
+          '/s/2',
+          '/web',
+          '/?'
+        ];
+        if (path === '/' && parsedUrl.searchParams.has('q')) {
+          return true;
+        }
+        if (path === '/' && parsedUrl.searchParams.has('wd')) {
+          return true;
+        }
+        if (path === '/' && parsedUrl.searchParams.has('query')) {
+          return true;
+        }
+        if (searchPaths.some((prefix) => path.startsWith(prefix))) {
+          return true;
+        }
+        return false;
+      } catch (e) {
+        return false;
+      }
+    }
+
     // Process history items with scoring
     const processedUrls = new Set();
     historyItems.forEach(item => {
+      if (isSearchEngineResultUrl(item.url)) {
+        return;
+      }
       if (item.title && !processedUrls.has(item.url)) {
         const score = calculateRelevanceScore(item, query);
         if (score > 0) {
@@ -762,6 +835,8 @@ function toggleBlackRectangle(tabs) {
 
         if (suggestion.type === 'newtab') {
           visitButton.innerHTML = '在 Google 中搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+        } else if (suggestion.type === 'googleSuggest') {
+          visitButton.innerHTML = '搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
         } else {
           visitButton.innerHTML = '访问 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
         }

@@ -5,6 +5,9 @@
     return;
   }
 
+  let latestQuery = '';
+  let debounceTimer = null;
+
   function navigateToUrl(url) {
     if (!url) {
       return;
@@ -51,9 +54,15 @@
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.08) !important;
     padding: 8px !important;
     box-sizing: border-box !important;
-    display: none !important;
-    max-height: 50vh !important;
+    display: block !important;
+    max-height: calc(100vh - 220px) !important;
     overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-4px) !important;
+    transition: opacity 0.12s ease, transform 0.12s ease !important;
     line-height: 1 !important;
     text-decoration: none !important;
     list-style: none !important;
@@ -65,7 +74,10 @@
   `;
 
   function setSuggestionsVisible(visible) {
-    suggestionsContainer.style.setProperty('display', visible ? 'block' : 'none', 'important');
+    suggestionsContainer.style.setProperty('opacity', visible ? '1' : '0', 'important');
+    suggestionsContainer.style.setProperty('visibility', visible ? 'visible' : 'hidden', 'important');
+    suggestionsContainer.style.setProperty('pointer-events', visible ? 'auto' : 'none', 'important');
+    suggestionsContainer.style.setProperty('transform', visible ? 'translateY(0)' : 'translateY(-4px)', 'important');
   }
 
   function renderSuggestions(suggestions, query) {
@@ -75,6 +87,57 @@
       return;
     }
 
+    function isSearchEngineResultUrl(url) {
+      try {
+        const parsedUrl = new URL(url);
+        const hostname = parsedUrl.hostname.toLowerCase();
+        const path = parsedUrl.pathname.toLowerCase();
+        const searchHosts = [
+          'google.',
+          'bing.com',
+          'baidu.com',
+          'duckduckgo.com',
+          'search.yahoo.com',
+          'yandex.com',
+          'sogou.com',
+          'so.com'
+        ];
+        const isKnownHost = searchHosts.some((host) => hostname.includes(host));
+        if (!isKnownHost) {
+          return false;
+        }
+        const searchPaths = [
+          '/search',
+          '/s',
+          '/s/2',
+          '/web',
+          '/?'
+        ];
+        if (path === '/' && parsedUrl.searchParams.has('q')) {
+          return true;
+        }
+        if (path === '/' && parsedUrl.searchParams.has('wd')) {
+          return true;
+        }
+        if (path === '/' && parsedUrl.searchParams.has('query')) {
+          return true;
+        }
+        if (searchPaths.some((prefix) => path.startsWith(prefix))) {
+          return true;
+        }
+        return false;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    const filteredSuggestions = suggestions.filter((suggestion) => {
+      if (suggestion.type === 'history' && isSearchEngineResultUrl(suggestion.url)) {
+        return false;
+      }
+      return true;
+    });
+
     const allSuggestions = [
       {
         type: 'newtab',
@@ -82,7 +145,7 @@
         url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
         favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
       },
-      ...suggestions
+      ...filteredSuggestions
     ];
 
     allSuggestions.forEach(function(suggestion, index) {
@@ -311,14 +374,24 @@
   }
 
   function requestSuggestions(query) {
-    chrome.runtime.sendMessage({
-      action: 'getSearchSuggestions',
-      query: query
-    }, function(response) {
-      if (response && response.suggestions) {
-        renderSuggestions(response.suggestions, query);
-      }
-    });
+    latestQuery = query;
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(function() {
+      const requestQuery = latestQuery;
+      chrome.runtime.sendMessage({
+        action: 'getSearchSuggestions',
+        query: requestQuery
+      }, function(response) {
+        if (requestQuery !== latestQuery) {
+          return;
+        }
+        if (response && response.suggestions) {
+          renderSuggestions(response.suggestions, requestQuery);
+        }
+      });
+    }, 120);
   }
 
   const inputParts = createSearchInput({
@@ -336,6 +409,10 @@
     onInput: function(event) {
       const query = event.target.value.trim();
       if (!query) {
+        latestQuery = '';
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
         suggestionsContainer.innerHTML = '';
         setSuggestionsVisible(false);
         return;
