@@ -677,6 +677,195 @@ function toggleBlackRectangle(tabs) {
         }
       });
     }
+
+    function renderTabSuggestions(tabList) {
+      suggestionsContainer.innerHTML = '';
+      suggestionItems.length = 0;
+      currentSuggestions = [];
+      const list = Array.isArray(tabList) ? tabList : [];
+      list.forEach((tab, index) => {
+        const suggestionItem = document.createElement('div');
+        suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
+        suggestionItem.style.cssText = `
+          all: unset !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          padding: 12px 16px !important;
+          background: transparent !important;
+          border-radius: 16px !important;
+          margin-bottom: 4px !important;
+          cursor: pointer !important;
+          transition: background-color 0.2s ease !important;
+          box-sizing: border-box !important;
+          margin: 0 0 4px 0 !important;
+          line-height: 1.5 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          color: inherit !important;
+          font-size: 100% !important;
+          font: inherit !important;
+          vertical-align: baseline !important;
+        `;
+        
+        // Store reference to suggestion item
+        suggestionItems.push(suggestionItem);
+
+        // Create left side with icon and title
+        const leftSide = document.createElement('div');
+        leftSide.id = `_x_extension_left_side_${index}_2024_unique_`;
+        leftSide.style.cssText = `
+          all: unset !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 12px !important;
+          flex: 1 !important;
+          min-width: 0 !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          line-height: 1 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          background: transparent !important;
+          color: inherit !important;
+          font-size: 100% !important;
+          font: inherit !important;
+          vertical-align: baseline !important;
+        `;
+
+        // Create favicon
+        const favicon = document.createElement('img');
+        favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
+        favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23E3E4E8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+        favicon.style.cssText = `
+          all: unset !important;
+          width: 16px !important;
+          height: 16px !important;
+          border-radius: 2px !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          line-height: 1 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          background: transparent !important;
+          color: inherit !important;
+          font-size: 100% !important;
+          font: inherit !important;
+          vertical-align: baseline !important;
+          display: block !important;
+        `;
+
+        // Create title
+        const title = document.createElement('span');
+        title.id = `_x_extension_title_${index}_2024_unique_`;
+        title.textContent = tab.title || '无标题';
+        title.style.cssText = `
+          all: unset !important;
+          color: #111827 !important;
+          font-size: 14px !important;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          line-height: 1.5 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          background: transparent !important;
+          display: inline-block !important;
+          vertical-align: baseline !important;
+        `;
+
+        // Create switch button
+        const switchButton = document.createElement('button');
+        switchButton.id = `_x_extension_switch_button_${index}_2024_unique_`;
+        switchButton.innerHTML = '切换到标签页 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+        switchButton.style.cssText = `
+          all: unset !important;
+          background: transparent !important;
+          color: #4B5563 !important;
+          border: none !important;
+          border-radius: 6px !important;
+          font-size: 12px !important;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+          cursor: pointer !important;
+          transition: background-color 0.2s ease !important;
+          padding: 6px 12px !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          line-height: 1.5 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 4px !important;
+          vertical-align: baseline !important;
+        `;
+
+        // Add hover effects
+        suggestionItem.addEventListener('mouseenter', function() {
+          if (suggestionItems.indexOf(this) !== selectedIndex) {
+            this.style.setProperty('background-color', '#F3F4F6', 'important');
+          }
+        });
+
+        suggestionItem.addEventListener('mouseleave', function() {
+          if (suggestionItems.indexOf(this) !== selectedIndex) {
+            this.style.setProperty('background-color', '#FFFFFF', 'important');
+          }
+        });
+
+        // Add click handler to switch to tab
+        switchButton.addEventListener('click', function(e) {
+          e.stopPropagation();
+          chrome.runtime.sendMessage({
+            action: 'switchToTab',
+            tabId: tab.id
+          });
+          removeOverlay(overlay);
+          document.removeEventListener('keydown', keydownHandler);
+        });
+
+        // Add click handler to select item
+        suggestionItem.addEventListener('click', function() {
+          chrome.runtime.sendMessage({
+            action: 'switchToTab',
+            tabId: tab.id
+          });
+          removeOverlay(overlay);
+          document.removeEventListener('keydown', keydownHandler);
+        });
+
+        leftSide.appendChild(favicon);
+        leftSide.appendChild(title);
+        suggestionItem.appendChild(leftSide);
+        suggestionItem.appendChild(switchButton);
+        suggestionsContainer.appendChild(suggestionItem);
+      });
+
+      selectedIndex = -1;
+    }
+
+    function requestTabsAndRender() {
+      chrome.runtime.sendMessage({ action: 'getTabsForOverlay' }, (response) => {
+        const freshTabs = response && Array.isArray(response.tabs) ? response.tabs : [];
+        if (freshTabs.length === 0) {
+          return;
+        }
+        tabs = freshTabs;
+        renderTabSuggestions(freshTabs);
+      });
+    }
     
     function getBrowserInternalScheme() {
       const ua = navigator.userAgent || '';
@@ -793,6 +982,9 @@ function toggleBlackRectangle(tabs) {
     }
 
     function updateSearchSuggestions(suggestions, query) {
+      if (query !== latestOverlayQuery) {
+        return;
+      }
       // Clear existing suggestions
       suggestionsContainer.innerHTML = '';
       suggestionItems.length = 0;
@@ -1206,194 +1398,11 @@ function toggleBlackRectangle(tabs) {
     }
     
     function clearSearchSuggestions() {
-      function renderTabList(tabList) {
-        tabList.forEach((tab, index) => {
-          const suggestionItem = document.createElement('div');
-          suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
-          suggestionItem.style.cssText = `
-            all: unset !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            padding: 12px 16px !important;
-            background: #FFFFFF !important;
-            border-radius: 16px !important;
-            margin-bottom: 4px !important;
-            cursor: pointer !important;
-            transition: background-color 0.2s ease !important;
-            box-sizing: border-box !important;
-            margin: 0 0 4px 0 !important;
-            line-height: 1 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            color: inherit !important;
-            font-size: 100% !important;
-            font: inherit !important;
-            vertical-align: baseline !important;
-          `;
-          
-          suggestionItems.push(suggestionItem);
-          
-          // Create left side with icon and title
-          const leftSide = document.createElement('div');
-          leftSide.style.cssText = `
-            all: unset !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 12px !important;
-            flex: 1 !important;
-            min-width: 0 !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            background: transparent !important;
-            color: inherit !important;
-            font-size: 100% !important;
-            font: inherit !important;
-            vertical-align: baseline !important;
-          `;
-          
-          // Create favicon
-          const favicon = document.createElement('img');
-          favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23E3E4E8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
-          favicon.style.cssText = `
-            all: unset !important;
-            width: 16px !important;
-            height: 16px !important;
-            border-radius: 2px !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            background: transparent !important;
-            color: inherit !important;
-            font-size: 100% !important;
-            font: inherit !important;
-            vertical-align: baseline !important;
-            display: block !important;
-          `;
-
-          // Create title
-          const title = document.createElement('span');
-          title.textContent = tab.title || '无标题';
-          title.style.cssText = `
-            all: unset !important;
-            color: #111827 !important;
-            font-size: 14px !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1.5 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            background: transparent !important;
-            display: inline-block !important;
-            vertical-align: baseline !important;
-          `;
-
-          // Create switch button
-          const switchButton = document.createElement('button');
-          switchButton.textContent = 'Switch to Tab';
-          switchButton.style.cssText = `
-            all: unset !important;
-            background: transparent !important;
-            color: #9CA3AF !important;
-            border: none !important;
-            border-radius: 16px !important;
-            font-size: 12px !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            cursor: pointer !important;
-            transition: background-color 0.2s ease !important;
-            padding: 6px 12px !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            line-height: 1 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            display: inline-block !important;
-            vertical-align: baseline !important;
-          `;
-          
-          // Add hover effects
-          suggestionItem.addEventListener('mouseenter', function() {
-            if (suggestionItems.indexOf(this) !== selectedIndex) {
-              this.style.setProperty('background-color', '#F9FAFB', 'important');
-            }
-          });
-
-          suggestionItem.addEventListener('mouseleave', function() {
-            if (suggestionItems.indexOf(this) !== selectedIndex) {
-              this.style.setProperty('background-color', '#FFFFFF', 'important');
-            }
-          });
-          
-          // Add click handler to switch to tab
-          switchButton.addEventListener('click', function(e) {
-            e.stopPropagation();
-            chrome.runtime.sendMessage({
-              action: 'switchToTab',
-              tabId: tab.id
-            });
-            removeOverlay(overlay);
-            document.removeEventListener('click', clickOutsideHandler);
-            document.removeEventListener('keydown', keydownHandler);
-          });
-          
-          // Add click handler to select item
-          suggestionItem.addEventListener('click', function() {
-            chrome.runtime.sendMessage({
-              action: 'switchToTab',
-              tabId: tab.id
-            });
-            removeOverlay(overlay);
-            document.removeEventListener('click', clickOutsideHandler);
-            document.removeEventListener('keydown', keydownHandler);
-          });
-          
-          leftSide.appendChild(favicon);
-          leftSide.appendChild(title);
-          suggestionItem.appendChild(leftSide);
-          suggestionItem.appendChild(switchButton);
-          suggestionsContainer.appendChild(suggestionItem);
-        });
-      }
-
-      // Clear suggestions and show tabs again
-      suggestionsContainer.innerHTML = '';
-      suggestionItems.length = 0;
-      currentSuggestions = []; // Clear current suggestions
-
       if (Array.isArray(tabs) && tabs.length > 0) {
-        renderTabList(tabs);
-        selectedIndex = -1;
-        return;
+        renderTabSuggestions(tabs);
       }
 
-      chrome.runtime.sendMessage({ action: 'getTabsForOverlay' }, (response) => {
-        const freshTabs = response && Array.isArray(response.tabs) ? response.tabs : [];
-        suggestionsContainer.innerHTML = '';
-        suggestionItems.length = 0;
-        currentSuggestions = [];
-        if (freshTabs.length > 0) {
-          renderTabList(freshTabs);
-          selectedIndex = -1;
-        }
-      });
+      requestTabsAndRender();
     }
     
     // Focus the input when created
@@ -1428,176 +1437,7 @@ function toggleBlackRectangle(tabs) {
       vertical-align: baseline !important;
     `;
 
-    // Add tab suggestions
-    tabs.forEach((tab, index) => {
-      const suggestionItem = document.createElement('div');
-      suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
-      suggestionItem.style.cssText = `
-        all: unset !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        padding: 12px 16px !important;
-        background: transparent !important;
-        border-radius: 16px !important;
-        margin-bottom: 4px !important;
-        cursor: pointer !important;
-        transition: background-color 0.2s ease !important;
-        box-sizing: border-box !important;
-        margin: 0 0 4px 0 !important;
-        line-height: 1.5 !important;
-        text-decoration: none !important;
-        list-style: none !important;
-        outline: none !important;
-        color: inherit !important;
-        font-size: 100% !important;
-        font: inherit !important;
-        vertical-align: baseline !important;
-      `;
-      
-      // Store reference to suggestion item
-      suggestionItems.push(suggestionItem);
-
-      // Create left side with icon and title
-      const leftSide = document.createElement('div');
-      leftSide.id = `_x_extension_left_side_${index}_2024_unique_`;
-      leftSide.style.cssText = `
-        all: unset !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 12px !important;
-        flex: 1 !important;
-        min-width: 0 !important;
-        box-sizing: border-box !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1 !important;
-        text-decoration: none !important;
-        list-style: none !important;
-        outline: none !important;
-        background: transparent !important;
-        color: inherit !important;
-        font-size: 100% !important;
-        font: inherit !important;
-        vertical-align: baseline !important;
-      `;
-
-      // Create favicon
-      const favicon = document.createElement('img');
-      favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
-      favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23E3E4E8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
-      favicon.style.cssText = `
-        all: unset !important;
-        width: 16px !important;
-        height: 16px !important;
-        border-radius: 2px !important;
-        box-sizing: border-box !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1 !important;
-        text-decoration: none !important;
-        list-style: none !important;
-        outline: none !important;
-        background: transparent !important;
-        color: inherit !important;
-        font-size: 100% !important;
-        font: inherit !important;
-        vertical-align: baseline !important;
-        display: block !important;
-      `;
-
-      // Create title
-      const title = document.createElement('span');
-      title.id = `_x_extension_title_${index}_2024_unique_`;
-      title.textContent = tab.title || '无标题';
-      title.style.cssText = `
-        all: unset !important;
-        color: #111827 !important;
-        font-size: 14px !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1.5 !important;
-        text-decoration: none !important;
-        list-style: none !important;
-        outline: none !important;
-        background: transparent !important;
-        display: inline-block !important;
-        vertical-align: baseline !important;
-      `;
-
-      // Create switch button
-      const switchButton = document.createElement('button');
-      switchButton.id = `_x_extension_switch_button_${index}_2024_unique_`;
-      switchButton.innerHTML = '切换到标签页 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
-      switchButton.style.cssText = `
-        all: unset !important;
-        background: transparent !important;
-        color: #4B5563 !important;
-        border: none !important;
-        border-radius: 6px !important;
-        font-size: 12px !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-        cursor: pointer !important;
-        transition: background-color 0.2s ease !important;
-        padding: 6px 12px !important;
-        box-sizing: border-box !important;
-        margin: 0 !important;
-        line-height: 1.5 !important;
-        text-decoration: none !important;
-        list-style: none !important;
-        outline: none !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        gap: 4px !important;
-        vertical-align: baseline !important;
-      `;
-
-      // Add hover effects
-      suggestionItem.addEventListener('mouseenter', function() {
-        if (suggestionItems.indexOf(this) !== selectedIndex) {
-          this.style.setProperty('background-color', '#F3F4F6', 'important');
-        }
-      });
-
-      suggestionItem.addEventListener('mouseleave', function() {
-        if (suggestionItems.indexOf(this) !== selectedIndex) {
-          this.style.setProperty('background-color', '#FFFFFF', 'important');
-        }
-      });
-
-      // Add click handler to switch to tab
-      switchButton.addEventListener('click', function(e) {
-        e.stopPropagation();
-        chrome.runtime.sendMessage({
-          action: 'switchToTab',
-          tabId: tab.id
-        });
-        removeOverlay(overlay);
-        document.removeEventListener('keydown', keydownHandler);
-      });
-
-      // Add click handler to select item
-      suggestionItem.addEventListener('click', function() {
-        chrome.runtime.sendMessage({
-          action: 'switchToTab',
-          tabId: tab.id
-        });
-        removeOverlay(overlay);
-        document.removeEventListener('keydown', keydownHandler);
-      });
-
-      leftSide.appendChild(favicon);
-      leftSide.appendChild(title);
-      suggestionItem.appendChild(leftSide);
-      suggestionItem.appendChild(switchButton);
-      suggestionsContainer.appendChild(suggestionItem);
-    });
+    renderTabSuggestions(tabs);
     
     overlay.appendChild(inputContainer);
     overlay.appendChild(suggestionsContainer);
