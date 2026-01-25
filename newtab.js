@@ -8,6 +8,7 @@
   let latestQuery = '';
   let latestRawQuery = '';
   let autocompleteState = null;
+  let isComposing = false;
   let debounceTimer = null;
 
   function navigateToUrl(url) {
@@ -798,6 +799,11 @@
     onInput: function(event) {
       const rawValue = event.target.value;
       const query = rawValue.trim();
+      if (isComposing) {
+        latestQuery = query;
+        latestRawQuery = rawValue;
+        return;
+      }
       if (!query) {
         latestQuery = '';
         latestRawQuery = '';
@@ -814,6 +820,9 @@
       requestSuggestions(query);
     },
     onKeyDown: function(event) {
+      if (isComposing) {
+        return;
+      }
       if (event.key === 'Tab' && autocompleteState && autocompleteState.completion) {
         event.preventDefault();
         inputParts.input.value = autocompleteState.completion;
@@ -843,6 +852,29 @@
         navigateToQuery(query);
       });
     }
+  });
+
+  inputParts.input.addEventListener('compositionstart', function() {
+    isComposing = true;
+    clearAutocomplete();
+  });
+
+  inputParts.input.addEventListener('compositionend', function(event) {
+    isComposing = false;
+    const rawValue = event.target.value;
+    const query = rawValue.trim();
+    latestQuery = query;
+    latestRawQuery = rawValue;
+    clearAutocomplete();
+    if (!query) {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      suggestionsContainer.innerHTML = '';
+      setSuggestionsVisible(false);
+      return;
+    }
+    requestSuggestions(query);
   });
 
   root.appendChild(inputParts.container);

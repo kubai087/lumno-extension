@@ -630,6 +630,7 @@ function toggleBlackRectangle(tabs) {
     let latestOverlayQuery = '';
     let latestRawInputValue = '';
     let autocompleteState = null;
+    let isComposing = false;
 
     function isEnglishQuery(query) {
       if (!query) {
@@ -770,9 +771,40 @@ function toggleBlackRectangle(tabs) {
     }
 
     // Add input event for search suggestions
+    searchInput.addEventListener('compositionstart', function() {
+      isComposing = true;
+      clearAutocomplete();
+    });
+
+    searchInput.addEventListener('compositionend', function(e) {
+      isComposing = false;
+      const rawValue = e.target.value || '';
+      const query = rawValue.trim();
+      latestOverlayQuery = query;
+      latestRawInputValue = rawValue;
+      clearAutocomplete();
+      if (query.length > 0) {
+        chrome.runtime.sendMessage({
+          action: 'getSearchSuggestions',
+          query: query
+        }, function(response) {
+          if (response && response.suggestions) {
+            updateSearchSuggestions(response.suggestions, query);
+          }
+        });
+      } else {
+        clearSearchSuggestions();
+      }
+    });
+
     searchInput.addEventListener('input', function() {
       const rawValue = this.value;
       const query = rawValue.trim();
+      if (isComposing) {
+        latestRawInputValue = rawValue;
+        latestOverlayQuery = query;
+        return;
+      }
       latestOverlayQuery = query;
       latestRawInputValue = rawValue;
       clearAutocomplete();
@@ -802,6 +834,9 @@ function toggleBlackRectangle(tabs) {
     document.addEventListener('click', clickOutsideHandler);
     
     searchInput.addEventListener('keydown', function(e) {
+      if (isComposing) {
+        return;
+      }
       if (e.key !== 'Tab' || !autocompleteState || !autocompleteState.completion) {
         return;
       }
