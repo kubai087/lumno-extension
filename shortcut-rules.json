@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "type": "browserPage",
+      "keys": ["extension", "extensions", "ext"],
+      "path": "extensions/"
+    },
+    {
+      "type": "browserPage",
+      "keys": ["flags", "flag"],
+      "path": "flags/"
+    },
+    {
+      "type": "browserPage",
+      "keys": ["settings", "setting", "set"],
+      "path": "settings/"
+    },
+    {
+      "type": "browserPage",
+      "keys": ["shortcuts", "shortcut", "short", "sc"],
+      "path": "extensions/shortcuts"
+    },
+    {
+      "type": "url",
+      "keys": ["webstore", "webs", "ws"],
+      "url": "https://chromewebstore.google.com/"
+    }
+  ]
+}

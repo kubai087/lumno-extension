@@ -408,9 +408,12 @@ function toggleBlackRectangle(tabs) {
       // Don't change selectedIndex here to allow keyboard navigation
     });
     
+    let latestOverlayQuery = '';
+
     // Add input event for search suggestions
     searchInput.addEventListener('input', function() {
       const query = this.value.trim();
+      latestOverlayQuery = query;
       if (query.length > 0) {
         // Get search suggestions
         chrome.runtime.sendMessage({
@@ -538,6 +541,100 @@ function toggleBlackRectangle(tabs) {
       suggestionsContainer.innerHTML = '';
       suggestionItems.length = 0;
       
+      function getBrowserInternalScheme() {
+        const ua = navigator.userAgent || '';
+        if (ua.includes('Edg/')) {
+          return 'edge://';
+        }
+        if (ua.includes('Brave')) {
+          return 'brave://';
+        }
+        if (ua.includes('Vivaldi')) {
+          return 'vivaldi://';
+        }
+        if (ua.includes('OPR/') || ua.includes('Opera')) {
+          return 'opera://';
+        }
+        return 'chrome://';
+      }
+
+      function getShortcutRules() {
+        const cacheKey = '_x_extension_shortcut_rules_2024_unique_';
+        const promiseKey = '_x_extension_shortcut_rules_promise_2024_unique_';
+        if (window[cacheKey]) {
+          return Promise.resolve(window[cacheKey]);
+        }
+        if (window[promiseKey]) {
+          return window[promiseKey];
+        }
+        const rulesUrl = chrome.runtime.getURL('shortcut-rules.json');
+        const rulesPromise = fetch(rulesUrl)
+          .then((response) => response.json())
+          .then((data) => {
+            const items = data && Array.isArray(data.items) ? data.items : [];
+            window[cacheKey] = items;
+            return items;
+          })
+          .catch(() => []);
+        window[promiseKey] = rulesPromise;
+        return rulesPromise;
+      }
+
+      function buildKeywordSuggestions(input, rules) {
+        const queryLower = input.toLowerCase();
+        const scheme = getBrowserInternalScheme();
+        const matches = [];
+        rules.forEach((rule) => {
+          if (!rule || !Array.isArray(rule.keys)) {
+            return;
+          }
+          const isMatch = rule.keys.some((key) => queryLower.startsWith(key));
+          if (!isMatch) {
+            return;
+          }
+          if (rule.type === 'browserPage' && rule.path) {
+            const targetUrl = `${scheme}${rule.path}`;
+            matches.push({
+              type: 'browserPage',
+              title: `打开 ${targetUrl}`,
+              url: targetUrl,
+              favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
+            });
+          } else if (rule.type === 'url' && rule.url) {
+            matches.push({
+              type: 'browserPage',
+              title: `打开 ${rule.url}`,
+              url: rule.url,
+              favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
+            });
+          }
+        });
+        return matches;
+      }
+
+      function getDirectUrlSuggestion(input) {
+        const queryLower = input.toLowerCase();
+        const isInternal = ['chrome://', 'edge://', 'brave://', 'vivaldi://', 'opera://'].some((prefix) =>
+          queryLower.startsWith(prefix)
+        );
+        const ipMatch = input.trim().match(/^\d{1,3}([.\s]\d{1,3}){3}$/);
+        const normalizedIp = ipMatch ? input.trim().replace(/\s+/g, '.').replace(/\.{2,}/g, '.') : '';
+        const looksLikeUrl = (input.includes('.') && !input.includes(' ')) || isInternal || Boolean(normalizedIp);
+        if (!looksLikeUrl) {
+          return null;
+        }
+        let targetUrl = normalizedIp || input;
+        if (!isInternal && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+          targetUrl = 'https://' + targetUrl;
+        }
+        return {
+          type: 'directUrl',
+          title: `打开 ${targetUrl}`,
+          url: targetUrl,
+          favicon: 'https://img.icons8.com/?size=100&id=QeJX4E2mC0fF&format=png&color=000000'
+        };
+      }
+      
       // Add New Tab suggestion as first item
       const newTabSuggestion = {
         type: 'newtab',
@@ -562,100 +659,61 @@ function toggleBlackRectangle(tabs) {
       //   favicon: 'https://img.icons8.com/?size=100&id=kzJWN5jCDzpq&format=png&color=000000'
       // };
 
-      // Add New Tab, ChatGPT and Perplexity suggestions to the beginning
-      const allSuggestions = [newTabSuggestion, /*chatGptSuggestion, perplexitySuggestion,*/ ...suggestions];
-      currentSuggestions = allSuggestions; // Store current suggestions including ChatGPT
-      
-      // Add search suggestions
-      allSuggestions.forEach((suggestion, index) => {
-        const suggestionItem = document.createElement('div');
-        suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
-        const isLastItem = index === allSuggestions.length - 1;
-        suggestionItem.style.cssText = `
-          all: unset !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: space-between !important;
-          padding: 12px 16px !important;
-          background: #FFFFFF !important;
-          border-radius: 16px !important;
-          margin-bottom: ${isLastItem ? '0' : '4px'} !important;
-          cursor: pointer !important;
-          transition: background-color 0.2s ease !important;
-          box-sizing: border-box !important;
-          margin: 0 0 ${isLastItem ? '0' : '4px'} 0 !important;
-          line-height: 1.5 !important;
-          text-decoration: none !important;
-          list-style: none !important;
-          outline: none !important;
-          color: inherit !important;
-          font-size: 100% !important;
-          font: inherit !important;
-          vertical-align: baseline !important;
-        `;
+      getShortcutRules().then((rules) => {
+        if (query !== latestOverlayQuery) {
+          return;
+        }
+        const preSuggestions = [];
+        const directUrlSuggestion = getDirectUrlSuggestion(query);
+        if (directUrlSuggestion) {
+          preSuggestions.push(directUrlSuggestion);
+        }
+        const keywordSuggestions = buildKeywordSuggestions(query, rules);
+        preSuggestions.push(...keywordSuggestions);
+
+        // Add New Tab, ChatGPT and Perplexity suggestions to the beginning
+        const allSuggestions = [...preSuggestions, newTabSuggestion, /*chatGptSuggestion, perplexitySuggestion,*/ ...suggestions];
+        currentSuggestions = allSuggestions; // Store current suggestions including ChatGPT
         
-        suggestionItems.push(suggestionItem);
-        
-        // Create left side with icon and title
-        const leftSide = document.createElement('div');
-        leftSide.style.cssText = `
-          all: unset !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 12px !important;
-          flex: 1 !important;
-          min-width: 0 !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          line-height: 1 !important;
-          text-decoration: none !important;
-          list-style: none !important;
-          outline: none !important;
-          background: transparent !important;
-          color: inherit !important;
-          font-size: 100% !important;
-          font: inherit !important;
-          vertical-align: baseline !important;
-        `;
-        
-        // Create icon for suggestions - always use img for all types
-        const favicon = document.createElement('img');
-        favicon.src = suggestion.favicon || '';
-        favicon.style.cssText = `
-          all: unset !important;
-          width: 16px !important;
-          height: 16px !important;
-          border-radius: 2px !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          line-height: 1 !important;
-          text-decoration: none !important;
-          list-style: none !important;
-          outline: none !important;
-          background: transparent !important;
-          color: inherit !important;
-          font-size: 100% !important;
-          font: inherit !important;
-          vertical-align: baseline !important;
-          display: block !important;
-          object-fit: contain !important;
-        `;
-        
-        // Fallback to search icon if favicon fails to load
-        favicon.onerror = function() {
-          // Replace with search icon SVG if favicon fails
-          const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E3E4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
-          const fallbackDiv = document.createElement('div');
-          fallbackDiv.innerHTML = searchIconSvg;
-          fallbackDiv.style.cssText = `
+        // Add search suggestions
+        allSuggestions.forEach((suggestion, index) => {
+          const suggestionItem = document.createElement('div');
+          suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
+          const isLastItem = index === allSuggestions.length - 1;
+          suggestionItem.style.cssText = `
             all: unset !important;
-            width: 16px !important;
-            height: 16px !important;
             display: flex !important;
             align-items: center !important;
-            justify-content: center !important;
+            justify-content: space-between !important;
+            padding: 12px 16px !important;
+            background: #FFFFFF !important;
+            border-radius: 16px !important;
+            margin-bottom: ${isLastItem ? '0' : '4px'} !important;
+            cursor: pointer !important;
+            transition: background-color 0.2s ease !important;
+            box-sizing: border-box !important;
+            margin: 0 0 ${isLastItem ? '0' : '4px'} 0 !important;
+            line-height: 1.5 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            color: inherit !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+          `;
+          
+          suggestionItems.push(suggestionItem);
+          
+          // Create left side with icon and title
+          const leftSide = document.createElement('div');
+          leftSide.style.cssText = `
+            all: unset !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            flex: 1 !important;
+            min-width: 0 !important;
             box-sizing: border-box !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -669,225 +727,279 @@ function toggleBlackRectangle(tabs) {
             font: inherit !important;
             vertical-align: baseline !important;
           `;
-          favicon.parentNode.replaceChild(fallbackDiv, favicon);
-        };
-        
-        // Create text wrapper for title and tag
-        const textWrapper = document.createElement('div');
-        textWrapper.style.cssText = `
-          all: unset !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 6px !important;
-          flex: 1 !important;
-          min-width: 0 !important;
-          overflow: hidden !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          line-height: 1 !important;
-          text-decoration: none !important;
-          list-style: none !important;
-          outline: none !important;
-          background: transparent !important;
-          color: inherit !important;
-          font-size: 100% !important;
-          font: inherit !important;
-          vertical-align: baseline !important;
-        `;
-
-        // Create title with highlighted query
-        const title = document.createElement('span');
-        let highlightedTitle;
-        if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab') {
-          // For ChatGPT, Perplexity, and New Tab, don't highlight the query part
-          highlightedTitle = suggestion.title;
-        } else {
-          // For other suggestions, highlight the query
-          highlightedTitle = suggestion.title.replace(
-            new RegExp(`(${query})`, 'gi'),
-            '<mark style="background: #CFE8FF; color: #1E3A8A; padding: 2px 4px; border-radius: 3px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">$1</mark>'
-          );
-        }
-        title.innerHTML = highlightedTitle;
-        title.style.cssText = `
-          all: unset !important;
-          color: #111827 !important;
-          font-size: 14px !important;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-          white-space: nowrap !important;
-          overflow: hidden !important;
-          text-overflow: ellipsis !important;
-          max-width: 100% !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          line-height: 1.5 !important;
-          text-decoration: none !important;
-          list-style: none !important;
-          outline: none !important;
-          background: transparent !important;
-          display: inline-block !important;
-          vertical-align: baseline !important;
-        `;
-
-        textWrapper.appendChild(title);
-
-        // Add history tag if type is history
-        if (suggestion.type === 'history') {
-          const historyTag = document.createElement('span');
-          historyTag.textContent = '历史';
-          historyTag.style.cssText = `
+          
+          // Create icon for suggestions - always use img for all types
+          const favicon = document.createElement('img');
+          favicon.src = suggestion.favicon || '';
+          favicon.style.cssText = `
             all: unset !important;
-            background: #F3F4F6 !important;
-            color: #6B7280 !important;
-            font-size: 10px !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            padding: 4px 6px !important;
-            border-radius: 8px !important;
+            width: 16px !important;
+            height: 16px !important;
+            border-radius: 2px !important;
             box-sizing: border-box !important;
-            line-height: 1.2 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
             text-decoration: none !important;
             list-style: none !important;
             outline: none !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            vertical-align: middle !important;
-            flex-shrink: 0 !important;
+            background: transparent !important;
+            color: inherit !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+            display: block !important;
+            object-fit: contain !important;
           `;
-          textWrapper.appendChild(historyTag);
-        }
-
-        // Add topSite tag if type is topSite
-        if (suggestion.type === 'topSite') {
-          const topSiteTag = document.createElement('span');
-          topSiteTag.textContent = '常用';
-          topSiteTag.style.cssText = `
+          
+          // Fallback to search icon if favicon fails to load
+          favicon.onerror = function() {
+            // Replace with search icon SVG if favicon fails
+            const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E3E4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.innerHTML = searchIconSvg;
+            fallbackDiv.style.cssText = `
+              all: unset !important;
+              width: 16px !important;
+              height: 16px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              line-height: 1 !important;
+              text-decoration: none !important;
+              list-style: none !important;
+              outline: none !important;
+              background: transparent !important;
+              color: inherit !important;
+              font-size: 100% !important;
+              font: inherit !important;
+              vertical-align: baseline !important;
+            `;
+            favicon.parentNode.replaceChild(fallbackDiv, favicon);
+          };
+          
+          // Create text wrapper for title and tag
+          const textWrapper = document.createElement('div');
+          textWrapper.style.cssText = `
             all: unset !important;
-            background: #F3F4F6 !important;
-            color: #6B7280 !important;
-            font-size: 10px !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            padding: 4px 6px !important;
-            border-radius: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+            overflow: hidden !important;
             box-sizing: border-box !important;
-            line-height: 1.2 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
             text-decoration: none !important;
             list-style: none !important;
             outline: none !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            vertical-align: middle !important;
-            flex-shrink: 0 !important;
+            background: transparent !important;
+            color: inherit !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
           `;
-          textWrapper.appendChild(topSiteTag);
-        }
-
-        // Add bookmark tag if type is bookmark
-        if (suggestion.type === 'bookmark') {
-          const bookmarkTag = document.createElement('span');
-          bookmarkTag.textContent = '书签';
-          bookmarkTag.style.cssText = `
-            all: unset !important;
-            background: #FEF3C7 !important;
-            color: #D97706 !important;
-            font-size: 10px !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            padding: 4px 6px !important;
-            border-radius: 8px !important;
-            box-sizing: border-box !important;
-            line-height: 1.2 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            vertical-align: middle !important;
-            flex-shrink: 0 !important;
-          `;
-          textWrapper.appendChild(bookmarkTag);
-        }
-
-        // Create visit button
-        const visitButton = document.createElement('button');
-        visitButton.style.cssText = `
-          all: unset !important;
-          background: transparent !important;
-          color: #9CA3AF !important;
-          border: none !important;
-          border-radius: 16px !important;
-          font-size: 12px !important;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-          cursor: pointer !important;
-          transition: background-color 0.2s ease !important;
-          padding: 6px 12px !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          line-height: 1 !important;
-          text-decoration: none !important;
-          list-style: none !important;
-          outline: none !important;
-          display: inline-flex !important;
-          align-items: center !important;
-          gap: 4px !important;
-          vertical-align: baseline !important;
-        `;
-
-        if (suggestion.type === 'newtab') {
-          visitButton.innerHTML = '在 Google 中搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
-        } else if (suggestion.type === 'googleSuggest') {
-          visitButton.innerHTML = '搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
-        } else {
-          visitButton.innerHTML = '访问 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
-        }
-        
-        // Add hover effects
-        suggestionItem.addEventListener('mouseenter', function() {
-          if (suggestionItems.indexOf(this) !== selectedIndex) {
-            this.style.setProperty('background-color', '#F9FAFB', 'important');
+          
+          // Create title with highlighted query
+          const title = document.createElement('span');
+          let highlightedTitle;
+          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab') {
+            // For ChatGPT, Perplexity, and New Tab, don't highlight the query part
+            highlightedTitle = suggestion.title;
+          } else {
+            // For other suggestions, highlight the query
+            highlightedTitle = suggestion.title.replace(
+              new RegExp(`(${query})`, 'gi'),
+              '<mark style="background: #CFE8FF; color: #1E3A8A; padding: 2px 4px; border-radius: 3px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">$1</mark>'
+            );
           }
-        });
-
-        suggestionItem.addEventListener('mouseleave', function() {
-          if (suggestionItems.indexOf(this) !== selectedIndex) {
-            this.style.setProperty('background-color', '#FFFFFF', 'important');
+          title.innerHTML = highlightedTitle;
+          title.style.cssText = `
+            all: unset !important;
+            color: #111827 !important;
+            font-size: 14px !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.5 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            display: inline-block !important;
+            vertical-align: baseline !important;
+          `;
+          
+          textWrapper.appendChild(title);
+          
+          // Add history tag if type is history
+          if (suggestion.type === 'history') {
+            const historyTag = document.createElement('span');
+            historyTag.textContent = '历史';
+            historyTag.style.cssText = `
+              all: unset !important;
+              background: #F3F4F6 !important;
+              color: #6B7280 !important;
+              font-size: 10px !important;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+              padding: 4px 6px !important;
+              border-radius: 8px !important;
+              box-sizing: border-box !important;
+              line-height: 1.2 !important;
+              text-decoration: none !important;
+              list-style: none !important;
+              outline: none !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              vertical-align: middle !important;
+              flex-shrink: 0 !important;
+            `;
+            textWrapper.appendChild(historyTag);
           }
-        });
-        
-        // Add click handler to visit URL
-        visitButton.addEventListener('click', function(e) {
-          e.stopPropagation();
-          console.log('Opening URL:', suggestion.url);
-          chrome.runtime.sendMessage({
-            action: 'createTab',
-            url: suggestion.url
+          
+          // Add topSite tag if type is topSite
+          if (suggestion.type === 'topSite') {
+            const topSiteTag = document.createElement('span');
+            topSiteTag.textContent = '常用';
+            topSiteTag.style.cssText = `
+              all: unset !important;
+              background: #F3F4F6 !important;
+              color: #6B7280 !important;
+              font-size: 10px !important;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+              padding: 4px 6px !important;
+              border-radius: 8px !important;
+              box-sizing: border-box !important;
+              line-height: 1.2 !important;
+              text-decoration: none !important;
+              list-style: none !important;
+              outline: none !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              vertical-align: middle !important;
+              flex-shrink: 0 !important;
+            `;
+            textWrapper.appendChild(topSiteTag);
+          }
+          
+          // Add bookmark tag if type is bookmark
+          if (suggestion.type === 'bookmark') {
+            const bookmarkTag = document.createElement('span');
+            bookmarkTag.textContent = '书签';
+            bookmarkTag.style.cssText = `
+              all: unset !important;
+              background: #FEF3C7 !important;
+              color: #D97706 !important;
+              font-size: 10px !important;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+              padding: 4px 6px !important;
+              border-radius: 8px !important;
+              box-sizing: border-box !important;
+              line-height: 1.2 !important;
+              text-decoration: none !important;
+              list-style: none !important;
+              outline: none !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              vertical-align: middle !important;
+              flex-shrink: 0 !important;
+            `;
+            textWrapper.appendChild(bookmarkTag);
+          }
+          
+          // Create visit button
+          const visitButton = document.createElement('button');
+          visitButton.style.cssText = `
+            all: unset !important;
+            background: transparent !important;
+            color: #9CA3AF !important;
+            border: none !important;
+            border-radius: 16px !important;
+            font-size: 12px !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+            cursor: pointer !important;
+            transition: background-color 0.2s ease !important;
+            padding: 6px 12px !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            vertical-align: baseline !important;
+          `;
+          
+          if (suggestion.type === 'newtab') {
+            visitButton.innerHTML = '在 Google 中搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+          } else if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
+            visitButton.innerHTML = '打开 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+          } else if (suggestion.type === 'googleSuggest') {
+            visitButton.innerHTML = '搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+          } else {
+            visitButton.innerHTML = '访问 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+          }
+          
+          // Add hover effects
+          suggestionItem.addEventListener('mouseenter', function() {
+            if (suggestionItems.indexOf(this) !== selectedIndex) {
+              this.style.setProperty('background-color', '#F9FAFB', 'important');
+            }
           });
-          removeOverlay(overlay);
-          document.removeEventListener('click', clickOutsideHandler);
-          document.removeEventListener('keydown', keydownHandler);
-        });
-        
-        // Add click handler to select item
-        suggestionItem.addEventListener('click', function() {
-          console.log('Opening URL:', suggestion.url);
-          chrome.runtime.sendMessage({
-            action: 'createTab',
-            url: suggestion.url
+          
+          suggestionItem.addEventListener('mouseleave', function() {
+            if (suggestionItems.indexOf(this) !== selectedIndex) {
+              this.style.setProperty('background-color', '#FFFFFF', 'important');
+            }
           });
-          removeOverlay(overlay);
-          document.removeEventListener('click', clickOutsideHandler);
-          document.removeEventListener('keydown', keydownHandler);
+          
+          // Add click handler to visit URL
+          visitButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            console.log('Opening URL:', suggestion.url);
+            chrome.runtime.sendMessage({
+              action: 'createTab',
+              url: suggestion.url
+            });
+            removeOverlay(overlay);
+            document.removeEventListener('click', clickOutsideHandler);
+            document.removeEventListener('keydown', keydownHandler);
+          });
+          
+          // Add click handler to select item
+          suggestionItem.addEventListener('click', function() {
+            console.log('Opening URL:', suggestion.url);
+            chrome.runtime.sendMessage({
+              action: 'createTab',
+              url: suggestion.url
+            });
+            removeOverlay(overlay);
+            document.removeEventListener('click', clickOutsideHandler);
+            document.removeEventListener('keydown', keydownHandler);
+          });
+          
+          leftSide.appendChild(favicon);
+          leftSide.appendChild(textWrapper);
+          suggestionItem.appendChild(leftSide);
+          suggestionItem.appendChild(visitButton);
+          suggestionsContainer.appendChild(suggestionItem);
         });
-
-        leftSide.appendChild(favicon);
-        leftSide.appendChild(textWrapper);
-        suggestionItem.appendChild(leftSide);
-        suggestionItem.appendChild(visitButton);
-        suggestionsContainer.appendChild(suggestionItem);
-      });
       
       // Update keyboard navigation
       selectedIndex = -1;
+      });
     }
     
     function clearSearchSuggestions() {
