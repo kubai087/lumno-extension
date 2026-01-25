@@ -358,7 +358,7 @@
           gap: 6px !important;
           flex: 1 !important;
           min-width: 0 !important;
-          overflow: hidden !important;
+          overflow: visible !important;
           box-sizing: border-box !important;
           margin: 0 !important;
           padding: 0 !important;
@@ -405,7 +405,7 @@
         
         textWrapper.appendChild(title);
         
-        if (suggestion.type === 'history') {
+        if (suggestion.type === 'history' && !suggestion.isTopSite) {
           const urlLine = document.createElement('span');
           urlLine.textContent = suggestion.url || '';
           urlLine.style.cssText = `
@@ -448,7 +448,7 @@
           textWrapper.appendChild(historyTag);
         }
         
-        if (suggestion.type === 'topSite') {
+        if (suggestion.type === 'topSite' || suggestion.isTopSite) {
           const topSiteTag = document.createElement('span');
           topSiteTag.textContent = '常用';
           topSiteTag.style.cssText = `

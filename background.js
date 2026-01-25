@@ -302,6 +302,7 @@ async function getSearchSuggestions(query) {
 
     // Process history items with scoring
     const processedUrls = new Set();
+    const suggestionByUrl = new Map();
     historyItems.forEach(item => {
       if (isSearchEngineResultUrl(item.url)) {
         return;
@@ -319,42 +320,72 @@ async function getSearchSuggestions(query) {
           faviconUrl = item.url + '/favicon.ico';
         }
         
-        suggestions.push({
+        const suggestion = {
             type: 'history',
             title: item.title,
             url: item.url,
             favicon: faviconUrl,
             score: score
-          });
+          };
+          suggestions.push(suggestion);
           processedUrls.add(item.url);
+          suggestionByUrl.set(item.url, suggestion);
         }
       }
     });
     
     // Process top sites with scoring
+    const fallbackTopSites = [];
     topSites.forEach(site => {
-      if (site.title && !processedUrls.has(site.url)) {
-        const score = calculateRelevanceScore(site, query);
-        if (score > 0) {
-          // Get favicon URL using Google's favicon service (more reliable)
-          let faviconUrl = '';
-          try {
-            const urlObj = new URL(site.url);
-            faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=16`;
-          } catch (e) {
-            // Fallback to direct favicon URL
-            faviconUrl = site.url + '/favicon.ico';
+      if (!site || !site.url || processedUrls.has(site.url)) {
+        if (site && site.url) {
+          const existing = suggestionByUrl.get(site.url);
+          if (existing) {
+            existing.isTopSite = true;
+            existing.score = (existing.score || 0) + 10;
           }
-          
-          suggestions.push({
-            type: 'topSite',
-            title: site.title,
-            url: site.url,
-            favicon: faviconUrl,
-            score: score
-          });
-          processedUrls.add(site.url);
         }
+        return;
+      }
+      const score = calculateRelevanceScore(site, query);
+      let adjustedScore = score;
+      if (score > 0) {
+        adjustedScore += 20; // Boost top sites so they surface earlier
+        const queryLower = query.toLowerCase();
+        const titleLower = site.title ? site.title.toLowerCase() : '';
+        try {
+          const hostname = new URL(site.url).hostname.toLowerCase();
+          if (hostname.startsWith(queryLower)) {
+            adjustedScore += 15;
+          }
+        } catch (e) {
+          // Ignore invalid URLs
+        }
+        if (titleLower.startsWith(queryLower)) {
+          adjustedScore += 10;
+        }
+      }
+      if (score > 0) {
+        let faviconUrl = '';
+        try {
+          const urlObj = new URL(site.url);
+          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=16`;
+        } catch (e) {
+          faviconUrl = site.url + '/favicon.ico';
+        }
+        
+        const suggestion = {
+          type: 'topSite',
+          title: site.title || site.url,
+          url: site.url,
+          favicon: faviconUrl,
+          score: adjustedScore
+        };
+        suggestions.push(suggestion);
+        processedUrls.add(site.url);
+        suggestionByUrl.set(site.url, suggestion);
+      } else {
+        fallbackTopSites.push(site);
       }
     });
     
@@ -402,15 +433,17 @@ async function getSearchSuggestions(query) {
           }
           const bookmarkPath = pathParts.join('/');
 
-          suggestions.push({
+          const suggestion = {
             type: 'bookmark',
             title: bookmark.title || bookmark.url,
             url: bookmark.url,
             favicon: faviconUrl,
             path: bookmarkPath,
             score: adjustedScore
-          });
+          };
+          suggestions.push(suggestion);
           processedUrls.add(bookmark.url);
+          suggestionByUrl.set(bookmark.url, suggestion);
         }
       }
     });
@@ -424,9 +457,29 @@ async function getSearchSuggestions(query) {
     ).slice(0, 12); // Increased limit before title deduplication
     
     // Also remove duplicates by title to avoid similar entries
-    const finalSuggestions = uniqueSuggestions.filter((suggestion, index, self) => 
+    let finalSuggestions = uniqueSuggestions.filter((suggestion, index, self) => 
       index === self.findIndex(s => s.title.toLowerCase() === suggestion.title.toLowerCase())
     ).slice(0, 8);
+
+    if (finalSuggestions.length === 0 && fallbackTopSites.length > 0) {
+      const fallbackResults = fallbackTopSites.slice(0, 3).map((site, index) => {
+        let faviconUrl = '';
+        try {
+          const urlObj = new URL(site.url);
+          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=16`;
+        } catch (e) {
+          faviconUrl = site.url + '/favicon.ico';
+        }
+        return {
+          type: 'topSite',
+          title: site.title || site.url,
+          url: site.url,
+          favicon: faviconUrl,
+          score: 1 - index
+        };
+      });
+      finalSuggestions = fallbackResults;
+    }
     
     console.log('Search suggestions:', finalSuggestions);
     return finalSuggestions;
@@ -1144,7 +1197,7 @@ function toggleBlackRectangle(tabs) {
             gap: 6px !important;
             flex: 1 !important;
             min-width: 0 !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             box-sizing: border-box !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -1197,7 +1250,7 @@ function toggleBlackRectangle(tabs) {
           textWrapper.appendChild(title);
           
           // Add history tag if type is history
-          if (suggestion.type === 'history') {
+          if (suggestion.type === 'history' && !suggestion.isTopSite) {
             const urlLine = document.createElement('span');
             urlLine.textContent = suggestion.url || '';
             urlLine.style.cssText = `
@@ -1241,7 +1294,7 @@ function toggleBlackRectangle(tabs) {
           }
           
           // Add topSite tag if type is topSite
-          if (suggestion.type === 'topSite') {
+          if (suggestion.type === 'topSite' || suggestion.isTopSite) {
             const topSiteTag = document.createElement('span');
             topSiteTag.textContent = '常用';
             topSiteTag.style.cssText = `
