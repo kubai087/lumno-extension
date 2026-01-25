@@ -6,6 +6,8 @@
   }
 
   let latestQuery = '';
+  let latestRawQuery = '';
+  let autocompleteState = null;
   let debounceTimer = null;
 
   function navigateToUrl(url) {
@@ -78,6 +80,170 @@
     suggestionsContainer.style.setProperty('visibility', visible ? 'visible' : 'hidden', 'important');
     suggestionsContainer.style.setProperty('pointer-events', visible ? 'auto' : 'none', 'important');
     suggestionsContainer.style.setProperty('transform', visible ? 'translateY(0)' : 'translateY(-4px)', 'important');
+  }
+
+  function isEnglishQuery(query) {
+    if (!query) {
+      return false;
+    }
+    if (!/[A-Za-z]/.test(query)) {
+      return false;
+    }
+    return /^[A-Za-z0-9\s._/-]+$/.test(query);
+  }
+
+  function getUrlDisplay(url) {
+    if (!url) {
+      return '';
+    }
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./i, '');
+      const path = parsed.pathname === '/' ? '' : parsed.pathname;
+      return `${host}${path}${parsed.search || ''}${parsed.hash || ''}`;
+    } catch (e) {
+      return url;
+    }
+  }
+
+  function getAutocompleteCandidate(allSuggestions, rawQuery) {
+    if (!Array.isArray(allSuggestions) || !rawQuery) {
+      return null;
+    }
+    const rawLower = rawQuery.toLowerCase();
+    const passes = [true, false];
+    for (let passIndex = 0; passIndex < passes.length; passIndex += 1) {
+      const skipGoogleSuggest = passes[passIndex];
+      for (let i = 0; i < allSuggestions.length; i += 1) {
+        const suggestion = allSuggestions[i];
+        if (!suggestion || suggestion.type === 'newtab') {
+          continue;
+        }
+        if (skipGoogleSuggest && suggestion.type === 'googleSuggest') {
+          continue;
+        }
+        const urlText = getUrlDisplay(suggestion.url);
+        if (urlText && urlText.toLowerCase().startsWith(rawLower)) {
+          return {
+            completion: urlText,
+            url: suggestion.url || '',
+            title: suggestion.title || '',
+            type: 'url'
+          };
+        }
+        const titleText = suggestion.title || '';
+        if (titleText && titleText.toLowerCase().startsWith(rawLower)) {
+          return {
+            completion: titleText,
+            url: suggestion.url || '',
+            title: suggestion.title || '',
+            type: 'title'
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  function getDomainPrefixCandidate(allSuggestions, rawQuery) {
+    if (!Array.isArray(allSuggestions) || !rawQuery) {
+      return null;
+    }
+    const rawLower = rawQuery.toLowerCase();
+    for (let i = 0; i < allSuggestions.length; i += 1) {
+      const suggestion = allSuggestions[i];
+      if (!suggestion || suggestion.type === 'newtab') {
+        continue;
+      }
+      const urlText = getUrlDisplay(suggestion.url);
+      if (!urlText) {
+        continue;
+      }
+      const host = urlText.split('/')[0] || '';
+      if (host.toLowerCase().startsWith(rawLower)) {
+        return {
+          completion: urlText,
+          url: suggestion.url || '',
+          title: suggestion.title || '',
+          type: 'url'
+        };
+      }
+    }
+    return null;
+  }
+
+  function clearAutocomplete() {
+    autocompleteState = null;
+  }
+
+  function applyAutocomplete(allSuggestions) {
+    const rawQuery = latestRawQuery;
+    const trimmedQuery = rawQuery.trim();
+    if (!isEnglishQuery(trimmedQuery) || !rawQuery) {
+      clearAutocomplete();
+      return;
+    }
+    if (!allSuggestions || !Array.isArray(allSuggestions)) {
+      clearAutocomplete();
+      return;
+    }
+    if (inputParts.input.selectionStart !== inputParts.input.value.length ||
+        inputParts.input.selectionEnd !== inputParts.input.value.length) {
+      return;
+    }
+    const candidate = getDomainPrefixCandidate(allSuggestions, rawQuery) ||
+      getAutocompleteCandidate(allSuggestions, rawQuery);
+    if (!candidate || !candidate.completion) {
+      clearAutocomplete();
+      return;
+    }
+    if (candidate.completion.length <= rawQuery.length) {
+      clearAutocomplete();
+      return;
+    }
+    if (!candidate.completion.toLowerCase().startsWith(rawQuery.toLowerCase())) {
+      clearAutocomplete();
+      return;
+    }
+    let displayText = candidate.completion;
+    if (candidate.type === 'url' && candidate.title) {
+      displayText = `${candidate.completion} - ${candidate.title}`;
+    }
+    inputParts.input.value = displayText;
+    inputParts.input.setSelectionRange(rawQuery.length, displayText.length);
+    autocompleteState = {
+      completion: candidate.completion,
+      displayText: displayText,
+      url: candidate.url || '',
+      rawQuery: rawQuery,
+      title: candidate.title || '',
+      type: candidate.type || ''
+    };
+  }
+
+  function buildUrlLine(url) {
+    if (!url) {
+      return null;
+    }
+    const urlLine = document.createElement('span');
+    urlLine.textContent = url;
+    urlLine.style.cssText = `
+      all: unset !important;
+      color: #2563EB !important;
+      font-size: 12px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+      text-decoration: none !important;
+      display: inline-block !important;
+      max-width: 60% !important;
+      line-height: 1.4 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      box-sizing: border-box !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    `;
+    return urlLine;
   }
 
   function getBrowserInternalScheme() {
@@ -273,17 +439,84 @@
         ...filteredSuggestions
       ];
 
+      function promoteDomainPrefixMatch(list, queryText) {
+        if (!queryText) {
+          return null;
+        }
+        const queryLower = queryText.toLowerCase();
+        const matchIndex = list.findIndex((suggestion) => {
+          if (!suggestion || suggestion.type === 'newtab') {
+            return false;
+          }
+          if (!(suggestion.type === 'topSite' || suggestion.isTopSite)) {
+            return false;
+          }
+          const urlText = getUrlDisplay(suggestion.url);
+          if (!urlText) {
+            return false;
+          }
+          const host = urlText.split('/')[0] || '';
+          return host.toLowerCase().startsWith(queryLower);
+        });
+        if (matchIndex > 0) {
+          const [match] = list.splice(matchIndex, 1);
+          list.unshift(match);
+          return match;
+        }
+        if (matchIndex === 0) {
+          return list[0];
+        }
+        return null;
+      }
+
+      promoteDomainPrefixMatch(allSuggestions, latestRawQuery.trim());
+
+      const autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawQuery);
+      if (autocompleteCandidate) {
+        const candidateIndex = allSuggestions.findIndex((suggestion) => {
+          if (!suggestion || suggestion.type === 'newtab') {
+            return false;
+          }
+          if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
+            return true;
+          }
+          const suggestionUrlText = getUrlDisplay(suggestion.url);
+          if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
+            return true;
+          }
+          if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
+            return true;
+          }
+          return false;
+        });
+        if (candidateIndex >= 0 && candidateIndex !== 0) {
+          const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
+          allSuggestions.unshift(candidateSuggestion);
+        }
+      }
+
+      applyAutocomplete(allSuggestions);
+
       allSuggestions.forEach(function(suggestion, index) {
         const suggestionItem = document.createElement('div');
         suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === allSuggestions.length - 1;
+        const isAutocompleteTop = Boolean(
+          autocompleteCandidate &&
+          index === 0 &&
+          ((autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) ||
+            (getUrlDisplay(suggestion.url) &&
+              getUrlDisplay(suggestion.url).toLowerCase() === autocompleteCandidate.completion.toLowerCase()) ||
+            (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())))
+        );
         suggestionItem.style.cssText = `
           all: unset !important;
           display: flex !important;
           align-items: center !important;
           gap: 12px !important;
           padding: 12px 16px !important;
-          background: #FFFFFF !important;
+          background: ${isAutocompleteTop ? '#EEF6FF' : '#FFFFFF'} !important;
+          border: ${isAutocompleteTop ? '1px solid #BFDBFE' : '1px solid transparent'} !important;
           border-radius: 16px !important;
           cursor: pointer !important;
           transition: background-color 0.2s ease !important;
@@ -406,25 +639,10 @@
         textWrapper.appendChild(title);
         
         if (suggestion.type === 'history' && !suggestion.isTopSite) {
-          const urlLine = document.createElement('span');
-          urlLine.textContent = suggestion.url || '';
-          urlLine.style.cssText = `
-            all: unset !important;
-            color: #2563EB !important;
-            font-size: 12px !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            text-decoration: none !important;
-            display: inline-block !important;
-            max-width: 60% !important;
-            line-height: 1.4 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          `;
-          textWrapper.appendChild(urlLine);
+          const urlLine = buildUrlLine(suggestion.url || '');
+          if (urlLine) {
+            textWrapper.appendChild(urlLine);
+          }
           const historyTag = document.createElement('span');
           historyTag.textContent = '历史';
           historyTag.style.cssText = `
@@ -449,6 +667,10 @@
         }
         
         if (suggestion.type === 'topSite' || suggestion.isTopSite) {
+          const urlLine = buildUrlLine(suggestion.url || '');
+          if (urlLine) {
+            textWrapper.appendChild(urlLine);
+          }
           const topSiteTag = document.createElement('span');
           topSiteTag.textContent = '常用';
           topSiteTag.style.cssText = `
@@ -526,7 +748,7 @@
         });
         
         suggestionItem.addEventListener('mouseleave', function() {
-          this.style.setProperty('background-color', '#FFFFFF', 'important');
+          this.style.setProperty('background-color', isAutocompleteTop ? '#EEF6FF' : '#FFFFFF', 'important');
         });
         
         suggestionItem.addEventListener('click', function() {
@@ -574,9 +796,12 @@
       'border-bottom': 'none'
     },
     onInput: function(event) {
-      const query = event.target.value.trim();
+      const rawValue = event.target.value;
+      const query = rawValue.trim();
       if (!query) {
         latestQuery = '';
+        latestRawQuery = '';
+        clearAutocomplete();
         if (debounceTimer) {
           clearTimeout(debounceTimer);
         }
@@ -584,14 +809,30 @@
         setSuggestionsVisible(false);
         return;
       }
+      latestRawQuery = rawValue;
+      clearAutocomplete();
       requestSuggestions(query);
     },
     onKeyDown: function(event) {
+      if (event.key === 'Tab' && autocompleteState && autocompleteState.completion) {
+        event.preventDefault();
+        inputParts.input.value = autocompleteState.completion;
+        inputParts.input.setSelectionRange(autocompleteState.completion.length, autocompleteState.completion.length);
+        latestRawQuery = autocompleteState.completion;
+        latestQuery = autocompleteState.completion.trim();
+        autocompleteState = null;
+        inputParts.input.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
       if (event.key !== 'Enter') {
         return;
       }
       const query = event.target.value.trim();
       if (!query) {
+        return;
+      }
+      if (autocompleteState && autocompleteState.url) {
+        navigateToUrl(autocompleteState.url);
         return;
       }
       resolveQuickNavigation(query).then((targetUrl) => {

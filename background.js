@@ -627,11 +627,154 @@ function toggleBlackRectangle(tabs) {
     });
     
     let latestOverlayQuery = '';
+    let latestRawInputValue = '';
+    let autocompleteState = null;
+
+    function isEnglishQuery(query) {
+      if (!query) {
+        return false;
+      }
+      if (!/[A-Za-z]/.test(query)) {
+        return false;
+      }
+      return /^[A-Za-z0-9\s._/-]+$/.test(query);
+    }
+
+    function getUrlDisplay(url) {
+      if (!url) {
+        return '';
+      }
+      try {
+        const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./i, '');
+        const path = parsed.pathname === '/' ? '' : parsed.pathname;
+        return `${host}${path}${parsed.search || ''}${parsed.hash || ''}`;
+      } catch (e) {
+        return url;
+      }
+    }
+
+    function getAutocompleteCandidate(allSuggestions, rawQuery) {
+      if (!Array.isArray(allSuggestions) || !rawQuery) {
+        return null;
+      }
+      const rawLower = rawQuery.toLowerCase();
+      const passes = [true, false];
+      for (let passIndex = 0; passIndex < passes.length; passIndex += 1) {
+        const skipGoogleSuggest = passes[passIndex];
+        for (let i = 0; i < allSuggestions.length; i += 1) {
+          const suggestion = allSuggestions[i];
+          if (!suggestion || suggestion.type === 'newtab') {
+            continue;
+          }
+          if (skipGoogleSuggest && suggestion.type === 'googleSuggest') {
+            continue;
+          }
+          const urlText = getUrlDisplay(suggestion.url);
+          if (urlText && urlText.toLowerCase().startsWith(rawLower)) {
+            return {
+              completion: urlText,
+              url: suggestion.url || '',
+              title: suggestion.title || '',
+              type: 'url'
+            };
+          }
+          const titleText = suggestion.title || '';
+          if (titleText && titleText.toLowerCase().startsWith(rawLower)) {
+            return {
+              completion: titleText,
+              url: suggestion.url || '',
+              title: suggestion.title || '',
+              type: 'title'
+            };
+          }
+        }
+      }
+      return null;
+    }
+
+    function getDomainPrefixCandidate(allSuggestions, rawQuery) {
+      if (!Array.isArray(allSuggestions) || !rawQuery) {
+        return null;
+      }
+      const rawLower = rawQuery.toLowerCase();
+      for (let i = 0; i < allSuggestions.length; i += 1) {
+        const suggestion = allSuggestions[i];
+        if (!suggestion || suggestion.type === 'newtab') {
+          continue;
+        }
+        const urlText = getUrlDisplay(suggestion.url);
+        if (!urlText) {
+          continue;
+        }
+        const host = urlText.split('/')[0] || '';
+        if (host.toLowerCase().startsWith(rawLower)) {
+          return {
+            completion: urlText,
+            url: suggestion.url || '',
+            title: suggestion.title || '',
+            type: 'url'
+          };
+        }
+      }
+      return null;
+    }
+
+    function clearAutocomplete() {
+      autocompleteState = null;
+    }
+
+    function applyAutocomplete(allSuggestions) {
+      const rawQuery = latestRawInputValue;
+      const trimmedQuery = rawQuery.trim();
+      if (!isEnglishQuery(trimmedQuery) || !rawQuery) {
+        clearAutocomplete();
+        return;
+      }
+      if (!allSuggestions || !Array.isArray(allSuggestions)) {
+        clearAutocomplete();
+        return;
+      }
+      if (searchInput.selectionStart !== searchInput.value.length || searchInput.selectionEnd !== searchInput.value.length) {
+        return;
+      }
+      const candidate = getDomainPrefixCandidate(allSuggestions, rawQuery) ||
+        getAutocompleteCandidate(allSuggestions, rawQuery);
+      if (!candidate || !candidate.completion) {
+        clearAutocomplete();
+        return;
+      }
+      if (candidate.completion.length <= rawQuery.length) {
+        clearAutocomplete();
+        return;
+      }
+      if (!candidate.completion.toLowerCase().startsWith(rawQuery.toLowerCase())) {
+        clearAutocomplete();
+        return;
+      }
+      let displayText = candidate.completion;
+      if (candidate.type === 'url' && candidate.title) {
+        displayText = `${candidate.completion} - ${candidate.title}`;
+      }
+      searchInput.value = displayText;
+      searchInput.setSelectionRange(rawQuery.length, displayText.length);
+      autocompleteState = {
+        completion: candidate.completion,
+        displayText: displayText,
+        url: candidate.url || '',
+        rawQuery: rawQuery,
+        title: candidate.title || '',
+        type: candidate.type || ''
+      };
+    }
 
     // Add input event for search suggestions
     searchInput.addEventListener('input', function() {
-      const query = this.value.trim();
+      const rawValue = this.value;
+      const query = rawValue.trim();
       latestOverlayQuery = query;
+      latestRawInputValue = rawValue;
+      clearAutocomplete();
       if (query.length > 0) {
         // Get search suggestions
         chrome.runtime.sendMessage({
@@ -657,6 +800,19 @@ function toggleBlackRectangle(tabs) {
     };
     document.addEventListener('click', clickOutsideHandler);
     
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key !== 'Tab' || !autocompleteState || !autocompleteState.completion) {
+        return;
+      }
+      e.preventDefault();
+      searchInput.value = autocompleteState.completion;
+      searchInput.setSelectionRange(autocompleteState.completion.length, autocompleteState.completion.length);
+      latestRawInputValue = autocompleteState.completion;
+      latestOverlayQuery = autocompleteState.completion.trim();
+      autocompleteState = null;
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // Add keyboard navigation
     let selectedIndex = -1; // -1 means input is focused, 0+ means suggestion is selected
     const suggestionItems = [];
@@ -718,6 +874,16 @@ function toggleBlackRectangle(tabs) {
           document.removeEventListener('click', clickOutsideHandler);
           document.removeEventListener('keydown', keydownHandler);
         } else if (query) {
+          if (autocompleteState && autocompleteState.url) {
+            chrome.runtime.sendMessage({
+              action: 'createTab',
+              url: autocompleteState.url
+            });
+            removeOverlay(overlay);
+            document.removeEventListener('click', clickOutsideHandler);
+            document.removeEventListener('keydown', keydownHandler);
+            return;
+          }
           resolveQuickNavigation(query).then((targetUrl) => {
             if (targetUrl) {
               chrome.runtime.sendMessage({
@@ -1098,6 +1264,31 @@ function toggleBlackRectangle(tabs) {
       //   favicon: 'https://img.icons8.com/?size=100&id=kzJWN5jCDzpq&format=png&color=000000'
       // };
 
+      function buildUrlLine(url) {
+        if (!url) {
+          return null;
+        }
+        const urlLine = document.createElement('span');
+        urlLine.textContent = url;
+        urlLine.style.cssText = `
+          all: unset !important;
+          color: #2563EB !important;
+          font-size: 12px !important;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+          text-decoration: none !important;
+          display: inline-block !important;
+          max-width: 60% !important;
+          line-height: 1.4 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        `;
+        return urlLine;
+      }
+
       getShortcutRules().then((rules) => {
         if (query !== latestOverlayQuery) {
           return;
@@ -1112,20 +1303,85 @@ function toggleBlackRectangle(tabs) {
 
         // Add New Tab, ChatGPT and Perplexity suggestions to the beginning
         const allSuggestions = [...preSuggestions, newTabSuggestion, /*chatGptSuggestion, perplexitySuggestion,*/ ...suggestions];
+        function promoteDomainPrefixMatch(list, queryText) {
+          if (!queryText) {
+            return null;
+          }
+          const queryLower = queryText.toLowerCase();
+        const matchIndex = list.findIndex((suggestion) => {
+          if (!suggestion || suggestion.type === 'newtab') {
+            return false;
+          }
+          if (!(suggestion.type === 'topSite' || suggestion.isTopSite)) {
+            return false;
+          }
+          const urlText = getUrlDisplay(suggestion.url);
+          if (!urlText) {
+            return false;
+          }
+            const host = urlText.split('/')[0] || '';
+            return host.toLowerCase().startsWith(queryLower);
+          });
+          if (matchIndex > 0) {
+            const [match] = list.splice(matchIndex, 1);
+            list.unshift(match);
+            return match;
+          }
+          if (matchIndex === 0) {
+            return list[0];
+          }
+          return null;
+        }
+
+        promoteDomainPrefixMatch(allSuggestions, latestRawInputValue.trim());
+
+        const autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawInputValue);
+        if (autocompleteCandidate) {
+          const candidateIndex = allSuggestions.findIndex((suggestion) => {
+            if (!suggestion || suggestion.type === 'newtab') {
+              return false;
+            }
+            if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
+              return true;
+            }
+            const suggestionUrlText = getUrlDisplay(suggestion.url);
+            if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
+              return true;
+            }
+            if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
+              return true;
+            }
+            return false;
+          });
+          if (candidateIndex >= 0 && candidateIndex !== 0) {
+            const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
+            allSuggestions.unshift(candidateSuggestion);
+          }
+        }
         currentSuggestions = allSuggestions; // Store current suggestions including ChatGPT
+        applyAutocomplete(allSuggestions);
         
         // Add search suggestions
         allSuggestions.forEach((suggestion, index) => {
           const suggestionItem = document.createElement('div');
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
+          const isAutocompleteTop = Boolean(
+            autocompleteCandidate &&
+            index === 0 &&
+            ((autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) ||
+              (getUrlDisplay(suggestion.url) &&
+                getUrlDisplay(suggestion.url).toLowerCase() === autocompleteCandidate.completion.toLowerCase()) ||
+              (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())))
+          );
           suggestionItem.style.cssText = `
             all: unset !important;
             display: flex !important;
             align-items: center !important;
             justify-content: space-between !important;
             padding: 12px 16px !important;
-            background: #FFFFFF !important;
+            background: ${isAutocompleteTop ? '#EEF6FF' : '#FFFFFF'} !important;
+            border: ${isAutocompleteTop ? '1px solid #BFDBFE' : '1px solid transparent'} !important;
             border-radius: 16px !important;
             margin-bottom: ${isLastItem ? '0' : '4px'} !important;
             cursor: pointer !important;
@@ -1283,25 +1539,10 @@ function toggleBlackRectangle(tabs) {
           
           // Add history tag if type is history
           if (suggestion.type === 'history' && !suggestion.isTopSite) {
-            const urlLine = document.createElement('span');
-            urlLine.textContent = suggestion.url || '';
-            urlLine.style.cssText = `
-              all: unset !important;
-              color: #2563EB !important;
-              font-size: 12px !important;
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-            text-decoration: none !important;
-            display: inline-block !important;
-            max-width: 60% !important;
-            line-height: 1.4 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            box-sizing: border-box !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            `;
-            textWrapper.appendChild(urlLine);
+            const urlLine = buildUrlLine(suggestion.url || '');
+            if (urlLine) {
+              textWrapper.appendChild(urlLine);
+            }
             const historyTag = document.createElement('span');
             historyTag.textContent = '历史';
             historyTag.style.cssText = `
@@ -1327,6 +1568,10 @@ function toggleBlackRectangle(tabs) {
           
           // Add topSite tag if type is topSite
           if (suggestion.type === 'topSite' || suggestion.isTopSite) {
+            const urlLine = buildUrlLine(suggestion.url || '');
+            if (urlLine) {
+              textWrapper.appendChild(urlLine);
+            }
             const topSiteTag = document.createElement('span');
             topSiteTag.textContent = '常用';
             topSiteTag.style.cssText = `
@@ -1441,7 +1686,7 @@ function toggleBlackRectangle(tabs) {
           
           suggestionItem.addEventListener('mouseleave', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
-              this.style.setProperty('background-color', '#FFFFFF', 'important');
+              this.style.setProperty('background-color', isAutocompleteTop ? '#EEF6FF' : '#FFFFFF', 'important');
             }
           });
           
