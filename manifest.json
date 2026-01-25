@@ -12,6 +12,9 @@
       }
    },
    "description": "Replaces the generic new tab page with a search engine similar to Arc.",
+   "chrome_url_overrides": {
+      "newtab": "newtab.html"
+   },
    "host_permissions": [ "\u003Call_urls>" ],
    "icons": {
       "128": "arc.png",

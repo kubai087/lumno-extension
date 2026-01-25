@@ -8,8 +8,13 @@ chrome.commands.onCommand.addListener(function(command) {
         if (activeTabs[0]) {
           chrome.scripting.executeScript({
             target: {tabId: activeTabs[0].id},
-            function: toggleBlackRectangle,
-            args: [tabs]
+            files: ['input-ui.js']
+          }, function() {
+            chrome.scripting.executeScript({
+              target: {tabId: activeTabs[0].id},
+              function: toggleBlackRectangle,
+              args: [tabs]
+            });
           });
         }
       });
@@ -304,62 +309,20 @@ function toggleBlackRectangle(tabs) {
     `;
     document.head.appendChild(scrollbarStyle);
     
-    // Create the search input with icon
-    const searchInput = document.createElement('input');
-    searchInput.id = '_x_extension_search_input_2024_unique_';
-    searchInput.autocomplete = 'off';
-    searchInput.type = 'text';
-    searchInput.placeholder = '搜索或输入网址...';
-    searchInput.style.cssText = `
-      all: unset !important;
-      width: 100% !important;
-      padding: 20px 22px 20px 50px !important;
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 1px solid #E5E7EB !important;
-      color: #1F2937 !important;
-      font-size: 16px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-      font-weight: 500 !important;
-      outline: none !important;
-      box-sizing: border-box !important;
-      margin: 0 !important;
-      line-height: 1 !important;
-      text-decoration: none !important;
-      list-style: none !important;
-      display: block !important;
-      vertical-align: baseline !important;
-      caret-color: #7DB7FF !important;
-    `;
-    
-    // Create search icon
-    const searchIcon = document.createElement('div');
-    searchIcon.id = '_x_extension_search_icon_2024_unique_';
-    searchIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="_x_extension_svg_2024_unique_"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
-    searchIcon.style.cssText = `
-      all: unset !important;
-      position: absolute !important;
-      left: 20px !important;
-      top: 50% !important;
-      transform: translateY(-50%) !important;
-      color: #9CA3AF !important;
-      pointer-events: none !important;
-      z-index: 1 !important;
-      box-sizing: border-box !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      line-height: 1 !important;
-      text-decoration: none !important;
-      list-style: none !important;
-      outline: none !important;
-      background: transparent !important;
-      font-size: 100% !important;
-      font: inherit !important;
-      vertical-align: baseline !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-    `;
+    if (typeof window._x_extension_createSearchInput_2024_unique_ !== 'function') {
+      console.warn('Arc Search: input UI helper not available.');
+      removeOverlay(overlay);
+      return;
+    }
+
+    const inputParts = window._x_extension_createSearchInput_2024_unique_({
+      placeholder: '搜索或输入网址...',
+      inputId: '_x_extension_search_input_2024_unique_',
+      iconId: '_x_extension_search_icon_2024_unique_',
+      containerId: '_x_extension_input_container_2024_unique_'
+    });
+    const searchInput = inputParts.input;
+    const inputContainer = inputParts.container;
 
     
     // Add focus styles
@@ -1230,32 +1193,6 @@ function toggleBlackRectangle(tabs) {
       suggestionsContainer.appendChild(suggestionItem);
     });
     
-    // Position the icon relative to the input
-    const inputContainer = document.createElement('div');
-    inputContainer.id = '_x_extension_input_container_2024_unique_';
-    inputContainer.style.cssText = `
-      all: unset !important;
-      position: relative !important;
-      width: 100% !important;
-      flex-shrink: 0 !important;
-      box-sizing: border-box !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      line-height: 1 !important;
-      text-decoration: none !important;
-      list-style: none !important;
-      outline: none !important;
-      color: inherit !important;
-      font-size: 100% !important;
-      font: inherit !important;
-      vertical-align: baseline !important;
-      display: block !important;
-      background: rgba(255, 255, 255, 0.9) !important;
-      border-radius: 24px 24px 0 0 !important;
-    `;
-    
-    inputContainer.appendChild(searchIcon);
-    inputContainer.appendChild(searchInput);
     overlay.appendChild(inputContainer);
     overlay.appendChild(suggestionsContainer);
     document.body.appendChild(overlay);
