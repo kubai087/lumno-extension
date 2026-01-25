@@ -80,103 +80,123 @@
     suggestionsContainer.style.setProperty('transform', visible ? 'translateY(0)' : 'translateY(-4px)', 'important');
   }
 
+  function getBrowserInternalScheme() {
+    const ua = navigator.userAgent || '';
+    if (ua.includes('Edg/')) {
+      return 'edge://';
+    }
+    if (ua.includes('Brave')) {
+      return 'brave://';
+    }
+    if (ua.includes('Vivaldi')) {
+      return 'vivaldi://';
+    }
+    if (ua.includes('OPR/') || ua.includes('Opera')) {
+      return 'opera://';
+    }
+    return 'chrome://';
+  }
+
+  function getShortcutRules() {
+    if (window._x_extension_shortcut_rules_2024_unique_) {
+      return Promise.resolve(window._x_extension_shortcut_rules_2024_unique_);
+    }
+    if (window._x_extension_shortcut_rules_promise_2024_unique_) {
+      return window._x_extension_shortcut_rules_promise_2024_unique_;
+    }
+    const rulesUrl = chrome.runtime.getURL('shortcut-rules.json');
+    const rulesPromise = fetch(rulesUrl)
+      .then((response) => response.json())
+      .then((data) => {
+        const items = data && Array.isArray(data.items) ? data.items : [];
+        window._x_extension_shortcut_rules_2024_unique_ = items;
+        return items;
+      })
+      .catch(() => new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getShortcutRules' }, (response) => {
+          const items = response && Array.isArray(response.items) ? response.items : [];
+          window._x_extension_shortcut_rules_2024_unique_ = items;
+          resolve(items);
+        });
+      }));
+    window._x_extension_shortcut_rules_promise_2024_unique_ = rulesPromise;
+    return rulesPromise;
+  }
+
+  function buildKeywordSuggestions(input, rules) {
+    const queryLower = input.toLowerCase();
+    const scheme = getBrowserInternalScheme();
+    const matches = [];
+    rules.forEach((rule) => {
+      if (!rule || !Array.isArray(rule.keys)) {
+        return;
+      }
+      const isMatch = rule.keys.some((key) => queryLower.startsWith(key));
+      if (!isMatch) {
+        return;
+      }
+      if (rule.type === 'browserPage' && rule.path) {
+        const targetUrl = `${scheme}${rule.path}`;
+        matches.push({
+          type: 'browserPage',
+          title: `打开 ${targetUrl}`,
+          url: targetUrl,
+          favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
+        });
+      } else if (rule.type === 'url' && rule.url) {
+        matches.push({
+          type: 'browserPage',
+          title: `打开 ${rule.url}`,
+          url: rule.url,
+          favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
+        });
+      }
+    });
+    return matches;
+  }
+
+  function getDirectUrlSuggestion(input) {
+    const queryLower = input.toLowerCase();
+    const isInternal = ['chrome://', 'edge://', 'brave://', 'vivaldi://', 'opera://'].some((prefix) =>
+      queryLower.startsWith(prefix)
+    );
+    const ipMatch = input.trim().match(/^\d{1,3}([.\s]\d{1,3}){3}$/);
+    const normalizedIp = ipMatch ? input.trim().replace(/\s+/g, '.').replace(/\.{2,}/g, '.') : '';
+    const looksLikeUrl = (input.includes('.') && !input.includes(' ')) || isInternal || Boolean(normalizedIp);
+    if (!looksLikeUrl) {
+      return null;
+    }
+    let targetUrl = normalizedIp || input;
+    if (!isInternal && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://' + targetUrl;
+    }
+    return {
+      type: 'directUrl',
+      title: `打开 ${targetUrl}`,
+      url: targetUrl,
+      favicon: 'https://img.icons8.com/?size=100&id=QeJX4E2mC0fF&format=png&color=000000'
+    };
+  }
+
+  function resolveQuickNavigation(query) {
+    const directUrlSuggestion = getDirectUrlSuggestion(query);
+    if (directUrlSuggestion) {
+      return Promise.resolve(directUrlSuggestion.url);
+    }
+    return getShortcutRules().then((rules) => {
+      const keywordSuggestions = buildKeywordSuggestions(query, rules);
+      if (keywordSuggestions.length > 0) {
+        return keywordSuggestions[0].url;
+      }
+      return null;
+    });
+  }
+
   function renderSuggestions(suggestions, query) {
     suggestionsContainer.innerHTML = '';
     if (!query) {
       setSuggestionsVisible(false);
       return;
-    }
-
-    function getBrowserInternalScheme() {
-      const ua = navigator.userAgent || '';
-      if (ua.includes('Edg/')) {
-        return 'edge://';
-      }
-      if (ua.includes('Brave')) {
-        return 'brave://';
-      }
-      if (ua.includes('Vivaldi')) {
-        return 'vivaldi://';
-      }
-      if (ua.includes('OPR/') || ua.includes('Opera')) {
-        return 'opera://';
-      }
-      return 'chrome://';
-    }
-
-    function getShortcutRules() {
-      if (window._x_extension_shortcut_rules_2024_unique_) {
-        return Promise.resolve(window._x_extension_shortcut_rules_2024_unique_);
-      }
-      if (window._x_extension_shortcut_rules_promise_2024_unique_) {
-        return window._x_extension_shortcut_rules_promise_2024_unique_;
-      }
-      const rulesUrl = chrome.runtime.getURL('shortcut-rules.json');
-      const rulesPromise = fetch(rulesUrl)
-        .then((response) => response.json())
-        .then((data) => {
-          const items = data && Array.isArray(data.items) ? data.items : [];
-          window._x_extension_shortcut_rules_2024_unique_ = items;
-          return items;
-        })
-        .catch(() => []);
-      window._x_extension_shortcut_rules_promise_2024_unique_ = rulesPromise;
-      return rulesPromise;
-    }
-
-    function buildKeywordSuggestions(input, rules) {
-      const queryLower = input.toLowerCase();
-      const scheme = getBrowserInternalScheme();
-      const matches = [];
-      rules.forEach((rule) => {
-        if (!rule || !Array.isArray(rule.keys)) {
-          return;
-        }
-        const isMatch = rule.keys.some((key) => queryLower.startsWith(key));
-        if (!isMatch) {
-          return;
-        }
-        if (rule.type === 'browserPage' && rule.path) {
-          const targetUrl = `${scheme}${rule.path}`;
-          matches.push({
-            type: 'browserPage',
-            title: `打开 ${targetUrl}`,
-            url: targetUrl,
-            favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
-          });
-        } else if (rule.type === 'url' && rule.url) {
-          matches.push({
-            type: 'browserPage',
-            title: `打开 ${rule.url}`,
-            url: rule.url,
-            favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
-          });
-        }
-      });
-      return matches;
-    }
-
-    function getDirectUrlSuggestion(input) {
-      const queryLower = input.toLowerCase();
-      const isInternal = ['chrome://', 'edge://', 'brave://', 'vivaldi://', 'opera://'].some((prefix) =>
-        queryLower.startsWith(prefix)
-      );
-      const ipMatch = input.trim().match(/^\d{1,3}([.\s]\d{1,3}){3}$/);
-      const normalizedIp = ipMatch ? input.trim().replace(/\s+/g, '.').replace(/\.{2,}/g, '.') : '';
-      const looksLikeUrl = (input.includes('.') && !input.includes(' ')) || isInternal || Boolean(normalizedIp);
-      if (!looksLikeUrl) {
-        return null;
-      }
-      let targetUrl = normalizedIp || input;
-      if (!isInternal && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-        targetUrl = 'https://' + targetUrl;
-      }
-      return {
-        type: 'directUrl',
-        title: `打开 ${targetUrl}`,
-        url: targetUrl,
-        favicon: 'https://img.icons8.com/?size=100&id=QeJX4E2mC0fF&format=png&color=000000'
-      };
     }
 
     function isSearchEngineResultUrl(url) {
@@ -533,7 +553,13 @@
       if (!query) {
         return;
       }
-      navigateToQuery(query);
+      resolveQuickNavigation(query).then((targetUrl) => {
+        if (targetUrl) {
+          navigateToUrl(targetUrl);
+          return;
+        }
+        navigateToQuery(query);
+      });
     }
   });
 

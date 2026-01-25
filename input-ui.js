@@ -42,9 +42,36 @@
     `;
     applyStyleOverrides(input, config.inputStyleOverrides);
 
+    const hasBorderOverride = Boolean(
+      config.inputStyleOverrides &&
+      Object.prototype.hasOwnProperty.call(config.inputStyleOverrides, 'border-bottom')
+    );
+    const showUnderlineWhenEmpty = Boolean(config.showUnderlineWhenEmpty);
+
+    function updateInputUnderline(value) {
+      if (hasBorderOverride) {
+        return;
+      }
+      if (showUnderlineWhenEmpty) {
+        input.style.setProperty('border-bottom', '1px solid #E5E7EB', 'important');
+        return;
+      }
+      const isEmpty = !value || !value.trim();
+      input.style.setProperty(
+        'border-bottom',
+        isEmpty ? 'none' : '1px solid #E5E7EB',
+        'important'
+      );
+    }
+
+    updateInputUnderline(input.value);
+
     if (typeof config.onInput === 'function') {
       input.addEventListener('input', config.onInput);
     }
+    input.addEventListener('input', function(event) {
+      updateInputUnderline(event.target.value);
+    });
     if (typeof config.onFocus === 'function') {
       input.addEventListener('focus', config.onFocus);
     }
@@ -69,7 +96,7 @@
       z-index: 1 !important;
       box-sizing: border-box !important;
       margin: 0 !important;
-      padding: 0 !important;
+      padding: 6px 0 !important;
       line-height: 1 !important;
       text-decoration: none !important;
       list-style: none !important;
