@@ -1066,6 +1066,14 @@ function toggleBlackRectangle(tabs) {
       target.style.setProperty('--x-ext-key-border', theme.keyBorder, 'important');
     }
 
+    function applyMarkVariables(target, theme) {
+      if (!target || !theme) {
+        return;
+      }
+      target.style.setProperty('--x-ext-mark-bg', theme.markBg, 'important');
+      target.style.setProperty('--x-ext-mark-text', theme.markText, 'important');
+    }
+
     function createActionTag(labelText, keyLabel) {
       const tag = document.createElement('span');
       tag.style.cssText = `
@@ -1932,6 +1940,7 @@ function toggleBlackRectangle(tabs) {
     }
 
     function applySearchActionStyles(item, theme, isActive) {
+      applyMarkVariables(item, isActive ? theme : defaultTheme);
       if (item._xVisitButton) {
         const shouldHide = Boolean(item._xAlwaysHideVisitButton || (isActive && item._xHasActionTags));
         item._xVisitButton.style.setProperty('display', shouldHide ? 'none' : 'inline-flex', 'important');
@@ -2850,6 +2859,7 @@ function toggleBlackRectangle(tabs) {
           // Add hover effects
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
+              this._xIsHovering = true;
               this.style.setProperty('background', '#F9FAFB', 'important');
               this.style.setProperty('border', '1px solid transparent', 'important');
             }
@@ -2857,12 +2867,8 @@ function toggleBlackRectangle(tabs) {
           
           suggestionItem.addEventListener('mouseleave', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
-              if (selectedIndex === -1 && isAutocompleteTop) {
-                const theme = this._xTheme || defaultTheme;
-                applySearchSuggestionHighlight(this, theme);
-              } else {
-                resetSearchSuggestion(this);
-              }
+              this._xIsHovering = false;
+              updateSelection();
             }
           });
           
