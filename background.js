@@ -943,16 +943,16 @@ function toggleBlackRectangle(tabs) {
 
     function buildThemeVariant(accent, mode) {
       const isDark = mode === 'dark';
-      const base = isDark ? [20, 20, 20] : [255, 255, 255];
-      const highlightBg = mixColor(accent, base, isDark ? 0.72 : 0.86);
-      const highlightBorder = mixColor(accent, base, isDark ? 0.5 : 0.62);
-      const markBg = mixColor(accent, base, isDark ? 0.64 : 0.78);
-      const tagBg = mixColor(accent, base, isDark ? 0.6 : 0.74);
-      const keyBg = mixColor(accent, base, isDark ? 0.78 : 0.9);
-      const tagBorder = mixColor(accent, base, isDark ? 0.4 : 0.58);
-      const keyBorder = mixColor(accent, base, isDark ? 0.58 : 0.18);
-      const buttonBg = mixColor(accent, base, isDark ? 0.68 : 0.94);
-      const buttonBorder = mixColor(accent, base, isDark ? 0.48 : 0.7);
+      const base = isDark ? [48, 48, 48] : [255, 255, 255];
+      const highlightBg = mixColor(accent, base, isDark ? 0.82 : 0.86);
+      const highlightBorder = mixColor(accent, base, isDark ? 0.66 : 0.62);
+      const markBg = mixColor(accent, base, isDark ? 0.74 : 0.78);
+      const tagBg = mixColor(accent, base, isDark ? 0.76 : 0.74);
+      const keyBg = mixColor(accent, base, isDark ? 0.88 : 0.9);
+      const tagBorder = mixColor(accent, base, isDark ? 0.62 : 0.58);
+      const keyBorder = mixColor(accent, base, isDark ? 0.7 : 0.18);
+      const buttonBg = mixColor(accent, base, isDark ? 0.8 : 0.94);
+      const buttonBorder = mixColor(accent, base, isDark ? 0.68 : 0.7);
       const buttonText = isDark
         ? getReadableTextColor(buttonBg)
         : (getLuminance(accent) > 0.8
@@ -1090,7 +1090,7 @@ function toggleBlackRectangle(tabs) {
       const resolvedTheme = getThemeForMode(theme);
       const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
       const isDark = isOverlayDarkMode();
-      const base = isDark ? [20, 20, 20] : [255, 255, 255];
+      const base = isDark ? [48, 48, 48] : [255, 255, 255];
       return {
         bg: rgbToCss(mixColor(accentRgb, base, isDark ? 0.6 : 0.9)),
         border: rgbToCss(mixColor(accentRgb, base, isDark ? 0.4 : 0.72))
@@ -3176,15 +3176,8 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
-              const theme = this._xTheme || defaultTheme;
-              if (this._xIsSearchSuggestion && theme && !theme._xIsDefault) {
-                const hover = getHoverColors(theme);
-                this.style.setProperty('background', hover.bg, 'important');
-                this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
-              } else {
-                this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
-                this.style.setProperty('border', '1px solid transparent', 'important');
-              }
+              this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
+              this.style.setProperty('border', '1px solid transparent', 'important');
             }
           });
           
@@ -3288,7 +3281,7 @@ function toggleBlackRectangle(tabs) {
       -ms-overflow-style: none !important;
       background: transparent !important;
       border-radius: 0 0 28px 28px !important;
-      padding: 8px !important;
+      padding: 12px !important;
       box-sizing: border-box !important;
       display: block !important;
       line-height: 1 !important;
