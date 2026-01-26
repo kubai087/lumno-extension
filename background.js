@@ -642,6 +642,7 @@ function toggleBlackRectangle(tabs) {
       document.removeEventListener('keydown', captureTabHandler, true);
       captureTabHandler = null;
     }
+    window.removeEventListener('resize', updateSiteSearchPrefixLayout);
   }
   
   // Check if the overlay already exists
@@ -738,6 +739,7 @@ function toggleBlackRectangle(tabs) {
     let latestOverlayQuery = '';
     let latestRawInputValue = '';
     let autocompleteState = null;
+    let inlineSearchState = null;
     let isComposing = false;
     let siteSearchState = null;
     const defaultPlaceholder = searchInput.placeholder;
@@ -760,6 +762,309 @@ function toggleBlackRectangle(tabs) {
       { key: 'wk', aliases: ['wiki', 'wikipedia'], name: 'Wikipedia', template: 'https://en.wikipedia.org/wiki/Special:Search?search={query}' },
       { key: 'zw', aliases: ['zhwiki'], name: '维基百科', template: 'https://zh.wikipedia.org/wiki/Special:Search?search={query}' }
     ];
+    const defaultAccentColor = [59, 130, 246];
+    const themeColorCache = new Map();
+    const defaultCaretColor = searchInput.style.caretColor || '#7DB7FF';
+    let baseInputPaddingLeft = null;
+    const prefixGap = 6;
+
+    function mixColor(color, target, amount) {
+      return [
+        Math.round(color[0] + (target[0] - color[0]) * amount),
+        Math.round(color[1] + (target[1] - color[1]) * amount),
+        Math.round(color[2] + (target[2] - color[2]) * amount)
+      ];
+    }
+
+    function rgbToCss(rgb) {
+      return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+    }
+
+    function getLuminance(rgb) {
+      const [r, g, b] = rgb.map((value) => {
+        const channel = value / 255;
+        return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    function getReadableTextColor(bgRgb) {
+      return getLuminance(bgRgb) > 0.68 ? '#111827' : '#F8FAFC';
+    }
+
+    function normalizeAccentColor(rgb) {
+      if (!rgb || rgb.length !== 3) {
+        return defaultAccentColor;
+      }
+      const luminance = getLuminance(rgb);
+      if (luminance < 0.12) {
+        return mixColor(rgb, [255, 255, 255], 0.55);
+      }
+      if (luminance > 0.9) {
+        return mixColor(rgb, [0, 0, 0], 0.2);
+      }
+      return rgb;
+    }
+
+    function buildTheme(rgb) {
+      const accent = normalizeAccentColor(rgb);
+      const highlightBg = mixColor(accent, [255, 255, 255], 0.86);
+      const highlightBorder = mixColor(accent, [255, 255, 255], 0.62);
+      const markBg = mixColor(accent, [255, 255, 255], 0.78);
+      const tagBg = mixColor(accent, [255, 255, 255], 0.74);
+      const keyBg = mixColor(accent, [255, 255, 255], 0.9);
+      const tagBorder = mixColor(accent, [255, 255, 255], 0.58);
+      const keyBorder = mixColor(accent, [0, 0, 0], 0.18);
+      const buttonText = getLuminance(accent) > 0.8
+        ? rgbToCss(mixColor(accent, [0, 0, 0], 0.6))
+        : rgbToCss(accent);
+      return {
+        accent: rgbToCss(accent),
+        highlightBg: rgbToCss(highlightBg),
+        highlightBorder: rgbToCss(highlightBorder),
+        markBg: rgbToCss(markBg),
+        markText: getReadableTextColor(markBg),
+        tagBg: rgbToCss(tagBg),
+        tagText: getReadableTextColor(tagBg),
+        tagBorder: rgbToCss(tagBorder),
+        keyBg: rgbToCss(keyBg),
+        keyText: getReadableTextColor(keyBg),
+        keyBorder: rgbToCss(keyBorder),
+        buttonText: buttonText,
+        buttonBg: rgbToCss(mixColor(accent, [255, 255, 255], 0.94)),
+        buttonBorder: rgbToCss(mixColor(accent, [255, 255, 255], 0.7)),
+        placeholderText: buttonText
+      };
+    }
+
+    const defaultTheme = buildTheme(defaultAccentColor);
+
+    function extractAverageColor(image) {
+      const size = 16;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) {
+        return null;
+      }
+      try {
+        context.drawImage(image, 0, 0, size, size);
+        const data = context.getImageData(0, 0, size, size).data;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const alpha = data[i + 3];
+          if (alpha < 32) {
+            continue;
+          }
+          const red = data[i];
+          const green = data[i + 1];
+          const blue = data[i + 2];
+          const brightness = (red + green + blue) / 3;
+          if (brightness > 245) {
+            continue;
+          }
+          r += red;
+          g += green;
+          b += blue;
+          count += 1;
+        }
+        if (!count) {
+          for (let i = 0; i < data.length; i += 4) {
+            const alpha = data[i + 3];
+            if (alpha < 32) {
+              continue;
+            }
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count += 1;
+          }
+        }
+        if (!count) {
+          return null;
+        }
+        return [
+          Math.round(r / count),
+          Math.round(g / count),
+          Math.round(b / count)
+        ];
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getThemeFromUrl(url) {
+      if (!url) {
+        return Promise.resolve(defaultTheme);
+      }
+      if (themeColorCache.has(url)) {
+        return Promise.resolve(themeColorCache.get(url));
+      }
+      return new Promise((resolve) => {
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = function() {
+          const avg = extractAverageColor(image);
+          const theme = buildTheme(avg || defaultAccentColor);
+          themeColorCache.set(url, theme);
+          resolve(theme);
+        };
+        image.onerror = function() {
+          themeColorCache.set(url, defaultTheme);
+          resolve(defaultTheme);
+        };
+        image.src = url;
+      });
+    }
+
+    function applyThemeVariables(target, theme) {
+      if (!target || !theme) {
+        return;
+      }
+      target.style.setProperty('--x-ext-mark-bg', theme.markBg, 'important');
+      target.style.setProperty('--x-ext-mark-text', theme.markText, 'important');
+      target.style.setProperty('--x-ext-tag-bg', theme.tagBg, 'important');
+      target.style.setProperty('--x-ext-tag-text', theme.tagText, 'important');
+      target.style.setProperty('--x-ext-tag-border', theme.tagBorder, 'important');
+      target.style.setProperty('--x-ext-key-bg', theme.keyBg, 'important');
+      target.style.setProperty('--x-ext-key-text', theme.keyText, 'important');
+      target.style.setProperty('--x-ext-key-border', theme.keyBorder, 'important');
+    }
+
+    function createActionTag(labelText, keyLabel) {
+      const tag = document.createElement('span');
+      tag.style.cssText = `
+        all: unset !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        background: var(--x-ext-tag-bg, #EEF6FF) !important;
+        color: var(--x-ext-tag-text, #1E3A8A) !important;
+        border: 1px solid var(--x-ext-tag-border, #BFDBFE) !important;
+        padding: 4px 8px !important;
+        border-radius: 999px !important;
+        font-size: 11px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        line-height: 1 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        box-sizing: border-box !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+      `;
+
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      label.style.cssText = `
+        all: unset !important;
+        font-weight: 500 !important;
+        line-height: 1 !important;
+      `;
+
+      const keycap = document.createElement('span');
+      keycap.textContent = keyLabel;
+      keycap.style.cssText = `
+        all: unset !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 2px 6px !important;
+        border-radius: 6px !important;
+        background: var(--x-ext-key-bg, #FFFFFF) !important;
+        color: var(--x-ext-key-text, #1E3A8A) !important;
+        border: 1px solid var(--x-ext-key-border, #BFDBFE) !important;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12) !important;
+        font-size: 10px !important;
+        font-weight: 600 !important;
+        line-height: 1 !important;
+      `;
+
+      tag.appendChild(label);
+      tag.appendChild(keycap);
+      return tag;
+    }
+
+    function getThemeSourceForSuggestion(suggestion) {
+      if (suggestion && suggestion.url) {
+        try {
+          const hostname = new URL(suggestion.url).hostname;
+          if (hostname) {
+            return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+          }
+        } catch (e) {
+          // Ignore malformed URLs.
+        }
+      }
+      return suggestion && suggestion.favicon ? suggestion.favicon : '';
+    }
+
+    const siteSearchPrefix = document.createElement('span');
+    siteSearchPrefix.id = '_x_extension_site_search_prefix_2024_unique_';
+    siteSearchPrefix.style.cssText = `
+      all: unset !important;
+      position: absolute !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      left: 50px !important;
+      display: none !important;
+      white-space: nowrap !important;
+      font-size: 16px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+      line-height: 1 !important;
+      color: #6B7280 !important;
+      pointer-events: none !important;
+      z-index: 1 !important;
+    `;
+    inputContainer.appendChild(siteSearchPrefix);
+
+    function getBaseInputPaddingLeft() {
+      if (baseInputPaddingLeft === null) {
+        const computed = parseFloat(window.getComputedStyle(searchInput).paddingLeft);
+        baseInputPaddingLeft = Number.isFinite(computed) ? computed : 50;
+      }
+      return baseInputPaddingLeft;
+    }
+
+    function updateSiteSearchPrefixLayout() {
+      const basePadding = getBaseInputPaddingLeft();
+      siteSearchPrefix.style.setProperty('left', `${basePadding}px`, 'important');
+      if (siteSearchPrefix.style.display === 'none') {
+        searchInput.style.setProperty('padding-left', `${basePadding}px`, 'important');
+        return;
+      }
+      const prefixWidth = siteSearchPrefix.getBoundingClientRect().width;
+      const paddedLeft = Math.max(basePadding + prefixWidth + prefixGap, basePadding);
+      searchInput.style.setProperty('padding-left', `${paddedLeft}px`, 'important');
+    }
+
+    function setSiteSearchPrefix(provider, theme) {
+      const prefixText = `在 ${getSiteSearchDisplayName(provider)} 中搜索...`;
+      siteSearchPrefix.textContent = prefixText;
+      siteSearchPrefix.style.setProperty('display', 'inline-flex', 'important');
+      if (theme && theme.placeholderText) {
+        siteSearchPrefix.style.setProperty('color', theme.placeholderText, 'important');
+      }
+      searchInput.placeholder = '';
+      if (theme && theme.placeholderText) {
+        searchInput.style.setProperty('caret-color', theme.placeholderText, 'important');
+      }
+      updateSiteSearchPrefixLayout();
+    }
+
+    function clearSiteSearchPrefix() {
+      siteSearchPrefix.textContent = '';
+      siteSearchPrefix.style.setProperty('display', 'none', 'important');
+      searchInput.placeholder = defaultPlaceholder;
+      searchInput.style.setProperty('caret-color', defaultCaretColor, 'important');
+      updateSiteSearchPrefixLayout();
+    }
+
+    window.addEventListener('resize', updateSiteSearchPrefixLayout);
 
     function isEnglishQuery(query) {
       if (!query) {
@@ -985,6 +1290,26 @@ function toggleBlackRectangle(tabs) {
       return String(host || '').toLowerCase().replace(/^www\./i, '');
     }
 
+    function suggestionMatchesProvider(suggestion, provider) {
+      if (!suggestion || !provider || !suggestion.url) {
+        return false;
+      }
+      let suggestionHost = '';
+      try {
+        suggestionHost = new URL(suggestion.url).hostname;
+      } catch (e) {
+        return false;
+      }
+      const normalizedSuggestion = normalizeHost(suggestionHost);
+      const normalizedProvider = normalizeHost(getProviderHost(provider));
+      if (!normalizedSuggestion || !normalizedProvider) {
+        return false;
+      }
+      return normalizedSuggestion === normalizedProvider ||
+        normalizedSuggestion.endsWith(`.${normalizedProvider}`) ||
+        normalizedProvider.endsWith(`.${normalizedSuggestion}`);
+    }
+
     function findSiteSearchProviderByKey(trigger, providers) {
       const key = String(trigger || '').toLowerCase();
       if (!key) {
@@ -1043,16 +1368,44 @@ function toggleBlackRectangle(tabs) {
       }) || null;
     }
 
+    function getInlineSiteSearchCandidate(input, providers) {
+      const raw = String(input || '').trim();
+      if (!raw) {
+        return null;
+      }
+      const tokens = raw.split(/\s+/);
+      if (tokens.length < 2) {
+        return null;
+      }
+      const provider = findSiteSearchProviderByInput(raw, providers);
+      if (!provider) {
+        return null;
+      }
+      const firstToken = tokens[0];
+      const remainder = raw.slice(raw.indexOf(firstToken) + firstToken.length).trim();
+      if (!remainder) {
+        return null;
+      }
+      return { provider: provider, query: remainder };
+    }
+
     function activateSiteSearch(provider) {
       if (!provider) {
         return;
       }
       siteSearchState = provider;
+      inlineSearchState = null;
       searchInput.value = '';
       latestRawInputValue = '';
       latestOverlayQuery = '';
       clearAutocomplete();
-      searchInput.placeholder = `在 ${getSiteSearchDisplayName(provider)} 中搜索...`;
+      setSiteSearchPrefix(provider, defaultTheme);
+      const providerIcon = getProviderIcon(provider);
+      getThemeFromUrl(providerIcon).then((theme) => {
+        if (siteSearchState === provider) {
+          setSiteSearchPrefix(provider, theme);
+        }
+      });
       clearSearchSuggestions();
     }
 
@@ -1061,7 +1414,8 @@ function toggleBlackRectangle(tabs) {
         return;
       }
       siteSearchState = null;
-      searchInput.placeholder = defaultPlaceholder;
+      inlineSearchState = null;
+      clearSiteSearchPrefix();
       clearAutocomplete();
     }
 
@@ -1237,6 +1591,7 @@ function toggleBlackRectangle(tabs) {
           // Move to next suggestion
           selectedIndex = (selectedIndex + 1) % suggestionItems.length;
         }
+        selectedIndex = -1;
         updateSelection();
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -1294,6 +1649,19 @@ function toggleBlackRectangle(tabs) {
               return;
             }
           }
+          const currentRawInput = (latestRawInputValue || searchInput.value || '').trim();
+          if (inlineSearchState && inlineSearchState.isAuto &&
+              inlineSearchState.url && inlineSearchState.rawInput === currentRawInput) {
+            chrome.runtime.sendMessage({
+              action: 'createTab',
+              url: inlineSearchState.url
+            });
+            removeOverlay(overlay);
+            document.removeEventListener('click', clickOutsideHandler);
+            document.removeEventListener('keydown', keydownHandler);
+            document.removeEventListener('keydown', captureTabHandler, true);
+            return;
+          }
           if (autocompleteState && autocompleteState.url) {
             chrome.runtime.sendMessage({
               action: 'createTab',
@@ -1329,23 +1697,68 @@ function toggleBlackRectangle(tabs) {
     
     document.addEventListener('keydown', keydownHandler);
     
+    function applySearchSuggestionHighlight(item, theme) {
+      item.style.setProperty('background', theme.highlightBg, 'important');
+      item.style.setProperty('border', `1px solid ${theme.highlightBorder}`, 'important');
+    }
+
+    function resetSearchSuggestion(item) {
+      item.style.setProperty('background', '#FFFFFF', 'important');
+      item.style.setProperty('border', '1px solid transparent', 'important');
+    }
+
+    function applySearchActionStyles(item, theme, isActive) {
+      if (item._xVisitButton) {
+        if (item._xHideVisitButton) {
+          item._xVisitButton.style.setProperty('display', 'none', 'important');
+          item._xVisitButton.style.setProperty('background-color', 'transparent', 'important');
+          item._xVisitButton.style.setProperty('border', '1px solid transparent', 'important');
+        } else {
+          item._xVisitButton.style.setProperty('display', 'inline-flex', 'important');
+        }
+        if (isActive) {
+          item._xVisitButton.style.setProperty('color', theme.buttonText, 'important');
+          item._xVisitButton.style.setProperty('background-color', theme.buttonBg, 'important');
+          item._xVisitButton.style.setProperty('border', `1px solid ${theme.buttonBorder}`, 'important');
+        } else {
+          item._xVisitButton.style.setProperty('color', '#9CA3AF', 'important');
+          item._xVisitButton.style.setProperty('background-color', 'transparent', 'important');
+          item._xVisitButton.style.setProperty('border', '1px solid transparent', 'important');
+        }
+      }
+      if (item._xTagContainer) {
+        const shouldShow = isActive && item._xHasActionTags;
+        item._xTagContainer.style.setProperty('display', shouldShow ? 'inline-flex' : 'none', 'important');
+      }
+      if (item._xTitle) {
+        item._xTitle.style.setProperty('font-weight', isActive ? '600' : '400', 'important');
+      }
+    }
+
     function updateSelection() {
       suggestionItems.forEach((item, index) => {
-        if (index === selectedIndex) {
-          // Add selected background
+        const isSelected = index === selectedIndex;
+        const shouldAutoHighlight = selectedIndex === -1 && item._xIsAutocompleteTop;
+        const isHighlighted = isSelected || shouldAutoHighlight;
+        if (item._xIsSearchSuggestion) {
+          const theme = item._xTheme || defaultTheme;
+          if (isHighlighted) {
+            applySearchSuggestionHighlight(item, theme);
+          } else {
+            resetSearchSuggestion(item);
+          }
+          applySearchActionStyles(item, theme, isHighlighted);
+          return;
+        }
+        if (isSelected) {
           item.style.setProperty('background-color', '#F3F4F6', 'important');
-          // Update button color
-          const button = item.querySelector('button');
-          if (button) {
-            button.style.setProperty('color', '#1F2937', 'important');
+          if (item._xSwitchButton) {
+            item._xSwitchButton.style.setProperty('color', '#1F2937', 'important');
           }
         } else {
-          // Reset to default background
           item.style.setProperty('background-color', '#FFFFFF', 'important');
-          // Reset button color
-          const button = item.querySelector('button');
-          if (button) {
-            button.style.setProperty('color', '#9CA3AF', 'important');
+          if (item._xSwitchButton) {
+            item._xSwitchButton.style.setProperty('color', '#9CA3AF', 'important');
           }
         }
       });
@@ -1381,6 +1794,7 @@ function toggleBlackRectangle(tabs) {
           font: inherit !important;
           vertical-align: baseline !important;
         `;
+        suggestionItem._xIsSearchSuggestion = false;
         
         // Store reference to suggestion item
         suggestionItems.push(suggestionItem);
@@ -1484,6 +1898,7 @@ function toggleBlackRectangle(tabs) {
           gap: 4px !important;
           vertical-align: baseline !important;
         `;
+        suggestionItem._xSwitchButton = switchButton;
 
         // Add hover effects
         suggestionItem.addEventListener('mouseenter', function() {
@@ -1723,6 +2138,26 @@ function toggleBlackRectangle(tabs) {
         const keywordSuggestions = buildKeywordSuggestions(query, rules);
         preSuggestions.push(...keywordSuggestions);
 
+        const providersForTags = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
+          ? siteSearchProvidersCache
+          : defaultSiteSearchProviders;
+        const rawTagInput = (latestRawInputValue || searchInput.value || '').trim();
+        const inlineCandidate = !siteSearchState
+          ? getInlineSiteSearchCandidate(rawTagInput, providersForTags)
+          : null;
+        let inlineSuggestion = null;
+        if (inlineCandidate) {
+          const inlineUrl = buildSearchUrl(inlineCandidate.provider.template, inlineCandidate.query);
+          if (inlineUrl) {
+            inlineSuggestion = {
+              type: 'inlineSiteSearch',
+              title: `在 ${getSiteSearchDisplayName(inlineCandidate.provider)} 中搜索`,
+              url: inlineUrl,
+              favicon: getProviderIcon(inlineCandidate.provider)
+            };
+          }
+        }
+
         // Add New Tab, ChatGPT and Perplexity suggestions to the beginning
         const allSuggestions = [...preSuggestions, newTabSuggestion, /*chatGptSuggestion, perplexitySuggestion,*/ ...suggestions];
         if (siteSearchState && query) {
@@ -1793,21 +2228,33 @@ function toggleBlackRectangle(tabs) {
             }
           }
         }
+        if (inlineSuggestion) {
+          allSuggestions.unshift(inlineSuggestion);
+        }
         currentSuggestions = allSuggestions; // Store current suggestions including ChatGPT
         applyAutocomplete(allSuggestions);
+        const inlineAutoHighlight = Boolean(inlineSuggestion && !autocompleteCandidate);
+        inlineSearchState = inlineSuggestion
+          ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
+          : null;
+        const siteSearchCandidate = !siteSearchState && rawTagInput
+          ? findSiteSearchProviderByInput(rawTagInput, providersForTags)
+          : null;
         
         // Add search suggestions
         allSuggestions.forEach((suggestion, index) => {
           const suggestionItem = document.createElement('div');
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
+          const inlineOffset = inlineSuggestion ? 1 : 0;
           const isAutocompleteTop = Boolean(
-            autocompleteCandidate &&
-            index === 0 &&
-            ((autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) ||
-              (getUrlDisplay(suggestion.url) &&
-                getUrlDisplay(suggestion.url).toLowerCase() === autocompleteCandidate.completion.toLowerCase()) ||
-              (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())))
+            (autocompleteCandidate &&
+              index === inlineOffset &&
+              ((autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) ||
+                (getUrlDisplay(suggestion.url) &&
+                  getUrlDisplay(suggestion.url).toLowerCase() === autocompleteCandidate.completion.toLowerCase()) ||
+                (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())))) ||
+            (inlineAutoHighlight && suggestion.type === 'inlineSiteSearch' && index === 0)
           );
           suggestionItem.style.cssText = `
             all: unset !important;
@@ -1815,8 +2262,8 @@ function toggleBlackRectangle(tabs) {
             align-items: center !important;
             justify-content: space-between !important;
             padding: 12px 16px !important;
-            background: ${isAutocompleteTop ? '#EEF6FF' : '#FFFFFF'} !important;
-            border: ${isAutocompleteTop ? '1px solid #BFDBFE' : '1px solid transparent'} !important;
+            background: ${isAutocompleteTop ? defaultTheme.highlightBg : '#FFFFFF'} !important;
+            border: ${isAutocompleteTop ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
             border-radius: 16px !important;
             margin-bottom: ${isLastItem ? '0' : '4px'} !important;
             cursor: pointer !important;
@@ -1834,6 +2281,10 @@ function toggleBlackRectangle(tabs) {
           `;
           
           suggestionItems.push(suggestionItem);
+          suggestionItem._xIsSearchSuggestion = true;
+          suggestionItem._xIsAutocompleteTop = isAutocompleteTop;
+          suggestionItem._xTheme = defaultTheme;
+          applyThemeVariables(suggestionItem, defaultTheme);
           
           // Create left side with icon and title
           const leftSide = document.createElement('div');
@@ -1938,14 +2389,14 @@ function toggleBlackRectangle(tabs) {
           // Create title with highlighted query
           const title = document.createElement('span');
           let highlightedTitle;
-          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch') {
+          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch') {
             // For ChatGPT, Perplexity, and New Tab, don't highlight the query part
             highlightedTitle = suggestion.title;
           } else {
             // For other suggestions, highlight the query
             highlightedTitle = suggestion.title.replace(
               new RegExp(`(${query})`, 'gi'),
-              '<mark style="background: #CFE8FF; color: #1E3A8A; padding: 2px 4px; border-radius: 3px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">$1</mark>'
+              '<mark style="background: var(--x-ext-mark-bg, #CFE8FF); color: var(--x-ext-mark-text, #1E3A8A); padding: 2px 4px; border-radius: 3px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">$1</mark>'
             );
           }
           title.innerHTML = highlightedTitle;
@@ -1954,6 +2405,7 @@ function toggleBlackRectangle(tabs) {
             color: #111827 !important;
             font-size: 14px !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+            font-weight: 400 !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
@@ -1969,6 +2421,7 @@ function toggleBlackRectangle(tabs) {
             display: inline-block !important;
             vertical-align: baseline !important;
           `;
+          suggestionItem._xTitle = title;
           
           textWrapper.appendChild(title);
           
@@ -2077,13 +2530,73 @@ function toggleBlackRectangle(tabs) {
             textWrapper.appendChild(bookmarkTag);
           }
           
+          const rightSide = document.createElement('div');
+          rightSide.style.cssText = `
+            all: unset !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-shrink: 0 !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            color: inherit !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+          `;
+
+          const actionTags = document.createElement('div');
+          actionTags.style.cssText = `
+            all: unset !important;
+            display: none !important;
+            align-items: center !important;
+            gap: 6px !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            color: inherit !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+            flex-shrink: 0 !important;
+          `;
+
+          const shouldShowEnterTag = suggestion.type === 'inlineSiteSearch' || Boolean(
+            isAutocompleteTop &&
+            autocompleteState &&
+            autocompleteState.completion
+          );
+          const shouldShowSiteSearchTag = Boolean(
+            siteSearchCandidate &&
+            suggestionMatchesProvider(suggestion, siteSearchCandidate)
+          );
+          if (shouldShowEnterTag) {
+            actionTags.appendChild(createActionTag('访问', 'Enter'));
+          }
+          if (shouldShowSiteSearchTag) {
+            actionTags.appendChild(
+              createActionTag(`在 ${getSiteSearchDisplayName(siteSearchCandidate)} 中搜索`, 'Tab')
+            );
+          }
+
           // Create visit button
           const visitButton = document.createElement('button');
           visitButton.style.cssText = `
             all: unset !important;
             background: transparent !important;
             color: #9CA3AF !important;
-            border: none !important;
+            border: 1px solid transparent !important;
             border-radius: 16px !important;
             font-size: 12px !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
@@ -2101,6 +2614,10 @@ function toggleBlackRectangle(tabs) {
             gap: 4px !important;
             vertical-align: baseline !important;
           `;
+          suggestionItem._xHideVisitButton = shouldShowEnterTag;
+          if (shouldShowEnterTag) {
+            visitButton.style.setProperty('display', 'none', 'important');
+          }
           
           if (suggestion.type === 'newtab') {
             visitButton.innerHTML = '在 Google 中搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
@@ -2117,13 +2634,19 @@ function toggleBlackRectangle(tabs) {
           // Add hover effects
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
-              this.style.setProperty('background-color', '#F9FAFB', 'important');
+              this.style.setProperty('background', '#F9FAFB', 'important');
+              this.style.setProperty('border', '1px solid transparent', 'important');
             }
           });
           
           suggestionItem.addEventListener('mouseleave', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
-              this.style.setProperty('background-color', isAutocompleteTop ? '#EEF6FF' : '#FFFFFF', 'important');
+              if (selectedIndex === -1 && isAutocompleteTop) {
+                const theme = this._xTheme || defaultTheme;
+                applySearchSuggestionHighlight(this, theme);
+              } else {
+                resetSearchSuggestion(this);
+              }
             }
           });
           
@@ -2157,9 +2680,25 @@ function toggleBlackRectangle(tabs) {
           leftSide.appendChild(favicon);
           leftSide.appendChild(textWrapper);
           suggestionItem.appendChild(leftSide);
-          suggestionItem.appendChild(visitButton);
+          rightSide.appendChild(actionTags);
+          rightSide.appendChild(visitButton);
+          suggestionItem.appendChild(rightSide);
+          suggestionItem._xVisitButton = visitButton;
+          suggestionItem._xTagContainer = actionTags;
+          suggestionItem._xHasActionTags = actionTags.childNodes.length > 0;
           suggestionsContainer.appendChild(suggestionItem);
+
+          const themeSource = getThemeSourceForSuggestion(suggestion);
+          getThemeFromUrl(themeSource).then((theme) => {
+            if (!suggestionItem.isConnected) {
+              return;
+            }
+            suggestionItem._xTheme = theme;
+            applyThemeVariables(suggestionItem, theme);
+            updateSelection();
+          });
         });
+        updateSelection();
       
       // Update keyboard navigation
       selectedIndex = -1;
@@ -2167,6 +2706,7 @@ function toggleBlackRectangle(tabs) {
     }
     
     function clearSearchSuggestions() {
+      inlineSearchState = null;
       if (Array.isArray(tabs) && tabs.length > 0) {
         renderTabSuggestions(tabs);
       }
