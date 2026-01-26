@@ -26,6 +26,12 @@
     currentThemeMode = mode || 'system';
     const resolved = resolveTheme(mode);
     document.body.setAttribute('data-theme', resolved);
+    suggestionItems.forEach((item) => {
+      if (item && item._xTheme) {
+        applyThemeVariables(item, item._xTheme);
+      }
+    });
+    updateSelection();
     if (mode === 'system' && !mediaListenerAttached) {
       mediaQuery.addEventListener('change', handleMediaChange);
       mediaListenerAttached = true;
@@ -94,8 +100,12 @@
 
   function setThemeMode(mode) {
     const nextMode = mode || 'system';
+    currentThemeMode = nextMode;
     chrome.storage.local.set({ [THEME_STORAGE_KEY]: nextMode }, () => {
       applyThemeMode(nextMode);
+      if (isModeCommand(inputParts && inputParts.input ? inputParts.input.value : '')) {
+        renderSuggestions([], (inputParts.input.value || '').trim());
+      }
     });
   }
 
@@ -437,6 +447,22 @@
       }
     }
     return getThemeFromUrl(getThemeSourceForSuggestion(suggestion));
+  }
+
+  function getImmediateThemeForSuggestion(suggestion) {
+    if (suggestion && suggestion.provider) {
+      const brandAccent = getBrandAccentForUrl(suggestion.provider.template);
+      if (brandAccent) {
+        return buildTheme(brandAccent);
+      }
+    }
+    if (suggestion && suggestion.url) {
+      const brandAccent = getBrandAccentForUrl(suggestion.url);
+      if (brandAccent) {
+        return buildTheme(brandAccent);
+      }
+    }
+    return null;
   }
 
   function isNewtabDarkMode() {
@@ -1322,7 +1348,6 @@
       `;
       suggestionItem._xIsSearchSuggestion = false;
       suggestionItem._xIsAutocompleteTop = false;
-      suggestionItem._xTheme = defaultTheme;
       suggestionItems.push(suggestionItem);
 
       const leftSide = document.createElement('div');
@@ -1420,8 +1445,15 @@
 
       suggestionItem.addEventListener('mouseenter', function() {
         if (suggestionItems.indexOf(this) !== selectedIndex) {
-          this.style.setProperty('background-color', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
-          this.style.setProperty('border', '1px solid transparent', 'important');
+          const theme = this._xTheme;
+          if (theme && !theme._xIsDefault) {
+            const hover = getHoverColors(theme);
+            this.style.setProperty('background-color', hover.bg, 'important');
+            this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+          } else {
+            this.style.setProperty('background-color', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
+            this.style.setProperty('border', '1px solid transparent', 'important');
+          }
         }
       });
 
@@ -1456,6 +1488,9 @@
         url: tab.url || '',
         favicon: tab.favIconUrl || ''
       };
+      const immediateTheme = getImmediateThemeForSuggestion(themeSourceSuggestion) || defaultTheme;
+      suggestionItem._xTheme = immediateTheme;
+      applyThemeVariables(suggestionItem, immediateTheme);
       getThemeForSuggestion(themeSourceSuggestion).then((theme) => {
         if (!suggestionItem.isConnected) {
           return;
@@ -1507,6 +1542,15 @@
       }
       const rawTagInput = (latestRawQuery || inputParts.input.value || '').trim();
       const modeCommandActive = isModeCommand(rawTagInput);
+      if (modeCommandActive) {
+        chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+          const storedMode = result[THEME_STORAGE_KEY] || 'system';
+          if (storedMode !== currentThemeMode && query === latestQuery) {
+            currentThemeMode = storedMode;
+            renderSuggestions([], query);
+          }
+        });
+      }
       const preSuggestions = [];
       if (modeCommandActive) {
         preSuggestions.push(buildModeSuggestion());
@@ -1652,6 +1696,8 @@
         suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === allSuggestions.length - 1;
         const isPrimaryHighlight = index === primaryHighlightIndex;
+        const immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
+        const initialHighlight = isPrimaryHighlight ? getHighlightColors(immediateTheme) : null;
         suggestionItem.style.cssText = `
           all: unset !important;
           display: flex !important;
@@ -1659,8 +1705,8 @@
           justify-content: space-between !important;
           padding: 12px 16px !important;
           min-height: 44px !important;
-          background: ${isPrimaryHighlight ? defaultTheme.highlightBg : 'transparent'} !important;
-          border: ${isPrimaryHighlight ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
+          background: ${isPrimaryHighlight ? initialHighlight.bg : 'transparent'} !important;
+          border: ${isPrimaryHighlight ? `1px solid ${initialHighlight.border}` : '1px solid transparent'} !important;
           border-radius: 16px !important;
           cursor: pointer !important;
           transition: background-color 0.2s ease !important;
@@ -1677,9 +1723,9 @@
         `;
         suggestionItems.push(suggestionItem);
         suggestionItem._xIsSearchSuggestion = true;
-        suggestionItem._xTheme = defaultTheme;
+        suggestionItem._xTheme = immediateTheme;
         suggestionItem._xIsAutocompleteTop = isPrimaryHighlight;
-        applyThemeVariables(suggestionItem, defaultTheme);
+        applyThemeVariables(suggestionItem, immediateTheme);
 
         const leftSide = document.createElement('div');
         leftSide.style.cssText = `
@@ -2021,8 +2067,15 @@
 
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
-            this.style.setProperty('background', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
-            this.style.setProperty('border', '1px solid transparent', 'important');
+            const theme = this._xTheme;
+            if (theme && !theme._xIsDefault) {
+              const hover = getHoverColors(theme);
+              this.style.setProperty('background', hover.bg, 'important');
+              this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+            } else {
+              this.style.setProperty('background', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
+              this.style.setProperty('border', '1px solid transparent', 'important');
+            }
           }
         });
 

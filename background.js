@@ -741,6 +741,12 @@ function toggleBlackRectangle(tabs) {
     const applyOverlayTheme = (mode) => {
       overlayThemeMode = mode;
       applyOverlayThemeVariables(overlay, mode);
+      suggestionItems.forEach((item) => {
+        if (item && item._xTheme) {
+          applyThemeVariables(item, item._xTheme);
+        }
+      });
+      updateSelection();
       if (mode === 'system' && !overlayThemeListenerAttached) {
         overlayThemeMediaListener = function() {
           if (overlayThemeMode === 'system') {
@@ -861,6 +867,9 @@ function toggleBlackRectangle(tabs) {
       const nextMode = mode || 'system';
       chrome.storage.local.set({ [THEME_STORAGE_KEY]: nextMode });
       applyOverlayTheme(nextMode);
+      if (isModeCommand(searchInput.value || '')) {
+        updateSearchSuggestions([], (searchInput.value || '').trim());
+      }
     }
 
     if (rightIcon) {
@@ -1066,7 +1075,7 @@ function toggleBlackRectangle(tabs) {
     defaultTheme._xIsDefault = true;
     const overlayThemeTokens = {
       light: {
-        bg: 'rgba(255, 255, 255, 0.9)',
+        bg: 'rgba(255, 255, 255, 0.99)',
         border: 'rgba(0, 0, 0, 0.08)',
         shadow: '0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15)',
         text: '#111827',
@@ -1079,7 +1088,7 @@ function toggleBlackRectangle(tabs) {
         bookmarkTagBg: '#FEF3C7',
         bookmarkTagText: '#D97706',
         underline: '#E5E7EB',
-        blur: '24px',
+        blur: '4px',
         saturate: '165%'
       },
       dark: {
@@ -1326,6 +1335,22 @@ function toggleBlackRectangle(tabs) {
         }
       }
       return getThemeFromUrl(getThemeSourceForSuggestion(suggestion));
+    }
+
+    function getImmediateThemeForSuggestion(suggestion) {
+      if (suggestion && suggestion.provider) {
+        const brandAccent = getBrandAccentForUrl(suggestion.provider.template);
+        if (brandAccent) {
+          return buildTheme(brandAccent);
+        }
+      }
+      if (suggestion && suggestion.url) {
+        const brandAccent = getBrandAccentForUrl(suggestion.url);
+        if (brandAccent) {
+          return buildTheme(brandAccent);
+        }
+      }
+      return null;
     }
 
     function applyThemeVariables(target, theme) {
@@ -2357,6 +2382,7 @@ function toggleBlackRectangle(tabs) {
           justify-content: space-between !important;
           padding: 12px 16px !important;
           background: transparent !important;
+          border: 1px solid transparent !important;
           border-radius: 16px !important;
           cursor: pointer !important;
           transition: background-color 0.2s ease !important;
@@ -2481,13 +2507,22 @@ function toggleBlackRectangle(tabs) {
         // Add hover effects
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
-            this.style.setProperty('background-color', 'var(--x-ov-hover-bg, #F3F4F6)', 'important');
+            const theme = this._xTheme;
+            if (theme && !theme._xIsDefault) {
+              const hover = getHoverColors(theme);
+              this.style.setProperty('background-color', hover.bg, 'important');
+              this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+            } else {
+              this.style.setProperty('background-color', 'var(--x-ov-hover-bg, #F3F4F6)', 'important');
+              this.style.setProperty('border', '1px solid transparent', 'important');
+            }
           }
         });
 
         suggestionItem.addEventListener('mouseleave', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
             this.style.setProperty('background-color', 'transparent', 'important');
+            this.style.setProperty('border', '1px solid transparent', 'important');
           }
         });
 
@@ -2522,6 +2557,9 @@ function toggleBlackRectangle(tabs) {
           url: tab.url || '',
           favicon: tab.favIconUrl || ''
         };
+        const immediateTheme = getImmediateThemeForSuggestion(themeSourceSuggestion) || defaultTheme;
+        suggestionItem._xTheme = immediateTheme;
+        applyThemeVariables(suggestionItem, immediateTheme);
         getThemeForSuggestion(themeSourceSuggestion).then((theme) => {
           if (!suggestionItem.isConnected) {
             return;
@@ -2668,6 +2706,15 @@ function toggleBlackRectangle(tabs) {
       suggestionItems.length = 0;
       const rawTagInput = (latestRawInputValue || query || '').trim();
       const modeCommandActive = isModeCommand(rawTagInput);
+      if (modeCommandActive) {
+        chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+          const storedMode = result[THEME_STORAGE_KEY] || 'system';
+          if (storedMode !== overlayThemeMode && query === latestOverlayQuery) {
+            applyOverlayTheme(storedMode);
+            updateSearchSuggestions([], query);
+          }
+        });
+      }
       
       // Add New Tab suggestion as first item
       const newTabSuggestion = modeCommandActive
@@ -2861,14 +2908,16 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
           const isPrimaryHighlight = index === primaryHighlightIndex;
+          const immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
+          const initialHighlight = isPrimaryHighlight ? getHighlightColors(immediateTheme) : null;
           suggestionItem.style.cssText = `
             all: unset !important;
             display: flex !important;
             align-items: center !important;
             justify-content: space-between !important;
             padding: 12px 16px !important;
-            background: ${isPrimaryHighlight ? defaultTheme.highlightBg : 'transparent'} !important;
-            border: ${isPrimaryHighlight ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
+            background: ${isPrimaryHighlight ? initialHighlight.bg : 'transparent'} !important;
+            border: ${isPrimaryHighlight ? `1px solid ${initialHighlight.border}` : '1px solid transparent'} !important;
             border-radius: 16px !important;
             margin-bottom: ${isLastItem ? '0' : '4px'} !important;
             cursor: pointer !important;
@@ -2888,8 +2937,8 @@ function toggleBlackRectangle(tabs) {
           suggestionItems.push(suggestionItem);
           suggestionItem._xIsSearchSuggestion = true;
           suggestionItem._xIsAutocompleteTop = isPrimaryHighlight;
-          suggestionItem._xTheme = defaultTheme;
-          applyThemeVariables(suggestionItem, defaultTheme);
+          suggestionItem._xTheme = immediateTheme;
+          applyThemeVariables(suggestionItem, immediateTheme);
           
           // Create left side with icon and title
           const leftSide = document.createElement('div');
@@ -3280,8 +3329,15 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
-              this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
-              this.style.setProperty('border', '1px solid transparent', 'important');
+              const theme = this._xTheme;
+              if (theme && !theme._xIsDefault) {
+                const hover = getHoverColors(theme);
+                this.style.setProperty('background', hover.bg, 'important');
+                this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+              } else {
+                this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
+                this.style.setProperty('border', '1px solid transparent', 'important');
+              }
             }
           });
           
