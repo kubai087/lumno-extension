@@ -2003,13 +2003,14 @@ function toggleBlackRectangle(tabs) {
           applySearchActionStyles(item, theme, isHighlighted);
           return;
         }
+        const theme = item._xTheme || defaultTheme;
         if (isSelected) {
-          item.style.setProperty('background-color', '#F3F4F6', 'important');
+          applySearchSuggestionHighlight(item, theme);
           if (item._xSwitchButton) {
             item._xSwitchButton.style.setProperty('color', '#1F2937', 'important');
           }
         } else {
-          item.style.setProperty('background-color', '#FFFFFF', 'important');
+          resetSearchSuggestion(item);
           if (item._xSwitchButton) {
             item._xSwitchButton.style.setProperty('color', '#9CA3AF', 'important');
           }
@@ -2051,6 +2052,7 @@ function toggleBlackRectangle(tabs) {
         
         // Store reference to suggestion item
         suggestionItems.push(suggestionItem);
+        suggestionItem._xTheme = defaultTheme;
 
         // Create left side with icon and title
         const leftSide = document.createElement('div');
@@ -2192,6 +2194,18 @@ function toggleBlackRectangle(tabs) {
         suggestionItem.appendChild(leftSide);
         suggestionItem.appendChild(switchButton);
         suggestionsContainer.appendChild(suggestionItem);
+
+        const themeSourceSuggestion = {
+          url: tab.url || '',
+          favicon: tab.favIconUrl || ''
+        };
+        getThemeForSuggestion(themeSourceSuggestion).then((theme) => {
+          if (!suggestionItem.isConnected) {
+            return;
+          }
+          suggestionItem._xTheme = theme;
+          updateSelection();
+        });
       });
 
       selectedIndex = -1;
