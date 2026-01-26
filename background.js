@@ -1979,6 +1979,39 @@ function toggleBlackRectangle(tabs) {
           item._xVisitButton.style.setProperty('border', '1px solid transparent', 'important');
         }
       }
+      if (item._xHistoryTag) {
+        if (isActive) {
+          item._xHistoryTag.style.setProperty('background', theme.tagBg, 'important');
+          item._xHistoryTag.style.setProperty('color', theme.tagText, 'important');
+          item._xHistoryTag.style.setProperty('border', `1px solid ${theme.tagBorder}`, 'important');
+        } else {
+          item._xHistoryTag.style.setProperty('background', item._xHistoryTag._xDefaultBg || '#F3F4F6', 'important');
+          item._xHistoryTag.style.setProperty('color', item._xHistoryTag._xDefaultText || '#6B7280', 'important');
+          item._xHistoryTag.style.setProperty('border', `1px solid ${item._xHistoryTag._xDefaultBorder || 'transparent'}`, 'important');
+        }
+      }
+      if (item._xBookmarkTag) {
+        if (isActive) {
+          item._xBookmarkTag.style.setProperty('background', theme.tagBg, 'important');
+          item._xBookmarkTag.style.setProperty('color', theme.tagText, 'important');
+          item._xBookmarkTag.style.setProperty('border', `1px solid ${theme.tagBorder}`, 'important');
+        } else {
+          item._xBookmarkTag.style.setProperty('background', item._xBookmarkTag._xDefaultBg || '#FEF3C7', 'important');
+          item._xBookmarkTag.style.setProperty('color', item._xBookmarkTag._xDefaultText || '#D97706', 'important');
+          item._xBookmarkTag.style.setProperty('border', `1px solid ${item._xBookmarkTag._xDefaultBorder || 'transparent'}`, 'important');
+        }
+      }
+      if (item._xTopSiteTag) {
+        if (isActive) {
+          item._xTopSiteTag.style.setProperty('background', theme.tagBg, 'important');
+          item._xTopSiteTag.style.setProperty('color', theme.tagText, 'important');
+          item._xTopSiteTag.style.setProperty('border', `1px solid ${theme.tagBorder}`, 'important');
+        } else {
+          item._xTopSiteTag.style.setProperty('background', item._xTopSiteTag._xDefaultBg || '#F3F4F6', 'important');
+          item._xTopSiteTag.style.setProperty('color', item._xTopSiteTag._xDefaultText || '#6B7280', 'important');
+          item._xTopSiteTag.style.setProperty('border', `1px solid ${item._xTopSiteTag._xDefaultBorder || 'transparent'}`, 'important');
+        }
+      }
       if (item._xTagContainer) {
         const shouldShow = isActive && item._xHasActionTags;
         item._xTagContainer.style.setProperty('display', shouldShow ? 'inline-flex' : 'none', 'important');
@@ -2637,7 +2670,7 @@ function toggleBlackRectangle(tabs) {
             overflow: visible !important;
             box-sizing: border-box !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 0 8px 0 0 !important;
             line-height: 1 !important;
             text-decoration: none !important;
             list-style: none !important;
@@ -2696,6 +2729,9 @@ function toggleBlackRectangle(tabs) {
             }
             const historyTag = document.createElement('span');
             historyTag.textContent = '历史';
+            historyTag._xDefaultBg = '#F3F4F6';
+            historyTag._xDefaultText = '#6B7280';
+            historyTag._xDefaultBorder = 'transparent';
             historyTag.style.cssText = `
               all: unset !important;
               background: #F3F4F6 !important;
@@ -2709,12 +2745,14 @@ function toggleBlackRectangle(tabs) {
               text-decoration: none !important;
               list-style: none !important;
               outline: none !important;
+              border: 1px solid transparent !important;
               display: inline-flex !important;
               align-items: center !important;
               vertical-align: middle !important;
               flex-shrink: 0 !important;
             `;
             textWrapper.appendChild(historyTag);
+            suggestionItem._xHistoryTag = historyTag;
           }
           
           // Add topSite tag if type is topSite
@@ -2725,6 +2763,9 @@ function toggleBlackRectangle(tabs) {
             }
             const topSiteTag = document.createElement('span');
             topSiteTag.textContent = '常用';
+            topSiteTag._xDefaultBg = '#F3F4F6';
+            topSiteTag._xDefaultText = '#6B7280';
+            topSiteTag._xDefaultBorder = 'transparent';
             topSiteTag.style.cssText = `
               all: unset !important;
               background: #F3F4F6 !important;
@@ -2738,12 +2779,14 @@ function toggleBlackRectangle(tabs) {
               text-decoration: none !important;
               list-style: none !important;
               outline: none !important;
+              border: 1px solid transparent !important;
               display: inline-flex !important;
               align-items: center !important;
               vertical-align: middle !important;
               flex-shrink: 0 !important;
             `;
             textWrapper.appendChild(topSiteTag);
+            suggestionItem._xTopSiteTag = topSiteTag;
           }
           
           // Add bookmark tag if type is bookmark
@@ -2772,6 +2815,9 @@ function toggleBlackRectangle(tabs) {
             }
             const bookmarkTag = document.createElement('span');
             bookmarkTag.textContent = '书签';
+            bookmarkTag._xDefaultBg = '#FEF3C7';
+            bookmarkTag._xDefaultText = '#D97706';
+            bookmarkTag._xDefaultBorder = 'transparent';
             bookmarkTag.style.cssText = `
               all: unset !important;
               background: #FEF3C7 !important;
@@ -2785,12 +2831,14 @@ function toggleBlackRectangle(tabs) {
               text-decoration: none !important;
               list-style: none !important;
               outline: none !important;
+              border: 1px solid transparent !important;
               display: inline-flex !important;
               align-items: center !important;
               vertical-align: middle !important;
               flex-shrink: 0 !important;
             `;
             textWrapper.appendChild(bookmarkTag);
+            suggestionItem._xBookmarkTag = bookmarkTag;
           }
           
           const rightSide = document.createElement('div');
