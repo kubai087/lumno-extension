@@ -664,11 +664,11 @@ function toggleBlackRectangle(tabs) {
       width: 50vw !important;
       max-width: 90vw !important;
       max-height: 75vh !important;
-      background: rgba(255, 255, 255, 0.9) !important;
-      backdrop-filter: blur(12px) saturate(180%) !important;
-      -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+      background: rgba(255, 255, 255, 0.95) !important;
+      backdrop-filter: blur(24px) saturate(165%) !important;
+      -webkit-backdrop-filter: blur(24px) saturate(165%) !important;
       border: 1px solid rgba(0, 0, 0, 0.08) !important;
-      border-radius: 24px !important;
+      border-radius: 28px !important;
       box-shadow: 0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15) !important;
       z-index: 2147483647 !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
@@ -1957,7 +1957,7 @@ function toggleBlackRectangle(tabs) {
     }
 
     function resetSearchSuggestion(item) {
-      item.style.setProperty('background', '#FFFFFF', 'important');
+      item.style.setProperty('background', 'transparent', 'important');
       item.style.setProperty('border', '1px solid transparent', 'important');
     }
 
@@ -2198,7 +2198,7 @@ function toggleBlackRectangle(tabs) {
 
         suggestionItem.addEventListener('mouseleave', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
-            this.style.setProperty('background-color', '#FFFFFF', 'important');
+            this.style.setProperty('background-color', 'transparent', 'important');
           }
         });
 
@@ -2559,7 +2559,7 @@ function toggleBlackRectangle(tabs) {
             align-items: center !important;
             justify-content: space-between !important;
             padding: 12px 16px !important;
-            background: ${isPrimaryHighlight ? defaultTheme.highlightBg : '#FFFFFF'} !important;
+            background: ${isPrimaryHighlight ? defaultTheme.highlightBg : 'transparent'} !important;
             border: ${isPrimaryHighlight ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
             border-radius: 16px !important;
             margin-bottom: ${isLastItem ? '0' : '4px'} !important;
@@ -3075,8 +3075,8 @@ function toggleBlackRectangle(tabs) {
       overflow-y: auto !important;
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
-      background: #FFFFFF !important;
-      border-radius: 0 0 24px 24px !important;
+      background: transparent !important;
+      border-radius: 0 0 28px 28px !important;
       padding: 8px !important;
       box-sizing: border-box !important;
       display: block !important;

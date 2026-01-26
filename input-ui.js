@@ -160,8 +160,9 @@
       font: inherit !important;
       vertical-align: baseline !important;
       display: block !important;
-      background: rgba(255, 255, 255, 0.9) !important;
-      border-radius: 24px 24px 0 0 !important;
+      background: transparent !important;
+      border-radius: 28px 28px 0 0 !important;
+      overflow: hidden !important;
     `;
     applyStyleOverrides(container, config.containerStyleOverrides);
 
