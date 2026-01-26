@@ -740,6 +740,7 @@ function toggleBlackRectangle(tabs) {
     let latestRawInputValue = '';
     let autocompleteState = null;
     let inlineSearchState = null;
+    let siteSearchTriggerState = null;
     let isComposing = false;
     let siteSearchState = null;
     const defaultPlaceholder = searchInput.placeholder;
@@ -1389,6 +1390,85 @@ function toggleBlackRectangle(tabs) {
       return { provider: provider, query: remainder };
     }
 
+    function matchesTopSitePrefix(suggestion, input) {
+      if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
+        return false;
+      }
+      const query = String(input || '').trim().toLowerCase();
+      if (!query) {
+        return false;
+      }
+      const titleText = String(suggestion.title || '').toLowerCase();
+      if (titleText.startsWith(query)) {
+        return true;
+      }
+      const urlText = getUrlDisplay(suggestion.url || '');
+      if (!urlText) {
+        return false;
+      }
+      const host = urlText.split('/')[0] || '';
+      return host.toLowerCase().startsWith(query);
+    }
+
+    function getTopSiteMatchCandidate(list, input) {
+      if (!Array.isArray(list)) {
+        return null;
+      }
+      const query = String(input || '').trim();
+      if (!query || /\s/.test(query)) {
+        return null;
+      }
+      let fallback = null;
+      for (let i = 0; i < list.length; i += 1) {
+        const suggestion = list[i];
+        if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
+          continue;
+        }
+        const urlText = getUrlDisplay(suggestion.url || '');
+        const host = urlText ? (urlText.split('/')[0] || '') : '';
+        if (host && host.toLowerCase().startsWith(query.toLowerCase())) {
+          return suggestion;
+        }
+        if (!fallback && matchesTopSitePrefix(suggestion, query)) {
+          fallback = suggestion;
+        }
+      }
+      return fallback;
+    }
+
+    function promoteTopSiteMatch(list, queryText) {
+      const match = getTopSiteMatchCandidate(list, queryText);
+      if (!match) {
+        return null;
+      }
+      const matchIndex = list.indexOf(match);
+      if (matchIndex > 0) {
+        const [picked] = list.splice(matchIndex, 1);
+        list.unshift(picked);
+        return picked;
+      }
+      if (matchIndex === 0) {
+        return list[0];
+      }
+      return null;
+    }
+
+    function getSiteSearchTriggerCandidate(input, providers, topSiteMatch) {
+      const trimmed = String(input || '').trim();
+      if (!trimmed || /\s/.test(trimmed)) {
+        return null;
+      }
+      const provider = findSiteSearchProvider(trimmed, providers) ||
+        findSiteSearchProviderByKey(trimmed, providers);
+      if (!provider) {
+        return null;
+      }
+      if (topSiteMatch && trimmed.length <= 2 && matchesTopSitePrefix(topSiteMatch, trimmed)) {
+        return null;
+      }
+      return provider;
+    }
+
     function activateSiteSearch(provider) {
       if (!provider) {
         return;
@@ -1495,21 +1575,28 @@ function toggleBlackRectangle(tabs) {
       }
       const rawValue = searchInput.value;
       const rawTrigger = latestRawInputValue || rawValue;
-      const providers = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
-        ? siteSearchProvidersCache
-        : defaultSiteSearchProviders;
-      const directProvider = findSiteSearchProviderByInput(rawTrigger, providers) ||
-        findSiteSearchProviderByInput(rawValue, providers);
-      if (directProvider) {
+      const triggerInput = (rawTrigger || rawValue).trim();
+      if (siteSearchTriggerState &&
+          siteSearchTriggerState.rawInput === triggerInput &&
+          siteSearchTriggerState.provider) {
         e.preventDefault();
-        activateSiteSearch(directProvider);
+        activateSiteSearch(siteSearchTriggerState.provider);
         return true;
       }
-      if (rawTrigger.trim() || rawValue.trim()) {
+      if (triggerInput) {
         e.preventDefault();
+        const providers = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
+          ? siteSearchProvidersCache
+          : defaultSiteSearchProviders;
+        const topSiteMatch = getTopSiteMatchCandidate(currentSuggestions, triggerInput);
+        const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
+        if (directProvider) {
+          activateSiteSearch(directProvider);
+          return true;
+        }
         getSiteSearchProviders().then((items) => {
-          const asyncProvider = findSiteSearchProviderByInput(rawTrigger, items) ||
-            findSiteSearchProviderByInput(rawValue, items);
+          const asyncTopSiteMatch = getTopSiteMatchCandidate(currentSuggestions, triggerInput);
+          const asyncProvider = getSiteSearchTriggerCandidate(triggerInput, items, asyncTopSiteMatch);
           if (asyncProvider) {
             activateSiteSearch(asyncProvider);
             return;
@@ -1617,6 +1704,12 @@ function toggleBlackRectangle(tabs) {
           const isSearchSuggestion = query.length > 0;
           
           if (isSearchSuggestion && currentSuggestions[selectedIndex]) {
+            const selectedSuggestion = currentSuggestions[selectedIndex];
+            if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
+              activateSiteSearch(selectedSuggestion.provider);
+              searchInput.focus();
+              return;
+            }
             // Navigate to the suggested URL
             console.log('Opening URL from keyboard:', currentSuggestions[selectedIndex].url);
             chrome.runtime.sendMessage({
@@ -1709,12 +1802,11 @@ function toggleBlackRectangle(tabs) {
 
     function applySearchActionStyles(item, theme, isActive) {
       if (item._xVisitButton) {
-        if (item._xHideVisitButton) {
-          item._xVisitButton.style.setProperty('display', 'none', 'important');
+        const shouldHide = Boolean(item._xAlwaysHideVisitButton || (isActive && item._xHasActionTags));
+        item._xVisitButton.style.setProperty('display', shouldHide ? 'none' : 'inline-flex', 'important');
+        if (shouldHide) {
           item._xVisitButton.style.setProperty('background-color', 'transparent', 'important');
           item._xVisitButton.style.setProperty('border', '1px solid transparent', 'important');
-        } else {
-          item._xVisitButton.style.setProperty('display', 'inline-flex', 'important');
         }
         if (isActive) {
           item._xVisitButton.style.setProperty('color', theme.buttonText, 'important');
@@ -2171,39 +2263,31 @@ function toggleBlackRectangle(tabs) {
             });
           }
         }
-        function promoteDomainPrefixMatch(list, queryText) {
-          if (!queryText) {
-            return null;
-          }
-          const queryLower = queryText.toLowerCase();
-          const matchIndex = list.findIndex((suggestion) => {
-            if (!suggestion || suggestion.type === 'newtab') {
-              return false;
-            }
-            if (!(suggestion.type === 'topSite' || suggestion.isTopSite)) {
-              return false;
-            }
-            const urlText = getUrlDisplay(suggestion.url);
-            if (!urlText) {
-              return false;
-            }
-            const host = urlText.split('/')[0] || '';
-            return host.toLowerCase().startsWith(queryLower);
-          });
-          if (matchIndex > 0) {
-            const [match] = list.splice(matchIndex, 1);
-            list.unshift(match);
-            return match;
-          }
-          if (matchIndex === 0) {
-            return list[0];
-          }
-          return null;
-        }
-
         let autocompleteCandidate = null;
-        if (!siteSearchState) {
-          promoteDomainPrefixMatch(allSuggestions, latestRawInputValue.trim());
+        let primaryHighlightIndex = -1;
+        let primaryHighlightReason = 'none';
+        let topSiteMatch = null;
+        let siteSearchPrompt = null;
+        const inlineEnabled = Boolean(inlineSuggestion);
+        if (!siteSearchState && !inlineEnabled) {
+          topSiteMatch = promoteTopSiteMatch(allSuggestions, latestRawInputValue.trim());
+        }
+        const siteSearchTrigger = (!siteSearchState && !inlineEnabled)
+          ? getSiteSearchTriggerCandidate(rawTagInput, providersForTags, topSiteMatch)
+          : null;
+        if (siteSearchTrigger && !topSiteMatch) {
+          siteSearchPrompt = {
+            type: 'siteSearchPrompt',
+            title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 网站中搜索`,
+            url: '',
+            favicon: getProviderIcon(siteSearchTrigger),
+            provider: siteSearchTrigger
+          };
+          allSuggestions.unshift(siteSearchPrompt);
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'siteSearchPrompt';
+        }
+        if (!siteSearchState && !inlineEnabled && !siteSearchPrompt) {
           autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawInputValue);
           if (autocompleteCandidate) {
             const candidateIndex = allSuggestions.findIndex((suggestion) => {
@@ -2226,19 +2310,26 @@ function toggleBlackRectangle(tabs) {
               const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
               allSuggestions.unshift(candidateSuggestion);
             }
+            primaryHighlightIndex = 0;
+            primaryHighlightReason = 'autocomplete';
           }
         }
         if (inlineSuggestion) {
           allSuggestions.unshift(inlineSuggestion);
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'inline';
+        } else if (!siteSearchPrompt && topSiteMatch) {
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'topSite';
         }
         currentSuggestions = allSuggestions; // Store current suggestions including ChatGPT
         applyAutocomplete(allSuggestions);
-        const inlineAutoHighlight = Boolean(inlineSuggestion && !autocompleteCandidate);
+        const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
         inlineSearchState = inlineSuggestion
           ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
           : null;
-        const siteSearchCandidate = !siteSearchState && rawTagInput
-          ? findSiteSearchProviderByInput(rawTagInput, providersForTags)
+        siteSearchTriggerState = siteSearchTrigger
+          ? { provider: siteSearchTrigger, rawInput: rawTagInput }
           : null;
         
         // Add search suggestions
@@ -2246,24 +2337,15 @@ function toggleBlackRectangle(tabs) {
           const suggestionItem = document.createElement('div');
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
-          const inlineOffset = inlineSuggestion ? 1 : 0;
-          const isAutocompleteTop = Boolean(
-            (autocompleteCandidate &&
-              index === inlineOffset &&
-              ((autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) ||
-                (getUrlDisplay(suggestion.url) &&
-                  getUrlDisplay(suggestion.url).toLowerCase() === autocompleteCandidate.completion.toLowerCase()) ||
-                (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())))) ||
-            (inlineAutoHighlight && suggestion.type === 'inlineSiteSearch' && index === 0)
-          );
+          const isPrimaryHighlight = index === primaryHighlightIndex;
           suggestionItem.style.cssText = `
             all: unset !important;
             display: flex !important;
             align-items: center !important;
             justify-content: space-between !important;
             padding: 12px 16px !important;
-            background: ${isAutocompleteTop ? defaultTheme.highlightBg : '#FFFFFF'} !important;
-            border: ${isAutocompleteTop ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
+            background: ${isPrimaryHighlight ? defaultTheme.highlightBg : '#FFFFFF'} !important;
+            border: ${isPrimaryHighlight ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
             border-radius: 16px !important;
             margin-bottom: ${isLastItem ? '0' : '4px'} !important;
             cursor: pointer !important;
@@ -2282,7 +2364,7 @@ function toggleBlackRectangle(tabs) {
           
           suggestionItems.push(suggestionItem);
           suggestionItem._xIsSearchSuggestion = true;
-          suggestionItem._xIsAutocompleteTop = isAutocompleteTop;
+          suggestionItem._xIsAutocompleteTop = isPrimaryHighlight;
           suggestionItem._xTheme = defaultTheme;
           applyThemeVariables(suggestionItem, defaultTheme);
           
@@ -2389,7 +2471,7 @@ function toggleBlackRectangle(tabs) {
           // Create title with highlighted query
           const title = document.createElement('span');
           let highlightedTitle;
-          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch') {
+          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt') {
             // For ChatGPT, Perplexity, and New Tab, don't highlight the query part
             highlightedTitle = suggestion.title;
           } else {
@@ -2572,22 +2654,19 @@ function toggleBlackRectangle(tabs) {
             flex-shrink: 0 !important;
           `;
 
-          const shouldShowEnterTag = suggestion.type === 'inlineSiteSearch' || Boolean(
-            isAutocompleteTop &&
-            autocompleteState &&
-            autocompleteState.completion
-          );
-          const shouldShowSiteSearchTag = Boolean(
-            siteSearchCandidate &&
-            suggestionMatchesProvider(suggestion, siteSearchCandidate)
-          );
+          const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
+          const shouldShowEnterTag = isPrimaryHighlight &&
+            (primaryHighlightReason === 'topSite' ||
+              primaryHighlightReason === 'inline' ||
+              primaryHighlightReason === 'autocomplete');
+          const shouldShowSiteSearchTag = isPrimaryHighlight &&
+            siteSearchTrigger &&
+            (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch);
           if (shouldShowEnterTag) {
             actionTags.appendChild(createActionTag('访问', 'Enter'));
           }
           if (shouldShowSiteSearchTag) {
-            actionTags.appendChild(
-              createActionTag(`在 ${getSiteSearchDisplayName(siteSearchCandidate)} 中搜索`, 'Tab')
-            );
+            actionTags.appendChild(createActionTag('搜索', 'Tab'));
           }
 
           // Create visit button
@@ -2614,8 +2693,8 @@ function toggleBlackRectangle(tabs) {
             gap: 4px !important;
             vertical-align: baseline !important;
           `;
-          suggestionItem._xHideVisitButton = shouldShowEnterTag;
-          if (shouldShowEnterTag) {
+          suggestionItem._xAlwaysHideVisitButton = suggestion.type === 'siteSearchPrompt';
+          if (suggestionItem._xAlwaysHideVisitButton) {
             visitButton.style.setProperty('display', 'none', 'important');
           }
           
@@ -2653,19 +2732,29 @@ function toggleBlackRectangle(tabs) {
           // Add click handler to visit URL
           visitButton.addEventListener('click', function(e) {
             e.stopPropagation();
+            if (suggestion.type === 'siteSearchPrompt' && suggestion.provider) {
+              activateSiteSearch(suggestion.provider);
+              searchInput.focus();
+              return;
+            }
             console.log('Opening URL:', suggestion.url);
             chrome.runtime.sendMessage({
               action: 'createTab',
               url: suggestion.url
             });
             removeOverlay(overlay);
-          document.removeEventListener('click', clickOutsideHandler);
-          document.removeEventListener('keydown', keydownHandler);
-          document.removeEventListener('keydown', captureTabHandler, true);
+            document.removeEventListener('click', clickOutsideHandler);
+            document.removeEventListener('keydown', keydownHandler);
+            document.removeEventListener('keydown', captureTabHandler, true);
           });
           
           // Add click handler to select item
           suggestionItem.addEventListener('click', function() {
+            if (suggestion.type === 'siteSearchPrompt' && suggestion.provider) {
+              activateSiteSearch(suggestion.provider);
+              searchInput.focus();
+              return;
+            }
             console.log('Opening URL:', suggestion.url);
             chrome.runtime.sendMessage({
               action: 'createTab',
@@ -2707,6 +2796,7 @@ function toggleBlackRectangle(tabs) {
     
     function clearSearchSuggestions() {
       inlineSearchState = null;
+      siteSearchTriggerState = null;
       if (Array.isArray(tabs) && tabs.length > 0) {
         renderTabSuggestions(tabs);
       }
