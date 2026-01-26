@@ -9,6 +9,8 @@
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let mediaListenerAttached = false;
+  let currentThemeMode = 'system';
+  const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
   function resolveTheme(mode) {
     if (mode === 'dark') {
@@ -21,6 +23,7 @@
   }
 
   function applyThemeMode(mode) {
+    currentThemeMode = mode || 'system';
     const resolved = resolveTheme(mode);
     document.body.setAttribute('data-theme', resolved);
     if (mode === 'system' && !mediaListenerAttached) {
@@ -53,6 +56,48 @@
     }
     applyThemeMode(changes[THEME_STORAGE_KEY].newValue || 'system');
   });
+
+  function getThemeModeLabel(mode) {
+    if (mode === 'dark') {
+      return '深色';
+    }
+    if (mode === 'light') {
+      return '浅色';
+    }
+    return '跟随系统';
+  }
+
+  function getNextThemeMode(mode) {
+    const order = ['system', 'light', 'dark'];
+    const index = order.indexOf(mode);
+    if (index === -1) {
+      return 'light';
+    }
+    return order[(index + 1) % order.length];
+  }
+
+  function isModeCommand(input) {
+    const raw = String(input || '').trim().toLowerCase();
+    return raw === '/mode' || raw.startsWith('/mode ');
+  }
+
+  function buildModeSuggestion() {
+    const nextMode = getNextThemeMode(currentThemeMode);
+    return {
+      type: 'modeSwitch',
+      title: `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`,
+      url: '',
+      favicon: chrome.runtime.getURL('lumno.png'),
+      nextMode: nextMode
+    };
+  }
+
+  function setThemeMode(mode) {
+    const nextMode = mode || 'system';
+    chrome.storage.local.set({ [THEME_STORAGE_KEY]: nextMode }, () => {
+      applyThemeMode(nextMode);
+    });
+  }
 
   let latestQuery = '';
   let latestRawQuery = '';
@@ -1460,19 +1505,24 @@
       if (query !== latestQuery) {
         return;
       }
+      const rawTagInput = (latestRawQuery || inputParts.input.value || '').trim();
+      const modeCommandActive = isModeCommand(rawTagInput);
       const preSuggestions = [];
-      const directUrlSuggestion = getDirectUrlSuggestion(query);
-      if (directUrlSuggestion) {
-        preSuggestions.push(directUrlSuggestion);
+      if (modeCommandActive) {
+        preSuggestions.push(buildModeSuggestion());
+      } else {
+        const directUrlSuggestion = getDirectUrlSuggestion(query);
+        if (directUrlSuggestion) {
+          preSuggestions.push(directUrlSuggestion);
+        }
+        const keywordSuggestions = buildKeywordSuggestions(query, rules);
+        preSuggestions.push(...keywordSuggestions);
       }
-      const keywordSuggestions = buildKeywordSuggestions(query, rules);
-      preSuggestions.push(...keywordSuggestions);
 
       const providersForTags = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
         ? siteSearchProvidersCache
         : defaultSiteSearchProviders;
-      const rawTagInput = (latestRawQuery || inputParts.input.value || '').trim();
-      const inlineCandidate = !siteSearchState
+      const inlineCandidate = (!siteSearchState && !modeCommandActive)
         ? getInlineSiteSearchCandidate(rawTagInput, providersForTags)
         : null;
       let inlineSuggestion = null;
@@ -1489,15 +1539,19 @@
         }
       }
 
-      const newTabSuggestion = {
-        type: 'newtab',
-        title: `搜索 "${query}"`,
-        url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-        favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
-      };
+      const newTabSuggestion = modeCommandActive
+        ? null
+        : {
+          type: 'newtab',
+          title: `搜索 "${query}"`,
+          url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+          favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
+        };
 
-      const allSuggestions = [...preSuggestions, newTabSuggestion, ...suggestions];
-      if (siteSearchState && query) {
+      let allSuggestions = modeCommandActive
+        ? [...preSuggestions]
+        : [...preSuggestions, newTabSuggestion, ...suggestions];
+      if (!modeCommandActive && siteSearchState && query) {
         const siteUrl = buildSearchUrl(siteSearchState.template, query);
         if (siteUrl) {
           allSuggestions.unshift({
@@ -1516,73 +1570,82 @@
       let topSiteMatch = null;
       let siteSearchPrompt = null;
       const inlineEnabled = Boolean(inlineSuggestion);
-      if (!siteSearchState && !inlineEnabled) {
-        topSiteMatch = promoteTopSiteMatch(allSuggestions, latestRawQuery.trim());
-      }
-      const siteSearchTrigger = (!siteSearchState && !inlineEnabled)
-        ? getSiteSearchTriggerCandidate(rawTagInput, providersForTags, topSiteMatch)
-        : null;
-      if (siteSearchTrigger && !topSiteMatch) {
-        siteSearchPrompt = {
-          type: 'siteSearchPrompt',
-          title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
-          url: '',
-          favicon: getProviderIcon(siteSearchTrigger),
-          provider: siteSearchTrigger
-        };
-        allSuggestions.unshift(siteSearchPrompt);
-        primaryHighlightIndex = 0;
-        primaryHighlightReason = 'siteSearchPrompt';
-      }
-      if (!siteSearchState && !inlineEnabled && !siteSearchPrompt) {
-        autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawQuery);
-        if (autocompleteCandidate) {
-          const candidateIndex = allSuggestions.findIndex((suggestion) => {
-            if (!suggestion || suggestion.type === 'newtab') {
-              return false;
-            }
-            if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
-              return true;
-            }
-            const suggestionUrlText = getUrlDisplay(suggestion.url);
-            if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
-              return true;
-            }
-            if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
-              return true;
-            }
-            return false;
-          });
-          if (candidateIndex >= 0 && candidateIndex !== 0) {
-            const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
-            allSuggestions.unshift(candidateSuggestion);
-          }
-          primaryHighlightIndex = 0;
-          primaryHighlightReason = 'autocomplete';
+      let siteSearchTrigger = null;
+      if (!modeCommandActive) {
+        if (!siteSearchState && !inlineEnabled) {
+          topSiteMatch = promoteTopSiteMatch(allSuggestions, latestRawQuery.trim());
         }
-      }
-      if (inlineSuggestion) {
-        allSuggestions.unshift(inlineSuggestion);
+        siteSearchTrigger = (!siteSearchState && !inlineEnabled)
+          ? getSiteSearchTriggerCandidate(rawTagInput, providersForTags, topSiteMatch)
+          : null;
+        if (siteSearchTrigger && !topSiteMatch) {
+          siteSearchPrompt = {
+            type: 'siteSearchPrompt',
+            title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
+            url: '',
+            favicon: getProviderIcon(siteSearchTrigger),
+            provider: siteSearchTrigger
+          };
+          allSuggestions.unshift(siteSearchPrompt);
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'siteSearchPrompt';
+        }
+        if (!siteSearchState && !inlineEnabled && !siteSearchPrompt) {
+          autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawQuery);
+          if (autocompleteCandidate) {
+            const candidateIndex = allSuggestions.findIndex((suggestion) => {
+              if (!suggestion || suggestion.type === 'newtab') {
+                return false;
+              }
+              if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
+                return true;
+              }
+              const suggestionUrlText = getUrlDisplay(suggestion.url);
+              if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
+                return true;
+              }
+              if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
+                return true;
+              }
+              return false;
+            });
+            if (candidateIndex >= 0 && candidateIndex !== 0) {
+              const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
+              allSuggestions.unshift(candidateSuggestion);
+            }
+            primaryHighlightIndex = 0;
+            primaryHighlightReason = 'autocomplete';
+          }
+        }
+        if (inlineSuggestion) {
+          allSuggestions.unshift(inlineSuggestion);
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'inline';
+        } else if (!siteSearchPrompt && topSiteMatch) {
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'topSite';
+        }
+        if (query && primaryHighlightIndex < 0 && allSuggestions.length > 0) {
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'default';
+        }
+        applyAutocomplete(allSuggestions);
+        const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
+        inlineSearchState = inlineSuggestion
+          ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
+          : null;
+        siteSearchTriggerState = siteSearchTrigger
+          ? { provider: siteSearchTrigger, rawInput: rawTagInput }
+          : null;
+      } else {
+        clearAutocomplete();
+        inlineSearchState = null;
+        siteSearchTriggerState = null;
         primaryHighlightIndex = 0;
-        primaryHighlightReason = 'inline';
-      } else if (!siteSearchPrompt && topSiteMatch) {
-        primaryHighlightIndex = 0;
-        primaryHighlightReason = 'topSite';
-      }
-      if (query && primaryHighlightIndex < 0 && allSuggestions.length > 0) {
-        primaryHighlightIndex = 0;
-        primaryHighlightReason = 'default';
+        primaryHighlightReason = 'modeSwitch';
       }
 
       currentSuggestions = allSuggestions;
-      applyAutocomplete(allSuggestions);
-      const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
-      inlineSearchState = inlineSuggestion
-        ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
-        : null;
-      siteSearchTriggerState = siteSearchTrigger
-        ? { provider: siteSearchTrigger, rawInput: rawTagInput }
-        : null;
 
       allSuggestions.forEach(function(suggestion, index) {
         const suggestionItem = document.createElement('div');
@@ -1745,7 +1808,7 @@
         const title = document.createElement('span');
         const baseTitle = suggestion.title || '';
         let highlightedTitle;
-        if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt') {
+        if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt' || suggestion.type === 'modeSwitch') {
           highlightedTitle = baseTitle;
         } else {
           highlightedTitle = baseTitle.replace(
@@ -1958,15 +2021,8 @@
 
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
-            const theme = this._xTheme || defaultTheme;
-            if (this._xIsSearchSuggestion && theme && !theme._xIsDefault) {
-              const hover = getHoverColors(theme);
-              this.style.setProperty('background', hover.bg, 'important');
-              this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
-            } else {
-              this.style.setProperty('background', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
-              this.style.setProperty('border', '1px solid transparent', 'important');
-            }
+            this.style.setProperty('background', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
+            this.style.setProperty('border', '1px solid transparent', 'important');
           }
         });
 
@@ -1979,6 +2035,11 @@
         suggestionItem.addEventListener('click', function() {
           if (suggestion.type === 'siteSearchPrompt' && suggestion.provider) {
             activateSiteSearch(suggestion.provider);
+            inputParts.input.focus();
+            return;
+          }
+          if (suggestion.type === 'modeSwitch') {
+            setThemeMode(suggestion.nextMode);
             inputParts.input.focus();
             return;
           }
@@ -2046,6 +2107,9 @@
     },
     iconStyleOverrides: {
       'color': 'var(--x-nt-subtext, #6B7280)'
+    },
+    rightIconStyleOverrides: {
+      cursor: 'pointer'
     },
     onInput: function(event) {
       const rawValue = event.target.value;
@@ -2130,8 +2194,16 @@
       if (!query) {
         return;
       }
+      if (isModeCommand(query)) {
+        setThemeMode(getNextThemeMode(currentThemeMode));
+        return;
+      }
       if (selectedIndex >= 0 && currentSuggestions[selectedIndex]) {
         const selectedSuggestion = currentSuggestions[selectedIndex];
+        if (selectedSuggestion.type === 'modeSwitch') {
+          setThemeMode(selectedSuggestion.nextMode);
+          return;
+        }
         if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
           activateSiteSearch(selectedSuggestion.provider);
           inputParts.input.focus();
@@ -2170,6 +2242,19 @@
   });
   const searchInput = inputParts.input;
   const inputContainer = inputParts.container;
+  const rightIcon = inputParts.rightIcon;
+
+  if (rightIcon) {
+    rightIcon.addEventListener('click', function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (chrome.runtime.openOptionsPage) {
+        chrome.runtime.openOptionsPage();
+        return;
+      }
+      window.open(chrome.runtime.getURL('options.html'), '_blank');
+    });
+  }
   const defaultPlaceholder = searchInput.placeholder;
   const defaultCaretColor = searchInput.style.caretColor || '#7DB7FF';
   let baseInputPaddingLeft = null;

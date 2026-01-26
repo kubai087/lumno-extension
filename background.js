@@ -98,6 +98,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       sendResponse({ items: items });
     });
     return true;
+  } else if (request.action === 'openOptionsPage') {
+    if (chrome.runtime.openOptionsPage) {
+      chrome.runtime.openOptionsPage();
+      sendResponse({ ok: true });
+      return;
+    }
+    chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
+    sendResponse({ ok: true });
+    return;
   } else if (request.action === 'createTab') {
     chrome.tabs.create({ url: request.url });
   }
@@ -654,6 +663,8 @@ function toggleBlackRectangle(tabs) {
   let captureTabHandler = null;
   let overlayThemeStorageListener = null;
   let overlayThemeMediaListener = null;
+  let keydownHandler = null;
+  let clickOutsideHandler = null;
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   // Helper function to remove overlay and clean up styles
   function removeOverlay(overlayElement) {
@@ -800,10 +811,75 @@ function toggleBlackRectangle(tabs) {
       iconId: '_x_extension_search_icon_2024_unique_',
       containerId: '_x_extension_input_container_2024_unique_',
       rightIconUrl: chrome.runtime.getURL('lumno-input-light.png'),
+      rightIconStyleOverrides: {
+        cursor: 'pointer'
+      },
       showUnderlineWhenEmpty: true
     });
     const searchInput = inputParts.input;
     const inputContainer = inputParts.container;
+    const rightIcon = inputParts.rightIcon;
+
+    const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
+
+    function getThemeModeLabel(mode) {
+      if (mode === 'dark') {
+        return '深色';
+      }
+      if (mode === 'light') {
+        return '浅色';
+      }
+      return '跟随系统';
+    }
+
+    function getNextThemeMode(mode) {
+      const order = ['system', 'light', 'dark'];
+      const index = order.indexOf(mode);
+      if (index === -1) {
+        return 'light';
+      }
+      return order[(index + 1) % order.length];
+    }
+
+    function isModeCommand(input) {
+      const raw = String(input || '').trim().toLowerCase();
+      return raw === '/mode' || raw.startsWith('/mode ');
+    }
+
+    function buildModeSuggestion() {
+      const nextMode = getNextThemeMode(overlayThemeMode || 'system');
+      return {
+        type: 'modeSwitch',
+        title: `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`,
+        url: '',
+        favicon: chrome.runtime.getURL('lumno.png'),
+        nextMode: nextMode
+      };
+    }
+
+    function applyThemeModeChange(mode) {
+      const nextMode = mode || 'system';
+      chrome.storage.local.set({ [THEME_STORAGE_KEY]: nextMode });
+      applyOverlayTheme(nextMode);
+    }
+
+    if (rightIcon) {
+      rightIcon.addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+        removeOverlay(overlay);
+        if (clickOutsideHandler) {
+          document.removeEventListener('click', clickOutsideHandler);
+        }
+        if (keydownHandler) {
+          document.removeEventListener('keydown', keydownHandler);
+        }
+        if (captureTabHandler) {
+          document.removeEventListener('keydown', captureTabHandler, true);
+        }
+      });
+    }
 
     // Add focus styles
     searchInput.addEventListener('focus', function() {
@@ -990,7 +1066,7 @@ function toggleBlackRectangle(tabs) {
     defaultTheme._xIsDefault = true;
     const overlayThemeTokens = {
       light: {
-        bg: 'rgba(255, 255, 255, 0.82)',
+        bg: 'rgba(255, 255, 255, 0.9)',
         border: 'rgba(0, 0, 0, 0.08)',
         shadow: '0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15)',
         text: '#111827',
@@ -1903,7 +1979,7 @@ function toggleBlackRectangle(tabs) {
     });
     
     // Add click outside to close functionality
-    const clickOutsideHandler = function(e) {
+    clickOutsideHandler = function(e) {
       if (!overlay.contains(e.target)) {
         removeOverlay(overlay);
         document.removeEventListener('click', clickOutsideHandler);
@@ -2010,7 +2086,7 @@ function toggleBlackRectangle(tabs) {
       return suggestionItems.findIndex((item) => Boolean(item && item._xIsAutocompleteTop));
     }
     
-    const keydownHandler = function(e) {
+    keydownHandler = function(e) {
       if (e.key === 'Escape' && overlay) {
         removeOverlay(overlay);
         document.removeEventListener('keydown', keydownHandler);
@@ -2061,6 +2137,10 @@ function toggleBlackRectangle(tabs) {
       } else if (e.key === 'Enter') {
         e.preventDefault();
         const query = searchInput.value.trim();
+        if (isModeCommand(query) && selectedIndex === -1) {
+          applyThemeModeChange(getNextThemeMode(overlayThemeMode || 'system'));
+          return;
+        }
         
         if (selectedIndex >= 0 && suggestionItems[selectedIndex]) {
           // Check if we're showing search suggestions or tab suggestions
@@ -2068,6 +2148,11 @@ function toggleBlackRectangle(tabs) {
           
           if (isSearchSuggestion && currentSuggestions[selectedIndex]) {
             const selectedSuggestion = currentSuggestions[selectedIndex];
+            if (selectedSuggestion.type === 'modeSwitch') {
+              applyThemeModeChange(selectedSuggestion.nextMode);
+              searchInput.focus();
+              return;
+            }
             if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
               activateSiteSearch(selectedSuggestion.provider);
               searchInput.focus();
@@ -2581,14 +2666,18 @@ function toggleBlackRectangle(tabs) {
       // Clear existing suggestions
       suggestionsContainer.innerHTML = '';
       suggestionItems.length = 0;
+      const rawTagInput = (latestRawInputValue || query || '').trim();
+      const modeCommandActive = isModeCommand(rawTagInput);
       
       // Add New Tab suggestion as first item
-      const newTabSuggestion = {
-        type: 'newtab',
-        title: `搜索 "${query}"`,
-        url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-        favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
-      };
+      const newTabSuggestion = modeCommandActive
+        ? null
+        : {
+          type: 'newtab',
+          title: `搜索 "${query}"`,
+          url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+          favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
+        };
 
       // Add ChatGPT suggestion as second item
       // const chatGptSuggestion = {
@@ -2636,18 +2725,22 @@ function toggleBlackRectangle(tabs) {
           return;
         }
         const preSuggestions = [];
-        const directUrlSuggestion = getDirectUrlSuggestion(query);
-        if (directUrlSuggestion) {
-          preSuggestions.push(directUrlSuggestion);
+        if (modeCommandActive) {
+          preSuggestions.push(buildModeSuggestion());
+        } else {
+          const directUrlSuggestion = getDirectUrlSuggestion(query);
+          if (directUrlSuggestion) {
+            preSuggestions.push(directUrlSuggestion);
+          }
+          const keywordSuggestions = buildKeywordSuggestions(query, rules);
+          preSuggestions.push(...keywordSuggestions);
         }
-        const keywordSuggestions = buildKeywordSuggestions(query, rules);
-        preSuggestions.push(...keywordSuggestions);
 
         const providersForTags = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
           ? siteSearchProvidersCache
           : defaultSiteSearchProviders;
         const rawTagInput = (latestRawInputValue || searchInput.value || '').trim();
-        const inlineCandidate = !siteSearchState
+        const inlineCandidate = (!siteSearchState && !modeCommandActive)
           ? getInlineSiteSearchCandidate(rawTagInput, providersForTags)
           : null;
         let inlineSuggestion = null;
@@ -2665,8 +2758,10 @@ function toggleBlackRectangle(tabs) {
         }
 
         // Add New Tab, ChatGPT and Perplexity suggestions to the beginning
-        const allSuggestions = [...preSuggestions, newTabSuggestion, /*chatGptSuggestion, perplexitySuggestion,*/ ...suggestions];
-        if (siteSearchState && query) {
+        let allSuggestions = modeCommandActive
+          ? [...preSuggestions]
+          : [...preSuggestions, newTabSuggestion, /*chatGptSuggestion, perplexitySuggestion,*/ ...suggestions];
+        if (!modeCommandActive && siteSearchState && query) {
           const siteUrl = buildSearchUrl(siteSearchState.template, query);
           if (siteUrl) {
             allSuggestions.unshift({
@@ -2684,72 +2779,81 @@ function toggleBlackRectangle(tabs) {
         let topSiteMatch = null;
         let siteSearchPrompt = null;
         const inlineEnabled = Boolean(inlineSuggestion);
-        if (!siteSearchState && !inlineEnabled) {
-          topSiteMatch = promoteTopSiteMatch(allSuggestions, latestRawInputValue.trim());
-        }
-        const siteSearchTrigger = (!siteSearchState && !inlineEnabled)
-          ? getSiteSearchTriggerCandidate(rawTagInput, providersForTags, topSiteMatch)
-          : null;
-        if (siteSearchTrigger && !topSiteMatch) {
-          siteSearchPrompt = {
-            type: 'siteSearchPrompt',
-            title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
-            url: '',
-            favicon: getProviderIcon(siteSearchTrigger),
-            provider: siteSearchTrigger
-          };
-          allSuggestions.unshift(siteSearchPrompt);
-          primaryHighlightIndex = 0;
-          primaryHighlightReason = 'siteSearchPrompt';
-        }
-        if (!siteSearchState && !inlineEnabled && !siteSearchPrompt) {
-          autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawInputValue);
-          if (autocompleteCandidate) {
-            const candidateIndex = allSuggestions.findIndex((suggestion) => {
-              if (!suggestion || suggestion.type === 'newtab') {
-                return false;
-              }
-              if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
-                return true;
-              }
-              const suggestionUrlText = getUrlDisplay(suggestion.url);
-              if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
-                return true;
-              }
-              if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
-                return true;
-              }
-              return false;
-            });
-            if (candidateIndex >= 0 && candidateIndex !== 0) {
-              const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
-              allSuggestions.unshift(candidateSuggestion);
-            }
-            primaryHighlightIndex = 0;
-            primaryHighlightReason = 'autocomplete';
+        let siteSearchTrigger = null;
+        if (!modeCommandActive) {
+          if (!siteSearchState && !inlineEnabled) {
+            topSiteMatch = promoteTopSiteMatch(allSuggestions, latestRawInputValue.trim());
           }
-        }
-        if (inlineSuggestion) {
-          allSuggestions.unshift(inlineSuggestion);
+          siteSearchTrigger = (!siteSearchState && !inlineEnabled)
+            ? getSiteSearchTriggerCandidate(rawTagInput, providersForTags, topSiteMatch)
+            : null;
+          if (siteSearchTrigger && !topSiteMatch) {
+            siteSearchPrompt = {
+              type: 'siteSearchPrompt',
+              title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
+              url: '',
+              favicon: getProviderIcon(siteSearchTrigger),
+              provider: siteSearchTrigger
+            };
+            allSuggestions.unshift(siteSearchPrompt);
+            primaryHighlightIndex = 0;
+            primaryHighlightReason = 'siteSearchPrompt';
+          }
+          if (!siteSearchState && !inlineEnabled && !siteSearchPrompt) {
+            autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawInputValue);
+            if (autocompleteCandidate) {
+              const candidateIndex = allSuggestions.findIndex((suggestion) => {
+                if (!suggestion || suggestion.type === 'newtab') {
+                  return false;
+                }
+                if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
+                  return true;
+                }
+                const suggestionUrlText = getUrlDisplay(suggestion.url);
+                if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
+                  return true;
+                }
+                if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
+                  return true;
+                }
+                return false;
+              });
+              if (candidateIndex >= 0 && candidateIndex !== 0) {
+                const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
+                allSuggestions.unshift(candidateSuggestion);
+              }
+              primaryHighlightIndex = 0;
+              primaryHighlightReason = 'autocomplete';
+            }
+          }
+          if (inlineSuggestion) {
+            allSuggestions.unshift(inlineSuggestion);
+            primaryHighlightIndex = 0;
+            primaryHighlightReason = 'inline';
+          } else if (!siteSearchPrompt && topSiteMatch) {
+            primaryHighlightIndex = 0;
+            primaryHighlightReason = 'topSite';
+          }
+          if (query && primaryHighlightIndex < 0 && allSuggestions.length > 0) {
+            primaryHighlightIndex = 0;
+            primaryHighlightReason = 'default';
+          }
+          applyAutocomplete(allSuggestions);
+          const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
+          inlineSearchState = inlineSuggestion
+            ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
+            : null;
+          siteSearchTriggerState = siteSearchTrigger
+            ? { provider: siteSearchTrigger, rawInput: rawTagInput }
+            : null;
+        } else {
+          clearAutocomplete();
+          inlineSearchState = null;
+          siteSearchTriggerState = null;
           primaryHighlightIndex = 0;
-          primaryHighlightReason = 'inline';
-        } else if (!siteSearchPrompt && topSiteMatch) {
-          primaryHighlightIndex = 0;
-          primaryHighlightReason = 'topSite';
-        }
-        if (query && primaryHighlightIndex < 0 && allSuggestions.length > 0) {
-          primaryHighlightIndex = 0;
-          primaryHighlightReason = 'default';
+          primaryHighlightReason = 'modeSwitch';
         }
         currentSuggestions = allSuggestions; // Store current suggestions including ChatGPT
-        applyAutocomplete(allSuggestions);
-        const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
-        inlineSearchState = inlineSuggestion
-          ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
-          : null;
-        siteSearchTriggerState = siteSearchTrigger
-          ? { provider: siteSearchTrigger, rawInput: rawTagInput }
-          : null;
         
         // Add search suggestions
         allSuggestions.forEach((suggestion, index) => {
@@ -2918,7 +3022,7 @@ function toggleBlackRectangle(tabs) {
           // Create title with highlighted query
           const title = document.createElement('span');
           let highlightedTitle;
-          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt') {
+          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt' || suggestion.type === 'modeSwitch') {
             // For ChatGPT, Perplexity, and New Tab, don't highlight the query part
             highlightedTitle = suggestion.title;
           } else {
@@ -3155,7 +3259,7 @@ function toggleBlackRectangle(tabs) {
             gap: 4px !important;
             vertical-align: baseline !important;
           `;
-          suggestionItem._xAlwaysHideVisitButton = suggestion.type === 'siteSearchPrompt';
+          suggestionItem._xAlwaysHideVisitButton = suggestion.type === 'siteSearchPrompt' || suggestion.type === 'modeSwitch';
           if (suggestionItem._xAlwaysHideVisitButton) {
             visitButton.style.setProperty('display', 'none', 'important');
           }
@@ -3176,15 +3280,8 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
-              const theme = this._xTheme || defaultTheme;
-              if (this._xIsSearchSuggestion && theme && !theme._xIsDefault) {
-                const hover = getHoverColors(theme);
-                this.style.setProperty('background', hover.bg, 'important');
-                this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
-              } else {
-                this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
-                this.style.setProperty('border', '1px solid transparent', 'important');
-              }
+              this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
+              this.style.setProperty('border', '1px solid transparent', 'important');
             }
           });
           
@@ -3218,6 +3315,11 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.addEventListener('click', function() {
             if (suggestion.type === 'siteSearchPrompt' && suggestion.provider) {
               activateSiteSearch(suggestion.provider);
+              searchInput.focus();
+              return;
+            }
+            if (suggestion.type === 'modeSwitch') {
+              applyThemeModeChange(suggestion.nextMode);
               searchInput.focus();
               return;
             }
