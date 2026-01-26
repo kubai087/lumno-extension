@@ -2278,7 +2278,7 @@ function toggleBlackRectangle(tabs) {
         if (siteSearchTrigger && !topSiteMatch) {
           siteSearchPrompt = {
             type: 'siteSearchPrompt',
-            title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 网站中搜索`,
+            title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
             url: '',
             favicon: getProviderIcon(siteSearchTrigger),
             provider: siteSearchTrigger
