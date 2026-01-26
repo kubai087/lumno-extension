@@ -25,8 +25,8 @@
       padding: 20px 64px 20px 50px !important;
       background: transparent !important;
       border: none !important;
-      border-bottom: 1px solid #E5E7EB !important;
-      color: #1F2937 !important;
+      border-bottom: 1px solid var(--x-ext-input-underline, #E5E7EB) !important;
+      color: var(--x-ext-input-text, #1F2937) !important;
       font-size: 16px !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
       font-weight: 500 !important;
@@ -38,7 +38,7 @@
       list-style: none !important;
       display: block !important;
       vertical-align: baseline !important;
-      caret-color: #7DB7FF !important;
+      caret-color: var(--x-ext-input-caret, #7DB7FF) !important;
     `;
     applyStyleOverrides(input, config.inputStyleOverrides);
 
@@ -53,13 +53,13 @@
         return;
       }
       if (showUnderlineWhenEmpty) {
-        input.style.setProperty('border-bottom', '1px solid #E5E7EB', 'important');
+        input.style.setProperty('border-bottom', '1px solid var(--x-ext-input-underline, #E5E7EB)', 'important');
         return;
       }
       const isEmpty = !value || !value.trim();
       input.style.setProperty(
         'border-bottom',
-        isEmpty ? 'none' : '1px solid #E5E7EB',
+        isEmpty ? 'none' : '1px solid var(--x-ext-input-underline, #E5E7EB)',
         'important'
       );
     }
@@ -84,14 +84,14 @@
 
     const icon = document.createElement('div');
     icon.id = config.iconId || '_x_extension_search_icon_2024_unique_';
-    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="_x_extension_svg_2024_unique_"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="_x_extension_svg_2024_unique_"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
     icon.style.cssText = `
       all: unset !important;
       position: absolute !important;
       left: 20px !important;
       top: 50% !important;
       transform: translateY(-50%) !important;
-      color: #9CA3AF !important;
+      color: var(--x-ext-input-icon, #9CA3AF) !important;
       pointer-events: none !important;
       z-index: 1 !important;
       box-sizing: border-box !important;

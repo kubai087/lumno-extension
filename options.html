@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lumno 设置</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: #111111;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 10vh 20px 40px;
+        box-sizing: border-box;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+      body[data-theme="light"] {
+        background: #f8fafc;
+      }
+      #_x_extension_options_root_2024_unique_ {
+        width: 100%;
+        max-width: 720px;
+      }
+      #_x_extension_settings_panel_2024_unique_ {
+        --panel-bg: rgba(255, 255, 255, 0.92);
+        --panel-border: rgba(0, 0, 0, 0.08);
+        --panel-text: #111827;
+        --panel-subtext: #6b7280;
+        --tab-bg: rgba(15, 23, 42, 0.04);
+        --tab-active-bg: rgba(59, 130, 246, 0.12);
+        --tab-active-text: #1d4ed8;
+        --tab-border: rgba(15, 23, 42, 0.08);
+        --switch-bg: rgba(15, 23, 42, 0.12);
+        --switch-on-bg: #2563eb;
+        --switch-knob: #ffffff;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 22px;
+        padding: 18px;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.08);
+        color: var(--panel-text);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        box-sizing: border-box;
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] {
+        --panel-bg: rgba(20, 20, 20, 0.92);
+        --panel-border: rgba(255, 255, 255, 0.08);
+        --panel-text: #e5e7eb;
+        --panel-subtext: #9ca3af;
+        --tab-bg: rgba(255, 255, 255, 0.08);
+        --tab-active-bg: rgba(255, 255, 255, 0.16);
+        --tab-active-text: #f9fafb;
+        --tab-border: rgba(255, 255, 255, 0.12);
+        --switch-bg: rgba(255, 255, 255, 0.14);
+        --switch-on-bg: #e5e7eb;
+        --switch-knob: #111827;
+      }
+      #_x_extension_settings_tabs_2024_unique_ {
+        display: flex;
+        gap: 8px;
+        padding: 6px;
+        background: var(--tab-bg);
+        border-radius: 14px;
+        border: 1px solid var(--tab-border);
+      }
+      ._x_extension_settings_tab_button_2024_unique_ {
+        all: unset;
+        cursor: pointer;
+        padding: 8px 12px;
+        border-radius: 10px;
+        color: var(--panel-subtext);
+        font-size: 13px;
+        font-weight: 600;
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+      ._x_extension_settings_tab_button_2024_unique_[data-active="true"] {
+        background: var(--tab-active-bg);
+        color: var(--tab-active-text);
+      }
+      ._x_extension_settings_content_2024_unique_ {
+        display: none;
+        gap: 16px;
+        flex-direction: column;
+      }
+      ._x_extension_settings_content_2024_unique_[data-active="true"] {
+        display: flex;
+      }
+      ._x_extension_setting_row_2024_unique_ {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--tab-border);
+        background: rgba(255, 255, 255, 0.6);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_setting_row_2024_unique_ {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      ._x_extension_setting_title_2024_unique_ {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+        color: var(--panel-text);
+      }
+      ._x_extension_setting_desc_2024_unique_ {
+        font-size: 12px;
+        margin: 4px 0 0;
+        color: var(--panel-subtext);
+      }
+      ._x_extension_switch_2024_unique_ {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        flex-shrink: 0;
+      }
+      ._x_extension_switch_2024_unique_ input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      ._x_extension_switch_slider_2024_unique_ {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--switch-bg);
+        border-radius: 999px;
+        transition: background-color 0.2s ease;
+      }
+      ._x_extension_switch_slider_2024_unique_:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        top: 3px;
+        background: var(--switch-knob);
+        border-radius: 50%;
+        transition: transform 0.2s ease;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      }
+      ._x_extension_switch_2024_unique_ input:checked + ._x_extension_switch_slider_2024_unique_ {
+        background: var(--switch-on-bg);
+      }
+      ._x_extension_switch_2024_unique_ input:checked + ._x_extension_switch_slider_2024_unique_:before {
+        transform: translateX(20px);
+      }
+      ._x_extension_settings_placeholder_2024_unique_ {
+        padding: 18px;
+        border-radius: 14px;
+        border: 1px dashed var(--tab-border);
+        color: var(--panel-subtext);
+        font-size: 13px;
+        text-align: center;
+      }
+      ._x_extension_theme_picker_2024_unique_ {
+        display: flex;
+        gap: 6px;
+        padding: 4px;
+        border-radius: 999px;
+        border: 1px solid var(--tab-border);
+        background: var(--tab-bg);
+      }
+      ._x_extension_theme_option_2024_unique_ {
+        all: unset;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--panel-subtext);
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+      ._x_extension_theme_option_2024_unique_[data-active="true"] {
+        background: var(--tab-active-bg);
+        color: var(--tab-active-text);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="_x_extension_options_root_2024_unique_">
+      <div id="_x_extension_settings_panel_2024_unique_" data-theme="light">
+        <div id="_x_extension_settings_tabs_2024_unique_">
+          <button class="_x_extension_settings_tab_button_2024_unique_" data-tab="appearance" data-active="true">外观</button>
+          <button class="_x_extension_settings_tab_button_2024_unique_" data-tab="shortcuts" data-active="false">快捷搜索</button>
+        </div>
+        <div class="_x_extension_settings_content_2024_unique_" data-content="appearance" data-active="true">
+        <div class="_x_extension_setting_row_2024_unique_">
+          <div>
+            <p class="_x_extension_setting_title_2024_unique_">深浅色模式</p>
+            <p class="_x_extension_setting_desc_2024_unique_">跟随系统或手动选择主题</p>
+          </div>
+          <div class="_x_extension_theme_picker_2024_unique_" role="group" aria-label="主题模式">
+            <button class="_x_extension_theme_option_2024_unique_" data-mode="system">跟随系统</button>
+            <button class="_x_extension_theme_option_2024_unique_" data-mode="light">浅色</button>
+            <button class="_x_extension_theme_option_2024_unique_" data-mode="dark">深色</button>
+          </div>
+        </div>
+        </div>
+        <div class="_x_extension_settings_content_2024_unique_" data-content="shortcuts" data-active="false">
+          <div class="_x_extension_settings_placeholder_2024_unique_">快捷搜索设置即将上线</div>
+        </div>
+      </div>
+    </div>
+    <script src="options.js"></script>
+  </body>
+</html>

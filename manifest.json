@@ -21,6 +21,10 @@
       "16": "lumno.png",
       "48": "lumno.png"
    },
+   "options_ui": {
+      "page": "options.html",
+      "open_in_tab": true
+   },
    "web_accessible_resources": [
       {
          "resources": [ "lumno.png", "lumno-input-light.png", "site-search.json", "shortcut-rules.json" ],
@@ -30,6 +34,6 @@
    "manifest_version": 3,
    "name": "Lumno",
    "author": "Kubai087",
-   "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks" ],
+   "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks", "storage" ],
    "version": "1.0.0"
 }

@@ -1,17 +1,41 @@
 
+function isRestrictedUrl(url) {
+  if (!url) {
+    return true;
+  }
+  const lower = String(url).toLowerCase();
+  return lower.startsWith('chrome://') ||
+    lower.startsWith('chrome-extension://') ||
+    lower.startsWith('edge://') ||
+    lower.startsWith('brave://') ||
+    lower.startsWith('vivaldi://') ||
+    lower.startsWith('opera://') ||
+    lower.startsWith('about:');
+}
+
+function openNewtabFallback() {
+  const newtabUrl = chrome.runtime.getURL('newtab.html');
+  chrome.tabs.create({ url: newtabUrl });
+}
+
 chrome.commands.onCommand.addListener(function(command) {
   if (command === "show-search") {
     // Get all tabs in the current window
     chrome.tabs.query({currentWindow: true}, function(tabs) {
       // Get the current active tab and inject the script with tabs data
       chrome.tabs.query({active: true, currentWindow: true}, function(activeTabs) {
-        if (activeTabs[0]) {
+        const activeTab = activeTabs[0];
+        if (activeTab && isRestrictedUrl(activeTab.url)) {
+          openNewtabFallback();
+          return;
+        }
+        if (activeTab) {
           chrome.scripting.executeScript({
-            target: {tabId: activeTabs[0].id},
+            target: {tabId: activeTab.id},
             files: ['input-ui.js']
           }, function() {
             chrome.scripting.executeScript({
-              target: {tabId: activeTabs[0].id},
+              target: {tabId: activeTab.id},
               function: toggleBlackRectangle,
               args: [tabs]
             });
@@ -628,6 +652,9 @@ async function getSearchSuggestions(query) {
 
 function toggleBlackRectangle(tabs) {
   let captureTabHandler = null;
+  let overlayThemeStorageListener = null;
+  let overlayThemeMediaListener = null;
+  const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   // Helper function to remove overlay and clean up styles
   function removeOverlay(overlayElement) {
     if (overlayElement) {
@@ -638,9 +665,21 @@ function toggleBlackRectangle(tabs) {
     if (scrollbarStyle) {
       scrollbarStyle.remove();
     }
+    const overlayThemeStyle = document.getElementById('_x_extension_overlay_theme_style_2024_unique_');
+    if (overlayThemeStyle) {
+      overlayThemeStyle.remove();
+    }
     if (captureTabHandler) {
       document.removeEventListener('keydown', captureTabHandler, true);
       captureTabHandler = null;
+    }
+    if (overlayThemeStorageListener) {
+      chrome.storage.onChanged.removeListener(overlayThemeStorageListener);
+      overlayThemeStorageListener = null;
+    }
+    if (overlayThemeMediaListener) {
+      overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
+      overlayThemeMediaListener = null;
     }
     window.removeEventListener('resize', updateSiteSearchPrefixLayout);
   }
@@ -664,12 +703,12 @@ function toggleBlackRectangle(tabs) {
       width: 50vw !important;
       max-width: 90vw !important;
       max-height: 75vh !important;
-      background: rgba(255, 255, 255, 0.95) !important;
-      backdrop-filter: blur(24px) saturate(165%) !important;
-      -webkit-backdrop-filter: blur(24px) saturate(165%) !important;
-      border: 1px solid rgba(0, 0, 0, 0.08) !important;
+      background: var(--x-ov-bg, rgba(255, 255, 255, 0.82)) !important;
+      backdrop-filter: blur(var(--x-ov-blur, 24px)) saturate(var(--x-ov-saturate, 165%)) !important;
+      -webkit-backdrop-filter: blur(var(--x-ov-blur, 24px)) saturate(var(--x-ov-saturate, 165%)) !important;
+      border: 1px solid var(--x-ov-border, rgba(0, 0, 0, 0.08)) !important;
       border-radius: 28px !important;
-      box-shadow: 0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15) !important;
+      box-shadow: var(--x-ov-shadow, 0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15)) !important;
       z-index: 2147483647 !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
       display: flex !important;
@@ -682,11 +721,42 @@ function toggleBlackRectangle(tabs) {
       text-decoration: none !important;
       list-style: none !important;
       outline: none !important;
-      color: inherit !important;
+      color: var(--x-ov-text, #111827) !important;
       font-size: 100% !important;
       font: inherit !important;
       vertical-align: baseline !important;
     `;
+
+    const applyOverlayTheme = (mode) => {
+      overlayThemeMode = mode;
+      applyOverlayThemeVariables(overlay, mode);
+      if (mode === 'system' && !overlayThemeListenerAttached) {
+        overlayThemeMediaListener = function() {
+          if (overlayThemeMode === 'system') {
+            applyOverlayThemeVariables(overlay, overlayThemeMode);
+          }
+        };
+        overlayMediaQuery.addEventListener('change', overlayThemeMediaListener);
+        overlayThemeListenerAttached = true;
+        return;
+      }
+      if (mode !== 'system' && overlayThemeListenerAttached) {
+        overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
+        overlayThemeMediaListener = null;
+        overlayThemeListenerAttached = false;
+      }
+    };
+
+    chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+      applyOverlayTheme(result[THEME_STORAGE_KEY] || 'system');
+    });
+    overlayThemeStorageListener = (changes, areaName) => {
+      if (areaName !== 'local' || !changes[THEME_STORAGE_KEY]) {
+        return;
+      }
+      applyOverlayTheme(changes[THEME_STORAGE_KEY].newValue || 'system');
+    };
+    chrome.storage.onChanged.addListener(overlayThemeStorageListener);
     
     // Add Inter font with unique ID
     const fontLink = document.createElement('link');
@@ -708,6 +778,15 @@ function toggleBlackRectangle(tabs) {
       }
     `;
     document.head.appendChild(scrollbarStyle);
+
+    const overlayThemeStyle = document.createElement('style');
+    overlayThemeStyle.id = '_x_extension_overlay_theme_style_2024_unique_';
+    overlayThemeStyle.textContent = `
+      #_x_extension_search_input_2024_unique_::placeholder {
+        color: var(--x-ov-placeholder, #9CA3AF) !important;
+      }
+    `;
+    document.head.appendChild(overlayThemeStyle);
     
     if (typeof window._x_extension_createSearchInput_2024_unique_ !== 'function') {
       console.warn('Lumno: input UI helper not available.');
@@ -819,12 +898,10 @@ function toggleBlackRectangle(tabs) {
     }
 
     function getHighlightColors(theme) {
-      const accentRgb = parseCssColor(theme && theme.placeholderText) ||
-        parseCssColor(theme && theme.accent) ||
-        defaultAccentColor;
+      const resolvedTheme = getThemeForMode(theme);
       return {
-        bg: rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.88)),
-        border: rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.68))
+        bg: resolvedTheme.highlightBg,
+        border: resolvedTheme.highlightBorder
       };
     }
 
@@ -864,20 +941,29 @@ function toggleBlackRectangle(tabs) {
       return rgb;
     }
 
-    function buildTheme(rgb) {
-      const accent = normalizeAccentColor(rgb);
-      const highlightBg = mixColor(accent, [255, 255, 255], 0.86);
-      const highlightBorder = mixColor(accent, [255, 255, 255], 0.62);
-      const markBg = mixColor(accent, [255, 255, 255], 0.78);
-      const tagBg = mixColor(accent, [255, 255, 255], 0.74);
-      const keyBg = mixColor(accent, [255, 255, 255], 0.9);
-      const tagBorder = mixColor(accent, [255, 255, 255], 0.58);
-      const keyBorder = mixColor(accent, [0, 0, 0], 0.18);
-      const buttonText = getLuminance(accent) > 0.8
-        ? rgbToCss(mixColor(accent, [0, 0, 0], 0.6))
-        : rgbToCss(accent);
+    function buildThemeVariant(accent, mode) {
+      const isDark = mode === 'dark';
+      const base = isDark ? [20, 20, 20] : [255, 255, 255];
+      const highlightBg = mixColor(accent, base, isDark ? 0.72 : 0.86);
+      const highlightBorder = mixColor(accent, base, isDark ? 0.5 : 0.62);
+      const markBg = mixColor(accent, base, isDark ? 0.64 : 0.78);
+      const tagBg = mixColor(accent, base, isDark ? 0.6 : 0.74);
+      const keyBg = mixColor(accent, base, isDark ? 0.78 : 0.9);
+      const tagBorder = mixColor(accent, base, isDark ? 0.4 : 0.58);
+      const keyBorder = mixColor(accent, base, isDark ? 0.58 : 0.18);
+      const buttonBg = mixColor(accent, base, isDark ? 0.68 : 0.94);
+      const buttonBorder = mixColor(accent, base, isDark ? 0.48 : 0.7);
+      const buttonText = isDark
+        ? getReadableTextColor(buttonBg)
+        : (getLuminance(accent) > 0.8
+          ? rgbToCss(mixColor(accent, [0, 0, 0], 0.6))
+          : rgbToCss(accent));
+      const placeholderText = isDark
+        ? rgbToCss(mixColor(accent, [255, 255, 255], 0.2))
+        : buttonText;
       return {
         accent: rgbToCss(accent),
+        accentRgb: accent,
         highlightBg: rgbToCss(highlightBg),
         highlightBorder: rgbToCss(highlightBorder),
         markBg: rgbToCss(markBg),
@@ -889,13 +975,127 @@ function toggleBlackRectangle(tabs) {
         keyText: getReadableTextColor(keyBg),
         keyBorder: rgbToCss(keyBorder),
         buttonText: buttonText,
-        buttonBg: rgbToCss(mixColor(accent, [255, 255, 255], 0.94)),
-        buttonBorder: rgbToCss(mixColor(accent, [255, 255, 255], 0.7)),
-        placeholderText: buttonText
+        buttonBg: rgbToCss(buttonBg),
+        buttonBorder: rgbToCss(buttonBorder),
+        placeholderText: placeholderText
       };
     }
 
+    function buildTheme(rgb) {
+      const accent = normalizeAccentColor(rgb);
+      return buildThemeVariant(accent, 'light');
+    }
+
     const defaultTheme = buildTheme(defaultAccentColor);
+    defaultTheme._xIsDefault = true;
+    const overlayThemeTokens = {
+      light: {
+        bg: 'rgba(255, 255, 255, 0.82)',
+        border: 'rgba(0, 0, 0, 0.08)',
+        shadow: '0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15)',
+        text: '#111827',
+        subtext: '#6B7280',
+        link: '#2563EB',
+        placeholder: '#9CA3AF',
+        hoverBg: '#F9FAFB',
+        tagBg: '#F3F4F6',
+        tagText: '#6B7280',
+        bookmarkTagBg: '#FEF3C7',
+        bookmarkTagText: '#D97706',
+        underline: '#E5E7EB',
+        blur: '24px',
+        saturate: '165%'
+      },
+      dark: {
+        bg: 'rgba(20, 20, 20, 0.82)',
+        border: 'rgba(255, 255, 255, 0.08)',
+        shadow: '0 24px 90px rgba(0, 0, 0, 0.65)',
+        text: '#E5E7EB',
+        subtext: '#9CA3AF',
+        link: '#D1D5DB',
+        placeholder: '#9CA3AF',
+        hoverBg: 'rgba(255, 255, 255, 0.08)',
+        tagBg: 'rgba(255, 255, 255, 0.12)',
+        tagText: '#E5E7EB',
+        bookmarkTagBg: 'rgba(245, 158, 11, 0.22)',
+        bookmarkTagText: '#FBBF24',
+        underline: 'rgba(255, 255, 255, 0.18)',
+        blur: '32px',
+        saturate: '145%'
+      }
+    };
+    const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    let overlayThemeMode = 'system';
+    let overlayThemeListenerAttached = false;
+
+    function resolveOverlayTheme(mode) {
+      if (mode === 'dark') {
+        return 'dark';
+      }
+      if (mode === 'light') {
+        return 'light';
+      }
+      return overlayMediaQuery.matches ? 'dark' : 'light';
+    }
+
+    function applyOverlayThemeVariables(target, mode) {
+      if (!target) {
+        return;
+      }
+      const resolved = resolveOverlayTheme(mode);
+      const tokens = overlayThemeTokens[resolved] || overlayThemeTokens.light;
+      target.setAttribute('data-theme', resolved);
+      target.style.setProperty('--x-ov-bg', tokens.bg, 'important');
+      target.style.setProperty('--x-ov-border', tokens.border, 'important');
+      target.style.setProperty('--x-ov-shadow', tokens.shadow, 'important');
+      target.style.setProperty('--x-ov-text', tokens.text, 'important');
+      target.style.setProperty('--x-ov-subtext', tokens.subtext, 'important');
+      target.style.setProperty('--x-ov-link', tokens.link, 'important');
+      target.style.setProperty('--x-ov-placeholder', tokens.placeholder, 'important');
+      target.style.setProperty('--x-ov-hover-bg', tokens.hoverBg, 'important');
+      target.style.setProperty('--x-ov-tag-bg', tokens.tagBg, 'important');
+      target.style.setProperty('--x-ov-tag-text', tokens.tagText, 'important');
+      target.style.setProperty('--x-ov-bookmark-tag-bg', tokens.bookmarkTagBg, 'important');
+      target.style.setProperty('--x-ov-bookmark-tag-text', tokens.bookmarkTagText, 'important');
+      target.style.setProperty('--x-ov-blur', tokens.blur, 'important');
+      target.style.setProperty('--x-ov-saturate', tokens.saturate, 'important');
+      target.style.setProperty('--x-ext-input-text', tokens.text, 'important');
+      target.style.setProperty('--x-ext-input-caret', tokens.link, 'important');
+      target.style.setProperty('--x-ext-input-icon', tokens.subtext, 'important');
+      target.style.setProperty('--x-ext-input-underline', tokens.underline, 'important');
+    }
+
+    function isOverlayDarkMode() {
+      return overlay && overlay.getAttribute('data-theme') === 'dark';
+    }
+
+    function getThemeForMode(theme) {
+      if (!theme) {
+        return defaultTheme;
+      }
+      if (!isOverlayDarkMode()) {
+        return theme;
+      }
+      if (theme._xDark) {
+        return theme._xDark;
+      }
+      const accentRgb = theme.accentRgb || parseCssColor(theme.accent) || defaultAccentColor;
+      const darkTheme = buildThemeVariant(accentRgb, 'dark');
+      darkTheme._xIsDefault = Boolean(theme._xIsDefault);
+      theme._xDark = darkTheme;
+      return darkTheme;
+    }
+
+    function getHoverColors(theme) {
+      const resolvedTheme = getThemeForMode(theme);
+      const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
+      const isDark = isOverlayDarkMode();
+      const base = isDark ? [20, 20, 20] : [255, 255, 255];
+      return {
+        bg: rgbToCss(mixColor(accentRgb, base, isDark ? 0.6 : 0.9)),
+        border: rgbToCss(mixColor(accentRgb, base, isDark ? 0.4 : 0.72))
+      };
+    }
     const brandAccentMap = {
       'github.com': [36, 41, 46],
       'docs.github.com': [36, 41, 46],
@@ -1056,23 +1256,25 @@ function toggleBlackRectangle(tabs) {
       if (!target || !theme) {
         return;
       }
-      target.style.setProperty('--x-ext-mark-bg', theme.markBg, 'important');
-      target.style.setProperty('--x-ext-mark-text', theme.markText, 'important');
-      target.style.setProperty('--x-ext-tag-bg', theme.tagBg, 'important');
-      target.style.setProperty('--x-ext-tag-text', theme.tagText, 'important');
-      target.style.setProperty('--x-ext-tag-border', theme.tagBorder, 'important');
-      target.style.setProperty('--x-ext-key-bg', theme.keyBg, 'important');
-      target.style.setProperty('--x-ext-key-text', theme.keyText, 'important');
-      target.style.setProperty('--x-ext-key-border', theme.keyBorder, 'important');
-      target.style.setProperty('--x-ext-icon-color', theme.accent, 'important');
+      const resolvedTheme = getThemeForMode(theme);
+      target.style.setProperty('--x-ext-mark-bg', resolvedTheme.markBg, 'important');
+      target.style.setProperty('--x-ext-mark-text', resolvedTheme.markText, 'important');
+      target.style.setProperty('--x-ext-tag-bg', resolvedTheme.tagBg, 'important');
+      target.style.setProperty('--x-ext-tag-text', resolvedTheme.tagText, 'important');
+      target.style.setProperty('--x-ext-tag-border', resolvedTheme.tagBorder, 'important');
+      target.style.setProperty('--x-ext-key-bg', resolvedTheme.keyBg, 'important');
+      target.style.setProperty('--x-ext-key-text', resolvedTheme.keyText, 'important');
+      target.style.setProperty('--x-ext-key-border', resolvedTheme.keyBorder, 'important');
+      target.style.setProperty('--x-ext-icon-color', resolvedTheme.accent, 'important');
     }
 
     function applyMarkVariables(target, theme) {
       if (!target || !theme) {
         return;
       }
-      target.style.setProperty('--x-ext-mark-bg', theme.markBg, 'important');
-      target.style.setProperty('--x-ext-mark-text', theme.markText, 'important');
+      const resolvedTheme = getThemeForMode(theme);
+      target.style.setProperty('--x-ext-mark-bg', resolvedTheme.markBg, 'important');
+      target.style.setProperty('--x-ext-mark-text', resolvedTheme.markText, 'important');
     }
 
     function createActionTag(labelText, keyLabel) {
@@ -1156,7 +1358,7 @@ function toggleBlackRectangle(tabs) {
       font-size: 16px !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
       line-height: 1 !important;
-      color: #6B7280 !important;
+      color: var(--x-ov-subtext, #6B7280) !important;
       pointer-events: none !important;
       z-index: 1 !important;
     `;
@@ -1186,12 +1388,13 @@ function toggleBlackRectangle(tabs) {
       const prefixText = `在 ${getSiteSearchDisplayName(provider)} 中搜索｜`;
       siteSearchPrefix.textContent = prefixText;
       siteSearchPrefix.style.setProperty('display', 'inline-flex', 'important');
-      if (theme && theme.placeholderText) {
-        siteSearchPrefix.style.setProperty('color', theme.placeholderText, 'important');
+      const resolvedTheme = theme ? getThemeForMode(theme) : null;
+      if (resolvedTheme && resolvedTheme.placeholderText) {
+        siteSearchPrefix.style.setProperty('color', resolvedTheme.placeholderText, 'important');
       }
       searchInput.placeholder = '';
-      if (theme && theme.placeholderText) {
-        searchInput.style.setProperty('caret-color', theme.placeholderText, 'important');
+      if (resolvedTheme && resolvedTheme.placeholderText) {
+        searchInput.style.setProperty('caret-color', resolvedTheme.placeholderText, 'important');
       }
       updateSiteSearchPrefixLayout();
     }
@@ -1962,7 +2165,8 @@ function toggleBlackRectangle(tabs) {
     }
 
     function applySearchActionStyles(item, theme, isActive) {
-      applyMarkVariables(item, isActive ? theme : defaultTheme);
+      const resolvedTheme = getThemeForMode(theme);
+      applyMarkVariables(item, isActive ? resolvedTheme : defaultTheme);
       if (item._xVisitButton) {
         const shouldHide = Boolean(item._xAlwaysHideVisitButton || (isActive && item._xHasActionTags));
         item._xVisitButton.style.setProperty('display', shouldHide ? 'none' : 'inline-flex', 'important');
@@ -1971,45 +2175,45 @@ function toggleBlackRectangle(tabs) {
           item._xVisitButton.style.setProperty('border', '1px solid transparent', 'important');
         }
         if (isActive) {
-          item._xVisitButton.style.setProperty('color', theme.buttonText, 'important');
-          item._xVisitButton.style.setProperty('background-color', theme.buttonBg, 'important');
-          item._xVisitButton.style.setProperty('border', `1px solid ${theme.buttonBorder}`, 'important');
+          item._xVisitButton.style.setProperty('color', resolvedTheme.buttonText, 'important');
+          item._xVisitButton.style.setProperty('background-color', resolvedTheme.buttonBg, 'important');
+          item._xVisitButton.style.setProperty('border', `1px solid ${resolvedTheme.buttonBorder}`, 'important');
         } else {
-          item._xVisitButton.style.setProperty('color', '#9CA3AF', 'important');
+          item._xVisitButton.style.setProperty('color', 'var(--x-ov-subtext, #9CA3AF)', 'important');
           item._xVisitButton.style.setProperty('background-color', 'transparent', 'important');
           item._xVisitButton.style.setProperty('border', '1px solid transparent', 'important');
         }
       }
       if (item._xHistoryTag) {
         if (isActive) {
-          item._xHistoryTag.style.setProperty('background', theme.tagBg, 'important');
-          item._xHistoryTag.style.setProperty('color', theme.tagText, 'important');
-          item._xHistoryTag.style.setProperty('border', `1px solid ${theme.tagBorder}`, 'important');
+          item._xHistoryTag.style.setProperty('background', resolvedTheme.tagBg, 'important');
+          item._xHistoryTag.style.setProperty('color', resolvedTheme.tagText, 'important');
+          item._xHistoryTag.style.setProperty('border', `1px solid ${resolvedTheme.tagBorder}`, 'important');
         } else {
-          item._xHistoryTag.style.setProperty('background', item._xHistoryTag._xDefaultBg || '#F3F4F6', 'important');
-          item._xHistoryTag.style.setProperty('color', item._xHistoryTag._xDefaultText || '#6B7280', 'important');
+          item._xHistoryTag.style.setProperty('background', item._xHistoryTag._xDefaultBg || 'var(--x-ov-tag-bg, #F3F4F6)', 'important');
+          item._xHistoryTag.style.setProperty('color', item._xHistoryTag._xDefaultText || 'var(--x-ov-tag-text, #6B7280)', 'important');
           item._xHistoryTag.style.setProperty('border', `1px solid ${item._xHistoryTag._xDefaultBorder || 'transparent'}`, 'important');
         }
       }
       if (item._xBookmarkTag) {
         if (isActive) {
-          item._xBookmarkTag.style.setProperty('background', theme.tagBg, 'important');
-          item._xBookmarkTag.style.setProperty('color', theme.tagText, 'important');
-          item._xBookmarkTag.style.setProperty('border', `1px solid ${theme.tagBorder}`, 'important');
+          item._xBookmarkTag.style.setProperty('background', resolvedTheme.tagBg, 'important');
+          item._xBookmarkTag.style.setProperty('color', resolvedTheme.tagText, 'important');
+          item._xBookmarkTag.style.setProperty('border', `1px solid ${resolvedTheme.tagBorder}`, 'important');
         } else {
-          item._xBookmarkTag.style.setProperty('background', item._xBookmarkTag._xDefaultBg || '#FEF3C7', 'important');
-          item._xBookmarkTag.style.setProperty('color', item._xBookmarkTag._xDefaultText || '#D97706', 'important');
+          item._xBookmarkTag.style.setProperty('background', item._xBookmarkTag._xDefaultBg || 'var(--x-ov-bookmark-tag-bg, #FEF3C7)', 'important');
+          item._xBookmarkTag.style.setProperty('color', item._xBookmarkTag._xDefaultText || 'var(--x-ov-bookmark-tag-text, #D97706)', 'important');
           item._xBookmarkTag.style.setProperty('border', `1px solid ${item._xBookmarkTag._xDefaultBorder || 'transparent'}`, 'important');
         }
       }
       if (item._xTopSiteTag) {
         if (isActive) {
-          item._xTopSiteTag.style.setProperty('background', theme.tagBg, 'important');
-          item._xTopSiteTag.style.setProperty('color', theme.tagText, 'important');
-          item._xTopSiteTag.style.setProperty('border', `1px solid ${theme.tagBorder}`, 'important');
+          item._xTopSiteTag.style.setProperty('background', resolvedTheme.tagBg, 'important');
+          item._xTopSiteTag.style.setProperty('color', resolvedTheme.tagText, 'important');
+          item._xTopSiteTag.style.setProperty('border', `1px solid ${resolvedTheme.tagBorder}`, 'important');
         } else {
-          item._xTopSiteTag.style.setProperty('background', item._xTopSiteTag._xDefaultBg || '#F3F4F6', 'important');
-          item._xTopSiteTag.style.setProperty('color', item._xTopSiteTag._xDefaultText || '#6B7280', 'important');
+          item._xTopSiteTag.style.setProperty('background', item._xTopSiteTag._xDefaultBg || 'var(--x-ov-tag-bg, #F3F4F6)', 'important');
+          item._xTopSiteTag.style.setProperty('color', item._xTopSiteTag._xDefaultText || 'var(--x-ov-tag-text, #6B7280)', 'important');
           item._xTopSiteTag.style.setProperty('border', `1px solid ${item._xTopSiteTag._xDefaultBorder || 'transparent'}`, 'important');
         }
       }
@@ -2041,12 +2245,12 @@ function toggleBlackRectangle(tabs) {
         if (isSelected) {
           applySearchSuggestionHighlight(item, theme);
           if (item._xSwitchButton) {
-            item._xSwitchButton.style.setProperty('color', '#1F2937', 'important');
+            item._xSwitchButton.style.setProperty('color', 'var(--x-ov-text, #1F2937)', 'important');
           }
         } else {
           resetSearchSuggestion(item);
           if (item._xSwitchButton) {
-            item._xSwitchButton.style.setProperty('color', '#9CA3AF', 'important');
+            item._xSwitchButton.style.setProperty('color', 'var(--x-ov-subtext, #9CA3AF)', 'important');
           }
         }
       });
@@ -2060,6 +2264,7 @@ function toggleBlackRectangle(tabs) {
       list.forEach((tab, index) => {
         const suggestionItem = document.createElement('div');
         suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
+        const isLastItem = index === list.length - 1;
         suggestionItem.style.cssText = `
           all: unset !important;
           display: flex !important;
@@ -2068,11 +2273,10 @@ function toggleBlackRectangle(tabs) {
           padding: 12px 16px !important;
           background: transparent !important;
           border-radius: 16px !important;
-          margin-bottom: 4px !important;
           cursor: pointer !important;
           transition: background-color 0.2s ease !important;
           box-sizing: border-box !important;
-          margin: 0 0 4px 0 !important;
+          margin: 0 0 ${isLastItem ? '0' : '4px'} 0 !important;
           line-height: 1.5 !important;
           text-decoration: none !important;
           list-style: none !important;
@@ -2142,7 +2346,7 @@ function toggleBlackRectangle(tabs) {
         title.textContent = tab.title || '无标题';
         title.style.cssText = `
           all: unset !important;
-          color: #111827 !important;
+          color: var(--x-ov-text, #111827) !important;
           font-size: 14px !important;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
           white-space: nowrap !important;
@@ -2168,7 +2372,7 @@ function toggleBlackRectangle(tabs) {
         switchButton.style.cssText = `
           all: unset !important;
           background: transparent !important;
-          color: #4B5563 !important;
+          color: var(--x-ov-subtext, #4B5563) !important;
           border: none !important;
           border-radius: 6px !important;
           font-size: 12px !important;
@@ -2192,7 +2396,7 @@ function toggleBlackRectangle(tabs) {
         // Add hover effects
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
-            this.style.setProperty('background-color', '#F3F4F6', 'important');
+            this.style.setProperty('background-color', 'var(--x-ov-hover-bg, #F3F4F6)', 'important');
           }
         });
 
@@ -2410,7 +2614,7 @@ function toggleBlackRectangle(tabs) {
         urlLine.textContent = url;
         urlLine.style.cssText = `
           all: unset !important;
-          color: #2563EB !important;
+          color: var(--x-ov-link, #2563EB) !important;
           font-size: 12px !important;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
           text-decoration: none !important;
@@ -2727,7 +2931,7 @@ function toggleBlackRectangle(tabs) {
           title.innerHTML = highlightedTitle;
           title.style.cssText = `
             all: unset !important;
-            color: #111827 !important;
+            color: var(--x-ov-text, #111827) !important;
             font-size: 14px !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
             font-weight: 400 !important;
@@ -2758,13 +2962,13 @@ function toggleBlackRectangle(tabs) {
             }
             const historyTag = document.createElement('span');
             historyTag.textContent = '历史';
-            historyTag._xDefaultBg = '#F3F4F6';
-            historyTag._xDefaultText = '#6B7280';
+            historyTag._xDefaultBg = 'var(--x-ov-tag-bg, #F3F4F6)';
+            historyTag._xDefaultText = 'var(--x-ov-tag-text, #6B7280)';
             historyTag._xDefaultBorder = 'transparent';
             historyTag.style.cssText = `
               all: unset !important;
-              background: #F3F4F6 !important;
-              color: #6B7280 !important;
+              background: var(--x-ov-tag-bg, #F3F4F6) !important;
+              color: var(--x-ov-tag-text, #6B7280) !important;
               font-size: 10px !important;
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
               padding: 4px 6px !important;
@@ -2792,13 +2996,13 @@ function toggleBlackRectangle(tabs) {
             }
             const topSiteTag = document.createElement('span');
             topSiteTag.textContent = '常用';
-            topSiteTag._xDefaultBg = '#F3F4F6';
-            topSiteTag._xDefaultText = '#6B7280';
+            topSiteTag._xDefaultBg = 'var(--x-ov-tag-bg, #F3F4F6)';
+            topSiteTag._xDefaultText = 'var(--x-ov-tag-text, #6B7280)';
             topSiteTag._xDefaultBorder = 'transparent';
             topSiteTag.style.cssText = `
               all: unset !important;
-              background: #F3F4F6 !important;
-              color: #6B7280 !important;
+              background: var(--x-ov-tag-bg, #F3F4F6) !important;
+              color: var(--x-ov-tag-text, #6B7280) !important;
               font-size: 10px !important;
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
               padding: 4px 6px !important;
@@ -2825,7 +3029,7 @@ function toggleBlackRectangle(tabs) {
               bookmarkPath.textContent = suggestion.path;
               bookmarkPath.style.cssText = `
                 all: unset !important;
-                color: #2563EB !important;
+                color: var(--x-ov-link, #2563EB) !important;
                 font-size: 12px !important;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
                 text-decoration: none !important;
@@ -2842,16 +3046,16 @@ function toggleBlackRectangle(tabs) {
               `;
               textWrapper.appendChild(bookmarkPath);
             }
-            const bookmarkTag = document.createElement('span');
-            bookmarkTag.textContent = '书签';
-            bookmarkTag._xDefaultBg = '#FEF3C7';
-            bookmarkTag._xDefaultText = '#D97706';
-            bookmarkTag._xDefaultBorder = 'transparent';
-            bookmarkTag.style.cssText = `
-              all: unset !important;
-              background: #FEF3C7 !important;
-              color: #D97706 !important;
-              font-size: 10px !important;
+          const bookmarkTag = document.createElement('span');
+          bookmarkTag.textContent = '书签';
+          bookmarkTag._xDefaultBg = 'var(--x-ov-bookmark-tag-bg, #FEF3C7)';
+          bookmarkTag._xDefaultText = 'var(--x-ov-bookmark-tag-text, #D97706)';
+          bookmarkTag._xDefaultBorder = 'transparent';
+          bookmarkTag.style.cssText = `
+            all: unset !important;
+            background: var(--x-ov-bookmark-tag-bg, #FEF3C7) !important;
+            color: var(--x-ov-bookmark-tag-text, #D97706) !important;
+            font-size: 10px !important;
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
               padding: 4px 6px !important;
               border-radius: 8px !important;
@@ -2932,7 +3136,7 @@ function toggleBlackRectangle(tabs) {
           visitButton.style.cssText = `
             all: unset !important;
             background: transparent !important;
-            color: #9CA3AF !important;
+            color: var(--x-ov-subtext, #9CA3AF) !important;
             border: 1px solid transparent !important;
             border-radius: 16px !important;
             font-size: 12px !important;
@@ -2972,8 +3176,15 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
-              this.style.setProperty('background', '#F9FAFB', 'important');
-              this.style.setProperty('border', '1px solid transparent', 'important');
+              const theme = this._xTheme || defaultTheme;
+              if (this._xIsSearchSuggestion && theme && !theme._xIsDefault) {
+                const hover = getHoverColors(theme);
+                this.style.setProperty('background', hover.bg, 'important');
+                this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+              } else {
+                this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
+                this.style.setProperty('border', '1px solid transparent', 'important');
+              }
             }
           });
           

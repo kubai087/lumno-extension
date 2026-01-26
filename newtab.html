@@ -11,7 +11,7 @@
       }
       body {
         margin: 0;
-        background: #ffffff;
+        background: var(--x-nt-bg);
         display: flex;
         align-items: flex-start;
         justify-content: center;
@@ -20,12 +20,67 @@
         overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, sans-serif;
+        color: var(--x-nt-text);
+      }
+      :root {
+        --x-nt-bg: #ffffff;
+        --x-nt-text: #111827;
+        --x-nt-subtext: #6b7280;
+        --x-nt-link: #2563eb;
+        --x-nt-placeholder: #9ca3af;
+        --x-nt-input-bg: transparent;
+        --x-nt-input-border: transparent;
+        --x-nt-input-shadow: none;
+        --x-nt-suggestions-bg: transparent;
+        --x-nt-suggestions-border: transparent;
+        --x-nt-suggestions-shadow: none;
+        --x-nt-panel-bg: rgba(255, 255, 255, 0.82);
+        --x-nt-panel-border: rgba(0, 0, 0, 0.08);
+        --x-nt-panel-shadow: 0 17px 120px rgba(0, 0, 0, 0.08);
+        --x-nt-panel-blur: 24px;
+        --x-nt-panel-saturate: 165%;
+        --x-nt-hover-bg: #f3f4f6;
+        --x-nt-tag-bg: #f3f4f6;
+        --x-nt-tag-text: #6b7280;
+        --x-nt-bookmark-tag-bg: #fef3c7;
+        --x-nt-bookmark-tag-text: #d97706;
+      }
+      body[data-theme="dark"] {
+        --x-nt-bg: #111111;
+        --x-nt-text: #e5e7eb;
+        --x-nt-subtext: #9ca3af;
+        --x-nt-link: #d1d5db;
+        --x-nt-placeholder: #9ca3af;
+        --x-nt-input-bg: transparent;
+        --x-nt-input-border: transparent;
+        --x-nt-input-shadow: none;
+        --x-nt-suggestions-bg: transparent;
+        --x-nt-suggestions-border: transparent;
+        --x-nt-suggestions-shadow: none;
+        --x-nt-panel-bg: rgba(20, 20, 20, 0.82);
+        --x-nt-panel-border: rgba(255, 255, 255, 0.08);
+        --x-nt-panel-shadow: 0 24px 90px rgba(0, 0, 0, 0.65);
+        --x-nt-panel-blur: 32px;
+        --x-nt-panel-saturate: 145%;
+        --x-nt-hover-bg: rgba(255, 255, 255, 0.08);
+        --x-nt-tag-bg: rgba(255, 255, 255, 0.12);
+        --x-nt-tag-text: #e5e7eb;
+        --x-nt-bookmark-tag-bg: rgba(245, 158, 11, 0.22);
+        --x-nt-bookmark-tag-text: #fbbf24;
       }
       #_x_extension_newtab_root_2024_unique_ {
         width: 90vw;
         max-width: 720px;
         display: flex;
         flex-direction: column;
+        background: var(--x-nt-panel-bg);
+        border: 1px solid var(--x-nt-panel-border);
+        border-radius: 28px;
+        box-shadow: var(--x-nt-panel-shadow);
+        backdrop-filter: blur(var(--x-nt-panel-blur, 24px)) saturate(var(--x-nt-panel-saturate, 165%));
+        -webkit-backdrop-filter: blur(var(--x-nt-panel-blur, 24px)) saturate(var(--x-nt-panel-saturate, 165%));
+        padding: 20px;
+        box-sizing: border-box;
       }
     </style>
   </head>

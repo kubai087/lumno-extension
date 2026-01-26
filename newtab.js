@@ -5,6 +5,54 @@
     return;
   }
 
+  const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  let mediaListenerAttached = false;
+
+  function resolveTheme(mode) {
+    if (mode === 'dark') {
+      return 'dark';
+    }
+    if (mode === 'light') {
+      return 'light';
+    }
+    return mediaQuery.matches ? 'dark' : 'light';
+  }
+
+  function applyThemeMode(mode) {
+    const resolved = resolveTheme(mode);
+    document.body.setAttribute('data-theme', resolved);
+    if (mode === 'system' && !mediaListenerAttached) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+      mediaListenerAttached = true;
+      return;
+    }
+    if (mode !== 'system' && mediaListenerAttached) {
+      mediaQuery.removeEventListener('change', handleMediaChange);
+      mediaListenerAttached = false;
+    }
+  }
+
+  function handleMediaChange() {
+    chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+      const mode = result[THEME_STORAGE_KEY] || 'system';
+      if (mode === 'system') {
+        document.body.setAttribute('data-theme', resolveTheme(mode));
+      }
+    });
+  }
+
+  chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+    applyThemeMode(result[THEME_STORAGE_KEY] || 'system');
+  });
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes[THEME_STORAGE_KEY]) {
+      return;
+    }
+    applyThemeMode(changes[THEME_STORAGE_KEY].newValue || 'system');
+  });
+
   let latestQuery = '';
   let latestRawQuery = '';
   let autocompleteState = null;
@@ -12,6 +60,7 @@
   let isComposing = false;
   let siteSearchState = null;
   let debounceTimer = null;
+  let tabs = [];
   let siteSearchProvidersCache = null;
   let handleTabKey = null;
   const defaultSiteSearchProviders = [
@@ -47,6 +96,52 @@
     return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
   }
 
+  function parseCssColor(color) {
+    if (!color || typeof color !== 'string') {
+      return null;
+    }
+    const trimmed = color.trim().toLowerCase();
+    if (trimmed.startsWith('#')) {
+      const hex = trimmed.slice(1);
+      if (hex.length === 3) {
+        const r = parseInt(hex[0] + hex[0], 16);
+        const g = parseInt(hex[1] + hex[1], 16);
+        const b = parseInt(hex[2] + hex[2], 16);
+        if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+          return [r, g, b];
+        }
+      }
+      if (hex.length === 6) {
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+          return [r, g, b];
+        }
+      }
+      return null;
+    }
+    const rgbMatch = trimmed.match(/^rgb\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)$/);
+    if (rgbMatch) {
+      const r = Number(rgbMatch[1]);
+      const g = Number(rgbMatch[2]);
+      const b = Number(rgbMatch[3]);
+      if ([r, g, b].every((value) => Number.isFinite(value))) {
+        return [r, g, b];
+      }
+    }
+    return null;
+  }
+
+  function getHighlightColors(theme) {
+    const resolvedTheme = getThemeForMode(theme);
+    const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
+    return {
+      bg: resolvedTheme.highlightBg || rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.88)),
+      border: resolvedTheme.highlightBorder || rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.68))
+    };
+  }
+
   function getLuminance(rgb) {
     const [r, g, b] = rgb.map((value) => {
       const channel = value / 255;
@@ -56,7 +151,17 @@
   }
 
   function getReadableTextColor(bgRgb) {
-    return getLuminance(bgRgb) > 0.68 ? '#111827' : '#F8FAFC';
+    if (!bgRgb || bgRgb.length !== 3) {
+      return '#111827';
+    }
+    const darkText = [17, 24, 39];
+    const lightText = [248, 250, 252];
+    const bgLum = getLuminance(bgRgb);
+    const darkLum = getLuminance(darkText);
+    const lightLum = getLuminance(lightText);
+    const contrastWithDark = (Math.max(bgLum, darkLum) + 0.05) / (Math.min(bgLum, darkLum) + 0.05);
+    const contrastWithLight = (Math.max(bgLum, lightLum) + 0.05) / (Math.min(bgLum, lightLum) + 0.05);
+    return contrastWithDark >= contrastWithLight ? '#111827' : '#F8FAFC';
   }
 
   function normalizeAccentColor(rgb) {
@@ -73,20 +178,29 @@
     return rgb;
   }
 
-  function buildTheme(rgb) {
-    const accent = normalizeAccentColor(rgb);
-    const highlightBg = mixColor(accent, [255, 255, 255], 0.86);
-    const highlightBorder = mixColor(accent, [255, 255, 255], 0.62);
-    const markBg = mixColor(accent, [255, 255, 255], 0.78);
-    const tagBg = mixColor(accent, [255, 255, 255], 0.74);
-    const keyBg = mixColor(accent, [255, 255, 255], 0.9);
-    const tagBorder = mixColor(accent, [255, 255, 255], 0.58);
-    const keyBorder = mixColor(accent, [0, 0, 0], 0.18);
-    const buttonText = getLuminance(accent) > 0.8
-      ? rgbToCss(mixColor(accent, [0, 0, 0], 0.6))
-      : rgbToCss(accent);
+  function buildThemeVariant(accent, mode) {
+    const isDark = mode === 'dark';
+    const base = isDark ? [20, 20, 20] : [255, 255, 255];
+    const highlightBg = mixColor(accent, base, isDark ? 0.72 : 0.86);
+    const highlightBorder = mixColor(accent, base, isDark ? 0.5 : 0.62);
+    const markBg = mixColor(accent, base, isDark ? 0.64 : 0.78);
+    const tagBg = mixColor(accent, base, isDark ? 0.6 : 0.74);
+    const keyBg = mixColor(accent, base, isDark ? 0.78 : 0.9);
+    const tagBorder = mixColor(accent, base, isDark ? 0.4 : 0.58);
+    const keyBorder = mixColor(accent, base, isDark ? 0.58 : 0.18);
+    const buttonBg = mixColor(accent, base, isDark ? 0.68 : 0.94);
+    const buttonBorder = mixColor(accent, base, isDark ? 0.48 : 0.7);
+    const buttonText = isDark
+      ? getReadableTextColor(buttonBg)
+      : (getLuminance(accent) > 0.8
+        ? rgbToCss(mixColor(accent, [0, 0, 0], 0.6))
+        : rgbToCss(accent));
+    const placeholderText = isDark
+      ? rgbToCss(mixColor(accent, [255, 255, 255], 0.2))
+      : buttonText;
     return {
       accent: rgbToCss(accent),
+      accentRgb: accent,
       highlightBg: rgbToCss(highlightBg),
       highlightBorder: rgbToCss(highlightBorder),
       markBg: rgbToCss(markBg),
@@ -98,13 +212,75 @@
       keyText: getReadableTextColor(keyBg),
       keyBorder: rgbToCss(keyBorder),
       buttonText: buttonText,
-      buttonBg: rgbToCss(mixColor(accent, [255, 255, 255], 0.94)),
-      buttonBorder: rgbToCss(mixColor(accent, [255, 255, 255], 0.7)),
-      placeholderText: buttonText
+      buttonBg: rgbToCss(buttonBg),
+      buttonBorder: rgbToCss(buttonBorder),
+      placeholderText: placeholderText
     };
   }
 
+  function buildTheme(rgb) {
+    const accent = normalizeAccentColor(rgb);
+    return buildThemeVariant(accent, 'light');
+  }
+
   const defaultTheme = buildTheme(defaultAccentColor);
+  defaultTheme._xIsDefault = true;
+  const brandAccentMap = {
+    'github.com': [36, 41, 46],
+    'docs.github.com': [36, 41, 46],
+    'douban.com': [0, 181, 29],
+    'zhihu.com': [23, 127, 255],
+    'bilibili.com': [0, 174, 236],
+    'youtube.com': [255, 0, 0],
+    'youtu.be': [255, 0, 0],
+    'google.com': [66, 133, 244],
+    'bing.com': [0, 120, 215],
+    'baidu.com': [41, 98, 255],
+    'taobao.com': [255, 80, 0],
+    'tmall.com': [226, 35, 26],
+    'juejin.cn': [30, 128, 255],
+    'reddit.com': [255, 69, 0],
+    'wikipedia.org': [64, 64, 64],
+    'zh.wikipedia.org': [64, 64, 64],
+    'x.com': [17, 24, 39],
+    'twitter.com': [29, 161, 242]
+  };
+
+  function getBrandAccentForHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    if (!host) {
+      return null;
+    }
+    if (brandAccentMap[host]) {
+      return brandAccentMap[host];
+    }
+    const entry = Object.keys(brandAccentMap).find((key) => host === key || host.endsWith(`.${key}`));
+    return entry ? brandAccentMap[entry] : null;
+  }
+
+  function getBrandAccentForUrl(url) {
+    if (!url) {
+      return null;
+    }
+    try {
+      const hostname = new URL(url).hostname;
+      return getBrandAccentForHost(hostname);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const newtabThemeStyle = document.createElement('style');
+  newtabThemeStyle.id = '_x_extension_newtab_theme_style_2024_unique_';
+  newtabThemeStyle.textContent = `
+    #_x_extension_newtab_root_2024_unique_ {
+      color: var(--x-nt-text, #111827);
+    }
+    #_x_extension_newtab_search_input_2024_unique_::placeholder {
+      color: var(--x-nt-placeholder, #9CA3AF);
+    }
+  `;
+  document.head.appendChild(newtabThemeStyle);
 
   function extractAverageColor(image) {
     const size = 16;
@@ -171,6 +347,12 @@
     if (themeColorCache.has(url)) {
       return Promise.resolve(themeColorCache.get(url));
     }
+    const brandAccent = getBrandAccentForUrl(url);
+    if (brandAccent) {
+      const brandTheme = buildTheme(brandAccent);
+      themeColorCache.set(url, brandTheme);
+      return Promise.resolve(brandTheme);
+    }
     return new Promise((resolve) => {
       const image = new Image();
       image.crossOrigin = 'anonymous';
@@ -188,18 +370,84 @@
     });
   }
 
+  function getThemeForProvider(provider) {
+    if (provider && provider.template) {
+      const brandAccent = getBrandAccentForUrl(provider.template);
+      if (brandAccent) {
+        return Promise.resolve(buildTheme(brandAccent));
+      }
+    }
+    return getThemeFromUrl(getProviderIcon(provider));
+  }
+
+  function getThemeForSuggestion(suggestion) {
+    if (suggestion && suggestion.provider) {
+      return getThemeForProvider(suggestion.provider);
+    }
+    if (suggestion && suggestion.url) {
+      const brandAccent = getBrandAccentForUrl(suggestion.url);
+      if (brandAccent) {
+        return Promise.resolve(buildTheme(brandAccent));
+      }
+    }
+    return getThemeFromUrl(getThemeSourceForSuggestion(suggestion));
+  }
+
+  function isNewtabDarkMode() {
+    return document.body.getAttribute('data-theme') === 'dark';
+  }
+
+  function getThemeForMode(theme) {
+    if (!theme) {
+      return defaultTheme;
+    }
+    if (!isNewtabDarkMode()) {
+      return theme;
+    }
+    if (theme._xDark) {
+      return theme._xDark;
+    }
+    const accentRgb = theme.accentRgb || parseCssColor(theme.accent) || defaultAccentColor;
+    const darkTheme = buildThemeVariant(accentRgb, 'dark');
+    darkTheme._xIsDefault = Boolean(theme._xIsDefault);
+    theme._xDark = darkTheme;
+    return darkTheme;
+  }
+
+  function getHoverColors(theme) {
+    const resolvedTheme = getThemeForMode(theme);
+    const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
+    const isDark = isNewtabDarkMode();
+    const base = isDark ? [20, 20, 20] : [255, 255, 255];
+    return {
+      bg: rgbToCss(mixColor(accentRgb, base, isDark ? 0.6 : 0.9)),
+      border: rgbToCss(mixColor(accentRgb, base, isDark ? 0.4 : 0.72))
+    };
+  }
+
   function applyThemeVariables(target, theme) {
     if (!target || !theme) {
       return;
     }
-    target.style.setProperty('--x-ext-mark-bg', theme.markBg, 'important');
-    target.style.setProperty('--x-ext-mark-text', theme.markText, 'important');
-    target.style.setProperty('--x-ext-tag-bg', theme.tagBg, 'important');
-    target.style.setProperty('--x-ext-tag-text', theme.tagText, 'important');
-    target.style.setProperty('--x-ext-tag-border', theme.tagBorder, 'important');
-    target.style.setProperty('--x-ext-key-bg', theme.keyBg, 'important');
-    target.style.setProperty('--x-ext-key-text', theme.keyText, 'important');
-    target.style.setProperty('--x-ext-key-border', theme.keyBorder, 'important');
+    const resolvedTheme = getThemeForMode(theme);
+    target.style.setProperty('--x-ext-mark-bg', resolvedTheme.markBg, 'important');
+    target.style.setProperty('--x-ext-mark-text', resolvedTheme.markText, 'important');
+    target.style.setProperty('--x-ext-tag-bg', resolvedTheme.tagBg, 'important');
+    target.style.setProperty('--x-ext-tag-text', resolvedTheme.tagText, 'important');
+    target.style.setProperty('--x-ext-tag-border', resolvedTheme.tagBorder, 'important');
+    target.style.setProperty('--x-ext-key-bg', resolvedTheme.keyBg, 'important');
+    target.style.setProperty('--x-ext-key-text', resolvedTheme.keyText, 'important');
+    target.style.setProperty('--x-ext-key-border', resolvedTheme.keyBorder, 'important');
+    target.style.setProperty('--x-ext-icon-color', resolvedTheme.accent, 'important');
+  }
+
+  function applyMarkVariables(target, theme) {
+    if (!target || !theme) {
+      return;
+    }
+    const resolvedTheme = getThemeForMode(theme);
+    target.style.setProperty('--x-ext-mark-bg', resolvedTheme.markBg, 'important');
+    target.style.setProperty('--x-ext-mark-text', resolvedTheme.markText, 'important');
   }
 
   function getThemeSourceForSuggestion(suggestion) {
@@ -214,6 +462,60 @@
       }
     }
     return suggestion && suggestion.favicon ? suggestion.favicon : '';
+  }
+
+  function createActionTag(labelText, keyLabel) {
+    const tag = document.createElement('span');
+    tag.style.cssText = `
+      all: unset !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      background: var(--x-ext-tag-bg, #EEF6FF) !important;
+      color: var(--x-ext-tag-text, #1E3A8A) !important;
+      border: 1px solid var(--x-ext-tag-border, #BFDBFE) !important;
+      padding: 4px 10px 4px 8px !important;
+      border-radius: 999px !important;
+      font-size: 11px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+      line-height: 1 !important;
+      text-decoration: none !important;
+      list-style: none !important;
+      outline: none !important;
+      box-sizing: border-box !important;
+      vertical-align: middle !important;
+      white-space: nowrap !important;
+    `;
+
+    const label = document.createElement('span');
+    label.textContent = labelText;
+    label.style.cssText = `
+      all: unset !important;
+      font-weight: 500 !important;
+      line-height: 1 !important;
+    `;
+
+    const keycap = document.createElement('span');
+    keycap.textContent = keyLabel;
+    keycap.style.cssText = `
+      all: unset !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 2px 7px !important;
+      border-radius: 6px !important;
+      background: var(--x-ext-key-bg, #FFFFFF) !important;
+      color: var(--x-ext-key-text, #1E3A8A) !important;
+      border: 1px solid var(--x-ext-key-border, #BFDBFE) !important;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12) !important;
+      font-size: 10px !important;
+      font-weight: 600 !important;
+      line-height: 1 !important;
+    `;
+
+    tag.appendChild(label);
+    tag.appendChild(keycap);
+    return tag;
   }
 
   function navigateToUrl(url) {
@@ -256,10 +558,10 @@
     all: unset !important;
     width: 100% !important;
     margin-top: 14px !important;
-    background: #FFFFFF !important;
+    background: var(--x-nt-suggestions-bg, #FFFFFF) !important;
     border-radius: 20px !important;
-    border: 1px solid rgba(0, 0, 0, 0.06) !important;
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid var(--x-nt-suggestions-border, rgba(0, 0, 0, 0.06)) !important;
+    box-shadow: var(--x-nt-suggestions-shadow, 0 18px 44px rgba(0, 0, 0, 0.08)) !important;
     padding: 8px !important;
     box-sizing: border-box !important;
     display: block !important;
@@ -439,7 +741,7 @@
     urlLine.textContent = url;
     urlLine.style.cssText = `
       all: unset !important;
-      color: #2563EB !important;
+      color: var(--x-nt-link, #2563EB) !important;
       font-size: 12px !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
       text-decoration: none !important;
@@ -615,6 +917,85 @@
     return { provider: provider, query: remainder };
   }
 
+  function matchesTopSitePrefix(suggestion, input) {
+    if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
+      return false;
+    }
+    const query = String(input || '').trim().toLowerCase();
+    if (!query) {
+      return false;
+    }
+    const titleText = String(suggestion.title || '').toLowerCase();
+    if (titleText.startsWith(query)) {
+      return true;
+    }
+    const urlText = getUrlDisplay(suggestion.url || '');
+    if (!urlText) {
+      return false;
+    }
+    const host = urlText.split('/')[0] || '';
+    return host.toLowerCase().startsWith(query);
+  }
+
+  function getTopSiteMatchCandidate(list, input) {
+    if (!Array.isArray(list)) {
+      return null;
+    }
+    const query = String(input || '').trim();
+    if (!query || /\s/.test(query)) {
+      return null;
+    }
+    let fallback = null;
+    for (let i = 0; i < list.length; i += 1) {
+      const suggestion = list[i];
+      if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
+        continue;
+      }
+      const urlText = getUrlDisplay(suggestion.url || '');
+      const host = urlText ? (urlText.split('/')[0] || '') : '';
+      if (host && host.toLowerCase().startsWith(query.toLowerCase())) {
+        return suggestion;
+      }
+      if (!fallback && matchesTopSitePrefix(suggestion, query)) {
+        fallback = suggestion;
+      }
+    }
+    return fallback;
+  }
+
+  function promoteTopSiteMatch(list, queryText) {
+    const match = getTopSiteMatchCandidate(list, queryText);
+    if (!match) {
+      return null;
+    }
+    const matchIndex = list.indexOf(match);
+    if (matchIndex > 0) {
+      const [picked] = list.splice(matchIndex, 1);
+      list.unshift(picked);
+      return picked;
+    }
+    if (matchIndex === 0) {
+      return list[0];
+    }
+    return null;
+  }
+
+  function getSiteSearchTriggerCandidate(input, providers, topSiteMatch) {
+    const trimmed = String(input || '').trim();
+    if (!trimmed || /\s/.test(trimmed)) {
+      return null;
+    }
+    const provider = findSiteSearchProvider(trimmed, providers) ||
+      findSiteSearchProviderByKey(trimmed, providers);
+    if (!provider) {
+      return null;
+    }
+    if (topSiteMatch && trimmed.length <= 2 && matchesTopSitePrefix(topSiteMatch, trimmed)) {
+      return null;
+    }
+    return provider;
+  }
+
   function activateSiteSearch(provider) {
     if (!provider) {
       return;
@@ -626,14 +1007,12 @@
     latestQuery = '';
     clearAutocomplete();
     setSiteSearchPrefix(provider, defaultTheme);
-    const providerIcon = getProviderIcon(provider);
-    getThemeFromUrl(providerIcon).then((theme) => {
+    getThemeForProvider(provider).then((theme) => {
       if (siteSearchState === provider) {
         setSiteSearchPrefix(provider, theme);
       }
     });
-    suggestionsContainer.innerHTML = '';
-    setSuggestionsVisible(false);
+    clearSearchSuggestions();
   }
 
   function clearSiteSearch() {
@@ -758,64 +1137,316 @@
     });
   }
 
-  function renderSuggestions(suggestions, query) {
+  const suggestionItems = [];
+  let selectedIndex = -1;
+  let currentSuggestions = [];
+  let siteSearchTriggerState = null;
+
+  function getAutoHighlightIndex() {
+    return suggestionItems.findIndex((item) => Boolean(item && item._xIsAutocompleteTop));
+  }
+
+  function applySearchSuggestionHighlight(item, theme) {
+    const highlight = getHighlightColors(theme);
+    item.style.setProperty('background', highlight.bg, 'important');
+    item.style.setProperty('border', `1px solid ${highlight.border}`, 'important');
+  }
+
+  function resetSearchSuggestion(item) {
+    item.style.setProperty('background', 'transparent', 'important');
+    item.style.setProperty('border', '1px solid transparent', 'important');
+  }
+
+  function applySearchActionStyles(item, theme, isActive) {
+    const resolvedTheme = getThemeForMode(theme);
+    applyMarkVariables(item, isActive ? resolvedTheme : defaultTheme);
+    if (item._xHistoryTag) {
+      if (isActive) {
+        item._xHistoryTag.style.setProperty('background', resolvedTheme.tagBg, 'important');
+        item._xHistoryTag.style.setProperty('color', resolvedTheme.tagText, 'important');
+        item._xHistoryTag.style.setProperty('border', `1px solid ${resolvedTheme.tagBorder}`, 'important');
+      } else {
+        item._xHistoryTag.style.setProperty('background', item._xHistoryTag._xDefaultBg || 'var(--x-nt-tag-bg, #F3F4F6)', 'important');
+        item._xHistoryTag.style.setProperty('color', item._xHistoryTag._xDefaultText || 'var(--x-nt-tag-text, #6B7280)', 'important');
+        item._xHistoryTag.style.setProperty('border', `1px solid ${item._xHistoryTag._xDefaultBorder || 'transparent'}`, 'important');
+      }
+    }
+    if (item._xBookmarkTag) {
+      if (isActive) {
+        item._xBookmarkTag.style.setProperty('background', resolvedTheme.tagBg, 'important');
+        item._xBookmarkTag.style.setProperty('color', resolvedTheme.tagText, 'important');
+        item._xBookmarkTag.style.setProperty('border', `1px solid ${resolvedTheme.tagBorder}`, 'important');
+      } else {
+        item._xBookmarkTag.style.setProperty('background', item._xBookmarkTag._xDefaultBg || 'var(--x-nt-bookmark-tag-bg, #FEF3C7)', 'important');
+        item._xBookmarkTag.style.setProperty('color', item._xBookmarkTag._xDefaultText || 'var(--x-nt-bookmark-tag-text, #D97706)', 'important');
+        item._xBookmarkTag.style.setProperty('border', `1px solid ${item._xBookmarkTag._xDefaultBorder || 'transparent'}`, 'important');
+      }
+    }
+    if (item._xTopSiteTag) {
+      if (isActive) {
+        item._xTopSiteTag.style.setProperty('background', resolvedTheme.tagBg, 'important');
+        item._xTopSiteTag.style.setProperty('color', resolvedTheme.tagText, 'important');
+        item._xTopSiteTag.style.setProperty('border', `1px solid ${resolvedTheme.tagBorder}`, 'important');
+      } else {
+        item._xTopSiteTag.style.setProperty('background', item._xTopSiteTag._xDefaultBg || 'var(--x-nt-tag-bg, #F3F4F6)', 'important');
+        item._xTopSiteTag.style.setProperty('color', item._xTopSiteTag._xDefaultText || 'var(--x-nt-tag-text, #6B7280)', 'important');
+        item._xTopSiteTag.style.setProperty('border', `1px solid ${item._xTopSiteTag._xDefaultBorder || 'transparent'}`, 'important');
+      }
+    }
+    if (item._xTagContainer) {
+      const shouldShow = isActive && item._xHasActionTags;
+      item._xTagContainer.style.setProperty('display', shouldShow ? 'inline-flex' : 'none', 'important');
+    }
+    if (item._xTitle) {
+      item._xTitle.style.setProperty('font-weight', isActive ? '600' : '400', 'important');
+    }
+  }
+
+  function updateSelection() {
+    suggestionItems.forEach((item, index) => {
+      const isSelected = index === selectedIndex;
+      const shouldAutoHighlight = selectedIndex === -1 && item._xIsAutocompleteTop;
+      const isHighlighted = isSelected || shouldAutoHighlight;
+      if (item._xIsSearchSuggestion) {
+        const theme = item._xTheme || defaultTheme;
+        if (isHighlighted) {
+          applySearchSuggestionHighlight(item, theme);
+        } else {
+          resetSearchSuggestion(item);
+        }
+        applySearchActionStyles(item, theme, isHighlighted);
+        return;
+      }
+      const theme = item._xTheme || defaultTheme;
+      if (isSelected) {
+        applySearchSuggestionHighlight(item, theme);
+        if (item._xSwitchButton) {
+          item._xSwitchButton.style.setProperty('color', 'var(--x-nt-text, #111827)', 'important');
+        }
+      } else {
+        resetSearchSuggestion(item);
+        if (item._xSwitchButton) {
+          item._xSwitchButton.style.setProperty('color', 'var(--x-nt-subtext, #9CA3AF)', 'important');
+        }
+      }
+    });
+  }
+
+  function renderTabSuggestions(tabList) {
     suggestionsContainer.innerHTML = '';
-    if (!query) {
-      inlineSearchState = null;
+    suggestionItems.length = 0;
+    currentSuggestions = [];
+    const list = Array.isArray(tabList) ? tabList : [];
+    if (list.length === 0) {
       setSuggestionsVisible(false);
       return;
     }
+    list.forEach((tab, index) => {
+      const suggestionItem = document.createElement('div');
+      suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
+      const isLastItem = index === list.length - 1;
+      suggestionItem.style.cssText = `
+        all: unset !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 12px 16px !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        border-radius: 16px !important;
+        cursor: pointer !important;
+        transition: background-color 0.2s ease !important;
+        box-sizing: border-box !important;
+        margin: 0 0 ${isLastItem ? '0' : '6px'} 0 !important;
+        line-height: 1.5 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        color: inherit !important;
+        font-size: 100% !important;
+        font: inherit !important;
+        vertical-align: baseline !important;
+      `;
+      suggestionItem._xIsSearchSuggestion = false;
+      suggestionItem._xIsAutocompleteTop = false;
+      suggestionItem._xTheme = defaultTheme;
+      suggestionItems.push(suggestionItem);
 
-    function isSearchEngineResultUrl(url) {
-      try {
-        const parsedUrl = new URL(url);
-        const hostname = parsedUrl.hostname.toLowerCase();
-        const path = parsedUrl.pathname.toLowerCase();
-        const searchHosts = [
-          'google.',
-          'bing.com',
-          'baidu.com',
-          'duckduckgo.com',
-          'search.yahoo.com',
-          'yandex.com',
-          'sogou.com',
-          'so.com'
-        ];
-        const isKnownHost = searchHosts.some((host) => hostname.includes(host));
-        if (!isKnownHost) {
-          return false;
-        }
-        const searchPaths = [
-          '/search',
-          '/s',
-          '/s/2',
-          '/web',
-          '/?'
-        ];
-        if (path === '/' && parsedUrl.searchParams.has('q')) {
-          return true;
-        }
-        if (path === '/' && parsedUrl.searchParams.has('wd')) {
-          return true;
-        }
-        if (path === '/' && parsedUrl.searchParams.has('query')) {
-          return true;
-        }
-        if (searchPaths.some((prefix) => path.startsWith(prefix))) {
-          return true;
-        }
-        return false;
-      } catch (e) {
-        return false;
-      }
-    }
+      const leftSide = document.createElement('div');
+      leftSide.style.cssText = `
+        all: unset !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        flex: 1 !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        background: transparent !important;
+        color: inherit !important;
+        font-size: 100% !important;
+        font: inherit !important;
+        vertical-align: baseline !important;
+      `;
 
-    const filteredSuggestions = suggestions.filter((suggestion) => {
-      if (suggestion.type === 'history' && isSearchEngineResultUrl(suggestion.url)) {
-        return false;
-      }
-      return true;
+      const favicon = document.createElement('img');
+      favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23E3E4E8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+      favicon.style.cssText = `
+        all: unset !important;
+        width: 16px !important;
+        height: 16px !important;
+        border-radius: 2px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        background: transparent !important;
+        color: inherit !important;
+        font-size: 100% !important;
+        font: inherit !important;
+        vertical-align: baseline !important;
+        display: block !important;
+      `;
+
+      const title = document.createElement('span');
+      title.textContent = tab.title || '无标题';
+      title.style.cssText = `
+        all: unset !important;
+        color: var(--x-nt-text, #111827) !important;
+        font-size: 14px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.5 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        background: transparent !important;
+        display: inline-block !important;
+        vertical-align: baseline !important;
+      `;
+
+      const switchButton = document.createElement('button');
+      switchButton.innerHTML = '切换到标签页 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+      switchButton.style.cssText = `
+        all: unset !important;
+        background: transparent !important;
+        color: var(--x-nt-subtext, #6B7280) !important;
+        border: none !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        cursor: pointer !important;
+        transition: background-color 0.2s ease !important;
+        padding: 6px 12px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        line-height: 1.5 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        vertical-align: baseline !important;
+      `;
+      suggestionItem._xSwitchButton = switchButton;
+
+      suggestionItem.addEventListener('mouseenter', function() {
+        if (suggestionItems.indexOf(this) !== selectedIndex) {
+          this.style.setProperty('background-color', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
+          this.style.setProperty('border', '1px solid transparent', 'important');
+        }
+      });
+
+      suggestionItem.addEventListener('mouseleave', function() {
+        if (suggestionItems.indexOf(this) !== selectedIndex) {
+          updateSelection();
+        }
+      });
+
+      switchButton.addEventListener('click', function(event) {
+        event.stopPropagation();
+        chrome.runtime.sendMessage({
+          action: 'switchToTab',
+          tabId: tab.id
+        });
+      });
+
+      suggestionItem.addEventListener('click', function() {
+        chrome.runtime.sendMessage({
+          action: 'switchToTab',
+          tabId: tab.id
+        });
+      });
+
+      leftSide.appendChild(favicon);
+      leftSide.appendChild(title);
+      suggestionItem.appendChild(leftSide);
+      suggestionItem.appendChild(switchButton);
+      suggestionsContainer.appendChild(suggestionItem);
+
+      const themeSourceSuggestion = {
+        url: tab.url || '',
+        favicon: tab.favIconUrl || ''
+      };
+      getThemeForSuggestion(themeSourceSuggestion).then((theme) => {
+        if (!suggestionItem.isConnected) {
+          return;
+        }
+        suggestionItem._xTheme = theme;
+        updateSelection();
+      });
     });
+
+    selectedIndex = -1;
+    setSuggestionsVisible(true);
+  }
+
+  function requestTabsAndRender() {
+    chrome.runtime.sendMessage({ action: 'getTabsForOverlay' }, (response) => {
+      const freshTabs = response && Array.isArray(response.tabs) ? response.tabs : [];
+      if (freshTabs.length === 0) {
+        setSuggestionsVisible(false);
+        return;
+      }
+      tabs = freshTabs;
+      renderTabSuggestions(freshTabs);
+    });
+  }
+
+  function clearSearchSuggestions() {
+    inlineSearchState = null;
+    siteSearchTriggerState = null;
+    suggestionsContainer.innerHTML = '';
+    suggestionItems.length = 0;
+    currentSuggestions = [];
+    selectedIndex = -1;
+    setSuggestionsVisible(false);
+  }
+
+  function renderSuggestions(suggestions, query) {
+    suggestionsContainer.innerHTML = '';
+    suggestionItems.length = 0;
+    currentSuggestions = [];
+    selectedIndex = -1;
+    if (!query) {
+      clearSearchSuggestions();
+      return;
+    }
 
     getShortcutRules().then((rules) => {
       if (query !== latestQuery) {
@@ -829,12 +1460,12 @@
       const keywordSuggestions = buildKeywordSuggestions(query, rules);
       preSuggestions.push(...keywordSuggestions);
 
-      const providersForInline = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
+      const providersForTags = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
         ? siteSearchProvidersCache
         : defaultSiteSearchProviders;
-      const rawInlineInput = (latestRawQuery || query || '').trim();
+      const rawTagInput = (latestRawQuery || inputParts.input.value || '').trim();
       const inlineCandidate = !siteSearchState
-        ? getInlineSiteSearchCandidate(rawInlineInput, providersForInline)
+        ? getInlineSiteSearchCandidate(rawTagInput, providersForTags)
         : null;
       let inlineSuggestion = null;
       if (inlineCandidate) {
@@ -844,22 +1475,20 @@
             type: 'inlineSiteSearch',
             title: `在 ${getSiteSearchDisplayName(inlineCandidate.provider)} 中搜索`,
             url: inlineUrl,
-            favicon: getProviderIcon(inlineCandidate.provider)
+            favicon: getProviderIcon(inlineCandidate.provider),
+            provider: inlineCandidate.provider
           };
         }
       }
 
-      const allSuggestions = [
-        ...preSuggestions,
-        {
-          type: 'newtab',
-          title: `搜索 "${query}"`,
-          url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-          favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
-        },
-        ...filteredSuggestions
-      ];
+      const newTabSuggestion = {
+        type: 'newtab',
+        title: `搜索 "${query}"`,
+        url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+        favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
+      };
 
+      const allSuggestions = [...preSuggestions, newTabSuggestion, ...suggestions];
       if (siteSearchState && query) {
         const siteUrl = buildSearchUrl(siteSearchState.template, query);
         if (siteUrl) {
@@ -867,44 +1496,37 @@
             type: 'siteSearch',
             title: `在 ${getSiteSearchDisplayName(siteSearchState)} 中搜索 "${query}"`,
             url: siteUrl,
-            favicon: getProviderIcon(siteSearchState)
+            favicon: getProviderIcon(siteSearchState),
+            provider: siteSearchState
           });
         }
       }
 
-      function promoteDomainPrefixMatch(list, queryText) {
-        if (!queryText) {
-          return null;
-        }
-        const queryLower = queryText.toLowerCase();
-        const matchIndex = list.findIndex((suggestion) => {
-          if (!suggestion || suggestion.type === 'newtab') {
-            return false;
-          }
-          if (!(suggestion.type === 'topSite' || suggestion.isTopSite)) {
-            return false;
-          }
-          const urlText = getUrlDisplay(suggestion.url);
-          if (!urlText) {
-            return false;
-          }
-          const host = urlText.split('/')[0] || '';
-          return host.toLowerCase().startsWith(queryLower);
-        });
-        if (matchIndex > 0) {
-          const [match] = list.splice(matchIndex, 1);
-          list.unshift(match);
-          return match;
-        }
-        if (matchIndex === 0) {
-          return list[0];
-        }
-        return null;
-      }
-
       let autocompleteCandidate = null;
-      if (!siteSearchState) {
-        promoteDomainPrefixMatch(allSuggestions, latestRawQuery.trim());
+      let primaryHighlightIndex = -1;
+      let primaryHighlightReason = 'none';
+      let topSiteMatch = null;
+      let siteSearchPrompt = null;
+      const inlineEnabled = Boolean(inlineSuggestion);
+      if (!siteSearchState && !inlineEnabled) {
+        topSiteMatch = promoteTopSiteMatch(allSuggestions, latestRawQuery.trim());
+      }
+      const siteSearchTrigger = (!siteSearchState && !inlineEnabled)
+        ? getSiteSearchTriggerCandidate(rawTagInput, providersForTags, topSiteMatch)
+        : null;
+      if (siteSearchTrigger && !topSiteMatch) {
+        siteSearchPrompt = {
+          type: 'siteSearchPrompt',
+          title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
+          url: '',
+          favicon: getProviderIcon(siteSearchTrigger),
+          provider: siteSearchTrigger
+        };
+        allSuggestions.unshift(siteSearchPrompt);
+        primaryHighlightIndex = 0;
+        primaryHighlightReason = 'siteSearchPrompt';
+      }
+      if (!siteSearchState && !inlineEnabled && !siteSearchPrompt) {
         autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawQuery);
         if (autocompleteCandidate) {
           const candidateIndex = allSuggestions.findIndex((suggestion) => {
@@ -927,41 +1549,46 @@
             const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
             allSuggestions.unshift(candidateSuggestion);
           }
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'autocomplete';
         }
       }
-
       if (inlineSuggestion) {
         allSuggestions.unshift(inlineSuggestion);
+        primaryHighlightIndex = 0;
+        primaryHighlightReason = 'inline';
+      } else if (!siteSearchPrompt && topSiteMatch) {
+        primaryHighlightIndex = 0;
+        primaryHighlightReason = 'topSite';
+      }
+      if (query && primaryHighlightIndex < 0 && allSuggestions.length > 0) {
+        primaryHighlightIndex = 0;
+        primaryHighlightReason = 'default';
       }
 
+      currentSuggestions = allSuggestions;
       applyAutocomplete(allSuggestions);
-      const inlineAutoHighlight = Boolean(inlineSuggestion && !autocompleteCandidate);
+      const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
       inlineSearchState = inlineSuggestion
-        ? { url: inlineSuggestion.url, rawInput: rawInlineInput, isAuto: inlineAutoHighlight }
+        ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
+        : null;
+      siteSearchTriggerState = siteSearchTrigger
+        ? { provider: siteSearchTrigger, rawInput: rawTagInput }
         : null;
 
       allSuggestions.forEach(function(suggestion, index) {
         const suggestionItem = document.createElement('div');
         suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === allSuggestions.length - 1;
-        const inlineOffset = inlineSuggestion ? 1 : 0;
-        const isAutocompleteTop = Boolean(
-          (autocompleteCandidate &&
-            index === inlineOffset &&
-            ((autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) ||
-              (getUrlDisplay(suggestion.url) &&
-                getUrlDisplay(suggestion.url).toLowerCase() === autocompleteCandidate.completion.toLowerCase()) ||
-              (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())))) ||
-          (inlineAutoHighlight && suggestion.type === 'inlineSiteSearch' && index === 0)
-        );
+        const isPrimaryHighlight = index === primaryHighlightIndex;
         suggestionItem.style.cssText = `
           all: unset !important;
           display: flex !important;
           align-items: center !important;
-          gap: 12px !important;
+          justify-content: space-between !important;
           padding: 12px 16px !important;
-          background: ${isAutocompleteTop ? defaultTheme.highlightBg : '#FFFFFF'} !important;
-          border: ${isAutocompleteTop ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
+          background: ${isPrimaryHighlight ? defaultTheme.highlightBg : 'transparent'} !important;
+          border: ${isPrimaryHighlight ? `1px solid ${defaultTheme.highlightBorder}` : '1px solid transparent'} !important;
           border-radius: 16px !important;
           cursor: pointer !important;
           transition: background-color 0.2s ease !important;
@@ -976,17 +1603,20 @@
           font: inherit !important;
           vertical-align: baseline !important;
         `;
+        suggestionItems.push(suggestionItem);
+        suggestionItem._xIsSearchSuggestion = true;
         suggestionItem._xTheme = defaultTheme;
-        suggestionItem._xIsAutocompleteTop = isAutocompleteTop;
+        suggestionItem._xIsAutocompleteTop = isPrimaryHighlight;
         applyThemeVariables(suggestionItem, defaultTheme);
-        
-        const favicon = document.createElement('img');
-        favicon.src = suggestion.favicon || '';
-        favicon.style.cssText = `
+
+        const leftSide = document.createElement('div');
+        leftSide.style.cssText = `
           all: unset !important;
-          width: 16px !important;
-          height: 16px !important;
-          border-radius: 2px !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 12px !important;
+          flex: 1 !important;
+          min-width: 0 !important;
           box-sizing: border-box !important;
           margin: 0 !important;
           padding: 0 !important;
@@ -999,14 +1629,13 @@
           font-size: 100% !important;
           font: inherit !important;
           vertical-align: baseline !important;
-          display: block !important;
-          object-fit: contain !important;
         `;
-        favicon.onerror = function() {
-          const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E3E4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
-          const fallbackDiv = document.createElement('div');
-          fallbackDiv.innerHTML = searchIconSvg;
-          fallbackDiv.style.cssText = `
+
+        let iconNode = null;
+        if (suggestion.type === 'browserPage') {
+          const themedIcon = document.createElement('span');
+          themedIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--x-ext-icon-color, #6B7280)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><line x1="3" y1="8" x2="21" y2="8"/><circle cx="7" cy="6" r="1"/><circle cx="11" cy="6" r="1"/></svg>`;
+          themedIcon.style.cssText = `
             all: unset !important;
             width: 16px !important;
             height: 16px !important;
@@ -1026,11 +1655,61 @@
             font: inherit !important;
             vertical-align: baseline !important;
           `;
-          if (favicon.parentNode) {
-            favicon.parentNode.replaceChild(fallbackDiv, favicon);
-          }
-        };
-        
+          iconNode = themedIcon;
+        } else {
+          const favicon = document.createElement('img');
+          favicon.src = suggestion.favicon || '';
+          favicon.style.cssText = `
+            all: unset !important;
+            width: 16px !important;
+            height: 16px !important;
+            border-radius: 2px !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            color: inherit !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+            display: block !important;
+            object-fit: contain !important;
+          `;
+          favicon.onerror = function() {
+            const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E3E4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.innerHTML = searchIconSvg;
+            fallbackDiv.style.cssText = `
+              all: unset !important;
+              width: 16px !important;
+              height: 16px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              line-height: 1 !important;
+              text-decoration: none !important;
+              list-style: none !important;
+              outline: none !important;
+              background: transparent !important;
+              color: inherit !important;
+              font-size: 100% !important;
+              font: inherit !important;
+              vertical-align: baseline !important;
+            `;
+            if (favicon.parentNode) {
+              favicon.parentNode.replaceChild(fallbackDiv, favicon);
+            }
+          };
+          iconNode = favicon;
+        }
+
         const textWrapper = document.createElement('div');
         textWrapper.style.cssText = `
           all: unset !important;
@@ -1042,7 +1721,7 @@
           overflow: visible !important;
           box-sizing: border-box !important;
           margin: 0 !important;
-          padding: 0 !important;
+          padding: 0 8px 0 0 !important;
           line-height: 1 !important;
           text-decoration: none !important;
           list-style: none !important;
@@ -1053,11 +1732,14 @@
           font: inherit !important;
           vertical-align: baseline !important;
         `;
-        
+
         const title = document.createElement('span');
-        let highlightedTitle = suggestion.title;
-        if (suggestion.type !== 'newtab' && suggestion.type !== 'inlineSiteSearch') {
-          highlightedTitle = suggestion.title.replace(
+        const baseTitle = suggestion.title || '';
+        let highlightedTitle;
+        if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt') {
+          highlightedTitle = baseTitle;
+        } else {
+          highlightedTitle = baseTitle.replace(
             new RegExp(`(${query})`, 'gi'),
             '<mark style="background: var(--x-ext-mark-bg, #CFE8FF); color: var(--x-ext-mark-text, #1E3A8A); padding: 2px 4px; border-radius: 3px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">$1</mark>'
           );
@@ -1065,10 +1747,10 @@
         title.innerHTML = highlightedTitle;
         title.style.cssText = `
           all: unset !important;
-          color: #111827 !important;
+          color: var(--x-nt-text, #111827) !important;
           font-size: 14px !important;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-          font-weight: ${isAutocompleteTop ? '600' : '400'} !important;
+          font-weight: 400 !important;
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
@@ -1084,9 +1766,10 @@
           display: inline-block !important;
           vertical-align: baseline !important;
         `;
-        
+        suggestionItem._xTitle = title;
+
         textWrapper.appendChild(title);
-        
+
         if (suggestion.type === 'history' && !suggestion.isTopSite) {
           const urlLine = buildUrlLine(suggestion.url || '');
           if (urlLine) {
@@ -1094,10 +1777,13 @@
           }
           const historyTag = document.createElement('span');
           historyTag.textContent = '历史';
+          historyTag._xDefaultBg = 'var(--x-nt-tag-bg, #F3F4F6)';
+          historyTag._xDefaultText = 'var(--x-nt-tag-text, #6B7280)';
+          historyTag._xDefaultBorder = 'transparent';
           historyTag.style.cssText = `
             all: unset !important;
-            background: #F3F4F6 !important;
-            color: #6B7280 !important;
+            background: var(--x-nt-tag-bg, #F3F4F6) !important;
+            color: var(--x-nt-tag-text, #6B7280) !important;
             font-size: 10px !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
             padding: 4px 6px !important;
@@ -1107,14 +1793,16 @@
             text-decoration: none !important;
             list-style: none !important;
             outline: none !important;
+            border: 1px solid transparent !important;
             display: inline-flex !important;
             align-items: center !important;
             vertical-align: middle !important;
             flex-shrink: 0 !important;
           `;
           textWrapper.appendChild(historyTag);
+          suggestionItem._xHistoryTag = historyTag;
         }
-        
+
         if (suggestion.type === 'topSite' || suggestion.isTopSite) {
           const urlLine = buildUrlLine(suggestion.url || '');
           if (urlLine) {
@@ -1122,10 +1810,13 @@
           }
           const topSiteTag = document.createElement('span');
           topSiteTag.textContent = '常用';
+          topSiteTag._xDefaultBg = 'var(--x-nt-tag-bg, #F3F4F6)';
+          topSiteTag._xDefaultText = 'var(--x-nt-tag-text, #6B7280)';
+          topSiteTag._xDefaultBorder = 'transparent';
           topSiteTag.style.cssText = `
             all: unset !important;
-            background: #F3F4F6 !important;
-            color: #6B7280 !important;
+            background: var(--x-nt-tag-bg, #F3F4F6) !important;
+            color: var(--x-nt-tag-text, #6B7280) !important;
             font-size: 10px !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
             padding: 4px 6px !important;
@@ -1135,21 +1826,23 @@
             text-decoration: none !important;
             list-style: none !important;
             outline: none !important;
+            border: 1px solid transparent !important;
             display: inline-flex !important;
             align-items: center !important;
             vertical-align: middle !important;
             flex-shrink: 0 !important;
           `;
           textWrapper.appendChild(topSiteTag);
+          suggestionItem._xTopSiteTag = topSiteTag;
         }
-        
+
         if (suggestion.type === 'bookmark') {
           if (suggestion.path) {
             const bookmarkPath = document.createElement('span');
             bookmarkPath.textContent = suggestion.path;
             bookmarkPath.style.cssText = `
               all: unset !important;
-              color: #2563EB !important;
+              color: var(--x-nt-link, #2563EB) !important;
               font-size: 12px !important;
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
               text-decoration: none !important;
@@ -1168,10 +1861,13 @@
           }
           const bookmarkTag = document.createElement('span');
           bookmarkTag.textContent = '书签';
+          bookmarkTag._xDefaultBg = 'var(--x-nt-bookmark-tag-bg, #FEF3C7)';
+          bookmarkTag._xDefaultText = 'var(--x-nt-bookmark-tag-text, #D97706)';
+          bookmarkTag._xDefaultBorder = 'transparent';
           bookmarkTag.style.cssText = `
             all: unset !important;
-            background: #FEF3C7 !important;
-            color: #D97706 !important;
+            background: var(--x-nt-bookmark-tag-bg, #FEF3C7) !important;
+            color: var(--x-nt-bookmark-tag-text, #D97706) !important;
             font-size: 10px !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
             padding: 4px 6px !important;
@@ -1181,53 +1877,123 @@
             text-decoration: none !important;
             list-style: none !important;
             outline: none !important;
+            border: 1px solid transparent !important;
             display: inline-flex !important;
             align-items: center !important;
             vertical-align: middle !important;
             flex-shrink: 0 !important;
           `;
           textWrapper.appendChild(bookmarkTag);
+          suggestionItem._xBookmarkTag = bookmarkTag;
         }
-        
-        suggestionItem.appendChild(favicon);
-        suggestionItem.appendChild(textWrapper);
-        
+
+        const rightSide = document.createElement('div');
+        rightSide.style.cssText = `
+          all: unset !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          flex-shrink: 0 !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          line-height: 1 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          background: transparent !important;
+          color: inherit !important;
+          font-size: 100% !important;
+          font: inherit !important;
+          vertical-align: baseline !important;
+        `;
+
+        const actionTags = document.createElement('div');
+        actionTags.style.cssText = `
+          all: unset !important;
+          display: none !important;
+          align-items: center !important;
+          gap: 6px !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          line-height: 1 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          background: transparent !important;
+          color: inherit !important;
+          font-size: 100% !important;
+          font: inherit !important;
+          vertical-align: baseline !important;
+          flex-shrink: 0 !important;
+        `;
+
+        const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
+        const shouldShowEnterTag = isPrimaryHighlight &&
+          (primaryHighlightReason === 'topSite' ||
+            primaryHighlightReason === 'inline' ||
+            primaryHighlightReason === 'autocomplete');
+        const shouldShowSiteSearchTag = isPrimaryHighlight &&
+          siteSearchTrigger &&
+          (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch);
+        if (shouldShowEnterTag) {
+          actionTags.appendChild(createActionTag('访问', 'Enter'));
+        }
+        if (shouldShowSiteSearchTag) {
+          actionTags.appendChild(createActionTag('搜索', 'Tab'));
+        }
+
+        suggestionItem._xTagContainer = actionTags;
+        suggestionItem._xHasActionTags = actionTags.childNodes.length > 0;
+
         suggestionItem.addEventListener('mouseenter', function() {
-          this.style.setProperty('background', '#F9FAFB', 'important');
-          this.style.setProperty('border', '1px solid transparent', 'important');
-        });
-        
-        suggestionItem.addEventListener('mouseleave', function() {
-          if (isAutocompleteTop) {
+          if (suggestionItems.indexOf(this) !== selectedIndex) {
             const theme = this._xTheme || defaultTheme;
-            this.style.setProperty('background', theme.highlightBg, 'important');
-            this.style.setProperty('border', `1px solid ${theme.highlightBorder}`, 'important');
+            if (this._xIsSearchSuggestion && theme && !theme._xIsDefault) {
+              const hover = getHoverColors(theme);
+              this.style.setProperty('background', hover.bg, 'important');
+              this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+            } else {
+              this.style.setProperty('background', 'var(--x-nt-hover-bg, #F3F4F6)', 'important');
+              this.style.setProperty('border', '1px solid transparent', 'important');
+            }
+          }
+        });
+
+        suggestionItem.addEventListener('mouseleave', function() {
+          if (suggestionItems.indexOf(this) !== selectedIndex) {
+            updateSelection();
+          }
+        });
+
+        suggestionItem.addEventListener('click', function() {
+          if (suggestion.type === 'siteSearchPrompt' && suggestion.provider) {
+            activateSiteSearch(suggestion.provider);
+            inputParts.input.focus();
             return;
           }
-          this.style.setProperty('background', '#FFFFFF', 'important');
-          this.style.setProperty('border', '1px solid transparent', 'important');
-        });
-        
-        suggestionItem.addEventListener('click', function() {
           navigateToUrl(suggestion.url);
         });
-        
+
+        leftSide.appendChild(iconNode);
+        leftSide.appendChild(textWrapper);
+        suggestionItem.appendChild(leftSide);
+        rightSide.appendChild(actionTags);
+        suggestionItem.appendChild(rightSide);
         suggestionsContainer.appendChild(suggestionItem);
 
-        const themeSource = getThemeSourceForSuggestion(suggestion);
-        getThemeFromUrl(themeSource).then((theme) => {
+        getThemeForSuggestion(suggestion).then((theme) => {
           if (!suggestionItem.isConnected) {
             return;
           }
           suggestionItem._xTheme = theme;
           applyThemeVariables(suggestionItem, theme);
-          if (suggestionItem._xIsAutocompleteTop) {
-            suggestionItem.style.setProperty('background', theme.highlightBg, 'important');
-            suggestionItem.style.setProperty('border', `1px solid ${theme.highlightBorder}`, 'important');
-          }
+          updateSelection();
         });
       });
 
+      updateSelection();
       setSuggestionsVisible(true);
     });
   }
@@ -1259,11 +2025,18 @@
     iconId: '_x_extension_newtab_search_icon_2024_unique_',
     containerStyleOverrides: {
       'border-radius': '24px',
-      'border': '1px solid rgba(0, 0, 0, 0.06)',
-      'box-shadow': '0 20px 60px rgba(0, 0, 0, 0.08)'
+      'background': 'var(--x-nt-input-bg, rgba(255, 255, 255, 0.9))',
+      'border': '1px solid var(--x-nt-input-border, rgba(0, 0, 0, 0.06))',
+      'box-shadow': 'var(--x-nt-input-shadow, 0 20px 60px rgba(0, 0, 0, 0.08))'
     },
     inputStyleOverrides: {
-      'border-bottom': 'none'
+      'border-bottom': 'none',
+      'color': 'var(--x-nt-text, #111827)',
+      'caret-color': 'var(--x-nt-link, #2563EB)',
+      'padding': '18px 60px 18px 48px'
+    },
+    iconStyleOverrides: {
+      'color': 'var(--x-nt-subtext, #6B7280)'
     },
     onInput: function(event) {
       const rawValue = event.target.value;
@@ -1277,12 +2050,10 @@
         latestQuery = '';
         latestRawQuery = '';
         clearAutocomplete();
-        inlineSearchState = null;
         if (debounceTimer) {
           clearTimeout(debounceTimer);
         }
-        suggestionsContainer.innerHTML = '';
-        setSuggestionsVisible(false);
+        clearSearchSuggestions();
         return;
       }
       latestRawQuery = rawValue;
@@ -1306,6 +2077,39 @@
       if (isComposing) {
         return;
       }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        if (suggestionItems.length === 0) {
+          return;
+        }
+        event.preventDefault();
+        if (event.key === 'ArrowDown') {
+          if (selectedIndex === -1) {
+            const autoIndex = getAutoHighlightIndex();
+            selectedIndex = autoIndex >= 0
+              ? (autoIndex + 1) % suggestionItems.length
+              : 0;
+          } else {
+            selectedIndex = (selectedIndex + 1) % suggestionItems.length;
+          }
+        } else {
+          if (selectedIndex === 0) {
+            selectedIndex = -1;
+          } else if (selectedIndex === -1) {
+            const autoIndex = getAutoHighlightIndex();
+            if (autoIndex > 0) {
+              selectedIndex = autoIndex - 1;
+            } else if (autoIndex === 0) {
+              selectedIndex = -1;
+            } else {
+              selectedIndex = suggestionItems.length - 1;
+            }
+          } else {
+            selectedIndex = selectedIndex - 1;
+          }
+        }
+        updateSelection();
+        return;
+      }
       if (event.key === 'Tab' && handleTabKey) {
         handleTabKey(event);
         return;
@@ -1316,6 +2120,18 @@
       const query = event.target.value.trim();
       if (!query) {
         return;
+      }
+      if (selectedIndex >= 0 && currentSuggestions[selectedIndex]) {
+        const selectedSuggestion = currentSuggestions[selectedIndex];
+        if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
+          activateSiteSearch(selectedSuggestion.provider);
+          inputParts.input.focus();
+          return;
+        }
+        if (selectedSuggestion.url) {
+          navigateToUrl(selectedSuggestion.url);
+          return;
+        }
       }
       if (siteSearchState) {
         const siteUrl = buildSearchUrl(siteSearchState.template, query);
@@ -1363,7 +2179,7 @@
     font-size: 16px !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
     line-height: 1 !important;
-    color: #6B7280 !important;
+    color: var(--x-nt-subtext, #6B7280) !important;
     pointer-events: none !important;
     z-index: 1 !important;
   `;
@@ -1393,12 +2209,13 @@
     const prefixText = `在 ${getSiteSearchDisplayName(provider)} 中搜索...`;
     siteSearchPrefix.textContent = prefixText;
     siteSearchPrefix.style.setProperty('display', 'inline-flex', 'important');
-    if (theme && theme.placeholderText) {
-      siteSearchPrefix.style.setProperty('color', theme.placeholderText, 'important');
+    const resolvedTheme = theme ? getThemeForMode(theme) : null;
+    if (resolvedTheme && resolvedTheme.placeholderText) {
+      siteSearchPrefix.style.setProperty('color', resolvedTheme.placeholderText, 'important');
     }
     searchInput.placeholder = '';
-    if (theme && theme.placeholderText) {
-      searchInput.style.setProperty('caret-color', theme.placeholderText, 'important');
+    if (resolvedTheme && resolvedTheme.placeholderText) {
+      searchInput.style.setProperty('caret-color', resolvedTheme.placeholderText, 'important');
     }
     updateSiteSearchPrefixLayout();
   }
@@ -1419,21 +2236,28 @@
     }
     const rawValue = inputParts.input.value;
     const rawTrigger = latestRawQuery || rawValue;
-    const providers = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
-      ? siteSearchProvidersCache
-      : defaultSiteSearchProviders;
-    const directProvider = findSiteSearchProviderByInput(rawTrigger, providers) ||
-      findSiteSearchProviderByInput(rawValue, providers);
-    if (directProvider) {
+    const triggerInput = (rawTrigger || rawValue).trim();
+    if (siteSearchTriggerState &&
+        siteSearchTriggerState.rawInput === triggerInput &&
+        siteSearchTriggerState.provider) {
       event.preventDefault();
-      activateSiteSearch(directProvider);
+      activateSiteSearch(siteSearchTriggerState.provider);
       return true;
     }
-    if (rawTrigger.trim() || rawValue.trim()) {
+    if (triggerInput) {
       event.preventDefault();
+      const providers = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
+        ? siteSearchProvidersCache
+        : defaultSiteSearchProviders;
+      const topSiteMatch = getTopSiteMatchCandidate(currentSuggestions, triggerInput);
+      const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
+      if (directProvider) {
+        activateSiteSearch(directProvider);
+        return true;
+      }
       getSiteSearchProviders().then((items) => {
-        const asyncProvider = findSiteSearchProviderByInput(rawTrigger, items) ||
-          findSiteSearchProviderByInput(rawValue, items);
+        const asyncTopSiteMatch = getTopSiteMatchCandidate(currentSuggestions, triggerInput);
+        const asyncProvider = getSiteSearchTriggerCandidate(triggerInput, items, asyncTopSiteMatch);
         if (asyncProvider) {
           activateSiteSearch(asyncProvider);
           return;
@@ -1492,9 +2316,7 @@
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
-      inlineSearchState = null;
-      suggestionsContainer.innerHTML = '';
-      setSuggestionsVisible(false);
+      clearSearchSuggestions();
       return;
     }
     requestSuggestions(query);
@@ -1502,4 +2324,5 @@
 
   root.appendChild(inputParts.container);
   root.appendChild(suggestionsContainer);
+
 })();
