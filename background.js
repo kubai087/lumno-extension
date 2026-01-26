@@ -1801,6 +1801,10 @@ function toggleBlackRectangle(tabs) {
     let selectedIndex = -1; // -1 means input is focused, 0+ means suggestion is selected
     const suggestionItems = [];
     let currentSuggestions = []; // Store current suggestions for keyboard navigation
+
+    function getAutoHighlightIndex() {
+      return suggestionItems.findIndex((item) => Boolean(item && item._xIsAutocompleteTop));
+    }
     
     const keydownHandler = function(e) {
       if (e.key === 'Escape' && overlay) {
@@ -1808,26 +1812,43 @@ function toggleBlackRectangle(tabs) {
         document.removeEventListener('keydown', keydownHandler);
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
+        if (suggestionItems.length === 0) {
+          return;
+        }
         if (selectedIndex === -1) {
-          // Move from input to first suggestion
-          selectedIndex = 0;
+          // Move from auto highlight (or input) to next suggestion
+          const autoIndex = getAutoHighlightIndex();
+          selectedIndex = autoIndex >= 0
+            ? (autoIndex + 1) % suggestionItems.length
+            : 0;
           searchInput.blur();
         } else {
           // Move to next suggestion
           selectedIndex = (selectedIndex + 1) % suggestionItems.length;
         }
-        selectedIndex = -1;
         updateSelection();
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
+        if (suggestionItems.length === 0) {
+          return;
+        }
         if (selectedIndex === 0) {
           // Move from first suggestion back to input
           selectedIndex = -1;
           searchInput.focus();
         } else if (selectedIndex === -1) {
-          // Move from input to last suggestion
-          selectedIndex = suggestionItems.length - 1;
-          searchInput.blur();
+          const autoIndex = getAutoHighlightIndex();
+          if (autoIndex > 0) {
+            selectedIndex = autoIndex - 1;
+            searchInput.blur();
+          } else if (autoIndex === 0) {
+            selectedIndex = -1;
+            searchInput.focus();
+          } else {
+            // Move from input to last suggestion
+            selectedIndex = suggestionItems.length - 1;
+            searchInput.blur();
+          }
         } else {
           // Move to previous suggestion
           selectedIndex = selectedIndex - 1;
