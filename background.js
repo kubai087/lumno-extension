@@ -781,6 +781,53 @@ function toggleBlackRectangle(tabs) {
       return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
     }
 
+    function parseCssColor(color) {
+      if (!color || typeof color !== 'string') {
+        return null;
+      }
+      const trimmed = color.trim().toLowerCase();
+      if (trimmed.startsWith('#')) {
+        const hex = trimmed.slice(1);
+        if (hex.length === 3) {
+          const r = parseInt(hex[0] + hex[0], 16);
+          const g = parseInt(hex[1] + hex[1], 16);
+          const b = parseInt(hex[2] + hex[2], 16);
+          if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+            return [r, g, b];
+          }
+        }
+        if (hex.length === 6) {
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+            return [r, g, b];
+          }
+        }
+        return null;
+      }
+      const rgbMatch = trimmed.match(/^rgb\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)$/);
+      if (rgbMatch) {
+        const r = Number(rgbMatch[1]);
+        const g = Number(rgbMatch[2]);
+        const b = Number(rgbMatch[3]);
+        if ([r, g, b].every((value) => Number.isFinite(value))) {
+          return [r, g, b];
+        }
+      }
+      return null;
+    }
+
+    function getHighlightColors(theme) {
+      const accentRgb = parseCssColor(theme && theme.placeholderText) ||
+        parseCssColor(theme && theme.accent) ||
+        defaultAccentColor;
+      return {
+        bg: rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.88)),
+        border: rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.68))
+      };
+    }
+
     function getLuminance(rgb) {
       const [r, g, b] = rgb.map((value) => {
         const channel = value / 255;
@@ -790,7 +837,17 @@ function toggleBlackRectangle(tabs) {
     }
 
     function getReadableTextColor(bgRgb) {
-      return getLuminance(bgRgb) > 0.68 ? '#111827' : '#F8FAFC';
+      if (!bgRgb || bgRgb.length !== 3) {
+        return '#111827';
+      }
+      const darkText = [17, 24, 39];
+      const lightText = [248, 250, 252];
+      const bgLum = getLuminance(bgRgb);
+      const darkLum = getLuminance(darkText);
+      const lightLum = getLuminance(lightText);
+      const contrastWithDark = (Math.max(bgLum, darkLum) + 0.05) / (Math.min(bgLum, darkLum) + 0.05);
+      const contrastWithLight = (Math.max(bgLum, lightLum) + 0.05) / (Math.min(bgLum, lightLum) + 0.05);
+      return contrastWithDark >= contrastWithLight ? '#111827' : '#F8FAFC';
     }
 
     function normalizeAccentColor(rgb) {
@@ -839,6 +896,50 @@ function toggleBlackRectangle(tabs) {
     }
 
     const defaultTheme = buildTheme(defaultAccentColor);
+    const brandAccentMap = {
+      'github.com': [36, 41, 46],
+      'docs.github.com': [36, 41, 46],
+      'douban.com': [0, 181, 29],
+      'zhihu.com': [23, 127, 255],
+      'bilibili.com': [0, 174, 236],
+      'youtube.com': [255, 0, 0],
+      'youtu.be': [255, 0, 0],
+      'google.com': [66, 133, 244],
+      'bing.com': [0, 120, 215],
+      'baidu.com': [41, 98, 255],
+      'taobao.com': [255, 80, 0],
+      'tmall.com': [226, 35, 26],
+      'juejin.cn': [30, 128, 255],
+      'reddit.com': [255, 69, 0],
+      'wikipedia.org': [64, 64, 64],
+      'zh.wikipedia.org': [64, 64, 64],
+      'x.com': [17, 24, 39],
+      'twitter.com': [29, 161, 242]
+    };
+
+    function getBrandAccentForHost(hostname) {
+      const host = String(hostname || '').toLowerCase();
+      if (!host) {
+        return null;
+      }
+      if (brandAccentMap[host]) {
+        return brandAccentMap[host];
+      }
+      const entry = Object.keys(brandAccentMap).find((key) => host === key || host.endsWith(`.${key}`));
+      return entry ? brandAccentMap[entry] : null;
+    }
+
+    function getBrandAccentForUrl(url) {
+      if (!url) {
+        return null;
+      }
+      try {
+        const hostname = new URL(url).hostname;
+        return getBrandAccentForHost(hostname);
+      } catch (e) {
+        return null;
+      }
+    }
 
     function extractAverageColor(image) {
       const size = 16;
@@ -905,6 +1006,12 @@ function toggleBlackRectangle(tabs) {
       if (themeColorCache.has(url)) {
         return Promise.resolve(themeColorCache.get(url));
       }
+      const brandAccent = getBrandAccentForUrl(url);
+      if (brandAccent) {
+        const brandTheme = buildTheme(brandAccent);
+        themeColorCache.set(url, brandTheme);
+        return Promise.resolve(brandTheme);
+      }
       return new Promise((resolve) => {
         const image = new Image();
         image.crossOrigin = 'anonymous';
@@ -920,6 +1027,29 @@ function toggleBlackRectangle(tabs) {
         };
         image.src = url;
       });
+    }
+
+    function getThemeForProvider(provider) {
+      if (provider && provider.template) {
+        const brandAccent = getBrandAccentForUrl(provider.template);
+        if (brandAccent) {
+          return Promise.resolve(buildTheme(brandAccent));
+        }
+      }
+      return getThemeFromUrl(getProviderIcon(provider));
+    }
+
+    function getThemeForSuggestion(suggestion) {
+      if (suggestion && suggestion.provider) {
+        return getThemeForProvider(suggestion.provider);
+      }
+      if (suggestion && suggestion.url) {
+        const brandAccent = getBrandAccentForUrl(suggestion.url);
+        if (brandAccent) {
+          return Promise.resolve(buildTheme(brandAccent));
+        }
+      }
+      return getThemeFromUrl(getThemeSourceForSuggestion(suggestion));
     }
 
     function applyThemeVariables(target, theme) {
@@ -946,7 +1076,7 @@ function toggleBlackRectangle(tabs) {
         background: var(--x-ext-tag-bg, #EEF6FF) !important;
         color: var(--x-ext-tag-text, #1E3A8A) !important;
         border: 1px solid var(--x-ext-tag-border, #BFDBFE) !important;
-        padding: 4px 8px !important;
+        padding: 4px 10px 4px 8px !important;
         border-radius: 999px !important;
         font-size: 11px !important;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
@@ -974,7 +1104,7 @@ function toggleBlackRectangle(tabs) {
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        padding: 2px 6px !important;
+        padding: 2px 7px !important;
         border-radius: 6px !important;
         background: var(--x-ext-key-bg, #FFFFFF) !important;
         color: var(--x-ext-key-text, #1E3A8A) !important;
@@ -1044,7 +1174,7 @@ function toggleBlackRectangle(tabs) {
     }
 
     function setSiteSearchPrefix(provider, theme) {
-      const prefixText = `在 ${getSiteSearchDisplayName(provider)} 中搜索...`;
+      const prefixText = `在 ${getSiteSearchDisplayName(provider)} 中搜索｜`;
       siteSearchPrefix.textContent = prefixText;
       siteSearchPrefix.style.setProperty('display', 'inline-flex', 'important');
       if (theme && theme.placeholderText) {
@@ -1481,7 +1611,7 @@ function toggleBlackRectangle(tabs) {
       clearAutocomplete();
       setSiteSearchPrefix(provider, defaultTheme);
       const providerIcon = getProviderIcon(provider);
-      getThemeFromUrl(providerIcon).then((theme) => {
+      getThemeForProvider(provider).then((theme) => {
         if (siteSearchState === provider) {
           setSiteSearchPrefix(provider, theme);
         }
@@ -1791,8 +1921,9 @@ function toggleBlackRectangle(tabs) {
     document.addEventListener('keydown', keydownHandler);
     
     function applySearchSuggestionHighlight(item, theme) {
-      item.style.setProperty('background', theme.highlightBg, 'important');
-      item.style.setProperty('border', `1px solid ${theme.highlightBorder}`, 'important');
+      const highlight = getHighlightColors(theme);
+      item.style.setProperty('background', highlight.bg, 'important');
+      item.style.setProperty('border', `1px solid ${highlight.border}`, 'important');
     }
 
     function resetSearchSuggestion(item) {
@@ -2245,7 +2376,8 @@ function toggleBlackRectangle(tabs) {
               type: 'inlineSiteSearch',
               title: `在 ${getSiteSearchDisplayName(inlineCandidate.provider)} 中搜索`,
               url: inlineUrl,
-              favicon: getProviderIcon(inlineCandidate.provider)
+              favicon: getProviderIcon(inlineCandidate.provider),
+              provider: inlineCandidate.provider
             };
           }
         }
@@ -2259,7 +2391,8 @@ function toggleBlackRectangle(tabs) {
               type: 'siteSearch',
               title: `在 ${getSiteSearchDisplayName(siteSearchState)} 中搜索 "${query}"`,
               url: siteUrl,
-              favicon: getProviderIcon(siteSearchState)
+              favicon: getProviderIcon(siteSearchState),
+              provider: siteSearchState
             });
           }
         }
@@ -2321,6 +2454,10 @@ function toggleBlackRectangle(tabs) {
         } else if (!siteSearchPrompt && topSiteMatch) {
           primaryHighlightIndex = 0;
           primaryHighlightReason = 'topSite';
+        }
+        if (query && primaryHighlightIndex < 0 && allSuggestions.length > 0) {
+          primaryHighlightIndex = 0;
+          primaryHighlightReason = 'default';
         }
         currentSuggestions = allSuggestions; // Store current suggestions including ChatGPT
         applyAutocomplete(allSuggestions);
@@ -2777,8 +2914,7 @@ function toggleBlackRectangle(tabs) {
           suggestionItem._xHasActionTags = actionTags.childNodes.length > 0;
           suggestionsContainer.appendChild(suggestionItem);
 
-          const themeSource = getThemeSourceForSuggestion(suggestion);
-          getThemeFromUrl(themeSource).then((theme) => {
+          getThemeForSuggestion(suggestion).then((theme) => {
             if (!suggestionItem.isConnected) {
               return;
             }

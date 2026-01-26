@@ -50,7 +50,7 @@
       "template": "https://www.douban.com/search?q={query}"
     },
     {
-      "key": "jd",
+      "key": "jj",
       "aliases": ["juejin"],
       "name": "掘金",
       "template": "https://juejin.cn/search?query={query}"
