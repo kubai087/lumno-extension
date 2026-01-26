@@ -1064,6 +1064,7 @@ function toggleBlackRectangle(tabs) {
       target.style.setProperty('--x-ext-key-bg', theme.keyBg, 'important');
       target.style.setProperty('--x-ext-key-text', theme.keyText, 'important');
       target.style.setProperty('--x-ext-key-border', theme.keyBorder, 'important');
+      target.style.setProperty('--x-ext-icon-color', theme.accent, 'important');
     }
 
     function applyMarkVariables(target, theme) {
@@ -2605,37 +2606,11 @@ function toggleBlackRectangle(tabs) {
             vertical-align: baseline !important;
           `;
           
-          // Create icon for suggestions - always use img for all types
-          const favicon = document.createElement('img');
-          favicon.src = suggestion.favicon || '';
-          favicon.style.cssText = `
-            all: unset !important;
-            width: 16px !important;
-            height: 16px !important;
-            border-radius: 2px !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            background: transparent !important;
-            color: inherit !important;
-            font-size: 100% !important;
-            font: inherit !important;
-            vertical-align: baseline !important;
-            display: block !important;
-            object-fit: contain !important;
-          `;
-          
-          // Fallback to search icon if favicon fails to load
-          favicon.onerror = function() {
-            // Replace with search icon SVG if favicon fails
-            const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E3E4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
-            const fallbackDiv = document.createElement('div');
-            fallbackDiv.innerHTML = searchIconSvg;
-            fallbackDiv.style.cssText = `
+          let iconNode = null;
+          if (suggestion.type === 'browserPage') {
+            const themedIcon = document.createElement('span');
+            themedIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--x-ext-icon-color, #6B7280)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><line x1="3" y1="8" x2="21" y2="8"/><circle cx="7" cy="6" r="1"/><circle cx="11" cy="6" r="1"/></svg>`;
+            themedIcon.style.cssText = `
               all: unset !important;
               width: 16px !important;
               height: 16px !important;
@@ -2655,8 +2630,62 @@ function toggleBlackRectangle(tabs) {
               font: inherit !important;
               vertical-align: baseline !important;
             `;
-            favicon.parentNode.replaceChild(fallbackDiv, favicon);
-          };
+            iconNode = themedIcon;
+          } else {
+            // Create icon for suggestions - always use img for all types
+            const favicon = document.createElement('img');
+            favicon.src = suggestion.favicon || '';
+            favicon.style.cssText = `
+              all: unset !important;
+              width: 16px !important;
+              height: 16px !important;
+              border-radius: 2px !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              line-height: 1 !important;
+              text-decoration: none !important;
+              list-style: none !important;
+              outline: none !important;
+              background: transparent !important;
+              color: inherit !important;
+              font-size: 100% !important;
+              font: inherit !important;
+              vertical-align: baseline !important;
+              display: block !important;
+              object-fit: contain !important;
+            `;
+            
+            // Fallback to search icon if favicon fails to load
+            favicon.onerror = function() {
+              // Replace with search icon SVG if favicon fails
+              const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E3E4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+              const fallbackDiv = document.createElement('div');
+              fallbackDiv.innerHTML = searchIconSvg;
+              fallbackDiv.style.cssText = `
+                all: unset !important;
+                width: 16px !important;
+                height: 16px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                box-sizing: border-box !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                line-height: 1 !important;
+                text-decoration: none !important;
+                list-style: none !important;
+                outline: none !important;
+                background: transparent !important;
+                color: inherit !important;
+                font-size: 100% !important;
+                font: inherit !important;
+                vertical-align: baseline !important;
+              `;
+              favicon.parentNode.replaceChild(fallbackDiv, favicon);
+            };
+            iconNode = favicon;
+          }
           
           // Create text wrapper for title and tag
           const textWrapper = document.createElement('div');
@@ -2992,7 +3021,7 @@ function toggleBlackRectangle(tabs) {
             document.removeEventListener('keydown', captureTabHandler, true);
           });
           
-          leftSide.appendChild(favicon);
+          leftSide.appendChild(iconNode);
           leftSide.appendChild(textWrapper);
           suggestionItem.appendChild(leftSide);
           rightSide.appendChild(actionTags);
