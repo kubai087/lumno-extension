@@ -9,7 +9,28 @@
   let latestRawQuery = '';
   let autocompleteState = null;
   let isComposing = false;
+  let siteSearchState = null;
   let debounceTimer = null;
+  let siteSearchProvidersCache = null;
+  let handleTabKey = null;
+  const defaultSiteSearchProviders = [
+    { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
+    { key: 'bb', aliases: ['bilibili', 'bili'], name: 'Bilibili', template: 'https://search.bilibili.com/all?keyword={query}' },
+    { key: 'gh', aliases: ['github'], name: 'GitHub', template: 'https://github.com/search?q={query}' },
+    { key: 'so', aliases: ['baidu', 'bd'], name: '百度', template: 'https://www.baidu.com/s?wd={query}' },
+    { key: 'bi', aliases: ['bing'], name: 'Bing', template: 'https://www.bing.com/search?q={query}' },
+    { key: 'gg', aliases: ['google'], name: 'Google', template: 'https://www.google.com/search?q={query}' },
+    { key: 'zh', aliases: ['zhihu'], name: '知乎', template: 'https://www.zhihu.com/search?q={query}' },
+    { key: 'db', aliases: ['douban'], name: '豆瓣', template: 'https://www.douban.com/search?q={query}' },
+    { key: 'jd', aliases: ['juejin'], name: '掘金', template: 'https://juejin.cn/search?query={query}' },
+    { key: 'tb', aliases: ['taobao'], name: '淘宝', template: 'https://s.taobao.com/search?q={query}' },
+    { key: 'tm', aliases: ['tmall'], name: '天猫', template: 'https://list.tmall.com/search_product.htm?q={query}' },
+    { key: 'wx', aliases: ['weixin', 'wechat'], name: '微信', template: 'https://weixin.sogou.com/weixin?query={query}' },
+    { key: 'tw', aliases: ['twitter', 'x'], name: 'X', template: 'https://x.com/search?q={query}' },
+    { key: 'rd', aliases: ['reddit'], name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}' },
+    { key: 'wk', aliases: ['wiki', 'wikipedia'], name: 'Wikipedia', template: 'https://en.wikipedia.org/wiki/Special:Search?search={query}' },
+    { key: 'zw', aliases: ['zhwiki'], name: '维基百科', template: 'https://zh.wikipedia.org/wiki/Special:Search?search={query}' }
+  ];
 
   function navigateToUrl(url) {
     if (!url) {
@@ -180,6 +201,10 @@
   function applyAutocomplete(allSuggestions) {
     const rawQuery = latestRawQuery;
     const trimmedQuery = rawQuery.trim();
+    if (siteSearchState) {
+      clearAutocomplete();
+      return;
+    }
     if (!isEnglishQuery(trimmedQuery) || !rawQuery) {
       clearAutocomplete();
       return;
@@ -245,6 +270,167 @@
       padding: 0 !important;
     `;
     return urlLine;
+  }
+
+  function buildSearchUrl(template, query) {
+    if (!template) {
+      return '';
+    }
+    return template.replace(/\{query\}/g, encodeURIComponent(query));
+  }
+
+  function getProviderIcon(provider) {
+    if (provider && provider.icon) {
+      return provider.icon;
+    }
+    const template = provider && provider.template ? provider.template : '';
+    try {
+      const url = template.replace(/\{query\}/g, 'test');
+      const hostname = new URL(url).hostname;
+      return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function getSiteSearchProviders() {
+    if (siteSearchProvidersCache) {
+      return Promise.resolve(siteSearchProvidersCache);
+    }
+    const localUrl = chrome.runtime.getURL('site-search.json');
+    const localFallback = fetch(localUrl)
+      .then((response) => response.json())
+      .then((data) => {
+        const items = data && Array.isArray(data.items) ? data.items : [];
+        if (items.length > 0) {
+          siteSearchProvidersCache = items;
+        }
+        return items;
+      })
+      .catch(() => []);
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getSiteSearchProviders' }, (response) => {
+        const items = response && Array.isArray(response.items) ? response.items : [];
+        if (items.length > 0) {
+          siteSearchProvidersCache = items;
+          resolve(items);
+          return;
+        }
+        localFallback.then((localItems) => {
+          if (localItems.length > 0) {
+            siteSearchProvidersCache = localItems;
+            resolve(localItems);
+            return;
+          }
+          siteSearchProvidersCache = defaultSiteSearchProviders;
+          resolve(defaultSiteSearchProviders);
+        });
+      });
+    });
+  }
+
+  function findSiteSearchProvider(trigger, providers) {
+    const key = String(trigger || '').toLowerCase();
+    if (!key) {
+      return null;
+    }
+    return (providers || []).find((provider) => {
+      const providerKey = String(provider.key || '').toLowerCase();
+      if (providerKey === key) {
+        return true;
+      }
+      const aliases = Array.isArray(provider.aliases) ? provider.aliases : [];
+      return aliases.some((alias) => String(alias).toLowerCase() === key);
+    }) || null;
+  }
+
+  function getSiteSearchDisplayName(provider) {
+    if (!provider) {
+      return '站内';
+    }
+    return provider.name || provider.key || '站内';
+  }
+
+  function getProviderHost(provider) {
+    if (!provider || !provider.template) {
+      return '';
+    }
+    try {
+      const url = provider.template.replace(/\{query\}/g, 'test');
+      return new URL(url).hostname.toLowerCase();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function normalizeHost(host) {
+    return String(host || '').toLowerCase().replace(/^www\./i, '');
+  }
+
+  function findSiteSearchProviderByKey(trigger, providers) {
+    const key = String(trigger || '').toLowerCase();
+    if (!key) {
+      return null;
+    }
+    return (providers || []).find((provider) => String(provider.key || '').toLowerCase() === key) || null;
+  }
+
+  function findSiteSearchProviderByInput(input, providers) {
+    const raw = String(input || '').trim();
+    if (!raw) {
+      return null;
+    }
+    const firstToken = raw.split(/\s+/)[0];
+    const keyMatch = findSiteSearchProvider(firstToken, providers) ||
+      findSiteSearchProviderByKey(firstToken, providers);
+    if (keyMatch) {
+      return keyMatch;
+    }
+    let host = '';
+    if (/[./]/.test(firstToken)) {
+      try {
+        const url = firstToken.includes('://') ? firstToken : `https://${firstToken}`;
+        host = new URL(url).hostname;
+      } catch (e) {
+        host = firstToken.split('/')[0] || '';
+      }
+    }
+    if (!host) {
+      return null;
+    }
+    const normalizedHost = normalizeHost(host);
+    return (providers || []).find((provider) => {
+      const providerHost = normalizeHost(getProviderHost(provider));
+      if (!providerHost) {
+        return false;
+      }
+      return normalizedHost === providerHost ||
+        normalizedHost.endsWith(`.${providerHost}`) ||
+        providerHost.endsWith(`.${normalizedHost}`);
+    }) || null;
+  }
+
+  function activateSiteSearch(provider) {
+    if (!provider) {
+      return;
+    }
+    siteSearchState = provider;
+    inputParts.input.value = '';
+    latestRawQuery = '';
+    latestQuery = '';
+    clearAutocomplete();
+    inputParts.input.placeholder = `在 ${getSiteSearchDisplayName(provider)} 中搜索...`;
+    suggestionsContainer.innerHTML = '';
+    setSuggestionsVisible(false);
+  }
+
+  function clearSiteSearch() {
+    if (!siteSearchState) {
+      return;
+    }
+    siteSearchState = null;
+    inputParts.input.placeholder = '搜索或输入网址...';
+    clearAutocomplete();
   }
 
   function getBrowserInternalScheme() {
@@ -440,6 +626,18 @@
         ...filteredSuggestions
       ];
 
+      if (siteSearchState && query) {
+        const siteUrl = buildSearchUrl(siteSearchState.template, query);
+        if (siteUrl) {
+          allSuggestions.unshift({
+            type: 'siteSearch',
+            title: `在 ${getSiteSearchDisplayName(siteSearchState)} 中搜索 "${query}"`,
+            url: siteUrl,
+            favicon: getProviderIcon(siteSearchState)
+          });
+        }
+      }
+
       function promoteDomainPrefixMatch(list, queryText) {
         if (!queryText) {
           return null;
@@ -470,29 +668,31 @@
         return null;
       }
 
-      promoteDomainPrefixMatch(allSuggestions, latestRawQuery.trim());
-
-      const autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawQuery);
-      if (autocompleteCandidate) {
-        const candidateIndex = allSuggestions.findIndex((suggestion) => {
-          if (!suggestion || suggestion.type === 'newtab') {
+      let autocompleteCandidate = null;
+      if (!siteSearchState) {
+        promoteDomainPrefixMatch(allSuggestions, latestRawQuery.trim());
+        autocompleteCandidate = getAutocompleteCandidate(allSuggestions, latestRawQuery);
+        if (autocompleteCandidate) {
+          const candidateIndex = allSuggestions.findIndex((suggestion) => {
+            if (!suggestion || suggestion.type === 'newtab') {
+              return false;
+            }
+            if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
+              return true;
+            }
+            const suggestionUrlText = getUrlDisplay(suggestion.url);
+            if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
+              return true;
+            }
+            if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
+              return true;
+            }
             return false;
+          });
+          if (candidateIndex >= 0 && candidateIndex !== 0) {
+            const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
+            allSuggestions.unshift(candidateSuggestion);
           }
-          if (autocompleteCandidate.url && suggestion.url === autocompleteCandidate.url) {
-            return true;
-          }
-          const suggestionUrlText = getUrlDisplay(suggestion.url);
-          if (suggestionUrlText && suggestionUrlText.toLowerCase() === autocompleteCandidate.completion.toLowerCase()) {
-            return true;
-          }
-          if (suggestion.title && suggestion.title.toLowerCase().startsWith(autocompleteCandidate.completion.toLowerCase())) {
-            return true;
-          }
-          return false;
-        });
-        if (candidateIndex >= 0 && candidateIndex !== 0) {
-          const [candidateSuggestion] = allSuggestions.splice(candidateIndex, 1);
-          allSuggestions.unshift(candidateSuggestion);
         }
       }
 
@@ -820,17 +1020,24 @@
       requestSuggestions(query);
     },
     onKeyDown: function(event) {
+      if (event.key !== 'Backspace' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        latestRawQuery = inputParts.input.value;
+        latestQuery = inputParts.input.value.trim();
+      }
+      if (event.key === 'Escape' && siteSearchState) {
+        event.preventDefault();
+        clearSiteSearch();
+        return;
+      }
+      if (event.key === 'Backspace' && siteSearchState && !inputParts.input.value) {
+        clearSiteSearch();
+        return;
+      }
       if (isComposing) {
         return;
       }
-      if (event.key === 'Tab' && autocompleteState && autocompleteState.completion) {
-        event.preventDefault();
-        inputParts.input.value = autocompleteState.completion;
-        inputParts.input.setSelectionRange(autocompleteState.completion.length, autocompleteState.completion.length);
-        latestRawQuery = autocompleteState.completion;
-        latestQuery = autocompleteState.completion.trim();
-        autocompleteState = null;
-        inputParts.input.dispatchEvent(new Event('input', { bubbles: true }));
+      if (event.key === 'Tab' && handleTabKey) {
+        handleTabKey(event);
         return;
       }
       if (event.key !== 'Enter') {
@@ -839,6 +1046,13 @@
       const query = event.target.value.trim();
       if (!query) {
         return;
+      }
+      if (siteSearchState) {
+        const siteUrl = buildSearchUrl(siteSearchState.template, query);
+        if (siteUrl) {
+          navigateToUrl(siteUrl);
+          return;
+        }
       }
       if (autocompleteState && autocompleteState.url) {
         navigateToUrl(autocompleteState.url);
@@ -853,6 +1067,69 @@
       });
     }
   });
+
+  handleTabKey = function(event) {
+    if (siteSearchState) {
+      return false;
+    }
+    const rawValue = inputParts.input.value;
+    const rawTrigger = latestRawQuery || rawValue;
+    const providers = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
+      ? siteSearchProvidersCache
+      : defaultSiteSearchProviders;
+    const directProvider = findSiteSearchProviderByInput(rawTrigger, providers) ||
+      findSiteSearchProviderByInput(rawValue, providers);
+    if (directProvider) {
+      event.preventDefault();
+      activateSiteSearch(directProvider);
+      return true;
+    }
+    if (rawTrigger.trim() || rawValue.trim()) {
+      event.preventDefault();
+      getSiteSearchProviders().then((items) => {
+        const asyncProvider = findSiteSearchProviderByInput(rawTrigger, items) ||
+          findSiteSearchProviderByInput(rawValue, items);
+        if (asyncProvider) {
+          activateSiteSearch(asyncProvider);
+          return;
+        }
+        if (autocompleteState && autocompleteState.completion) {
+          inputParts.input.value = autocompleteState.completion;
+          inputParts.input.setSelectionRange(autocompleteState.completion.length, autocompleteState.completion.length);
+          latestRawQuery = autocompleteState.completion;
+          latestQuery = autocompleteState.completion.trim();
+          autocompleteState = null;
+          inputParts.input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+      return true;
+    }
+    if (autocompleteState && autocompleteState.completion) {
+      event.preventDefault();
+      inputParts.input.value = autocompleteState.completion;
+      inputParts.input.setSelectionRange(autocompleteState.completion.length, autocompleteState.completion.length);
+      latestRawQuery = autocompleteState.completion;
+      latestQuery = autocompleteState.completion.trim();
+      autocompleteState = null;
+      inputParts.input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    }
+    return false;
+  };
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key !== 'Tab') {
+      return;
+    }
+    if (document.activeElement !== inputParts.input) {
+      return;
+    }
+    if (handleTabKey) {
+      handleTabKey(event);
+    }
+  }, true);
+
+  getSiteSearchProviders();
 
   inputParts.input.addEventListener('compositionstart', function() {
     isComposing = true;
