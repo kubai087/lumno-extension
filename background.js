@@ -1007,7 +1007,7 @@ function toggleBlackRectangle(tabs) {
         saturate: '165%'
       },
       dark: {
-        bg: 'rgba(20, 20, 20, 0.82)',
+        bg: 'rgba(20, 20, 20, 0.62)',
         border: 'rgba(255, 255, 255, 0.08)',
         shadow: '0 24px 90px rgba(0, 0, 0, 0.65)',
         text: '#E5E7EB',
@@ -1020,7 +1020,7 @@ function toggleBlackRectangle(tabs) {
         bookmarkTagBg: 'rgba(245, 158, 11, 0.22)',
         bookmarkTagText: '#FBBF24',
         underline: 'rgba(255, 255, 255, 0.18)',
-        blur: '32px',
+        blur: '40px',
         saturate: '145%'
       }
     };
@@ -3176,8 +3176,15 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
-              this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
-              this.style.setProperty('border', '1px solid transparent', 'important');
+              const theme = this._xTheme || defaultTheme;
+              if (this._xIsSearchSuggestion && theme && !theme._xIsDefault) {
+                const hover = getHoverColors(theme);
+                this.style.setProperty('background', hover.bg, 'important');
+                this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+              } else {
+                this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
+                this.style.setProperty('border', '1px solid transparent', 'important');
+              }
             }
           });
           
