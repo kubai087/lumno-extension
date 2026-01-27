@@ -450,7 +450,21 @@
     return getThemeFromUrl(getProviderIcon(provider));
   }
 
+  function shouldUseBrandTheme(suggestion) {
+    if (!suggestion) {
+      return false;
+    }
+    const neutralTypes = ['googleSuggest', 'newtab', 'modeSwitch', 'chatgpt', 'perplexity'];
+    if (neutralTypes.includes(suggestion.type)) {
+      return false;
+    }
+    return true;
+  }
+
   function getThemeForSuggestion(suggestion) {
+    if (!shouldUseBrandTheme(suggestion)) {
+      return Promise.resolve(defaultTheme);
+    }
     if (suggestion && suggestion.provider) {
       return getThemeForProvider(suggestion.provider);
     }
@@ -466,6 +480,9 @@
   }
 
   function getImmediateThemeForSuggestion(suggestion) {
+    if (!shouldUseBrandTheme(suggestion)) {
+      return defaultTheme;
+    }
     if (suggestion && suggestion.provider) {
       const brandAccent = getBrandAccentForUrl(suggestion.provider.template);
       if (brandAccent) {
@@ -541,6 +558,63 @@
     const resolvedTheme = getThemeForMode(theme);
     target.style.setProperty('--x-ext-mark-bg', resolvedTheme.markBg, 'important');
     target.style.setProperty('--x-ext-mark-text', resolvedTheme.markText, 'important');
+  }
+
+  const iconPreloadCache = new Map();
+
+  function preloadIcon(url) {
+    if (!url || url.startsWith('data:') || iconPreloadCache.has(url)) {
+      return;
+    }
+    const img = new Image();
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.src = url;
+    iconPreloadCache.set(url, img);
+  }
+
+  function warmIconCache(list) {
+    if (!Array.isArray(list)) {
+      return;
+    }
+    list.forEach((item) => {
+      if (!item) {
+        return;
+      }
+      const skipType = item.type === 'browserPage' ||
+        item.type === 'directUrl' ||
+        item.type === 'newtab' ||
+        item.type === 'googleSuggest';
+      if (item.favicon && !skipType) {
+        preloadIcon(item.favicon);
+      }
+    });
+  }
+
+  function createSearchIcon() {
+    const icon = document.createElement('span');
+    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>`;
+    icon.style.cssText = `
+      all: unset !important;
+      width: 16px !important;
+      height: 16px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+      text-decoration: none !important;
+      list-style: none !important;
+      outline: none !important;
+      background: transparent !important;
+      color: inherit !important;
+      font-size: 100% !important;
+      font: inherit !important;
+      vertical-align: baseline !important;
+    `;
+    return icon;
   }
 
   function getThemeSourceForSuggestion(suggestion) {
@@ -1214,7 +1288,7 @@
       type: 'directUrl',
       title: `打开 ${targetUrl}`,
       url: targetUrl,
-      favicon: 'https://img.icons8.com/?size=100&id=QeJX4E2mC0fF&format=png&color=000000'
+      favicon: ''
     };
   }
 
@@ -1236,9 +1310,43 @@
   let selectedIndex = -1;
   let currentSuggestions = [];
   let siteSearchTriggerState = null;
+  let lastRenderedQuery = '';
 
   function getAutoHighlightIndex() {
     return suggestionItems.findIndex((item) => Boolean(item && item._xIsAutocompleteTop));
+  }
+
+  function isSameSuggestion(a, b) {
+    if (!a || !b) {
+      return false;
+    }
+    if (a.type !== b.type) {
+      return false;
+    }
+    if ((a.url || '') !== (b.url || '')) {
+      return false;
+    }
+    if ((a.title || '') !== (b.title || '')) {
+      return false;
+    }
+    const providerA = a.provider && a.provider.key ? a.provider.key : '';
+    const providerB = b.provider && b.provider.key ? b.provider.key : '';
+    return providerA === providerB;
+  }
+
+  function isSuggestionPrefix(previous, next) {
+    if (!Array.isArray(previous) || !Array.isArray(next)) {
+      return false;
+    }
+    if (previous.length === 0 || previous.length > next.length) {
+      return false;
+    }
+    for (let i = 0; i < previous.length; i += 1) {
+      if (!isSameSuggestion(previous[i], next[i])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   function applySearchSuggestionHighlight(item, theme) {
@@ -1307,16 +1415,26 @@
       const isSelected = index === selectedIndex;
       const shouldAutoHighlight = selectedIndex === -1 && item._xIsAutocompleteTop;
       const isHighlighted = isSelected || shouldAutoHighlight;
-      if (item._xIsSearchSuggestion) {
-        const theme = item._xTheme || defaultTheme;
-        if (isHighlighted) {
-          applySearchSuggestionHighlight(item, theme);
-        } else {
-          resetSearchSuggestion(item);
+        if (item._xIsSearchSuggestion) {
+          const theme = item._xTheme || defaultTheme;
+          if (isHighlighted) {
+            applySearchSuggestionHighlight(item, theme);
+          } else {
+            resetSearchSuggestion(item);
+          }
+          applySearchActionStyles(item, theme, isHighlighted);
+          if (item._xDirectIconWrap) {
+            const shouldShow = isHighlighted && theme && theme._xIsBrand;
+            const resolvedTheme = getThemeForMode(theme || defaultTheme);
+            item._xDirectIconWrap.style.setProperty('background', shouldShow ? '#FFFFFF' : 'transparent', 'important');
+            item._xDirectIconWrap.style.setProperty(
+              'color',
+              shouldShow ? resolvedTheme.accent : 'var(--x-nt-subtext, #6B7280)',
+              'important'
+            );
+          }
+          return;
         }
-        applySearchActionStyles(item, theme, isHighlighted);
-        return;
-      }
       const theme = item._xTheme || defaultTheme;
       if (isSelected) {
         applySearchSuggestionHighlight(item, theme);
@@ -1332,15 +1450,45 @@
     });
   }
 
+  function animateSuggestionsGrowth(container, fromHeight) {
+    if (!container || !fromHeight) {
+      return;
+    }
+    const toHeight = container.getBoundingClientRect().height;
+    if (toHeight <= fromHeight + 1) {
+      return;
+    }
+    container.style.setProperty('height', `${fromHeight}px`, 'important');
+    container.style.setProperty('overflow', 'hidden', 'important');
+    container.style.setProperty('transition', 'height 180ms ease', 'important');
+    requestAnimationFrame(() => {
+      container.style.setProperty('height', `${toHeight}px`, 'important');
+    });
+    const cleanup = () => {
+      container.style.removeProperty('height');
+      container.style.removeProperty('overflow');
+      container.style.removeProperty('transition');
+      container.removeEventListener('transitionend', cleanup);
+    };
+    container.addEventListener('transitionend', cleanup);
+    setTimeout(cleanup, 220);
+  }
+
   function renderTabSuggestions(tabList) {
     suggestionsContainer.innerHTML = '';
     suggestionItems.length = 0;
     currentSuggestions = [];
+    lastRenderedQuery = '';
     const list = Array.isArray(tabList) ? tabList : [];
     if (list.length === 0) {
       setSuggestionsVisible(false);
       return;
     }
+    list.forEach((tab) => {
+      if (tab && tab.favIconUrl) {
+        preloadIcon(tab.favIconUrl);
+      }
+    });
     list.forEach((tab, index) => {
       const suggestionItem = document.createElement('div');
       suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
@@ -1395,6 +1543,12 @@
 
       const favicon = document.createElement('img');
       favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23E3E4E8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+      favicon.decoding = 'async';
+      favicon.loading = 'eager';
+      favicon.referrerPolicy = 'no-referrer';
+      if (index < 4) {
+        favicon.fetchPriority = 'high';
+      }
       favicon.style.cssText = `
         all: unset !important;
         width: 16px !important;
@@ -1544,14 +1698,11 @@
     suggestionItems.length = 0;
     currentSuggestions = [];
     selectedIndex = -1;
+    lastRenderedQuery = '';
     setSuggestionsVisible(false);
   }
 
   function renderSuggestions(suggestions, query) {
-    suggestionsContainer.innerHTML = '';
-    suggestionItems.length = 0;
-    currentSuggestions = [];
-    selectedIndex = -1;
     if (!query) {
       clearSearchSuggestions();
       return;
@@ -1610,7 +1761,7 @@
           type: 'newtab',
           title: `搜索 "${query}"`,
           url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-          favicon: 'https://img.icons8.com/?size=100&id=ejub91zEY6Sl&format=png&color=000000'
+          favicon: ''
         };
 
       let allSuggestions = modeCommandActive
@@ -1710,9 +1861,31 @@
         primaryHighlightReason = 'modeSwitch';
       }
 
+      const canAppend = query === lastRenderedQuery &&
+        isSuggestionPrefix(currentSuggestions, allSuggestions);
+      const startIndex = canAppend ? currentSuggestions.length : 0;
+      const shouldAnimateGrowth = canAppend && startIndex < allSuggestions.length;
+      const previousHeight = shouldAnimateGrowth
+        ? suggestionsContainer.getBoundingClientRect().height
+        : 0;
+      if (!canAppend) {
+        suggestionsContainer.innerHTML = '';
+        suggestionItems.length = 0;
+        selectedIndex = -1;
+      } else {
+        suggestionItems.forEach((item, index) => {
+          item._xIsAutocompleteTop = index === primaryHighlightIndex;
+        });
+      }
+
       currentSuggestions = allSuggestions;
+      lastRenderedQuery = query;
+      warmIconCache(allSuggestions);
 
       allSuggestions.forEach(function(suggestion, index) {
+        if (index < startIndex) {
+          return;
+        }
         const suggestionItem = document.createElement('div');
         suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === allSuggestions.length - 1;
@@ -1771,6 +1944,7 @@
         `;
 
         let iconNode = null;
+        let iconWrapper = null;
         if (suggestion.type === 'browserPage') {
           const themedIcon = document.createElement('span');
           themedIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--x-ext-icon-color, #6B7280)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><line x1="3" y1="8" x2="21" y2="8"/><circle cx="7" cy="6" r="1"/><circle cx="11" cy="6" r="1"/></svg>`;
@@ -1795,9 +1969,21 @@
             vertical-align: baseline !important;
           `;
           iconNode = themedIcon;
-        } else {
+        } else if (suggestion.type === 'directUrl') {
+          iconNode = createSearchIcon();
+        } else if (suggestion.type === 'newtab' || suggestion.type === 'googleSuggest') {
+          const searchIcon = createSearchIcon();
+          searchIcon.style.setProperty('color', 'var(--x-nt-subtext, #6B7280)', 'important');
+          iconNode = searchIcon;
+        } else if (suggestion.favicon) {
           const favicon = document.createElement('img');
           favicon.src = suggestion.favicon || '';
+          favicon.decoding = 'async';
+          favicon.loading = 'eager';
+          favicon.referrerPolicy = 'no-referrer';
+          if (index < 4) {
+            favicon.fetchPriority = 'high';
+          }
           favicon.style.cssText = `
             all: unset !important;
             width: 16px !important;
@@ -1819,7 +2005,7 @@
             object-fit: contain !important;
           `;
           favicon.onerror = function() {
-            const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E3E4E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+            const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
             const fallbackDiv = document.createElement('div');
             fallbackDiv.innerHTML = searchIconSvg;
             fallbackDiv.style.cssText = `
@@ -1847,6 +2033,37 @@
             }
           };
           iconNode = favicon;
+        } else {
+          const searchIcon = createSearchIcon();
+          searchIcon.style.setProperty('color', 'var(--x-nt-subtext, #6B7280)', 'important');
+          iconNode = searchIcon;
+        }
+
+        if (suggestion.type === 'directUrl' && iconNode) {
+          iconWrapper = document.createElement('span');
+          iconWrapper.style.cssText = `
+            all: unset !important;
+            width: 24px !important;
+            height: 24px !important;
+            border-radius: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            color: var(--x-nt-subtext, #6B7280) !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+          `;
+          iconWrapper.appendChild(iconNode);
+          iconNode = iconWrapper;
         }
 
         const textWrapper = document.createElement('div');
@@ -2125,6 +2342,9 @@
         suggestionItem.appendChild(leftSide);
         rightSide.appendChild(actionTags);
         suggestionItem.appendChild(rightSide);
+        if (iconWrapper) {
+          suggestionItem._xDirectIconWrap = iconWrapper;
+        }
         suggestionsContainer.appendChild(suggestionItem);
 
         getThemeForSuggestion(suggestion).then((theme) => {
@@ -2138,12 +2358,16 @@
       });
 
       updateSelection();
+      if (shouldAnimateGrowth) {
+        animateSuggestionsGrowth(suggestionsContainer, previousHeight);
+      }
       setSuggestionsVisible(true);
     });
   }
 
-  function requestSuggestions(query) {
+  function requestSuggestions(query, options) {
     latestQuery = query;
+    const immediate = options && options.immediate;
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
@@ -2160,7 +2384,7 @@
           renderSuggestions(response.suggestions, requestQuery);
         }
       });
-    }, 120);
+    }, immediate ? 0 : 120);
   }
 
   const inputParts = createSearchInput({
@@ -2188,6 +2412,8 @@
     onInput: function(event) {
       const rawValue = event.target.value;
       const query = rawValue.trim();
+      const inputType = event && event.inputType;
+      const isPaste = inputType === 'insertFromPaste';
       if (isComposing) {
         latestQuery = query;
         latestRawQuery = rawValue;
@@ -2205,6 +2431,12 @@
       }
       latestRawQuery = rawValue;
       clearAutocomplete();
+      if (isPaste || getDirectUrlSuggestion(query)) {
+        latestQuery = query;
+        renderSuggestions([], query);
+        requestSuggestions(query, { immediate: true });
+        return;
+      }
       requestSuggestions(query);
     },
     onKeyDown: function(event) {
