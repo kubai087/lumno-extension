@@ -191,6 +191,12 @@
 
   function getHighlightColors(theme) {
     const resolvedTheme = getThemeForMode(theme);
+    if (!resolvedTheme || !resolvedTheme._xIsBrand) {
+      return {
+        bg: 'var(--x-nt-hover-bg, #F3F4F6)',
+        border: 'transparent'
+      };
+    }
     const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
     return {
       bg: resolvedTheme.highlightBg || rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.88)),
@@ -406,6 +412,7 @@
     const brandAccent = getBrandAccentForUrl(url);
     if (brandAccent) {
       const brandTheme = buildTheme(brandAccent);
+      brandTheme._xIsBrand = true;
       themeColorCache.set(url, brandTheme);
       return Promise.resolve(brandTheme);
     }
@@ -435,7 +442,9 @@
     if (provider && provider.template) {
       const brandAccent = getBrandAccentForUrl(provider.template);
       if (brandAccent) {
-        return Promise.resolve(buildTheme(brandAccent));
+        const brandTheme = buildTheme(brandAccent);
+        brandTheme._xIsBrand = true;
+        return Promise.resolve(brandTheme);
       }
     }
     return getThemeFromUrl(getProviderIcon(provider));
@@ -448,7 +457,9 @@
     if (suggestion && suggestion.url) {
       const brandAccent = getBrandAccentForUrl(suggestion.url);
       if (brandAccent) {
-        return Promise.resolve(buildTheme(brandAccent));
+        const brandTheme = buildTheme(brandAccent);
+        brandTheme._xIsBrand = true;
+        return Promise.resolve(brandTheme);
       }
     }
     return getThemeFromUrl(getThemeSourceForSuggestion(suggestion));
@@ -458,13 +469,17 @@
     if (suggestion && suggestion.provider) {
       const brandAccent = getBrandAccentForUrl(suggestion.provider.template);
       if (brandAccent) {
-        return buildTheme(brandAccent);
+        const brandTheme = buildTheme(brandAccent);
+        brandTheme._xIsBrand = true;
+        return brandTheme;
       }
     }
     if (suggestion && suggestion.url) {
       const brandAccent = getBrandAccentForUrl(suggestion.url);
       if (brandAccent) {
-        return buildTheme(brandAccent);
+        const brandTheme = buildTheme(brandAccent);
+        brandTheme._xIsBrand = true;
+        return brandTheme;
       }
     }
     return null;
@@ -487,6 +502,7 @@
     const accentRgb = theme.accentRgb || parseCssColor(theme.accent) || defaultAccentColor;
     const darkTheme = buildThemeVariant(accentRgb, 'dark');
     darkTheme._xIsDefault = Boolean(theme._xIsDefault);
+    darkTheme._xIsBrand = Boolean(theme._xIsBrand);
     theme._xDark = darkTheme;
     return darkTheme;
   }
@@ -1451,7 +1467,7 @@
       suggestionItem.addEventListener('mouseenter', function() {
         if (suggestionItems.indexOf(this) !== selectedIndex) {
           const theme = this._xTheme;
-          if (theme && !theme._xIsDefault) {
+          if (theme && theme._xIsBrand) {
             const hover = getHoverColors(theme);
             this.style.setProperty('background-color', hover.bg, 'important');
             this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
@@ -2073,7 +2089,7 @@
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
             const theme = this._xTheme;
-            if (theme && !theme._xIsDefault) {
+            if (theme && theme._xIsBrand) {
               const hover = getHoverColors(theme);
               this.style.setProperty('background', hover.bg, 'important');
               this.style.setProperty('border', `1px solid ${hover.border}`, 'important');

@@ -984,6 +984,12 @@ function toggleBlackRectangle(tabs) {
 
     function getHighlightColors(theme) {
       const resolvedTheme = getThemeForMode(theme);
+      if (!resolvedTheme || !resolvedTheme._xIsBrand) {
+        return {
+          bg: 'var(--x-ov-hover-bg, #F3F4F6)',
+          border: 'transparent'
+        };
+      }
       return {
         bg: resolvedTheme.highlightBg,
         border: resolvedTheme.highlightBorder
@@ -1167,6 +1173,7 @@ function toggleBlackRectangle(tabs) {
       const accentRgb = theme.accentRgb || parseCssColor(theme.accent) || defaultAccentColor;
       const darkTheme = buildThemeVariant(accentRgb, 'dark');
       darkTheme._xIsDefault = Boolean(theme._xIsDefault);
+      darkTheme._xIsBrand = Boolean(theme._xIsBrand);
       theme._xDark = darkTheme;
       return darkTheme;
     }
@@ -1294,6 +1301,7 @@ function toggleBlackRectangle(tabs) {
       const brandAccent = getBrandAccentForUrl(url);
       if (brandAccent) {
         const brandTheme = buildTheme(brandAccent);
+        brandTheme._xIsBrand = true;
         themeColorCache.set(url, brandTheme);
         return Promise.resolve(brandTheme);
       }
@@ -1323,7 +1331,9 @@ function toggleBlackRectangle(tabs) {
       if (provider && provider.template) {
         const brandAccent = getBrandAccentForUrl(provider.template);
         if (brandAccent) {
-          return Promise.resolve(buildTheme(brandAccent));
+          const brandTheme = buildTheme(brandAccent);
+          brandTheme._xIsBrand = true;
+          return Promise.resolve(brandTheme);
         }
       }
       return getThemeFromUrl(getProviderIcon(provider));
@@ -1336,7 +1346,9 @@ function toggleBlackRectangle(tabs) {
       if (suggestion && suggestion.url) {
         const brandAccent = getBrandAccentForUrl(suggestion.url);
         if (brandAccent) {
-          return Promise.resolve(buildTheme(brandAccent));
+          const brandTheme = buildTheme(brandAccent);
+          brandTheme._xIsBrand = true;
+          return Promise.resolve(brandTheme);
         }
       }
       return getThemeFromUrl(getThemeSourceForSuggestion(suggestion));
@@ -1346,13 +1358,17 @@ function toggleBlackRectangle(tabs) {
       if (suggestion && suggestion.provider) {
         const brandAccent = getBrandAccentForUrl(suggestion.provider.template);
         if (brandAccent) {
-          return buildTheme(brandAccent);
+          const brandTheme = buildTheme(brandAccent);
+          brandTheme._xIsBrand = true;
+          return brandTheme;
         }
       }
       if (suggestion && suggestion.url) {
         const brandAccent = getBrandAccentForUrl(suggestion.url);
         if (brandAccent) {
-          return buildTheme(brandAccent);
+          const brandTheme = buildTheme(brandAccent);
+          brandTheme._xIsBrand = true;
+          return brandTheme;
         }
       }
       return null;
@@ -2513,11 +2529,11 @@ function toggleBlackRectangle(tabs) {
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
             const theme = this._xTheme;
-            if (theme && !theme._xIsDefault) {
-              const hover = getHoverColors(theme);
-              this.style.setProperty('background-color', hover.bg, 'important');
-              this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
-            } else {
+          if (theme && theme._xIsBrand) {
+            const hover = getHoverColors(theme);
+            this.style.setProperty('background-color', hover.bg, 'important');
+            this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+          } else {
               this.style.setProperty('background-color', 'var(--x-ov-hover-bg, #F3F4F6)', 'important');
               this.style.setProperty('border', '1px solid transparent', 'important');
             }
@@ -3335,7 +3351,7 @@ function toggleBlackRectangle(tabs) {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
               const theme = this._xTheme;
-              if (theme && !theme._xIsDefault) {
+              if (theme && theme._xIsBrand) {
                 const hover = getHoverColors(theme);
                 this.style.setProperty('background', hover.bg, 'important');
                 this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
