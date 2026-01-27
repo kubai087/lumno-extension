@@ -1,4 +1,4 @@
-# Lumno
+<img width="100" height="100" alt="lumno" src="https://github.com/user-attachments/assets/a614cde2-f311-47d1-9a2e-803edd2d0f55" />
 
 A lightweight new-tab search and quick navigation overlay for Chromium browsers.
 
