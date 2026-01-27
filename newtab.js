@@ -1635,6 +1635,9 @@
 
       suggestionItem.addEventListener('mouseenter', function() {
         if (suggestionItems.indexOf(this) !== selectedIndex) {
+          if (selectedIndex === -1 && this._xIsAutocompleteTop) {
+            return;
+          }
           const theme = this._xTheme;
           if (theme && theme._xIsBrand) {
             const hover = getHoverColors(theme);
@@ -1795,6 +1798,9 @@
         }
       }
 
+      const onlyKeywordSuggestions = allSuggestions.length > 0 &&
+        allSuggestions.every((item) => item && (item.type === 'googleSuggest' || item.type === 'newtab'));
+
       let autocompleteCandidate = null;
       let primaryHighlightIndex = -1;
       let primaryHighlightReason = 'none';
@@ -1905,7 +1911,14 @@
         suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === allSuggestions.length - 1;
         const isPrimaryHighlight = index === primaryHighlightIndex;
-        const immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
+        let immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
+        if (onlyKeywordSuggestions && suggestion.type === 'newtab') {
+          const googleAccent = getBrandAccentForUrl('https://www.google.com');
+          if (googleAccent) {
+            immediateTheme = buildTheme(googleAccent);
+            immediateTheme._xIsBrand = true;
+          }
+        }
         const initialHighlight = isPrimaryHighlight ? getHighlightColors(immediateTheme) : null;
         suggestionItem.style.cssText = `
           all: unset !important;
@@ -2302,6 +2315,7 @@
 
         const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
         const shouldShowEnterTag = isPrimaryHighlight &&
+          !onlyKeywordSuggestions &&
           (primaryHighlightReason === 'topSite' ||
             primaryHighlightReason === 'inline' ||
             primaryHighlightReason === 'autocomplete');
@@ -2314,12 +2328,18 @@
         if (shouldShowSiteSearchTag) {
           actionTags.appendChild(createActionTag('搜索', 'Tab'));
         }
+        if (isPrimaryHighlight && onlyKeywordSuggestions && suggestion.type === 'newtab') {
+          actionTags.appendChild(createActionTag('在 Google 中搜索', 'Enter'));
+        }
 
         suggestionItem._xTagContainer = actionTags;
         suggestionItem._xHasActionTags = actionTags.childNodes.length > 0;
 
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
+            if (selectedIndex === -1 && this._xIsAutocompleteTop) {
+              return;
+            }
             const theme = this._xTheme;
             if (theme && theme._xIsBrand) {
               const hover = getHoverColors(theme);
@@ -2362,14 +2382,16 @@
         }
         suggestionsContainer.appendChild(suggestionItem);
 
-        getThemeForSuggestion(suggestion).then((theme) => {
-          if (!suggestionItem.isConnected) {
-            return;
-          }
-          suggestionItem._xTheme = theme;
-          applyThemeVariables(suggestionItem, theme);
-          updateSelection();
-        });
+        if (!(onlyKeywordSuggestions && suggestion.type === 'newtab')) {
+          getThemeForSuggestion(suggestion).then((theme) => {
+            if (!suggestionItem.isConnected) {
+              return;
+            }
+            suggestionItem._xTheme = theme;
+            applyThemeVariables(suggestionItem, theme);
+            updateSelection();
+          });
+        }
       });
 
       updateSelection();

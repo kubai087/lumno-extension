@@ -870,7 +870,17 @@ function toggleBlackRectangle(tabs) {
         modeBadge.style.setProperty('display', 'none', 'important');
         return;
       }
-      modeBadge.textContent = `模式：${getThemeModeLabel(overlayThemeMode)}`;
+      if (overlayThemeMode === 'system') {
+        const pageTheme = detectPageTheme();
+        if (pageTheme) {
+          modeBadge.textContent = `模式：${getThemeModeLabel(pageTheme)}（跟随网站）`;
+        } else {
+          const systemResolved = overlayMediaQuery.matches ? 'dark' : 'light';
+          modeBadge.textContent = `模式：${getThemeModeLabel(systemResolved)}（跟随系统）`;
+        }
+      } else {
+        modeBadge.textContent = `模式：${getThemeModeLabel(overlayThemeMode)}`;
+      }
       modeBadge.style.setProperty('display', 'inline-flex', 'important');
     }
 
@@ -1162,7 +1172,69 @@ function toggleBlackRectangle(tabs) {
       if (mode === 'light') {
         return 'light';
       }
+      const pageTheme = detectPageTheme();
+      if (pageTheme) {
+        return pageTheme;
+      }
       return overlayMediaQuery.matches ? 'dark' : 'light';
+    }
+
+    function detectPageTheme() {
+      const docEl = document.documentElement;
+      const body = document.body;
+      if (!docEl) {
+        return null;
+      }
+      const schemeValue = (window.getComputedStyle(docEl).colorScheme || '').toLowerCase();
+      if (schemeValue.includes('dark') && !schemeValue.includes('light')) {
+        return 'dark';
+      }
+      if (schemeValue.includes('light') && !schemeValue.includes('dark')) {
+        return 'light';
+      }
+      const attrCandidates = [
+        docEl.getAttribute('data-theme'),
+        docEl.getAttribute('data-color-scheme'),
+        docEl.getAttribute('data-bs-theme'),
+        body ? body.getAttribute('data-theme') : null,
+        body ? body.getAttribute('data-color-scheme') : null,
+        body ? body.getAttribute('data-bs-theme') : null
+      ];
+      for (let i = 0; i < attrCandidates.length; i += 1) {
+        const value = String(attrCandidates[i] || '').toLowerCase();
+        if (!value) {
+          continue;
+        }
+        if (value.includes('dark')) {
+          return 'dark';
+        }
+        if (value.includes('light')) {
+          return 'light';
+        }
+      }
+      const classTokens = [
+        docEl.className || '',
+        body ? body.className || '' : ''
+      ];
+      for (let i = 0; i < classTokens.length; i += 1) {
+        const tokenList = String(classTokens[i] || '').toLowerCase().split(/\s+/);
+        if (tokenList.includes('dark')) {
+          return 'dark';
+        }
+        if (tokenList.includes('light')) {
+          return 'light';
+        }
+      }
+      const bodyStyle = body ? window.getComputedStyle(body) : null;
+      const docStyle = window.getComputedStyle(docEl);
+      const bgColor = (bodyStyle && bodyStyle.backgroundColor && bodyStyle.backgroundColor !== 'transparent')
+        ? bodyStyle.backgroundColor
+        : docStyle.backgroundColor;
+      const rgb = parseCssColor(bgColor);
+      if (rgb && rgb.length === 3) {
+        return getLuminance(rgb) < 0.42 ? 'dark' : 'light';
+      }
+      return null;
     }
 
     function applyOverlayThemeVariables(target, mode) {
@@ -2705,12 +2777,15 @@ function toggleBlackRectangle(tabs) {
         // Add hover effects
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
+            if (selectedIndex === -1 && this._xIsAutocompleteTop) {
+              return;
+            }
             const theme = this._xTheme;
-          if (theme && theme._xIsBrand) {
-            const hover = getHoverColors(theme);
-            this.style.setProperty('background-color', hover.bg, 'important');
-            this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
-          } else {
+            if (theme && theme._xIsBrand) {
+              const hover = getHoverColors(theme);
+              this.style.setProperty('background-color', hover.bg, 'important');
+              this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
+            } else {
               this.style.setProperty('background-color', 'var(--x-ov-hover-bg, #F3F4F6)', 'important');
               this.style.setProperty('border', '1px solid transparent', 'important');
             }
@@ -3048,6 +3123,9 @@ function toggleBlackRectangle(tabs) {
             });
           }
         }
+        const onlyKeywordSuggestions = allSuggestions.length > 0 &&
+          allSuggestions.every((item) => item && (item.type === 'googleSuggest' || item.type === 'newtab'));
+
         let autocompleteCandidate = null;
         let primaryHighlightIndex = -1;
         let primaryHighlightReason = 'none';
@@ -3159,7 +3237,14 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
           const isPrimaryHighlight = index === primaryHighlightIndex;
-          const immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
+          let immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
+          if (onlyKeywordSuggestions && suggestion.type === 'newtab') {
+            const googleAccent = getBrandAccentForUrl('https://www.google.com');
+            if (googleAccent) {
+              immediateTheme = buildTheme(googleAccent);
+              immediateTheme._xIsBrand = true;
+            }
+          }
           const initialHighlight = isPrimaryHighlight ? getHighlightColors(immediateTheme) : null;
           suggestionItem.style.cssText = `
             all: unset !important;
@@ -3568,6 +3653,7 @@ function toggleBlackRectangle(tabs) {
 
           const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
           const shouldShowEnterTag = isPrimaryHighlight &&
+            !onlyKeywordSuggestions &&
             (primaryHighlightReason === 'topSite' ||
               primaryHighlightReason === 'inline' ||
               primaryHighlightReason === 'autocomplete');
@@ -3579,6 +3665,9 @@ function toggleBlackRectangle(tabs) {
           }
           if (shouldShowSiteSearchTag) {
             actionTags.appendChild(createActionTag('搜索', 'Tab'));
+          }
+          if (isPrimaryHighlight && onlyKeywordSuggestions && suggestion.type === 'newtab') {
+            actionTags.appendChild(createActionTag('在 Google 中搜索', 'Enter'));
           }
 
           // Create visit button
@@ -3617,7 +3706,7 @@ function toggleBlackRectangle(tabs) {
           } else if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
             visitButton.innerHTML = '打开 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
           } else if (suggestion.type === 'googleSuggest') {
-            visitButton.innerHTML = '搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+            visitButton.innerHTML = '在 Google 中搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
           } else {
             visitButton.innerHTML = '访问 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
           }
@@ -3626,6 +3715,9 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
+              if (selectedIndex === -1 && this._xIsAutocompleteTop) {
+                return;
+              }
               const theme = this._xTheme;
               if (theme && theme._xIsBrand) {
                 const hover = getHoverColors(theme);
@@ -3701,14 +3793,16 @@ function toggleBlackRectangle(tabs) {
           }
           suggestionsContainer.appendChild(suggestionItem);
 
-          getThemeForSuggestion(suggestion).then((theme) => {
-            if (!suggestionItem.isConnected) {
-              return;
-            }
-            suggestionItem._xTheme = theme;
-            applyThemeVariables(suggestionItem, theme);
-            updateSelection();
-          });
+          if (!(onlyKeywordSuggestions && suggestion.type === 'newtab')) {
+            getThemeForSuggestion(suggestion).then((theme) => {
+              if (!suggestionItem.isConnected) {
+                return;
+              }
+              suggestionItem._xTheme = theme;
+              applyThemeVariables(suggestionItem, theme);
+              updateSelection();
+            });
+          }
         });
         updateSelection();
         if (shouldAnimateGrowth) {
