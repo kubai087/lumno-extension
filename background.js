@@ -666,6 +666,10 @@ function toggleBlackRectangle(tabs) {
   let keydownHandler = null;
   let clickOutsideHandler = null;
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
+  const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  let overlayThemeMode = 'system';
+  let overlayThemeListenerAttached = false;
+  let modeBadge = null;
   // Helper function to remove overlay and clean up styles
   function removeOverlay(overlayElement) {
     if (overlayElement) {
@@ -747,6 +751,7 @@ function toggleBlackRectangle(tabs) {
         }
       });
       updateSelection();
+      updateModeBadge(searchInput ? searchInput.value : '');
       if (mode === 'system' && !overlayThemeListenerAttached) {
         overlayThemeMediaListener = function() {
           if (overlayThemeMode === 'system') {
@@ -763,17 +768,6 @@ function toggleBlackRectangle(tabs) {
         overlayThemeListenerAttached = false;
       }
     };
-
-    chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
-      applyOverlayTheme(result[THEME_STORAGE_KEY] || 'system');
-    });
-    overlayThemeStorageListener = (changes, areaName) => {
-      if (areaName !== 'local' || !changes[THEME_STORAGE_KEY]) {
-        return;
-      }
-      applyOverlayTheme(changes[THEME_STORAGE_KEY].newValue || 'system');
-    };
-    chrome.storage.onChanged.addListener(overlayThemeStorageListener);
     
     // Add Inter font with unique ID
     const fontLink = document.createElement('link');
@@ -825,6 +819,35 @@ function toggleBlackRectangle(tabs) {
     const searchInput = inputParts.input;
     const inputContainer = inputParts.container;
     const rightIcon = inputParts.rightIcon;
+    modeBadge = document.createElement('div');
+    modeBadge.id = '_x_extension_mode_badge_2024_unique_';
+    modeBadge.style.cssText = `
+      all: unset !important;
+      position: absolute !important;
+      right: 52px !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      display: none !important;
+      align-items: center !important;
+      gap: 6px !important;
+      background: var(--x-ov-tag-bg, #F3F4F6) !important;
+      color: var(--x-ov-tag-text, #6B7280) !important;
+      border: 1px solid var(--x-ov-border, rgba(0, 0, 0, 0.08)) !important;
+      border-radius: 999px !important;
+      padding: 4px 8px !important;
+      font-size: 11px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+      font-weight: 500 !important;
+      line-height: 1 !important;
+      white-space: nowrap !important;
+      max-width: 180px !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      box-sizing: border-box !important;
+      pointer-events: none !important;
+      z-index: 1 !important;
+    `;
+    inputContainer.appendChild(modeBadge);
 
     const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
@@ -836,6 +859,19 @@ function toggleBlackRectangle(tabs) {
         return '浅色';
       }
       return '跟随系统';
+    }
+
+    function updateModeBadge(rawValue) {
+      if (!modeBadge) {
+        return;
+      }
+      const shouldShow = isModeCommand(rawValue || '');
+      if (!shouldShow) {
+        modeBadge.style.setProperty('display', 'none', 'important');
+        return;
+      }
+      modeBadge.textContent = `模式：${getThemeModeLabel(overlayThemeMode)}`;
+      modeBadge.style.setProperty('display', 'inline-flex', 'important');
     }
 
     function getNextThemeMode(mode) {
@@ -1082,7 +1118,7 @@ function toggleBlackRectangle(tabs) {
     const overlayThemeTokens = {
       light: {
         bg: 'rgba(255, 255, 255, 0.99)',
-        border: 'rgba(0, 0, 0, 0.08)',
+        border: 'rgba(0, 0, 0, 0.22)',
         shadow: '0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15)',
         text: '#111827',
         subtext: '#6B7280',
@@ -1094,12 +1130,14 @@ function toggleBlackRectangle(tabs) {
         bookmarkTagBg: '#FEF3C7',
         bookmarkTagText: '#D97706',
         underline: '#E5E7EB',
+        dividerOpacity: '0.5',
+        dividerInset: '24px',
         blur: '4px',
         saturate: '165%'
       },
       dark: {
         bg: 'rgba(20, 20, 20, 0.62)',
-        border: 'rgba(255, 255, 255, 0.08)',
+        border: 'rgba(255, 255, 255, 0.16)',
         shadow: '0 24px 90px rgba(0, 0, 0, 0.65)',
         text: '#E5E7EB',
         subtext: '#9CA3AF',
@@ -1111,14 +1149,12 @@ function toggleBlackRectangle(tabs) {
         bookmarkTagBg: 'rgba(245, 158, 11, 0.22)',
         bookmarkTagText: '#FBBF24',
         underline: 'rgba(255, 255, 255, 0.18)',
+        dividerOpacity: '0.35',
+        dividerInset: '24px',
         blur: '40px',
         saturate: '145%'
       }
     };
-    const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    let overlayThemeMode = 'system';
-    let overlayThemeListenerAttached = false;
-
     function resolveOverlayTheme(mode) {
       if (mode === 'dark') {
         return 'dark';
@@ -1154,7 +1190,20 @@ function toggleBlackRectangle(tabs) {
       target.style.setProperty('--x-ext-input-caret', tokens.link, 'important');
       target.style.setProperty('--x-ext-input-icon', tokens.subtext, 'important');
       target.style.setProperty('--x-ext-input-underline', tokens.underline, 'important');
+      target.style.setProperty('--x-ext-input-divider-inset', tokens.dividerInset, 'important');
+      target.style.setProperty('--x-ext-input-divider-opacity', tokens.dividerOpacity, 'important');
     }
+
+    chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+      applyOverlayTheme(result[THEME_STORAGE_KEY] || 'system');
+    });
+    overlayThemeStorageListener = (changes, areaName) => {
+      if (areaName !== 'local' || !changes[THEME_STORAGE_KEY]) {
+        return;
+      }
+      applyOverlayTheme(changes[THEME_STORAGE_KEY].newValue || 'system');
+    };
+    chrome.storage.onChanged.addListener(overlayThemeStorageListener);
 
     function isOverlayDarkMode() {
       return overlay && overlay.getAttribute('data-theme') === 'dark';
@@ -2047,6 +2096,7 @@ function toggleBlackRectangle(tabs) {
       isComposing = false;
       const rawValue = e.target.value || '';
       const query = rawValue.trim();
+      updateModeBadge(rawValue);
       latestOverlayQuery = query;
       latestRawInputValue = rawValue;
       clearAutocomplete();
@@ -2067,6 +2117,7 @@ function toggleBlackRectangle(tabs) {
     searchInput.addEventListener('input', function(event) {
       const rawValue = this.value;
       const query = rawValue.trim();
+      updateModeBadge(rawValue);
       const inputType = event && event.inputType;
       const isPaste = inputType === 'insertFromPaste';
       if (isComposing) {

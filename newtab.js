@@ -10,6 +10,7 @@
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let mediaListenerAttached = false;
   let currentThemeMode = 'system';
+  let modeBadge = null;
   const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
   function resolveTheme(mode) {
@@ -32,6 +33,7 @@
       }
     });
     updateSelection();
+    updateModeBadge(inputParts && inputParts.input ? inputParts.input.value : '');
     if (mode === 'system' && !mediaListenerAttached) {
       mediaQuery.addEventListener('change', handleMediaChange);
       mediaListenerAttached = true;
@@ -71,6 +73,19 @@
       return '浅色';
     }
     return '跟随系统';
+  }
+
+  function updateModeBadge(rawValue) {
+    if (!modeBadge) {
+      return;
+    }
+    const shouldShow = isModeCommand(rawValue || '');
+    if (!shouldShow) {
+      modeBadge.style.setProperty('display', 'none', 'important');
+      return;
+    }
+    modeBadge.textContent = `模式：${getThemeModeLabel(currentThemeMode)}`;
+    modeBadge.style.setProperty('display', 'inline-flex', 'important');
   }
 
   function getNextThemeMode(mode) {
@@ -2412,6 +2427,7 @@
     onInput: function(event) {
       const rawValue = event.target.value;
       const query = rawValue.trim();
+      updateModeBadge(rawValue);
       const inputType = event && event.inputType;
       const isPaste = inputType === 'insertFromPaste';
       if (isComposing) {
@@ -2546,6 +2562,35 @@
       });
     }
   });
+  modeBadge = document.createElement('div');
+  modeBadge.id = '_x_extension_newtab_mode_badge_2024_unique_';
+  modeBadge.style.cssText = `
+    all: unset !important;
+    position: absolute !important;
+    right: 52px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: none !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background: var(--x-nt-tag-bg, #F3F4F6) !important;
+    color: var(--x-nt-tag-text, #6B7280) !important;
+    border: 1px solid var(--x-nt-panel-border, rgba(0, 0, 0, 0.08)) !important;
+    border-radius: 999px !important;
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    max-width: 180px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+  `;
+  inputParts.container.appendChild(modeBadge);
   const searchInput = inputParts.input;
   const inputContainer = inputParts.container;
   const rightIcon = inputParts.rightIcon;

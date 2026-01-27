@@ -25,7 +25,7 @@
       padding: 20px 64px 20px 50px !important;
       background: transparent !important;
       border: none !important;
-      border-bottom: 1px solid var(--x-ext-input-underline, #E5E7EB) !important;
+      border-bottom: none !important;
       color: var(--x-ext-input-text, #1F2937) !important;
       font-size: 16px !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
@@ -48,20 +48,33 @@
     );
     const showUnderlineWhenEmpty = Boolean(config.showUnderlineWhenEmpty);
 
+    const divider = document.createElement('div');
+    divider.id = config.dividerId || '_x_extension_input_divider_2024_unique_';
+    divider.style.cssText = `
+      all: unset !important;
+      position: absolute !important;
+      left: var(--x-ext-input-divider-inset, 20px) !important;
+      right: var(--x-ext-input-divider-inset, 20px) !important;
+      bottom: 0 !important;
+      height: 1px !important;
+      background: var(--x-ext-input-underline, #E5E7EB) !important;
+      opacity: var(--x-ext-input-divider-opacity, 0.55) !important;
+      pointer-events: none !important;
+      display: block !important;
+    `;
+    applyStyleOverrides(divider, config.dividerStyleOverrides);
+
     function updateInputUnderline(value) {
       if (hasBorderOverride) {
+        divider.style.setProperty('display', 'none', 'important');
         return;
       }
       if (showUnderlineWhenEmpty) {
-        input.style.setProperty('border-bottom', '1px solid var(--x-ext-input-underline, #E5E7EB)', 'important');
+        divider.style.setProperty('display', 'block', 'important');
         return;
       }
       const isEmpty = !value || !value.trim();
-      input.style.setProperty(
-        'border-bottom',
-        isEmpty ? 'none' : '1px solid var(--x-ext-input-underline, #E5E7EB)',
-        'important'
-      );
+      divider.style.setProperty('display', isEmpty ? 'none' : 'block', 'important');
     }
 
     updateInputUnderline(input.value);
@@ -168,10 +181,11 @@
 
     container.appendChild(icon);
     container.appendChild(input);
+    container.appendChild(divider);
     if (config.showRightIcon !== false) {
       container.appendChild(rightIcon);
     }
 
-    return { container: container, input: input, icon: icon, rightIcon: rightIcon };
+    return { container: container, input: input, icon: icon, rightIcon: rightIcon, divider: divider };
   };
 })();
