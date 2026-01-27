@@ -172,6 +172,7 @@
 
   let latestQuery = '';
   let latestRawQuery = '';
+  let lastDeletionAt = 0;
   let autocompleteState = null;
   let inlineSearchState = null;
   let isComposing = false;
@@ -179,6 +180,7 @@
   let debounceTimer = null;
   let tabs = [];
   let siteSearchProvidersCache = null;
+  const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   let handleTabKey = null;
   const defaultSiteSearchProviders = [
     { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
@@ -984,6 +986,10 @@
   function applyAutocomplete(allSuggestions) {
     const rawQuery = latestRawQuery;
     const trimmedQuery = rawQuery.trim();
+    if (Date.now() - lastDeletionAt < 250) {
+      clearAutocomplete();
+      return;
+    }
     if (siteSearchState) {
       clearAutocomplete();
       return;
@@ -2646,6 +2652,10 @@
       updateModeBadge(rawValue);
       const inputType = event && event.inputType;
       const isPaste = inputType === 'insertFromPaste';
+      const isDelete = inputType && inputType.startsWith('delete');
+      if (isDelete) {
+        lastDeletionAt = Date.now();
+      }
       if (isComposing) {
         latestQuery = query;
         latestRawQuery = rawValue;
@@ -2984,6 +2994,16 @@
   }, true);
 
   getSiteSearchProviders();
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes[SITE_SEARCH_STORAGE_KEY]) {
+      return;
+    }
+    siteSearchProvidersCache = null;
+    if (latestQuery) {
+      renderSuggestions([], latestQuery);
+    }
+  });
 
   inputParts.input.addEventListener('compositionstart', function() {
     isComposing = true;

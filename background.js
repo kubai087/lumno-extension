@@ -130,6 +130,7 @@ let shortcutRulesCache = null;
 let shortcutRulesPromise = null;
 let siteSearchCache = null;
 let siteSearchPromise = null;
+const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
 const faviconDataCache = new Map();
 const faviconPending = new Map();
 
@@ -189,6 +190,52 @@ function normalizeSiteSearchTemplate(template) {
     .replace(/\{\{\{s\}\}\}/g, '{query}')
     .replace(/\{s\}/g, '{query}')
     .replace(/\{searchTerms\}/g, '{query}');
+}
+
+function sanitizeSiteSearchProviders(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .filter((item) => item && item.key && item.template)
+    .map((item) => ({
+      key: String(item.key).trim(),
+      aliases: Array.isArray(item.aliases) ? item.aliases.filter(Boolean) : [],
+      name: item.name || item.key,
+      template: normalizeSiteSearchTemplate(item.template)
+    }))
+    .filter((item) => item.key && item.template && item.template.includes('{query}'));
+}
+
+function loadCustomSiteSearchProviders() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+      const items = sanitizeSiteSearchProviders(result[SITE_SEARCH_STORAGE_KEY]);
+      resolve(items);
+    });
+  });
+}
+
+function mergeCustomProviders(baseItems, customItems) {
+  const merged = [];
+  const seen = new Set();
+  customItems.forEach((item) => {
+    const key = String(item.key || '').toLowerCase();
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    merged.push(item);
+  });
+  baseItems.forEach((item) => {
+    const key = String(item.key || '').toLowerCase();
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    merged.push(item);
+  });
+  return merged;
 }
 
 function getTemplateDomain(template) {
@@ -261,7 +308,7 @@ function loadSiteSearchProviders() {
     .then((response) => response.json())
     .then((data) => {
       const items = data && Array.isArray(data.items) ? data.items : [];
-      return items;
+      return sanitizeSiteSearchProviders(items);
     })
     .catch(() => []);
   siteSearchPromise = siteSearchPromise.then((localItems) => {
@@ -271,9 +318,15 @@ function loadSiteSearchProviders() {
       .then((text) => parseBangList(text))
       .then((bangList) => mergeSiteSearchProviders(localItems, bangList))
       .catch(() => localItems);
-  }).then((items) => {
-    siteSearchCache = items;
-    return items;
+  }).then((items) => loadCustomSiteSearchProviders().then((customItems) => {
+    const merged = mergeCustomProviders(items, customItems);
+    siteSearchCache = merged;
+    return merged;
+  })).catch(() => {
+    return loadCustomSiteSearchProviders().then((customItems) => {
+      siteSearchCache = customItems;
+      return customItems;
+    });
   });
   return siteSearchPromise;
 }
@@ -296,6 +349,14 @@ function loadShortcutRules() {
     .catch(() => []);
   return shortcutRulesPromise;
 }
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local' || !changes[SITE_SEARCH_STORAGE_KEY]) {
+    return;
+  }
+  siteSearchCache = null;
+  siteSearchPromise = null;
+});
 
 function getBrowserInternalScheme() {
   const ua = navigator.userAgent || '';
@@ -1097,6 +1158,7 @@ function toggleBlackRectangle(tabs) {
     
     let latestOverlayQuery = '';
     let latestRawInputValue = '';
+    let lastDeletionAt = 0;
     let autocompleteState = null;
     let inlineSearchState = null;
     let siteSearchTriggerState = null;
@@ -2039,6 +2101,10 @@ function toggleBlackRectangle(tabs) {
     function applyAutocomplete(allSuggestions) {
       const rawQuery = latestRawInputValue;
       const trimmedQuery = rawQuery.trim();
+      if (Date.now() - lastDeletionAt < 250) {
+        clearAutocomplete();
+        return;
+      }
       if (siteSearchState) {
         clearAutocomplete();
         return;
@@ -2142,6 +2208,13 @@ function toggleBlackRectangle(tabs) {
     }
 
     getSiteSearchProviders();
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes[SITE_SEARCH_STORAGE_KEY]) {
+        return;
+      }
+      siteSearchProvidersCache = null;
+    });
 
     function getSiteSearchDisplayName(provider) {
       if (!provider) {
@@ -2412,6 +2485,10 @@ function toggleBlackRectangle(tabs) {
       updateModeBadge(rawValue);
       const inputType = event && event.inputType;
       const isPaste = inputType === 'insertFromPaste';
+      const isDelete = inputType && inputType.startsWith('delete');
+      if (isDelete) {
+        lastDeletionAt = Date.now();
+      }
       if (isComposing) {
         latestRawInputValue = rawValue;
         latestOverlayQuery = query;
