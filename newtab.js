@@ -622,6 +622,49 @@
   }
 
   const iconPreloadCache = new Map();
+  const faviconDataCache = new Map();
+  const faviconDataPending = new Map();
+
+  function requestFaviconData(url) {
+    if (!url || url.startsWith('data:')) {
+      return Promise.resolve(null);
+    }
+    if (faviconDataCache.has(url)) {
+      return Promise.resolve(faviconDataCache.get(url));
+    }
+    if (faviconDataPending.has(url)) {
+      return faviconDataPending.get(url);
+    }
+    const promise = new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getFaviconData', url: url }, (response) => {
+        const dataUrl = response && response.data ? response.data : '';
+        if (dataUrl) {
+          faviconDataCache.set(url, dataUrl);
+        }
+        faviconDataPending.delete(url);
+        resolve(dataUrl || null);
+      });
+    });
+    faviconDataPending.set(url, promise);
+    return promise;
+  }
+
+  function attachFaviconData(img, url) {
+    if (!img || !url) {
+      return;
+    }
+    const cached = faviconDataCache.get(url);
+    if (cached) {
+      img.src = cached;
+      return;
+    }
+    requestFaviconData(url).then((dataUrl) => {
+      if (!dataUrl || !img.isConnected) {
+        return;
+      }
+      img.src = dataUrl;
+    });
+  }
 
   function preloadIcon(url) {
     if (!url || url.startsWith('data:') || iconPreloadCache.has(url)) {
@@ -648,6 +691,7 @@
         item.type === 'googleSuggest';
       if (item.favicon && !skipType) {
         preloadIcon(item.favicon);
+        requestFaviconData(item.favicon);
       }
     });
   }
@@ -1994,8 +2038,11 @@
         suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === allSuggestions.length - 1;
         const isPrimaryHighlight = index === primaryHighlightIndex;
+        const isPrimaryGoogleSuggest = isPrimaryHighlight && suggestion.type === 'googleSuggest';
         let immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
-        if (onlyKeywordSuggestions && suggestion.type === 'newtab') {
+        const shouldUseGoogleTheme = isPrimaryGoogleSuggest ||
+          (onlyKeywordSuggestions && isPrimaryHighlight && suggestion.type === 'newtab');
+        if (shouldUseGoogleTheme) {
           const googleAccent = getBrandAccentForUrl('https://www.google.com');
           if (googleAccent) {
             immediateTheme = buildTheme(googleAccent);
@@ -2143,6 +2190,7 @@
           if (index < 4) {
             favicon.fetchPriority = 'high';
           }
+          attachFaviconData(favicon, suggestion.favicon || '');
           favicon.style.cssText = `
             all: unset !important;
             width: 16px !important;
@@ -2251,7 +2299,14 @@
         const title = document.createElement('span');
         const baseTitle = suggestion.title || '';
         let highlightedTitle;
-        if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt' || suggestion.type === 'modeSwitch') {
+        if (isPrimaryGoogleSuggest ||
+            suggestion.type === 'chatgpt' ||
+            suggestion.type === 'perplexity' ||
+            suggestion.type === 'newtab' ||
+            suggestion.type === 'siteSearch' ||
+            suggestion.type === 'inlineSiteSearch' ||
+            suggestion.type === 'siteSearchPrompt' ||
+            suggestion.type === 'modeSwitch') {
           highlightedTitle = baseTitle;
         } else {
           highlightedTitle = baseTitle.replace(
@@ -2445,12 +2500,12 @@
         `;
 
         const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
-        const shouldShowEnterTag = isPrimaryHighlight &&
+        const shouldShowEnterTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
           !onlyKeywordSuggestions &&
           (primaryHighlightReason === 'topSite' ||
             primaryHighlightReason === 'inline' ||
             primaryHighlightReason === 'autocomplete');
-        const shouldShowSiteSearchTag = isPrimaryHighlight &&
+        const shouldShowSiteSearchTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
           siteSearchTrigger &&
           (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch);
         if (shouldShowEnterTag) {
@@ -2521,7 +2576,7 @@
         }
         suggestionsContainer.appendChild(suggestionItem);
 
-        if (!(onlyKeywordSuggestions && suggestion.type === 'newtab')) {
+        if (!shouldUseGoogleTheme && !(onlyKeywordSuggestions && suggestion.type === 'newtab')) {
           getThemeForSuggestion(suggestion).then((theme) => {
             if (!suggestionItem.isConnected) {
               return;

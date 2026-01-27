@@ -111,6 +111,18 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     chrome.tabs.create({ url: request.url });
   } else if (request.action === 'openNewTab') {
     chrome.tabs.create({});
+  } else if (request.action === 'getFaviconData') {
+    const targetUrl = request.url || '';
+    if (!targetUrl || typeof targetUrl !== 'string' || targetUrl.startsWith('data:')) {
+      sendResponse({ data: '' });
+      return;
+    }
+    fetchFaviconData(targetUrl).then((dataUrl) => {
+      sendResponse({ data: dataUrl || '' });
+    }).catch(() => {
+      sendResponse({ data: '' });
+    });
+    return true;
   }
 });
 
@@ -118,6 +130,56 @@ let shortcutRulesCache = null;
 let shortcutRulesPromise = null;
 let siteSearchCache = null;
 let siteSearchPromise = null;
+const faviconDataCache = new Map();
+const faviconPending = new Map();
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function fetchFaviconData(url) {
+  if (faviconDataCache.has(url)) {
+    return Promise.resolve(faviconDataCache.get(url));
+  }
+  if (faviconPending.has(url)) {
+    return faviconPending.get(url);
+  }
+  const promise = fetch(url, { cache: 'force-cache' })
+    .then((response) => {
+      if (!response || !response.ok) {
+        return null;
+      }
+      return response.blob();
+    })
+    .then((blob) => {
+      if (!blob || blob.size > 96 * 1024) {
+        return null;
+      }
+      return blob.arrayBuffer().then((buffer) => {
+        const base64 = arrayBufferToBase64(buffer);
+        return `data:${blob.type || 'image/png'};base64,${base64}`;
+      });
+    })
+    .then((dataUrl) => {
+      if (dataUrl) {
+        faviconDataCache.set(url, dataUrl);
+      }
+      faviconPending.delete(url);
+      return dataUrl;
+    })
+    .catch(() => {
+      faviconPending.delete(url);
+      return null;
+    });
+  faviconPending.set(url, promise);
+  return promise;
+}
 
 function normalizeSiteSearchTemplate(template) {
   if (!template) {
@@ -442,6 +504,7 @@ async function getSearchSuggestions(query) {
     // Process history items with scoring
     const processedUrls = new Set();
     const suggestionByUrl = new Map();
+    const suggestionIndexByUrl = new Map();
     historyItems.forEach(item => {
       if (isSearchEngineResultUrl(item.url)) {
         return;
@@ -470,6 +533,7 @@ async function getSearchSuggestions(query) {
           suggestions.push(suggestion);
           processedUrls.add(item.url);
           suggestionByUrl.set(item.url, suggestion);
+          suggestionIndexByUrl.set(item.url, suggestions.length - 1);
         }
       }
     });
@@ -524,6 +588,7 @@ async function getSearchSuggestions(query) {
         suggestions.push(suggestion);
         processedUrls.add(site.url);
         suggestionByUrl.set(site.url, suggestion);
+        suggestionIndexByUrl.set(site.url, suggestions.length - 1);
       } else {
         fallbackTopSites.push(site);
       }
@@ -531,7 +596,12 @@ async function getSearchSuggestions(query) {
     
     // Process bookmarks with scoring
     bookmarks.forEach(bookmark => {
-      if (bookmark.url && !processedUrls.has(bookmark.url)) {
+      if (!bookmark.url) {
+        return;
+      }
+      const existingSuggestion = suggestionByUrl.get(bookmark.url);
+      const shouldReplaceExisting = existingSuggestion && existingSuggestion.type !== 'bookmark';
+      if (!processedUrls.has(bookmark.url) || shouldReplaceExisting) {
         const score = calculateRelevanceScore(bookmark, query);
         // Boost bookmark score slightly to prioritize them
         if (score > 0) {
@@ -581,26 +651,34 @@ async function getSearchSuggestions(query) {
             path: bookmarkPath,
             score: adjustedScore
           };
-          suggestions.push(suggestion);
+          const existingIndex = suggestionIndexByUrl.get(bookmark.url);
+          if (shouldReplaceExisting && typeof existingIndex === 'number') {
+            suggestions[existingIndex] = suggestion;
+            suggestionIndexByUrl.set(bookmark.url, existingIndex);
+          } else {
+            suggestions.push(suggestion);
+            suggestionIndexByUrl.set(bookmark.url, suggestions.length - 1);
+          }
           processedUrls.add(bookmark.url);
           suggestionByUrl.set(bookmark.url, suggestion);
         }
       }
     });
     
-    // Sort by top site, then recency, then relevance
+    // Sort by top site, then relevance, then recency
     suggestions.sort((a, b) => {
       const aTop = a.isTopSite || a.type === 'topSite';
       const bTop = b.isTopSite || b.type === 'topSite';
       if (aTop !== bTop) {
         return aTop ? -1 : 1;
       }
+      const scoreDiff = (b.score || 0) - (a.score || 0);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
       const aVisit = a.lastVisitTime || 0;
       const bVisit = b.lastVisitTime || 0;
-      if (aVisit !== bVisit) {
-        return bVisit - aVisit;
-      }
-      return (b.score || 0) - (a.score || 0);
+      return bVisit - aVisit;
     });
     
     // Remove duplicates and limit results
@@ -609,9 +687,26 @@ async function getSearchSuggestions(query) {
     ).slice(0, 12); // Increased limit before title deduplication
     
     // Also remove duplicates by title to avoid similar entries
-    let finalSuggestions = uniqueSuggestions.filter((suggestion, index, self) => 
-      index === self.findIndex(s => s.title.toLowerCase() === suggestion.title.toLowerCase())
-    );
+    const dedupedByTitle = [];
+    const titleIndexMap = new Map();
+    uniqueSuggestions.forEach((suggestion) => {
+      const titleKey = (suggestion.title || '').toLowerCase();
+      if (!titleKey) {
+        dedupedByTitle.push(suggestion);
+        return;
+      }
+      if (!titleIndexMap.has(titleKey)) {
+        titleIndexMap.set(titleKey, dedupedByTitle.length);
+        dedupedByTitle.push(suggestion);
+        return;
+      }
+      const existingIndex = titleIndexMap.get(titleKey);
+      const existing = dedupedByTitle[existingIndex];
+      if (suggestion.type === 'bookmark' && existing.type !== 'bookmark') {
+        dedupedByTitle[existingIndex] = suggestion;
+      }
+    });
+    let finalSuggestions = dedupedByTitle;
 
     const hostCounts = new Map();
     finalSuggestions = finalSuggestions.filter((suggestion) => {
@@ -716,7 +811,8 @@ function toggleBlackRectangle(tabs) {
       position: fixed !important;
       top: 20vh !important;
       left: 50% !important;
-      transform: translateX(-50%) !important;
+      transform: translateX(-50%) translateY(10px) scale(0.985) !important;
+      transform-origin: top center !important;
       width: 50vw !important;
       max-width: 90vw !important;
       max-height: 75vh !important;
@@ -742,6 +838,10 @@ function toggleBlackRectangle(tabs) {
       font-size: 100% !important;
       font: inherit !important;
       vertical-align: baseline !important;
+      opacity: 0 !important;
+      filter: blur(6px) !important;
+      will-change: transform, opacity, filter !important;
+      transition: transform 340ms cubic-bezier(0.2, 1, 0.36, 1), opacity 220ms ease, filter 300ms ease !important;
     `;
 
     const applyOverlayTheme = (mode) => {
@@ -800,6 +900,7 @@ function toggleBlackRectangle(tabs) {
       }
     `;
     document.head.appendChild(overlayThemeStyle);
+
     
     if (typeof window._x_extension_createSearchInput_2024_unique_ !== 'function') {
       console.warn('Lumno: input UI helper not available.');
@@ -1586,6 +1687,49 @@ function toggleBlackRectangle(tabs) {
     }
 
     const iconPreloadCache = new Map();
+    const faviconDataCache = new Map();
+    const faviconDataPending = new Map();
+
+    function requestFaviconData(url) {
+      if (!url || url.startsWith('data:')) {
+        return Promise.resolve(null);
+      }
+      if (faviconDataCache.has(url)) {
+        return Promise.resolve(faviconDataCache.get(url));
+      }
+      if (faviconDataPending.has(url)) {
+        return faviconDataPending.get(url);
+      }
+      const promise = new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getFaviconData', url: url }, (response) => {
+          const dataUrl = response && response.data ? response.data : '';
+          if (dataUrl) {
+            faviconDataCache.set(url, dataUrl);
+          }
+          faviconDataPending.delete(url);
+          resolve(dataUrl || null);
+        });
+      });
+      faviconDataPending.set(url, promise);
+      return promise;
+    }
+
+    function attachFaviconData(img, url) {
+      if (!img || !url) {
+        return;
+      }
+      const cached = faviconDataCache.get(url);
+      if (cached) {
+        img.src = cached;
+        return;
+      }
+      requestFaviconData(url).then((dataUrl) => {
+        if (!dataUrl || !img.isConnected) {
+          return;
+        }
+        img.src = dataUrl;
+      });
+    }
 
     function preloadIcon(url) {
       if (!url || url.startsWith('data:') || iconPreloadCache.has(url)) {
@@ -1612,6 +1756,7 @@ function toggleBlackRectangle(tabs) {
           item.type === 'googleSuggest';
         if (item.favicon && !skipType) {
           preloadIcon(item.favicon);
+          requestFaviconData(item.favicon);
         }
       });
     }
@@ -3359,8 +3504,11 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
           const isPrimaryHighlight = index === primaryHighlightIndex;
+          const isPrimaryGoogleSuggest = isPrimaryHighlight && suggestion.type === 'googleSuggest';
           let immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
-          if (onlyKeywordSuggestions && suggestion.type === 'newtab') {
+          const shouldUseGoogleTheme = isPrimaryGoogleSuggest ||
+            (onlyKeywordSuggestions && isPrimaryHighlight && suggestion.type === 'newtab');
+          if (shouldUseGoogleTheme) {
             const googleAccent = getBrandAccentForUrl('https://www.google.com');
             if (googleAccent) {
               immediateTheme = buildTheme(googleAccent);
@@ -3511,6 +3659,7 @@ function toggleBlackRectangle(tabs) {
             if (index < 4) {
               favicon.fetchPriority = 'high';
             }
+            attachFaviconData(favicon, suggestion.favicon || '');
             favicon.style.cssText = `
               all: unset !important;
               width: 16px !important;
@@ -3623,7 +3772,14 @@ function toggleBlackRectangle(tabs) {
           // Create title with highlighted query
           const title = document.createElement('span');
           let highlightedTitle;
-          if (suggestion.type === 'chatgpt' || suggestion.type === 'perplexity' || suggestion.type === 'newtab' || suggestion.type === 'siteSearch' || suggestion.type === 'inlineSiteSearch' || suggestion.type === 'siteSearchPrompt' || suggestion.type === 'modeSwitch') {
+          if (isPrimaryGoogleSuggest ||
+              suggestion.type === 'chatgpt' ||
+              suggestion.type === 'perplexity' ||
+              suggestion.type === 'newtab' ||
+              suggestion.type === 'siteSearch' ||
+              suggestion.type === 'inlineSiteSearch' ||
+              suggestion.type === 'siteSearchPrompt' ||
+              suggestion.type === 'modeSwitch') {
             // For ChatGPT, Perplexity, and New Tab, don't highlight the query part
             highlightedTitle = suggestion.title;
           } else {
@@ -3822,12 +3978,12 @@ function toggleBlackRectangle(tabs) {
           `;
 
           const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
-          const shouldShowEnterTag = isPrimaryHighlight &&
+          const shouldShowEnterTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
             !onlyKeywordSuggestions &&
             (primaryHighlightReason === 'topSite' ||
               primaryHighlightReason === 'inline' ||
               primaryHighlightReason === 'autocomplete');
-          const shouldShowSiteSearchTag = isPrimaryHighlight &&
+          const shouldShowSiteSearchTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
             siteSearchTrigger &&
             (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch);
           if (shouldShowEnterTag) {
@@ -3999,7 +4155,7 @@ function toggleBlackRectangle(tabs) {
           }
           suggestionsContainer.appendChild(suggestionItem);
 
-          if (!(onlyKeywordSuggestions && suggestion.type === 'newtab')) {
+          if (!shouldUseGoogleTheme && !(onlyKeywordSuggestions && suggestion.type === 'newtab')) {
             getThemeForSuggestion(suggestion).then((theme) => {
               if (!suggestionItem.isConnected) {
                 return;
@@ -4069,5 +4225,17 @@ function toggleBlackRectangle(tabs) {
     overlay.appendChild(inputContainer);
     overlay.appendChild(suggestionsContainer);
     document.body.appendChild(overlay);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      overlay.style.setProperty('opacity', '1', 'important');
+      overlay.style.setProperty('transform', 'translateX(-50%) translateY(0) scale(1)', 'important');
+      overlay.style.setProperty('filter', 'blur(0)', 'important');
+    } else {
+      requestAnimationFrame(() => {
+        overlay.style.setProperty('opacity', '1', 'important');
+        overlay.style.setProperty('transform', 'translateX(-50%) translateY(0) scale(1)', 'important');
+        overlay.style.setProperty('filter', 'blur(0)', 'important');
+      });
+    }
   }
 }
