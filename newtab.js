@@ -412,12 +412,17 @@
     return new Promise((resolve) => {
       const image = new Image();
       image.crossOrigin = 'anonymous';
-      image.onload = function() {
-        const avg = extractAverageColor(image);
-        const theme = buildTheme(avg || defaultAccentColor);
-        themeColorCache.set(url, theme);
-        resolve(theme);
-      };
+    image.onload = function() {
+      const avg = extractAverageColor(image);
+      if (!avg) {
+        themeColorCache.set(url, defaultTheme);
+        resolve(defaultTheme);
+        return;
+      }
+      const theme = buildTheme(avg);
+      themeColorCache.set(url, theme);
+      resolve(theme);
+    };
       image.onerror = function() {
         themeColorCache.set(url, defaultTheme);
         resolve(defaultTheme);

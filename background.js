@@ -1302,7 +1302,12 @@ function toggleBlackRectangle(tabs) {
         image.crossOrigin = 'anonymous';
         image.onload = function() {
           const avg = extractAverageColor(image);
-          const theme = buildTheme(avg || defaultAccentColor);
+          if (!avg) {
+            themeColorCache.set(url, defaultTheme);
+            resolve(defaultTheme);
+            return;
+          }
+          const theme = buildTheme(avg);
           themeColorCache.set(url, theme);
           resolve(theme);
         };
