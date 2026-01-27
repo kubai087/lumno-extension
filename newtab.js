@@ -75,6 +75,52 @@
     return '跟随系统';
   }
 
+  const commandDefinitions = [
+    {
+      type: 'commandNewTab',
+      primary: '/new',
+      aliases: ['/n', '/newtab', '/nt'],
+      title: '新建标签页'
+    },
+    {
+      type: 'commandSettings',
+      primary: '/settings',
+      aliases: ['/set', '/settings', '/s'],
+      title: `打开${extensionName}设置`
+    }
+  ];
+
+  function getCommandMatch(rawInput) {
+    const input = String(rawInput || '').trim().toLowerCase();
+    if (!input.startsWith('/')) {
+      return null;
+    }
+    for (let i = 0; i < commandDefinitions.length; i += 1) {
+      const command = commandDefinitions[i];
+      const tokens = [command.primary].concat(command.aliases || []);
+      for (let j = 0; j < tokens.length; j += 1) {
+        const token = tokens[j];
+        if (token.startsWith(input) || input.startsWith(token)) {
+          return {
+            command: command,
+            completion: command.primary
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  function buildCommandSuggestion(command) {
+    return {
+      type: command.type,
+      title: command.title,
+      url: '',
+      commandText: command.primary,
+      commandAliases: command.aliases || []
+    };
+  }
+
   function updateModeBadge(rawValue) {
     if (!modeBadge) {
       return;
@@ -469,7 +515,7 @@
     if (!suggestion) {
       return false;
     }
-    const neutralTypes = ['googleSuggest', 'newtab', 'modeSwitch', 'chatgpt', 'perplexity'];
+  const neutralTypes = ['googleSuggest', 'newtab', 'modeSwitch', 'chatgpt', 'perplexity', 'commandNewTab', 'commandSettings'];
     if (neutralTypes.includes(suggestion.type)) {
       return false;
     }
@@ -807,13 +853,36 @@
     for (let passIndex = 0; passIndex < passes.length; passIndex += 1) {
       const skipGoogleSuggest = passes[passIndex];
       for (let i = 0; i < allSuggestions.length; i += 1) {
-        const suggestion = allSuggestions[i];
-        if (!suggestion || suggestion.type === 'newtab') {
-          continue;
+      const suggestion = allSuggestions[i];
+      if (!suggestion || suggestion.type === 'newtab') {
+        continue;
+      }
+      if (skipGoogleSuggest && suggestion.type === 'googleSuggest') {
+        continue;
+      }
+      if (suggestion.commandText) {
+        const commandText = String(suggestion.commandText).toLowerCase();
+        if (commandText.startsWith(rawLower)) {
+          return {
+            completion: suggestion.commandText,
+            url: '',
+            title: suggestion.title || '',
+            type: 'command'
+          };
         }
-        if (skipGoogleSuggest && suggestion.type === 'googleSuggest') {
-          continue;
+        const aliases = Array.isArray(suggestion.commandAliases) ? suggestion.commandAliases : [];
+        for (let aliasIndex = 0; aliasIndex < aliases.length; aliasIndex += 1) {
+          const alias = String(aliases[aliasIndex] || '').toLowerCase();
+          if (alias && alias.startsWith(rawLower)) {
+            return {
+              completion: aliases[aliasIndex],
+              url: '',
+              title: suggestion.title || '',
+              type: 'command'
+            };
+          }
         }
+      }
         const urlText = getUrlDisplay(suggestion.url);
         if (urlText && urlText.toLowerCase().startsWith(rawLower)) {
           return {
@@ -1741,10 +1810,15 @@
           }
         });
       }
+      const commandMatch = !modeCommandActive ? getCommandMatch(rawTagInput) : null;
+      const hasCommand = Boolean(commandMatch);
       const preSuggestions = [];
       if (modeCommandActive) {
         preSuggestions.push(buildModeSuggestion());
       } else {
+        if (hasCommand) {
+          preSuggestions.push(buildCommandSuggestion(commandMatch.command));
+        }
         const directUrlSuggestion = getDirectUrlSuggestion(query);
         if (directUrlSuggestion) {
           preSuggestions.push(directUrlSuggestion);
@@ -1756,7 +1830,7 @@
       const providersForTags = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
         ? siteSearchProvidersCache
         : defaultSiteSearchProviders;
-      const inlineCandidate = (!siteSearchState && !modeCommandActive)
+      const inlineCandidate = (!siteSearchState && !modeCommandActive && !hasCommand)
         ? getInlineSiteSearchCandidate(rawTagInput, providersForTags)
         : null;
       let inlineSuggestion = null;
@@ -1808,7 +1882,7 @@
       let siteSearchPrompt = null;
       const inlineEnabled = Boolean(inlineSuggestion);
       let siteSearchTrigger = null;
-      if (!modeCommandActive) {
+      if (!modeCommandActive && !hasCommand) {
         if (!siteSearchState && !inlineEnabled) {
           topSiteMatch = promoteTopSiteMatch(allSuggestions, latestRawQuery.trim());
         }
@@ -1874,12 +1948,21 @@
         siteSearchTriggerState = siteSearchTrigger
           ? { provider: siteSearchTrigger, rawInput: rawTagInput }
           : null;
-      } else {
+      } else if (modeCommandActive) {
         clearAutocomplete();
         inlineSearchState = null;
         siteSearchTriggerState = null;
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'modeSwitch';
+      } else if (hasCommand) {
+        clearAutocomplete();
+        inlineSearchState = null;
+        siteSearchTriggerState = null;
+        primaryHighlightIndex = 0;
+        primaryHighlightReason = 'command';
+      }
+      if (hasCommand) {
+        applyAutocomplete(allSuggestions);
       }
 
       const canAppend = query === lastRenderedQuery &&
@@ -1999,6 +2082,54 @@
           iconNode = themedIcon;
         } else if (suggestion.type === 'directUrl') {
           iconNode = createSearchIcon();
+        } else if (suggestion.type === 'commandNewTab') {
+          const plusIcon = document.createElement('span');
+          plusIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`;
+          plusIcon.style.cssText = `
+            all: unset !important;
+            width: 16px !important;
+            height: 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            color: var(--x-nt-subtext, #6B7280) !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+          `;
+          iconNode = plusIcon;
+        } else if (suggestion.type === 'commandSettings') {
+          const gearIcon = document.createElement('span');
+          gearIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1.82l.03.07a2 2 0 1 1-3.4 0l.03-.07a1.65 1.65 0 0 0-.33-1.82 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.82-.33l-.07.03a2 2 0 1 1 0-3.4l.07.03A1.65 1.65 0 0 0 4 9.6c.25-.3.46-.65.6-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6c.3-.25.65-.46 1-.6a1.65 1.65 0 0 0 .33-1.82l-.03-.07a2 2 0 1 1 3.4 0l-.03.07a1.65 1.65 0 0 0 .33 1.82c.3.25.65.46 1 .6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.25.3.46.65.6 1a1.65 1.65 0 0 0 1.82.33l.07-.03a2 2 0 1 1 0 3.4l-.07-.03a1.65 1.65 0 0 0-1.82.33c-.3.25-.65.46-1 .6z"/></svg>`;
+          gearIcon.style.cssText = `
+            all: unset !important;
+            width: 16px !important;
+            height: 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            color: var(--x-nt-subtext, #6B7280) !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+          `;
+          iconNode = gearIcon;
         } else if (suggestion.type === 'newtab' || suggestion.type === 'googleSuggest') {
           const searchIcon = createSearchIcon();
           searchIcon.style.setProperty('color', 'var(--x-nt-subtext, #6B7280)', 'important');
@@ -2067,7 +2198,7 @@
           iconNode = searchIcon;
         }
 
-        if (suggestion.type === 'directUrl' && iconNode) {
+        if ((suggestion.type === 'directUrl' || suggestion.type === 'browserPage') && iconNode) {
           iconWrapper = document.createElement('span');
           iconWrapper.style.cssText = `
             all: unset !important;
@@ -2359,6 +2490,14 @@
         });
 
         suggestionItem.addEventListener('click', function() {
+          if (suggestion.type === 'commandNewTab') {
+            chrome.runtime.sendMessage({ action: 'openNewTab' });
+            return;
+          }
+          if (suggestion.type === 'commandSettings') {
+            chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+            return;
+          }
           if (suggestion.type === 'siteSearchPrompt' && suggestion.provider) {
             activateSiteSearch(suggestion.provider);
             inputParts.input.focus();
@@ -2469,6 +2608,11 @@
       }
       latestRawQuery = rawValue;
       clearAutocomplete();
+      if (isModeCommand(query) || getCommandMatch(query)) {
+        latestQuery = query;
+        renderSuggestions([], query);
+        return;
+      }
       if (isPaste || getDirectUrlSuggestion(query)) {
         latestQuery = query;
         renderSuggestions([], query);
@@ -2538,6 +2682,17 @@
       if (!query) {
         return;
       }
+      const commandMatch = getCommandMatch(query);
+      if (commandMatch && selectedIndex === -1) {
+        if (commandMatch.command.type === 'commandNewTab') {
+          chrome.runtime.sendMessage({ action: 'openNewTab' });
+          return;
+        }
+        if (commandMatch.command.type === 'commandSettings') {
+          chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+          return;
+        }
+      }
       if (isModeCommand(query)) {
         setThemeMode(getNextThemeMode(currentThemeMode));
         return;
@@ -2546,6 +2701,14 @@
         const selectedSuggestion = currentSuggestions[selectedIndex];
         if (selectedSuggestion.type === 'modeSwitch') {
           setThemeMode(selectedSuggestion.nextMode);
+          return;
+        }
+        if (selectedSuggestion.type === 'commandNewTab') {
+          chrome.runtime.sendMessage({ action: 'openNewTab' });
+          return;
+        }
+        if (selectedSuggestion.type === 'commandSettings') {
+          chrome.runtime.sendMessage({ action: 'openOptionsPage' });
           return;
         }
         if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
