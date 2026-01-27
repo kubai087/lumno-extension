@@ -58,7 +58,7 @@
     {
       "key": "tb",
       "aliases": ["taobao"],
-      "name": "淘宝",F）*L
+      "name": "淘宝",
       "template": "https://s.taobao.com/search?q={query}"
     },
     {

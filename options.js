@@ -23,6 +23,24 @@
   let defaultSiteSearchProviders = [];
   let customSiteSearchProviders = [];
   let editingSiteSearchKey = null;
+  const fallbackSiteSearchProviders = [
+    { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
+    { key: 'bb', aliases: ['bilibili', 'bili'], name: 'Bilibili', template: 'https://search.bilibili.com/all?keyword={query}' },
+    { key: 'gh', aliases: ['github'], name: 'GitHub', template: 'https://github.com/search?q={query}' },
+    { key: 'so', aliases: ['baidu', 'bd'], name: '百度', template: 'https://www.baidu.com/s?wd={query}' },
+    { key: 'bi', aliases: ['bing'], name: 'Bing', template: 'https://www.bing.com/search?q={query}' },
+    { key: 'gg', aliases: ['google'], name: 'Google', template: 'https://www.google.com/search?q={query}' },
+    { key: 'zh', aliases: ['zhihu'], name: '知乎', template: 'https://www.zhihu.com/search?q={query}' },
+    { key: 'db', aliases: ['douban'], name: '豆瓣', template: 'https://www.douban.com/search?q={query}' },
+    { key: 'jj', aliases: ['juejin'], name: '掘金', template: 'https://juejin.cn/search?query={query}' },
+    { key: 'tb', aliases: ['taobao'], name: '淘宝', template: 'https://s.taobao.com/search?q={query}' },
+    { key: 'tm', aliases: ['tmall'], name: '天猫', template: 'https://list.tmall.com/search_product.htm?q={query}' },
+    { key: 'wx', aliases: ['weixin', 'wechat'], name: '微信', template: 'https://weixin.sogou.com/weixin?query={query}' },
+    { key: 'tw', aliases: ['twitter', 'x'], name: 'X', template: 'https://x.com/search?q={query}' },
+    { key: 'rd', aliases: ['reddit'], name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}' },
+    { key: 'wk', aliases: ['wiki', 'wikipedia'], name: 'Wikipedia', template: 'https://en.wikipedia.org/wiki/Special:Search?search={query}' },
+    { key: 'zw', aliases: ['zhwiki'], name: '维基百科', template: 'https://zh.wikipedia.org/wiki/Special:Search?search={query}' }
+  ];
 
   function setActiveTab(tabKey) {
     tabButtons.forEach((button) => {
@@ -95,7 +113,11 @@
 
   tabButtons.forEach((button) => {
     button.addEventListener('click', function() {
-      setActiveTab(button.getAttribute('data-tab'));
+      const tabKey = button.getAttribute('data-tab');
+      setActiveTab(tabKey);
+      if (tabKey === 'shortcuts') {
+        refreshSiteSearchProviders();
+      }
     });
   });
 
@@ -224,9 +246,17 @@
   function loadDefaultSiteSearchProviders() {
     const localUrl = chrome.runtime.getURL('site-search.json');
     return fetch(localUrl)
-      .then((response) => response.json())
-      .then((data) => (data && Array.isArray(data.items) ? data.items : []))
-      .catch(() => []);
+      .then((resp) => resp.json())
+      .then((data) => {
+        const items = data && Array.isArray(data.items) ? data.items : [];
+        return items.length > 0 ? items : fallbackSiteSearchProviders;
+      })
+      .catch(() => new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getSiteSearchProviders' }, (response) => {
+          const items = response && Array.isArray(response.items) ? response.items : [];
+          resolve(items.length > 0 ? items : fallbackSiteSearchProviders);
+        });
+      }));
   }
 
   function loadCustomSiteSearchProviders() {
@@ -247,6 +277,10 @@
   function refreshSiteSearchProviders() {
     if (!siteSearchCustomList || !siteSearchBuiltinList) {
       return;
+    }
+    if (defaultSiteSearchProviders.length === 0) {
+      defaultSiteSearchProviders = fallbackSiteSearchProviders.slice();
+      renderSiteSearchList();
     }
     Promise.all([loadDefaultSiteSearchProviders(), loadCustomSiteSearchProviders()]).then(([defaults, custom]) => {
       defaultSiteSearchProviders = defaults;

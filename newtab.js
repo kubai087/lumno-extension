@@ -180,6 +180,7 @@
   let debounceTimer = null;
   let tabs = [];
   let siteSearchProvidersCache = null;
+  let pendingProviderReload = false;
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   let handleTabKey = null;
   const defaultSiteSearchProviders = [
@@ -1082,6 +1083,28 @@
     }
   }
 
+  function mergeCustomProvidersLocal(baseItems, customItems) {
+    const merged = [];
+    const seen = new Set();
+    (customItems || []).forEach((item) => {
+      const key = String(item && item.key ? item.key : '').toLowerCase();
+      if (!key || seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      merged.push(item);
+    });
+    (baseItems || []).forEach((item) => {
+      const key = String(item && item.key ? item.key : '').toLowerCase();
+      if (!key || seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      merged.push(item);
+    });
+    return merged;
+  }
+
   function getSiteSearchProviders() {
     if (siteSearchProvidersCache) {
       return Promise.resolve(siteSearchProvidersCache);
@@ -1091,12 +1114,15 @@
       .then((response) => response.json())
       .then((data) => {
         const items = data && Array.isArray(data.items) ? data.items : [];
-        if (items.length > 0) {
-          siteSearchProvidersCache = items;
-        }
         return items;
       })
       .catch(() => []);
+    const customFallback = new Promise((resolve) => {
+      chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+        const items = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
+        resolve(items);
+      });
+    });
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ action: 'getSiteSearchProviders' }, (response) => {
         const items = response && Array.isArray(response.items) ? response.items : [];
@@ -1105,14 +1131,11 @@
           resolve(items);
           return;
         }
-        localFallback.then((localItems) => {
-          if (localItems.length > 0) {
-            siteSearchProvidersCache = localItems;
-            resolve(localItems);
-            return;
-          }
-          siteSearchProvidersCache = defaultSiteSearchProviders;
-          resolve(defaultSiteSearchProviders);
+        Promise.all([localFallback, customFallback]).then(([localItems, customItems]) => {
+          const baseItems = localItems.length > 0 ? localItems : defaultSiteSearchProviders;
+          const merged = mergeCustomProvidersLocal(baseItems, customItems);
+          siteSearchProvidersCache = merged;
+          resolve(merged);
         });
       });
     });
@@ -1880,6 +1903,17 @@
       const providersForTags = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
         ? siteSearchProvidersCache
         : defaultSiteSearchProviders;
+      if (!siteSearchProvidersCache && !pendingProviderReload) {
+        pendingProviderReload = true;
+        getSiteSearchProviders().then((items) => {
+          pendingProviderReload = false;
+          if (query !== latestQuery) {
+            return;
+          }
+          siteSearchProvidersCache = items;
+          renderSuggestions(suggestions, query);
+        });
+      }
       const inlineCandidate = (!siteSearchState && !modeCommandActive && !hasCommand)
         ? getInlineSiteSearchCandidate(rawTagInput, providersForTags)
         : null;
@@ -2999,10 +3033,16 @@
     if (areaName !== 'local' || !changes[SITE_SEARCH_STORAGE_KEY]) {
       return;
     }
-    siteSearchProvidersCache = null;
-    if (latestQuery) {
-      renderSuggestions([], latestQuery);
-    }
+    chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+      const customItems = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
+      const baseItems = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
+        ? siteSearchProvidersCache
+        : defaultSiteSearchProviders;
+      siteSearchProvidersCache = mergeCustomProvidersLocal(baseItems, customItems);
+      if (latestQuery) {
+        requestSuggestions(latestQuery, { immediate: true });
+      }
+    });
   });
 
   inputParts.input.addEventListener('compositionstart', function() {
