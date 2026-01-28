@@ -3237,6 +3237,87 @@
       });
     }
   });
+
+  const shouldAutoFocus = window.location.search.includes('focus=1') ||
+    window.location.hash.includes('focus');
+  if (shouldAutoFocus) {
+    setTimeout(() => {
+      inputParts.input.focus();
+    }, 0);
+  }
+
+  function isEditableElement(el) {
+    if (!el) {
+      return false;
+    }
+    const tagName = el.tagName ? el.tagName.toLowerCase() : '';
+    if (tagName === 'input' || tagName === 'textarea') {
+      return true;
+    }
+    return Boolean(el.isContentEditable);
+  }
+
+  function handleGlobalTypingFocus(event) {
+    if (!event || event.defaultPrevented || event.isComposing) {
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+    const activeElement = document.activeElement;
+    if (activeElement === inputParts.input || isEditableElement(activeElement)) {
+      return;
+    }
+    const key = event.key || '';
+    if (!key || key === 'Tab' || key === 'Escape' || key.startsWith('Arrow')) {
+      return;
+    }
+    inputParts.input.focus();
+    const currentValue = inputParts.input.value || '';
+    if (key === 'Backspace') {
+      if (currentValue) {
+        inputParts.input.value = currentValue.slice(0, -1);
+        inputParts.input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      event.preventDefault();
+      return;
+    }
+    if (key.length === 1) {
+      inputParts.input.value = currentValue + key;
+      inputParts.input.setSelectionRange(inputParts.input.value.length, inputParts.input.value.length);
+      inputParts.input.dispatchEvent(new Event('input', { bubbles: true }));
+      event.preventDefault();
+    }
+  }
+
+  function shouldStealFocusOnPointer(target) {
+    if (!target) {
+      return true;
+    }
+    if (target === inputParts.input) {
+      return false;
+    }
+    if (isEditableElement(target)) {
+      return false;
+    }
+    if (modeBadge && modeBadge.contains(target)) {
+      return false;
+    }
+    if (rightIcon && (target === rightIcon || rightIcon.contains(target))) {
+      return false;
+    }
+    return true;
+  }
+
+  window.addEventListener('keydown', handleGlobalTypingFocus, true);
+  window.addEventListener('pointerdown', function(event) {
+    if (!event || event.defaultPrevented) {
+      return;
+    }
+    if (shouldStealFocusOnPointer(event.target)) {
+      inputParts.input.focus();
+    }
+  }, true);
   modeBadge = document.createElement('div');
   modeBadge.id = '_x_extension_newtab_mode_badge_2024_unique_';
   modeBadge.style.cssText = `

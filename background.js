@@ -4,17 +4,33 @@ function isRestrictedUrl(url) {
     return true;
   }
   const lower = String(url).toLowerCase();
-  return lower.startsWith('chrome://') ||
+  if (lower.startsWith('chrome://') ||
     lower.startsWith('chrome-extension://') ||
     lower.startsWith('edge://') ||
     lower.startsWith('brave://') ||
     lower.startsWith('vivaldi://') ||
     lower.startsWith('opera://') ||
-    lower.startsWith('about:');
+    lower.startsWith('about:')) {
+    return true;
+  }
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    if ((host === 'chrome.google.com' && path.startsWith('/webstore')) ||
+        host === 'chromewebstore.google.com' ||
+        (host === 'microsoftedge.microsoft.com' && path.startsWith('/addons')) ||
+        host === 'addons.opera.com') {
+      return true;
+    }
+  } catch (e) {
+    return true;
+  }
+  return false;
 }
 
 function openNewtabFallback() {
-  const newtabUrl = chrome.runtime.getURL('newtab.html');
+  const newtabUrl = chrome.runtime.getURL('newtab.html?focus=1');
   chrome.tabs.create({ url: newtabUrl });
 }
 
