@@ -51,6 +51,12 @@
       const isActive = content.getAttribute('data-content') === tabKey;
       content.setAttribute('data-active', isActive ? 'true' : 'false');
     });
+    if (tabKey) {
+      const nextHash = `#${tabKey}`;
+      if (window.location.hash !== nextHash) {
+        window.history.replaceState(null, '', nextHash);
+      }
+    }
   }
 
   function applyResolvedTheme(resolvedTheme) {
@@ -111,6 +117,15 @@
     });
   });
 
+  function getInitialTabKey() {
+    const hash = window.location.hash.replace('#', '').trim();
+    if (!hash) {
+      return 'appearance';
+    }
+    const match = tabButtons.find((button) => button.getAttribute('data-tab') === hash);
+    return match ? hash : 'appearance';
+  }
+
   tabButtons.forEach((button) => {
     button.addEventListener('click', function() {
       const tabKey = button.getAttribute('data-tab');
@@ -120,6 +135,12 @@
       }
     });
   });
+
+  const initialTab = getInitialTabKey();
+  setActiveTab(initialTab);
+  if (initialTab === 'shortcuts') {
+    refreshSiteSearchProviders();
+  }
 
   function normalizeSiteSearchTemplate(template) {
     if (!template) {

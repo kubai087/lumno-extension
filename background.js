@@ -2684,6 +2684,9 @@ function toggleBlackRectangle(tabs) {
     }
     
     keydownHandler = function(e) {
+      if (e && (e.isComposing || isComposing)) {
+        return;
+      }
       if (e.key === 'Escape' && overlay) {
         removeOverlay(overlay);
         document.removeEventListener('keydown', keydownHandler);

@@ -2734,7 +2734,7 @@
         clearSiteSearch();
         return;
       }
-      if (isComposing) {
+      if (isComposing || (event && event.isComposing)) {
         return;
       }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
