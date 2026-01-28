@@ -3290,11 +3290,14 @@
     }
   }
 
-  function shouldStealFocusOnPointer(target) {
+  function shouldFocusOnBackground(target) {
     if (!target) {
-      return true;
+      return false;
     }
-    if (target === inputParts.input) {
+    if (target === inputParts.input || inputParts.input.contains(target)) {
+      return false;
+    }
+    if (inputContainer && (target === inputContainer || inputContainer.contains(target))) {
       return false;
     }
     if (isEditableElement(target)) {
@@ -3306,6 +3309,9 @@
     if (rightIcon && (target === rightIcon || rightIcon.contains(target))) {
       return false;
     }
+    if (suggestionsContainer && suggestionsContainer.contains(target)) {
+      return false;
+    }
     return true;
   }
 
@@ -3314,7 +3320,7 @@
     if (!event || event.defaultPrevented) {
       return;
     }
-    if (shouldStealFocusOnPointer(event.target)) {
+    if (shouldFocusOnBackground(event.target)) {
       inputParts.input.focus();
     }
   }, true);
