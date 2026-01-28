@@ -1370,9 +1370,9 @@ function toggleBlackRectangle(tabs) {
     urlHighlightTheme._xIsUrl = true;
     const overlayThemeTokens = {
       light: {
-        bg: 'rgba(255, 255, 255, 0.99)',
-        border: 'rgba(0, 0, 0, 0.22)',
-        shadow: '0 17px 120px 0 rgba(0, 0, 0, 0.05), 0 32px 44.5px 0 rgba(0, 0, 0, 0.10), 0 80px 120px 0 rgba(0, 0, 0, 0.15)',
+        bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.7) 100%)',
+        border: 'rgba(0, 0, 0, 0.14)',
+        shadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 16px 40px rgba(15, 23, 42, 0.12), 0 40px 90px rgba(15, 23, 42, 0.12)',
         text: '#111827',
         subtext: '#6B7280',
         link: '#2563EB',
@@ -1385,8 +1385,8 @@ function toggleBlackRectangle(tabs) {
         underline: '#E5E7EB',
         dividerOpacity: '0.5',
         dividerInset: '24px',
-        blur: '4px',
-        saturate: '165%'
+        blur: '14px',
+        saturate: '175%'
       },
       dark: {
         bg: 'rgba(20, 20, 20, 0.62)',
