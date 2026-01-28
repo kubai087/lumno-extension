@@ -1404,6 +1404,79 @@
     return String(host || '').toLowerCase().replace(/^www\./i, '');
   }
 
+  function suggestionMatchesProvider(suggestion, provider) {
+    if (!suggestion || !provider || !suggestion.url) {
+      return false;
+    }
+    let suggestionHost = '';
+    try {
+      suggestionHost = new URL(suggestion.url).hostname;
+    } catch (e) {
+      return false;
+    }
+    const normalizedSuggestion = normalizeHost(suggestionHost);
+    const normalizedProvider = normalizeHost(getProviderHost(provider));
+    if (!normalizedSuggestion || !normalizedProvider) {
+      return false;
+    }
+    return normalizedSuggestion === normalizedProvider ||
+      normalizedSuggestion.endsWith(`.${normalizedProvider}`) ||
+      normalizedProvider.endsWith(`.${normalizedSuggestion}`);
+  }
+
+  function isAsciiToken(token) {
+    return /^[a-z0-9]+$/i.test(token || '');
+  }
+
+  function isProviderTokenEligible(token) {
+    if (!token) {
+      return false;
+    }
+    const normalized = String(token).trim();
+    if (!normalized) {
+      return false;
+    }
+    if (isAsciiToken(normalized)) {
+      return normalized.length >= 3;
+    }
+    return normalized.length >= 2;
+  }
+
+  function providerMatchesSuggestion(provider, suggestion) {
+    if (!provider || !suggestion) {
+      return false;
+    }
+    if (suggestionMatchesProvider(suggestion, provider)) {
+      return true;
+    }
+    const titleText = String(suggestion.title || '').toLowerCase();
+    const urlText = String(suggestion.url || '').toLowerCase();
+    const hostText = normalizeHost(getSuggestionHost(suggestion));
+    const haystack = `${titleText} ${urlText} ${hostText}`;
+    const tokens = [provider.key, provider.name].concat(provider.aliases || []);
+    for (let i = 0; i < tokens.length; i += 1) {
+      const token = String(tokens[i] || '').toLowerCase().trim();
+      if (!isProviderTokenEligible(token)) {
+        continue;
+      }
+      if (token && haystack.includes(token)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function findProviderForSuggestionMatch(suggestion, providers) {
+    if (!suggestion) {
+      return null;
+    }
+    const eligibleTypes = new Set(['topSite', 'history', 'bookmark']);
+    if (!eligibleTypes.has(suggestion.type) && !suggestion.isTopSite) {
+      return null;
+    }
+    return (providers || []).find((provider) => providerMatchesSuggestion(provider, suggestion)) || null;
+  }
+
   function findSiteSearchProviderByKey(trigger, providers) {
     const key = String(trigger || '').toLowerCase();
     if (!key) {
@@ -1561,13 +1634,47 @@
     return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`);
   }
 
+  function providerMatchesInputPrefix(provider, input) {
+    const needle = String(input || '').toLowerCase();
+    if (!needle || !provider) {
+      return false;
+    }
+    const allowPrefix = needle.length >= 2;
+    const tokens = [provider.key, provider.name].concat(provider.aliases || []);
+    for (let i = 0; i < tokens.length; i += 1) {
+      const token = String(tokens[i] || '').toLowerCase();
+      if (!token) {
+        continue;
+      }
+      if (token === needle || (allowPrefix && token.startsWith(needle))) {
+        return true;
+      }
+    }
+    const host = normalizeHost(getProviderHost(provider));
+    if (host) {
+      const hostToken = host.split('.')[0] || host;
+      if (hostToken === needle || (allowPrefix && hostToken.startsWith(needle))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function getSiteSearchTriggerCandidate(input, providers, topSiteMatch) {
     const trimmed = String(input || '').trim();
     if (!trimmed || /\s/.test(trimmed)) {
       return null;
     }
-    const provider = findSiteSearchProvider(trimmed, providers) ||
+    let provider = findSiteSearchProvider(trimmed, providers) ||
       findSiteSearchProviderByKey(trimmed, providers);
+    if (!provider && topSiteMatch) {
+      provider = (providers || []).find((candidate) => {
+        if (!suggestionMatchesProvider(topSiteMatch, candidate)) {
+          return false;
+        }
+        return providerMatchesInputPrefix(candidate, trimmed);
+      }) || null;
+    }
     if (!provider) {
       return null;
     }
@@ -2223,6 +2330,8 @@
       let primaryHighlightReason = 'none';
       let topSiteMatch = null;
       let siteSearchPrompt = null;
+      let mergedProvider = null;
+      let primarySuggestion = null;
       const inlineEnabled = Boolean(inlineSuggestion);
       let siteSearchTrigger = null;
       if (!modeCommandActive && !hasCommand) {
@@ -2283,13 +2392,18 @@
           primaryHighlightIndex = 0;
           primaryHighlightReason = 'default';
         }
+        if (primaryHighlightIndex >= 0) {
+          primarySuggestion = allSuggestions[primaryHighlightIndex] || null;
+          mergedProvider = findProviderForSuggestionMatch(primarySuggestion, providersForTags);
+        }
         applyAutocomplete(allSuggestions);
         const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
         inlineSearchState = inlineSuggestion
           ? { url: inlineSuggestion.url, rawInput: rawTagInput, isAuto: inlineAutoHighlight }
           : null;
-        siteSearchTriggerState = siteSearchTrigger
-          ? { provider: siteSearchTrigger, rawInput: rawTagInput }
+        const resolvedProvider = mergedProvider || siteSearchTrigger;
+        siteSearchTriggerState = resolvedProvider
+          ? { provider: resolvedProvider, rawInput: rawTagInput }
           : null;
       } else if (modeCommandActive) {
         clearAutocomplete();
@@ -2811,15 +2925,17 @@
         const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
         const isDirectHighlight = isPrimaryHighlight &&
           (suggestion.type === 'directUrl' || suggestion.type === 'browserPage');
+        const isMergedHighlight = Boolean(mergedProvider && primarySuggestion === suggestion && isPrimaryHighlight);
         const shouldShowEnterTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
           !onlyKeywordSuggestions &&
           (primaryHighlightReason === 'topSite' ||
             primaryHighlightReason === 'inline' ||
             primaryHighlightReason === 'autocomplete' ||
-            isDirectHighlight);
+            isDirectHighlight ||
+            isMergedHighlight);
         const shouldShowSiteSearchTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
-          siteSearchTrigger &&
-          (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch);
+          ((siteSearchTrigger && (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch)) ||
+            isMergedHighlight);
         if (shouldShowEnterTag) {
           actionTags.appendChild(createActionTag('访问', 'Enter'));
         }
