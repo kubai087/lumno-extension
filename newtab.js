@@ -354,6 +354,9 @@
 
   const defaultTheme = buildTheme(defaultAccentColor);
   defaultTheme._xIsDefault = true;
+  const urlHighlightTheme = buildTheme(defaultAccentColor);
+  urlHighlightTheme._xIsBrand = true;
+  urlHighlightTheme._xIsUrl = true;
   const brandAccentMap = {
     'github.com': [36, 41, 46],
     'docs.github.com': [36, 41, 46],
@@ -397,6 +400,58 @@
     } catch (e) {
       return null;
     }
+  }
+
+  function hashStringToHue(value) {
+    if (!value) {
+      return 0;
+    }
+    let hash = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = ((hash << 5) - hash) + value.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash) % 360;
+  }
+
+  function hslToRgb(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hp = h / 60;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hp >= 0 && hp < 1) {
+      r = c; g = x; b = 0;
+    } else if (hp >= 1 && hp < 2) {
+      r = x; g = c; b = 0;
+    } else if (hp >= 2 && hp < 3) {
+      r = 0; g = c; b = x;
+    } else if (hp >= 3 && hp < 4) {
+      r = 0; g = x; b = c;
+    } else if (hp >= 4 && hp < 5) {
+      r = x; g = 0; b = c;
+    } else if (hp >= 5 && hp < 6) {
+      r = c; g = 0; b = x;
+    }
+    const m = l - c / 2;
+    return [
+      Math.round((r + m) * 255),
+      Math.round((g + m) * 255),
+      Math.round((b + m) * 255)
+    ];
+  }
+
+  function buildFallbackThemeForHost(hostname) {
+    if (!hostname) {
+      return null;
+    }
+    const hue = hashStringToHue(hostname);
+    const accent = hslToRgb(hue, 0.55, 0.52);
+    const theme = buildTheme(accent);
+    theme._xIsBrand = true;
+    theme._xIsFallback = true;
+    return theme;
   }
 
   function getHostFromUrl(url) {
@@ -673,6 +728,10 @@
         const brandTheme = buildTheme(brandAccent);
         brandTheme._xIsBrand = true;
         return brandTheme;
+      }
+      const fallbackTheme = buildFallbackThemeForHost(hostKey);
+      if (fallbackTheme) {
+        return fallbackTheme;
       }
     }
     return null;
@@ -2246,6 +2305,9 @@
         const isPrimaryHighlight = index === primaryHighlightIndex;
         const isPrimaryGoogleSuggest = isPrimaryHighlight && suggestion.type === 'googleSuggest';
         let immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
+        if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
+          immediateTheme = urlHighlightTheme;
+        }
         const shouldUseGoogleTheme = isPrimaryGoogleSuggest ||
           (onlyKeywordSuggestions && isPrimaryHighlight && suggestion.type === 'newtab');
         if (shouldUseGoogleTheme) {
@@ -2456,9 +2518,9 @@
           iconNode = searchIcon;
         }
 
-        if ((suggestion.type === 'directUrl' || suggestion.type === 'browserPage') && iconNode) {
-          iconWrapper = document.createElement('span');
-          iconWrapper.style.cssText = `
+        if (iconNode) {
+          const iconSlot = document.createElement('span');
+          iconSlot.style.cssText = `
             all: unset !important;
             width: 24px !important;
             height: 24px !important;
@@ -2479,8 +2541,11 @@
             font: inherit !important;
             vertical-align: baseline !important;
           `;
-          iconWrapper.appendChild(iconNode);
-          iconNode = iconWrapper;
+          iconSlot.appendChild(iconNode);
+          iconNode = iconSlot;
+          if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
+            iconWrapper = iconSlot;
+          }
         }
 
         const textWrapper = document.createElement('div');
@@ -2710,11 +2775,14 @@
         `;
 
         const isTopSiteMatch = Boolean(topSiteMatch && suggestion === topSiteMatch);
+        const isDirectHighlight = isPrimaryHighlight &&
+          (suggestion.type === 'directUrl' || suggestion.type === 'browserPage');
         const shouldShowEnterTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
           !onlyKeywordSuggestions &&
           (primaryHighlightReason === 'topSite' ||
             primaryHighlightReason === 'inline' ||
-            primaryHighlightReason === 'autocomplete');
+            primaryHighlightReason === 'autocomplete' ||
+            isDirectHighlight);
         const shouldShowSiteSearchTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
           siteSearchTrigger &&
           (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch);
@@ -2786,7 +2854,10 @@
         }
         suggestionsContainer.appendChild(suggestionItem);
 
-        if (!shouldUseGoogleTheme && !(onlyKeywordSuggestions && suggestion.type === 'newtab')) {
+        if (!shouldUseGoogleTheme &&
+            !(onlyKeywordSuggestions && suggestion.type === 'newtab') &&
+            suggestion.type !== 'directUrl' &&
+            suggestion.type !== 'browserPage') {
           getThemeForSuggestion(suggestion).then((theme) => {
             if (!suggestionItem.isConnected) {
               return;
