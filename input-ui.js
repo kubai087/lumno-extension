@@ -12,6 +12,7 @@
     });
   }
 
+
   window._x_extension_createSearchInput_2024_unique_ = function(options) {
     const config = options || {};
     const input = document.createElement('input');

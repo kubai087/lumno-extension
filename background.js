@@ -926,6 +926,7 @@ function toggleBlackRectangle(tabs) {
       transition: transform 340ms cubic-bezier(0.2, 1, 0.36, 1), opacity 220ms ease, filter 300ms ease !important;
     `;
 
+
     const applyOverlayTheme = (mode) => {
       overlayThemeMode = mode;
       applyOverlayThemeVariables(overlay, mode);
@@ -1377,7 +1378,7 @@ function toggleBlackRectangle(tabs) {
         subtext: '#6B7280',
         link: '#2563EB',
         placeholder: '#9CA3AF',
-        hoverBg: '#F9FAFB',
+        hoverBg: 'rgba(200, 208, 218, 0.45)',
         tagBg: '#F3F4F6',
         tagText: '#6B7280',
         bookmarkTagBg: '#FEF3C7',
