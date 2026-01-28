@@ -964,6 +964,10 @@ function toggleBlackRectangle(tabs) {
       #_x_extension_search_input_2024_unique_::placeholder {
         color: var(--x-ov-placeholder, #9CA3AF) !important;
       }
+      #_x_extension_search_input_2024_unique_::selection {
+        background: #CFE8FF !important;
+        color: #1E3A8A !important;
+      }
     `;
     document.head.appendChild(overlayThemeStyle);
 
@@ -1191,7 +1195,10 @@ function toggleBlackRectangle(tabs) {
       { key: 'zw', aliases: ['zhwiki'], name: '维基百科', template: 'https://zh.wikipedia.org/wiki/Special:Search?search={query}' }
     ];
     const defaultAccentColor = [59, 130, 246];
-    const themeColorCache = new Map();
+    const themeColorCache = window._x_extension_theme_color_cache_2024_unique_ || new Map();
+    window._x_extension_theme_color_cache_2024_unique_ = themeColorCache;
+    const themeHostCache = window._x_extension_theme_host_cache_2024_unique_ || new Map();
+    window._x_extension_theme_host_cache_2024_unique_ = themeHostCache;
     const defaultCaretColor = searchInput.style.caretColor || '#7DB7FF';
     let baseInputPaddingLeft = null;
     const prefixGap = 6;
@@ -1571,6 +1578,17 @@ function toggleBlackRectangle(tabs) {
       }
     }
 
+    function getHostFromUrl(url) {
+      if (!url) {
+        return '';
+      }
+      try {
+        return new URL(url).hostname.toLowerCase();
+      } catch (e) {
+        return '';
+      }
+    }
+
     function extractAverageColor(image) {
       const size = 16;
       const canvas = document.createElement('canvas');
@@ -1629,19 +1647,92 @@ function toggleBlackRectangle(tabs) {
       }
     }
 
-    function getThemeFromUrl(url) {
+    function isFaviconProxyUrl(url) {
+      if (!url) {
+        return false;
+      }
+      return /google\.com\/s2\/favicons/i.test(url) || /gstatic\.com\/favicon/i.test(url);
+    }
+
+    function getThemeFromUrl(url, hostOverride) {
       if (!url) {
         return Promise.resolve(defaultTheme);
+      }
+      const hostKey = hostOverride || getHostFromUrl(url);
+      const isProxy = isFaviconProxyUrl(url);
+      const useHostCache = hostKey && (!isProxy || Boolean(hostOverride));
+      if (useHostCache && themeHostCache.has(hostKey)) {
+        return Promise.resolve(themeHostCache.get(hostKey));
       }
       if (themeColorCache.has(url)) {
         return Promise.resolve(themeColorCache.get(url));
       }
-      const brandAccent = getBrandAccentForUrl(url);
+      const brandAccent = (isProxy && hostOverride) ? null : getBrandAccentForUrl(url);
       if (brandAccent) {
         const brandTheme = buildTheme(brandAccent);
         brandTheme._xIsBrand = true;
         themeColorCache.set(url, brandTheme);
+        if (useHostCache) {
+          themeHostCache.set(hostKey, brandTheme);
+        }
         return Promise.resolve(brandTheme);
+      }
+      const cachedFaviconData = faviconDataCache.get(url);
+      if (cachedFaviconData) {
+        return new Promise((resolve) => {
+          const image = new Image();
+          image.onload = function() {
+            const avg = extractAverageColor(image);
+            if (!avg) {
+              themeColorCache.set(url, defaultTheme);
+              resolve(defaultTheme);
+              return;
+            }
+            const theme = buildTheme(avg);
+            theme._xIsBrand = true;
+            themeColorCache.set(url, theme);
+            if (useHostCache) {
+              themeHostCache.set(hostKey, theme);
+            }
+            resolve(theme);
+          };
+          image.onerror = function() {
+            themeColorCache.set(url, defaultTheme);
+            resolve(defaultTheme);
+          };
+          image.src = cachedFaviconData;
+        });
+      }
+      if (isProxy) {
+        return requestFaviconData(url).then((dataUrl) => {
+          if (!dataUrl) {
+            themeColorCache.set(url, defaultTheme);
+            return defaultTheme;
+          }
+          return new Promise((resolve) => {
+            const image = new Image();
+            image.onload = function() {
+              const avg = extractAverageColor(image);
+              if (!avg) {
+                themeColorCache.set(url, defaultTheme);
+                resolve(defaultTheme);
+                return;
+              }
+              const theme = buildTheme(avg);
+              theme._xIsBrand = true;
+              themeColorCache.set(url, theme);
+              if (useHostCache) {
+                themeHostCache.set(hostKey, theme);
+              }
+              resolve(theme);
+            };
+            image.onerror = function() {
+              themeColorCache.set(url, defaultTheme);
+              resolve(defaultTheme);
+            };
+            image.src = dataUrl;
+          });
+        });
       }
       return new Promise((resolve) => {
         const image = new Image();
@@ -1654,7 +1745,11 @@ function toggleBlackRectangle(tabs) {
             return;
           }
           const theme = buildTheme(avg);
+          theme._xIsBrand = true;
           themeColorCache.set(url, theme);
+          if (useHostCache) {
+            themeHostCache.set(hostKey, theme);
+          }
           resolve(theme);
         };
         image.onerror = function() {
@@ -1703,7 +1798,17 @@ function toggleBlackRectangle(tabs) {
           return Promise.resolve(brandTheme);
         }
       }
-      return getThemeFromUrl(getThemeSourceForSuggestion(suggestion));
+      const hostKey = suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : '';
+      const siteFavicon = hostKey ? getSiteFaviconUrl(hostKey) : '';
+      if (siteFavicon) {
+        return getThemeFromUrl(siteFavicon, hostKey).then((theme) => {
+          if (theme && !theme._xIsDefault) {
+            return theme;
+          }
+          return getThemeFromUrl(getThemeSourceForSuggestion(suggestion), hostKey);
+        });
+      }
+      return getThemeFromUrl(getThemeSourceForSuggestion(suggestion), hostKey);
     }
 
     function getImmediateThemeForSuggestion(suggestion) {
@@ -1719,6 +1824,13 @@ function toggleBlackRectangle(tabs) {
         }
       }
       if (suggestion && suggestion.url) {
+        const hostKey = getHostFromUrl(suggestion.url);
+        if (hostKey && themeHostCache.has(hostKey)) {
+          return themeHostCache.get(hostKey);
+        }
+        if (themeColorCache.has(suggestion.url)) {
+          return themeColorCache.get(suggestion.url);
+        }
         const brandAccent = getBrandAccentForUrl(suggestion.url);
         if (brandAccent) {
           const brandTheme = buildTheme(brandAccent);
@@ -1782,13 +1894,14 @@ function toggleBlackRectangle(tabs) {
       return promise;
     }
 
-    function attachFaviconData(img, url) {
+    function attachFaviconData(img, url, hostOverride) {
       if (!img || !url) {
         return;
       }
       const cached = faviconDataCache.get(url);
       if (cached) {
         img.src = cached;
+        preloadThemeFromFavicon(url, cached, hostOverride);
         return;
       }
       requestFaviconData(url).then((dataUrl) => {
@@ -1796,7 +1909,37 @@ function toggleBlackRectangle(tabs) {
           return;
         }
         img.src = dataUrl;
+        preloadThemeFromFavicon(url, dataUrl, hostOverride);
       });
+    }
+
+    function preloadThemeFromFavicon(url, dataUrl, hostOverride) {
+      if (!url || themeColorCache.has(url)) {
+        return;
+      }
+      const hostKey = hostOverride || getHostFromUrl(url);
+      const useHostCache = hostKey && (Boolean(hostOverride) || !isFaviconProxyUrl(url));
+      if (useHostCache && themeHostCache.has(hostKey)) {
+        return;
+      }
+      if (!dataUrl) {
+        return;
+      }
+      const image = new Image();
+      image.onload = function() {
+        const avg = extractAverageColor(image);
+        if (!avg) {
+          return;
+        }
+        const theme = buildTheme(avg);
+        theme._xIsBrand = true;
+        themeColorCache.set(url, theme);
+        if (useHostCache) {
+          themeHostCache.set(hostKey, theme);
+        }
+      };
+      image.onerror = function() {};
+      image.src = dataUrl;
     }
 
     function preloadIcon(url) {
@@ -1824,7 +1967,23 @@ function toggleBlackRectangle(tabs) {
           item.type === 'googleSuggest';
         if (item.favicon && !skipType) {
           preloadIcon(item.favicon);
-          requestFaviconData(item.favicon);
+          const hostKey = item && item.url ? getHostFromUrl(item.url) : '';
+          requestFaviconData(item.favicon).then((dataUrl) => {
+            if (dataUrl) {
+              preloadThemeFromFavicon(item.favicon, dataUrl, hostKey);
+            }
+          });
+        }
+        const hostKeyForTheme = item && item.url ? getHostFromUrl(item.url) : '';
+        if (hostKeyForTheme && !themeHostCache.has(hostKeyForTheme)) {
+          const siteFavicon = getSiteFaviconUrl(hostKeyForTheme);
+          if (siteFavicon) {
+            requestFaviconData(siteFavicon).then((dataUrl) => {
+              if (dataUrl) {
+                preloadThemeFromFavicon(siteFavicon, dataUrl, hostKeyForTheme);
+              }
+            });
+          }
         }
       });
     }
@@ -1921,6 +2080,13 @@ function toggleBlackRectangle(tabs) {
         }
       }
       return suggestion && suggestion.favicon ? suggestion.favicon : '';
+    }
+
+    function getSiteFaviconUrl(hostname) {
+      if (!hostname) {
+        return '';
+      }
+      return `https://${hostname}/favicon.ico`;
     }
 
     const siteSearchPrefix = document.createElement('span');
@@ -3797,7 +3963,11 @@ function toggleBlackRectangle(tabs) {
             if (index < 4) {
               favicon.fetchPriority = 'high';
             }
-            attachFaviconData(favicon, suggestion.favicon || '');
+            attachFaviconData(
+              favicon,
+              suggestion.favicon || '',
+              suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : ''
+            );
             favicon.style.cssText = `
               all: unset !important;
               width: 16px !important;
