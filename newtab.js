@@ -1531,6 +1531,36 @@
     return null;
   }
 
+  function getProviderHost(provider) {
+    if (!provider || !provider.template) {
+      return '';
+    }
+    try {
+      const url = provider.template.replace(/\{query\}/g, 'test');
+      return new URL(url).hostname.toLowerCase();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function getSuggestionHost(suggestion) {
+    if (!suggestion || !suggestion.url) {
+      return '';
+    }
+    try {
+      return new URL(suggestion.url).hostname.toLowerCase();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function hostsMatch(a, b) {
+    if (!a || !b) {
+      return false;
+    }
+    return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`);
+  }
+
   function getSiteSearchTriggerCandidate(input, providers, topSiteMatch) {
     const trimmed = String(input || '').trim();
     if (!trimmed || /\s/.test(trimmed)) {
@@ -1542,7 +1572,11 @@
       return null;
     }
     if (topSiteMatch && trimmed.length <= 2 && matchesTopSitePrefix(topSiteMatch, trimmed)) {
-      return null;
+      const providerHost = getProviderHost(provider);
+      const topHost = getSuggestionHost(topSiteMatch);
+      if (!hostsMatch(providerHost, topHost)) {
+        return null;
+      }
     }
     return provider;
   }
