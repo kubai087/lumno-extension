@@ -1229,11 +1229,42 @@
     return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(normalized)}&sz=${FAVICON_GOOGLE_SIZE}`;
   }
 
+  function isLocalNetworkHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    if (!host) {
+      return false;
+    }
+    if (host === 'localhost' || host.endsWith('.local')) {
+      return true;
+    }
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+      const parts = host.split('.').map((part) => Number(part));
+      if (parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
+        return false;
+      }
+      if (parts[0] === 10 || parts[0] === 127) {
+        return true;
+      }
+      if (parts[0] === 192 && parts[1] === 168) {
+        return true;
+      }
+      if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) {
+        return true;
+      }
+      return false;
+    }
+    return false;
+  }
+
   function attachFaviconWithFallbacks(img, url, host) {
     if (!img || !url) {
       return;
     }
     const hostKey = host || getHostFromUrl(url);
+    if (isLocalNetworkHost(hostKey)) {
+      img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      return;
+    }
     const faviconHostKey = normalizeFaviconHost(hostKey);
     const fallbackIcon = chrome.runtime.getURL('lumno.png');
     const chromeFavicon = getChromeFaviconUrl(url);
@@ -2453,14 +2484,21 @@
 
       const favicon = document.createElement('img');
       const fallbackIconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      favicon.src = tab.favIconUrl || fallbackIconSvg;
+      let hostForTab = '';
+      try {
+        hostForTab = tab && tab.url ? new URL(tab.url).hostname : '';
+      } catch (e) {
+        hostForTab = '';
+      }
+      const useFallback = !tab.favIconUrl || isLocalNetworkHost(hostForTab);
+      favicon.src = useFallback ? fallbackIconSvg : tab.favIconUrl;
       favicon.decoding = 'async';
       favicon.loading = 'eager';
       favicon.referrerPolicy = 'no-referrer';
       if (index < 4) {
         favicon.fetchPriority = 'high';
       }
-      const isFallbackIcon = !tab.favIconUrl;
+      const isFallbackIcon = useFallback;
       favicon.style.cssText = `
         all: unset !important;
         width: ${isFallbackIcon ? '18px' : '16px'} !important;

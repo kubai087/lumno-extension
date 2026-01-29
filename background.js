@@ -181,6 +181,33 @@ function normalizeHost(hostname) {
   return stripped;
 }
 
+function isLocalNetworkHost(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) {
+    return false;
+  }
+  if (host === 'localhost' || host.endsWith('.local')) {
+    return true;
+  }
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+    const parts = host.split('.').map((part) => Number(part));
+    if (parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
+      return false;
+    }
+    if (parts[0] === 10 || parts[0] === 127) {
+      return true;
+    }
+    if (parts[0] === 192 && parts[1] === 168) {
+      return true;
+    }
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) {
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
 function normalizeFaviconHost(hostname) {
   if (!hostname) {
     return '';
@@ -360,12 +387,7 @@ function loadSiteSearchProviders() {
     })
     .catch(() => []);
   siteSearchPromise = siteSearchPromise.then((localItems) => {
-    const remoteUrl = 'https://duckduckgo.com/bang.v260.js';
-    return fetch(remoteUrl)
-      .then((response) => response.text())
-      .then((text) => parseBangList(text))
-      .then((bangList) => mergeSiteSearchProviders(localItems, bangList))
-      .catch(() => localItems);
+    return localItems;
   }).then((items) => loadCustomSiteSearchProviders().then((customItems) => {
     const merged = mergeCustomProviders(items, customItems);
     siteSearchCache = merged;
@@ -625,7 +647,8 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(item.url);
-          faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
+          const host = normalizeHost(urlObj.hostname);
+          faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
         } catch (e) {
           // Fallback to direct favicon URL
           faviconUrl = item.url + '/favicon.ico';
@@ -682,7 +705,8 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(site.url);
-          faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
+          const host = normalizeHost(urlObj.hostname);
+          faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
         } catch (e) {
           faviconUrl = site.url + '/favicon.ico';
         }
@@ -720,7 +744,8 @@ async function getSearchSuggestions(query) {
           let faviconUrl = '';
           try {
             const urlObj = new URL(bookmark.url);
-            faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
+            const host = normalizeHost(urlObj.hostname);
+            faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
           } catch (e) {
             // Fallback to direct favicon URL
             faviconUrl = bookmark.url + '/favicon.ico';
@@ -841,7 +866,8 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(site.url);
-          faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
+          const host = normalizeHost(urlObj.hostname);
+          faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
         } catch (e) {
           faviconUrl = site.url + '/favicon.ico';
         }
@@ -2212,6 +2238,9 @@ function toggleBlackRectangle(tabs) {
         try {
           const hostname = normalizeHost(new URL(suggestion.url).hostname);
           if (hostname) {
+            if (isLocalNetworkHost(hostname)) {
+              return '';
+            }
             return getGoogleFaviconUrl(hostname);
           }
         } catch (e) {
@@ -3492,14 +3521,21 @@ function toggleBlackRectangle(tabs) {
         const favicon = document.createElement('img');
         favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
         const fallbackIconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        favicon.src = tab.favIconUrl || fallbackIconSvg;
+        let hostForTab = '';
+        try {
+          hostForTab = tab && tab.url ? new URL(tab.url).hostname : '';
+        } catch (e) {
+          hostForTab = '';
+        }
+        const useFallback = !tab.favIconUrl || isLocalNetworkHost(hostForTab);
+        favicon.src = useFallback ? fallbackIconSvg : tab.favIconUrl;
         favicon.decoding = 'async';
         favicon.loading = 'eager';
         favicon.referrerPolicy = 'no-referrer';
         if (index < 4) {
           favicon.fetchPriority = 'high';
         }
-        const isFallbackIcon = !tab.favIconUrl;
+        const isFallbackIcon = useFallback;
         favicon.style.cssText = `
           all: unset !important;
           width: ${isFallbackIcon ? '18px' : '16px'} !important;
