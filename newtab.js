@@ -11,6 +11,7 @@
   let mediaListenerAttached = false;
   let currentThemeMode = 'system';
   let modeBadge = null;
+  const recentCards = [];
   const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
   function resolveTheme(mode) {
@@ -31,6 +32,12 @@
       if (item && item._xTheme) {
         applyThemeVariables(item, item._xTheme);
       }
+    });
+    recentCards.forEach((card) => {
+      if (!card || !card._xHost || !card._xTheme) {
+        return;
+      }
+      applyRecentCardTheme(card, card._xTheme, card._xHost);
     });
     updateSelection();
     updateModeBadge(inputParts && inputParts.input ? inputParts.input.value : '');
@@ -1378,8 +1385,10 @@
     const fallbackTheme = theme || buildFallbackThemeForHost(host) || defaultTheme;
     const resolvedTheme = getThemeForMode(fallbackTheme);
     const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
-    const base = mixColor(accentRgb, [255, 255, 255], 0.82);
-    const border = mixColor(base, [0, 0, 0], 0.1);
+    const isDark = document.body && document.body.getAttribute('data-theme') === 'dark';
+    const baseTarget = isDark ? [22, 22, 22] : [255, 255, 255];
+    const base = mixColor(accentRgb, baseTarget, isDark ? 0.72 : 0.82);
+    const border = mixColor(base, isDark ? [255, 255, 255] : [0, 0, 0], isDark ? 0.12 : 0.1);
     const innerTint = mixColor(accentRgb, [255, 255, 255], 0.82);
     return {
       base: rgbToCss(base),
@@ -1447,11 +1456,14 @@
     card.type = 'button';
     card.className = 'x-nt-recent-card';
     card.setAttribute('aria-label', `打开 ${titleText}`);
+    card._xHost = host;
     const themeSuggestion = { type: 'history', url: item.url, title: item.title || '' };
     const immediateTheme = getImmediateThemeForSuggestion(themeSuggestion);
+    card._xTheme = immediateTheme;
     applyRecentCardTheme(card, immediateTheme, host);
     getThemeForSuggestion(themeSuggestion).then((theme) => {
       if (card.isConnected) {
+        card._xTheme = theme || card._xTheme;
         applyRecentCardTheme(card, theme, host);
       }
     });
@@ -1497,6 +1509,7 @@
     card.appendChild(urlLine);
     card.appendChild(actionLine);
     updateRecentActionOffset(card, actionLine);
+    recentCards.push(card);
 
     card.addEventListener('click', () => {
       navigateToUrl(item.url);

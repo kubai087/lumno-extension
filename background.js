@@ -1403,7 +1403,7 @@ function toggleBlackRectangle(tabs) {
     urlHighlightTheme._xIsUrl = true;
     const overlayThemeTokens = {
       light: {
-        bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.7) 100%)',
+        bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.78) 100%)',
         border: 'rgba(0, 0, 0, 0.14)',
         shadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 16px 40px rgba(15, 23, 42, 0.12), 0 40px 90px rgba(15, 23, 42, 0.12)',
         text: '#111827',
