@@ -147,6 +147,7 @@ let shortcutRulesPromise = null;
 let siteSearchCache = null;
 let siteSearchPromise = null;
 const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
+const FAVICON_GOOGLE_SIZE = 128;
 const faviconDataCache = new Map();
 const faviconPending = new Map();
 
@@ -158,6 +159,37 @@ function arrayBufferToBase64(buffer) {
     binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
+}
+
+function getGoogleFaviconUrl(hostname) {
+  const normalized = normalizeFaviconHost(hostname);
+  if (!normalized) {
+    return '';
+  }
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(normalized)}&sz=${FAVICON_GOOGLE_SIZE}`;
+}
+
+function normalizeHost(hostname) {
+  if (!hostname) {
+    return '';
+  }
+  const lower = String(hostname).toLowerCase();
+  const stripped = lower.replace(/^www\./i, '');
+  if (stripped === 'my.feishu.cn') {
+    return 'feishu.cn';
+  }
+  return stripped;
+}
+
+function normalizeFaviconHost(hostname) {
+  if (!hostname) {
+    return '';
+  }
+  const host = String(hostname).toLowerCase().replace(/^www\./i, '');
+  if (host === 'feishu.cn' || host.endsWith('.feishu.cn')) {
+    return 'feishu.cn';
+  }
+  return host;
 }
 
 function fetchFaviconData(url) {
@@ -175,7 +207,7 @@ function fetchFaviconData(url) {
       return response.blob();
     })
     .then((blob) => {
-      if (!blob || blob.size > 96 * 1024) {
+      if (!blob || blob.size > 256 * 1024) {
         return null;
       }
       return blob.arrayBuffer().then((buffer) => {
@@ -260,7 +292,7 @@ function getTemplateDomain(template) {
   }
   try {
     const url = template.replace(/\{query\}/g, 'test');
-    return new URL(url).hostname.toLowerCase();
+    return normalizeHost(new URL(url).hostname);
   } catch (e) {
     return '';
   }
@@ -513,7 +545,7 @@ async function getSearchSuggestions(query) {
       
       // URL domain match
       try {
-        const domain = new URL(item.url).hostname.toLowerCase();
+        const domain = normalizeHost(new URL(item.url).hostname);
         if (domain.includes(queryLower)) score += 10;
         if (domain.startsWith(queryLower)) score += 20;
       } catch (e) {
@@ -593,7 +625,7 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(item.url);
-          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+          faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
         } catch (e) {
           // Fallback to direct favicon URL
           faviconUrl = item.url + '/favicon.ico';
@@ -635,7 +667,7 @@ async function getSearchSuggestions(query) {
         const queryLower = query.toLowerCase();
         const titleLower = site.title ? site.title.toLowerCase() : '';
         try {
-          const hostname = new URL(site.url).hostname.toLowerCase();
+          const hostname = normalizeHost(new URL(site.url).hostname);
           if (hostname.startsWith(queryLower)) {
             adjustedScore += 15;
           }
@@ -650,7 +682,7 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(site.url);
-          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+          faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
         } catch (e) {
           faviconUrl = site.url + '/favicon.ico';
         }
@@ -688,7 +720,7 @@ async function getSearchSuggestions(query) {
           let faviconUrl = '';
           try {
             const urlObj = new URL(bookmark.url);
-            faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+            faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
           } catch (e) {
             // Fallback to direct favicon URL
             faviconUrl = bookmark.url + '/favicon.ico';
@@ -792,7 +824,7 @@ async function getSearchSuggestions(query) {
       }
       let hostname = '';
       try {
-        hostname = new URL(suggestion.url).hostname.toLowerCase();
+        hostname = normalizeHost(new URL(suggestion.url).hostname);
       } catch (e) {
         return true;
       }
@@ -809,7 +841,7 @@ async function getSearchSuggestions(query) {
         let faviconUrl = '';
         try {
           const urlObj = new URL(site.url);
-          faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+          faviconUrl = getGoogleFaviconUrl(normalizeHost(urlObj.hostname));
         } catch (e) {
           faviconUrl = site.url + '/favicon.ico';
         }
@@ -1574,6 +1606,37 @@ function toggleBlackRectangle(tabs) {
       'twitter.com': [29, 161, 242]
     };
 
+    function normalizeHost(hostname) {
+      if (!hostname) {
+        return '';
+      }
+      const lower = String(hostname).toLowerCase();
+      const stripped = lower.replace(/^www\./i, '');
+      if (stripped === 'my.feishu.cn') {
+        return 'feishu.cn';
+      }
+      return stripped;
+    }
+
+    function normalizeFaviconHost(hostname) {
+      if (!hostname) {
+        return '';
+      }
+      const host = String(hostname).toLowerCase().replace(/^www\./i, '');
+      if (host === 'feishu.cn' || host.endsWith('.feishu.cn')) {
+        return 'feishu.cn';
+      }
+      return host;
+    }
+
+    function getGoogleFaviconUrl(hostname) {
+      const normalized = normalizeFaviconHost(hostname);
+      if (!normalized) {
+        return '';
+      }
+      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(normalized)}&sz=128`;
+    }
+
     function getBrandAccentForHost(hostname) {
       const host = String(hostname || '').toLowerCase();
       if (!host) {
@@ -1591,7 +1654,7 @@ function toggleBlackRectangle(tabs) {
         return null;
       }
       try {
-        const hostname = new URL(url).hostname;
+        const hostname = normalizeHost(new URL(url).hostname);
         return getBrandAccentForHost(hostname);
       } catch (e) {
         return null;
@@ -1655,7 +1718,7 @@ function toggleBlackRectangle(tabs) {
         return '';
       }
       try {
-        return new URL(url).hostname.toLowerCase();
+        return normalizeHost(new URL(url).hostname);
       } catch (e) {
         return '';
       }
@@ -2147,9 +2210,9 @@ function toggleBlackRectangle(tabs) {
     function getThemeSourceForSuggestion(suggestion) {
       if (suggestion && suggestion.url) {
         try {
-          const hostname = new URL(suggestion.url).hostname;
+          const hostname = normalizeHost(new URL(suggestion.url).hostname);
           if (hostname) {
-            return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+            return getGoogleFaviconUrl(hostname);
           }
         } catch (e) {
           // Ignore malformed URLs.
@@ -2412,8 +2475,8 @@ function toggleBlackRectangle(tabs) {
       const template = provider && provider.template ? provider.template : '';
       try {
         const url = template.replace(/\{query\}/g, 'test');
-        const hostname = new URL(url).hostname;
-        return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+        const hostname = normalizeHost(new URL(url).hostname);
+        return getGoogleFaviconUrl(hostname);
       } catch (e) {
         return '';
       }
@@ -2518,28 +2581,18 @@ function toggleBlackRectangle(tabs) {
       }
       try {
         const url = provider.template.replace(/\{query\}/g, 'test');
-        return new URL(url).hostname.toLowerCase();
+        return normalizeHost(new URL(url).hostname);
       } catch (e) {
         return '';
       }
-    }
-
-    function normalizeHost(host) {
-      return String(host || '').toLowerCase().replace(/^www\./i, '');
     }
 
     function suggestionMatchesProvider(suggestion, provider) {
       if (!suggestion || !provider || !suggestion.url) {
         return false;
       }
-      let suggestionHost = '';
-      try {
-        suggestionHost = new URL(suggestion.url).hostname;
-      } catch (e) {
-        return false;
-      }
-      const normalizedSuggestion = normalizeHost(suggestionHost);
-      const normalizedProvider = normalizeHost(getProviderHost(provider));
+      const normalizedSuggestion = getSuggestionHost(suggestion);
+      const normalizedProvider = getProviderHost(provider);
       if (!normalizedSuggestion || !normalizedProvider) {
         return false;
       }
@@ -2749,7 +2802,7 @@ function toggleBlackRectangle(tabs) {
       }
       try {
         const url = provider.template.replace(/\{query\}/g, 'test');
-        return new URL(url).hostname.toLowerCase();
+        return normalizeHost(new URL(url).hostname);
       } catch (e) {
         return '';
       }
@@ -2760,7 +2813,7 @@ function toggleBlackRectangle(tabs) {
         return '';
       }
       try {
-        return new URL(suggestion.url).hostname.toLowerCase();
+        return normalizeHost(new URL(suggestion.url).hostname);
       } catch (e) {
         return '';
       }

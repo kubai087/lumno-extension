@@ -219,6 +219,10 @@
     return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
   }
 
+  function rgbToCssParts(rgb) {
+    return `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`;
+  }
+
   function parseCssColor(color) {
     if (!color || typeof color !== 'string') {
       return null;
@@ -395,7 +399,7 @@
       return null;
     }
     try {
-      const hostname = new URL(url).hostname;
+      const hostname = normalizeHost(new URL(url).hostname);
       return getBrandAccentForHost(hostname);
     } catch (e) {
       return null;
@@ -459,10 +463,33 @@
       return '';
     }
     try {
-      return new URL(url).hostname.toLowerCase();
+      return normalizeHost(new URL(url).hostname);
     } catch (e) {
       return '';
     }
+  }
+
+  function normalizeHost(hostname) {
+    if (!hostname) {
+      return '';
+    }
+    const lower = String(hostname).toLowerCase();
+    const stripped = lower.replace(/^www\./i, '');
+    if (stripped === 'my.feishu.cn') {
+      return 'feishu.cn';
+    }
+    return stripped;
+  }
+
+  function normalizeFaviconHost(hostname) {
+    if (!hostname) {
+      return '';
+    }
+    const host = String(hostname).toLowerCase().replace(/^www\./i, '');
+    if (host === 'feishu.cn' || host.endsWith('.feishu.cn')) {
+      return 'feishu.cn';
+    }
+    return host;
   }
 
   function isFaviconProxyUrl(url) {
@@ -691,16 +718,13 @@
       }
     }
     const hostKey = suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : '';
-    const siteFavicon = hostKey ? getSiteFaviconUrl(hostKey) : '';
-    if (siteFavicon) {
-      return getThemeFromUrl(siteFavicon, hostKey).then((theme) => {
-        if (theme && !theme._xIsDefault) {
-          return theme;
-        }
-        return getThemeFromUrl(getThemeSourceForSuggestion(suggestion), hostKey);
-      });
-    }
-    return getThemeFromUrl(getThemeSourceForSuggestion(suggestion), hostKey);
+    return getThemeFromUrl(getThemeSourceForSuggestion(suggestion), hostKey).then((theme) => {
+      if (theme && !theme._xIsDefault) {
+        return theme;
+      }
+      const fallback = buildFallbackThemeForHost(hostKey);
+      return fallback || theme;
+    });
   }
 
   function getImmediateThemeForSuggestion(suggestion) {
@@ -798,6 +822,9 @@
   const iconPreloadCache = new Map();
   const faviconDataCache = new Map();
   const faviconDataPending = new Map();
+  const recentActionOffsetUpdaters = new Set();
+  let recentActionResizeBound = false;
+  const recentActionObservers = new WeakMap();
 
   function requestFaviconData(url) {
     if (!url || url.startsWith('data:')) {
@@ -905,11 +932,11 @@
       }
       const hostKeyForTheme = item && item.url ? getHostFromUrl(item.url) : '';
       if (hostKeyForTheme && !themeHostCache.has(hostKeyForTheme)) {
-        const siteFavicon = getSiteFaviconUrl(hostKeyForTheme);
-        if (siteFavicon) {
-          requestFaviconData(siteFavicon).then((dataUrl) => {
+        const themeIcon = getGoogleFaviconUrl(hostKeyForTheme);
+        if (themeIcon) {
+          requestFaviconData(themeIcon).then((dataUrl) => {
             if (dataUrl) {
-              preloadThemeFromFavicon(siteFavicon, dataUrl, hostKeyForTheme);
+              preloadThemeFromFavicon(themeIcon, dataUrl, hostKeyForTheme);
             }
           });
         }
@@ -943,12 +970,14 @@
     return icon;
   }
 
+  const FAVICON_GOOGLE_SIZE = 128;
+
   function getThemeSourceForSuggestion(suggestion) {
     if (suggestion && suggestion.url) {
       try {
-        const hostname = new URL(suggestion.url).hostname;
+        const hostname = normalizeHost(new URL(suggestion.url).hostname);
         if (hostname) {
-          return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+          return getGoogleFaviconUrl(hostname);
         }
       } catch (e) {
         // Ignore malformed URLs.
@@ -1083,6 +1112,38 @@
     vertical-align: baseline !important;
   `;
 
+  const recentSection = document.createElement('section');
+  recentSection.id = '_x_extension_newtab_recent_sites_2024_unique_';
+  recentSection.style.setProperty('display', 'none', 'important');
+  const recentHeading = document.createElement('div');
+  recentHeading.className = 'x-nt-recent-heading';
+  recentHeading.textContent = '最近访问';
+  const recentGrid = document.createElement('div');
+  recentGrid.id = '_x_extension_newtab_recent_sites_grid_2024_unique_';
+  recentSection.appendChild(recentHeading);
+  recentSection.appendChild(recentGrid);
+
+  function renderRecentSites(items) {
+    recentGrid.innerHTML = '';
+    if (!Array.isArray(items) || items.length === 0) {
+      recentSection.style.setProperty('display', 'none', 'important');
+      return;
+    }
+    items.forEach((item, index) => {
+      const card = buildRecentSiteCard(item, index);
+      if (card) {
+        recentGrid.appendChild(card);
+      }
+    });
+    recentSection.style.setProperty('display', 'flex', 'important');
+  }
+
+  function loadRecentSites() {
+    getRecentSites(4).then((items) => {
+      renderRecentSites(items);
+    });
+  }
+
   function setSuggestionsVisible(visible) {
     suggestionsContainer.style.setProperty('display', visible ? 'block' : 'none', 'important');
     suggestionsContainer.style.setProperty('margin-top', visible ? '8px' : '0', 'important');
@@ -1114,6 +1175,340 @@
     } catch (e) {
       return url;
     }
+  }
+
+  function isRestrictedUrl(url) {
+    if (!url) {
+      return true;
+    }
+    const lower = String(url).toLowerCase();
+    if (lower.startsWith('chrome://') ||
+      lower.startsWith('chrome-extension://') ||
+      lower.startsWith('edge://') ||
+      lower.startsWith('brave://') ||
+      lower.startsWith('vivaldi://') ||
+      lower.startsWith('opera://') ||
+      lower.startsWith('about:')) {
+      return true;
+    }
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase();
+      const path = parsed.pathname.toLowerCase();
+      if ((host === 'chrome.google.com' && path.startsWith('/webstore')) ||
+          host === 'chromewebstore.google.com' ||
+          (host === 'microsoftedge.microsoft.com' && path.startsWith('/addons')) ||
+          host === 'addons.opera.com') {
+        return true;
+      }
+    } catch (e) {
+      return true;
+    }
+    return false;
+  }
+
+  function getChromeFaviconUrl(url) {
+    if (!url) {
+      return '';
+    }
+    return `chrome://favicon2/?size=128&scale_factor=2x&show_fallback_monogram=1&url=${encodeURIComponent(url)}`;
+  }
+
+  function getGoogleFaviconUrl(hostname) {
+    const normalized = normalizeFaviconHost(hostname);
+    if (!normalized) {
+      return '';
+    }
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(normalized)}&sz=${FAVICON_GOOGLE_SIZE}`;
+  }
+
+  function attachFaviconWithFallbacks(img, url, host) {
+    if (!img || !url) {
+      return;
+    }
+    const hostKey = host || getHostFromUrl(url);
+    const faviconHostKey = normalizeFaviconHost(hostKey);
+    const fallbackIcon = chrome.runtime.getURL('lumno.png');
+    const chromeFavicon = getChromeFaviconUrl(url);
+    const googleFavicon = faviconHostKey ? getGoogleFaviconUrl(faviconHostKey) : '';
+    let didFallback = false;
+    img.onerror = function() {
+      if (didFallback) {
+        return;
+      }
+      didFallback = true;
+      img.onerror = null;
+      img.src = googleFavicon || fallbackIcon;
+      if (googleFavicon) {
+        attachFaviconData(img, googleFavicon, hostKey);
+      }
+    };
+    if (chromeFavicon) {
+      img.src = chromeFavicon;
+      if (googleFavicon) {
+        requestFaviconData(googleFavicon).then((dataUrl) => {
+          if (dataUrl) {
+            preloadThemeFromFavicon(googleFavicon, dataUrl, hostKey);
+          }
+        });
+      }
+      return;
+    }
+    if (!googleFavicon) {
+      img.src = fallbackIcon;
+      return;
+    }
+    img.src = googleFavicon;
+    attachFaviconData(img, googleFavicon, hostKey);
+  }
+
+  function getRecentSites(limit) {
+    return new Promise((resolve) => {
+      if (!chrome.history || !chrome.history.search) {
+        resolve([]);
+        return;
+      }
+      chrome.history.search({
+        text: '',
+        maxResults: 60,
+        startTime: Date.now() - 1000 * 60 * 60 * 24 * 30
+      }, (items) => {
+        if (chrome.runtime.lastError || !Array.isArray(items)) {
+          resolve([]);
+          return;
+        }
+        const results = [];
+        const seenHosts = new Set();
+        for (let i = 0; i < items.length; i += 1) {
+          const item = items[i];
+          const url = item && item.url ? String(item.url) : '';
+          if (!url || isRestrictedUrl(url)) {
+            continue;
+          }
+          let host = '';
+          try {
+            host = normalizeHost(new URL(url).hostname);
+          } catch (e) {
+            continue;
+          }
+          if (!host || seenHosts.has(host)) {
+            continue;
+          }
+          seenHosts.add(host);
+          results.push({
+            title: item.title || host,
+            url: url,
+            host: host,
+            lastVisitTime: item.lastVisitTime || 0
+          });
+          if (results.length >= limit) {
+            break;
+          }
+        }
+        if (results.length >= limit || !chrome.topSites || !chrome.topSites.get) {
+          resolve(results);
+          return;
+        }
+        chrome.topSites.get((topSites) => {
+          if (!Array.isArray(topSites)) {
+            resolve(results);
+            return;
+          }
+          for (let i = 0; i < topSites.length; i += 1) {
+            const item = topSites[i];
+            const url = item && item.url ? String(item.url) : '';
+            if (!url || isRestrictedUrl(url)) {
+              continue;
+            }
+            let host = '';
+            try {
+              host = normalizeHost(new URL(url).hostname);
+            } catch (e) {
+              continue;
+            }
+            if (!host || seenHosts.has(host)) {
+              continue;
+            }
+            seenHosts.add(host);
+            results.push({
+              title: item.title || host,
+              url: url,
+              host: host,
+              lastVisitTime: 0
+            });
+            if (results.length >= limit) {
+              break;
+            }
+          }
+          resolve(results);
+        });
+      });
+    });
+  }
+
+  function getSiteDisplayName(hostname, title) {
+    const rawTitle = String(title || '').trim();
+    if (rawTitle) {
+      const separators = [' | ', ' - ', ' — ', ' – ', ' · ', ' • '];
+      for (let i = 0; i < separators.length; i += 1) {
+        const sep = separators[i];
+        if (rawTitle.includes(sep)) {
+          const parts = rawTitle.split(sep).map((part) => part.trim()).filter(Boolean);
+          if (parts.length > 0) {
+            const candidate = parts[parts.length - 1];
+            if (candidate.length <= 18) {
+              return candidate;
+            }
+          }
+        }
+      }
+    }
+    const host = String(hostname || '').replace(/^www\./i, '');
+    if (host) {
+      const pieces = host.split('.').filter(Boolean);
+      const base = pieces.length >= 2 ? pieces[pieces.length - 2] : pieces[0];
+      if (base) {
+        return base.charAt(0).toUpperCase() + base.slice(1);
+      }
+    }
+    return rawTitle || hostname || '';
+  }
+
+  function getRecentCardColors(theme, host) {
+    const fallbackTheme = theme || buildFallbackThemeForHost(host) || defaultTheme;
+    const resolvedTheme = getThemeForMode(fallbackTheme);
+    const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
+    const base = mixColor(accentRgb, [255, 255, 255], 0.82);
+    const border = mixColor(base, [0, 0, 0], 0.1);
+    const innerTint = mixColor(accentRgb, [255, 255, 255], 0.82);
+    return {
+      base: rgbToCss(base),
+      border: rgbToCss(border),
+      innerTint: rgbToCssParts(innerTint)
+    };
+  }
+
+  function applyRecentCardTheme(card, theme, host) {
+    if (!card) {
+      return;
+    }
+    const colors = getRecentCardColors(theme, host);
+    card.style.setProperty('--x-nt-recent-card-color', colors.base);
+    card.style.setProperty('--x-nt-recent-card-border-color', colors.border);
+    card.style.setProperty('--x-nt-recent-inner-tint-rgb', colors.innerTint);
+  }
+
+  function updateRecentActionOffset(card, actionLine) {
+    if (!card || !actionLine) {
+      return;
+    }
+    const update = () => {
+      if (!card.isConnected) {
+        return;
+      }
+      const width = Math.ceil(actionLine.getBoundingClientRect().width);
+      card.style.setProperty('--x-nt-recent-action-offset', `${width}px`);
+    };
+    requestAnimationFrame(update);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(update).catch(() => {});
+    }
+    recentActionOffsetUpdaters.add(update);
+    if (!recentActionResizeBound) {
+      recentActionResizeBound = true;
+      window.addEventListener('resize', () => {
+        recentActionOffsetUpdaters.forEach((handler) => handler());
+      });
+    }
+    if (!recentActionObservers.has(actionLine)) {
+      const mutationObserver = new MutationObserver(() => update());
+      mutationObserver.observe(actionLine, {
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+      let resizeObserver = null;
+      if (typeof ResizeObserver === 'function') {
+        resizeObserver = new ResizeObserver(() => update());
+        resizeObserver.observe(actionLine);
+      }
+      recentActionObservers.set(actionLine, { mutationObserver, resizeObserver });
+    }
+  }
+
+  function buildRecentSiteCard(item, index) {
+    if (!item || !item.url) {
+      return null;
+    }
+    const host = item.host || getHostFromUrl(item.url) || '';
+    const siteName = getSiteDisplayName(host, item.title);
+    const titleText = item.title || siteName || item.url;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'x-nt-recent-card';
+    card.setAttribute('aria-label', `打开 ${titleText}`);
+    const themeSuggestion = { type: 'history', url: item.url, title: item.title || '' };
+    const immediateTheme = getImmediateThemeForSuggestion(themeSuggestion);
+    applyRecentCardTheme(card, immediateTheme, host);
+    getThemeForSuggestion(themeSuggestion).then((theme) => {
+      if (card.isConnected) {
+        applyRecentCardTheme(card, theme, host);
+      }
+    });
+
+    const inner = document.createElement('div');
+    inner.className = 'x-nt-recent-inner';
+    const header = document.createElement('div');
+    header.className = 'x-nt-recent-header';
+    const faviconImage = document.createElement('img');
+    faviconImage.className = 'x-nt-recent-favicon';
+    faviconImage.alt = siteName || '站点';
+    faviconImage.loading = 'lazy';
+    attachFaviconWithFallbacks(faviconImage, item.url, host);
+    const name = document.createElement('div');
+    name.className = 'x-nt-recent-name';
+    name.textContent = siteName;
+    name.title = siteName;
+    header.appendChild(faviconImage);
+    header.appendChild(name);
+
+    const title = document.createElement('div');
+    title.className = 'x-nt-recent-title';
+    title.textContent = titleText;
+    title.title = titleText;
+
+    const urlLine = document.createElement('div');
+    urlLine.className = 'x-nt-recent-url';
+    urlLine.textContent = getUrlDisplay(item.url);
+    urlLine.title = item.url;
+
+    const actionLine = document.createElement('div');
+    actionLine.className = 'x-nt-recent-action';
+    const actionText = document.createElement('span');
+    actionText.textContent = '访问';
+    const actionIcon = document.createElement('i');
+    actionIcon.className = 'hgi hgi-stroke hgi-link-circle';
+    actionLine.appendChild(actionText);
+    actionLine.appendChild(actionIcon);
+
+    inner.appendChild(header);
+    inner.appendChild(title);
+    card.appendChild(inner);
+    card.appendChild(urlLine);
+    card.appendChild(actionLine);
+    updateRecentActionOffset(card, actionLine);
+
+    card.addEventListener('click', () => {
+      navigateToUrl(item.url);
+    });
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        navigateToUrl(item.url);
+      }
+    });
+
+    return card;
   }
 
   function getAutocompleteCandidate(allSuggestions, rawQuery) {
@@ -1301,8 +1696,8 @@
     const template = provider && provider.template ? provider.template : '';
     try {
       const url = template.replace(/\{query\}/g, 'test');
-      const hostname = new URL(url).hostname;
-      return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+      const hostname = normalizeHost(new URL(url).hostname);
+      return getGoogleFaviconUrl(hostname);
     } catch (e) {
       return '';
     }
@@ -1388,34 +1783,12 @@
     return provider.name || provider.key || '站内';
   }
 
-  function getProviderHost(provider) {
-    if (!provider || !provider.template) {
-      return '';
-    }
-    try {
-      const url = provider.template.replace(/\{query\}/g, 'test');
-      return new URL(url).hostname.toLowerCase();
-    } catch (e) {
-      return '';
-    }
-  }
-
-  function normalizeHost(host) {
-    return String(host || '').toLowerCase().replace(/^www\./i, '');
-  }
-
   function suggestionMatchesProvider(suggestion, provider) {
     if (!suggestion || !provider || !suggestion.url) {
       return false;
     }
-    let suggestionHost = '';
-    try {
-      suggestionHost = new URL(suggestion.url).hostname;
-    } catch (e) {
-      return false;
-    }
-    const normalizedSuggestion = normalizeHost(suggestionHost);
-    const normalizedProvider = normalizeHost(getProviderHost(provider));
+    const normalizedSuggestion = getSuggestionHost(suggestion);
+    const normalizedProvider = getProviderHost(provider);
     if (!normalizedSuggestion || !normalizedProvider) {
       return false;
     }
@@ -1610,7 +1983,7 @@
     }
     try {
       const url = provider.template.replace(/\{query\}/g, 'test');
-      return new URL(url).hostname.toLowerCase();
+      return normalizeHost(new URL(url).hostname);
     } catch (e) {
       return '';
     }
@@ -1621,7 +1994,7 @@
       return '';
     }
     try {
-      return new URL(suggestion.url).hostname.toLowerCase();
+      return normalizeHost(new URL(suggestion.url).hostname);
     } catch (e) {
       return '';
     }
@@ -3547,5 +3920,7 @@
 
   root.appendChild(inputParts.container);
   root.appendChild(suggestionsContainer);
+  document.body.appendChild(recentSection);
+  loadRecentSites();
 
 })();

@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lumno</title>
+    <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css" />
     <style>
       html,
       body {
@@ -47,6 +48,28 @@
         --x-ext-input-underline: #e5e7eb;
         --x-ext-input-divider-inset: 24px;
         --x-ext-input-divider-opacity: 0.5;
+        --x-nt-recent-card-bg: #feecdc;
+        --x-nt-recent-card-bg-alt: #dcebfe;
+        --x-nt-recent-card-border: rgba(255, 255, 255, 0.1);
+        --x-nt-recent-inner-border: rgba(0, 0, 0, 0.1);
+        --x-nt-recent-card-shadow: 0 52px 15px 0 rgba(199, 199, 199, 0),
+          0 33px 13px 0 rgba(199, 199, 199, 0.01),
+          0 19px 11px 0 rgba(199, 199, 199, 0.05),
+          0 8px 8px 0 rgba(199, 199, 199, 0.09),
+          0 2px 5px 0 rgba(199, 199, 199, 0.1);
+        --x-nt-recent-card-shadow-hover: 0 70px 19px 0 rgba(199, 199, 199, 0),
+          0 44px 18px 0 rgba(199, 199, 199, 0.02),
+          0 25px 15px 0 rgba(199, 199, 199, 0.08),
+          0 11px 11px 0 rgba(199, 199, 199, 0.13),
+          0 3px 6px 0 rgba(199, 199, 199, 0.15);
+        --x-nt-recent-inner-shadow: 0 58px 16px 0 rgba(199, 199, 199, 0),
+          0 37px 15px 0 rgba(199, 199, 199, 0.01),
+          0 21px 12px 0 rgba(199, 199, 199, 0.05),
+          0 9px 9px 0 rgba(199, 199, 199, 0.09),
+          0 2px 5px 0 rgba(199, 199, 199, 0.1);
+        --x-nt-recent-title: #000000;
+        --x-nt-recent-url: rgba(0, 0, 0, 0.51);
+        --x-nt-recent-focus: rgba(0, 0, 0, 0.2);
       }
       body[data-theme="dark"] {
         --x-nt-bg: #111111;
@@ -73,6 +96,28 @@
         --x-ext-input-underline: rgba(255, 255, 255, 0.18);
         --x-ext-input-divider-inset: 24px;
         --x-ext-input-divider-opacity: 0.35;
+        --x-nt-recent-card-bg: #feecdc;
+        --x-nt-recent-card-bg-alt: #dcebfe;
+        --x-nt-recent-card-border: rgba(255, 255, 255, 0.1);
+        --x-nt-recent-inner-border: rgba(0, 0, 0, 0.1);
+        --x-nt-recent-card-shadow: 0 52px 15px 0 rgba(199, 199, 199, 0),
+          0 33px 13px 0 rgba(199, 199, 199, 0.01),
+          0 19px 11px 0 rgba(199, 199, 199, 0.05),
+          0 8px 8px 0 rgba(199, 199, 199, 0.09),
+          0 2px 5px 0 rgba(199, 199, 199, 0.1);
+        --x-nt-recent-card-shadow-hover: 0 70px 19px 0 rgba(199, 199, 199, 0),
+          0 44px 18px 0 rgba(199, 199, 199, 0.02),
+          0 25px 15px 0 rgba(199, 199, 199, 0.08),
+          0 11px 11px 0 rgba(199, 199, 199, 0.13),
+          0 3px 6px 0 rgba(199, 199, 199, 0.15);
+        --x-nt-recent-inner-shadow: 0 58px 16px 0 rgba(199, 199, 199, 0),
+          0 37px 15px 0 rgba(199, 199, 199, 0.01),
+          0 21px 12px 0 rgba(199, 199, 199, 0.05),
+          0 9px 9px 0 rgba(199, 199, 199, 0.09),
+          0 2px 5px 0 rgba(199, 199, 199, 0.1);
+        --x-nt-recent-title: #000000;
+        --x-nt-recent-url: rgba(0, 0, 0, 0.51);
+        --x-nt-recent-focus: rgba(0, 0, 0, 0.2);
       }
       #_x_extension_newtab_root_2024_unique_ {
         width: 90vw;
@@ -87,6 +132,187 @@
         -webkit-backdrop-filter: blur(var(--x-nt-panel-blur, 24px)) saturate(var(--x-nt-panel-saturate, 165%));
         padding: 8px;
         box-sizing: border-box;
+      }
+      #_x_extension_newtab_recent_sites_2024_unique_ {
+        width: min(96vw, 941px);
+        position: fixed;
+        left: 50%;
+        bottom: 84px;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        box-sizing: border-box;
+        gap: 20px;
+        z-index: 1;
+      }
+      #_x_extension_newtab_recent_sites_grid_2024_unique_ {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 11px;
+        box-sizing: border-box;
+      }
+      .x-nt-recent-heading {
+        font-size: 14px;
+        font-weight: 600;
+        color: #000000;
+        font-family: "PingFang SC", "PingFang SC Semibold", "PingFangSC-Semibold",
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        line-height: 1;
+      }
+      .x-nt-recent-card {
+        all: unset;
+        --x-nt-recent-card-color: var(--x-nt-recent-card-bg);
+        --x-nt-recent-action-offset: 0px;
+        --x-nt-recent-title-lines: 3;
+        display: flex;
+        flex-direction: column;
+        padding: 7px 7px 12px;
+        border-radius: 28px;
+        background: var(--x-nt-recent-card-color, var(--x-nt-recent-card-bg));
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-color: var(--x-nt-recent-card-border-color, rgba(0, 0, 0, 0.1));
+        box-shadow: var(--x-nt-recent-card-shadow);
+        cursor: pointer;
+        gap: 10px;
+        box-sizing: border-box;
+        position: relative;
+        transform-origin: center;
+        transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          box-shadow 220ms ease;
+        will-change: transform;
+      }
+      .x-nt-recent-card:hover {
+        box-shadow: var(--x-nt-recent-card-shadow-hover);
+        --x-nt-recent-title-lines: 4;
+        transform: rotate(-5deg) scale(1.04, 1.02);
+      }
+      .x-nt-recent-card--alt {
+        --x-nt-recent-card-color: var(--x-nt-recent-card-bg-alt);
+      }
+      .x-nt-recent-card:focus-visible {
+        outline: 2px solid var(--x-nt-recent-focus);
+        outline-offset: 2px;
+      }
+      .x-nt-recent-inner {
+        position: relative;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-color: var(--x-nt-recent-card-border-color, rgba(0, 0, 0, 0.1));
+        border-radius: 20px;
+        box-shadow: var(--x-nt-recent-inner-shadow);
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 25px 1fr;
+        column-gap: 7px;
+        row-gap: 3px;
+        padding: 13px 13px 10px 15px;
+        height: 98px;
+        box-sizing: border-box;
+        align-content: start;
+        align-items: start;
+        transition: height 220ms ease, transform 220ms ease, margin-bottom 220ms ease;
+      }
+      .x-nt-recent-card:hover .x-nt-recent-inner {
+        height: 118px;
+        transform: translateY(-20px);
+        margin-bottom: -20px;
+        background-image: linear-gradient(rgba(var(--x-nt-recent-inner-tint-rgb, 247, 232, 218), 0.28) 0%, rgba(var(--x-nt-recent-inner-tint-rgb, 247, 232, 218), 0) 100%),
+          linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%);
+      }
+      .x-nt-recent-header {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        grid-column: 1 / -1;
+      }
+      .x-nt-recent-favicon {
+        width: 25px;
+        height: 25px;
+        border-radius: 6px;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+      .x-nt-recent-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--x-nt-recent-title);
+        font-family: "PingFang SC", "PingFang SC Semibold", "PingFangSC-Regular",
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.1;
+      }
+      .x-nt-recent-title {
+        grid-column: 2 / -1;
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--x-nt-recent-title);
+        font-family: "PingFang SC", "PingFang SC Semibold", "PingFangSC-Regular",
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.25;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: var(--x-nt-recent-title-lines);
+        -webkit-box-orient: vertical;
+        white-space: pre-wrap;
+      }
+      .x-nt-recent-url {
+        margin: 0 10px;
+        font-size: 14px;
+        color: var(--x-nt-recent-url);
+        font-family: "PingFang SC", "PingFang SC Regular", "PingFangSC-Regular",
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        font-weight: 400;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-left: 0;
+        transition: padding-left 220ms ease;
+      }
+      .x-nt-recent-card:hover .x-nt-recent-url {
+        padding-left: var(--x-nt-recent-action-offset);
+      }
+      .x-nt-recent-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding-left: 6px;
+        font-size: 14px;
+        color: rgba(0, 0, 0, 0.5);
+        font-family: "PingFang SC", "PingFang SC Regular", "PingFangSC-Regular",
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.2;
+        position: absolute;
+        left: 10px;
+        bottom: 12px;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 220ms ease, transform 220ms ease;
+        pointer-events: none;
+      }
+      .x-nt-recent-card:hover .x-nt-recent-action {
+        max-height: 24px;
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .x-nt-recent-empty {
+        width: 100%;
+        text-align: center;
+        font-size: 13px;
+        color: var(--x-nt-subtext, #6b7280);
+        padding: 16px 0 8px;
+      }
+      @media (max-width: 860px) {
+        #_x_extension_newtab_recent_sites_grid_2024_unique_ {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 520px) {
+        #_x_extension_newtab_recent_sites_grid_2024_unique_ {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
