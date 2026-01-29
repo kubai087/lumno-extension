@@ -3420,6 +3420,7 @@ function toggleBlackRectangle(tabs) {
       setTimeout(cleanup, 220);
     }
 
+
     function renderTabSuggestions(tabList) {
       suggestionsContainer.innerHTML = '';
       suggestionItems.length = 0;
@@ -3490,17 +3491,19 @@ function toggleBlackRectangle(tabs) {
         // Create favicon
         const favicon = document.createElement('img');
         favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
-        favicon.src = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23E3E4E8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+        const fallbackIconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        favicon.src = tab.favIconUrl || fallbackIconSvg;
         favicon.decoding = 'async';
         favicon.loading = 'eager';
         favicon.referrerPolicy = 'no-referrer';
         if (index < 4) {
           favicon.fetchPriority = 'high';
         }
+        const isFallbackIcon = !tab.favIconUrl;
         favicon.style.cssText = `
           all: unset !important;
-          width: 16px !important;
-          height: 16px !important;
+          width: ${isFallbackIcon ? '18px' : '16px'} !important;
+          height: ${isFallbackIcon ? '18px' : '16px'} !important;
           border-radius: 2px !important;
           box-sizing: border-box !important;
           margin: 0 !important;
