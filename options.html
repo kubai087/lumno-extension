@@ -31,7 +31,7 @@
         inset: 0;
         pointer-events: none;
         z-index: 0;
-        opacity: 0.44;
+        opacity: 0.24;
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="2" stitchTiles="stitch"/></filter><rect width="96" height="96" filter="url(%23n)" opacity="1"/></svg>');
         background-repeat: repeat;
       }
@@ -124,7 +124,6 @@
         gap: 14px;
         box-sizing: border-box;
         position: relative;
-        overflow: hidden;
       }
       /* Dark mode subtle noise overlay for panel (tune opacity/URL as needed) */
       #_x_extension_settings_panel_2024_unique_[data-theme="dark"]::before {
@@ -134,6 +133,7 @@
         pointer-events: none;
         z-index: 0;
         opacity: 0.14;
+        border-radius: 22px;
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="1" seed="3" stitchTiles="stitch"/></filter><rect width="96" height="96" filter="url(%23n)" opacity="0.9"/></svg>');
         background-repeat: repeat;
       }
