@@ -16,6 +16,8 @@
   const siteSearchNameInput = document.getElementById('_x_extension_site_search_name_2024_unique_');
   const siteSearchTemplateInput = document.getElementById('_x_extension_site_search_template_2024_unique_');
   const siteSearchAliasInput = document.getElementById('_x_extension_site_search_alias_2024_unique_');
+  const siteSearchForm = document.querySelector('._x_extension_shortcut_form_2024_unique_');
+  const siteSearchFormTrigger = document.getElementById('_x_extension_site_search_expand_2024_unique_');
   const siteSearchAddButton = document.getElementById('_x_extension_site_search_add_2024_unique_');
   const siteSearchCancelButton = document.getElementById('_x_extension_site_search_cancel_2024_unique_');
   const siteSearchError = document.getElementById('_x_extension_site_search_error_2024_unique_');
@@ -37,6 +39,7 @@
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
+  const DEBUG_DUPLICATE_CUSTOM_KEY = 'dup';
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let mediaListenerAttached = false;
   let defaultSiteSearchProviders = [];
@@ -46,8 +49,11 @@
   let confirmResolver = null;
   let confirmOffset = { x: 0, y: 0 };
   let confirmClosingTimer = null;
+  let bodyFixedSnapshot = null;
+  let tooltipEl = null;
   let editingSiteSearchKey = null;
   let activePopconfirm = null;
+  let siteSearchFormExpanded = false;
   const fallbackSiteSearchProviders = [
     { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
     { key: 'bb', aliases: ['bilibili', 'bili'], name: 'Bilibili', template: 'https://search.bilibili.com/all?keyword={query}' },
@@ -108,6 +114,86 @@
       if (message) {
         node.setAttribute('placeholder', message);
       }
+    });
+    document.querySelectorAll('[data-i18n-tooltip]').forEach((node) => {
+      const key = node.getAttribute('data-i18n-tooltip');
+      if (!key) {
+        return;
+      }
+      const fallback = node.getAttribute('data-tooltip') || '';
+      const message = getMessage(key, fallback);
+      if (message) {
+        node.setAttribute('data-tooltip', message);
+        if (node.getAttribute('title')) {
+          node.setAttribute('title', message);
+        }
+        if (node.getAttribute('aria-label')) {
+          node.setAttribute('aria-label', message);
+        }
+      }
+    });
+  }
+
+  function ensureTooltipElement() {
+    if (tooltipEl) {
+      return tooltipEl;
+    }
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = '_x_extension_tooltip_2024_unique_';
+    tooltipEl.setAttribute('data-show', 'false');
+    document.body.appendChild(tooltipEl);
+    return tooltipEl;
+  }
+
+  function showTooltipFor(target) {
+    if (!target) {
+      return;
+    }
+    const text = target.getAttribute('data-tooltip');
+    if (!text) {
+      return;
+    }
+    const el = ensureTooltipElement();
+    el.textContent = text;
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = el.getBoundingClientRect();
+    const spacing = 8;
+    let top = rect.top - tooltipRect.height - spacing;
+    let left = rect.left + (rect.width - tooltipRect.width) / 2;
+    if (top < 8) {
+      top = rect.bottom + spacing;
+    }
+    if (left < 8) {
+      left = 8;
+    }
+    const maxLeft = window.innerWidth - tooltipRect.width - 8;
+    if (left > maxLeft) {
+      left = Math.max(8, maxLeft);
+    }
+    el.style.top = `${Math.round(top)}px`;
+    el.style.left = `${Math.round(left)}px`;
+    el.setAttribute('data-show', 'true');
+  }
+
+  function hideTooltip() {
+    if (!tooltipEl) {
+      return;
+    }
+    tooltipEl.setAttribute('data-show', 'false');
+  }
+
+  function initTooltips() {
+    const nodes = Array.from(document.querySelectorAll('[data-tooltip]'));
+    nodes.forEach((node) => {
+      if (node.dataset.tooltipBound === 'true') {
+        return;
+      }
+      node.dataset.tooltipBound = 'true';
+      node.classList.add('_x_extension_tooltip_host_2024_unique_');
+      node.addEventListener('mouseenter', () => showTooltipFor(node));
+      node.addEventListener('mouseleave', hideTooltip);
+      node.addEventListener('focus', () => showTooltipFor(node));
+      node.addEventListener('blur', hideTooltip);
     });
   }
 
@@ -289,6 +375,7 @@
     }, 2200);
   }
 
+  /*
   function showConfirm(message, trigger) {
     if (!confirmMask || !confirmMessage || !confirmOk || !confirmCancel || !confirmDialog) {
       return Promise.resolve(false);
@@ -299,7 +386,26 @@
     }
     confirmMessage.textContent = message;
     confirmMask.setAttribute('data-show', 'true');
-    document.body.style.overflow = 'hidden';
+    if (confirmDialog) {
+      confirmDialog.style.removeProperty('transform');
+      confirmDialog.style.removeProperty('opacity');
+    }
+    if (!bodyFixedSnapshot) {
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      bodyFixedSnapshot = {
+        position: document.body.style.position,
+        top: document.body.style.top,
+        left: document.body.style.left,
+        right: document.body.style.right,
+        width: document.body.style.width
+      };
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+      document.body.dataset._xScrollY = String(scrollY);
+    }
     const rect = trigger && trigger.getBoundingClientRect ? trigger.getBoundingClientRect() : null;
     const centerX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
     const centerY = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
@@ -333,7 +439,17 @@
         confirmDialog.style.removeProperty('transform');
         confirmDialog.style.removeProperty('opacity');
       }
-      document.body.style.overflow = '';
+      if (bodyFixedSnapshot) {
+        const restoreY = Number.parseFloat(document.body.dataset._xScrollY || '0') || 0;
+        document.body.style.position = bodyFixedSnapshot.position;
+        document.body.style.top = bodyFixedSnapshot.top;
+        document.body.style.left = bodyFixedSnapshot.left;
+        document.body.style.right = bodyFixedSnapshot.right;
+        document.body.style.width = bodyFixedSnapshot.width;
+        bodyFixedSnapshot = null;
+        delete document.body.dataset._xScrollY;
+        window.scrollTo(0, restoreY);
+      }
       confirmClosingTimer = null;
     }, 340);
     if (confirmResolver) {
@@ -341,12 +457,80 @@
       confirmResolver = null;
     }
   }
+  */
 
   function closeActivePopconfirm() {
     if (activePopconfirm) {
       activePopconfirm.setAttribute('data-open', 'false');
       activePopconfirm = null;
     }
+  }
+
+  function attachPopconfirm(trigger, messageKey, fallbackMessage, onConfirm) {
+    if (!trigger || !trigger.parentNode) {
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = '_x_extension_popconfirm_wrap_2024_unique_';
+    const popconfirm = document.createElement('div');
+    popconfirm.className = '_x_extension_popconfirm_2024_unique_';
+    popconfirm.setAttribute('data-open', 'false');
+    const popText = document.createElement('div');
+    popText.className = '_x_extension_popconfirm_text_2024_unique_';
+    popText.setAttribute('data-i18n', messageKey);
+    popText.textContent = getMessage(messageKey, fallbackMessage);
+    const popActions = document.createElement('div');
+    popActions.className = '_x_extension_popconfirm_actions_2024_unique_';
+    const popCancel = document.createElement('button');
+    popCancel.className = '_x_extension_shortcut_secondary_2024_unique_';
+    popCancel.setAttribute('data-i18n', 'confirm_cancel');
+    popCancel.textContent = getMessage('confirm_cancel', '取消');
+    const popOk = document.createElement('button');
+    popOk.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_';
+    popOk.setAttribute('data-i18n', 'confirm_ok');
+    popOk.textContent = getMessage('confirm_ok', '确认');
+    popActions.appendChild(popCancel);
+    popActions.appendChild(popOk);
+    popconfirm.appendChild(popText);
+    popconfirm.appendChild(popActions);
+    const parent = trigger.parentNode;
+    parent.insertBefore(wrap, trigger);
+    wrap.appendChild(trigger);
+    wrap.appendChild(popconfirm);
+
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (activePopconfirm && activePopconfirm !== popconfirm) {
+        closeActivePopconfirm();
+      }
+      const isOpen = popconfirm.getAttribute('data-open') === 'true';
+      if (isOpen) {
+        popconfirm.setAttribute('data-open', 'false');
+        activePopconfirm = null;
+      } else {
+        popconfirm.setAttribute('data-open', 'true');
+        activePopconfirm = popconfirm;
+      }
+    });
+
+    popCancel.addEventListener('click', (event) => {
+      event.stopPropagation();
+      popconfirm.setAttribute('data-open', 'false');
+      if (activePopconfirm === popconfirm) {
+        activePopconfirm = null;
+      }
+    });
+
+    popOk.addEventListener('click', (event) => {
+      event.stopPropagation();
+      popconfirm.setAttribute('data-open', 'false');
+      if (activePopconfirm === popconfirm) {
+        activePopconfirm = null;
+      }
+      if (typeof onConfirm === 'function') {
+        onConfirm();
+      }
+    });
   }
 
   function removeSiteSearchItem(key, isBuiltin) {
@@ -450,6 +634,11 @@
       content.setAttribute('data-active', isActive ? 'true' : 'false');
     });
     requestAnimationFrame(updateTabIndicator);
+    if (tabKey === 'appearance') {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(updateThemeIndicator);
+      });
+    }
     if (tabKey) {
       const nextHash = `#${tabKey}`;
       if (window.location.hash !== nextHash) {
@@ -542,6 +731,7 @@
   });
 
   applyLanguageMode('system');
+  initTooltips();
 
   function getInitialTabKey() {
     const hash = window.location.hash.replace('#', '').trim();
@@ -580,6 +770,14 @@
       .replace(/\{searchTerms\}/g, '{query}');
   }
 
+  function isDuplicateTemplate(template, defaults) {
+    const normalized = normalizeSiteSearchTemplate(String(template || '').trim());
+    if (!normalized) {
+      return false;
+    }
+    return (defaults || []).some((item) => normalizeSiteSearchTemplate(String(item.template || '').trim()) === normalized);
+  }
+
   function normalizeAliases(input) {
     if (!input) {
       return [];
@@ -605,18 +803,31 @@
     siteSearchError.style.display = 'block';
   }
 
+  function setSiteSearchFormExpanded(expanded) {
+    siteSearchFormExpanded = Boolean(expanded);
+    if (siteSearchForm) {
+      siteSearchForm.setAttribute('data-expanded', siteSearchFormExpanded ? 'true' : 'false');
+    }
+    if (siteSearchFormTrigger) {
+      siteSearchFormTrigger.setAttribute('aria-expanded', siteSearchFormExpanded ? 'true' : 'false');
+    }
+    if (siteSearchCancelButton) {
+      siteSearchCancelButton.style.display = siteSearchFormExpanded ? 'inline-flex' : 'none';
+      if (siteSearchCancelButton.textContent) {
+        siteSearchCancelButton.textContent = getMessage('shortcuts_cancel', siteSearchCancelButton.textContent);
+      }
+    }
+    if (siteSearchFormExpanded && siteSearchKeyInput) {
+      siteSearchKeyInput.focus();
+    }
+  }
+
   function setEditingState(key) {
     editingSiteSearchKey = key;
     if (siteSearchAddButton) {
       siteSearchAddButton.textContent = key
         ? getMessage('shortcuts_save', '保存修改')
         : getMessage('shortcuts_add', '添加站内搜索');
-    }
-    if (siteSearchCancelButton) {
-      siteSearchCancelButton.style.display = key ? 'inline-flex' : 'none';
-      if (siteSearchCancelButton.textContent) {
-        siteSearchCancelButton.textContent = getMessage('shortcuts_cancel', siteSearchCancelButton.textContent);
-      }
     }
   }
 
@@ -725,6 +936,17 @@
     }
   });
 
+  document.addEventListener('click', (event) => {
+    if (!activePopconfirm) {
+      return;
+    }
+    const wrap = activePopconfirm.closest('._x_extension_popconfirm_wrap_2024_unique_');
+    if (wrap && wrap.contains(event.target)) {
+      return;
+    }
+    closeActivePopconfirm();
+  });
+
   function resetSiteSearchForm() {
     if (siteSearchKeyInput) siteSearchKeyInput.value = '';
     if (siteSearchNameInput) siteSearchNameInput.value = '';
@@ -732,7 +954,10 @@
     if (siteSearchAliasInput) siteSearchAliasInput.value = '';
     setSiteSearchError('');
     setEditingState(null);
+    setSiteSearchFormExpanded(false);
   }
+
+  setSiteSearchFormExpanded(false);
 
   function renderSiteSearchList() {
     if (!siteSearchCustomList || !siteSearchBuiltinList) {
@@ -740,17 +965,24 @@
     }
     siteSearchCustomList.innerHTML = '';
     siteSearchBuiltinList.innerHTML = '';
+    const builtinRowByTemplate = new Map();
     const customKeys = new Set(customSiteSearchProviders.map((item) => String(item.key || '').toLowerCase()));
     const displayDefaults = defaultSiteSearchProviders.filter((item) => {
       const key = String(item.key || '').toLowerCase();
       return key && !customKeys.has(key) && !disabledSiteSearchKeys.has(key);
     });
+    const builtinTemplateSet = new Set(defaultSiteSearchProviders.map((item) => normalizeSiteSearchTemplate(String(item.template || '').trim())).filter(Boolean));
     const renderItem = (item, list) => {
       const row = document.createElement('div');
       row.className = '_x_extension_shortcut_item_2024_unique_';
       row.setAttribute('data-expanded', 'false');
       row.dataset.key = item.key || '';
       row.dataset.type = item._xIsCustom ? 'custom' : 'builtin';
+      const normalizedTemplate = normalizeSiteSearchTemplate(String(item.template || '').trim());
+      if (!item._xIsCustom && normalizedTemplate) {
+        row.dataset.template = normalizedTemplate;
+        builtinRowByTemplate.set(normalizedTemplate, row);
+      }
       const header = document.createElement('div');
       header.className = '_x_extension_shortcut_item_header_2024_unique_';
       const info = document.createElement('div');
@@ -765,6 +997,32 @@
       const titleText = document.createElement('span');
       titleText.textContent = item.name || item.key;
       title.appendChild(badge);
+      if (item._xIsCustom && normalizedTemplate && builtinTemplateSet.has(normalizedTemplate)) {
+        const duplicateTag = document.createElement('button');
+        duplicateTag.type = 'button';
+        duplicateTag.className = '_x_extension_shortcut_badge_2024_unique_ _x_extension_shortcut_badge_warn_2024_unique_';
+        duplicateTag.setAttribute('data-template', normalizedTemplate);
+        duplicateTag.setAttribute('title', getMessage('shortcuts_duplicate_action', '定位内置项'));
+        duplicateTag.setAttribute('aria-label', getMessage('shortcuts_duplicate_action', '定位内置项'));
+        duplicateTag.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 17h.01"/></svg>${getMessage('shortcuts_duplicate_tag', '与内置重复')}`;
+        duplicateTag.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const targetRow = builtinRowByTemplate.get(normalizedTemplate);
+          if (!targetRow) {
+            return;
+          }
+          targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          targetRow.removeAttribute('data-flash');
+          void targetRow.offsetWidth;
+          targetRow.setAttribute('data-flash', 'true');
+          const onFlashEnd = () => {
+            targetRow.removeAttribute('data-flash');
+            targetRow.removeEventListener('animationend', onFlashEnd);
+          };
+          targetRow.addEventListener('animationend', onFlashEnd);
+        });
+        title.appendChild(duplicateTag);
+      }
       title.appendChild(titleText);
       const meta = document.createElement('div');
       meta.className = '_x_extension_shortcut_item_meta_2024_unique_';
@@ -775,13 +1033,13 @@
       actions.className = '_x_extension_shortcut_item_actions_2024_unique_';
       const editButton = document.createElement('button');
       editButton.className = '_x_extension_shortcut_edit_2024_unique_';
-      editButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>${getMessage('shortcuts_edit', '编辑')}`;
+      editButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
       editButton.dataset.editKey = item.key || '';
       editButton.dataset.editType = item._xIsCustom ? 'custom' : 'builtin';
       actions.appendChild(editButton);
       const removeButton = document.createElement('button');
       removeButton.className = '_x_extension_shortcut_remove_2024_unique_';
-      removeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>`;
+      removeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>`;
       removeButton.setAttribute('aria-label', getMessage('shortcuts_remove', '移除'));
       actions.appendChild(removeButton);
       const popconfirm = document.createElement('div');
@@ -796,7 +1054,7 @@
       popCancel.className = '_x_extension_shortcut_secondary_2024_unique_';
       popCancel.textContent = getMessage('confirm_cancel', '取消');
       const popOk = document.createElement('button');
-      popOk.className = '_x_extension_shortcut_edit_2024_unique_';
+      popOk.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_';
       popOk.textContent = getMessage('confirm_ok', '确认');
       popActions.appendChild(popCancel);
       popActions.appendChild(popOk);
@@ -812,15 +1070,57 @@
       row.appendChild(header);
       const editor = document.createElement('div');
       editor.className = '_x_extension_shortcut_editor_2024_unique_';
+      const templateField = document.createElement('div');
+      templateField.className = '_x_extension_shortcut_field_2024_unique_';
+      const templateLabelRow = document.createElement('div');
+      templateLabelRow.className = '_x_extension_shortcut_label_row_2024_unique_';
+      const templateLabel = document.createElement('label');
+      templateLabel.className = '_x_extension_shortcut_label_2024_unique_';
+      const templateLabelText = document.createElement('span');
+      templateLabelText.setAttribute('data-i18n', 'shortcuts_label_template');
+      templateLabelText.textContent = getMessage('shortcuts_label_template', '搜索模板');
+      const templateRequired = document.createElement('span');
+      templateRequired.className = '_x_extension_shortcut_required_2024_unique_';
+      templateRequired.textContent = '*';
+      const templateHint = document.createElement('span');
+      templateHint.className = '_x_extension_shortcut_hint_2024_unique_ _x_extension_shortcut_group_action_2024_unique_';
+      templateHint.setAttribute('data-tooltip', getMessage(
+        'shortcuts_template_help',
+        '1.打开你想添加的网站\n2.输入任一搜索词，触发搜索\n3.将搜索结果页面 url 粘贴在此处\n4.将关键词替换为{query}'
+      ));
+      templateHint.setAttribute('aria-label', getMessage(
+        'shortcuts_template_help',
+        '1.打开你想添加的网站\n2.输入任一搜索词，触发搜索\n3.将搜索结果页面 url 粘贴在此处\n4.将关键词替换为{query}'
+      ));
+      templateHint.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 17h.01"/></svg>';
+      templateLabel.appendChild(templateLabelText);
+      templateLabel.appendChild(templateRequired);
+      templateLabelRow.appendChild(templateLabel);
+      templateLabelRow.appendChild(templateRequired);
+      templateLabelRow.appendChild(templateHint);
+      const templateInput = document.createElement('input');
+      templateInput.className = '_x_extension_shortcut_input_2024_unique_';
+      templateInput.value = item.template || '';
+      templateInput.disabled = !item._xIsCustom;
+      templateField.appendChild(templateLabelRow);
+      templateField.appendChild(templateInput);
+
       const keyField = document.createElement('div');
       keyField.className = '_x_extension_shortcut_field_2024_unique_';
       const keyLabel = document.createElement('label');
       keyLabel.className = '_x_extension_shortcut_label_2024_unique_';
-      keyLabel.textContent = getMessage('shortcuts_label_key', '触发词（例如 jd、bili）');
+      const keyLabelText = document.createElement('span');
+      keyLabelText.setAttribute('data-i18n', 'shortcuts_label_key');
+      keyLabelText.textContent = getMessage('shortcuts_label_key', '触发词');
+      const keyRequired = document.createElement('span');
+      keyRequired.className = '_x_extension_shortcut_required_2024_unique_';
+      keyRequired.textContent = '*';
+      keyLabel.appendChild(keyLabelText);
+      keyLabel.appendChild(keyRequired);
       const keyInput = document.createElement('input');
       keyInput.className = '_x_extension_shortcut_input_2024_unique_';
       keyInput.value = item.key || '';
-      keyInput.disabled = !item._xIsCustom;
+      keyInput.placeholder = getMessage('shortcuts_placeholder_required', '必填，如有多个用英文逗号分隔，如 jd,bili');
       keyField.appendChild(keyLabel);
       keyField.appendChild(keyInput);
 
@@ -832,35 +1132,33 @@
       const nameInput = document.createElement('input');
       nameInput.className = '_x_extension_shortcut_input_2024_unique_';
       nameInput.value = item.name || item.key || '';
+      nameInput.placeholder = getMessage('shortcuts_placeholder_optional_default', '选填，默认使用触发词');
       nameField.appendChild(nameLabel);
       nameField.appendChild(nameInput);
-
-      const templateField = document.createElement('div');
-      templateField.className = '_x_extension_shortcut_field_2024_unique_';
-      const templateLabel = document.createElement('label');
-      templateLabel.className = '_x_extension_shortcut_label_2024_unique_';
-      templateLabel.textContent = getMessage('shortcuts_label_template', '搜索模板（必须包含 {query}）');
-      const templateInput = document.createElement('input');
-      templateInput.className = '_x_extension_shortcut_input_2024_unique_';
-      templateInput.value = item.template || '';
-      templateField.appendChild(templateLabel);
-      templateField.appendChild(templateInput);
 
       const aliasField = document.createElement('div');
       aliasField.className = '_x_extension_shortcut_field_2024_unique_';
       const aliasLabel = document.createElement('label');
       aliasLabel.className = '_x_extension_shortcut_label_2024_unique_';
-      aliasLabel.textContent = getMessage('shortcuts_label_alias', '别名（逗号分隔）');
+      const aliasLabelText = document.createElement('span');
+      aliasLabelText.setAttribute('data-i18n', 'shortcuts_label_alias');
+      aliasLabelText.textContent = getMessage('shortcuts_label_alias', '别名');
+      const aliasRequired = document.createElement('span');
+      aliasRequired.className = '_x_extension_shortcut_required_2024_unique_';
+      aliasRequired.textContent = '*';
+      aliasLabel.appendChild(aliasLabelText);
+      aliasLabel.appendChild(aliasRequired);
       const aliasInput = document.createElement('input');
       aliasInput.className = '_x_extension_shortcut_input_2024_unique_';
       aliasInput.value = Array.isArray(item.aliases) ? item.aliases.join(',') : '';
+      aliasInput.placeholder = getMessage('shortcuts_placeholder_alias', '选填，例如 小破站、油管等');
       aliasField.appendChild(aliasLabel);
       aliasField.appendChild(aliasInput);
 
       const editorActions = document.createElement('div');
       editorActions.className = '_x_extension_shortcut_editor_actions_2024_unique_';
       const saveButton = document.createElement('button');
-      saveButton.className = '_x_extension_shortcut_submit_2024_unique_';
+      saveButton.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_';
       saveButton.textContent = getMessage('shortcuts_save', '保存修改');
       const cancelButton = document.createElement('button');
       cancelButton.className = '_x_extension_shortcut_secondary_2024_unique_';
@@ -894,11 +1192,14 @@
         if (previousKey && previousKey !== normalizedKey) {
           next = next.filter((entry) => String(entry.key || '').toLowerCase() !== previousKey);
         }
+        const shouldDisable = isDuplicateTemplate(template, defaultSiteSearchProviders);
         next.unshift({
           key: nextKeyRaw,
           name: String(nameInput.value || '').trim() || nextKeyRaw,
           template: template,
-          aliases: aliases
+          aliases: aliases,
+          disabled: shouldDisable,
+          disabledReason: shouldDisable ? 'duplicate' : ''
         });
         disabledSiteSearchKeys.delete(normalizedKey);
         Promise.all([
@@ -914,9 +1215,9 @@
         });
       });
 
+      editor.appendChild(templateField);
       editor.appendChild(keyField);
       editor.appendChild(nameField);
-      editor.appendChild(templateField);
       editor.appendChild(aliasField);
       editor.appendChild(editorActions);
       row.appendChild(editor);
@@ -952,10 +1253,7 @@
       list.appendChild(row);
     };
     if (customSiteSearchProviders.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = '_x_extension_settings_placeholder_2024_unique_';
-      empty.textContent = getMessage('shortcuts_empty_custom', '暂未添加自定义站内搜索');
-      siteSearchCustomList.appendChild(empty);
+      // 保留虚线添加框即可
     } else {
       customSiteSearchProviders.forEach((item) => {
         renderItem({ ...item, _xIsCustom: true }, siteSearchCustomList);
@@ -971,6 +1269,7 @@
         renderItem({ ...item, _xIsCustom: false }, siteSearchBuiltinList);
       });
     }
+    initTooltips();
   }
 
   function loadDefaultSiteSearchProviders() {
@@ -1068,15 +1367,34 @@
       defaultSiteSearchProviders = fallbackSiteSearchProviders.slice();
       renderSiteSearchList();
     }
-    Promise.all([loadDefaultSiteSearchProviders(), loadCustomSiteSearchProviders(), loadDisabledSiteSearchKeys()])
-      .then(([defaults, custom, disabled]) => {
+    Promise.all([
+      loadDefaultSiteSearchProviders(),
+      loadCustomSiteSearchProviders(),
+      loadDisabledSiteSearchKeys()
+    ]).then(([defaults, custom, disabled]) => {
       defaultSiteSearchProviders = defaults;
       const filteredCustom = filterRedundantCustomProviders(defaults, custom);
-      customSiteSearchProviders = filteredCustom;
-      if (filteredCustom.length !== (custom || []).length) {
-        saveCustomSiteSearchProviders(filteredCustom);
-      }
+      const withoutDebug = filteredCustom.filter((item) => String(item.key || '').toLowerCase() !== DEBUG_DUPLICATE_CUSTOM_KEY);
+      const didFilter = filteredCustom.length !== (custom || []).length;
+      const didRemoveDebug = withoutDebug.length !== filteredCustom.length;
+      let nextCustom = withoutDebug.map((item) => {
+        const shouldDisable = isDuplicateTemplate(item.template, defaults);
+        return {
+          ...item,
+          disabled: shouldDisable,
+          disabledReason: shouldDisable ? 'duplicate' : ''
+        };
+      });
+      const didUpdateDisabled = nextCustom.some((item, index) => {
+        const before = filteredCustom[index] || {};
+        return Boolean(before.disabled) !== Boolean(item.disabled) ||
+          String(before.disabledReason || '') !== String(item.disabledReason || '');
+      });
+      customSiteSearchProviders = nextCustom;
       disabledSiteSearchKeys = new Set(disabled || []);
+      if (didFilter || didUpdateDisabled || didRemoveDebug) {
+        saveCustomSiteSearchProviders(nextCustom);
+      }
       const filteredBase = defaultSiteSearchProviders.filter((item) => {
         const key = String(item && item.key ? item.key : '').toLowerCase();
         return key && !disabledSiteSearchKeys.has(key);
@@ -1095,17 +1413,18 @@
 
   function handleSiteSearchListClick(event) {
       const target = event.target;
-      if (!target || !target.dataset) {
+      if (!target) {
         return;
       }
-      if (target.dataset.editKey) {
-        const key = String(target.dataset.editKey);
-        const isBuiltin = target.dataset.editType === 'builtin';
+      const editTarget = target.closest ? target.closest('button[data-edit-key]') : null;
+      if (editTarget) {
+        const key = String(editTarget.dataset.editKey || '');
+        const isBuiltin = editTarget.dataset.editType === 'builtin';
         const match = isBuiltin
           ? defaultSiteSearchProviders.find((item) => String(item.key || '') === key)
           : customSiteSearchProviders.find((item) => String(item.key || '') === key);
         if (match) {
-          const row = target.closest('._x_extension_shortcut_item_2024_unique_');
+          const row = editTarget.closest('._x_extension_shortcut_item_2024_unique_');
           if (row) {
             row.setAttribute('data-expanded', row.getAttribute('data-expanded') === 'true' ? 'false' : 'true');
           }
@@ -1143,8 +1462,18 @@
     });
   }
 
+  if (siteSearchFormTrigger) {
+    siteSearchFormTrigger.addEventListener('click', () => {
+      setSiteSearchFormExpanded(true);
+    });
+  }
+
   if (siteSearchAddButton) {
     siteSearchAddButton.addEventListener('click', function() {
+      if (!siteSearchFormExpanded) {
+        setSiteSearchFormExpanded(true);
+        return;
+      }
       setSiteSearchError('');
       const key = String(siteSearchKeyInput ? siteSearchKeyInput.value : '').trim();
       const name = String(siteSearchNameInput ? siteSearchNameInput.value : '').trim();
@@ -1183,17 +1512,17 @@
         customSiteSearchProviders = next;
         renderSiteSearchList();
         resetSiteSearchForm();
+        showToast(getMessage('toast_saved', '已保存'), false);
       });
     });
   }
 
   if (builtinResetButton) {
-    builtinResetButton.addEventListener('click', () => {
-      showConfirm(getMessage('confirm_reset_builtin', '确认重置内置列表？'), builtinResetButton)
-        .then((confirmed) => {
-        if (!confirmed) {
-          return;
-        }
+    attachPopconfirm(
+      builtinResetButton,
+      'confirm_reset_builtin',
+      '确认重置内置列表？',
+      () => {
         Promise.all([loadDefaultSiteSearchProviders(), loadCustomSiteSearchProviders()]).then(([defaults, custom]) => {
           const defaultKeys = new Set((defaults || []).map((item) => String(item.key || '').toLowerCase()));
           const filteredCustom = (custom || []).filter((item) => {
@@ -1214,17 +1543,16 @@
         }).catch(() => {
           showToast(getMessage('toast_error', '操作失败，请重试'), true);
         });
-      });
-    });
+      }
+    );
   }
 
   if (customClearButton) {
-    customClearButton.addEventListener('click', () => {
-      showConfirm(getMessage('confirm_clear_custom', '确认清空自定义搜索？'), customClearButton)
-        .then((confirmed) => {
-        if (!confirmed) {
-          return;
-        }
+    attachPopconfirm(
+      customClearButton,
+      'confirm_clear_custom',
+      '确认清空自定义搜索？',
+      () => {
         saveCustomSiteSearchProviders([]).then(() => {
           customSiteSearchProviders = [];
           renderSiteSearchList();
@@ -1232,10 +1560,11 @@
         }).catch(() => {
           showToast(getMessage('toast_error', '操作失败，请重试'), true);
         });
-      });
-    });
+      }
+    );
   }
 
+  /*
   if (confirmOk) {
     confirmOk.addEventListener('click', () => closeConfirm(true));
   }
@@ -1245,10 +1574,11 @@
   if (confirmMask) {
     confirmMask.addEventListener('click', (event) => {
       if (event.target === confirmMask) {
-        closeConfirm(false);
+        closeConfirm(false));
       }
     });
   }
+  */
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local' ||

@@ -1457,11 +1457,7 @@
     if (chromeFavicon) {
       img.src = chromeFavicon;
       if (googleFavicon) {
-        requestFaviconData(googleFavicon).then((dataUrl) => {
-          if (dataUrl) {
-            preloadThemeFromFavicon(googleFavicon, dataUrl, hostKey);
-          }
-        });
+        attachFaviconData(img, googleFavicon, hostKey);
       }
       return;
     }

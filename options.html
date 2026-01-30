@@ -9,6 +9,7 @@
       html,
       body {
         height: 100%;
+        scrollbar-gutter: stable;
       }
       body {
         margin: 0;
@@ -47,16 +48,32 @@
       }
       #_x_extension_options_root_2024_unique_ {
         width: 100%;
-        max-width: 720px;
+        max-width: 760px;
+        min-width: 760px;
+      }
+      @media (max-width: 760px) {
+        #_x_extension_options_root_2024_unique_ {
+          min-width: 0;
+          max-width: 100%;
+        }
       }
       #_x_extension_settings_panel_2024_unique_ {
         --panel-bg: #ffffff;
         --panel-border: rgba(0, 0, 0, 0.08);
         --panel-text: #111827;
         --panel-subtext: #6b7280;
+        --input-focus-color: rgba(59, 130, 246, 0.65);
+        --input-focus-shadow: rgba(59, 130, 246, 0.2);
+        --input-placeholder: rgba(100, 116, 139, 0.7);
+        --input-focus-bg: rgba(59, 130, 246, 0.08);
         --select-hover-bg: rgba(15, 23, 42, 0.08);
         --select-selected-bg: #111827;
         --select-selected-text: #f9fafb;
+        --duplicate-badge-bg: rgba(239, 68, 68, 0.12);
+        --duplicate-badge-border: rgba(239, 68, 68, 0.35);
+        --duplicate-badge-text: #b91c1c;
+        --duplicate-flash: rgba(239, 68, 68, 0.75);
+        --shortcut-form-border: rgba(15, 23, 42, 0.16);
         --tab-bg: rgba(15, 23, 42, 0.04);
         --tab-active-bg: #ffffff;
         --tab-active-text: #0f172a;
@@ -80,9 +97,18 @@
         --panel-border: rgba(255, 255, 255, 0.08);
         --panel-text: #e5e7eb;
         --panel-subtext: #9ca3af;
+        --input-focus-color: rgba(191, 219, 254, 0.7);
+        --input-focus-shadow: rgba(59, 130, 246, 0.3);
+        --input-placeholder: rgba(148, 163, 184, 0.7);
+        --input-focus-bg: rgba(59, 130, 246, 0.12);
         --select-hover-bg: rgba(255, 255, 255, 0.08);
         --select-selected-bg: rgba(255, 255, 255, 0.84);
         --select-selected-text: #111827;
+        --duplicate-badge-bg: rgba(248, 113, 113, 0.16);
+        --duplicate-badge-border: rgba(248, 113, 113, 0.5);
+        --duplicate-badge-text: #fecaca;
+        --duplicate-flash: rgba(248, 113, 113, 0.75);
+        --shortcut-form-border: rgba(255, 255, 255, 0.14);
         --tab-bg: rgba(255, 255, 255, 0.08);
         --tab-active-bg: rgba(255, 255, 255, 0.84);
         --tab-active-text: #111827;
@@ -248,11 +274,11 @@
         gap: 8px;
       }
       ._x_extension_shortcut_group_title_2024_unique_ {
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 600;
-        color: var(--panel-subtext);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+        color: var(--panel-text);
+        text-transform: none;
+        letter-spacing: 0;
       }
       ._x_extension_shortcut_group_header_2024_unique_ {
         display: flex;
@@ -284,11 +310,38 @@
         padding: 4px 8px;
         border-radius: 8px;
         font-size: 11px;
-        white-space: nowrap;
+        white-space: pre-line;
+        max-width: 260px;
+        line-height: 1.4;
         opacity: 0;
         pointer-events: none;
         transform: translateY(4px);
         transition: opacity 120ms ease, transform 120ms ease;
+        z-index: 3;
+      }
+      ._x_extension_tooltip_host_2024_unique_[data-tooltip]::after {
+        content: none !important;
+      }
+      ._x_extension_tooltip_2024_unique_ {
+        position: fixed;
+        max-width: 260px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.92);
+        color: #f9fafb;
+        font-size: 11px;
+        line-height: 1.4;
+        white-space: pre-line;
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+        z-index: 9999;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 120ms ease, transform 120ms ease;
+      }
+      ._x_extension_tooltip_2024_unique_[data-show="true"] {
+        opacity: 1;
+        transform: translateY(0);
       }
       ._x_extension_shortcut_group_action_2024_unique_[data-tooltip]:hover::after {
         opacity: 1;
@@ -347,6 +400,14 @@
       ._x_extension_shortcut_item_2024_unique_[data-expanded="true"] ._x_extension_shortcut_item_actions_2024_unique_ {
         display: none;
       }
+      ._x_extension_shortcut_item_2024_unique_[data-expanded="true"] {
+        /* box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); */
+        border-color: rgba(15, 23, 42, 0.14);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_item_2024_unique_[data-expanded="true"] {
+        /* box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); */
+        border-color: rgba(255, 255, 255, 0.28);
+      }
       ._x_extension_shortcut_badge_2024_unique_ {
         display: inline-flex;
         align-items: center;
@@ -356,6 +417,34 @@
         border: 1px solid var(--tab-border);
         color: var(--panel-subtext);
         background: var(--tab-bg);
+      }
+      ._x_extension_shortcut_badge_warn_2024_unique_ {
+        gap: 4px;
+        background: var(--duplicate-badge-bg);
+        border-color: var(--duplicate-badge-border);
+        color: var(--duplicate-badge-text);
+        cursor: pointer;
+      }
+      ._x_extension_shortcut_badge_warn_2024_unique_ svg {
+        width: 12px;
+        height: 12px;
+      }
+      ._x_extension_shortcut_item_2024_unique_[data-flash="true"] {
+        animation: _x_extension_duplicate_flash_2024_unique_ 1.8s ease-in-out 1;
+      }
+      @keyframes _x_extension_duplicate_flash_2024_unique_ {
+        0% {
+          border-color: var(--tab-border);
+          box-shadow: none;
+        }
+        55% {
+          border-color: var(--duplicate-flash);
+          box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+        }
+        100% {
+          border-color: var(--tab-border);
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        }
       }
       ._x_extension_shortcut_editor_2024_unique_ {
         display: flex;
@@ -388,12 +477,14 @@
         font-size: 11px;
         font-weight: 600;
         border-radius: 999px;
-        border: 1px solid var(--tab-border);
+        border: none;
         color: var(--panel-text);
         background: transparent;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        margin-top: 2px;
+        margin-right: 2px;
       }
       ._x_extension_popconfirm_wrap_2024_unique_ {
         position: relative;
@@ -420,9 +511,10 @@
         z-index: 2;
       }
       #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_popconfirm_2024_unique_ {
-        background: #0b1120;
+        background: #1e1e1e;
         border-color: rgba(148, 163, 184, 0.2);
         color: #e5e7eb;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
       }
       ._x_extension_popconfirm_2024_unique_[data-open="true"] {
         opacity: 1;
@@ -448,17 +540,22 @@
         font-size: 11px;
         font-weight: 600;
         border-radius: 999px;
-        border: 1px solid rgba(37, 99, 235, 0.35);
-        color: #1d4ed8;
-        background: rgba(37, 99, 235, 0.12);
+        border: none;
+        color: var(--panel-text);
+        background: transparent;
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        margin-top: 2px;
+        margin-right: 2px;
       }
       #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_edit_2024_unique_ {
-        border-color: rgba(59, 130, 246, 0.45);
-        color: #bfdbfe;
-        background: rgba(59, 130, 246, 0.18);
+        color: var(--panel-text);
+        background: transparent;
+      }
+      ._x_extension_shortcut_edit_2024_unique_:hover,
+      ._x_extension_shortcut_remove_2024_unique_:hover {
+        background: var(--tab-bg);
       }
       ._x_extension_shortcut_form_2024_unique_ {
         display: flex;
@@ -466,7 +563,69 @@
         gap: 10px;
         padding: 12px 14px;
         border-radius: 14px;
-        border: 1px dashed var(--tab-border);
+        border: 1px dashed var(--shortcut-form-border);
+        min-height: 56px;
+        justify-content: center;
+        overflow: hidden;
+        max-height: 56px;
+        transition: max-height 220ms ease;
+        position: relative;
+      }
+      ._x_extension_shortcut_form_2024_unique_[data-expanded="false"] {
+        border-color: rgba(15, 23, 42, 0.1);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_form_2024_unique_[data-expanded="false"] {
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+      ._x_extension_shortcut_form_2024_unique_[data-expanded="true"] {
+        /* box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); */
+        border-color: rgba(15, 23, 42, 0.28);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_form_2024_unique_[data-expanded="true"] {
+        /* box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); */
+        border-color: rgba(255, 255, 255, 0.28);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_form_2024_unique_[data-expanded="true"] {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      ._x_extension_shortcut_form_2024_unique_[data-expanded="true"] {
+        justify-content: flex-start;
+        max-height: 560px;
+      }
+      ._x_extension_shortcut_form_trigger_2024_unique_ {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: opacity 160ms ease;
+        z-index: 0;
+      }
+      ._x_extension_shortcut_form_fields_2024_unique_ {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-6px);
+        overflow: hidden;
+        pointer-events: none;
+        transition: max-height 220ms ease, opacity 180ms ease, transform 220ms ease;
+        position: relative;
+        z-index: 1;
+      }
+      ._x_extension_shortcut_form_2024_unique_[data-expanded="true"] ._x_extension_shortcut_form_trigger_2024_unique_ {
+        opacity: 0;
+        pointer-events: none;
+        visibility: hidden;
+      }
+      ._x_extension_shortcut_form_2024_unique_[data-expanded="true"] ._x_extension_shortcut_form_fields_2024_unique_ {
+        max-height: 560px;
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+        overflow: visible;
       }
       ._x_extension_toast_2024_unique_ {
         position: fixed;
@@ -516,7 +675,7 @@
         gap: 14px;
         transform: translate(0, 0) scale(1);
         opacity: 1;
-        transition: transform 320ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 280ms ease;
+        transition: transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 360ms ease;
       }
       #_x_extension_settings_panel_2024_unique_[data-theme="dark"] + ._x_extension_confirm_mask_2024_unique_ ._x_extension_confirm_dialog_2024_unique_,
       body[data-theme="dark"] ._x_extension_confirm_dialog_2024_unique_ {
@@ -548,6 +707,31 @@
         font-size: 12px;
         color: var(--panel-subtext);
       }
+      ._x_extension_shortcut_required_2024_unique_ {
+        color: #ef4444;
+        margin-left: 2px;
+      }
+      ._x_extension_shortcut_label_row_2024_unique_ {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      ._x_extension_shortcut_hint_2024_unique_ {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 4px;
+        border-radius: 8px;
+        color: var(--panel-subtext);
+        background: transparent;
+      }
+      ._x_extension_shortcut_hint_2024_unique_:hover {
+        background: var(--tab-bg);
+      }
+      ._x_extension_shortcut_hint_2024_unique_ svg {
+        width: 14px;
+        height: 14px;
+      }
       ._x_extension_shortcut_input_2024_unique_ {
         padding: 8px 10px;
         border-radius: 10px;
@@ -556,6 +740,30 @@
         color: var(--panel-text);
         font-size: 13px;
         font-family: inherit;
+        transition: border-color 180ms ease, background-color 200ms ease;
+      }
+      ._x_extension_shortcut_input_2024_unique_:disabled {
+        cursor: not-allowed;
+        background: rgba(148, 163, 184, 0.18);
+        border-color: rgba(148, 163, 184, 0.4);
+        color: rgba(100, 116, 139, 0.8);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_input_2024_unique_:disabled {
+        background: rgba(15, 23, 42, 0.35);
+        border-color: rgba(148, 163, 184, 0.25);
+        color: rgba(148, 163, 184, 0.7);
+      }
+      ._x_extension_shortcut_input_2024_unique_::placeholder {
+        color: var(--input-placeholder);
+      }
+      ._x_extension_shortcut_input_2024_unique_:hover {
+        border-color: var(--input-focus-color);
+        background: var(--input-focus-bg);
+      }
+      ._x_extension_shortcut_input_2024_unique_:focus {
+        outline: none;
+        border-color: var(--input-focus-color);
+        background: var(--input-focus-bg);
       }
       #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_input_2024_unique_ {
         background: rgba(255, 255, 255, 0.06);
@@ -570,6 +778,16 @@
         color: var(--tab-active-text);
         font-size: 12px;
         font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      ._x_extension_shortcut_form_trigger_2024_unique_ ._x_extension_shortcut_submit_2024_unique_ {
+        align-self: center;
+      }
+      ._x_extension_shortcut_submit_2024_unique_:focus-visible {
+        outline: 2px solid rgba(59, 130, 246, 0.45);
+        outline-offset: 2px;
       }
       ._x_extension_shortcut_secondary_2024_unique_ {
         all: unset;
@@ -577,16 +795,42 @@
         align-self: flex-start;
         padding: 8px 14px;
         border-radius: 999px;
-        border: 1px solid var(--tab-border);
+        border: none;
         color: var(--panel-text);
         font-size: 12px;
         font-weight: 600;
-        background: transparent;
+        background: var(--tab-bg);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_secondary_2024_unique_ {
+        background: var(--tab-bg);
+        color: var(--panel-text);
       }
       ._x_extension_shortcut_actions_row_2024_unique_ {
         display: inline-flex;
         gap: 8px;
         align-items: center;
+        justify-content: flex-end;
+        width: 100%;
+      }
+      ._x_extension_shortcut_submit_primary_2024_unique_ {
+        background: #111827;
+        color: #f9fafb;
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_submit_primary_2024_unique_ {
+        background: var(--tab-active-bg);
+        color: var(--tab-active-text);
+        border: none;
+      }
+      ._x_extension_shortcut_form_trigger_2024_unique_ ._x_extension_shortcut_submit_2024_unique_ {
+        background: transparent;
+        color: var(--panel-text);
+        box-shadow: none;
+      }
+      ._x_extension_shortcut_form_trigger_2024_unique_ ._x_extension_shortcut_submit_2024_unique_:hover {
+        background: var(--tab-bg);
       }
       ._x_extension_shortcut_error_2024_unique_ {
         font-size: 12px;
@@ -824,28 +1068,47 @@
               </div>
               <div id="_x_extension_site_search_custom_list_2024_unique_" class="_x_extension_shortcut_list_2024_unique_"></div>
             </div>
-            <div class="_x_extension_shortcut_form_2024_unique_">
-              <div class="_x_extension_shortcut_field_2024_unique_">
-                <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_key_2024_unique_" data-i18n="shortcuts_label_key">触发词（例如 jd、bili）</label>
-                <input id="_x_extension_site_search_key_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="必填" data-i18n-placeholder="shortcuts_placeholder_required" />
+            <div class="_x_extension_shortcut_form_2024_unique_" data-expanded="false">
+              <div class="_x_extension_shortcut_form_trigger_2024_unique_">
+                <button id="_x_extension_site_search_expand_2024_unique_" class="_x_extension_shortcut_submit_2024_unique_">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  <span data-i18n="shortcuts_add">添加站内搜索</span>
+                </button>
               </div>
-              <div class="_x_extension_shortcut_field_2024_unique_">
-                <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_name_2024_unique_" data-i18n="shortcuts_label_name">显示名称</label>
-                <input id="_x_extension_site_search_name_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="可选，默认使用触发词" data-i18n-placeholder="shortcuts_placeholder_optional_default" />
+              <div class="_x_extension_shortcut_form_fields_2024_unique_">
+                <div class="_x_extension_shortcut_field_2024_unique_">
+                  <div class="_x_extension_shortcut_label_row_2024_unique_">
+                    <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_template_2024_unique_">
+                      <span data-i18n="shortcuts_label_template">搜索模板</span><span class="_x_extension_shortcut_required_2024_unique_">*</span>
+                    </label>
+                    <span class="_x_extension_shortcut_hint_2024_unique_ _x_extension_shortcut_group_action_2024_unique_" data-i18n-tooltip="shortcuts_template_help" data-tooltip="1.打开你想添加的网站&#10;2.输入任一搜索词，触发搜索&#10;3.将搜索结果页面 url 粘贴在此处&#10;4.将关键词替换为{query}" aria-label="模板说明" role="img">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 17h.01"/></svg>
+                    </span>
+                  </div>
+                  <input id="_x_extension_site_search_template_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="https://example.com/search?q={query}" data-i18n-placeholder="shortcuts_placeholder_template" />
+                </div>
+                <div class="_x_extension_shortcut_field_2024_unique_">
+                  <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_key_2024_unique_">
+                    <span data-i18n="shortcuts_label_key">触发词</span><span class="_x_extension_shortcut_required_2024_unique_">*</span>
+                  </label>
+                  <input id="_x_extension_site_search_key_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="必填，如有多个用英文逗号分隔，如 jd,bili" data-i18n-placeholder="shortcuts_placeholder_required" />
+                </div>
+                <div class="_x_extension_shortcut_field_2024_unique_">
+                  <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_name_2024_unique_" data-i18n="shortcuts_label_name">显示名称</label>
+                  <input id="_x_extension_site_search_name_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="选填，默认使用触发词" data-i18n-placeholder="shortcuts_placeholder_optional_default" />
+                </div>
+                <div class="_x_extension_shortcut_field_2024_unique_">
+                  <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_alias_2024_unique_">
+                    <span data-i18n="shortcuts_label_alias">别名</span><span class="_x_extension_shortcut_required_2024_unique_">*</span>
+                  </label>
+                  <input id="_x_extension_site_search_alias_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="选填，例如 小破站、油管等" data-i18n-placeholder="shortcuts_placeholder_alias" />
+                </div>
+                <div class="_x_extension_shortcut_actions_row_2024_unique_">
+                  <button id="_x_extension_site_search_cancel_2024_unique_" class="_x_extension_shortcut_secondary_2024_unique_" style="display:none;" data-i18n="shortcuts_cancel">取消编辑</button>
+                  <button id="_x_extension_site_search_add_2024_unique_" class="_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_" data-i18n="shortcuts_add">添加站内搜索</button>
+                </div>
+                <div id="_x_extension_site_search_error_2024_unique_" class="_x_extension_shortcut_error_2024_unique_" style="display:none;"></div>
               </div>
-              <div class="_x_extension_shortcut_field_2024_unique_">
-                <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_template_2024_unique_" data-i18n="shortcuts_label_template">搜索模板（必须包含 {query}）</label>
-                <input id="_x_extension_site_search_template_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="https://example.com/search?q={query}" data-i18n-placeholder="shortcuts_placeholder_template" />
-              </div>
-              <div class="_x_extension_shortcut_field_2024_unique_">
-                <label class="_x_extension_shortcut_label_2024_unique_" for="_x_extension_site_search_alias_2024_unique_" data-i18n="shortcuts_label_alias">别名（逗号分隔）</label>
-                <input id="_x_extension_site_search_alias_2024_unique_" class="_x_extension_shortcut_input_2024_unique_" placeholder="可选，例如 taobao,tb" data-i18n-placeholder="shortcuts_placeholder_alias" />
-              </div>
-              <div class="_x_extension_shortcut_actions_row_2024_unique_">
-                <button id="_x_extension_site_search_add_2024_unique_" class="_x_extension_shortcut_submit_2024_unique_" data-i18n="shortcuts_add">添加站内搜索</button>
-                <button id="_x_extension_site_search_cancel_2024_unique_" class="_x_extension_shortcut_secondary_2024_unique_" style="display:none;" data-i18n="shortcuts_cancel">取消编辑</button>
-              </div>
-              <div id="_x_extension_site_search_error_2024_unique_" class="_x_extension_shortcut_error_2024_unique_" style="display:none;"></div>
             </div>
             <div class="_x_extension_shortcut_group_2024_unique_">
               <div class="_x_extension_shortcut_group_header_2024_unique_">
@@ -861,15 +1124,17 @@
       </div>
     </div>
     <div id="_x_extension_toast_2024_unique_" class="_x_extension_toast_2024_unique_"></div>
+    <!--
     <div id="_x_extension_confirm_mask_2024_unique_" class="_x_extension_confirm_mask_2024_unique_">
       <div class="_x_extension_confirm_dialog_2024_unique_">
         <div id="_x_extension_confirm_message_2024_unique_" class="_x_extension_confirm_message_2024_unique_"></div>
         <div class="_x_extension_confirm_actions_2024_unique_">
           <button id="_x_extension_confirm_cancel_2024_unique_" class="_x_extension_shortcut_secondary_2024_unique_">取消</button>
-          <button id="_x_extension_confirm_ok_2024_unique_" class="_x_extension_shortcut_edit_2024_unique_">确认</button>
+          <button id="_x_extension_confirm_ok_2024_unique_" class="_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_">确认</button>
         </div>
       </div>
     </div>
+    -->
     <script src="options.js"></script>
   </body>
 </html>

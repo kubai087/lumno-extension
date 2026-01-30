@@ -337,6 +337,9 @@ function mergeCustomProviders(baseItems, customItems) {
   const merged = [];
   const seen = new Set();
   customItems.forEach((item) => {
+    if (item && item.disabled) {
+      return;
+    }
     const key = String(item.key || '').toLowerCase();
     if (!key || seen.has(key)) {
       return;
@@ -2767,6 +2770,9 @@ function toggleBlackRectangle(tabs) {
       const merged = [];
       const seen = new Set();
       (customItems || []).forEach((item) => {
+        if (item && item.disabled) {
+          return;
+        }
         const key = String(item && item.key ? item.key : '').toLowerCase();
         if (!key || seen.has(key)) {
           return;
