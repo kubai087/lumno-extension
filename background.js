@@ -1121,8 +1121,8 @@ function toggleBlackRectangle(tabs) {
       left: 50% !important;
       transform: translateX(-50%) translateY(10px) scale(0.985) !important;
       transform-origin: top center !important;
-      width: 50vw !important;
-      max-width: 90vw !important;
+      width: 760px !important;
+      max-width: calc(100vw - 24px) !important;
       max-height: 75vh !important;
       background: var(--x-ov-bg, rgba(255, 255, 255, 0.82)) !important;
       backdrop-filter: blur(var(--x-ov-blur, 24px)) saturate(var(--x-ov-saturate, 165%)) !important;
@@ -1204,8 +1204,12 @@ function toggleBlackRectangle(tabs) {
     const overlayThemeStyle = document.createElement('style');
     overlayThemeStyle.id = '_x_extension_overlay_theme_style_2024_unique_';
     overlayThemeStyle.textContent = `
+      #_x_extension_search_input_2024_unique_ {
+        text-align: left !important;
+      }
       #_x_extension_search_input_2024_unique_::placeholder {
         color: var(--x-ov-placeholder, #9CA3AF) !important;
+        text-align: left !important;
       }
       #_x_extension_search_input_2024_unique_::selection {
         background: #CFE8FF !important;

@@ -38,6 +38,7 @@
       text-decoration: none !important;
       list-style: none !important;
       display: block !important;
+      text-align: left !important;
       cursor: text !important;
       vertical-align: baseline !important;
       caret-color: var(--x-ext-input-caret, #7DB7FF) !important;
