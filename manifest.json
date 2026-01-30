@@ -31,7 +31,8 @@
          "matches": [ "\u003Call_urls>" ]
       }
    ],
-   "manifest_version": 3,
+  "manifest_version": 3,
+  "default_locale": "zh_CN",
    "name": "Lumno",
    "author": "Kubai087",
    "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks", "storage" ],

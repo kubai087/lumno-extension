@@ -137,7 +137,7 @@
         box-sizing: border-box;
       }
       #_x_extension_newtab_recent_sites_2024_unique_ {
-        width: min(96vw, 941px);
+        width: min(96vw, 1040px);
         position: fixed;
         left: 50%;
         bottom: 84px;
@@ -153,7 +153,8 @@
         width: 100%;
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 11px;
+        column-gap: 12px;
+        row-gap: 16px;
         box-sizing: border-box;
       }
       .x-nt-recent-heading {
@@ -261,6 +262,9 @@
         font-family: "PingFang SC", "PingFang SC Semibold", "PingFangSC-Regular",
           -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
         line-height: 1.1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .x-nt-recent-title {
         grid-column: 2 / -1;

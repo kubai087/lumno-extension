@@ -114,6 +114,18 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       sendResponse({ items: items });
     });
     return true;
+  } else if (request.action === 'getLocaleMessages') {
+    const locale = normalizeLocaleForMessages(request.locale);
+    const localePath = chrome.runtime.getURL(`_locales/${locale}/messages.json`);
+    fetch(localePath)
+      .then((response) => response.json())
+      .then((messages) => {
+        sendResponse({ messages: messages || {} });
+      })
+      .catch(() => {
+        sendResponse({ messages: {} });
+      });
+    return true;
   } else if (request.action === 'openOptionsPage') {
     if (chrome.runtime.openOptionsPage) {
       chrome.runtime.openOptionsPage();
@@ -147,6 +159,7 @@ let shortcutRulesPromise = null;
 let siteSearchCache = null;
 let siteSearchPromise = null;
 const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
+const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
 const FAVICON_GOOGLE_SIZE = 128;
 const faviconDataCache = new Map();
 const faviconPending = new Map();
@@ -179,6 +192,24 @@ function normalizeHost(hostname) {
     return 'feishu.cn';
   }
   return stripped;
+}
+
+function normalizeLocaleForMessages(locale) {
+  const raw = String(locale || '').trim();
+  if (!raw) {
+    return 'en';
+  }
+  const lower = raw.toLowerCase();
+  if (lower.startsWith('zh')) {
+    if (lower.includes('hk')) {
+      return 'zh_HK';
+    }
+    if (lower.includes('tw') || lower.includes('mo') || lower.includes('hant')) {
+      return 'zh_TW';
+    }
+    return 'zh_CN';
+  }
+  return 'en';
 }
 
 function isLocalNetworkHost(hostname) {
@@ -291,6 +322,17 @@ function loadCustomSiteSearchProviders() {
   });
 }
 
+function loadDisabledSiteSearchKeys() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+      const items = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
+        ? result[SITE_SEARCH_DISABLED_STORAGE_KEY]
+        : [];
+      resolve(items.map((item) => String(item).toLowerCase()).filter(Boolean));
+    });
+  });
+}
+
 function mergeCustomProviders(baseItems, customItems) {
   const merged = [];
   const seen = new Set();
@@ -388,11 +430,16 @@ function loadSiteSearchProviders() {
     .catch(() => []);
   siteSearchPromise = siteSearchPromise.then((localItems) => {
     return localItems;
-  }).then((items) => loadCustomSiteSearchProviders().then((customItems) => {
-    const merged = mergeCustomProviders(items, customItems);
-    siteSearchCache = merged;
-    return merged;
-  })).catch(() => {
+  }).then((items) => Promise.all([loadCustomSiteSearchProviders(), loadDisabledSiteSearchKeys()])
+    .then(([customItems, disabledKeys]) => {
+      const filteredBase = items.filter((item) => {
+        const key = String(item && item.key ? item.key : '').toLowerCase();
+        return key && !disabledKeys.includes(key);
+      });
+      const merged = mergeCustomProviders(filteredBase, customItems);
+      siteSearchCache = merged;
+      return merged;
+    })).catch(() => {
     return loadCustomSiteSearchProviders().then((customItems) => {
       siteSearchCache = customItems;
       return customItems;
@@ -421,7 +468,8 @@ function loadShortcutRules() {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local' || !changes[SITE_SEARCH_STORAGE_KEY]) {
+  if (areaName !== 'local' ||
+      (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
     return;
   }
   siteSearchCache = null;
@@ -894,15 +942,128 @@ async function getSearchSuggestions(query) {
 function toggleBlackRectangle(tabs) {
   let captureTabHandler = null;
   let overlayThemeStorageListener = null;
+  let overlayLanguageStorageListener = null;
   let overlayThemeMediaListener = null;
   let siteSearchStorageListener = null;
   let keydownHandler = null;
   let clickOutsideHandler = null;
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
+  const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
+  const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
   const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let overlayThemeMode = 'system';
   let overlayThemeListenerAttached = false;
   let modeBadge = null;
+  let overlayLanguageMode = 'system';
+  let currentMessages = null;
+  let defaultPlaceholderText = '搜索或输入网址...';
+  let lastSuggestionResponse = [];
+
+  function normalizeLocale(locale) {
+    const raw = String(locale || '').trim();
+    if (!raw) {
+      return 'en';
+    }
+    const lower = raw.toLowerCase();
+    if (lower.startsWith('zh')) {
+      if (lower.includes('hk')) {
+        return 'zh_HK';
+      }
+      if (lower.includes('tw') || lower.includes('mo') || lower.includes('hant')) {
+        return 'zh_TW';
+      }
+      return 'zh_CN';
+    }
+    return 'en';
+  }
+
+  function getSystemLocale() {
+    if (chrome && chrome.i18n && chrome.i18n.getUILanguage) {
+      return normalizeLocale(chrome.i18n.getUILanguage());
+    }
+    return normalizeLocale(navigator.language || 'en');
+  }
+
+  function loadLocaleMessages(locale) {
+    const normalized = normalizeLocale(locale);
+    if (!chrome || !chrome.runtime || typeof chrome.runtime.getURL !== 'function') {
+      return Promise.resolve({});
+    }
+    const localePath = chrome.runtime.getURL(`_locales/${normalized}/messages.json`);
+    if (!localePath || localePath.startsWith('chrome-extension://invalid/')) {
+      return new Promise((resolve) => {
+        if (!chrome.runtime.sendMessage) {
+          resolve({});
+          return;
+        }
+        chrome.runtime.sendMessage({ action: 'getLocaleMessages', locale: normalized }, (response) => {
+          resolve((response && response.messages) || {});
+        });
+      });
+    }
+    return fetch(localePath)
+      .then((response) => response.json())
+      .catch(() => new Promise((resolve) => {
+        if (!chrome.runtime.sendMessage) {
+          resolve({});
+          return;
+        }
+        chrome.runtime.sendMessage({ action: 'getLocaleMessages', locale: normalized }, (response) => {
+          resolve((response && response.messages) || {});
+        });
+      }));
+  }
+
+  function t(key, fallback) {
+    if (currentMessages && currentMessages[key] && currentMessages[key].message) {
+      return currentMessages[key].message;
+    }
+    if (chrome && chrome.i18n && chrome.i18n.getMessage) {
+      const message = chrome.i18n.getMessage(key);
+      if (message) {
+        return message;
+      }
+    }
+    return fallback || '';
+  }
+
+  function formatMessage(key, fallback, params) {
+    let text = t(key, fallback);
+    if (!params) {
+      return text;
+    }
+    Object.keys(params).forEach((token) => {
+      const value = params[token];
+      text = text.replace(new RegExp(`\\{${token}\\}`, 'g'), value);
+    });
+    return text;
+  }
+
+  function isLocalNetworkHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    if (!host) {
+      return false;
+    }
+    if (host === 'localhost' || host.endsWith('.local')) {
+      return true;
+    }
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+      const parts = host.split('.').map((part) => Number(part));
+      if (parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
+        return false;
+      }
+      if (parts[0] === 10 || parts[0] === 127) {
+        return true;
+      }
+      if (parts[0] === 192 && parts[1] === 168) {
+        return true;
+      }
+      if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) {
+        return true;
+      }
+    }
+    return false;
+  }
   // Helper function to remove overlay and clean up styles
   function removeOverlay(overlayElement) {
     if (overlayElement) {
@@ -924,6 +1085,10 @@ function toggleBlackRectangle(tabs) {
     if (overlayThemeStorageListener) {
       chrome.storage.onChanged.removeListener(overlayThemeStorageListener);
       overlayThemeStorageListener = null;
+    }
+    if (overlayLanguageStorageListener) {
+      chrome.storage.onChanged.removeListener(overlayLanguageStorageListener);
+      overlayLanguageStorageListener = null;
     }
     if (overlayThemeMediaListener) {
       overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
@@ -1054,7 +1219,7 @@ function toggleBlackRectangle(tabs) {
     }
 
     const inputParts = window._x_extension_createSearchInput_2024_unique_({
-      placeholder: '搜索或输入网址...',
+      placeholder: t('search_placeholder', defaultPlaceholderText),
       inputId: '_x_extension_search_input_2024_unique_',
       iconId: '_x_extension_search_icon_2024_unique_',
       containerId: '_x_extension_input_container_2024_unique_',
@@ -1099,28 +1264,73 @@ function toggleBlackRectangle(tabs) {
 
     const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
+    function applyLanguageStrings() {
+      if (searchInput) {
+        defaultPlaceholderText = t('search_placeholder', defaultPlaceholderText);
+        if (!siteSearchState) {
+          searchInput.placeholder = defaultPlaceholderText;
+        }
+      }
+      if (modeBadge) {
+        updateModeBadge(searchInput ? searchInput.value : '');
+      }
+      if (siteSearchState) {
+        setSiteSearchPrefix(siteSearchState);
+        updateSiteSearchPrefixLayout();
+      }
+      if (latestOverlayQuery) {
+        updateSearchSuggestions(lastSuggestionResponse, latestOverlayQuery);
+      } else if (Array.isArray(tabs) && tabs.length > 0) {
+        renderTabSuggestions(tabs);
+      }
+    }
+
+    function applyLanguageMode(mode) {
+      overlayLanguageMode = mode || 'system';
+      const targetLocale = overlayLanguageMode === 'system'
+        ? getSystemLocale()
+        : normalizeLocale(overlayLanguageMode);
+      if (chrome && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get([LANGUAGE_MESSAGES_STORAGE_KEY], (result) => {
+          const payload = result[LANGUAGE_MESSAGES_STORAGE_KEY];
+          if (payload && payload.locale === targetLocale && payload.messages) {
+            currentMessages = payload.messages || {};
+            applyLanguageStrings();
+            return;
+          }
+          loadLocaleMessages(targetLocale).then((messages) => {
+            currentMessages = messages || {};
+            applyLanguageStrings();
+          });
+        });
+        return;
+      }
+      loadLocaleMessages(targetLocale).then((messages) => {
+        currentMessages = messages || {};
+        applyLanguageStrings();
+      });
+    }
+
     function getThemeModeLabel(mode) {
       if (mode === 'dark') {
-        return '深色';
+        return t('theme_label_dark', '深色');
       }
       if (mode === 'light') {
-        return '浅色';
+        return t('theme_label_light', '浅色');
       }
-      return '跟随系统';
+      return t('theme_label_system', '跟随系统');
     }
 
     const commandDefinitions = [
       {
         type: 'commandNewTab',
         primary: '/new',
-        aliases: ['/n', '/newtab', '/nt'],
-        title: '新建标签页'
+        aliases: ['/n', '/newtab', '/nt']
       },
       {
         type: 'commandSettings',
         primary: '/settings',
-        aliases: ['/set', '/settings', '/s'],
-        title: `打开 ${extensionName} 设置`
+        aliases: ['/set', '/settings', '/s']
       }
     ];
 
@@ -1146,9 +1356,17 @@ function toggleBlackRectangle(tabs) {
     }
 
     function buildCommandSuggestion(command) {
+      let titleText = '';
+      if (command.type === 'commandSettings') {
+        titleText = formatMessage('command_settings', `打开 ${extensionName} 设置`, {
+          name: extensionName
+        });
+      } else {
+        titleText = t('command_newtab', '新建标签页');
+      }
       return {
         type: command.type,
-        title: command.title,
+        title: titleText,
         url: '',
         commandText: command.primary,
         commandAliases: command.aliases || []
@@ -1167,13 +1385,19 @@ function toggleBlackRectangle(tabs) {
       if (overlayThemeMode === 'system') {
         const pageTheme = detectPageTheme();
         if (pageTheme) {
-          modeBadge.textContent = `模式：${getThemeModeLabel(pageTheme)}（跟随网站）`;
+          modeBadge.textContent = formatMessage('mode_badge_follow_site', '模式：{mode}（跟随网站）', {
+            mode: getThemeModeLabel(pageTheme)
+          });
         } else {
           const systemResolved = overlayMediaQuery.matches ? 'dark' : 'light';
-          modeBadge.textContent = `模式：${getThemeModeLabel(systemResolved)}（跟随系统）`;
+          modeBadge.textContent = formatMessage('mode_badge_follow_system', '模式：{mode}（跟随系统）', {
+            mode: getThemeModeLabel(systemResolved)
+          });
         }
       } else {
-        modeBadge.textContent = `模式：${getThemeModeLabel(overlayThemeMode)}`;
+        modeBadge.textContent = formatMessage('mode_badge', '模式：{mode}', {
+          mode: getThemeModeLabel(overlayThemeMode)
+        });
       }
       modeBadge.style.setProperty('display', 'inline-flex', 'important');
     }
@@ -1196,7 +1420,10 @@ function toggleBlackRectangle(tabs) {
       const nextMode = getNextThemeMode(overlayThemeMode || 'system');
       return {
         type: 'modeSwitch',
-        title: `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`,
+        title: formatMessage('mode_switch_title', `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`, {
+          name: extensionName,
+          mode: getThemeModeLabel(nextMode)
+        }),
         url: '',
         favicon: chrome.runtime.getURL('lumno.png'),
         nextMode: nextMode
@@ -1578,6 +1805,29 @@ function toggleBlackRectangle(tabs) {
       applyOverlayTheme(changes[THEME_STORAGE_KEY].newValue || 'system');
     };
     chrome.storage.onChanged.addListener(overlayThemeStorageListener);
+
+    chrome.storage.local.get([LANGUAGE_STORAGE_KEY], (result) => {
+      applyLanguageMode(result[LANGUAGE_STORAGE_KEY] || 'system');
+    });
+    overlayLanguageStorageListener = (changes, areaName) => {
+      if (areaName !== 'local') {
+        return;
+      }
+      if (changes[LANGUAGE_STORAGE_KEY]) {
+        applyLanguageMode(changes[LANGUAGE_STORAGE_KEY].newValue || 'system');
+      }
+      if (changes[LANGUAGE_MESSAGES_STORAGE_KEY]) {
+        const payload = changes[LANGUAGE_MESSAGES_STORAGE_KEY].newValue;
+        const targetLocale = overlayLanguageMode === 'system'
+          ? getSystemLocale()
+          : normalizeLocale(overlayLanguageMode);
+        if (payload && payload.locale === targetLocale && payload.messages) {
+          currentMessages = payload.messages || {};
+          applyLanguageStrings();
+        }
+      }
+    };
+    chrome.storage.onChanged.addListener(overlayLanguageStorageListener);
 
     function isOverlayDarkMode() {
       return overlay && overlay.getAttribute('data-theme') === 'dark';
@@ -2297,7 +2547,9 @@ function toggleBlackRectangle(tabs) {
     }
 
     function setSiteSearchPrefix(provider, theme) {
-      const prefixText = `在 ${getSiteSearchDisplayName(provider)} 中搜索｜`;
+      const prefixText = formatMessage('search_in_site_prefix', '在 {site} 中搜索｜', {
+        site: getSiteSearchDisplayName(provider)
+      });
       siteSearchPrefix.textContent = prefixText;
       siteSearchPrefix.style.setProperty('display', 'inline-flex', 'important');
       const resolvedTheme = theme ? getThemeForMode(theme) : null;
@@ -2551,6 +2803,14 @@ function toggleBlackRectangle(tabs) {
           resolve(items);
         });
       });
+      const disabledFallback = new Promise((resolve) => {
+        chrome.storage.local.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+          const items = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
+            ? result[SITE_SEARCH_DISABLED_STORAGE_KEY]
+            : [];
+          resolve(items.map((item) => String(item).toLowerCase()).filter(Boolean));
+        });
+      });
       return new Promise((resolve) => {
         chrome.runtime.sendMessage({ action: 'getSiteSearchProviders' }, (response) => {
           const items = response && Array.isArray(response.items) ? response.items : [];
@@ -2559,9 +2819,14 @@ function toggleBlackRectangle(tabs) {
             resolve(items);
             return;
           }
-          Promise.all([localFallback, customFallback]).then(([localItems, customItems]) => {
+          Promise.all([localFallback, customFallback, disabledFallback])
+            .then(([localItems, customItems, disabledKeys]) => {
             const baseItems = localItems.length > 0 ? localItems : defaultSiteSearchProviders;
-            const merged = mergeCustomProvidersLocal(baseItems, customItems);
+            const filteredBase = baseItems.filter((item) => {
+              const key = String(item && item.key ? item.key : '').toLowerCase();
+              return key && !disabledKeys.includes(key);
+            });
+            const merged = mergeCustomProvidersLocal(filteredBase, customItems);
             siteSearchProvidersCache = merged;
             resolve(merged);
           });
@@ -2572,14 +2837,19 @@ function toggleBlackRectangle(tabs) {
     getSiteSearchProviders();
 
     siteSearchStorageListener = (changes, areaName) => {
-      if (areaName !== 'local' || !changes[SITE_SEARCH_STORAGE_KEY]) {
+      if (areaName !== 'local' ||
+          (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
         return;
       }
-      chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+      chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY, SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
         const customItems = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
-        const baseItems = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
-          ? siteSearchProvidersCache
-          : defaultSiteSearchProviders;
+        const disabledKeys = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
+          ? result[SITE_SEARCH_DISABLED_STORAGE_KEY].map((item) => String(item).toLowerCase()).filter(Boolean)
+          : [];
+        const baseItems = defaultSiteSearchProviders.filter((item) => {
+          const key = String(item && item.key ? item.key : '').toLowerCase();
+          return key && !disabledKeys.includes(key);
+        });
         siteSearchProvidersCache = mergeCustomProvidersLocal(baseItems, customItems);
         if (latestOverlayQuery) {
           chrome.runtime.sendMessage({
@@ -2599,9 +2869,9 @@ function toggleBlackRectangle(tabs) {
 
     function getSiteSearchDisplayName(provider) {
       if (!provider) {
-        return '站内';
+        return t('site_search_default', '站内');
       }
-      return provider.name || provider.key || '站内';
+      return provider.name || provider.key || t('site_search_default', '站内');
     }
 
     function getProviderHost(provider) {
@@ -3559,7 +3829,7 @@ function toggleBlackRectangle(tabs) {
         // Create title
         const title = document.createElement('span');
         title.id = `_x_extension_title_${index}_2024_unique_`;
-        title.textContent = tab.title || '无标题';
+        title.textContent = tab.title || t('untitled', '无标题');
         title.style.cssText = `
           all: unset !important;
           color: var(--x-ov-text, #111827) !important;
@@ -3584,7 +3854,7 @@ function toggleBlackRectangle(tabs) {
         // Create switch button
         const switchButton = document.createElement('button');
         switchButton.id = `_x_extension_switch_button_${index}_2024_unique_`;
-        switchButton.innerHTML = '切换到标签页 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+        switchButton.innerHTML = `${t('switch_to_tab', '切换到标签页')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
         switchButton.style.cssText = `
           all: unset !important;
           background: transparent !important;
@@ -3752,14 +4022,14 @@ function toggleBlackRectangle(tabs) {
           const targetUrl = `${scheme}${rule.path}`;
           matches.push({
             type: 'browserPage',
-            title: `打开 ${targetUrl}`,
+            title: formatMessage('open_url', '打开 {url}', { url: targetUrl }),
             url: targetUrl,
             favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
           });
         } else if (rule.type === 'url' && rule.url) {
           matches.push({
             type: 'browserPage',
-            title: `打开 ${rule.url}`,
+            title: formatMessage('open_url', '打开 {url}', { url: rule.url }),
             url: rule.url,
             favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
           });
@@ -3785,7 +4055,7 @@ function toggleBlackRectangle(tabs) {
       }
       return {
         type: 'directUrl',
-        title: `打开 ${targetUrl}`,
+        title: formatMessage('open_url', '打开 {url}', { url: targetUrl }),
         url: targetUrl,
         favicon: ''
       };
@@ -3842,6 +4112,7 @@ function toggleBlackRectangle(tabs) {
       if (query !== latestOverlayQuery) {
         return;
       }
+      lastSuggestionResponse = Array.isArray(suggestions) ? suggestions : [];
       const rawTagInput = (latestRawInputValue || query || '').trim();
       const modeCommandActive = isModeCommand(rawTagInput);
       if (modeCommandActive) {
@@ -3859,7 +4130,9 @@ function toggleBlackRectangle(tabs) {
         ? null
         : {
           type: 'newtab',
-          title: `搜索 "${query}"`,
+          title: formatMessage('search_query', '搜索 "{query}"', {
+            query: query
+          }),
           url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
           favicon: ''
         };
@@ -3950,7 +4223,9 @@ function toggleBlackRectangle(tabs) {
           if (inlineUrl) {
             inlineSuggestion = {
               type: 'inlineSiteSearch',
-              title: `在 ${getSiteSearchDisplayName(inlineCandidate.provider)} 中搜索`,
+              title: formatMessage('search_in_site', '在 {site} 中搜索', {
+                site: getSiteSearchDisplayName(inlineCandidate.provider)
+              }),
               url: inlineUrl,
               favicon: getProviderIcon(inlineCandidate.provider),
               provider: inlineCandidate.provider
@@ -3967,7 +4242,10 @@ function toggleBlackRectangle(tabs) {
           if (siteUrl) {
             allSuggestions.unshift({
               type: 'siteSearch',
-              title: `在 ${getSiteSearchDisplayName(siteSearchState)} 中搜索 "${query}"`,
+              title: formatMessage('search_in_site_query', '在 {site} 中搜索 "{query}"', {
+                site: getSiteSearchDisplayName(siteSearchState),
+                query: query
+              }),
               url: siteUrl,
               favicon: getProviderIcon(siteSearchState),
               provider: siteSearchState
@@ -3996,7 +4274,9 @@ function toggleBlackRectangle(tabs) {
           if (siteSearchTrigger && !topSiteMatch) {
             siteSearchPrompt = {
               type: 'siteSearchPrompt',
-              title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
+              title: formatMessage('search_in_site', '在 {site} 中搜索', {
+                site: getSiteSearchDisplayName(siteSearchTrigger)
+              }),
               url: '',
               favicon: getProviderIcon(siteSearchTrigger),
               provider: siteSearchTrigger
@@ -4602,13 +4882,13 @@ function toggleBlackRectangle(tabs) {
             ((siteSearchTrigger && (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch)) ||
               isMergedHighlight);
           if (shouldShowEnterTag) {
-            actionTags.appendChild(createActionTag('访问', 'Enter'));
+            actionTags.appendChild(createActionTag(t('visit_label', '访问'), 'Enter'));
           }
           if (shouldShowSiteSearchTag) {
-            actionTags.appendChild(createActionTag('搜索', 'Tab'));
+            actionTags.appendChild(createActionTag(t('action_search', '搜索'), 'Tab'));
           }
           if (isPrimaryHighlight && onlyKeywordSuggestions && suggestion.type === 'newtab') {
-            actionTags.appendChild(createActionTag('在 Google 中搜索', 'Enter'));
+            actionTags.appendChild(createActionTag(t('action_search_google', '在 Google 中搜索'), 'Enter'));
           }
 
           // Create visit button
@@ -4641,19 +4921,19 @@ function toggleBlackRectangle(tabs) {
           }
           
           if (suggestion.type === 'newtab') {
-            visitButton.innerHTML = '在 Google 中搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+            visitButton.innerHTML = `${t('action_search_google', '在 Google 中搜索')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'commandNewTab') {
-            visitButton.innerHTML = '新建标签页 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+            visitButton.innerHTML = `${t('command_newtab', '新建标签页')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'commandSettings') {
-            visitButton.innerHTML = `打开 ${extensionName} 设置 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${formatMessage('command_settings', `打开 ${extensionName} 设置`, { name: extensionName })} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'siteSearch') {
-            visitButton.innerHTML = '搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+            visitButton.innerHTML = `${t('action_search', '搜索')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
-            visitButton.innerHTML = '打开 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+            visitButton.innerHTML = `${t('action_open', '打开')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'googleSuggest') {
-            visitButton.innerHTML = '在 Google 中搜索 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+            visitButton.innerHTML = `${t('action_search_google', '在 Google 中搜索')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else {
-            visitButton.innerHTML = '访问 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+            visitButton.innerHTML = `${t('visit_label', '访问')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           }
           
           // Add hover effects
@@ -4799,6 +5079,7 @@ function toggleBlackRectangle(tabs) {
     function clearSearchSuggestions() {
       inlineSearchState = null;
       siteSearchTriggerState = null;
+      lastSuggestionResponse = [];
       if (Array.isArray(tabs) && tabs.length > 0) {
         renderTabSuggestions(tabs);
       }

@@ -7,12 +7,19 @@
   root.style.setProperty('padding', '8px', 'important');
 
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
+  const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
+  const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
+  const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let mediaListenerAttached = false;
   let currentThemeMode = 'system';
   let modeBadge = null;
   const recentCards = [];
   const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
+  let currentMessages = null;
+  let currentLanguageMode = 'system';
+  let defaultPlaceholderText = '搜索或输入网址...';
+  let currentRecentCount = 4;
 
   function resolveTheme(mode) {
     if (mode === 'dark') {
@@ -22,6 +29,120 @@
       return 'light';
     }
     return mediaQuery.matches ? 'dark' : 'light';
+  }
+
+  function normalizeLocale(locale) {
+    const raw = String(locale || '').trim();
+    if (!raw) {
+      return 'en';
+    }
+    const lower = raw.toLowerCase();
+    if (lower.startsWith('zh')) {
+      if (lower.includes('hk')) {
+        return 'zh_HK';
+      }
+      if (lower.includes('tw') || lower.includes('mo') || lower.includes('hant')) {
+        return 'zh_TW';
+      }
+      return 'zh_CN';
+    }
+    return 'en';
+  }
+
+  function getSystemLocale() {
+    if (chrome && chrome.i18n && chrome.i18n.getUILanguage) {
+      return normalizeLocale(chrome.i18n.getUILanguage());
+    }
+    return normalizeLocale(navigator.language || 'en');
+  }
+
+  function loadLocaleMessages(locale) {
+    const normalized = normalizeLocale(locale);
+    const localePath = chrome.runtime.getURL(`_locales/${normalized}/messages.json`);
+    return fetch(localePath)
+      .then((response) => response.json())
+      .catch(() => ({}));
+  }
+
+  function t(key, fallback) {
+    if (currentMessages && currentMessages[key] && currentMessages[key].message) {
+      return currentMessages[key].message;
+    }
+    if (chrome && chrome.i18n && chrome.i18n.getMessage) {
+      const message = chrome.i18n.getMessage(key);
+      if (message) {
+        return message;
+      }
+    }
+    return fallback || '';
+  }
+
+  function formatMessage(key, fallback, params) {
+    let text = t(key, fallback);
+    if (!params) {
+      return text;
+    }
+    Object.keys(params).forEach((token) => {
+      const value = params[token];
+      text = text.replace(new RegExp(`\\{${token}\\}`, 'g'), value);
+    });
+    return text;
+  }
+
+  function applyLanguageStrings() {
+    if (recentHeading) {
+      recentHeading.textContent = t('recent_heading', '最近访问');
+    }
+    if (inputParts && inputParts.input) {
+      defaultPlaceholderText = t('search_placeholder', defaultPlaceholderText);
+      if (!siteSearchState) {
+        inputParts.input.placeholder = defaultPlaceholderText;
+      }
+    }
+    if (modeBadge) {
+      modeBadge.textContent = formatMessage('mode_badge', '模式：{mode}', {
+        mode: getThemeModeLabel(currentThemeMode)
+      });
+    }
+    recentCards.forEach((card) => {
+      if (!card || !card._xActionText || !card._xTitleText) {
+        return;
+      }
+      card._xActionText.textContent = t('visit_label', '访问');
+      card.setAttribute('aria-label', formatMessage('open_prefix', '打开 {title}', {
+        title: card._xTitleText
+      }));
+    });
+    if (latestQuery && latestQuery.trim()) {
+      renderSuggestions(lastSuggestionResponse, latestQuery);
+    }
+    if ((!latestQuery || !latestQuery.trim()) && Array.isArray(tabs) && tabs.length > 0) {
+      renderTabSuggestions(tabs);
+    }
+  }
+
+  function applyLanguageMode(mode) {
+    currentLanguageMode = mode || 'system';
+    const targetLocale = currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(currentLanguageMode);
+    if (chrome && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get([LANGUAGE_MESSAGES_STORAGE_KEY], (result) => {
+        const payload = result[LANGUAGE_MESSAGES_STORAGE_KEY];
+        if (payload && payload.locale === targetLocale && payload.messages) {
+          currentMessages = payload.messages || {};
+          applyLanguageStrings();
+          return;
+        }
+        loadLocaleMessages(targetLocale).then((messages) => {
+          currentMessages = messages || {};
+          applyLanguageStrings();
+        });
+      });
+      return;
+    }
+    loadLocaleMessages(targetLocale).then((messages) => {
+      currentMessages = messages || {};
+      applyLanguageStrings();
+    });
   }
 
   function applyThemeMode(mode) {
@@ -39,6 +160,7 @@
       }
       applyRecentCardTheme(card, card._xTheme, card._xHost);
     });
+    applyLanguageStrings();
     updateSelection();
     updateModeBadge(inputParts && inputParts.input ? inputParts.input.value : '');
     if (mode === 'system' && !mediaListenerAttached) {
@@ -66,34 +188,61 @@
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes[THEME_STORAGE_KEY]) {
+    if (areaName !== 'local') {
       return;
     }
-    applyThemeMode(changes[THEME_STORAGE_KEY].newValue || 'system');
+    if (changes[THEME_STORAGE_KEY]) {
+      applyThemeMode(changes[THEME_STORAGE_KEY].newValue || 'system');
+    }
+    if (changes[LANGUAGE_STORAGE_KEY]) {
+      applyLanguageMode(changes[LANGUAGE_STORAGE_KEY].newValue || 'system');
+    }
+    if (changes[RECENT_COUNT_STORAGE_KEY]) {
+      const nextCount = Number.parseInt(changes[RECENT_COUNT_STORAGE_KEY].newValue, 10);
+      currentRecentCount = Number.isFinite(nextCount) ? nextCount : 4;
+      loadRecentSites();
+    }
+    if (changes[LANGUAGE_MESSAGES_STORAGE_KEY]) {
+      const payload = changes[LANGUAGE_MESSAGES_STORAGE_KEY].newValue;
+      const targetLocale = currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(currentLanguageMode);
+      if (payload && payload.locale === targetLocale && payload.messages) {
+        currentMessages = payload.messages || {};
+        applyLanguageStrings();
+      }
+    }
+  });
+
+  chrome.storage.local.get([LANGUAGE_STORAGE_KEY], (result) => {
+    applyLanguageMode(result[LANGUAGE_STORAGE_KEY] || 'system');
+  });
+
+  chrome.storage.local.get([RECENT_COUNT_STORAGE_KEY], (result) => {
+    const stored = result[RECENT_COUNT_STORAGE_KEY];
+    const count = Number.isFinite(stored) ? stored : 4;
+    currentRecentCount = count;
+    loadRecentSites();
   });
 
   function getThemeModeLabel(mode) {
     if (mode === 'dark') {
-      return '深色';
+      return t('theme_label_dark', '深色');
     }
     if (mode === 'light') {
-      return '浅色';
+      return t('theme_label_light', '浅色');
     }
-    return '跟随系统';
+    return t('theme_label_system', '跟随系统');
   }
 
   const commandDefinitions = [
     {
       type: 'commandNewTab',
       primary: '/new',
-      aliases: ['/n', '/newtab', '/nt'],
-      title: '新建标签页'
+      aliases: ['/n', '/newtab', '/nt']
     },
     {
       type: 'commandSettings',
       primary: '/settings',
-      aliases: ['/set', '/settings', '/s'],
-      title: `打开${extensionName}设置`
+      aliases: ['/set', '/settings', '/s']
     }
   ];
 
@@ -119,9 +268,17 @@
   }
 
   function buildCommandSuggestion(command) {
+    let titleText = '';
+    if (command.type === 'commandSettings') {
+      titleText = formatMessage('command_settings', `打开 ${extensionName} 设置`, {
+        name: extensionName
+      });
+    } else {
+      titleText = t('command_newtab', '新建标签页');
+    }
     return {
       type: command.type,
-      title: command.title,
+      title: titleText,
       url: '',
       commandText: command.primary,
       commandAliases: command.aliases || []
@@ -137,7 +294,9 @@
       modeBadge.style.setProperty('display', 'none', 'important');
       return;
     }
-    modeBadge.textContent = `模式：${getThemeModeLabel(currentThemeMode)}`;
+    modeBadge.textContent = formatMessage('mode_badge', '模式：{mode}', {
+      mode: getThemeModeLabel(currentThemeMode)
+    });
     modeBadge.style.setProperty('display', 'inline-flex', 'important');
   }
 
@@ -159,7 +318,10 @@
     const nextMode = getNextThemeMode(currentThemeMode);
     return {
       type: 'modeSwitch',
-      title: `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`,
+      title: formatMessage('mode_switch_title', `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`, {
+        name: extensionName,
+        mode: getThemeModeLabel(nextMode)
+      }),
       url: '',
       favicon: chrome.runtime.getURL('lumno.png'),
       nextMode: nextMode
@@ -189,6 +351,7 @@
   let siteSearchProvidersCache = null;
   let pendingProviderReload = false;
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
+  const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
   let handleTabKey = null;
   const defaultSiteSearchProviders = [
     { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
@@ -1124,7 +1287,7 @@
   recentSection.style.setProperty('display', 'none', 'important');
   const recentHeading = document.createElement('div');
   recentHeading.className = 'x-nt-recent-heading';
-  recentHeading.textContent = '最近访问';
+  recentHeading.textContent = t('recent_heading', '最近访问');
   const recentGrid = document.createElement('div');
   recentGrid.id = '_x_extension_newtab_recent_sites_grid_2024_unique_';
   recentSection.appendChild(recentHeading);
@@ -1146,9 +1309,19 @@
   }
 
   function loadRecentSites() {
-    getRecentSites(4).then((items) => {
+    if (!currentRecentCount || currentRecentCount <= 0) {
+      recentSection.style.setProperty('display', 'none', 'important');
+      return;
+    }
+    getRecentSites(currentRecentCount).then((items) => {
       renderRecentSites(items);
     });
+  }
+
+  function handleRecentVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      loadRecentSites();
+    }
   }
 
   function setSuggestionsVisible(visible) {
@@ -1486,7 +1659,9 @@
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'x-nt-recent-card';
-    card.setAttribute('aria-label', `打开 ${titleText}`);
+    card.setAttribute('aria-label', formatMessage('open_prefix', '打开 {title}', {
+      title: titleText
+    }));
     card._xHost = host;
     const themeSuggestion = { type: 'history', url: item.url, title: item.title || '' };
     const immediateTheme = getImmediateThemeForSuggestion(themeSuggestion);
@@ -1505,8 +1680,13 @@
     header.className = 'x-nt-recent-header';
     const faviconImage = document.createElement('img');
     faviconImage.className = 'x-nt-recent-favicon';
-    faviconImage.alt = siteName || '站点';
-    faviconImage.loading = 'lazy';
+    faviconImage.alt = siteName || t('site_icon_alt', '站点');
+    const eagerCount = Math.min(6, currentRecentCount);
+    const shouldEager = index < eagerCount;
+    faviconImage.loading = shouldEager ? 'eager' : 'lazy';
+    if (shouldEager) {
+      faviconImage.fetchPriority = 'high';
+    }
     attachFaviconWithFallbacks(faviconImage, item.url, host);
     const name = document.createElement('div');
     name.className = 'x-nt-recent-name';
@@ -1528,11 +1708,13 @@
     const actionLine = document.createElement('div');
     actionLine.className = 'x-nt-recent-action';
     const actionText = document.createElement('span');
-    actionText.textContent = '访问';
+    actionText.textContent = t('visit_label', '访问');
     const actionIcon = document.createElement('i');
     actionIcon.className = 'hgi hgi-stroke hgi-link-circle';
     actionLine.appendChild(actionText);
     actionLine.appendChild(actionIcon);
+    card._xActionText = actionText;
+    card._xTitleText = titleText;
 
     inner.appendChild(header);
     inner.appendChild(title);
@@ -1787,6 +1969,14 @@
         resolve(items);
       });
     });
+    const disabledFallback = new Promise((resolve) => {
+      chrome.storage.local.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+        const items = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
+          ? result[SITE_SEARCH_DISABLED_STORAGE_KEY]
+          : [];
+        resolve(items.map((item) => String(item).toLowerCase()).filter(Boolean));
+      });
+    });
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ action: 'getSiteSearchProviders' }, (response) => {
         const items = response && Array.isArray(response.items) ? response.items : [];
@@ -1795,9 +1985,14 @@
           resolve(items);
           return;
         }
-        Promise.all([localFallback, customFallback]).then(([localItems, customItems]) => {
+        Promise.all([localFallback, customFallback, disabledFallback])
+          .then(([localItems, customItems, disabledKeys]) => {
           const baseItems = localItems.length > 0 ? localItems : defaultSiteSearchProviders;
-          const merged = mergeCustomProvidersLocal(baseItems, customItems);
+          const filteredBase = baseItems.filter((item) => {
+            const key = String(item && item.key ? item.key : '').toLowerCase();
+            return key && !disabledKeys.includes(key);
+          });
+          const merged = mergeCustomProvidersLocal(filteredBase, customItems);
           siteSearchProvidersCache = merged;
           resolve(merged);
         });
@@ -1822,9 +2017,9 @@
 
   function getSiteSearchDisplayName(provider) {
     if (!provider) {
-      return '站内';
+      return t('site_search_default', '站内');
     }
-    return provider.name || provider.key || '站内';
+    return provider.name || provider.key || t('site_search_default', '站内');
   }
 
   function suggestionMatchesProvider(suggestion, provider) {
@@ -2193,14 +2388,14 @@
         const targetUrl = `${scheme}${rule.path}`;
         matches.push({
           type: 'browserPage',
-          title: `打开 ${targetUrl}`,
+          title: formatMessage('open_url', '打开 {url}', { url: targetUrl }),
           url: targetUrl,
           favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
         });
       } else if (rule.type === 'url' && rule.url) {
         matches.push({
           type: 'browserPage',
-          title: `打开 ${rule.url}`,
+          title: formatMessage('open_url', '打开 {url}', { url: rule.url }),
           url: rule.url,
           favicon: 'https://img.icons8.com/?size=100&id=1LqgD1Q7n2fy&format=png&color=000000'
         });
@@ -2226,7 +2421,7 @@
     }
     return {
       type: 'directUrl',
-      title: `打开 ${targetUrl}`,
+      title: formatMessage('open_url', '打开 {url}', { url: targetUrl }),
       url: targetUrl,
       favicon: ''
     };
@@ -2249,6 +2444,7 @@
   const suggestionItems = [];
   let selectedIndex = -1;
   let currentSuggestions = [];
+  let lastSuggestionResponse = [];
   let siteSearchTriggerState = null;
   let lastRenderedQuery = '';
 
@@ -2520,7 +2716,7 @@
       `;
 
       const title = document.createElement('span');
-      title.textContent = tab.title || '无标题';
+      title.textContent = tab.title || t('untitled', '无标题');
       title.style.cssText = `
         all: unset !important;
         color: var(--x-nt-text, #111827) !important;
@@ -2543,7 +2739,7 @@
       `;
 
       const switchButton = document.createElement('button');
-      switchButton.innerHTML = '切换到标签页 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+      switchButton.innerHTML = `${t('switch_to_tab', '切换到标签页')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
       switchButton.style.cssText = `
         all: unset !important;
         background: transparent !important;
@@ -2650,6 +2846,7 @@
     suggestionsContainer.innerHTML = '';
     suggestionItems.length = 0;
     currentSuggestions = [];
+    lastSuggestionResponse = [];
     selectedIndex = -1;
     lastRenderedQuery = '';
     setSuggestionsVisible(false);
@@ -2660,6 +2857,7 @@
       clearSearchSuggestions();
       return;
     }
+    lastSuggestionResponse = Array.isArray(suggestions) ? suggestions : [];
 
     getShortcutRules().then((rules) => {
       if (query !== latestQuery) {
@@ -2716,7 +2914,9 @@
         if (inlineUrl) {
           inlineSuggestion = {
             type: 'inlineSiteSearch',
-            title: `在 ${getSiteSearchDisplayName(inlineCandidate.provider)} 中搜索`,
+            title: formatMessage('search_in_site', '在 {site} 中搜索', {
+              site: getSiteSearchDisplayName(inlineCandidate.provider)
+            }),
             url: inlineUrl,
             favicon: getProviderIcon(inlineCandidate.provider),
             provider: inlineCandidate.provider
@@ -2728,7 +2928,9 @@
         ? null
         : {
           type: 'newtab',
-          title: `搜索 "${query}"`,
+          title: formatMessage('search_query', '搜索 "{query}"', {
+            query: query
+          }),
           url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
           favicon: ''
         };
@@ -2741,7 +2943,10 @@
         if (siteUrl) {
           allSuggestions.unshift({
             type: 'siteSearch',
-            title: `在 ${getSiteSearchDisplayName(siteSearchState)} 中搜索 "${query}"`,
+            title: formatMessage('search_in_site_query', '在 {site} 中搜索 "{query}"', {
+              site: getSiteSearchDisplayName(siteSearchState),
+              query: query
+            }),
             url: siteUrl,
             favicon: getProviderIcon(siteSearchState),
             provider: siteSearchState
@@ -2771,7 +2976,9 @@
         if (siteSearchTrigger && !topSiteMatch) {
           siteSearchPrompt = {
             type: 'siteSearchPrompt',
-            title: `在 ${getSiteSearchDisplayName(siteSearchTrigger)} 中搜索`,
+            title: formatMessage('search_in_site', '在 {site} 中搜索', {
+              site: getSiteSearchDisplayName(siteSearchTrigger)
+            }),
             url: '',
             favicon: getProviderIcon(siteSearchTrigger),
             provider: siteSearchTrigger
@@ -3364,13 +3571,13 @@
           ((siteSearchTrigger && (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch)) ||
             isMergedHighlight);
         if (shouldShowEnterTag) {
-          actionTags.appendChild(createActionTag('访问', 'Enter'));
+          actionTags.appendChild(createActionTag(t('visit_label', '访问'), 'Enter'));
         }
         if (shouldShowSiteSearchTag) {
-          actionTags.appendChild(createActionTag('搜索', 'Tab'));
+          actionTags.appendChild(createActionTag(t('action_search', '搜索'), 'Tab'));
         }
         if (isPrimaryHighlight && onlyKeywordSuggestions && suggestion.type === 'newtab') {
-          actionTags.appendChild(createActionTag('在 Google 中搜索', 'Enter'));
+          actionTags.appendChild(createActionTag(t('action_search_google', '在 Google 中搜索'), 'Enter'));
         }
 
         suggestionItem._xTagContainer = actionTags;
@@ -3480,6 +3687,7 @@
     containerId: '_x_extension_newtab_input_container_2024_unique_',
     inputId: '_x_extension_newtab_search_input_2024_unique_',
     iconId: '_x_extension_newtab_search_icon_2024_unique_',
+    placeholder: t('search_placeholder', defaultPlaceholderText),
     containerStyleOverrides: {
       'border-radius': '24px',
       'background': 'var(--x-nt-input-bg, rgba(255, 255, 255, 0.9))',
@@ -3840,7 +4048,9 @@
   }
 
   function setSiteSearchPrefix(provider, theme) {
-    const prefixText = `在 ${getSiteSearchDisplayName(provider)} 中搜索...`;
+    const prefixText = formatMessage('search_in_site_ellipsis', '在 {site} 中搜索...', {
+      site: getSiteSearchDisplayName(provider)
+    });
     siteSearchPrefix.textContent = prefixText;
     siteSearchPrefix.style.setProperty('display', 'inline-flex', 'important');
     const resolvedTheme = theme ? getThemeForMode(theme) : null;
@@ -3935,14 +4145,19 @@
   getSiteSearchProviders();
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes[SITE_SEARCH_STORAGE_KEY]) {
+    if (areaName !== 'local' ||
+        (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
       return;
     }
-    chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+    chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY, SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
       const customItems = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
-      const baseItems = (siteSearchProvidersCache && siteSearchProvidersCache.length > 0)
-        ? siteSearchProvidersCache
-        : defaultSiteSearchProviders;
+      const disabledKeys = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
+        ? result[SITE_SEARCH_DISABLED_STORAGE_KEY].map((item) => String(item).toLowerCase()).filter(Boolean)
+        : [];
+      const baseItems = defaultSiteSearchProviders.filter((item) => {
+        const key = String(item && item.key ? item.key : '').toLowerCase();
+        return key && !disabledKeys.includes(key);
+      });
       siteSearchProvidersCache = mergeCustomProvidersLocal(baseItems, customItems);
       if (latestQuery) {
         requestSuggestions(latestQuery, { immediate: true });
@@ -3975,6 +4190,7 @@
   root.appendChild(inputParts.container);
   root.appendChild(suggestionsContainer);
   document.body.appendChild(recentSection);
-  loadRecentSites();
+  window.addEventListener('visibilitychange', handleRecentVisibilityChange);
+  window.addEventListener('focus', () => loadRecentSites());
 
 })();
