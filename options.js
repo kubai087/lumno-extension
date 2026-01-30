@@ -7,6 +7,7 @@
   const tabContents = Array.from(document.querySelectorAll('._x_extension_settings_content_2024_unique_'));
   const tabsContainer = document.getElementById('_x_extension_settings_tabs_2024_unique_');
   const tabsIndicator = tabsContainer ? tabsContainer.querySelector('._x_extension_tabs_indicator_2024_unique_') : null;
+  const settingsVersion = document.getElementById('_x_extension_settings_version_2024_unique_');
   const languageSelect = document.getElementById('_x_extension_language_select_2024_unique_');
   const recentCountSelect = document.getElementById('_x_extension_recent_count_select_2024_unique_');
   const customSelectWraps = Array.from(document.querySelectorAll('._x_extension_custom_select_2024_unique_'));
@@ -54,6 +55,8 @@
   let editingSiteSearchKey = null;
   let activePopconfirm = null;
   let siteSearchFormExpanded = false;
+  let siteSearchRefreshSuppressUntil = 0;
+  let siteSearchRefreshTimer = null;
   const fallbackSiteSearchProviders = [
     { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
     { key: 'bb', aliases: ['bilibili', 'bili'], name: 'Bilibili', template: 'https://search.bilibili.com/all?keyword={query}' },
@@ -486,7 +489,7 @@
     popCancel.setAttribute('data-i18n', 'confirm_cancel');
     popCancel.textContent = getMessage('confirm_cancel', '取消');
     const popOk = document.createElement('button');
-    popOk.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_';
+    popOk.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_ _x_extension_shortcut_save_2024_unique_';
     popOk.setAttribute('data-i18n', 'confirm_ok');
     popOk.textContent = getMessage('confirm_ok', '确认');
     popActions.appendChild(popCancel);
@@ -659,6 +662,13 @@
     tabsIndicator.style.transform = `translateX(${offset}px)`;
   }
 
+  if (settingsVersion && chrome?.runtime?.getManifest) {
+    const manifest = chrome.runtime.getManifest();
+    if (manifest?.version) {
+      settingsVersion.textContent = `v${manifest.version}`;
+    }
+  }
+
   function applyResolvedTheme(resolvedTheme) {
     document.body.setAttribute('data-theme', resolvedTheme);
     panel.setAttribute('data-theme', resolvedTheme);
@@ -828,7 +838,30 @@
       siteSearchAddButton.textContent = key
         ? getMessage('shortcuts_save', '保存修改')
         : getMessage('shortcuts_add', '添加站内搜索');
+      siteSearchAddButton.classList.add('_x_extension_shortcut_save_2024_unique_');
     }
+  }
+
+  function attachSaveButtonAnimation(button) {
+    if (!button) {
+      return;
+    }
+    button.addEventListener('click', () => {
+      if (!button.classList.contains('_x_extension_shortcut_save_2024_unique_')) {
+        return;
+      }
+      button.classList.remove('_x_extension_shortcut_save_pulse_2024_unique_');
+      void button.offsetWidth;
+      button.classList.add('_x_extension_shortcut_save_pulse_2024_unique_');
+    });
+    button.addEventListener('animationend', () => {
+      button.classList.remove('_x_extension_shortcut_save_pulse_2024_unique_');
+    });
+  }
+
+  function suspendSiteSearchRefresh(durationMs) {
+    const now = Date.now();
+    siteSearchRefreshSuppressUntil = Math.max(siteSearchRefreshSuppressUntil, now + durationMs);
   }
 
   if (languageSelect) {
@@ -1054,7 +1087,7 @@
       popCancel.className = '_x_extension_shortcut_secondary_2024_unique_';
       popCancel.textContent = getMessage('confirm_cancel', '取消');
       const popOk = document.createElement('button');
-      popOk.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_';
+      popOk.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_ _x_extension_shortcut_save_2024_unique_';
       popOk.textContent = getMessage('confirm_ok', '确认');
       popActions.appendChild(popCancel);
       popActions.appendChild(popOk);
@@ -1158,18 +1191,20 @@
       const editorActions = document.createElement('div');
       editorActions.className = '_x_extension_shortcut_editor_actions_2024_unique_';
       const saveButton = document.createElement('button');
-      saveButton.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_';
+      saveButton.className = '_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_ _x_extension_shortcut_save_2024_unique_';
       saveButton.textContent = getMessage('shortcuts_save', '保存修改');
       const cancelButton = document.createElement('button');
       cancelButton.className = '_x_extension_shortcut_secondary_2024_unique_';
       cancelButton.textContent = getMessage('shortcuts_cancel', '取消');
       editorActions.appendChild(cancelButton);
       editorActions.appendChild(saveButton);
+      attachSaveButtonAnimation(saveButton);
 
       cancelButton.addEventListener('click', () => {
         row.setAttribute('data-expanded', 'false');
       });
       saveButton.addEventListener('click', () => {
+        suspendSiteSearchRefresh(260);
         const nextKeyRaw = String(keyInput.value || '').trim();
         if (!nextKeyRaw) {
           showToast(getMessage('shortcuts_error_key', '请填写触发词。'), true);
@@ -1208,8 +1243,14 @@
         ]).then(() => {
           customSiteSearchProviders = next;
           row.setAttribute('data-expanded', 'false');
-          renderSiteSearchList();
-          showToast(getMessage('toast_saved', '已保存'), false);
+          const finalize = () => {
+            showToast(getMessage('toast_saved', '已保存'), false);
+          };
+          if (saveButton.classList.contains('_x_extension_shortcut_save_2024_unique_')) {
+            setTimeout(finalize, 220);
+          } else {
+            finalize();
+          }
         }).catch(() => {
           showToast(getMessage('toast_error', '操作失败，请重试'), true);
         });
@@ -1469,11 +1510,13 @@
   }
 
   if (siteSearchAddButton) {
+    attachSaveButtonAnimation(siteSearchAddButton);
     siteSearchAddButton.addEventListener('click', function() {
       if (!siteSearchFormExpanded) {
         setSiteSearchFormExpanded(true);
         return;
       }
+      suspendSiteSearchRefresh(260);
       setSiteSearchError('');
       const key = String(siteSearchKeyInput ? siteSearchKeyInput.value : '').trim();
       const name = String(siteSearchNameInput ? siteSearchNameInput.value : '').trim();
@@ -1510,9 +1553,10 @@
         saveDisabledSiteSearchKeys(disabledSiteSearchKeys)
       ]).then(() => {
         customSiteSearchProviders = next;
-        renderSiteSearchList();
         resetSiteSearchForm();
-        showToast(getMessage('toast_saved', '已保存'), false);
+        setTimeout(() => {
+          showToast(getMessage('toast_saved', '已保存'), false);
+        }, 220);
       });
     });
   }
@@ -1583,6 +1627,18 @@
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local' ||
         (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
+      return;
+    }
+    const now = Date.now();
+    if (siteSearchRefreshSuppressUntil && now < siteSearchRefreshSuppressUntil) {
+      if (siteSearchRefreshTimer) {
+        clearTimeout(siteSearchRefreshTimer);
+      }
+      const delay = Math.max(siteSearchRefreshSuppressUntil - now, 0) + 40;
+      siteSearchRefreshTimer = setTimeout(() => {
+        siteSearchRefreshTimer = null;
+        refreshSiteSearchProviders();
+      }, delay);
       return;
     }
     refreshSiteSearchProviders();
