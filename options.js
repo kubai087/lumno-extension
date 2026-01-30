@@ -1,12 +1,15 @@
 (function() {
   const panel = document.getElementById('_x_extension_settings_panel_2024_unique_');
   const themeButtons = Array.from(document.querySelectorAll('._x_extension_theme_option_2024_unique_'));
+  const themePicker = document.querySelector('._x_extension_theme_picker_2024_unique_');
+  const themeIndicator = themePicker ? themePicker.querySelector('._x_extension_theme_indicator_2024_unique_') : null;
   const tabButtons = Array.from(document.querySelectorAll('._x_extension_settings_tab_button_2024_unique_'));
   const tabContents = Array.from(document.querySelectorAll('._x_extension_settings_content_2024_unique_'));
   const tabsContainer = document.getElementById('_x_extension_settings_tabs_2024_unique_');
   const tabsIndicator = tabsContainer ? tabsContainer.querySelector('._x_extension_tabs_indicator_2024_unique_') : null;
   const languageSelect = document.getElementById('_x_extension_language_select_2024_unique_');
   const recentCountSelect = document.getElementById('_x_extension_recent_count_select_2024_unique_');
+  const customSelectWraps = Array.from(document.querySelectorAll('._x_extension_custom_select_2024_unique_'));
   const siteSearchCustomList = document.getElementById('_x_extension_site_search_custom_list_2024_unique_');
   const siteSearchBuiltinList = document.getElementById('_x_extension_site_search_builtin_list_2024_unique_');
   const siteSearchKeyInput = document.getElementById('_x_extension_site_search_key_2024_unique_');
@@ -65,6 +68,7 @@
   ];
 
   let currentMessages = null;
+  let openCustomSelect = null;
 
   function getMessage(key, fallback) {
     if (currentMessages && currentMessages[key] && currentMessages[key].message) {
@@ -89,6 +93,9 @@
       const message = getMessage(key, fallback);
       if (message) {
         node.textContent = message;
+        if (node.tagName === 'OPTION') {
+          node.label = message;
+        }
       }
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
@@ -101,6 +108,144 @@
       if (message) {
         node.setAttribute('placeholder', message);
       }
+    });
+  }
+
+  function getCustomSelectElements(wrapper) {
+    if (!wrapper) {
+      return {};
+    }
+    const selectId = wrapper.getAttribute('data-select');
+    const select = selectId ? document.getElementById(selectId) : wrapper.querySelector('select');
+    const trigger = wrapper.querySelector('._x_extension_select_trigger_2024_unique_');
+    const menu = wrapper.querySelector('._x_extension_select_menu_2024_unique_');
+    return { select, trigger, menu };
+  }
+
+  function setCustomSelectActiveIndex(wrapper, nextIndex) {
+    const { menu } = getCustomSelectElements(wrapper);
+    if (!menu) {
+      return;
+    }
+    const items = Array.from(menu.children);
+    if (items.length === 0) {
+      return;
+    }
+    let index = Number.isFinite(nextIndex) ? nextIndex : 0;
+    if (index < 0) {
+      index = items.length - 1;
+    }
+    if (index >= items.length) {
+      index = 0;
+    }
+    wrapper.setAttribute('data-active-index', String(index));
+    items.forEach((item, itemIndex) => {
+      if (itemIndex === index) {
+        item.setAttribute('data-active', 'true');
+      } else {
+        item.removeAttribute('data-active');
+      }
+    });
+  }
+
+  function getCustomSelectActiveIndex(wrapper) {
+    if (!wrapper) {
+      return 0;
+    }
+    const raw = wrapper.getAttribute('data-active-index');
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function closeCustomSelect() {
+    if (!openCustomSelect) {
+      return;
+    }
+    openCustomSelect.setAttribute('data-open', 'false');
+    const trigger = openCustomSelect.querySelector('._x_extension_select_trigger_2024_unique_');
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+    openCustomSelect = null;
+  }
+
+  function setCustomSelectOpen(wrapper, nextOpen) {
+    if (!wrapper) {
+      return;
+    }
+    if (nextOpen) {
+      if (openCustomSelect && openCustomSelect !== wrapper) {
+        closeCustomSelect();
+      }
+      wrapper.setAttribute('data-open', 'true');
+      const trigger = wrapper.querySelector('._x_extension_select_trigger_2024_unique_');
+      if (trigger) {
+        trigger.setAttribute('aria-expanded', 'true');
+      }
+      const { select, menu } = getCustomSelectElements(wrapper);
+      if (select && menu) {
+        const selectedIndex = select.selectedIndex >= 0 ? select.selectedIndex : 0;
+        setCustomSelectActiveIndex(wrapper, selectedIndex);
+      }
+      openCustomSelect = wrapper;
+    } else if (openCustomSelect === wrapper) {
+      closeCustomSelect();
+    }
+  }
+
+  function syncCustomSelectUI(select, wrapper) {
+    if (!select || !wrapper) {
+      return;
+    }
+    const { trigger, menu } = getCustomSelectElements(wrapper);
+    if (!trigger || !menu) {
+      return;
+    }
+    const selected = select.options[select.selectedIndex];
+    trigger.textContent = selected ? (selected.label || selected.textContent || '') : '';
+    Array.from(menu.children).forEach((item) => {
+      const value = item.getAttribute('data-value');
+      const isSelected = value === select.value;
+      item.setAttribute('data-selected', isSelected ? 'true' : 'false');
+      item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    });
+  }
+
+  function buildCustomSelectMenu(select, wrapper) {
+    if (!select || !wrapper) {
+      return;
+    }
+    const { menu } = getCustomSelectElements(wrapper);
+    if (!menu) {
+      return;
+    }
+    menu.innerHTML = '';
+    Array.from(select.options).forEach((option) => {
+      const item = document.createElement('div');
+      item.className = '_x_extension_select_option_2024_unique_';
+      item.setAttribute('role', 'option');
+      item.setAttribute('data-value', option.value);
+      item.textContent = option.label || option.textContent || '';
+      item.addEventListener('click', () => {
+        if (select.value !== option.value) {
+          select.value = option.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncCustomSelectUI(select, wrapper);
+        setCustomSelectOpen(wrapper, false);
+      });
+      menu.appendChild(item);
+    });
+    syncCustomSelectUI(select, wrapper);
+  }
+
+  function refreshCustomSelects() {
+    customSelectWraps.forEach((wrapper) => {
+      const { select } = getCustomSelectElements(wrapper);
+      if (!select) {
+        return;
+      }
+      buildCustomSelectMenu(select, wrapper);
     });
   }
 
@@ -269,6 +414,11 @@
     loadLocaleMessages(targetLocale).then((messages) => {
       currentMessages = messages || {};
       applyI18n();
+      refreshCustomSelects();
+      requestAnimationFrame(() => {
+        updateTabIndicator();
+        updateThemeIndicator();
+      });
       if (languageSelect) {
         languageSelect.value = mode || 'system';
       }
@@ -340,6 +490,19 @@
       const isActive = button.getAttribute('data-mode') === mode;
       button.setAttribute('data-active', isActive ? 'true' : 'false');
     });
+    requestAnimationFrame(updateThemeIndicator);
+  }
+
+  function updateThemeIndicator() {
+    if (!themePicker || !themeIndicator) return;
+    const activeButton = themeButtons.find((button) => button.getAttribute('data-active') === 'true');
+    if (!activeButton) return;
+    const containerRect = themePicker.getBoundingClientRect();
+    const buttonRect = activeButton.getBoundingClientRect();
+    const inset = 3;
+    const offset = Math.round(buttonRect.left - containerRect.left - inset);
+    themeIndicator.style.width = `${Math.round(buttonRect.width)}px`;
+    themeIndicator.style.transform = `translateX(${offset}px)`;
   }
 
   function onMediaChange() {
@@ -405,6 +568,7 @@
     refreshSiteSearchProviders();
   }
   window.addEventListener('resize', updateTabIndicator);
+  window.addEventListener('resize', updateThemeIndicator);
 
   function normalizeSiteSearchTemplate(template) {
     if (!template) {
@@ -473,8 +637,12 @@
   }
 
   chrome.storage.local.get([LANGUAGE_STORAGE_KEY], (result) => {
-    const stored = result[LANGUAGE_STORAGE_KEY] || 'system';
-    applyLanguageMode(stored);
+    const hasStored = Object.prototype.hasOwnProperty.call(result, LANGUAGE_STORAGE_KEY);
+    const stored = hasStored ? result[LANGUAGE_STORAGE_KEY] : 'system';
+    if (!hasStored) {
+      chrome.storage.local.set({ [LANGUAGE_STORAGE_KEY]: 'system' });
+    }
+    applyLanguageMode(stored || 'system');
   });
 
   chrome.storage.local.get([RECENT_COUNT_STORAGE_KEY], (result) => {
@@ -482,6 +650,78 @@
     const count = Number.isFinite(stored) ? stored : 4;
     if (recentCountSelect) {
       recentCountSelect.value = String(count);
+    }
+    refreshCustomSelects();
+  });
+
+  customSelectWraps.forEach((wrapper) => {
+    const { select, trigger } = getCustomSelectElements(wrapper);
+    if (!select || !trigger) {
+      return;
+    }
+    trigger.addEventListener('click', () => {
+      const isOpen = wrapper.getAttribute('data-open') === 'true';
+      setCustomSelectOpen(wrapper, !isOpen);
+    });
+    trigger.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        setCustomSelectOpen(wrapper, true);
+        const delta = event.key === 'ArrowDown' ? 1 : -1;
+        const nextIndex = getCustomSelectActiveIndex(wrapper) + delta;
+        setCustomSelectActiveIndex(wrapper, nextIndex);
+      }
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        const isOpen = wrapper.getAttribute('data-open') === 'true';
+        if (!isOpen) {
+          setCustomSelectOpen(wrapper, true);
+          return;
+        }
+        const { menu } = getCustomSelectElements(wrapper);
+        const activeIndex = getCustomSelectActiveIndex(wrapper);
+        const item = menu && menu.children ? menu.children[activeIndex] : null;
+        if (item) {
+          item.click();
+        }
+      }
+    });
+    select.addEventListener('change', () => {
+      syncCustomSelectUI(select, wrapper);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!openCustomSelect) {
+      return;
+    }
+    if (openCustomSelect.contains(event.target)) {
+      return;
+    }
+    closeCustomSelect();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeCustomSelect();
+    }
+    if (!openCustomSelect) {
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      const nextIndex = getCustomSelectActiveIndex(openCustomSelect) + delta;
+      setCustomSelectActiveIndex(openCustomSelect, nextIndex);
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      const { menu } = getCustomSelectElements(openCustomSelect);
+      const activeIndex = getCustomSelectActiveIndex(openCustomSelect);
+      const item = menu && menu.children ? menu.children[activeIndex] : null;
+      if (item) {
+        item.click();
+      }
     }
   });
 

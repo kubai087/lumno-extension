@@ -1,7 +1,7 @@
 {
   "settings_tab_general": { "message": "General" },
   "settings_tab_appearance": { "message": "Appearance" },
-  "settings_tab_shortcuts": { "message": "Shortcuts" },
+  "settings_tab_shortcuts": { "message": "Site Search" },
   "settings_language_title": { "message": "Language" },
   "settings_language_desc": { "message": "Choose UI language" },
   "language_zh_cn": { "message": "简体中文" },

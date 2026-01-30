@@ -1,7 +1,7 @@
 {
   "settings_tab_general": { "message": "常规" },
   "settings_tab_appearance": { "message": "外观" },
-  "settings_tab_shortcuts": { "message": "快捷搜索" },
+  "settings_tab_shortcuts": { "message": "站内搜索" },
   "settings_language_title": { "message": "语言" },
   "settings_language_desc": { "message": "选择界面显示语言" },
   "language_zh_cn": { "message": "简体中文" },
