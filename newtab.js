@@ -329,6 +329,7 @@
     applyLanguageStrings();
     updateSelection();
     updateModeBadge(inputParts && inputParts.input ? inputParts.input.value : '');
+    refreshFallbackIcons();
     if (mode === 'system' && !mediaListenerAttached) {
       mediaQuery.addEventListener('change', handleMediaChange);
       mediaListenerAttached = true;
@@ -1193,7 +1194,8 @@
   const iconPreloadCache = new Map();
   const faviconDataCache = new Map();
   const faviconDataPending = new Map();
-  const FALLBACK_ICON_SVG = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const FALLBACK_ICON_SVG_LIGHT = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%236B7280"/></svg>';
+  const FALLBACK_ICON_SVG_DARK = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%239CA3AF"/></svg>';
   const missingIconCache = new Set();
 
   function reportMissingIcon(context, url, iconUrl) {
@@ -1206,6 +1208,28 @@
       context: context || 'unknown',
       url: url || '',
       icon: iconUrl || ''
+    });
+  }
+
+  function getFallbackIconSvg() {
+    const theme = document.body ? document.body.getAttribute('data-theme') : '';
+    return theme === 'dark' ? FALLBACK_ICON_SVG_DARK : FALLBACK_ICON_SVG_LIGHT;
+  }
+
+  function applyFallbackIcon(img) {
+    if (!img) {
+      return;
+    }
+    img.setAttribute('data-fallback-icon', 'true');
+    img.src = getFallbackIconSvg();
+  }
+
+  function refreshFallbackIcons() {
+    const next = getFallbackIconSvg();
+    document.querySelectorAll('img[data-fallback-icon=\"true\"]').forEach((img) => {
+      if (img.src !== next) {
+        img.src = next;
+      }
     });
   }
   const recentActionOffsetUpdaters = new Set();
@@ -1354,6 +1378,21 @@
       vertical-align: baseline !important;
     `;
     return icon;
+  }
+
+  function getNonFaviconIconBg() {
+    return isNewtabDarkMode() ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF';
+  }
+
+  function setNonFaviconIconBg(item, isActive) {
+    if (!item || !item._xIconWrap || item._xIconIsFavicon) {
+      return;
+    }
+    item._xIconWrap.style.setProperty(
+      'background-color',
+      isActive ? getNonFaviconIconBg() : 'transparent',
+      'important'
+    );
   }
 
   const FAVICON_GOOGLE_SIZE = 128;
@@ -1695,11 +1734,11 @@
     }
     const hostKey = host || getHostFromUrl(url);
     if (isLocalNetworkHost(hostKey)) {
-      img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      applyFallbackIcon(img);
       return;
     }
     const faviconHostKey = normalizeFaviconHost(hostKey);
-    const fallbackIcon = chrome.runtime.getURL('lumno.png');
+    const fallbackIcon = getFallbackIconSvg();
     const chromeFavicon = getChromeFaviconUrl(url);
     const googleFavicon = faviconHostKey ? getGoogleFaviconUrl(faviconHostKey) : '';
     let didFallback = false;
@@ -1709,7 +1748,11 @@
       }
       didFallback = true;
       img.onerror = null;
-      img.src = googleFavicon || fallbackIcon;
+      if (googleFavicon) {
+        img.src = googleFavicon;
+      } else {
+        applyFallbackIcon(img);
+      }
       if (googleFavicon) {
         attachFaviconData(img, googleFavicon, hostKey);
       }
@@ -1722,7 +1765,7 @@
       return;
     }
     if (!googleFavicon) {
-      img.src = fallbackIcon;
+      applyFallbackIcon(img);
       return;
     }
     img.src = googleFavicon;
@@ -1946,7 +1989,7 @@
     attachFaviconWithFallbacks(faviconImage, item.url, host);
     faviconImage.onerror = function() {
       reportMissingIcon('recent', item.url, faviconImage.src);
-      faviconImage.src = FALLBACK_ICON_SVG;
+      applyFallbackIcon(faviconImage);
     };
     const name = document.createElement('div');
     name.className = 'x-nt-recent-name';
@@ -1969,15 +2012,9 @@
     actionLine.className = 'x-nt-recent-action';
     const actionText = document.createElement('span');
     actionText.textContent = t('visit_label', '访问');
-    const actionIcon = document.createElement('svg');
-    actionIcon.className = 'ri-icon ri-size-16';
-    actionIcon.setAttribute('aria-hidden', 'true');
-    actionIcon.setAttribute('focusable', 'false');
-    const spriteUrl = (chrome && chrome.runtime && chrome.runtime.getURL)
-      ? chrome.runtime.getURL('remixicon.symbol.svg')
-      : 'remixicon.symbol.svg';
-    actionIcon.innerHTML = `<use href="${spriteUrl}#ri-link-m"></use>`;
     actionLine.appendChild(actionText);
+    const actionIcon = document.createElement('span');
+    actionIcon.innerHTML = getRiSvg('ri-arrow-right-line', 'ri-size-12');
     actionLine.appendChild(actionIcon);
     card._xActionText = actionText;
     card._xTitleText = titleText;
@@ -2825,7 +2862,7 @@
       const isSelected = index === selectedIndex;
       const shouldAutoHighlight = selectedIndex === -1 && item._xIsAutocompleteTop;
       const isHighlighted = isSelected || shouldAutoHighlight;
-        if (item._xIsSearchSuggestion) {
+      if (item._xIsSearchSuggestion) {
           const theme = item._xTheme || defaultTheme;
           if (isHighlighted) {
             applySearchSuggestionHighlight(item, theme);
@@ -2833,10 +2870,10 @@
             resetSearchSuggestion(item);
           }
           applySearchActionStyles(item, theme, isHighlighted);
+          setNonFaviconIconBg(item, Boolean(isHighlighted || item._xIsHovering));
           if (item._xDirectIconWrap) {
             const shouldShow = isHighlighted && theme && theme._xIsBrand;
             const resolvedTheme = getThemeForMode(theme || defaultTheme);
-            item._xDirectIconWrap.style.setProperty('background', shouldShow ? '#FFFFFF' : 'transparent', 'important');
             item._xDirectIconWrap.style.setProperty(
               'color',
               shouldShow ? resolvedTheme.accent : 'var(--x-nt-subtext, #6B7280)',
@@ -2845,6 +2882,7 @@
           }
           return;
         }
+      setNonFaviconIconBg(item, Boolean(isHighlighted || item._xIsHovering));
       const theme = item._xTheme || defaultTheme;
       if (isSelected) {
         applySearchSuggestionHighlight(item, theme);
@@ -2960,7 +2998,11 @@
         hostForTab = '';
       }
       const useFallback = !tab.favIconUrl || isLocalNetworkHost(hostForTab);
-      favicon.src = useFallback ? FALLBACK_ICON_SVG : tab.favIconUrl;
+      if (useFallback) {
+        applyFallbackIcon(favicon);
+      } else {
+        favicon.src = tab.favIconUrl;
+      }
       favicon.decoding = 'async';
       favicon.loading = 'eager';
       favicon.referrerPolicy = 'no-referrer';
@@ -2987,6 +3029,39 @@
         vertical-align: baseline !important;
         display: block !important;
       `;
+      const iconSlot = document.createElement('span');
+      iconSlot.style.cssText = `
+        all: unset !important;
+        width: 24px !important;
+        height: 24px !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        background: transparent !important;
+        transition: background-color 0.2s ease !important;
+        color: var(--x-nt-subtext, #6B7280) !important;
+        font-size: 100% !important;
+        font: inherit !important;
+        vertical-align: baseline !important;
+      `;
+      iconSlot.appendChild(favicon);
+      suggestionItem._xIconWrap = iconSlot;
+      suggestionItem._xIconIsFavicon = !useFallback;
+      favicon.onerror = function() {
+        reportMissingIcon('tab', tab && tab.url ? tab.url : '', favicon.src);
+        applyFallbackIcon(favicon);
+        favicon.style.width = '18px';
+        favicon.style.height = '18px';
+        suggestionItem._xIconIsFavicon = false;
+      };
 
       const title = document.createElement('span');
       title.textContent = tab.title || t('untitled', '无标题');
@@ -3039,6 +3114,8 @@
 
       suggestionItem.addEventListener('mouseenter', function() {
         if (suggestionItems.indexOf(this) !== selectedIndex) {
+          this._xIsHovering = true;
+          setNonFaviconIconBg(this, true);
           if (selectedIndex === -1 && this._xIsAutocompleteTop) {
             return;
           }
@@ -3056,6 +3133,7 @@
 
       suggestionItem.addEventListener('mouseleave', function() {
         if (suggestionItems.indexOf(this) !== selectedIndex) {
+          this._xIsHovering = false;
           updateSelection();
         }
       });
@@ -3075,7 +3153,7 @@
         });
       });
 
-      leftSide.appendChild(favicon);
+      leftSide.appendChild(iconSlot);
       leftSide.appendChild(title);
       suggestionItem.appendChild(leftSide);
       suggestionItem.appendChild(switchButton);
@@ -3579,6 +3657,7 @@
         }
 
         if (iconNode) {
+          const isFaviconIcon = iconNode.tagName === 'IMG';
           const iconSlot = document.createElement('span');
           iconSlot.style.cssText = `
             all: unset !important;
@@ -3596,13 +3675,17 @@
             list-style: none !important;
             outline: none !important;
             background: transparent !important;
+            transition: background-color 0.2s ease !important;
             color: var(--x-nt-subtext, #6B7280) !important;
             font-size: 100% !important;
             font: inherit !important;
             vertical-align: baseline !important;
           `;
+          iconSlot._xIsFavicon = isFaviconIcon;
           iconSlot.appendChild(iconNode);
           iconNode = iconSlot;
+          suggestionItem._xIconWrap = iconSlot;
+          suggestionItem._xIconIsFavicon = isFaviconIcon;
           if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
             iconWrapper = iconSlot;
           }
@@ -3863,6 +3946,8 @@
 
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
+            this._xIsHovering = true;
+            setNonFaviconIconBg(this, true);
             if (selectedIndex === -1 && this._xIsAutocompleteTop) {
               return;
             }
@@ -3880,6 +3965,7 @@
 
         suggestionItem.addEventListener('mouseleave', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
+            this._xIsHovering = false;
             updateSelection();
           }
         });

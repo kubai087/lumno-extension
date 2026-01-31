@@ -1,6 +1,7 @@
 如无必要，勿增实体。中文回复，言简意赅。善用 Emoji
 每次修改都必须适配深色、浅色模式。
 新增功能时，验证下是否会导致浮层、suggestions 唤起失败
+Remix Icon 规则：以后你给我一个 icon id，我必须按本项目的 Remix Icon SVG sprite 方式匹配并导入；若找不到匹配项需明确反馈。
 
 # Repository Guidelines
 

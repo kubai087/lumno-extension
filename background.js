@@ -3046,6 +3046,21 @@ async function getSearchSuggestions(query) {
       return icon;
     }
 
+    function getNonFaviconIconBg() {
+      return isOverlayDarkMode() ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF';
+    }
+
+    function setNonFaviconIconBg(item, isActive) {
+      if (!item || !item._xIconWrap || item._xIconIsFavicon) {
+        return;
+      }
+      item._xIconWrap.style.setProperty(
+        'background-color',
+        isActive ? getNonFaviconIconBg() : 'transparent',
+        'important'
+      );
+    }
+
     function createActionTag(labelText, keyLabel) {
       const tag = document.createElement('span');
       tag.style.cssText = `
@@ -4307,10 +4322,10 @@ async function getSearchSuggestions(query) {
             resetSearchSuggestion(item);
           }
           applySearchActionStyles(item, theme, isHighlighted);
+          setNonFaviconIconBg(item, Boolean(isHighlighted || item._xIsHovering));
           if (item._xDirectIconWrap) {
             const shouldShow = isHighlighted && theme && theme._xIsBrand;
             const resolvedTheme = getThemeForMode(theme || defaultTheme);
-            item._xDirectIconWrap.style.setProperty('background', shouldShow ? '#FFFFFF' : 'transparent', 'important');
             item._xDirectIconWrap.style.setProperty(
               'color',
               shouldShow ? resolvedTheme.accent : 'var(--x-ov-subtext, #9CA3AF)',
@@ -4319,6 +4334,7 @@ async function getSearchSuggestions(query) {
           }
           return;
         }
+        setNonFaviconIconBg(item, Boolean(isHighlighted || item._xIsHovering));
         const theme = item._xTheme || defaultTheme;
         if (isSelected) {
           applySearchSuggestionHighlight(item, theme);
@@ -4429,7 +4445,9 @@ async function getSearchSuggestions(query) {
         // Create favicon
         const favicon = document.createElement('img');
         favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
-        const fallbackIconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        const fallbackIconSvg = isOverlayDarkMode()
+          ? 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%239CA3AF"/></svg>'
+          : 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%236B7280"/></svg>';
         let hostForTab = '';
         try {
           hostForTab = tab && tab.url ? new URL(tab.url).hostname : '';
@@ -4438,6 +4456,9 @@ async function getSearchSuggestions(query) {
         }
         const useFallback = !tab.favIconUrl || isLocalNetworkHost(hostForTab);
         favicon.src = useFallback ? fallbackIconSvg : tab.favIconUrl;
+        if (useFallback) {
+          favicon.setAttribute('data-fallback-icon', 'true');
+        }
         favicon.decoding = 'async';
         favicon.loading = 'eager';
         favicon.referrerPolicy = 'no-referrer';
@@ -4464,6 +4485,32 @@ async function getSearchSuggestions(query) {
           vertical-align: baseline !important;
           display: block !important;
         `;
+        const iconSlot = document.createElement('span');
+        iconSlot.style.cssText = `
+          all: unset !important;
+          width: 24px !important;
+          height: 24px !important;
+          border-radius: 8px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-sizing: border-box !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          line-height: 1 !important;
+          text-decoration: none !important;
+          list-style: none !important;
+          outline: none !important;
+          background: transparent !important;
+          transition: background-color 0.2s ease !important;
+          color: var(--x-ov-subtext, #9CA3AF) !important;
+          font-size: 100% !important;
+          font: inherit !important;
+          vertical-align: baseline !important;
+        `;
+        iconSlot.appendChild(favicon);
+        suggestionItem._xIconWrap = iconSlot;
+        suggestionItem._xIconIsFavicon = !useFallback;
 
         // Create title
         const title = document.createElement('span');
@@ -4521,6 +4568,8 @@ async function getSearchSuggestions(query) {
         // Add hover effects
         suggestionItem.addEventListener('mouseenter', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
+            this._xIsHovering = true;
+            setNonFaviconIconBg(this, true);
             if (selectedIndex === -1 && this._xIsAutocompleteTop) {
               return;
             }
@@ -4538,8 +4587,8 @@ async function getSearchSuggestions(query) {
 
         suggestionItem.addEventListener('mouseleave', function() {
           if (suggestionItems.indexOf(this) !== selectedIndex) {
-            this.style.setProperty('background-color', 'transparent', 'important');
-            this.style.setProperty('border', '1px solid transparent', 'important');
+            this._xIsHovering = false;
+            updateSelection();
           }
         });
 
@@ -4564,7 +4613,7 @@ async function getSearchSuggestions(query) {
           document.removeEventListener('keydown', keydownHandler);
         });
 
-        leftSide.appendChild(favicon);
+        leftSide.appendChild(iconSlot);
         leftSide.appendChild(title);
         suggestionItem.appendChild(leftSide);
         suggestionItem.appendChild(switchButton);
@@ -5249,6 +5298,7 @@ async function getSearchSuggestions(query) {
           }
           
           if (iconNode) {
+            const isFaviconIcon = iconNode.tagName === 'IMG';
             const iconSlot = document.createElement('span');
             iconSlot.style.cssText = `
               all: unset !important;
@@ -5266,13 +5316,17 @@ async function getSearchSuggestions(query) {
               list-style: none !important;
               outline: none !important;
               background: transparent !important;
+              transition: background-color 0.2s ease !important;
               color: var(--x-ov-subtext, #9CA3AF) !important;
               font-size: 100% !important;
               font: inherit !important;
               vertical-align: baseline !important;
             `;
+            iconSlot._xIsFavicon = isFaviconIcon;
             iconSlot.appendChild(iconNode);
             iconNode = iconSlot;
+            suggestionItem._xIconWrap = iconSlot;
+            suggestionItem._xIconIsFavicon = isFaviconIcon;
             if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
               iconWrapper = iconSlot;
             }
@@ -5583,6 +5637,7 @@ async function getSearchSuggestions(query) {
           suggestionItem.addEventListener('mouseenter', function() {
             if (suggestionItems.indexOf(this) !== selectedIndex) {
               this._xIsHovering = true;
+              setNonFaviconIconBg(this, true);
               if (selectedIndex === -1 && this._xIsAutocompleteTop) {
                 return;
               }
