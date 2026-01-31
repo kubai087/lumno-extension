@@ -5,27 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lumno 设置</title>
     <!-- Thanks to the Remix Icon project; this extension uses its icon set: https://remixicon.com/ -->
-    <script>
-      (function() {
-        try {
-          var cached = localStorage.getItem('_x_extension_theme_mode_2024_unique_');
-          if (cached) {
-            document.documentElement.setAttribute('data-theme', cached === 'system'
-              ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-              : cached);
-          }
-        } catch (e) {}
-      })();
-    </script>
     <style>
       html,
       body {
         height: 100%;
         scrollbar-gutter: stable;
       }
+      html {
+        background: #111111;
+      }
+      @media (prefers-color-scheme: light) {
+        html {
+          background: #f1f5f9;
+        }
+      }
       body {
         margin: 0;
-        background: #111111;
+        background: transparent;
         display: flex;
         align-items: flex-start;
         justify-content: center;
@@ -35,6 +31,11 @@
           "Helvetica Neue", Arial, sans-serif;
         overflow-y: scroll;
         position: relative;
+        opacity: 0;
+      }
+      html[data-theme-ready="true"] body {
+        background: var(--page-bg);
+        opacity: 1;
       }
       /* Light mode subtle noise overlay (adjust opacity/URL for strength & tone) */
       body[data-theme="light"]::before {
@@ -60,12 +61,10 @@
         pointer-events: none;
         opacity: 0.65;
       }
-      html[data-theme="dark"] body .settings-bg-light,
       body[data-theme="dark"] .settings-bg-light {
         opacity: 1;
         background-image: url("settings-bg-dark.png");
       }
-      html[data-theme="light"] body,
       body[data-theme="light"] {
         background: #f1f5f9;
       }
@@ -77,7 +76,6 @@
         --tab-border: rgba(15, 23, 42, 0.05);
         --panel-subtext: #6b7280;
       }
-      html[data-theme="dark"] body,
       body[data-theme="dark"] {
         --page-bg: #111111;
         --tab-bg: rgba(255, 255, 255, 0.06);
@@ -86,7 +84,6 @@
         --tab-border: rgba(93, 22, 22, 0.12);
         --panel-subtext: #9ca3af;
       }
-      html[data-theme="light"] body,
       body[data-theme="light"] {
         --page-bg: #f1f5f9;
         --tab-bg: #e3e8f1;
@@ -140,7 +137,6 @@
         gap: 14px;
         box-sizing: border-box;
         position: relative;
-        zoom: 1.05;
       }
       /* Dark mode subtle noise overlay for panel (tune opacity/URL as needed) */
       #_x_extension_settings_panel_2024_unique_[data-theme="dark"]::before {

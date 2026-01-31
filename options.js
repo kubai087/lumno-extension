@@ -49,7 +49,6 @@
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
-  const THEME_LOCAL_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
   const DEBUG_DUPLICATE_CUSTOM_KEY = 'dup';
@@ -682,7 +681,6 @@
   }
 
   function applyResolvedTheme(resolvedTheme) {
-    document.documentElement.setAttribute('data-theme', resolvedTheme);
     document.body.setAttribute('data-theme', resolvedTheme);
     panel.setAttribute('data-theme', resolvedTheme);
   }
@@ -728,9 +726,6 @@
 
   function setThemeMode(mode) {
     chrome.storage.local.set({ [THEME_STORAGE_KEY]: mode }, () => {
-      try {
-        localStorage.setItem(THEME_LOCAL_STORAGE_KEY, mode);
-      } catch (e) {}
       updateThemeButtons(mode);
       applyResolvedTheme(resolveTheme(mode));
       if (mode === 'system' && !mediaListenerAttached) {
@@ -745,13 +740,43 @@
     });
   }
 
-  chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
-    const storedMode = result[THEME_STORAGE_KEY] || 'system';
+  function getStoredThemeMode() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+        resolve((result && result[THEME_STORAGE_KEY]) || 'system');
+      });
+    });
+  }
+
+  async function initTheme() {
+    let ready = false;
+    const fallbackTimer = setTimeout(() => {
+      if (ready) {
+        return;
+      }
+      applyResolvedTheme(resolveTheme('system'));
+      document.documentElement.setAttribute('data-theme-ready', 'true');
+    }, 800);
     try {
-      localStorage.setItem(THEME_LOCAL_STORAGE_KEY, storedMode);
-    } catch (e) {}
-    setThemeMode(storedMode);
-  });
+      const storedMode = await getStoredThemeMode();
+      updateThemeButtons(storedMode);
+      applyResolvedTheme(resolveTheme(storedMode));
+      if (storedMode === 'system' && !mediaListenerAttached) {
+        mediaQuery.addEventListener('change', onMediaChange);
+        mediaListenerAttached = true;
+      }
+      ready = true;
+      clearTimeout(fallbackTimer);
+      document.documentElement.setAttribute('data-theme-ready', 'true');
+    } catch (e) {
+      ready = true;
+      clearTimeout(fallbackTimer);
+      applyResolvedTheme(resolveTheme('system'));
+      document.documentElement.setAttribute('data-theme-ready', 'true');
+    }
+  }
+
+  initTheme();
 
   themeButtons.forEach((button) => {
     button.addEventListener('click', function() {
