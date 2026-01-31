@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lumno</title>
-    <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css" />
+    <!-- Thanks to the Remix Icon project; this extension uses its icon set: https://remixicon.com/ -->
     <style>
       html,
       body {
@@ -159,10 +159,10 @@
       }
       .x-nt-recent-heading {
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 500;
         color: var(--x-nt-recent-heading-color, #000000);
-        font-family: "PingFang SC", "PingFang SC Semibold", "PingFangSC-Semibold",
-          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "Helvetica Neue", Arial, sans-serif;
         line-height: 1;
       }
       .x-nt-recent-card {
@@ -257,10 +257,10 @@
       }
       .x-nt-recent-name {
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 500;
         color: var(--x-nt-recent-title);
-        font-family: "PingFang SC", "PingFang SC Semibold", "PingFangSC-Regular",
-          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "Helvetica Neue", Arial, sans-serif;
         line-height: 1.1;
         white-space: nowrap;
         overflow: hidden;
@@ -271,8 +271,8 @@
         font-size: 12px;
         font-weight: 400;
         color: var(--x-nt-recent-title);
-        font-family: "PingFang SC", "PingFang SC Semibold", "PingFangSC-Regular",
-          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "Helvetica Neue", Arial, sans-serif;
         line-height: 1.25;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -316,6 +316,18 @@
         transition: opacity 220ms ease, transform 220ms ease;
         pointer-events: none;
       }
+      .ri-icon {
+        width: var(--ri-size, 16px);
+        height: var(--ri-size, 16px);
+        display: inline-block;
+        fill: currentColor;
+        flex-shrink: 0;
+      }
+      .ri-size-8 { --ri-size: 8px; }
+      .ri-size-12 { --ri-size: 12px; }
+      .ri-size-16 { --ri-size: 16px; }
+      .ri-size-20 { --ri-size: 20px; }
+      .ri-size-24 { --ri-size: 24px; }
       .x-nt-recent-card:hover .x-nt-recent-action {
         max-height: 24px;
         opacity: 1;

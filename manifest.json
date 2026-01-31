@@ -27,7 +27,7 @@
    },
    "web_accessible_resources": [
       {
-         "resources": [ "lumno.png", "lumno-input-light.png", "site-search.json", "shortcut-rules.json" ],
+         "resources": [ "lumno.png", "lumno-input-light.png", "site-search.json", "shortcut-rules.json", "remixicon.symbol.svg" ],
          "matches": [ "\u003Call_urls>" ]
       }
    ],

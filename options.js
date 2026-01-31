@@ -30,14 +30,26 @@
   const confirmOk = document.getElementById('_x_extension_confirm_ok_2024_unique_');
   const confirmCancel = document.getElementById('_x_extension_confirm_cancel_2024_unique_');
   const confirmDialog = document.querySelector('._x_extension_confirm_dialog_2024_unique_');
+
+  // 使用系统字体，避免外链字体依赖。
   if (!panel || themeButtons.length === 0 || tabButtons.length === 0) {
     return;
+  }
+
+  const RI_SPRITE_URL = (chrome && chrome.runtime && chrome.runtime.getURL)
+    ? chrome.runtime.getURL('remixicon.symbol.svg')
+    : 'remixicon.symbol.svg';
+
+  function getRiSvg(id, sizeClass) {
+    const size = sizeClass || 'ri-size-12';
+    return `<svg class="ri-icon ${size}" aria-hidden="true" focusable="false"><use href="${RI_SPRITE_URL}#${id}"></use></svg>`;
   }
 
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
+  const THEME_LOCAL_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
   const DEBUG_DUPLICATE_CUSTOM_KEY = 'dup';
@@ -670,6 +682,7 @@
   }
 
   function applyResolvedTheme(resolvedTheme) {
+    document.documentElement.setAttribute('data-theme', resolvedTheme);
     document.body.setAttribute('data-theme', resolvedTheme);
     panel.setAttribute('data-theme', resolvedTheme);
   }
@@ -715,6 +728,9 @@
 
   function setThemeMode(mode) {
     chrome.storage.local.set({ [THEME_STORAGE_KEY]: mode }, () => {
+      try {
+        localStorage.setItem(THEME_LOCAL_STORAGE_KEY, mode);
+      } catch (e) {}
       updateThemeButtons(mode);
       applyResolvedTheme(resolveTheme(mode));
       if (mode === 'system' && !mediaListenerAttached) {
@@ -731,6 +747,9 @@
 
   chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
     const storedMode = result[THEME_STORAGE_KEY] || 'system';
+    try {
+      localStorage.setItem(THEME_LOCAL_STORAGE_KEY, storedMode);
+    } catch (e) {}
     setThemeMode(storedMode);
   });
 
@@ -1037,7 +1056,7 @@
         duplicateTag.setAttribute('data-template', normalizedTemplate);
         duplicateTag.setAttribute('title', getMessage('shortcuts_duplicate_action', '定位内置项'));
         duplicateTag.setAttribute('aria-label', getMessage('shortcuts_duplicate_action', '定位内置项'));
-        duplicateTag.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 17h.01"/></svg>${getMessage('shortcuts_duplicate_tag', '与内置重复')}`;
+        duplicateTag.innerHTML = `${getRiSvg('ri-question-line', 'ri-size-12')}${getMessage('shortcuts_duplicate_tag', '与内置重复')}`;
         duplicateTag.addEventListener('click', (event) => {
           event.stopPropagation();
           const targetRow = builtinRowByTemplate.get(normalizedTemplate);
@@ -1066,13 +1085,13 @@
       actions.className = '_x_extension_shortcut_item_actions_2024_unique_';
       const editButton = document.createElement('button');
       editButton.className = '_x_extension_shortcut_edit_2024_unique_';
-      editButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+      editButton.innerHTML = getRiSvg('ri-edit-line', 'ri-size-14');
       editButton.dataset.editKey = item.key || '';
       editButton.dataset.editType = item._xIsCustom ? 'custom' : 'builtin';
       actions.appendChild(editButton);
       const removeButton = document.createElement('button');
       removeButton.className = '_x_extension_shortcut_remove_2024_unique_';
-      removeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>`;
+      removeButton.innerHTML = getRiSvg('ri-delete-bin-4-line', 'ri-size-14');
       removeButton.setAttribute('aria-label', getMessage('shortcuts_remove', '移除'));
       actions.appendChild(removeButton);
       const popconfirm = document.createElement('div');
@@ -1125,7 +1144,7 @@
         'shortcuts_template_help',
         '1.打开你想添加的网站\n2.输入任一搜索词，触发搜索\n3.将搜索结果页面 url 粘贴在此处\n4.将关键词替换为{query}'
       ));
-      templateHint.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 17h.01"/></svg>';
+      templateHint.innerHTML = getRiSvg('ri-question-line', 'ri-size-14');
       templateLabel.appendChild(templateLabelText);
       templateLabel.appendChild(templateRequired);
       templateLabelRow.appendChild(templateLabel);

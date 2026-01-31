@@ -100,7 +100,10 @@
 
     const icon = document.createElement('div');
     icon.id = config.iconId || '_x_extension_search_icon_2024_unique_';
-    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="_x_extension_svg_2024_unique_"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+    const spriteUrl = (chrome && chrome.runtime && chrome.runtime.getURL)
+      ? chrome.runtime.getURL('remixicon.symbol.svg')
+      : 'remixicon.symbol.svg';
+    icon.innerHTML = `<svg class="_x_extension_svg_2024_unique_ ri-icon ri-size-16" aria-hidden="true" focusable="false"><use href="${spriteUrl}#ri-search-line"></use></svg>`;
     icon.style.cssText = `
       all: unset !important;
       position: absolute !important;

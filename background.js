@@ -1347,6 +1347,9 @@ async function getSearchSuggestions(query) {
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
   const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
+  const RI_SPRITE_URL = (chrome && chrome.runtime && chrome.runtime.getURL)
+    ? chrome.runtime.getURL('remixicon.symbol.svg')
+    : 'remixicon.symbol.svg';
   const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let overlayThemeMode = 'system';
   let overlayThemeListenerAttached = false;
@@ -1442,6 +1445,12 @@ async function getSearchSuggestions(query) {
     return text;
   }
 
+  function getRiSvg(id, sizeClass, extraClass) {
+    const size = sizeClass || 'ri-size-16';
+    const extra = extraClass ? ` ${extraClass}` : '';
+    return `<svg class="ri-icon ${size}${extra}" aria-hidden="true" focusable="false"><use href="${RI_SPRITE_URL}#${id}"></use></svg>`;
+  }
+
   function buildSearchUrlFromTemplate(template, query) {
     if (!template) {
       return '';
@@ -1513,6 +1522,7 @@ async function getSearchSuggestions(query) {
       }
     });
   }
+
 
   function isLocalNetworkHost(hostname) {
     const host = String(hostname || '').toLowerCase();
@@ -1656,12 +1666,7 @@ async function getSearchSuggestions(query) {
       }
     };
     
-    // Add Inter font with unique ID
-    const fontLink = document.createElement('link');
-    fontLink.id = '_x_extension_font_2024_unique_';
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap';
-    fontLink.rel = 'stylesheet';
-    document.head.appendChild(fontLink);
+    // 使用系统字体，避免外链字体依赖。
     
     // Add style to hide scrollbars for WebKit browsers
     const scrollbarStyle = document.createElement('style');
@@ -1680,6 +1685,18 @@ async function getSearchSuggestions(query) {
     const overlayThemeStyle = document.createElement('style');
     overlayThemeStyle.id = '_x_extension_overlay_theme_style_2024_unique_';
     overlayThemeStyle.textContent = `
+      #_x_extension_overlay_2024_unique_ .ri-icon {
+        width: var(--ri-size, 16px);
+        height: var(--ri-size, 16px);
+        display: inline-block;
+        fill: currentColor;
+        flex-shrink: 0;
+      }
+      #_x_extension_overlay_2024_unique_ .ri-size-8 { --ri-size: 8px; }
+      #_x_extension_overlay_2024_unique_ .ri-size-12 { --ri-size: 12px; }
+      #_x_extension_overlay_2024_unique_ .ri-size-16 { --ri-size: 16px; }
+      #_x_extension_overlay_2024_unique_ .ri-size-20 { --ri-size: 20px; }
+      #_x_extension_overlay_2024_unique_ .ri-size-24 { --ri-size: 24px; }
       #_x_extension_search_input_2024_unique_ {
         text-align: left !important;
       }
@@ -2901,9 +2918,9 @@ async function getSearchSuggestions(query) {
       });
     }
 
-    function createSearchIcon() {
-      const icon = document.createElement('span');
-      icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>`;
+  function createSearchIcon() {
+    const icon = document.createElement('span');
+    icon.innerHTML = getRiSvg('ri-search-line', 'ri-size-16');
       icon.style.cssText = `
         all: unset !important;
         width: 16px !important;
@@ -2972,7 +2989,7 @@ async function getSearchSuggestions(query) {
         border: 1px solid var(--x-ext-key-border, #BFDBFE) !important;
         box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12) !important;
         font-size: 10px !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
         line-height: 1 !important;
       `;
 
@@ -4363,7 +4380,7 @@ async function getSearchSuggestions(query) {
         // Create switch button
         const switchButton = document.createElement('button');
         switchButton.id = `_x_extension_switch_button_${index}_2024_unique_`;
-        switchButton.innerHTML = `${t('switch_to_tab', '切换到标签页')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+        switchButton.innerHTML = `${t('switch_to_tab', '切换到标签页')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
         switchButton.style.cssText = `
           all: unset !important;
           background: transparent !important;
@@ -4967,7 +4984,7 @@ async function getSearchSuggestions(query) {
           let iconWrapper = null;
           if (suggestion.type === 'browserPage') {
             const themedIcon = document.createElement('span');
-            themedIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--x-ext-icon-color, #6B7280)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><line x1="3" y1="8" x2="21" y2="8"/><circle cx="7" cy="6" r="1"/><circle cx="11" cy="6" r="1"/></svg>`;
+            themedIcon.innerHTML = getRiSvg('ri-window-2-line', 'ri-size-16');
             themedIcon.style.cssText = `
               all: unset !important;
               width: 16px !important;
@@ -4993,7 +5010,7 @@ async function getSearchSuggestions(query) {
             iconNode = createSearchIcon();
           } else if (suggestion.type === 'commandNewTab') {
             const plusIcon = document.createElement('span');
-            plusIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`;
+            plusIcon.innerHTML = getRiSvg('ri-add-line', 'ri-size-16');
             plusIcon.style.cssText = `
               all: unset !important;
               width: 16px !important;
@@ -5017,7 +5034,7 @@ async function getSearchSuggestions(query) {
             iconNode = plusIcon;
           } else if (suggestion.type === 'commandSettings') {
             const gearIcon = document.createElement('span');
-            gearIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1.82l.03.07a2 2 0 1 1-3.4 0l.03-.07a1.65 1.65 0 0 0-.33-1.82 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.82-.33l-.07.03a2 2 0 1 1 0-3.4l.07.03A1.65 1.65 0 0 0 4 9.6c.25-.3.46-.65.6-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6c.3-.25.65-.46 1-.6a1.65 1.65 0 0 0 .33-1.82l-.03-.07a2 2 0 1 1 3.4 0l-.03.07a1.65 1.65 0 0 0 .33 1.82c.3.25.65.46 1 .6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.25.3.46.65.6 1a1.65 1.65 0 0 0 1.82.33l.07-.03a2 2 0 1 1 0 3.4l-.07-.03a1.65 1.65 0 0 0-1.82.33c-.3.25-.65.46-1 .6z"/></svg>`;
+            gearIcon.innerHTML = getRiSvg('ri-settings-3-line', 'ri-size-16');
             gearIcon.style.cssText = `
               all: unset !important;
               width: 16px !important;
@@ -5082,7 +5099,7 @@ async function getSearchSuggestions(query) {
             // Fallback to search icon if favicon fails to load
             favicon.onerror = function() {
               // Replace with search icon SVG if favicon fails
-              const searchIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>`;
+              const searchIconSvg = getRiSvg('ri-search-line', 'ri-size-16');
               const fallbackDiv = document.createElement('div');
               fallbackDiv.innerHTML = searchIconSvg;
               fallbackDiv.style.cssText = `
@@ -5432,19 +5449,19 @@ async function getSearchSuggestions(query) {
           }
           
           if (suggestion.type === 'newtab') {
-            visitButton.innerHTML = `${getSearchActionLabel()} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${getSearchActionLabel()} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'commandNewTab') {
-            visitButton.innerHTML = `${t('command_newtab', '新建标签页')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${t('command_newtab', '新建标签页')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'commandSettings') {
-            visitButton.innerHTML = `${formatMessage('command_settings', `打开 ${extensionName} 设置`, { name: extensionName })} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${formatMessage('command_settings', `打开 ${extensionName} 设置`, { name: extensionName })} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'siteSearch') {
-            visitButton.innerHTML = `${t('action_search', '搜索')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${t('action_search', '搜索')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
-            visitButton.innerHTML = `${t('action_open', '打开')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${t('action_open', '打开')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'googleSuggest') {
-            visitButton.innerHTML = `${getSearchActionLabel()} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${getSearchActionLabel()} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else {
-            visitButton.innerHTML = `${t('visit_label', '访问')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${t('visit_label', '访问')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           }
           
           // Add hover effects
