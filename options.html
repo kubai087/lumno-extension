@@ -106,6 +106,7 @@
         --panel-border: rgba(0, 0, 0, 0.12);
         --panel-text: #111827;
         --panel-subtext: #6b7280;
+        --setting-divider: rgba(15, 23, 42, 0.08);
         --input-focus-color: rgba(59, 130, 246, 0.65);
         --input-focus-shadow: rgba(59, 130, 246, 0.2);
         --input-placeholder: rgba(100, 116, 139, 0.7);
@@ -126,6 +127,9 @@
         --switch-on-bg: #2563eb;
         --switch-knob: #ffffff;
         --panel-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        --sync-button-bg: rgba(148, 163, 184, 0.16);
+        --sync-button-hover-bg: rgba(148, 163, 184, 0.28);
+        --sync-menu-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
         background: var(--panel-bg);
         border: 1px solid var(--panel-border);
         border-radius: 22px;
@@ -159,6 +163,7 @@
         --panel-border: rgba(255, 255, 255, 0.1);
         --panel-text: #e5e7eb;
         --panel-subtext: #9ca3af;
+        --setting-divider: rgba(255, 255, 255, 0.1);
         --panel-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
         --input-focus-color: rgba(191, 219, 254, 0.7);
         --input-focus-shadow: rgba(59, 130, 246, 0.3);
@@ -179,6 +184,9 @@
         --switch-bg: rgba(255, 255, 255, 0.14);
         --switch-on-bg: #e5e7eb;
         --switch-knob: #111827;
+        --sync-button-bg: rgba(255, 255, 255, 0.12);
+        --sync-button-hover-bg: rgba(255, 255, 255, 0.2);
+        --sync-menu-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
       }
       #_x_extension_settings_tabs_2024_unique_ {
         display: flex;
@@ -284,6 +292,12 @@
         font-weight: 500;
         margin: 0;
         color: var(--panel-text);
+        display: block;
+      }
+      ._x_extension_setting_title_with_icon_2024_unique_ {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
       }
       ._x_extension_setting_desc_2024_unique_ {
         font-size: 12px;
@@ -292,25 +306,86 @@
       }
       ._x_extension_sync_actions_2024_unique_ {
         display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 8px;
-        text-align: right;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
       }
       ._x_extension_sync_status_2024_unique_ {
-        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.2;
+        border: 1px solid transparent;
         color: var(--panel-subtext);
-        line-height: 1.4;
+        background: rgba(148, 163, 184, 0.16);
+        max-width: 100%;
+        white-space: normal;
+        transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+      }
+      ._x_extension_sync_status_2024_unique_:hover {
+        background: rgba(148, 163, 184, 0.24);
+        border-color: rgba(148, 163, 184, 0.25);
+      }
+      ._x_extension_sync_status_2024_unique_[data-status="success"] {
+        color: #15803d;
+        border-color: rgba(34, 197, 94, 0.35);
+        background: rgba(34, 197, 94, 0.14);
+      }
+      ._x_extension_sync_status_2024_unique_[data-status="success"]:hover {
+        background: rgba(34, 197, 94, 0.2);
+        border-color: rgba(34, 197, 94, 0.45);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_sync_status_2024_unique_[data-status="success"] {
+        color: #86efac;
+        border-color: rgba(74, 222, 128, 0.35);
+        background: rgba(34, 197, 94, 0.18);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_sync_status_2024_unique_[data-status="success"]:hover {
+        background: rgba(34, 197, 94, 0.26);
+        border-color: rgba(74, 222, 128, 0.45);
+      }
+      ._x_extension_sync_status_2024_unique_[data-status="danger"] {
+        color: #b91c1c;
+        border-color: rgba(239, 68, 68, 0.35);
+        background: rgba(239, 68, 68, 0.12);
+      }
+      ._x_extension_sync_status_2024_unique_[data-status="danger"]:hover {
+        background: rgba(239, 68, 68, 0.18);
+        border-color: rgba(239, 68, 68, 0.45);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_sync_status_2024_unique_[data-status="danger"] {
+        color: #fca5a5;
+        border-color: rgba(248, 113, 113, 0.35);
+        background: rgba(239, 68, 68, 0.16);
+      }
+      #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_sync_status_2024_unique_[data-status="danger"]:hover {
+        background: rgba(239, 68, 68, 0.24);
+        border-color: rgba(248, 113, 113, 0.45);
       }
       ._x_extension_sync_buttons_2024_unique_ {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 12px;
         justify-content: flex-end;
+      }
+      #_x_extension_sync_now_2024_unique_ ._x_extension_sync_now_icon_2024_unique_ {
+        transition: transform 0.35s ease;
+      }
+      #_x_extension_sync_now_2024_unique_[data-rotated="true"] ._x_extension_sync_now_icon_2024_unique_ {
+        transform: rotate(180deg);
       }
       ._x_extension_sync_button_2024_unique_[data-disabled="true"] {
         opacity: 0.5;
         pointer-events: none;
+      }
+      ._x_extension_sync_button_2024_unique_ {
+        padding: 10px 16px;
+        font-size: 13px;
+        min-height: 36px;
       }
       ._x_extension_switch_2024_unique_ {
         position: relative;
@@ -413,7 +488,7 @@
       ._x_extension_shortcut_group_action_2024_unique_ {
         all: unset;
         cursor: pointer;
-        padding: 4px 6px;
+        padding: 4px;
         border-radius: 8px;
         color: var(--panel-subtext);
         display: inline-flex;
@@ -973,6 +1048,9 @@
         align-items: center;
         gap: 6px;
       }
+      ._x_extension_sync_icon_faded_2024_unique_ .ri-icon {
+        opacity: 0.5;
+      }
       #_x_extension_settings_panel_2024_unique_[data-theme="dark"] ._x_extension_shortcut_secondary_2024_unique_ {
         background: var(--tab-bg);
         color: var(--panel-text);
@@ -1179,6 +1257,18 @@
       ._x_extension_toggle_2024_unique_ input:checked::after {
         transform: translateX(18px);
       }
+      ._x_extension_setting_divider_2024_unique_ {
+        height: 1px;
+        width: 100%;
+        background: var(--setting-divider);
+        border-radius: 999px;
+      }
+      ._x_extension_setting_divider_wrap_2024_unique_ {
+        height: 8px;
+        display: flex;
+        align-items: flex-end;
+        width: 100%;
+      }
     </style>
   </head>
   <body>
@@ -1233,17 +1323,41 @@
               <div class="_x_extension_select_menu_2024_unique_" role="listbox"></div>
             </div>
           </div>
+          <div class="_x_extension_setting_divider_wrap_2024_unique_" role="presentation">
+            <div class="_x_extension_setting_divider_2024_unique_"></div>
+          </div>
           <div class="_x_extension_setting_row_2024_unique_">
             <div>
-              <p class="_x_extension_setting_title_2024_unique_" data-i18n="settings_sync_title">同步</p>
-              <p class="_x_extension_setting_desc_2024_unique_" data-i18n="settings_sync_desc">查看同步状态，手动同步或导入导出配置</p>
+              <div class="_x_extension_setting_title_2024_unique_ _x_extension_setting_title_with_icon_2024_unique_">
+                <span data-i18n="settings_sync_title">Lumno 配置</span>
+                <span id="_x_extension_sync_status_2024_unique_" class="_x_extension_sync_status_2024_unique_ _x_extension_tooltip_host_2024_unique_" data-tooltip="同步信息说明" data-i18n-tooltip="sync_status_hint" aria-label="同步信息说明" role="img">
+                  <span id="_x_extension_sync_status_text_2024_unique_" data-i18n="sync_status_ready">自动同步已开启</span>
+                  <svg class="ri-icon ri-size-12" aria-hidden="true" focusable="false">
+                    <use href="remixicon.symbol.svg#ri-question-line"></use>
+                  </svg>
+                </span>
+              </div>
             </div>
             <div class="_x_extension_sync_actions_2024_unique_">
-              <div id="_x_extension_sync_status_2024_unique_" class="_x_extension_sync_status_2024_unique_" data-i18n="sync_status_ready">同步已开启</div>
               <div class="_x_extension_sync_buttons_2024_unique_">
-                <button id="_x_extension_sync_now_2024_unique_" class="_x_extension_shortcut_submit_2024_unique_ _x_extension_sync_button_2024_unique_" data-i18n="sync_action_now">手动同步</button>
-                <button id="_x_extension_sync_export_2024_unique_" class="_x_extension_shortcut_secondary_2024_unique_ _x_extension_sync_button_2024_unique_" data-i18n="sync_action_export">导出配置</button>
-                <button id="_x_extension_sync_import_2024_unique_" class="_x_extension_shortcut_secondary_2024_unique_ _x_extension_sync_button_2024_unique_" data-i18n="sync_action_import">导入配置</button>
+                <button id="_x_extension_sync_export_2024_unique_" class="_x_extension_sync_button_2024_unique_ _x_extension_shortcut_secondary_2024_unique_ _x_extension_sync_icon_faded_2024_unique_" type="button">
+                  <svg class="ri-icon ri-size-16" aria-hidden="true" focusable="false">
+                    <use href="remixicon.symbol.svg#ri-upload-line"></use>
+                  </svg>
+                  <span data-i18n="sync_action_export">导出配置</span>
+                </button>
+                <button id="_x_extension_sync_import_2024_unique_" class="_x_extension_sync_button_2024_unique_ _x_extension_shortcut_secondary_2024_unique_ _x_extension_sync_icon_faded_2024_unique_" type="button">
+                  <svg class="ri-icon ri-size-16" aria-hidden="true" focusable="false">
+                    <use href="remixicon.symbol.svg#ri-download-line"></use>
+                  </svg>
+                  <span data-i18n="sync_action_import">导入配置</span>
+                </button>
+                <button id="_x_extension_sync_now_2024_unique_" class="_x_extension_shortcut_submit_2024_unique_ _x_extension_shortcut_submit_primary_2024_unique_ _x_extension_shortcut_save_2024_unique_ _x_extension_sync_button_2024_unique_" type="button" data-tooltip="">
+                  <svg class="ri-icon ri-size-16 _x_extension_sync_now_icon_2024_unique_" aria-hidden="true" focusable="false">
+                    <use href="remixicon.symbol.svg#ri-refresh-line"></use>
+                  </svg>
+                  <span data-i18n="sync_action_now">手动同步</span>
+                </button>
               </div>
               <input id="_x_extension_sync_import_input_2024_unique_" type="file" accept="application/json" style="display:none;" />
             </div>

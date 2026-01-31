@@ -11,6 +11,7 @@
   const languageSelect = document.getElementById('_x_extension_language_select_2024_unique_');
   const recentCountSelect = document.getElementById('_x_extension_recent_count_select_2024_unique_');
   const syncStatus = document.getElementById('_x_extension_sync_status_2024_unique_');
+  const syncStatusText = document.getElementById('_x_extension_sync_status_text_2024_unique_');
   const syncNowButton = document.getElementById('_x_extension_sync_now_2024_unique_');
   const syncExportButton = document.getElementById('_x_extension_sync_export_2024_unique_');
   const syncImportButton = document.getElementById('_x_extension_sync_import_2024_unique_');
@@ -35,6 +36,7 @@
   const confirmOk = document.getElementById('_x_extension_confirm_ok_2024_unique_');
   const confirmCancel = document.getElementById('_x_extension_confirm_cancel_2024_unique_');
   const confirmDialog = document.querySelector('._x_extension_confirm_dialog_2024_unique_');
+  const extensionName = (chrome && chrome.runtime && chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
   // 使用系统字体，避免外链字体依赖。
   if (!panel || themeButtons.length === 0 || tabButtons.length === 0) {
@@ -164,7 +166,8 @@
         return;
       }
       const fallback = node.textContent || '';
-      const message = getMessage(key, fallback);
+      const rawMessage = getMessage(key, fallback);
+      const message = formatTemplate(rawMessage, { name: extensionName });
       if (message) {
         node.textContent = message;
         if (node.tagName === 'OPTION') {
@@ -450,6 +453,7 @@
     button.setAttribute('data-disabled', enabled ? 'false' : 'true');
   }
 
+
   function formatSyncTime(timestamp) {
     if (!timestamp) {
       return '';
@@ -465,8 +469,42 @@
     if (!syncStatus) {
       return;
     }
+    let statusStyle = '';
+    let tooltipKey = 'sync_status_hint';
+    if (statusKey === 'sync_status_ready' || statusKey === 'sync_status_done') {
+      statusStyle = 'success';
+      tooltipKey = 'sync_status_hint';
+    } else if (statusKey === 'sync_status_failed' || statusKey === 'sync_status_failed_reason' || statusKey === 'sync_status_unavailable') {
+      statusStyle = 'danger';
+      tooltipKey = 'sync_status_unavailable_hint';
+    }
+    if (statusStyle) {
+      syncStatus.setAttribute('data-status', statusStyle);
+    } else {
+      syncStatus.removeAttribute('data-status');
+    }
+    if (syncStatus.hasAttribute('data-i18n-tooltip')) {
+      syncStatus.setAttribute('data-i18n-tooltip', tooltipKey);
+    }
+    syncStatus.setAttribute('data-tooltip', getMessage(tooltipKey, syncStatus.getAttribute('data-tooltip') || ''));
     const template = getMessage(statusKey, fallback);
-    syncStatus.textContent = params ? formatTemplate(template, params) : template;
+    const target = syncStatusText || syncStatus;
+    target.textContent = params ? formatTemplate(template, params) : template;
+  }
+
+  function updateSyncNowTooltip(timeText) {
+    if (!syncNowButton) {
+      return;
+    }
+    if (!timeText) {
+      syncNowButton.setAttribute('data-tooltip', getMessage('sync_tooltip_default', '手动同步'));
+      return;
+    }
+    const template = getMessage('sync_tooltip_last_manual', '最近导入/手动同步 {time}');
+    syncNowButton.setAttribute('data-tooltip', formatTemplate(template, { time: timeText }));
+    if (syncNowButton.matches(':hover') || syncNowButton.matches(':focus')) {
+      showTooltipFor(syncNowButton);
+    }
   }
 
   function refreshSyncStatus() {
@@ -490,15 +528,11 @@
     setSyncButtonEnabled(syncNowButton, true);
     setSyncButtonEnabled(syncExportButton, true);
     setSyncButtonEnabled(syncImportButton, true);
+    updateSyncStatusText('sync_status_ready', '同步已开启');
     storageArea.get([SYNC_META_KEY], (result) => {
       const meta = result ? result[SYNC_META_KEY] : null;
-      if (meta && meta.lastSyncAt) {
-        updateSyncStatusText('sync_status_ready_time', '同步已开启 · 最近同步 {time}', {
-          time: formatSyncTime(meta.lastSyncAt)
-        });
-        return;
-      }
-      updateSyncStatusText('sync_status_ready', '同步已开启');
+      const lastSyncAt = meta && meta.lastSyncAt ? meta.lastSyncAt : '';
+      updateSyncNowTooltip(lastSyncAt ? formatSyncTime(lastSyncAt) : '');
     });
   }
 
@@ -1096,7 +1130,8 @@
         updateSyncStatusText('sync_status_unavailable', '同步不可用');
         return;
       }
-      updateSyncStatusText('sync_status_syncing', '同步中...');
+      const isRotated = syncNowButton.getAttribute('data-rotated') === 'true';
+      syncNowButton.setAttribute('data-rotated', isRotated ? 'false' : 'true');
       storageArea.get(SYNC_KEYS, (result) => {
         const payload = {};
         SYNC_KEYS.forEach((key) => {
@@ -1113,17 +1148,20 @@
             const reason = chrome.runtime && chrome.runtime.lastError
               ? chrome.runtime.lastError.message
               : '';
-            updateSyncStatusText('sync_status_failed_reason', '同步失败：{reason}', {
-              reason: reason || getMessage('sync_status_failed', '同步失败')
-            });
-            showToast(formatTemplate(getMessage('sync_status_failed_reason', '同步失败：{reason}'), {
-              reason: reason || getMessage('sync_status_failed', '同步失败')
-            }), true);
+            setTimeout(() => {
+              showToast(formatTemplate(getMessage('sync_status_failed_reason', '同步失败：{reason}'), {
+                reason: reason || getMessage('sync_status_failed', '同步失败')
+              }), true);
+            }, 360);
             return;
           }
-          updateSyncStatusText('sync_status_done', '同步完成');
-          showToast(getMessage('sync_status_done', '同步完成'), false);
-          refreshSyncStatus();
+          const toastDelay = 360;
+          setTimeout(() => {
+            showToast(getMessage('sync_status_done', '同步完成'), false);
+          }, toastDelay);
+          setTimeout(() => {
+            updateSyncNowTooltip(formatSyncTime(Date.now()));
+          }, toastDelay + 60);
         });
       });
     });
@@ -1202,6 +1240,7 @@
     });
   }
 
+
   if (storageArea) {
     storageArea.get([LANGUAGE_STORAGE_KEY], (result) => {
       const hasStored = Object.prototype.hasOwnProperty.call(result, LANGUAGE_STORAGE_KEY);
@@ -1214,9 +1253,13 @@
 
     storageArea.get([RECENT_COUNT_STORAGE_KEY], (result) => {
       const stored = result[RECENT_COUNT_STORAGE_KEY];
-      const count = Number.isFinite(stored) ? stored : 4;
+      const hasStored = Number.isFinite(stored);
+      const count = hasStored ? stored : 4;
       if (recentCountSelect) {
         recentCountSelect.value = String(count);
+      }
+      if (!hasStored) {
+        storageArea.set({ [RECENT_COUNT_STORAGE_KEY]: count });
       }
       refreshCustomSelects();
     });
