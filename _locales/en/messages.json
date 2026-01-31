@@ -81,6 +81,7 @@
   "search_in_site_ellipsis": { "message": "Search in {site}..." },
   "search_in_site_prefix": { "message": "Search in {site} |" },
   "action_search": { "message": "Search" },
+  "action_search_engine": { "message": "Search in {engine}" },
   "action_search_google": { "message": "Search in Google" },
   "action_open": { "message": "Open" },
   "site_icon_alt": { "message": "Site" }

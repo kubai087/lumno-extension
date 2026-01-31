@@ -68,6 +68,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     chrome.tabs.update(request.tabId, {active: true});
   } else if (request.action === 'searchOrNavigate') {
     const query = request.query ? String(request.query) : '';
+    const forceSearch = Boolean(request.forceSearch);
     loadShortcutRules().then((rules) => {
       const shortcutUrl = getShortcutUrl(query, rules);
       if (shortcutUrl) {
@@ -76,7 +77,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         return;
       }
       // Check if it's a URL - very simple and reliable
-      const isUrl = query.includes('.') && !query.includes(' ');
+      const isUrl = !forceSearch && query.includes('.') && !query.includes(' ');
       if (isUrl) {
         // It's a URL - navigate directly
         let url = query;
@@ -86,10 +87,29 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         chrome.tabs.create({ url: url });
         sendResponse({ ok: true, url: url });
       } else {
-        // It's a search query - search Google
-        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        chrome.tabs.create({ url: searchUrl });
-        sendResponse({ ok: true, url: searchUrl });
+        // It's a search query - use browser default search engine
+        const fallbackUrl = buildDefaultSearchUrl(query);
+        if (chrome && chrome.search && typeof chrome.search.query === 'function') {
+          markPendingSearchTab(null);
+          try {
+            chrome.search.query({ text: query, disposition: 'NEW_TAB' }, () => {
+              if (chrome.runtime && chrome.runtime.lastError) {
+                pendingSearchAt = 0;
+                pendingSearchTabId = null;
+                chrome.tabs.create({ url: fallbackUrl });
+                sendResponse({ ok: true, url: fallbackUrl });
+                return;
+              }
+              sendResponse({ ok: true, url: fallbackUrl });
+            });
+            return;
+          } catch (e) {
+            pendingSearchAt = 0;
+            pendingSearchTabId = null;
+          }
+        }
+        chrome.tabs.create({ url: fallbackUrl });
+        sendResponse({ ok: true, url: fallbackUrl });
       }
     });
     return true;
@@ -113,6 +133,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     loadShortcutRules().then((items) => {
       sendResponse({ items: items });
     });
+    return true;
+  } else if (request.action === 'trackSearchTab') {
+    if (typeof request.tabId === 'number') {
+      markPendingSearchTab(request.tabId);
+      sendResponse({ ok: true });
+    } else {
+      sendResponse({ ok: false });
+    }
     return true;
   } else if (request.action === 'getLocaleMessages') {
     const locale = normalizeLocaleForMessages(request.locale);
@@ -160,9 +188,87 @@ let siteSearchCache = null;
 let siteSearchPromise = null;
 const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
 const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
+const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
 const FAVICON_GOOGLE_SIZE = 128;
 const faviconDataCache = new Map();
 const faviconPending = new Map();
+
+const SEARCH_ENGINE_DEFS = [
+  {
+    id: 'google',
+    name: 'Google',
+    hostMatches: ['google.'],
+    searchTemplate: 'https://www.google.com/search?q={query}',
+    searchUrl: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'bing',
+    name: 'Bing',
+    hostMatches: ['bing.com'],
+    searchTemplate: 'https://www.bing.com/search?q={query}',
+    searchUrl: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'baidu',
+    name: '百度',
+    hostMatches: ['baidu.com'],
+    searchTemplate: 'https://www.baidu.com/s?wd={query}',
+    searchUrl: (query) => `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'duckduckgo',
+    name: 'DuckDuckGo',
+    hostMatches: ['duckduckgo.com'],
+    searchTemplate: 'https://duckduckgo.com/?q={query}',
+    searchUrl: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'yahoo',
+    name: 'Yahoo',
+    hostMatches: ['search.yahoo.com'],
+    searchTemplate: 'https://search.yahoo.com/search?p={query}',
+    searchUrl: (query) => `https://search.yahoo.com/search?p=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'yandex',
+    name: 'Yandex',
+    hostMatches: ['yandex.com'],
+    searchTemplate: 'https://yandex.com/search/?text={query}',
+    searchUrl: (query) => `https://yandex.com/search/?text=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'sogou',
+    name: '搜狗',
+    hostMatches: ['sogou.com'],
+    searchTemplate: 'https://www.sogou.com/web?query={query}',
+    searchUrl: (query) => `https://www.sogou.com/web?query=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'so',
+    name: '360搜索',
+    hostMatches: ['so.com'],
+    searchTemplate: 'https://www.so.com/s?q={query}',
+    searchUrl: (query) => `https://www.so.com/s?q=${encodeURIComponent(query)}`
+  },
+  {
+    id: 'shenma',
+    name: '神马',
+    hostMatches: ['sm.cn'],
+    searchTemplate: 'https://m.sm.cn/s?q={query}',
+    searchUrl: (query) => `https://m.sm.cn/s?q=${encodeURIComponent(query)}`
+  }
+];
+
+let defaultSearchEngineState = {
+  id: '',
+  name: '',
+  host: '',
+  searchTemplate: '',
+  updatedAt: 0
+};
+
+let pendingSearchAt = 0;
+let pendingSearchTabId = null;
 
 function arrayBufferToBase64(buffer) {
   let binary = '';
@@ -192,6 +298,343 @@ function normalizeHost(hostname) {
     return 'feishu.cn';
   }
   return stripped;
+}
+
+function getSearchEngineByHostname(hostname) {
+  const normalized = normalizeHost(hostname);
+  if (!normalized) {
+    return null;
+  }
+  return SEARCH_ENGINE_DEFS.find((engine) =>
+    engine.hostMatches.some((match) => normalized.includes(match))
+  ) || null;
+}
+
+function getSearchEngineById(id) {
+  if (!id) {
+    return null;
+  }
+  return SEARCH_ENGINE_DEFS.find((engine) => engine.id === id) || null;
+}
+
+function setDefaultSearchEngineState(nextState, shouldPersist) {
+  if (!nextState || !nextState.id) {
+    return;
+  }
+  const engine = getSearchEngineById(nextState.id);
+  const updated = {
+    id: nextState.id,
+    name: nextState.name || '',
+    host: nextState.host || '',
+    searchTemplate: nextState.searchTemplate || (engine ? engine.searchTemplate : ''),
+    updatedAt: nextState.updatedAt || Date.now()
+  };
+  defaultSearchEngineState = updated;
+  if (shouldPersist && chrome && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.set({ [DEFAULT_SEARCH_ENGINE_STORAGE_KEY]: updated });
+  }
+}
+
+function loadDefaultSearchEngineState() {
+  if (!chrome || !chrome.storage || !chrome.storage.local) {
+    return;
+  }
+  chrome.storage.local.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
+    const stored = result ? result[DEFAULT_SEARCH_ENGINE_STORAGE_KEY] : null;
+    if (stored && stored.id) {
+      setDefaultSearchEngineState(stored, false);
+    }
+  });
+}
+
+function isSearchEngineResultUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const path = parsedUrl.pathname.toLowerCase();
+    const isKnownHost = SEARCH_ENGINE_DEFS.some((engine) =>
+      engine.hostMatches.some((match) => hostname.includes(match))
+    );
+    if (!isKnownHost) {
+      return false;
+    }
+    const searchPaths = [
+      '/search',
+      '/s',
+      '/s/2',
+      '/web',
+      '/?'
+    ];
+    if (path === '/' && parsedUrl.searchParams.has('q')) {
+      return true;
+    }
+    if (path === '/' && parsedUrl.searchParams.has('wd')) {
+      return true;
+    }
+    if (path === '/' && parsedUrl.searchParams.has('query')) {
+      return true;
+    }
+    if (searchPaths.some((prefix) => path.startsWith(prefix))) {
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+function updateDefaultSearchEngineFromUrl(url) {
+  if (!url || !isSearchEngineResultUrl(url)) {
+    return false;
+  }
+  try {
+    const parsedUrl = new URL(url);
+    const engine = getSearchEngineByHostname(parsedUrl.hostname);
+    if (!engine) {
+      return false;
+    }
+    setDefaultSearchEngineState({
+      id: engine.id,
+      name: engine.name,
+      host: normalizeHost(parsedUrl.hostname),
+      searchTemplate: engine.searchTemplate,
+      updatedAt: Date.now()
+    }, true);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function buildDefaultSearchUrl(query) {
+  const engine = getSearchEngineById(defaultSearchEngineState.id);
+  if (engine && typeof engine.searchUrl === 'function') {
+    return engine.searchUrl(query);
+  }
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function getDefaultSearchEngineThemeUrl() {
+  const engine = getSearchEngineById(defaultSearchEngineState.id);
+  if (engine && typeof engine.searchUrl === 'function') {
+    return engine.searchUrl('test');
+  }
+  return 'https://www.google.com';
+}
+
+function getDefaultSearchEngineFaviconUrl() {
+  if (defaultSearchEngineState.host) {
+    return `https://${defaultSearchEngineState.host}/favicon.ico`;
+  }
+  const engine = getSearchEngineById(defaultSearchEngineState.id);
+  if (engine) {
+    try {
+      const host = new URL(engine.searchUrl('test')).hostname;
+      return `https://${host}/favicon.ico`;
+    } catch (e) {
+      return '';
+    }
+  }
+  return 'https://www.google.com/favicon.ico';
+}
+
+function parseJsonpPayload(text) {
+  if (!text) {
+    return null;
+  }
+  const start = text.indexOf('(');
+  const end = text.lastIndexOf(')');
+  if (start < 0 || end <= start) {
+    return null;
+  }
+  const payload = text.slice(start + 1, end);
+  try {
+    return JSON.parse(payload);
+  } catch (e) {
+    return null;
+  }
+}
+
+function extractJsonArray(text) {
+  if (!text) {
+    return null;
+  }
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start < 0 || end <= start) {
+    return null;
+  }
+  const payload = text.slice(start, end + 1);
+  try {
+    return JSON.parse(payload);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function fetchJson(url) {
+  if (!url) {
+    return null;
+  }
+  const response = await fetch(url);
+  if (!response || !response.ok) {
+    return null;
+  }
+  return response.json();
+}
+
+async function fetchText(url) {
+  if (!url) {
+    return '';
+  }
+  const response = await fetch(url);
+  if (!response || !response.ok) {
+    return '';
+  }
+  return response.text();
+}
+
+async function fetchSearchSuggestionsForEngine(query) {
+  const engineId = defaultSearchEngineState.id;
+  if (!query || !engineId) {
+    return [];
+  }
+  try {
+    if (engineId === 'google') {
+      const url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (Array.isArray(data) && Array.isArray(data[1])) {
+        return data[1];
+      }
+      return [];
+    }
+    if (engineId === 'bing') {
+      const url = `https://api.bing.com/osjson.aspx?query=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (Array.isArray(data) && Array.isArray(data[1])) {
+        return data[1];
+      }
+      return [];
+    }
+    if (engineId === 'baidu') {
+      const url = `https://www.baidu.com/sugrec?ie=utf-8&json=1&prod=pc&wd=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (data && Array.isArray(data.g)) {
+        return data.g.map((item) => item && item.q).filter(Boolean);
+      }
+      return [];
+    }
+    if (engineId === 'sogou') {
+      const url = `https://sor.html5.qq.com/api/getsug?m=searxng&key=${encodeURIComponent(query)}`;
+      const text = await fetchText(url);
+      const data = extractJsonArray(text);
+      if (Array.isArray(data) && Array.isArray(data[1])) {
+        return data[1];
+      }
+      return [];
+    }
+    if (engineId === 'so') {
+      const url = `https://sug.so.360.cn/suggest?format=json&word=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (data && Array.isArray(data.result)) {
+        return data.result
+          .map((item) => (item && (item.word || item.w)) || '')
+          .filter(Boolean);
+      }
+      return [];
+    }
+    if (engineId === 'duckduckgo') {
+      const url = `https://duckduckgo.com/ac/?type=list&q=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (Array.isArray(data)) {
+        if (Array.isArray(data[1])) {
+          return data[1];
+        }
+        return data.map((item) => item && item.phrase).filter(Boolean);
+      }
+      return [];
+    }
+    if (engineId === 'yandex') {
+      const url = `https://suggest.yandex.com/suggest-ff.cgi?part=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (Array.isArray(data) && Array.isArray(data[1])) {
+        return data[1];
+      }
+      return [];
+    }
+    if (engineId === 'quark') {
+      const url = `https://sugs.m.sm.cn/web?q=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (data && Array.isArray(data.r)) {
+        return data.r.map((item) => item && item.w).filter(Boolean);
+      }
+      return [];
+    }
+    if (engineId === 'shenma') {
+      const url = `https://sugs.m.sm.cn/web?q=${encodeURIComponent(query)}`;
+      const data = await fetchJson(url);
+      if (data && Array.isArray(data.r)) {
+        return data.r.map((item) => item && item.w).filter(Boolean);
+      }
+      return [];
+    }
+    if (engineId === 'yahoo') {
+      const url = `https://search.yahoo.com/sugg/gossip/gossip-us-ura/?output=sd1&command=${encodeURIComponent(query)}`;
+      const text = await fetchText(url);
+      const data = parseJsonpPayload(text) || extractJsonArray(text);
+      if (Array.isArray(data)) {
+        if (Array.isArray(data[1])) {
+          return data[1];
+        }
+        if (data[0] && Array.isArray(data[0])) {
+          return data[0];
+        }
+      }
+      if (data && Array.isArray(data.gossip && data.gossip.results)) {
+        return data.gossip.results.map((item) => item && item.key).filter(Boolean);
+      }
+      return [];
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function markPendingSearchTab(tabId) {
+  pendingSearchAt = Date.now();
+  pendingSearchTabId = typeof tabId === 'number' ? tabId : null;
+}
+
+loadDefaultSearchEngineState();
+
+if (chrome && chrome.tabs) {
+  chrome.tabs.onCreated.addListener((tab) => {
+    if (!pendingSearchAt || !tab || typeof tab.id !== 'number') {
+      return;
+    }
+    if (Date.now() - pendingSearchAt > 5000) {
+      return;
+    }
+    pendingSearchTabId = tab.id;
+  });
+
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (!changeInfo || !changeInfo.url) {
+      return;
+    }
+    if (!pendingSearchAt || (Date.now() - pendingSearchAt > 10000)) {
+      return;
+    }
+    if (pendingSearchTabId !== null && tabId !== pendingSearchTabId) {
+      return;
+    }
+    const updated = updateDefaultSearchEngineFromUrl(changeInfo.url);
+    if (updated) {
+      pendingSearchTabId = null;
+      pendingSearchAt = 0;
+    }
+  });
 }
 
 function normalizeLocaleForMessages(locale) {
@@ -527,24 +970,15 @@ async function getSearchSuggestions(query) {
 
   try {
     const [
-      googleSuggestions,
+      engineSuggestions,
       historyItems,
       topSites,
       bookmarks,
       bookmarkTree
     ] = await Promise.all([
-      new Promise((resolve) => {
-        fetch(`https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`)
-          .then((response) => response.json())
-          .then((data) => {
-            if (Array.isArray(data) && Array.isArray(data[1])) {
-              resolve(data[1].slice(0, 5));
-            } else {
-              resolve([]);
-            }
-          })
-          .catch(() => resolve([]));
-      }),
+      fetchSearchSuggestionsForEngine(query)
+        .then((items) => (Array.isArray(items) ? items.slice(0, 5) : []))
+        .catch(() => []),
       new Promise((resolve) => {
         chrome.history.search({
           text: query,
@@ -563,14 +997,16 @@ async function getSearchSuggestions(query) {
       })
     ]);
 
-    googleSuggestions.forEach((suggestion) => {
+    engineSuggestions.forEach((suggestion) => {
       if (suggestion && suggestion !== query) {
         suggestions.push({
           type: 'googleSuggest',
           title: suggestion,
-          url: `https://www.google.com/search?q=${encodeURIComponent(suggestion)}`,
-          favicon: 'https://www.google.com/favicon.ico',
-          score: 200
+          url: buildDefaultSearchUrl(suggestion),
+          favicon: getDefaultSearchEngineFaviconUrl(),
+          score: 200,
+          searchQuery: suggestion,
+          forceSearch: true
         });
       }
     });
@@ -639,50 +1075,6 @@ async function getSearchSuggestions(query) {
       return score;
     }
     
-    function isSearchEngineResultUrl(url) {
-      try {
-        const parsedUrl = new URL(url);
-        const hostname = parsedUrl.hostname.toLowerCase();
-        const path = parsedUrl.pathname.toLowerCase();
-        const searchHosts = [
-          'google.',
-          'bing.com',
-          'baidu.com',
-          'duckduckgo.com',
-          'search.yahoo.com',
-          'yandex.com',
-          'sogou.com',
-          'so.com'
-        ];
-        const isKnownHost = searchHosts.some((host) => hostname.includes(host));
-        if (!isKnownHost) {
-          return false;
-        }
-        const searchPaths = [
-          '/search',
-          '/s',
-          '/s/2',
-          '/web',
-          '/?'
-        ];
-        if (path === '/' && parsedUrl.searchParams.has('q')) {
-          return true;
-        }
-        if (path === '/' && parsedUrl.searchParams.has('wd')) {
-          return true;
-        }
-        if (path === '/' && parsedUrl.searchParams.has('query')) {
-          return true;
-        }
-        if (searchPaths.some((prefix) => path.startsWith(prefix))) {
-          return true;
-        }
-        return false;
-      } catch (e) {
-        return false;
-      }
-    }
-
     // Process history items with scoring
     const processedUrls = new Set();
     const suggestionByUrl = new Map();
@@ -942,10 +1334,11 @@ async function getSearchSuggestions(query) {
   }
 }
 
-function toggleBlackRectangle(tabs) {
+  function toggleBlackRectangle(tabs) {
   let captureTabHandler = null;
   let overlayThemeStorageListener = null;
   let overlayLanguageStorageListener = null;
+  let overlaySearchEngineStorageListener = null;
   let overlayThemeMediaListener = null;
   let siteSearchStorageListener = null;
   let keydownHandler = null;
@@ -953,6 +1346,7 @@ function toggleBlackRectangle(tabs) {
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
+  const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
   const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let overlayThemeMode = 'system';
   let overlayThemeListenerAttached = false;
@@ -961,6 +1355,12 @@ function toggleBlackRectangle(tabs) {
   let currentMessages = null;
   let defaultPlaceholderText = '搜索或输入网址...';
   let lastSuggestionResponse = [];
+  let overlaySearchEngineState = {
+    id: '',
+    name: '',
+    host: '',
+    searchTemplate: ''
+  };
 
   function normalizeLocale(locale) {
     const raw = String(locale || '').trim();
@@ -1042,6 +1442,78 @@ function toggleBlackRectangle(tabs) {
     return text;
   }
 
+  function buildSearchUrlFromTemplate(template, query) {
+    if (!template) {
+      return '';
+    }
+    return template.replace(/\{query\}/g, encodeURIComponent(query || ''));
+  }
+
+  function getOverlaySearchEngineState() {
+    return overlaySearchEngineState || {};
+  }
+
+  function buildDefaultSearchUrlForOverlay(query) {
+    const state = getOverlaySearchEngineState();
+    if (state.searchTemplate) {
+      return buildSearchUrlFromTemplate(state.searchTemplate, query);
+    }
+    return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  }
+
+  function getDefaultSearchEngineFaviconUrlForOverlay() {
+    const state = getOverlaySearchEngineState();
+    if (state.host) {
+      return `https://${state.host}/favicon.ico`;
+    }
+    if (state.searchTemplate) {
+      try {
+        const url = buildSearchUrlFromTemplate(state.searchTemplate, 'test');
+        const host = new URL(url).hostname;
+        return `https://${host}/favicon.ico`;
+      } catch (e) {
+        return '';
+      }
+    }
+    return 'https://www.google.com/favicon.ico';
+  }
+
+  function getDefaultSearchEngineThemeUrlForOverlay() {
+    const state = getOverlaySearchEngineState();
+    if (state.searchTemplate) {
+      return buildSearchUrlFromTemplate(state.searchTemplate, 'test');
+    }
+    if (state.host) {
+      return `https://${state.host}`;
+    }
+    return 'https://www.google.com';
+  }
+
+  function getSearchActionLabel() {
+    const state = getOverlaySearchEngineState();
+    if (state.name) {
+      return formatMessage('action_search_engine', '在 {engine} 中搜索', {
+        engine: state.name
+      });
+    }
+    return t('action_search', '搜索');
+  }
+
+  function loadOverlaySearchEngineState() {
+    if (!chrome || !chrome.storage || !chrome.storage.local) {
+      return;
+    }
+    chrome.storage.local.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
+      const stored = result ? result[DEFAULT_SEARCH_ENGINE_STORAGE_KEY] : null;
+      if (stored && stored.id) {
+        overlaySearchEngineState = stored;
+        if (latestOverlayQuery) {
+          updateSearchSuggestions(lastSuggestionResponse, latestOverlayQuery);
+        }
+      }
+    });
+  }
+
   function isLocalNetworkHost(hostname) {
     const host = String(hostname || '').toLowerCase();
     if (!host) {
@@ -1092,6 +1564,10 @@ function toggleBlackRectangle(tabs) {
     if (overlayLanguageStorageListener) {
       chrome.storage.onChanged.removeListener(overlayLanguageStorageListener);
       overlayLanguageStorageListener = null;
+    }
+    if (overlaySearchEngineStorageListener) {
+      chrome.storage.onChanged.removeListener(overlaySearchEngineStorageListener);
+      overlaySearchEngineStorageListener = null;
     }
     if (overlayThemeMediaListener) {
       overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
@@ -1835,6 +2311,21 @@ function toggleBlackRectangle(tabs) {
       }
     };
     chrome.storage.onChanged.addListener(overlayLanguageStorageListener);
+
+    loadOverlaySearchEngineState();
+    overlaySearchEngineStorageListener = (changes, areaName) => {
+      if (areaName !== 'local' || !changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
+        return;
+      }
+      const nextValue = changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY].newValue;
+      if (nextValue && nextValue.id) {
+        overlaySearchEngineState = nextValue;
+        if (latestOverlayQuery) {
+          updateSearchSuggestions(lastSuggestionResponse, latestOverlayQuery);
+        }
+      }
+    };
+    chrome.storage.onChanged.addListener(overlaySearchEngineStorageListener);
 
     function isOverlayDarkMode() {
       return overlay && overlay.getAttribute('data-theme') === 'dark';
@@ -3512,12 +4003,20 @@ function toggleBlackRectangle(tabs) {
               searchInput.focus();
               return;
             }
-            // Navigate to the suggested URL
-            console.log('Opening URL from keyboard:', currentSuggestions[selectedIndex].url);
-            chrome.runtime.sendMessage({
-              action: 'createTab',
-              url: currentSuggestions[selectedIndex].url
-            });
+            if (selectedSuggestion.forceSearch && selectedSuggestion.searchQuery) {
+              chrome.runtime.sendMessage({
+                action: 'searchOrNavigate',
+                query: selectedSuggestion.searchQuery,
+                forceSearch: true
+              });
+            } else {
+              // Navigate to the suggested URL
+              console.log('Opening URL from keyboard:', currentSuggestions[selectedIndex].url);
+              chrome.runtime.sendMessage({
+                action: 'createTab',
+                url: currentSuggestions[selectedIndex].url
+              });
+            }
           } else if (!isSearchSuggestion) {
             // Switch to existing tab
             chrome.runtime.sendMessage({
@@ -4143,8 +4642,10 @@ function toggleBlackRectangle(tabs) {
           title: formatMessage('search_query', '搜索 "{query}"', {
             query: query
           }),
-          url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-          favicon: ''
+          url: buildDefaultSearchUrlForOverlay(query),
+          favicon: getDefaultSearchEngineFaviconUrlForOverlay(),
+          searchQuery: query,
+          forceSearch: true
         };
 
       // Add ChatGPT suggestion as second item
@@ -4394,17 +4895,17 @@ function toggleBlackRectangle(tabs) {
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
           const isPrimaryHighlight = index === primaryHighlightIndex;
-          const isPrimaryGoogleSuggest = isPrimaryHighlight && suggestion.type === 'googleSuggest';
+          const isPrimarySearchSuggest = isPrimaryHighlight && suggestion.type === 'googleSuggest';
           let immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
           if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
             immediateTheme = urlHighlightTheme;
           }
-          const shouldUseGoogleTheme = isPrimaryGoogleSuggest ||
+          const shouldUseSearchEngineTheme = isPrimarySearchSuggest ||
             (onlyKeywordSuggestions && isPrimaryHighlight && suggestion.type === 'newtab');
-          if (shouldUseGoogleTheme) {
-            const googleAccent = getBrandAccentForUrl('https://www.google.com');
-            if (googleAccent) {
-              immediateTheme = buildTheme(googleAccent);
+          if (shouldUseSearchEngineTheme) {
+            const engineAccent = getBrandAccentForUrl(getDefaultSearchEngineThemeUrlForOverlay());
+            if (engineAccent) {
+              immediateTheme = buildTheme(engineAccent);
               immediateTheme._xIsBrand = true;
             }
           }
@@ -4672,7 +5173,7 @@ function toggleBlackRectangle(tabs) {
           // Create title with highlighted query
           const title = document.createElement('span');
           let highlightedTitle;
-          if (isPrimaryGoogleSuggest ||
+          if (isPrimarySearchSuggest ||
               suggestion.type === 'chatgpt' ||
               suggestion.type === 'perplexity' ||
               suggestion.type === 'newtab' ||
@@ -4881,14 +5382,14 @@ function toggleBlackRectangle(tabs) {
           const isDirectHighlight = isPrimaryHighlight &&
             (suggestion.type === 'directUrl' || suggestion.type === 'browserPage');
           const isMergedHighlight = Boolean(mergedProvider && primarySuggestion === suggestion && isPrimaryHighlight);
-          const shouldShowEnterTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
+          const shouldShowEnterTag = !isPrimarySearchSuggest && isPrimaryHighlight &&
             !onlyKeywordSuggestions &&
             (primaryHighlightReason === 'topSite' ||
               primaryHighlightReason === 'inline' ||
               primaryHighlightReason === 'autocomplete' ||
               isDirectHighlight ||
               isMergedHighlight);
-          const shouldShowSiteSearchTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
+          const shouldShowSiteSearchTag = !isPrimarySearchSuggest && isPrimaryHighlight &&
             ((siteSearchTrigger && (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch)) ||
               isMergedHighlight);
           if (shouldShowEnterTag) {
@@ -4898,7 +5399,7 @@ function toggleBlackRectangle(tabs) {
             actionTags.appendChild(createActionTag(t('action_search', '搜索'), 'Tab'));
           }
           if (isPrimaryHighlight && onlyKeywordSuggestions && suggestion.type === 'newtab') {
-            actionTags.appendChild(createActionTag(t('action_search_google', '在 Google 中搜索'), 'Enter'));
+            actionTags.appendChild(createActionTag(getSearchActionLabel(), 'Enter'));
           }
 
           // Create visit button
@@ -4931,7 +5432,7 @@ function toggleBlackRectangle(tabs) {
           }
           
           if (suggestion.type === 'newtab') {
-            visitButton.innerHTML = `${t('action_search_google', '在 Google 中搜索')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${getSearchActionLabel()} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'commandNewTab') {
             visitButton.innerHTML = `${t('command_newtab', '新建标签页')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'commandSettings') {
@@ -4941,7 +5442,7 @@ function toggleBlackRectangle(tabs) {
           } else if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
             visitButton.innerHTML = `${t('action_open', '打开')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else if (suggestion.type === 'googleSuggest') {
-            visitButton.innerHTML = `${t('action_search_google', '在 Google 中搜索')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+            visitButton.innerHTML = `${getSearchActionLabel()} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           } else {
             visitButton.innerHTML = `${t('visit_label', '访问')} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
           }
@@ -4996,11 +5497,19 @@ function toggleBlackRectangle(tabs) {
               searchInput.focus();
               return;
             }
-            console.log('Opening URL:', suggestion.url);
-            chrome.runtime.sendMessage({
-              action: 'createTab',
-              url: suggestion.url
-            });
+            if (suggestion.forceSearch && suggestion.searchQuery) {
+              chrome.runtime.sendMessage({
+                action: 'searchOrNavigate',
+                query: suggestion.searchQuery,
+                forceSearch: true
+              });
+            } else {
+              console.log('Opening URL:', suggestion.url);
+              chrome.runtime.sendMessage({
+                action: 'createTab',
+                url: suggestion.url
+              });
+            }
             removeOverlay(overlay);
             document.removeEventListener('click', clickOutsideHandler);
             document.removeEventListener('keydown', keydownHandler);
@@ -5035,11 +5544,19 @@ function toggleBlackRectangle(tabs) {
               searchInput.focus();
               return;
             }
-            console.log('Opening URL:', suggestion.url);
-            chrome.runtime.sendMessage({
-              action: 'createTab',
-              url: suggestion.url
-            });
+            if (suggestion.forceSearch && suggestion.searchQuery) {
+              chrome.runtime.sendMessage({
+                action: 'searchOrNavigate',
+                query: suggestion.searchQuery,
+                forceSearch: true
+              });
+            } else {
+              console.log('Opening URL:', suggestion.url);
+              chrome.runtime.sendMessage({
+                action: 'createTab',
+                url: suggestion.url
+              });
+            }
             removeOverlay(overlay);
             document.removeEventListener('click', clickOutsideHandler);
             document.removeEventListener('keydown', keydownHandler);
@@ -5060,7 +5577,7 @@ function toggleBlackRectangle(tabs) {
           }
           suggestionsContainer.appendChild(suggestionItem);
 
-          if (!shouldUseGoogleTheme &&
+          if (!shouldUseSearchEngineTheme &&
               !(onlyKeywordSuggestions && suggestion.type === 'newtab') &&
               suggestion.type !== 'directUrl' &&
               suggestion.type !== 'browserPage') {

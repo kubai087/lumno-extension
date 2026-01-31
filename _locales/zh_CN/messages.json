@@ -82,6 +82,7 @@
   "search_in_site_ellipsis": { "message": "在 {site} 中搜索..." },
   "search_in_site_prefix": { "message": "在 {site} 中搜索｜" },
   "action_search": { "message": "搜索" },
+  "action_search_engine": { "message": "在 {engine} 中搜索" },
   "action_search_google": { "message": "在 Google 中搜索" },
   "action_open": { "message": "打开" },
   "site_icon_alt": { "message": "站点" }

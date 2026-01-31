@@ -10,6 +10,7 @@
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
+  const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let mediaListenerAttached = false;
   let currentThemeMode = 'system';
@@ -20,6 +21,69 @@
   let currentLanguageMode = 'system';
   let defaultPlaceholderText = '搜索或输入网址...';
   let currentRecentCount = 4;
+  let defaultSearchEngineState = {
+    id: '',
+    name: '',
+    host: '',
+    updatedAt: 0
+  };
+
+  const SEARCH_ENGINE_DEFS = [
+    {
+      id: 'google',
+      name: 'Google',
+      hostMatches: ['google.'],
+      searchUrl: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'bing',
+      name: 'Bing',
+      hostMatches: ['bing.com'],
+      searchUrl: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'baidu',
+      name: '百度',
+      hostMatches: ['baidu.com'],
+      searchUrl: (query) => `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'duckduckgo',
+      name: 'DuckDuckGo',
+      hostMatches: ['duckduckgo.com'],
+      searchUrl: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'yahoo',
+      name: 'Yahoo',
+      hostMatches: ['search.yahoo.com'],
+      searchUrl: (query) => `https://search.yahoo.com/search?p=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'yandex',
+      name: 'Yandex',
+      hostMatches: ['yandex.com'],
+      searchUrl: (query) => `https://yandex.com/search/?text=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'sogou',
+      name: '搜狗',
+      hostMatches: ['sogou.com'],
+      searchUrl: (query) => `https://www.sogou.com/web?query=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'so',
+      name: '360搜索',
+      hostMatches: ['so.com'],
+      searchUrl: (query) => `https://www.so.com/s?q=${encodeURIComponent(query)}`
+    },
+    {
+      id: 'shenma',
+      name: '神马',
+      hostMatches: ['sm.cn'],
+      searchUrl: (query) => `https://m.sm.cn/s?q=${encodeURIComponent(query)}`
+    }
+  ];
 
   function resolveTheme(mode) {
     if (mode === 'dark') {
@@ -89,6 +153,66 @@
     return text;
   }
 
+  function getSearchEngineById(id) {
+    if (!id) {
+      return null;
+    }
+    return SEARCH_ENGINE_DEFS.find((engine) => engine.id === id) || null;
+  }
+
+  function buildDefaultSearchUrl(query) {
+    const engine = getSearchEngineById(defaultSearchEngineState.id);
+    if (engine && typeof engine.searchUrl === 'function') {
+      return engine.searchUrl(query);
+    }
+    return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  }
+
+  function getDefaultSearchEngineThemeUrl() {
+    const engine = getSearchEngineById(defaultSearchEngineState.id);
+    if (engine && typeof engine.searchUrl === 'function') {
+      return engine.searchUrl('test');
+    }
+    return 'https://www.google.com';
+  }
+
+  function getDefaultSearchEngineFaviconUrl() {
+    if (defaultSearchEngineState.host) {
+      return `https://${defaultSearchEngineState.host}/favicon.ico`;
+    }
+    const engine = getSearchEngineById(defaultSearchEngineState.id);
+    if (engine) {
+      try {
+        const host = new URL(engine.searchUrl('test')).hostname;
+        return `https://${host}/favicon.ico`;
+      } catch (e) {
+        return '';
+      }
+    }
+    return 'https://www.google.com/favicon.ico';
+  }
+
+  function getSearchActionLabel() {
+    if (defaultSearchEngineState && defaultSearchEngineState.name) {
+      return formatMessage('action_search_engine', '在 {engine} 中搜索', {
+        engine: defaultSearchEngineState.name
+      });
+    }
+    return t('action_search', '搜索');
+  }
+
+  function loadDefaultSearchEngineState() {
+    if (!chrome || !chrome.storage || !chrome.storage.local) {
+      return;
+    }
+    chrome.storage.local.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
+      const stored = result ? result[DEFAULT_SEARCH_ENGINE_STORAGE_KEY] : null;
+      if (stored && stored.id) {
+        defaultSearchEngineState = stored;
+      }
+    });
+  }
+
   function applyLanguageStrings() {
     if (recentHeading) {
       recentHeading.textContent = t('recent_heading', '最近访问');
@@ -120,6 +244,7 @@
       renderTabSuggestions(tabs);
     }
   }
+
 
   function applyLanguageMode(mode) {
     currentLanguageMode = mode || 'system';
@@ -350,6 +475,21 @@
   let tabs = [];
   let siteSearchProvidersCache = null;
   let pendingProviderReload = false;
+  loadDefaultSearchEngineState();
+  if (chrome && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
+        return;
+      }
+      const nextValue = changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY].newValue;
+      if (nextValue && nextValue.id) {
+        defaultSearchEngineState = nextValue;
+      }
+      if (latestQuery && latestQuery.trim()) {
+        renderSuggestions(lastSuggestionResponse, latestQuery);
+      }
+    });
+  }
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
   let handleTabKey = null;
@@ -1238,16 +1378,55 @@
     }
   }
 
-  function navigateToQuery(query) {
-    const isUrl = query.includes('.') && !query.includes(' ');
+  function markCurrentTabForSearchTracking() {
+    if (!chrome || !chrome.tabs || !chrome.tabs.getCurrent || !chrome.runtime || !chrome.runtime.sendMessage) {
+      return;
+    }
+    chrome.tabs.getCurrent((tab) => {
+      if (tab && typeof tab.id === 'number') {
+        chrome.runtime.sendMessage({ action: 'trackSearchTab', tabId: tab.id });
+      }
+    });
+  }
+
+  function runBrowserSearch(query, disposition, onFail) {
+    if (chrome && chrome.search && typeof chrome.search.query === 'function') {
+      try {
+        chrome.search.query({ text: query, disposition: disposition || 'CURRENT_TAB' }, () => {
+          if (chrome.runtime && chrome.runtime.lastError && typeof onFail === 'function') {
+            onFail();
+          }
+        });
+        return true;
+      } catch (e) {
+        if (typeof onFail === 'function') {
+          onFail();
+        }
+        return false;
+      }
+    }
+    return false;
+  }
+
+  function navigateToQuery(query, forceSearch) {
+    const isUrl = !forceSearch && query.includes('.') && !query.includes(' ');
     let targetUrl = query;
     if (isUrl) {
       if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = 'https://' + targetUrl;
       }
-    } else {
-      targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      navigateToUrl(targetUrl);
+      return;
     }
+    markCurrentTabForSearchTracking();
+    const attempted = runBrowserSearch(query, 'CURRENT_TAB', () => {
+      const fallbackUrl = buildDefaultSearchUrl(query);
+      navigateToUrl(fallbackUrl);
+    });
+    if (attempted) {
+      return;
+    }
+    targetUrl = buildDefaultSearchUrl(query);
     navigateToUrl(targetUrl);
   }
 
@@ -2927,8 +3106,10 @@
           title: formatMessage('search_query', '搜索 "{query}"', {
             query: query
           }),
-          url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-          favicon: ''
+          url: buildDefaultSearchUrl(query),
+          favicon: getDefaultSearchEngineFaviconUrl(),
+          searchQuery: query,
+          forceSearch: true
         };
 
       let allSuggestions = modeCommandActive
@@ -3081,17 +3262,17 @@
         suggestionItem.id = `_x_extension_newtab_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === allSuggestions.length - 1;
         const isPrimaryHighlight = index === primaryHighlightIndex;
-        const isPrimaryGoogleSuggest = isPrimaryHighlight && suggestion.type === 'googleSuggest';
+        const isPrimarySearchSuggest = isPrimaryHighlight && suggestion.type === 'googleSuggest';
         let immediateTheme = getImmediateThemeForSuggestion(suggestion) || defaultTheme;
         if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {
           immediateTheme = urlHighlightTheme;
         }
-        const shouldUseGoogleTheme = isPrimaryGoogleSuggest ||
+        const shouldUseSearchEngineTheme = isPrimarySearchSuggest ||
           (onlyKeywordSuggestions && isPrimaryHighlight && suggestion.type === 'newtab');
-        if (shouldUseGoogleTheme) {
-          const googleAccent = getBrandAccentForUrl('https://www.google.com');
-          if (googleAccent) {
-            immediateTheme = buildTheme(googleAccent);
+        if (shouldUseSearchEngineTheme) {
+          const engineAccent = getBrandAccentForUrl(getDefaultSearchEngineThemeUrl());
+          if (engineAccent) {
+            immediateTheme = buildTheme(engineAccent);
             immediateTheme._xIsBrand = true;
           }
         }
@@ -3352,7 +3533,7 @@
         const title = document.createElement('span');
         const baseTitle = suggestion.title || '';
         let highlightedTitle;
-        if (isPrimaryGoogleSuggest ||
+        if (isPrimarySearchSuggest ||
             suggestion.type === 'chatgpt' ||
             suggestion.type === 'perplexity' ||
             suggestion.type === 'newtab' ||
@@ -3556,14 +3737,14 @@
         const isDirectHighlight = isPrimaryHighlight &&
           (suggestion.type === 'directUrl' || suggestion.type === 'browserPage');
         const isMergedHighlight = Boolean(mergedProvider && primarySuggestion === suggestion && isPrimaryHighlight);
-        const shouldShowEnterTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
+        const shouldShowEnterTag = !isPrimarySearchSuggest && isPrimaryHighlight &&
           !onlyKeywordSuggestions &&
           (primaryHighlightReason === 'topSite' ||
             primaryHighlightReason === 'inline' ||
             primaryHighlightReason === 'autocomplete' ||
             isDirectHighlight ||
             isMergedHighlight);
-        const shouldShowSiteSearchTag = !isPrimaryGoogleSuggest && isPrimaryHighlight &&
+        const shouldShowSiteSearchTag = !isPrimarySearchSuggest && isPrimaryHighlight &&
           ((siteSearchTrigger && (primaryHighlightReason === 'siteSearchPrompt' || isTopSiteMatch)) ||
             isMergedHighlight);
         if (shouldShowEnterTag) {
@@ -3573,7 +3754,7 @@
           actionTags.appendChild(createActionTag(t('action_search', '搜索'), 'Tab'));
         }
         if (isPrimaryHighlight && onlyKeywordSuggestions && suggestion.type === 'newtab') {
-          actionTags.appendChild(createActionTag(t('action_search_google', '在 Google 中搜索'), 'Enter'));
+          actionTags.appendChild(createActionTag(getSearchActionLabel(), 'Enter'));
         }
 
         suggestionItem._xTagContainer = actionTags;
@@ -3621,6 +3802,10 @@
             inputParts.input.focus();
             return;
           }
+          if (suggestion.forceSearch && suggestion.searchQuery) {
+            navigateToQuery(suggestion.searchQuery, true);
+            return;
+          }
           navigateToUrl(suggestion.url);
         });
 
@@ -3634,7 +3819,7 @@
         }
         suggestionsContainer.appendChild(suggestionItem);
 
-        if (!shouldUseGoogleTheme &&
+        if (!shouldUseSearchEngineTheme &&
             !(onlyKeywordSuggestions && suggestion.type === 'newtab') &&
             suggestion.type !== 'directUrl' &&
             suggestion.type !== 'browserPage') {
@@ -3835,6 +4020,10 @@
         if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
           activateSiteSearch(selectedSuggestion.provider);
           inputParts.input.focus();
+          return;
+        }
+        if (selectedSuggestion.forceSearch && selectedSuggestion.searchQuery) {
+          navigateToQuery(selectedSuggestion.searchQuery, true);
           return;
         }
         if (selectedSuggestion.url) {

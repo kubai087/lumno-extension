@@ -35,6 +35,6 @@
   "default_locale": "zh_CN",
    "name": "Lumno",
    "author": "Kubai087",
-   "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks", "storage" ],
+   "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks", "storage", "search" ],
    "version": "1.0.0"
 }
