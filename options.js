@@ -10,6 +10,11 @@
   const settingsVersion = document.getElementById('_x_extension_settings_version_2024_unique_');
   const languageSelect = document.getElementById('_x_extension_language_select_2024_unique_');
   const recentCountSelect = document.getElementById('_x_extension_recent_count_select_2024_unique_');
+  const syncStatus = document.getElementById('_x_extension_sync_status_2024_unique_');
+  const syncNowButton = document.getElementById('_x_extension_sync_now_2024_unique_');
+  const syncExportButton = document.getElementById('_x_extension_sync_export_2024_unique_');
+  const syncImportButton = document.getElementById('_x_extension_sync_import_2024_unique_');
+  const syncImportInput = document.getElementById('_x_extension_sync_import_input_2024_unique_');
   const customSelectWraps = Array.from(document.querySelectorAll('._x_extension_custom_select_2024_unique_'));
   const siteSearchCustomList = document.getElementById('_x_extension_site_search_custom_list_2024_unique_');
   const siteSearchBuiltinList = document.getElementById('_x_extension_site_search_builtin_list_2024_unique_');
@@ -36,6 +41,13 @@
     return;
   }
 
+  const storageArea = (chrome && chrome.storage && chrome.storage.sync)
+    ? chrome.storage.sync
+    : (chrome && chrome.storage ? chrome.storage.local : null);
+  const storageAreaName = storageArea
+    ? (storageArea === (chrome && chrome.storage ? chrome.storage.sync : null) ? 'sync' : 'local')
+    : null;
+
   const RI_SPRITE_URL = (chrome && chrome.runtime && chrome.runtime.getURL)
     ? chrome.runtime.getURL('remixicon.symbol.svg')
     : 'remixicon.symbol.svg';
@@ -51,6 +63,17 @@
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
+  const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
+  const SYNC_META_KEY = '_x_extension_sync_meta_2024_unique_';
+  const SYNC_KEYS = [
+    THEME_STORAGE_KEY,
+    LANGUAGE_STORAGE_KEY,
+    LANGUAGE_MESSAGES_STORAGE_KEY,
+    RECENT_COUNT_STORAGE_KEY,
+    SITE_SEARCH_STORAGE_KEY,
+    SITE_SEARCH_DISABLED_STORAGE_KEY,
+    DEFAULT_SEARCH_ENGINE_STORAGE_KEY
+  ];
   const DEBUG_DUPLICATE_CUSTOM_KEY = 'dup';
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let mediaListenerAttached = false;
@@ -90,6 +113,28 @@
   let currentMessages = null;
   let openCustomSelect = null;
 
+  function migrateStorageIfNeeded(keys) {
+    if (!storageArea || !chrome || !chrome.storage || !chrome.storage.local) {
+      return;
+    }
+    if (storageArea === chrome.storage.local) {
+      return;
+    }
+    chrome.storage.local.get(keys, (localResult) => {
+      const hasLocal = keys.some((key) => typeof localResult[key] !== 'undefined');
+      if (!hasLocal) {
+        return;
+      }
+      storageArea.get(keys, (syncResult) => {
+        const hasSync = keys.some((key) => typeof syncResult[key] !== 'undefined');
+        if (hasSync) {
+          return;
+        }
+        storageArea.set(localResult);
+      });
+    });
+  }
+
   function getMessage(key, fallback) {
     if (currentMessages && currentMessages[key] && currentMessages[key].message) {
       return currentMessages[key].message;
@@ -101,6 +146,15 @@
       }
     }
     return fallback || '';
+  }
+
+  function formatTemplate(text, params) {
+    return String(text || '').replace(/\{(\w+)\}/g, (match, key) => {
+      if (params && Object.prototype.hasOwnProperty.call(params, key)) {
+        return String(params[key]);
+      }
+      return match;
+    });
   }
 
   function applyI18n() {
@@ -389,6 +443,91 @@
     }, 2200);
   }
 
+  function setSyncButtonEnabled(button, enabled) {
+    if (!button) {
+      return;
+    }
+    button.setAttribute('data-disabled', enabled ? 'false' : 'true');
+  }
+
+  function formatSyncTime(timestamp) {
+    if (!timestamp) {
+      return '';
+    }
+    try {
+      return new Date(timestamp).toLocaleString();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function updateSyncStatusText(statusKey, fallback, params) {
+    if (!syncStatus) {
+      return;
+    }
+    const template = getMessage(statusKey, fallback);
+    syncStatus.textContent = params ? formatTemplate(template, params) : template;
+  }
+
+  function refreshSyncStatus() {
+    if (!syncStatus) {
+      return;
+    }
+    if (!storageArea) {
+      updateSyncStatusText('sync_status_unavailable', '同步不可用');
+      setSyncButtonEnabled(syncNowButton, false);
+      setSyncButtonEnabled(syncExportButton, false);
+      setSyncButtonEnabled(syncImportButton, false);
+      return;
+    }
+    if (storageAreaName !== 'sync') {
+      updateSyncStatusText('sync_status_unavailable', '同步不可用');
+      setSyncButtonEnabled(syncNowButton, false);
+      setSyncButtonEnabled(syncExportButton, true);
+      setSyncButtonEnabled(syncImportButton, true);
+      return;
+    }
+    setSyncButtonEnabled(syncNowButton, true);
+    setSyncButtonEnabled(syncExportButton, true);
+    setSyncButtonEnabled(syncImportButton, true);
+    storageArea.get([SYNC_META_KEY], (result) => {
+      const meta = result ? result[SYNC_META_KEY] : null;
+      if (meta && meta.lastSyncAt) {
+        updateSyncStatusText('sync_status_ready_time', '同步已开启 · 最近同步 {time}', {
+          time: formatSyncTime(meta.lastSyncAt)
+        });
+        return;
+      }
+      updateSyncStatusText('sync_status_ready', '同步已开启');
+    });
+  }
+
+  function buildSyncPayload(result) {
+    const data = {};
+    SYNC_KEYS.forEach((key) => {
+      if (typeof result[key] !== 'undefined') {
+        data[key] = result[key];
+      }
+    });
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data
+    };
+  }
+
+  function downloadJson(filename, payload) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   /*
   function showConfirm(message, trigger) {
     if (!confirmMask || !confirmMessage || !confirmOk || !confirmCancel || !confirmDialog) {
@@ -623,11 +762,15 @@
       setEditingState(editingSiteSearchKey);
       updateBuiltinResetTooltip();
       updateCustomClearTooltip();
+      refreshSyncStatus();
       if (confirmCancel) confirmCancel.textContent = getMessage('confirm_cancel', '取消');
       if (confirmOk) confirmOk.textContent = getMessage('confirm_ok', '确认');
       renderSiteSearchList();
       if (shouldPersist) {
-        chrome.storage.local.set({
+        if (!storageArea) {
+          return;
+        }
+        storageArea.set({
           [LANGUAGE_STORAGE_KEY]: mode || 'system',
           [LANGUAGE_MESSAGES_STORAGE_KEY]: {
             locale: targetLocale,
@@ -716,7 +859,10 @@
   }
 
   function onMediaChange() {
-    chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+    if (!storageArea) {
+      return;
+    }
+    storageArea.get([THEME_STORAGE_KEY], (result) => {
       const mode = result[THEME_STORAGE_KEY] || 'system';
       if (mode === 'system') {
         applyResolvedTheme(resolveTheme(mode));
@@ -725,7 +871,10 @@
   }
 
   function setThemeMode(mode) {
-    chrome.storage.local.set({ [THEME_STORAGE_KEY]: mode }, () => {
+    if (!storageArea) {
+      return;
+    }
+    storageArea.set({ [THEME_STORAGE_KEY]: mode }, () => {
       updateThemeButtons(mode);
       applyResolvedTheme(resolveTheme(mode));
       if (mode === 'system' && !mediaListenerAttached) {
@@ -742,7 +891,11 @@
 
   function getStoredThemeMode() {
     return new Promise((resolve) => {
-      chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+      if (!storageArea) {
+        resolve('system');
+        return;
+      }
+      storageArea.get([THEME_STORAGE_KEY], (result) => {
         resolve((result && result[THEME_STORAGE_KEY]) || 'system');
       });
     });
@@ -813,6 +966,16 @@
   }
   window.addEventListener('resize', updateTabIndicator);
   window.addEventListener('resize', updateThemeIndicator);
+  migrateStorageIfNeeded([
+    THEME_STORAGE_KEY,
+    LANGUAGE_STORAGE_KEY,
+    LANGUAGE_MESSAGES_STORAGE_KEY,
+    RECENT_COUNT_STORAGE_KEY,
+    SITE_SEARCH_STORAGE_KEY,
+    SITE_SEARCH_DISABLED_STORAGE_KEY,
+    DEFAULT_SEARCH_ENGINE_STORAGE_KEY
+  ]);
+  refreshSyncStatus();
 
   function normalizeSiteSearchTemplate(template) {
     if (!template) {
@@ -920,27 +1083,144 @@
       const raw = recentCountSelect.value;
       const parsed = Number.parseInt(raw, 10);
       const nextCount = Number.isFinite(parsed) ? parsed : 4;
-      chrome.storage.local.set({ [RECENT_COUNT_STORAGE_KEY]: nextCount });
+      if (!storageArea) {
+        return;
+      }
+      storageArea.set({ [RECENT_COUNT_STORAGE_KEY]: nextCount });
     });
   }
 
-  chrome.storage.local.get([LANGUAGE_STORAGE_KEY], (result) => {
-    const hasStored = Object.prototype.hasOwnProperty.call(result, LANGUAGE_STORAGE_KEY);
-    const stored = hasStored ? result[LANGUAGE_STORAGE_KEY] : 'system';
-    if (!hasStored) {
-      chrome.storage.local.set({ [LANGUAGE_STORAGE_KEY]: 'system' });
-    }
-    applyLanguageMode(stored || 'system');
-  });
+  if (syncNowButton) {
+    syncNowButton.addEventListener('click', () => {
+      if (!storageArea || storageAreaName !== 'sync') {
+        updateSyncStatusText('sync_status_unavailable', '同步不可用');
+        return;
+      }
+      updateSyncStatusText('sync_status_syncing', '同步中...');
+      storageArea.get(SYNC_KEYS, (result) => {
+        const payload = {};
+        SYNC_KEYS.forEach((key) => {
+          if (typeof result[key] !== 'undefined') {
+            payload[key] = result[key];
+          }
+        });
+        payload[SYNC_META_KEY] = {
+          lastSyncAt: Date.now(),
+          source: 'manual'
+        };
+        storageArea.set(payload, () => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            const reason = chrome.runtime && chrome.runtime.lastError
+              ? chrome.runtime.lastError.message
+              : '';
+            updateSyncStatusText('sync_status_failed_reason', '同步失败：{reason}', {
+              reason: reason || getMessage('sync_status_failed', '同步失败')
+            });
+            showToast(formatTemplate(getMessage('sync_status_failed_reason', '同步失败：{reason}'), {
+              reason: reason || getMessage('sync_status_failed', '同步失败')
+            }), true);
+            return;
+          }
+          updateSyncStatusText('sync_status_done', '同步完成');
+          showToast(getMessage('sync_status_done', '同步完成'), false);
+          refreshSyncStatus();
+        });
+      });
+    });
+  }
 
-  chrome.storage.local.get([RECENT_COUNT_STORAGE_KEY], (result) => {
-    const stored = result[RECENT_COUNT_STORAGE_KEY];
-    const count = Number.isFinite(stored) ? stored : 4;
-    if (recentCountSelect) {
-      recentCountSelect.value = String(count);
-    }
-    refreshCustomSelects();
-  });
+  if (syncExportButton) {
+    syncExportButton.addEventListener('click', () => {
+      if (!storageArea) {
+        return;
+      }
+      storageArea.get(SYNC_KEYS, (result) => {
+        const payload = buildSyncPayload(result || {});
+        downloadJson(`lumno-settings-${Date.now()}.json`, payload);
+        showToast(getMessage('sync_export_done', '已导出配置'), false);
+      });
+    });
+  }
+
+  if (syncImportButton && syncImportInput) {
+    syncImportButton.addEventListener('click', () => {
+      syncImportInput.click();
+    });
+    syncImportInput.addEventListener('change', (event) => {
+      const file = event.target && event.target.files ? event.target.files[0] : null;
+      if (!file) {
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        let parsed = null;
+        try {
+          parsed = JSON.parse(String(reader.result || ''));
+        } catch (e) {
+          parsed = null;
+        }
+        const data = parsed && parsed.data ? parsed.data : parsed;
+        if (!data || typeof data !== 'object') {
+          showToast(getMessage('sync_import_invalid', '配置文件无效'), true);
+          syncImportInput.value = '';
+          return;
+        }
+        const payload = {};
+        SYNC_KEYS.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(data, key)) {
+            payload[key] = data[key];
+          }
+        });
+        if (Object.keys(payload).length === 0) {
+          showToast(getMessage('sync_import_invalid', '配置文件无效'), true);
+          syncImportInput.value = '';
+          return;
+        }
+        if (storageArea) {
+          payload[SYNC_META_KEY] = {
+            lastSyncAt: Date.now(),
+            source: 'import'
+          };
+          storageArea.set(payload, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+              const reason = chrome.runtime && chrome.runtime.lastError
+                ? chrome.runtime.lastError.message
+                : '';
+              showToast(formatTemplate(getMessage('sync_status_failed_reason', '同步失败：{reason}'), {
+                reason: reason || getMessage('sync_status_failed', '同步失败')
+              }), true);
+              syncImportInput.value = '';
+              return;
+            }
+            showToast(getMessage('sync_import_done', '导入完成'), false);
+            refreshSyncStatus();
+          });
+        }
+        syncImportInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  if (storageArea) {
+    storageArea.get([LANGUAGE_STORAGE_KEY], (result) => {
+      const hasStored = Object.prototype.hasOwnProperty.call(result, LANGUAGE_STORAGE_KEY);
+      const stored = hasStored ? result[LANGUAGE_STORAGE_KEY] : 'system';
+      if (!hasStored) {
+        storageArea.set({ [LANGUAGE_STORAGE_KEY]: 'system' });
+      }
+      applyLanguageMode(stored || 'system');
+    });
+
+    storageArea.get([RECENT_COUNT_STORAGE_KEY], (result) => {
+      const stored = result[RECENT_COUNT_STORAGE_KEY];
+      const count = Number.isFinite(stored) ? stored : 4;
+      if (recentCountSelect) {
+        recentCountSelect.value = String(count);
+      }
+      refreshCustomSelects();
+    });
+  }
 
   customSelectWraps.forEach((wrapper) => {
     const { select, trigger } = getCustomSelectElements(wrapper);
@@ -1411,7 +1691,11 @@
 
   function loadCustomSiteSearchProviders() {
     return new Promise((resolve) => {
-      chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+      if (!storageArea) {
+        resolve([]);
+        return;
+      }
+      storageArea.get([SITE_SEARCH_STORAGE_KEY], (result) => {
         const items = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
         resolve(items);
       });
@@ -1420,7 +1704,11 @@
 
   function loadDisabledSiteSearchKeys() {
     return new Promise((resolve) => {
-      chrome.storage.local.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+      if (!storageArea) {
+        resolve([]);
+        return;
+      }
+      storageArea.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
         const items = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
           ? result[SITE_SEARCH_DISABLED_STORAGE_KEY]
           : [];
@@ -1434,13 +1722,21 @@
       .map((item) => String(item).toLowerCase())
       .filter(Boolean);
     return new Promise((resolve) => {
-      chrome.storage.local.set({ [SITE_SEARCH_DISABLED_STORAGE_KEY]: payload }, () => resolve());
+      if (!storageArea) {
+        resolve();
+        return;
+      }
+      storageArea.set({ [SITE_SEARCH_DISABLED_STORAGE_KEY]: payload }, () => resolve());
     });
   }
 
   function saveCustomSiteSearchProviders(items) {
     return new Promise((resolve) => {
-      chrome.storage.local.set({ [SITE_SEARCH_STORAGE_KEY]: items }, () => resolve());
+      if (!storageArea) {
+        resolve();
+        return;
+      }
+      storageArea.set({ [SITE_SEARCH_STORAGE_KEY]: items }, () => resolve());
     });
   }
 
@@ -1597,6 +1893,8 @@
         saveDisabledSiteSearchKeys(disabledSiteSearchKeys)
       ]).then(() => {
         customSiteSearchProviders = next;
+        renderSiteSearchList();
+        refreshSiteSearchProviders();
         resetSiteSearchForm();
         setTimeout(() => {
           showToast(getMessage('toast_saved', '已保存'), false);
@@ -1669,8 +1967,33 @@
   */
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' ||
-        (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
+    if (!storageAreaName || areaName !== storageAreaName) {
+      return;
+    }
+    if (changes[SYNC_META_KEY] ||
+        changes[THEME_STORAGE_KEY] ||
+        changes[LANGUAGE_STORAGE_KEY] ||
+        changes[RECENT_COUNT_STORAGE_KEY] ||
+        changes[SITE_SEARCH_STORAGE_KEY] ||
+        changes[SITE_SEARCH_DISABLED_STORAGE_KEY] ||
+        changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
+      refreshSyncStatus();
+    }
+    if (changes[THEME_STORAGE_KEY]) {
+      const nextMode = changes[THEME_STORAGE_KEY].newValue || 'system';
+      updateThemeButtons(nextMode);
+      applyResolvedTheme(resolveTheme(nextMode));
+    }
+    if (changes[LANGUAGE_STORAGE_KEY]) {
+      applyLanguageMode(changes[LANGUAGE_STORAGE_KEY].newValue || 'system');
+    }
+    if (changes[RECENT_COUNT_STORAGE_KEY] && recentCountSelect) {
+      const stored = Number.parseInt(changes[RECENT_COUNT_STORAGE_KEY].newValue, 10);
+      const count = Number.isFinite(stored) ? stored : 4;
+      recentCountSelect.value = String(count);
+      refreshCustomSelects();
+    }
+    if (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY]) {
       return;
     }
     const now = Date.now();

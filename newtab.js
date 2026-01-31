@@ -6,6 +6,13 @@
   }
   root.style.setProperty('padding', '8px', 'important');
 
+  const storageArea = (chrome && chrome.storage && chrome.storage.sync)
+    ? chrome.storage.sync
+    : (chrome && chrome.storage ? chrome.storage.local : null);
+  const storageAreaName = storageArea
+    ? (storageArea === (chrome && chrome.storage ? chrome.storage.sync : null) ? 'sync' : 'local')
+    : null;
+
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
@@ -118,6 +125,29 @@
     return 'en';
   }
 
+  function migrateStorageIfNeeded(keys) {
+    if (!storageArea || !chrome || !chrome.storage || !chrome.storage.local) {
+      return;
+    }
+    if (storageArea === chrome.storage.local) {
+      return;
+    }
+    chrome.storage.local.get(keys, (localResult) => {
+      const hasLocal = keys.some((key) => typeof localResult[key] !== 'undefined');
+      if (!hasLocal) {
+        return;
+      }
+      storageArea.get(keys, (syncResult) => {
+        const hasSync = keys.some((key) => typeof syncResult[key] !== 'undefined');
+        if (hasSync) {
+          return;
+        }
+        storageArea.set(localResult);
+      });
+    });
+  }
+
+
   function getSystemLocale() {
     if (chrome && chrome.i18n && chrome.i18n.getUILanguage) {
       return normalizeLocale(chrome.i18n.getUILanguage());
@@ -213,10 +243,10 @@
   }
 
   function loadDefaultSearchEngineState() {
-    if (!chrome || !chrome.storage || !chrome.storage.local) {
+    if (!storageArea) {
       return;
     }
-    chrome.storage.local.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
+    storageArea.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
       const stored = result ? result[DEFAULT_SEARCH_ENGINE_STORAGE_KEY] : null;
       if (stored && stored.id) {
         defaultSearchEngineState = stored;
@@ -260,8 +290,8 @@
   function applyLanguageMode(mode) {
     currentLanguageMode = mode || 'system';
     const targetLocale = currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(currentLanguageMode);
-    if (chrome && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get([LANGUAGE_MESSAGES_STORAGE_KEY], (result) => {
+    if (storageArea) {
+      storageArea.get([LANGUAGE_MESSAGES_STORAGE_KEY], (result) => {
         const payload = result[LANGUAGE_MESSAGES_STORAGE_KEY];
         if (payload && payload.locale === targetLocale && payload.messages) {
           currentMessages = payload.messages || {};
@@ -311,7 +341,10 @@
   }
 
   function handleMediaChange() {
-    chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
+    if (!storageArea) {
+      return;
+    }
+    storageArea.get([THEME_STORAGE_KEY], (result) => {
       const mode = result[THEME_STORAGE_KEY] || 'system';
       if (mode === 'system') {
         document.body.setAttribute('data-theme', resolveTheme(mode));
@@ -319,12 +352,14 @@
     });
   }
 
-  chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
-    applyThemeMode(result[THEME_STORAGE_KEY] || 'system');
-  });
+  if (storageArea) {
+    storageArea.get([THEME_STORAGE_KEY], (result) => {
+      applyThemeMode(result[THEME_STORAGE_KEY] || 'system');
+    });
+  }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local') {
+    if (!storageAreaName || areaName !== storageAreaName) {
       return;
     }
     if (changes[THEME_STORAGE_KEY]) {
@@ -348,16 +383,18 @@
     }
   });
 
-  chrome.storage.local.get([LANGUAGE_STORAGE_KEY], (result) => {
-    applyLanguageMode(result[LANGUAGE_STORAGE_KEY] || 'system');
-  });
+  if (storageArea) {
+    storageArea.get([LANGUAGE_STORAGE_KEY], (result) => {
+      applyLanguageMode(result[LANGUAGE_STORAGE_KEY] || 'system');
+    });
 
-  chrome.storage.local.get([RECENT_COUNT_STORAGE_KEY], (result) => {
-    const stored = result[RECENT_COUNT_STORAGE_KEY];
-    const count = Number.isFinite(stored) ? stored : 4;
-    currentRecentCount = count;
-    loadRecentSites();
-  });
+    storageArea.get([RECENT_COUNT_STORAGE_KEY], (result) => {
+      const stored = result[RECENT_COUNT_STORAGE_KEY];
+      const count = Number.isFinite(stored) ? stored : 4;
+      currentRecentCount = count;
+      loadRecentSites();
+    });
+  }
 
   function getThemeModeLabel(mode) {
     if (mode === 'dark') {
@@ -467,7 +504,11 @@
   function setThemeMode(mode) {
     const nextMode = mode || 'system';
     currentThemeMode = nextMode;
-    chrome.storage.local.set({ [THEME_STORAGE_KEY]: nextMode }, () => {
+    if (!storageArea) {
+      applyThemeMode(nextMode);
+      return;
+    }
+    storageArea.set({ [THEME_STORAGE_KEY]: nextMode }, () => {
       applyThemeMode(nextMode);
       if (isModeCommand(inputParts && inputParts.input ? inputParts.input.value : '')) {
         renderSuggestions([], (inputParts.input.value || '').trim());
@@ -489,7 +530,7 @@
   loadDefaultSearchEngineState();
   if (chrome && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'local' || !changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
+      if (!storageAreaName || areaName !== storageAreaName || !changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
         return;
       }
       const nextValue = changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY].newValue;
@@ -503,6 +544,15 @@
   }
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
+  migrateStorageIfNeeded([
+    THEME_STORAGE_KEY,
+    LANGUAGE_STORAGE_KEY,
+    LANGUAGE_MESSAGES_STORAGE_KEY,
+    RECENT_COUNT_STORAGE_KEY,
+    DEFAULT_SEARCH_ENGINE_STORAGE_KEY,
+    SITE_SEARCH_STORAGE_KEY,
+    SITE_SEARCH_DISABLED_STORAGE_KEY
+  ]);
   let handleTabKey = null;
   const defaultSiteSearchProviders = [
     { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
@@ -1143,6 +1193,21 @@
   const iconPreloadCache = new Map();
   const faviconDataCache = new Map();
   const faviconDataPending = new Map();
+  const FALLBACK_ICON_SVG = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const missingIconCache = new Set();
+
+  function reportMissingIcon(context, url, iconUrl) {
+    const key = `${context || 'unknown'}::${url || ''}::${iconUrl || ''}`;
+    if (missingIconCache.has(key)) {
+      return;
+    }
+    missingIconCache.add(key);
+    console.warn('[Lumno] icon missing', {
+      context: context || 'unknown',
+      url: url || '',
+      icon: iconUrl || ''
+    });
+  }
   const recentActionOffsetUpdaters = new Set();
   let recentActionResizeBound = false;
   const recentActionObservers = new WeakMap();
@@ -1447,6 +1512,8 @@
     all: unset !important;
     width: 100% !important;
     margin-top: 8px !important;
+    position: relative !important;
+    z-index: 3 !important;
     background: var(--x-nt-suggestions-bg, #FFFFFF) !important;
     border-radius: 20px !important;
     border: 1px solid var(--x-nt-suggestions-border, rgba(0, 0, 0, 0.06)) !important;
@@ -1579,6 +1646,9 @@
 
   function getChromeFaviconUrl(url) {
     if (!url) {
+      return '';
+    }
+    if (location && location.protocol === 'chrome-extension:') {
       return '';
     }
     return `chrome://favicon2/?size=128&scale_factor=2x&show_fallback_monogram=1&url=${encodeURIComponent(url)}`;
@@ -1874,6 +1944,10 @@
       faviconImage.fetchPriority = 'high';
     }
     attachFaviconWithFallbacks(faviconImage, item.url, host);
+    faviconImage.onerror = function() {
+      reportMissingIcon('recent', item.url, faviconImage.src);
+      faviconImage.src = FALLBACK_ICON_SVG;
+    };
     const name = document.createElement('div');
     name.className = 'x-nt-recent-name';
     name.textContent = siteName;
@@ -2156,13 +2230,21 @@
       })
       .catch(() => []);
     const customFallback = new Promise((resolve) => {
-      chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+      if (!storageArea) {
+        resolve([]);
+        return;
+      }
+      storageArea.get([SITE_SEARCH_STORAGE_KEY], (result) => {
         const items = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
         resolve(items);
       });
     });
     const disabledFallback = new Promise((resolve) => {
-      chrome.storage.local.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+      if (!storageArea) {
+        resolve([]);
+        return;
+      }
+      storageArea.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
         const items = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
           ? result[SITE_SEARCH_DISABLED_STORAGE_KEY]
           : [];
@@ -2871,7 +2953,6 @@
       `;
 
       const favicon = document.createElement('img');
-      const fallbackIconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6" fill="%23E3E4E8" fill-opacity="0.18"/><path d="M9 14a6 6 0 0 1 0-8.5l1.2-1.2a6 6 0 0 1 8.5 8.5l-1.2 1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10a6 6 0 0 1 0 8.5l-1.2 1.2a6 6 0 0 1-8.5-8.5l1.2-1.2" stroke="%236B7280" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       let hostForTab = '';
       try {
         hostForTab = tab && tab.url ? new URL(tab.url).hostname : '';
@@ -2879,7 +2960,7 @@
         hostForTab = '';
       }
       const useFallback = !tab.favIconUrl || isLocalNetworkHost(hostForTab);
-      favicon.src = useFallback ? fallbackIconSvg : tab.favIconUrl;
+      favicon.src = useFallback ? FALLBACK_ICON_SVG : tab.favIconUrl;
       favicon.decoding = 'async';
       favicon.loading = 'eager';
       favicon.referrerPolicy = 'no-referrer';
@@ -3058,13 +3139,15 @@
       const rawTagInput = (latestRawQuery || inputParts.input.value || '').trim();
       const modeCommandActive = isModeCommand(rawTagInput);
       if (modeCommandActive) {
-        chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
-          const storedMode = result[THEME_STORAGE_KEY] || 'system';
-          if (storedMode !== currentThemeMode && query === latestQuery) {
-            currentThemeMode = storedMode;
-            renderSuggestions([], query);
-          }
-        });
+        if (storageArea) {
+          storageArea.get([THEME_STORAGE_KEY], (result) => {
+            const storedMode = result[THEME_STORAGE_KEY] || 'system';
+            if (storedMode !== currentThemeMode && query === latestQuery) {
+              currentThemeMode = storedMode;
+              renderSuggestions([], query);
+            }
+          });
+        }
       }
       const commandMatch = !modeCommandActive ? getCommandMatch(rawTagInput) : null;
       const hasCommand = Boolean(commandMatch);
@@ -3314,9 +3397,9 @@
           outline: none !important;
           color: inherit !important;
           font-size: 100% !important;
-          font: inherit !important;
-          vertical-align: baseline !important;
-        `;
+        font: inherit !important;
+        vertical-align: baseline !important;
+      `;
         suggestionItems.push(suggestionItem);
         suggestionItem._xIsSearchSuggestion = true;
         suggestionItem._xTheme = immediateTheme;
@@ -3460,6 +3543,7 @@
             object-fit: contain !important;
           `;
           favicon.onerror = function() {
+            reportMissingIcon('suggestion', suggestion && suggestion.url ? suggestion.url : '', favicon.src);
             const searchIconSvg = getRiSvg('ri-search-line', 'ri-size-16');
             const fallbackDiv = document.createElement('div');
             fallbackDiv.innerHTML = searchIconSvg;
@@ -3874,9 +3958,15 @@
         if (requestQuery !== latestQuery) {
           return;
         }
+        if (chrome.runtime && chrome.runtime.lastError) {
+          renderSuggestions([], requestQuery);
+          return;
+        }
         if (response && response.suggestions) {
           renderSuggestions(response.suggestions, requestQuery);
+          return;
         }
+        renderSuggestions([], requestQuery);
       });
     }, immediate ? 0 : 120);
   }
@@ -3890,7 +3980,9 @@
       'border-radius': '24px',
       'background': 'var(--x-nt-input-bg, rgba(255, 255, 255, 0.9))',
       'border': '1px solid var(--x-nt-input-border, rgba(0, 0, 0, 0.06))',
-      'box-shadow': 'var(--x-nt-input-shadow, 0 20px 60px rgba(0, 0, 0, 0.08))'
+      'box-shadow': 'var(--x-nt-input-shadow, 0 20px 60px rgba(0, 0, 0, 0.08))',
+      'position': 'relative',
+      'z-index': '3'
     },
     inputStyleOverrides: {
       'border-bottom': 'none',
@@ -4347,11 +4439,14 @@
   getSiteSearchProviders();
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' ||
+    if (!storageAreaName || areaName !== storageAreaName ||
         (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
       return;
     }
-    chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY, SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+    if (!storageArea) {
+      return;
+    }
+    storageArea.get([SITE_SEARCH_STORAGE_KEY, SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
       const customItems = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
       const disabledKeys = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
         ? result[SITE_SEARCH_DISABLED_STORAGE_KEY].map((item) => String(item).toLowerCase()).filter(Boolean)

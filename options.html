@@ -290,6 +290,28 @@
         margin: 4px 0 0;
         color: var(--panel-subtext);
       }
+      ._x_extension_sync_actions_2024_unique_ {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        text-align: right;
+      }
+      ._x_extension_sync_status_2024_unique_ {
+        font-size: 12px;
+        color: var(--panel-subtext);
+        line-height: 1.4;
+      }
+      ._x_extension_sync_buttons_2024_unique_ {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      ._x_extension_sync_button_2024_unique_[data-disabled="true"] {
+        opacity: 0.5;
+        pointer-events: none;
+      }
       ._x_extension_switch_2024_unique_ {
         position: relative;
         width: 44px;
@@ -1209,6 +1231,21 @@
                 <use href="remixicon.symbol.svg#ri-arrow-down-s-line"></use>
               </svg>
               <div class="_x_extension_select_menu_2024_unique_" role="listbox"></div>
+            </div>
+          </div>
+          <div class="_x_extension_setting_row_2024_unique_">
+            <div>
+              <p class="_x_extension_setting_title_2024_unique_" data-i18n="settings_sync_title">同步</p>
+              <p class="_x_extension_setting_desc_2024_unique_" data-i18n="settings_sync_desc">查看同步状态，手动同步或导入导出配置</p>
+            </div>
+            <div class="_x_extension_sync_actions_2024_unique_">
+              <div id="_x_extension_sync_status_2024_unique_" class="_x_extension_sync_status_2024_unique_" data-i18n="sync_status_ready">同步已开启</div>
+              <div class="_x_extension_sync_buttons_2024_unique_">
+                <button id="_x_extension_sync_now_2024_unique_" class="_x_extension_shortcut_submit_2024_unique_ _x_extension_sync_button_2024_unique_" data-i18n="sync_action_now">手动同步</button>
+                <button id="_x_extension_sync_export_2024_unique_" class="_x_extension_shortcut_secondary_2024_unique_ _x_extension_sync_button_2024_unique_" data-i18n="sync_action_export">导出配置</button>
+                <button id="_x_extension_sync_import_2024_unique_" class="_x_extension_shortcut_secondary_2024_unique_ _x_extension_sync_button_2024_unique_" data-i18n="sync_action_import">导入配置</button>
+              </div>
+              <input id="_x_extension_sync_import_input_2024_unique_" type="file" accept="application/json" style="display:none;" />
             </div>
           </div>
         </div>

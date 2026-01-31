@@ -98,12 +98,44 @@
       input.addEventListener('keydown', config.onKeyDown);
     }
 
+    function ensureInlineSprite() {
+      if (!chrome || !chrome.runtime || !chrome.runtime.getURL) {
+        return;
+      }
+      if (document.getElementById('_x_extension_remix_sprite_2024_unique_')) {
+        return;
+      }
+      const spriteUrl = chrome.runtime.getURL('remixicon.symbol.svg');
+      fetch(spriteUrl)
+        .then((response) => response.ok ? response.text() : '')
+        .then((text) => {
+          if (!text || document.getElementById('_x_extension_remix_sprite_2024_unique_')) {
+            return;
+          }
+          const container = document.createElement('div');
+          container.innerHTML = text;
+          const svg = container.querySelector('svg');
+          if (!svg) {
+            return;
+          }
+          svg.setAttribute('id', '_x_extension_remix_sprite_2024_unique_');
+          svg.setAttribute('aria-hidden', 'true');
+          svg.style.position = 'absolute';
+          svg.style.width = '0';
+          svg.style.height = '0';
+          svg.style.visibility = 'hidden';
+          const host = document.body || document.documentElement;
+          if (host) {
+            host.appendChild(svg);
+          }
+        })
+        .catch(() => {});
+    }
+
+    ensureInlineSprite();
     const icon = document.createElement('div');
     icon.id = config.iconId || '_x_extension_search_icon_2024_unique_';
-    const spriteUrl = (chrome && chrome.runtime && chrome.runtime.getURL)
-      ? chrome.runtime.getURL('remixicon.symbol.svg')
-      : 'remixicon.symbol.svg';
-    icon.innerHTML = `<svg class="_x_extension_svg_2024_unique_ ri-icon ri-size-16" aria-hidden="true" focusable="false"><use href="${spriteUrl}#ri-search-line"></use></svg>`;
+    icon.innerHTML = '<svg class="_x_extension_svg_2024_unique_ ri-icon ri-size-16" aria-hidden="true" focusable="false"><use href="#ri-search-line"></use></svg>';
     icon.style.cssText = `
       all: unset !important;
       position: absolute !important;

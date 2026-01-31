@@ -34,6 +34,35 @@ function openNewtabFallback() {
   chrome.tabs.create({ url: newtabUrl });
 }
 
+const storageArea = (chrome && chrome.storage && chrome.storage.sync)
+  ? chrome.storage.sync
+  : (chrome && chrome.storage ? chrome.storage.local : null);
+const storageAreaName = storageArea
+  ? (storageArea === (chrome && chrome.storage ? chrome.storage.sync : null) ? 'sync' : 'local')
+  : null;
+
+function migrateStorageIfNeeded(keys) {
+  if (!storageArea || !chrome || !chrome.storage || !chrome.storage.local) {
+    return;
+  }
+  if (storageArea === chrome.storage.local) {
+    return;
+  }
+  chrome.storage.local.get(keys, (localResult) => {
+    const hasLocal = keys.some((key) => typeof localResult[key] !== 'undefined');
+    if (!hasLocal) {
+      return;
+    }
+    storageArea.get(keys, (syncResult) => {
+      const hasSync = keys.some((key) => typeof syncResult[key] !== 'undefined');
+      if (hasSync) {
+        return;
+      }
+      storageArea.set(localResult);
+    });
+  });
+}
+
 chrome.commands.onCommand.addListener(function(command) {
   if (command === "show-search") {
     // Get all tabs in the current window
@@ -189,6 +218,11 @@ let siteSearchPromise = null;
 const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
 const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
 const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
+migrateStorageIfNeeded([
+  DEFAULT_SEARCH_ENGINE_STORAGE_KEY,
+  SITE_SEARCH_STORAGE_KEY,
+  SITE_SEARCH_DISABLED_STORAGE_KEY
+]);
 const FAVICON_GOOGLE_SIZE = 128;
 const faviconDataCache = new Map();
 const faviconPending = new Map();
@@ -330,16 +364,16 @@ function setDefaultSearchEngineState(nextState, shouldPersist) {
     updatedAt: nextState.updatedAt || Date.now()
   };
   defaultSearchEngineState = updated;
-  if (shouldPersist && chrome && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.set({ [DEFAULT_SEARCH_ENGINE_STORAGE_KEY]: updated });
+  if (shouldPersist && storageArea) {
+    storageArea.set({ [DEFAULT_SEARCH_ENGINE_STORAGE_KEY]: updated });
   }
 }
 
 function loadDefaultSearchEngineState() {
-  if (!chrome || !chrome.storage || !chrome.storage.local) {
+  if (!storageArea) {
     return;
   }
-  chrome.storage.local.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
+  storageArea.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
     const stored = result ? result[DEFAULT_SEARCH_ENGINE_STORAGE_KEY] : null;
     if (stored && stored.id) {
       setDefaultSearchEngineState(stored, false);
@@ -758,7 +792,11 @@ function sanitizeSiteSearchProviders(items) {
 
 function loadCustomSiteSearchProviders() {
   return new Promise((resolve) => {
-    chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+    if (!storageArea) {
+      resolve([]);
+      return;
+    }
+    storageArea.get([SITE_SEARCH_STORAGE_KEY], (result) => {
       const items = sanitizeSiteSearchProviders(result[SITE_SEARCH_STORAGE_KEY]);
       resolve(items);
     });
@@ -767,7 +805,11 @@ function loadCustomSiteSearchProviders() {
 
 function loadDisabledSiteSearchKeys() {
   return new Promise((resolve) => {
-    chrome.storage.local.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+    if (!storageArea) {
+      resolve([]);
+      return;
+    }
+    storageArea.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
       const items = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
         ? result[SITE_SEARCH_DISABLED_STORAGE_KEY]
         : [];
@@ -914,7 +956,7 @@ function loadShortcutRules() {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local' ||
+  if (!storageAreaName || areaName !== storageAreaName ||
       (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
     return;
   }
@@ -1093,8 +1135,8 @@ async function getSearchSuggestions(query) {
           const host = normalizeHost(urlObj.hostname);
           faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
         } catch (e) {
-          // Fallback to direct favicon URL
-          faviconUrl = item.url + '/favicon.ico';
+          // Fallback to direct favicon URL (skip local network)
+          faviconUrl = isLocalNetworkHost(item.url) ? '' : item.url + '/favicon.ico';
         }
         
           const suggestion = {
@@ -1151,7 +1193,7 @@ async function getSearchSuggestions(query) {
           const host = normalizeHost(urlObj.hostname);
           faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
         } catch (e) {
-          faviconUrl = site.url + '/favicon.ico';
+          faviconUrl = isLocalNetworkHost(site.url) ? '' : site.url + '/favicon.ico';
         }
         
         const suggestion = {
@@ -1190,8 +1232,8 @@ async function getSearchSuggestions(query) {
             const host = normalizeHost(urlObj.hostname);
             faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
           } catch (e) {
-            // Fallback to direct favicon URL
-            faviconUrl = bookmark.url + '/favicon.ico';
+            // Fallback to direct favicon URL (skip local network)
+            faviconUrl = isLocalNetworkHost(bookmark.url) ? '' : bookmark.url + '/favicon.ico';
           }
           
           const pathParts = [];
@@ -1312,7 +1354,7 @@ async function getSearchSuggestions(query) {
           const host = normalizeHost(urlObj.hostname);
           faviconUrl = isLocalNetworkHost(host) ? '' : getGoogleFaviconUrl(host);
         } catch (e) {
-          faviconUrl = site.url + '/favicon.ico';
+          faviconUrl = isLocalNetworkHost(site.url) ? '' : site.url + '/favicon.ico';
         }
         return {
           type: 'topSite',
@@ -1334,7 +1376,7 @@ async function getSearchSuggestions(query) {
   }
 }
 
-  function toggleBlackRectangle(tabs) {
+  async function toggleBlackRectangle(tabs) {
   let captureTabHandler = null;
   let overlayThemeStorageListener = null;
   let overlayLanguageStorageListener = null;
@@ -1347,9 +1389,22 @@ async function getSearchSuggestions(query) {
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
   const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
+  const storageArea = (chrome && chrome.storage && chrome.storage.sync)
+    ? chrome.storage.sync
+    : (chrome && chrome.storage ? chrome.storage.local : null);
+  const storageAreaName = storageArea
+    ? (storageArea === (chrome && chrome.storage ? chrome.storage.sync : null) ? 'sync' : 'local')
+    : null;
   const RI_SPRITE_URL = (chrome && chrome.runtime && chrome.runtime.getURL)
     ? chrome.runtime.getURL('remixicon.symbol.svg')
     : 'remixicon.symbol.svg';
+  const INLINE_RI_SVG = {
+    'ri-search-line': '<g><path fill="none" d="M0 0h24v24H0z"/><path d="M18.031 16.617l4.283 4.282-1.415 1.415-4.282-4.283A8.96 8.96 0 0 1 11 20c-4.968 0-9-4.032-9-9s4.032-9 9-9 9 4.032 9 9a8.96 8.96 0 0 1-1.969 5.617zm-2.006-.742A6.977 6.977 0 0 0 18 11c0-3.868-3.133-7-7-7-3.868 0-7 3.132-7 7 0 3.867 3.132 7 7 7a6.977 6.977 0 0 0 4.875-1.975l.15-.15z"/></g>',
+    'ri-arrow-right-line': '<g><path fill="none" d="M0 0h24v24H0z"/><path d="M16.172 11l-5.364-5.364 1.414-1.414L20 12l-7.778 7.778-1.414-1.414L16.172 13H4v-2z"/></g>',
+    'ri-window-2-line': '<g><path fill="none" d="M0 0h24v24H0z"/><path d="M3 3h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm17 8H4v8h16v-8zm0-2V5H4v4h16zm-5-3h4v2h-4V6z"/></g>',
+    'ri-add-line': '<g><path fill="none" d="M0 0h24v24H0z"/><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></g>',
+    'ri-settings-3-line': '<g><path fill="none" d="M0 0h24v24H0z"/><path d="M3.34 17a10.018 10.018 0 0 1-.978-2.326 3 3 0 0 0 .002-5.347A9.99 9.99 0 0 1 4.865 4.99a3 3 0 0 0 4.631-2.674 9.99 9.99 0 0 1 5.007.002 3 3 0 0 0 4.632 2.672c.579.59 1.093 1.261 1.525 2.01.433.749.757 1.53.978 2.326a3 3 0 0 0-.002 5.347 9.99 9.99 0 0 1-2.501 4.337 3 3 0 0 0-4.631 2.674 9.99 9.99 0 0 1-5.007-.002 3 3 0 0 0-4.632-2.672A10.018 10.018 0 0 1 3.34 17zm5.66.196a4.993 4.993 0 0 1 2.25 2.77c.499.047 1 .048 1.499.001A4.993 4.993 0 0 1 15 17.197a4.993 4.993 0 0 1 3.525-.565c.29-.408.54-.843.748-1.298A4.993 4.993 0 0 1 18 12c0-1.26.47-2.437 1.273-3.334a8.126 8.126 0 0 0-.75-1.298A4.993 4.993 0 0 1 15 6.804a4.993 4.993 0 0 1-2.25-2.77c-.499-.047-1-.048-1.499-.001A4.993 4.993 0 0 1 9 6.803a4.993 4.993 0 0 1-3.525.565 7.99 7.99 0 0 0-.748 1.298A4.993 4.993 0 0 1 6 12c0 1.26-.47 2.437-1.273 3.334a8.126 8.126 0 0 0 .75 1.298A4.993 4.993 0 0 1 9 17.196zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-2a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></g>'
+  };
   const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let overlayThemeMode = 'system';
   let overlayThemeListenerAttached = false;
@@ -1364,6 +1419,39 @@ async function getSearchSuggestions(query) {
     host: '',
     searchTemplate: ''
   };
+
+  async function ensureInlineSprite() {
+    if (document.getElementById('_x_extension_remix_sprite_2024_unique_')) {
+      return;
+    }
+    try {
+      const response = await fetch(RI_SPRITE_URL);
+      if (!response.ok) {
+        return;
+      }
+      const text = await response.text();
+      const container = document.createElement('div');
+      container.innerHTML = text;
+      const svg = container.querySelector('svg');
+      if (!svg) {
+        return;
+      }
+      svg.setAttribute('id', '_x_extension_remix_sprite_2024_unique_');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.style.position = 'absolute';
+      svg.style.width = '0';
+      svg.style.height = '0';
+      svg.style.visibility = 'hidden';
+      const host = document.body || document.documentElement;
+      if (host) {
+        host.appendChild(svg);
+      }
+    } catch (e) {
+      return;
+    }
+  }
+
+  await ensureInlineSprite();
 
   function normalizeLocale(locale) {
     const raw = String(locale || '').trim();
@@ -1448,6 +1536,14 @@ async function getSearchSuggestions(query) {
   function getRiSvg(id, sizeClass, extraClass) {
     const size = sizeClass || 'ri-size-16';
     const extra = extraClass ? ` ${extraClass}` : '';
+    const inlineSprite = document.getElementById('_x_extension_remix_sprite_2024_unique_');
+    if (inlineSprite) {
+      return `<svg class="ri-icon ${size}${extra}" aria-hidden="true" focusable="false"><use href="#${id}"></use></svg>`;
+    }
+    const inline = INLINE_RI_SVG[id];
+    if (inline) {
+      return `<svg class="ri-icon ${size}${extra}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${inline}</svg>`;
+    }
     return `<svg class="ri-icon ${size}${extra}" aria-hidden="true" focusable="false"><use href="${RI_SPRITE_URL}#${id}"></use></svg>`;
   }
 
@@ -1509,10 +1605,10 @@ async function getSearchSuggestions(query) {
   }
 
   function loadOverlaySearchEngineState() {
-    if (!chrome || !chrome.storage || !chrome.storage.local) {
+    if (!storageArea) {
       return;
     }
-    chrome.storage.local.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
+    storageArea.get([DEFAULT_SEARCH_ENGINE_STORAGE_KEY], (result) => {
       const stored = result ? result[DEFAULT_SEARCH_ENGINE_STORAGE_KEY] : null;
       if (stored && stored.id) {
         overlaySearchEngineState = stored;
@@ -1790,8 +1886,8 @@ async function getSearchSuggestions(query) {
       const targetLocale = overlayLanguageMode === 'system'
         ? getSystemLocale()
         : normalizeLocale(overlayLanguageMode);
-      if (chrome && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get([LANGUAGE_MESSAGES_STORAGE_KEY], (result) => {
+      if (storageArea) {
+        storageArea.get([LANGUAGE_MESSAGES_STORAGE_KEY], (result) => {
           const payload = result[LANGUAGE_MESSAGES_STORAGE_KEY];
           if (payload && payload.locale === targetLocale && payload.messages) {
             currentMessages = payload.messages || {};
@@ -1932,7 +2028,9 @@ async function getSearchSuggestions(query) {
 
     function applyThemeModeChange(mode) {
       const nextMode = mode || 'system';
-      chrome.storage.local.set({ [THEME_STORAGE_KEY]: nextMode });
+      if (storageArea) {
+        storageArea.set({ [THEME_STORAGE_KEY]: nextMode });
+      }
       applyOverlayTheme(nextMode);
       if (isModeCommand(searchInput.value || '')) {
         updateSearchSuggestions([], (searchInput.value || '').trim());
@@ -2295,22 +2393,26 @@ async function getSearchSuggestions(query) {
       target.style.setProperty('--x-ext-input-divider-opacity', tokens.dividerOpacity, 'important');
     }
 
-    chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
-      applyOverlayTheme(result[THEME_STORAGE_KEY] || 'system');
-    });
+    if (storageArea) {
+      storageArea.get([THEME_STORAGE_KEY], (result) => {
+        applyOverlayTheme(result[THEME_STORAGE_KEY] || 'system');
+      });
+    }
     overlayThemeStorageListener = (changes, areaName) => {
-      if (areaName !== 'local' || !changes[THEME_STORAGE_KEY]) {
+      if (!storageAreaName || areaName !== storageAreaName || !changes[THEME_STORAGE_KEY]) {
         return;
       }
       applyOverlayTheme(changes[THEME_STORAGE_KEY].newValue || 'system');
     };
     chrome.storage.onChanged.addListener(overlayThemeStorageListener);
 
-    chrome.storage.local.get([LANGUAGE_STORAGE_KEY], (result) => {
-      applyLanguageMode(result[LANGUAGE_STORAGE_KEY] || 'system');
-    });
+    if (storageArea) {
+      storageArea.get([LANGUAGE_STORAGE_KEY], (result) => {
+        applyLanguageMode(result[LANGUAGE_STORAGE_KEY] || 'system');
+      });
+    }
     overlayLanguageStorageListener = (changes, areaName) => {
-      if (areaName !== 'local') {
+      if (!storageAreaName || areaName !== storageAreaName) {
         return;
       }
       if (changes[LANGUAGE_STORAGE_KEY]) {
@@ -2331,7 +2433,7 @@ async function getSearchSuggestions(query) {
 
     loadOverlaySearchEngineState();
     overlaySearchEngineStorageListener = (changes, areaName) => {
-      if (areaName !== 'local' || !changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
+      if (!storageAreaName || areaName !== storageAreaName || !changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
         return;
       }
       const nextValue = changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY].newValue;
@@ -3316,13 +3418,21 @@ async function getSearchSuggestions(query) {
         })
         .catch(() => []);
       const customFallback = new Promise((resolve) => {
-        chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY], (result) => {
+        if (!storageArea) {
+          resolve([]);
+          return;
+        }
+        storageArea.get([SITE_SEARCH_STORAGE_KEY], (result) => {
           const items = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
           resolve(items);
         });
       });
       const disabledFallback = new Promise((resolve) => {
-        chrome.storage.local.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+        if (!storageArea) {
+          resolve([]);
+          return;
+        }
+        storageArea.get([SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
           const items = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
             ? result[SITE_SEARCH_DISABLED_STORAGE_KEY]
             : [];
@@ -3355,11 +3465,14 @@ async function getSearchSuggestions(query) {
     getSiteSearchProviders();
 
     siteSearchStorageListener = (changes, areaName) => {
-      if (areaName !== 'local' ||
+      if (!storageAreaName || areaName !== storageAreaName ||
           (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
         return;
       }
-      chrome.storage.local.get([SITE_SEARCH_STORAGE_KEY, SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
+      if (!storageArea) {
+        return;
+      }
+      storageArea.get([SITE_SEARCH_STORAGE_KEY, SITE_SEARCH_DISABLED_STORAGE_KEY], (result) => {
         const customItems = Array.isArray(result[SITE_SEARCH_STORAGE_KEY]) ? result[SITE_SEARCH_STORAGE_KEY] : [];
         const disabledKeys = Array.isArray(result[SITE_SEARCH_DISABLED_STORAGE_KEY])
           ? result[SITE_SEARCH_DISABLED_STORAGE_KEY].map((item) => String(item).toLowerCase()).filter(Boolean)
@@ -4642,13 +4755,15 @@ async function getSearchSuggestions(query) {
       const rawTagInput = (latestRawInputValue || query || '').trim();
       const modeCommandActive = isModeCommand(rawTagInput);
       if (modeCommandActive) {
-        chrome.storage.local.get([THEME_STORAGE_KEY], (result) => {
-          const storedMode = result[THEME_STORAGE_KEY] || 'system';
-          if (storedMode !== overlayThemeMode && query === latestOverlayQuery) {
-            applyOverlayTheme(storedMode);
-            updateSearchSuggestions([], query);
-          }
-        });
+        if (storageArea) {
+          storageArea.get([THEME_STORAGE_KEY], (result) => {
+            const storedMode = result[THEME_STORAGE_KEY] || 'system';
+            if (storedMode !== overlayThemeMode && query === latestOverlayQuery) {
+              applyOverlayTheme(storedMode);
+              updateSearchSuggestions([], query);
+            }
+          });
+        }
       }
       
       // Add New Tab suggestion as first item

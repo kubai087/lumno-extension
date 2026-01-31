@@ -85,5 +85,20 @@
   "action_search_engine": { "message": "在 {engine} 中搜尋" },
   "action_search_google": { "message": "在 Google 中搜尋" },
   "action_open": { "message": "開啟" },
-  "site_icon_alt": { "message": "網站" }
+  "site_icon_alt": { "message": "網站" },
+  "settings_sync_title": { "message": "同步" },
+  "settings_sync_desc": { "message": "查看同步狀態，手動同步或匯入匯出設定" },
+  "sync_status_unavailable": { "message": "同步不可用" },
+  "sync_status_ready": { "message": "同步已開啟" },
+  "sync_status_ready_time": { "message": "同步已開啟 · 最近同步 {time}" },
+  "sync_status_syncing": { "message": "同步中..." },
+  "sync_status_done": { "message": "同步完成" },
+  "sync_status_failed": { "message": "同步失敗" },
+  "sync_status_failed_reason": { "message": "同步失敗：{reason}" },
+  "sync_action_now": { "message": "手動同步" },
+  "sync_action_export": { "message": "匯出設定" },
+  "sync_action_import": { "message": "匯入設定" },
+  "sync_export_done": { "message": "已匯出設定" },
+  "sync_import_done": { "message": "匯入完成" },
+  "sync_import_invalid": { "message": "設定檔無效" }
 }
