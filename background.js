@@ -4371,8 +4371,10 @@ async function getSearchSuggestions(query) {
         const isHighlighted = isSelected || shouldAutoHighlight;
         if (item._xIsSearchSuggestion) {
           const theme = item._xTheme || defaultTheme;
+          const shouldUseBlue = !(theme && theme._xIsBrand) && (isSelected || item._xIsAutocompleteTop);
+          const highlightTheme = shouldUseBlue ? urlHighlightTheme : theme;
           if (isHighlighted) {
-            applySearchSuggestionHighlight(item, theme);
+            applySearchSuggestionHighlight(item, highlightTheme);
           } else {
             resetSearchSuggestion(item);
           }
@@ -4391,8 +4393,10 @@ async function getSearchSuggestions(query) {
         }
         setNonFaviconIconBg(item, Boolean(isHighlighted || item._xIsHovering));
         const theme = item._xTheme || defaultTheme;
+        const shouldUseBlue = !(theme && theme._xIsBrand) && isSelected;
+        const highlightTheme = shouldUseBlue ? urlHighlightTheme : theme;
         if (isSelected) {
-          applySearchSuggestionHighlight(item, theme);
+          applySearchSuggestionHighlight(item, highlightTheme);
           if (item._xSwitchButton) {
             item._xSwitchButton.style.setProperty('color', 'var(--x-ov-text, #1F2937)', 'important');
           }
@@ -4637,7 +4641,7 @@ async function getSearchSuggestions(query) {
               this.style.setProperty('background-color', hover.bg, 'important');
               this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
             } else {
-              this.style.setProperty('background-color', 'var(--x-ov-hover-bg, #F3F4F6)', 'important');
+              this.style.setProperty('background-color', 'var(--x-ov-hover-bg)', 'important');
               this.style.setProperty('border', '1px solid transparent', 'important');
             }
           }
@@ -5716,15 +5720,8 @@ async function getSearchSuggestions(query) {
               if (selectedIndex === -1 && this._xIsAutocompleteTop) {
                 return;
               }
-              const theme = this._xTheme;
-              if (theme && theme._xIsBrand) {
-                const hover = getHoverColors(theme);
-                this.style.setProperty('background', hover.bg, 'important');
-                this.style.setProperty('border', `1px solid ${hover.border}`, 'important');
-              } else {
-                this.style.setProperty('background', 'var(--x-ov-hover-bg, #F9FAFB)', 'important');
-                this.style.setProperty('border', '1px solid transparent', 'important');
-              }
+              this.style.setProperty('background', 'var(--x-ov-hover-bg)', 'important');
+              this.style.setProperty('border', '1px solid transparent', 'important');
             }
           });
           
