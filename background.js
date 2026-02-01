@@ -1645,6 +1645,35 @@ async function getSearchSuggestions(query) {
     }
     return false;
   }
+
+  function isLocalNetworkInput(input) {
+    const raw = String(input || '').trim().toLowerCase();
+    if (!raw) {
+      return false;
+    }
+    const withoutScheme = raw.replace(/^https?:\/\//, '');
+    const host = withoutScheme.split('/')[0] || '';
+    if (!host) {
+      return false;
+    }
+    if (host === 'localhost' || host.endsWith('.local')) {
+      return true;
+    }
+    const parts = host.split('.');
+    if (parts[0] === '10' || parts[0] === '127') {
+      return true;
+    }
+    if (parts.length >= 2 && parts[0] === '192' && parts[1] === '168') {
+      return true;
+    }
+    if (parts.length >= 2 && parts[0] === '172') {
+      const second = Number(parts[1]);
+      if (!Number.isNaN(second) && second >= 16 && second <= 31) {
+        return true;
+      }
+    }
+    return false;
+  }
   // Helper function to remove overlay and clean up styles
   function removeOverlay(overlayElement) {
     if (overlayElement) {
@@ -3023,6 +3052,32 @@ async function getSearchSuggestions(query) {
   function createSearchIcon() {
     const icon = document.createElement('span');
     icon.innerHTML = getRiSvg('ri-search-line', 'ri-size-16');
+      icon.style.cssText = `
+        all: unset !important;
+        width: 16px !important;
+        height: 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        text-decoration: none !important;
+        list-style: none !important;
+        outline: none !important;
+        background: transparent !important;
+        color: inherit !important;
+        font-size: 100% !important;
+        font: inherit !important;
+        vertical-align: baseline !important;
+      `;
+      return icon;
+    }
+
+    function createLinkIcon() {
+      const icon = document.createElement('span');
+      icon.innerHTML = getRiSvg('ri-link', 'ri-size-16');
       icon.style.cssText = `
         all: unset !important;
         width: 16px !important;
@@ -4443,11 +4498,7 @@ async function getSearchSuggestions(query) {
         `;
 
         // Create favicon
-        const favicon = document.createElement('img');
-        favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
-        const fallbackIconSvg = isOverlayDarkMode()
-          ? 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%239CA3AF"/></svg>'
-          : 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%236B7280"/></svg>';
+        let favicon = null;
         let hostForTab = '';
         try {
           hostForTab = tab && tab.url ? new URL(tab.url).hostname : '';
@@ -4455,36 +4506,42 @@ async function getSearchSuggestions(query) {
           hostForTab = '';
         }
         const useFallback = !tab.favIconUrl || isLocalNetworkHost(hostForTab);
-        favicon.src = useFallback ? fallbackIconSvg : tab.favIconUrl;
+        let iconNode = null;
+        let isFaviconIcon = false;
         if (useFallback) {
-          favicon.setAttribute('data-fallback-icon', 'true');
+          iconNode = createLinkIcon();
+        } else {
+          favicon = document.createElement('img');
+          favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
+          favicon.src = tab.favIconUrl;
+          favicon.decoding = 'async';
+          favicon.loading = 'eager';
+          favicon.referrerPolicy = 'no-referrer';
+          if (index < 4) {
+            favicon.fetchPriority = 'high';
+          }
+          favicon.style.cssText = `
+            all: unset !important;
+            width: 16px !important;
+            height: 16px !important;
+            border-radius: 2px !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1 !important;
+            text-decoration: none !important;
+            list-style: none !important;
+            outline: none !important;
+            background: transparent !important;
+            color: inherit !important;
+            font-size: 100% !important;
+            font: inherit !important;
+            vertical-align: baseline !important;
+            display: block !important;
+          `;
+          iconNode = favicon;
+          isFaviconIcon = true;
         }
-        favicon.decoding = 'async';
-        favicon.loading = 'eager';
-        favicon.referrerPolicy = 'no-referrer';
-        if (index < 4) {
-          favicon.fetchPriority = 'high';
-        }
-        const isFallbackIcon = useFallback;
-        favicon.style.cssText = `
-          all: unset !important;
-          width: ${isFallbackIcon ? '18px' : '16px'} !important;
-          height: ${isFallbackIcon ? '18px' : '16px'} !important;
-          border-radius: 2px !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          line-height: 1 !important;
-          text-decoration: none !important;
-          list-style: none !important;
-          outline: none !important;
-          background: transparent !important;
-          color: inherit !important;
-          font-size: 100% !important;
-          font: inherit !important;
-          vertical-align: baseline !important;
-          display: block !important;
-        `;
         const iconSlot = document.createElement('span');
         iconSlot.style.cssText = `
           all: unset !important;
@@ -4508,9 +4565,9 @@ async function getSearchSuggestions(query) {
           font: inherit !important;
           vertical-align: baseline !important;
         `;
-        iconSlot.appendChild(favicon);
+        iconSlot.appendChild(iconNode);
         suggestionItem._xIconWrap = iconSlot;
-        suggestionItem._xIconIsFavicon = !useFallback;
+        suggestionItem._xIconIsFavicon = isFaviconIcon;
 
         // Create title
         const title = document.createElement('span');
@@ -4551,10 +4608,11 @@ async function getSearchSuggestions(query) {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
           cursor: pointer !important;
           transition: background-color 0.2s ease !important;
-          padding: 6px 12px !important;
+          height: 26px !important;
+          padding: 0 12px !important;
           box-sizing: border-box !important;
           margin: 0 !important;
-          line-height: 1.5 !important;
+          line-height: 1 !important;
           text-decoration: none !important;
           list-style: none !important;
           outline: none !important;
@@ -4741,11 +4799,17 @@ async function getSearchSuggestions(query) {
       if (!isInternal && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = 'https://' + targetUrl;
       }
+      let isLocalNetwork = isLocalNetworkInput(input);
+      if (!isLocalNetwork) {
+        const host = getHostFromUrl(targetUrl);
+        isLocalNetwork = isLocalNetworkHost(host);
+      }
       return {
         type: 'directUrl',
         title: formatMessage('open_url', '打开 {url}', { url: targetUrl }),
         url: targetUrl,
-        favicon: ''
+        favicon: '',
+        isLocalNetwork: isLocalNetwork
       };
     }
 
@@ -5148,7 +5212,7 @@ async function getSearchSuggestions(query) {
           let iconWrapper = null;
           if (suggestion.type === 'browserPage') {
             const themedIcon = document.createElement('span');
-            themedIcon.innerHTML = getRiSvg('ri-window-2-line', 'ri-size-16');
+            themedIcon.innerHTML = getRiSvg('ri-link', 'ri-size-16');
             themedIcon.style.cssText = `
               all: unset !important;
               width: 16px !important;
@@ -5171,7 +5235,13 @@ async function getSearchSuggestions(query) {
             `;
             iconNode = themedIcon;
           } else if (suggestion.type === 'directUrl') {
-            iconNode = createSearchIcon();
+            const directUrlHost = suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : '';
+            const isLocalDirectUrl = Boolean(
+              suggestion && suggestion.isLocalNetwork
+            ) || (directUrlHost && isLocalNetworkHost(directUrlHost));
+            iconNode = isLocalDirectUrl
+              ? createLinkIcon()
+              : createSearchIcon();
           } else if (suggestion.type === 'commandNewTab') {
             const plusIcon = document.createElement('span');
             plusIcon.innerHTML = getRiSvg('ri-add-line', 'ri-size-16');
@@ -5224,55 +5294,30 @@ async function getSearchSuggestions(query) {
             const searchIcon = createSearchIcon();
             searchIcon.style.setProperty('color', 'var(--x-ov-subtext, #9CA3AF)', 'important');
             iconNode = searchIcon;
-          } else if (suggestion.favicon) {
-            // Create icon for suggestions - always use img for all types
-            const favicon = document.createElement('img');
-            favicon.src = suggestion.favicon || '';
-            favicon.decoding = 'async';
-            favicon.loading = 'eager';
-            favicon.referrerPolicy = 'no-referrer';
-            if (index < 4) {
-              favicon.fetchPriority = 'high';
-            }
-            attachFaviconData(
-              favicon,
-              suggestion.favicon || '',
-              suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : ''
-            );
-            favicon.style.cssText = `
-              all: unset !important;
-              width: 16px !important;
-              height: 16px !important;
-              border-radius: 2px !important;
-              box-sizing: border-box !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              line-height: 1 !important;
-              text-decoration: none !important;
-              list-style: none !important;
-              outline: none !important;
-              background: transparent !important;
-              color: inherit !important;
-              font-size: 100% !important;
-              font: inherit !important;
-              vertical-align: baseline !important;
-              display: block !important;
-              object-fit: contain !important;
-            `;
-            
-            // Fallback to search icon if favicon fails to load
-            favicon.onerror = function() {
-              // Replace with search icon SVG if favicon fails
-              const searchIconSvg = getRiSvg('ri-search-line', 'ri-size-16');
-              const fallbackDiv = document.createElement('div');
-              fallbackDiv.innerHTML = searchIconSvg;
-              fallbackDiv.style.cssText = `
+          } else {
+            const suggestionHost = suggestion.url ? getHostFromUrl(suggestion.url) : '';
+            if (suggestionHost && isLocalNetworkHost(suggestionHost)) {
+              iconNode = createLinkIcon();
+            } else if (suggestion.favicon) {
+              // Create icon for suggestions - always use img for all types
+              const favicon = document.createElement('img');
+              favicon.src = suggestion.favicon || '';
+              favicon.decoding = 'async';
+              favicon.loading = 'eager';
+              favicon.referrerPolicy = 'no-referrer';
+              if (index < 4) {
+                favicon.fetchPriority = 'high';
+              }
+              attachFaviconData(
+                favicon,
+                suggestion.favicon || '',
+                suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : ''
+              );
+              favicon.style.cssText = `
                 all: unset !important;
                 width: 16px !important;
                 height: 16px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                border-radius: 2px !important;
                 box-sizing: border-box !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -5285,16 +5330,46 @@ async function getSearchSuggestions(query) {
                 font-size: 100% !important;
                 font: inherit !important;
                 vertical-align: baseline !important;
+                display: block !important;
+                object-fit: contain !important;
               `;
-              if (favicon.parentNode) {
-                favicon.parentNode.replaceChild(fallbackDiv, favicon);
-              }
-            };
-            iconNode = favicon;
-          } else {
-            const searchIcon = createSearchIcon();
-            searchIcon.style.setProperty('color', 'var(--x-ov-subtext, #9CA3AF)', 'important');
-            iconNode = searchIcon;
+              
+              // Fallback to search icon if favicon fails to load
+              favicon.onerror = function() {
+                // Replace with search icon SVG if favicon fails
+                const searchIconSvg = getRiSvg('ri-search-line', 'ri-size-16');
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.innerHTML = searchIconSvg;
+                fallbackDiv.style.cssText = `
+                  all: unset !important;
+                  width: 16px !important;
+                  height: 16px !important;
+                  display: flex !important;
+                  align-items: center !important;
+                  justify-content: center !important;
+                  box-sizing: border-box !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  line-height: 1 !important;
+                  text-decoration: none !important;
+                  list-style: none !important;
+                  outline: none !important;
+                  background: transparent !important;
+                  color: inherit !important;
+                  font-size: 100% !important;
+                  font: inherit !important;
+                  vertical-align: baseline !important;
+                `;
+                if (favicon.parentNode) {
+                  favicon.parentNode.replaceChild(fallbackDiv, favicon);
+                }
+              };
+              iconNode = favicon;
+            } else {
+              const searchIcon = createSearchIcon();
+              searchIcon.style.setProperty('color', 'var(--x-ov-subtext, #9CA3AF)', 'important');
+              iconNode = searchIcon;
+            }
           }
           
           if (iconNode) {
