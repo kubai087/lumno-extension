@@ -10,12 +10,15 @@
   const settingsVersion = document.getElementById('_x_extension_settings_version_2024_unique_');
   const languageSelect = document.getElementById('_x_extension_language_select_2024_unique_');
   const recentCountSelect = document.getElementById('_x_extension_recent_count_select_2024_unique_');
+  const restrictedActionSelect = document.getElementById('_x_extension_restricted_action_select_2024_unique_');
   const syncStatus = document.getElementById('_x_extension_sync_status_2024_unique_');
   const syncStatusText = document.getElementById('_x_extension_sync_status_text_2024_unique_');
   const syncNowButton = document.getElementById('_x_extension_sync_now_2024_unique_');
   const syncExportButton = document.getElementById('_x_extension_sync_export_2024_unique_');
   const syncImportButton = document.getElementById('_x_extension_sync_import_2024_unique_');
   const syncImportInput = document.getElementById('_x_extension_sync_import_input_2024_unique_');
+  const openShortcutsButton = document.getElementById('_x_extension_open_shortcuts_2024_unique_');
+  const shortcutsStatus = document.getElementById('_x_extension_shortcuts_status_2024_unique_');
   const customSelectWraps = Array.from(document.querySelectorAll('._x_extension_custom_select_2024_unique_'));
   const siteSearchCustomList = document.getElementById('_x_extension_site_search_custom_list_2024_unique_');
   const siteSearchBuiltinList = document.getElementById('_x_extension_site_search_builtin_list_2024_unique_');
@@ -63,6 +66,7 @@
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
+  const RESTRICTED_ACTION_STORAGE_KEY = '_x_extension_restricted_action_2024_unique_';
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
   const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
   const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
@@ -72,6 +76,7 @@
     LANGUAGE_STORAGE_KEY,
     LANGUAGE_MESSAGES_STORAGE_KEY,
     RECENT_COUNT_STORAGE_KEY,
+    RESTRICTED_ACTION_STORAGE_KEY,
     SITE_SEARCH_STORAGE_KEY,
     SITE_SEARCH_DISABLED_STORAGE_KEY,
     DEFAULT_SEARCH_ENGINE_STORAGE_KEY
@@ -93,6 +98,7 @@
   let siteSearchFormExpanded = false;
   let siteSearchRefreshSuppressUntil = 0;
   let siteSearchRefreshTimer = null;
+  let currentShortcutLabel = null;
   const fallbackSiteSearchProviders = [
     { key: 'yt', aliases: ['youtube'], name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' },
     { key: 'bb', aliases: ['bilibili', 'bili'], name: 'Bilibili', template: 'https://search.bilibili.com/all?keyword={query}' },
@@ -344,6 +350,7 @@
         const selectedIndex = select.selectedIndex >= 0 ? select.selectedIndex : 0;
         setCustomSelectActiveIndex(wrapper, selectedIndex);
       }
+      requestAnimationFrame(() => updateCustomSelectMenuWidth(wrapper));
       openCustomSelect = wrapper;
     } else if (openCustomSelect === wrapper) {
       closeCustomSelect();
@@ -359,7 +366,14 @@
       return;
     }
     const selected = select.options[select.selectedIndex];
-    trigger.textContent = selected ? (selected.label || selected.textContent || '') : '';
+    const label = selected ? (selected.label || selected.textContent || '') : '';
+    let labelEl = trigger.querySelector('._x_extension_select_label_2024_unique_');
+    if (!labelEl) {
+      labelEl = document.createElement('span');
+      labelEl.className = '_x_extension_select_label_2024_unique_';
+      trigger.insertBefore(labelEl, trigger.firstChild);
+    }
+    labelEl.textContent = label;
     Array.from(menu.children).forEach((item) => {
       const value = item.getAttribute('data-value');
       const isSelected = value === select.value;
@@ -394,6 +408,7 @@
       menu.appendChild(item);
     });
     syncCustomSelectUI(select, wrapper);
+    updateCustomSelectMenuWidth(wrapper);
   }
 
   function refreshCustomSelects() {
@@ -404,6 +419,47 @@
       }
       buildCustomSelectMenu(select, wrapper);
     });
+  }
+
+  function updateCustomSelectMenuWidth(wrapper) {
+    const { menu, trigger } = getCustomSelectElements(wrapper);
+    if (!menu || !trigger) {
+      return;
+    }
+    const triggerRect = trigger.getBoundingClientRect();
+    const baseWidth = Math.round(triggerRect.width);
+    if (!Number.isFinite(baseWidth) || baseWidth <= 0) {
+      return;
+    }
+    menu.style.minWidth = `${baseWidth}px`;
+    menu.style.width = `${baseWidth}px`;
+    menu.style.right = '0';
+
+    const menuStyle = window.getComputedStyle(menu);
+    const padLeft = Number.parseFloat(menuStyle.paddingLeft) || 0;
+    const padRight = Number.parseFloat(menuStyle.paddingRight) || 0;
+    const availableWidth = Math.max(0, menu.clientWidth - padLeft - padRight);
+    let needsExpand = false;
+    Array.from(menu.children).forEach((item) => {
+      if (item.scrollWidth > availableWidth + 1) {
+        needsExpand = true;
+      }
+    });
+
+    if (!needsExpand) {
+      return;
+    }
+
+    let maxItemWidth = 0;
+    Array.from(menu.children).forEach((item) => {
+      if (item.scrollWidth > maxItemWidth) {
+        maxItemWidth = item.scrollWidth;
+      }
+    });
+    const naturalWidth = Math.ceil(maxItemWidth + padLeft + padRight);
+    if (Number.isFinite(naturalWidth) && naturalWidth > baseWidth) {
+      menu.style.width = `${naturalWidth}px`;
+    }
   }
 
   function updateBuiltinResetTooltip() {
@@ -797,6 +853,7 @@
       updateBuiltinResetTooltip();
       updateCustomClearTooltip();
       refreshSyncStatus();
+      refreshShortcutsStatus();
       if (confirmCancel) confirmCancel.textContent = getMessage('confirm_cancel', '取消');
       if (confirmOk) confirmOk.textContent = getMessage('confirm_ok', '确认');
       renderSiteSearchList();
@@ -814,6 +871,31 @@
       }
     });
   }
+
+  function refreshShortcutsStatus() {
+    if (!shortcutsStatus) return;
+    const fallback = `当前快捷键 ${currentShortcutLabel || '未设置'}`;
+    const template = getMessage('settings_shortcuts_status', fallback);
+    shortcutsStatus.textContent = formatTemplate(template, {
+      shortcut: currentShortcutLabel || getMessage('settings_shortcuts_unset', '未设置')
+    });
+  }
+
+
+  function loadCurrentShortcut() {
+    if (!chrome || !chrome.commands || !chrome.commands.getAll) {
+      currentShortcutLabel = null;
+      refreshShortcutsStatus();
+      return;
+    }
+    chrome.commands.getAll((commands) => {
+      const items = Array.isArray(commands) ? commands : [];
+      const showSearch = items.find((command) => command && command.name === 'show-search');
+      currentShortcutLabel = showSearch && showSearch.shortcut ? showSearch.shortcut : null;
+      refreshShortcutsStatus();
+    });
+  }
+
 
   function setActiveTab(tabKey) {
     tabButtons.forEach((button) => {
@@ -1124,6 +1206,28 @@
     });
   }
 
+  if (restrictedActionSelect) {
+    restrictedActionSelect.addEventListener('change', () => {
+      const next = restrictedActionSelect.value || 'lumno';
+      if (!storageArea) {
+        return;
+      }
+      storageArea.set({ [RESTRICTED_ACTION_STORAGE_KEY]: next });
+    });
+  }
+
+  if (openShortcutsButton) {
+    openShortcutsButton.addEventListener('click', () => {
+      if (chrome && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+      } else {
+        window.open('chrome://extensions/shortcuts', '_blank');
+      }
+    });
+  }
+
+  loadCurrentShortcut();
+
   if (syncNowButton) {
     syncNowButton.addEventListener('click', () => {
       if (!storageArea || storageAreaName !== 'sync') {
@@ -1260,6 +1364,19 @@
       }
       if (!hasStored) {
         storageArea.set({ [RECENT_COUNT_STORAGE_KEY]: count });
+      }
+      refreshCustomSelects();
+    });
+
+    storageArea.get([RESTRICTED_ACTION_STORAGE_KEY], (result) => {
+      const stored = result[RESTRICTED_ACTION_STORAGE_KEY];
+      const hasStored = typeof stored === 'string';
+      const nextAction = hasStored ? stored : 'lumno';
+      if (restrictedActionSelect) {
+        restrictedActionSelect.value = nextAction;
+      }
+      if (!hasStored) {
+        storageArea.set({ [RESTRICTED_ACTION_STORAGE_KEY]: nextAction });
       }
       refreshCustomSelects();
     });
@@ -2017,6 +2134,7 @@
         changes[THEME_STORAGE_KEY] ||
         changes[LANGUAGE_STORAGE_KEY] ||
         changes[RECENT_COUNT_STORAGE_KEY] ||
+        changes[RESTRICTED_ACTION_STORAGE_KEY] ||
         changes[SITE_SEARCH_STORAGE_KEY] ||
         changes[SITE_SEARCH_DISABLED_STORAGE_KEY] ||
         changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY]) {
@@ -2034,6 +2152,11 @@
       const stored = Number.parseInt(changes[RECENT_COUNT_STORAGE_KEY].newValue, 10);
       const count = Number.isFinite(stored) ? stored : 4;
       recentCountSelect.value = String(count);
+      refreshCustomSelects();
+    }
+    if (changes[RESTRICTED_ACTION_STORAGE_KEY] && restrictedActionSelect) {
+      const nextValue = changes[RESTRICTED_ACTION_STORAGE_KEY].newValue || 'lumno';
+      restrictedActionSelect.value = nextValue;
       refreshCustomSelects();
     }
     if (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY]) {

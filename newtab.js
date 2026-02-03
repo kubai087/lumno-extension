@@ -155,6 +155,45 @@
     return normalizeLocale(navigator.language || 'en');
   }
 
+  function escapeRegExp(text) {
+    return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function renderHighlightedText(target, text, query, styles) {
+    const safeText = String(text || '');
+    const needle = String(query || '').trim();
+    if (!needle) {
+      target.textContent = safeText;
+      return;
+    }
+    const parts = safeText.split(new RegExp(`(${escapeRegExp(needle)})`, 'gi'));
+    if (parts.length === 1) {
+      target.textContent = safeText;
+      return;
+    }
+    parts.forEach((part) => {
+      if (!part) {
+        return;
+      }
+      if (part.toLowerCase() === needle.toLowerCase()) {
+        const mark = document.createElement('mark');
+        mark.style.background = styles && styles.background
+          ? styles.background
+          : 'var(--x-ext-mark-bg, #CFE8FF)';
+        mark.style.color = styles && styles.color
+          ? styles.color
+          : 'var(--x-ext-mark-text, #1E3A8A)';
+        mark.style.padding = '2px 4px';
+        mark.style.borderRadius = '3px';
+        mark.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+        mark.textContent = part;
+        target.appendChild(mark);
+      } else {
+        target.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
   function loadLocaleMessages(locale) {
     const normalized = normalizeLocale(locale);
     const localePath = chrome.runtime.getURL(`_locales/${normalized}/messages.json`);
@@ -3727,12 +3766,13 @@
             suggestion.type === 'modeSwitch') {
           highlightedTitle = baseTitle;
         } else {
-          highlightedTitle = baseTitle.replace(
-            new RegExp(`(${query})`, 'gi'),
-            '<mark style="background: var(--x-ext-mark-bg, #CFE8FF); color: var(--x-ext-mark-text, #1E3A8A); padding: 2px 4px; border-radius: 3px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">$1</mark>'
-          );
+          highlightedTitle = baseTitle;
         }
-        title.innerHTML = highlightedTitle;
+        title.textContent = '';
+        renderHighlightedText(title, highlightedTitle, query, {
+          background: 'var(--x-ext-mark-bg, #CFE8FF)',
+          color: 'var(--x-ext-mark-text, #1E3A8A)'
+        });
         title.style.cssText = `
           all: unset !important;
           color: var(--x-nt-text, #111827) !important;

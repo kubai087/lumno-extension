@@ -40,6 +40,17 @@ const storageArea = (chrome && chrome.storage && chrome.storage.sync)
 const storageAreaName = storageArea
   ? (storageArea === (chrome && chrome.storage ? chrome.storage.sync : null) ? 'sync' : 'local')
   : null;
+const RESTRICTED_ACTION_STORAGE_KEY = '_x_extension_restricted_action_2024_unique_';
+let restrictedActionCache = 'lumno';
+
+if (storageArea) {
+  storageArea.get([RESTRICTED_ACTION_STORAGE_KEY], (result) => {
+    const stored = result[RESTRICTED_ACTION_STORAGE_KEY];
+    if (typeof stored === 'string') {
+      restrictedActionCache = stored;
+    }
+  });
+}
 
 function migrateStorageIfNeeded(keys) {
   if (!storageArea || !chrome || !chrome.storage || !chrome.storage.local) {
@@ -71,6 +82,14 @@ chrome.commands.onCommand.addListener(function(command) {
       chrome.tabs.query({active: true, currentWindow: true}, function(activeTabs) {
         const activeTab = activeTabs[0];
         if (activeTab && isRestrictedUrl(activeTab.url)) {
+          const action = restrictedActionCache || 'lumno';
+          if (action === 'none') {
+            return;
+          }
+          if (action === 'default') {
+            chrome.tabs.create({});
+            return;
+          }
           openNewtabFallback();
           return;
         }
@@ -220,6 +239,7 @@ const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024
 const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
 migrateStorageIfNeeded([
   DEFAULT_SEARCH_ENGINE_STORAGE_KEY,
+  RESTRICTED_ACTION_STORAGE_KEY,
   SITE_SEARCH_STORAGE_KEY,
   SITE_SEARCH_DISABLED_STORAGE_KEY
 ]);
@@ -727,6 +747,45 @@ function normalizeFaviconHost(hostname) {
   return host;
 }
 
+function escapeRegExp(text) {
+  return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function renderHighlightedText(target, text, query, styles) {
+  const safeText = String(text || '');
+  const needle = String(query || '').trim();
+  if (!needle) {
+    target.textContent = safeText;
+    return;
+  }
+  const parts = safeText.split(new RegExp(`(${escapeRegExp(needle)})`, 'gi'));
+  if (parts.length === 1) {
+    target.textContent = safeText;
+    return;
+  }
+  parts.forEach((part) => {
+    if (!part) {
+      return;
+    }
+    if (part.toLowerCase() === needle.toLowerCase()) {
+      const mark = document.createElement('mark');
+      mark.style.background = styles && styles.background
+        ? styles.background
+        : 'var(--x-ext-mark-bg, #CFE8FF)';
+      mark.style.color = styles && styles.color
+        ? styles.color
+        : 'var(--x-ext-mark-text, #1E3A8A)';
+      mark.style.padding = '2px 4px';
+      mark.style.borderRadius = '3px';
+      mark.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+      mark.textContent = part;
+      target.appendChild(mark);
+    } else {
+      target.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
 function fetchFaviconData(url) {
   if (faviconDataCache.has(url)) {
     return Promise.resolve(faviconDataCache.get(url));
@@ -956,8 +1015,14 @@ function loadShortcutRules() {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (!storageAreaName || areaName !== storageAreaName ||
-      (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY])) {
+  if (!storageAreaName || areaName !== storageAreaName) {
+    return;
+  }
+  if (changes[RESTRICTED_ACTION_STORAGE_KEY]) {
+    const next = changes[RESTRICTED_ACTION_STORAGE_KEY].newValue;
+    restrictedActionCache = typeof next === 'string' ? next : 'lumno';
+  }
+  if (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY]) {
     return;
   }
   siteSearchCache = null;
@@ -5450,12 +5515,13 @@ async function getSearchSuggestions(query) {
             highlightedTitle = suggestion.title;
           } else {
             // For other suggestions, highlight the query
-            highlightedTitle = suggestion.title.replace(
-              new RegExp(`(${query})`, 'gi'),
-              '<mark style="background: var(--x-ext-mark-bg, #CFE8FF); color: var(--x-ext-mark-text, #1E3A8A); padding: 2px 4px; border-radius: 3px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">$1</mark>'
-            );
+            highlightedTitle = suggestion.title;
           }
-          title.innerHTML = highlightedTitle;
+          title.textContent = '';
+          renderHighlightedText(title, highlightedTitle, query, {
+            background: 'var(--x-ext-mark-bg, #CFE8FF)',
+            color: 'var(--x-ext-mark-text, #1E3A8A)'
+          });
           title.style.cssText = `
             all: unset !important;
             color: var(--x-ov-text, #111827) !important;

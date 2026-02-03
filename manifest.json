@@ -4,7 +4,7 @@
    },
    "commands": {
       "show-search": {
-         "description": "Show search overlay",
+         "description": "__MSG_command_show_search__",
          "suggested_key": {
             "default": "Ctrl+T",
             "mac": "Command+T"
@@ -36,5 +36,5 @@
    "name": "Lumno",
    "author": "Kubai087",
    "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks", "storage", "search" ],
-   "version": "1.0.0"
+   "version": "0.9.0"
 }
