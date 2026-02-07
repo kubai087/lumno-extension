@@ -331,6 +331,13 @@
         justify-content: flex-end;
         gap: 10px;
       }
+      ._x_extension_recent_select_group_2024_unique_ {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
       ._x_extension_sync_status_2024_unique_ {
         display: inline-flex;
         align-items: center;
@@ -1377,21 +1384,35 @@
           </div>
           <div class="_x_extension_setting_row_2024_unique_">
             <div>
-              <p class="_x_extension_setting_title_2024_unique_" data-i18n="settings_recent_title">最近访问</p>
-              <p class="_x_extension_setting_desc_2024_unique_" data-i18n="settings_recent_desc">设置新标签页显示的最近访问数量</p>
+              <p class="_x_extension_setting_title_2024_unique_" data-i18n="settings_recent_title">新标签页底部内容</p>
+              <p class="_x_extension_setting_desc_2024_unique_" data-i18n="settings_recent_desc">显示最近/最常访问站点</p>
             </div>
-            <div class="_x_extension_select_wrap_2024_unique_ _x_extension_custom_select_2024_unique_ _x_extension_select_wrap_auto_2024_unique_ _x_extension_select_align_right_2024_unique_" data-select="_x_extension_recent_count_select_2024_unique_">
-              <select id="_x_extension_recent_count_select_2024_unique_" class="_x_extension_select_2024_unique_" tabindex="-1" aria-hidden="true">
-                <option value="4" data-i18n="recent_count_4">显示 4 个</option>
-                <option value="8" data-i18n="recent_count_8">显示 8 个</option>
-                <option value="0" data-i18n="recent_count_off">不显示</option>
-              </select>
-              <button class="_x_extension_select_trigger_2024_unique_" type="button" aria-haspopup="listbox" aria-expanded="false">
-                <svg class="_x_extension_select_icon_2024_unique_ ri-icon ri-size-16" aria-hidden="true" focusable="false">
-                  <use href="remixicon.symbol.svg#ri-arrow-down-s-line"></use>
-                </svg>
-              </button>
-              <div class="_x_extension_select_menu_2024_unique_" role="listbox"></div>
+            <div class="_x_extension_recent_select_group_2024_unique_">
+              <div class="_x_extension_select_wrap_2024_unique_ _x_extension_custom_select_2024_unique_ _x_extension_select_wrap_auto_2024_unique_ _x_extension_select_align_right_2024_unique_" data-select="_x_extension_recent_mode_select_2024_unique_">
+                <select id="_x_extension_recent_mode_select_2024_unique_" class="_x_extension_select_2024_unique_" tabindex="-1" aria-hidden="true">
+                  <option value="latest" data-i18n="recent_mode_latest">显示最近访问</option>
+                  <option value="most" data-i18n="recent_mode_most">显示最常访问</option>
+                </select>
+                <button class="_x_extension_select_trigger_2024_unique_" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <svg class="_x_extension_select_icon_2024_unique_ ri-icon ri-size-16" aria-hidden="true" focusable="false">
+                    <use href="remixicon.symbol.svg#ri-arrow-down-s-line"></use>
+                  </svg>
+                </button>
+                <div class="_x_extension_select_menu_2024_unique_" role="listbox"></div>
+              </div>
+              <div class="_x_extension_select_wrap_2024_unique_ _x_extension_custom_select_2024_unique_ _x_extension_select_wrap_auto_2024_unique_ _x_extension_select_align_right_2024_unique_" data-select="_x_extension_recent_count_select_2024_unique_">
+                <select id="_x_extension_recent_count_select_2024_unique_" class="_x_extension_select_2024_unique_" tabindex="-1" aria-hidden="true">
+                  <option value="4" data-i18n="recent_count_4">显示 4 个</option>
+                  <option value="8" data-i18n="recent_count_8">显示 8 个</option>
+                  <option value="0" data-i18n="recent_count_off">不显示</option>
+                </select>
+                <button class="_x_extension_select_trigger_2024_unique_" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <svg class="_x_extension_select_icon_2024_unique_ ri-icon ri-size-16" aria-hidden="true" focusable="false">
+                    <use href="remixicon.symbol.svg#ri-arrow-down-s-line"></use>
+                  </svg>
+                </button>
+                <div class="_x_extension_select_menu_2024_unique_" role="listbox"></div>
+              </div>
             </div>
           </div>
           <div class="_x_extension_setting_row_2024_unique_">

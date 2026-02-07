@@ -9,6 +9,7 @@
   const tabsIndicator = tabsContainer ? tabsContainer.querySelector('._x_extension_tabs_indicator_2024_unique_') : null;
   const settingsVersion = document.getElementById('_x_extension_settings_version_2024_unique_');
   const languageSelect = document.getElementById('_x_extension_language_select_2024_unique_');
+  const recentModeSelect = document.getElementById('_x_extension_recent_mode_select_2024_unique_');
   const recentCountSelect = document.getElementById('_x_extension_recent_count_select_2024_unique_');
   const restrictedActionSelect = document.getElementById('_x_extension_restricted_action_select_2024_unique_');
   const syncStatus = document.getElementById('_x_extension_sync_status_2024_unique_');
@@ -65,6 +66,7 @@
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
+  const RECENT_MODE_STORAGE_KEY = '_x_extension_recent_mode_2024_unique_';
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
   const RESTRICTED_ACTION_STORAGE_KEY = '_x_extension_restricted_action_2024_unique_';
   const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
@@ -75,6 +77,7 @@
     THEME_STORAGE_KEY,
     LANGUAGE_STORAGE_KEY,
     LANGUAGE_MESSAGES_STORAGE_KEY,
+    RECENT_MODE_STORAGE_KEY,
     RECENT_COUNT_STORAGE_KEY,
     RESTRICTED_ACTION_STORAGE_KEY,
     SITE_SEARCH_STORAGE_KEY,
@@ -1086,6 +1089,7 @@
     THEME_STORAGE_KEY,
     LANGUAGE_STORAGE_KEY,
     LANGUAGE_MESSAGES_STORAGE_KEY,
+    RECENT_MODE_STORAGE_KEY,
     RECENT_COUNT_STORAGE_KEY,
     SITE_SEARCH_STORAGE_KEY,
     SITE_SEARCH_DISABLED_STORAGE_KEY,
@@ -1203,6 +1207,16 @@
         return;
       }
       storageArea.set({ [RECENT_COUNT_STORAGE_KEY]: nextCount });
+    });
+  }
+  if (recentModeSelect) {
+    recentModeSelect.addEventListener('change', () => {
+      const rawMode = recentModeSelect.value;
+      const nextMode = rawMode === 'most' ? 'most' : 'latest';
+      if (!storageArea) {
+        return;
+      }
+      storageArea.set({ [RECENT_MODE_STORAGE_KEY]: nextMode });
     });
   }
 
@@ -1364,6 +1378,18 @@
       }
       if (!hasStored) {
         storageArea.set({ [RECENT_COUNT_STORAGE_KEY]: count });
+      }
+      refreshCustomSelects();
+    });
+    storageArea.get([RECENT_MODE_STORAGE_KEY], (result) => {
+      const stored = result[RECENT_MODE_STORAGE_KEY];
+      const hasStored = stored === 'latest' || stored === 'most';
+      const mode = hasStored ? stored : 'latest';
+      if (recentModeSelect) {
+        recentModeSelect.value = mode;
+      }
+      if (!hasStored) {
+        storageArea.set({ [RECENT_MODE_STORAGE_KEY]: mode });
       }
       refreshCustomSelects();
     });
@@ -2133,6 +2159,7 @@
     if (changes[SYNC_META_KEY] ||
         changes[THEME_STORAGE_KEY] ||
         changes[LANGUAGE_STORAGE_KEY] ||
+        changes[RECENT_MODE_STORAGE_KEY] ||
         changes[RECENT_COUNT_STORAGE_KEY] ||
         changes[RESTRICTED_ACTION_STORAGE_KEY] ||
         changes[SITE_SEARCH_STORAGE_KEY] ||
@@ -2152,6 +2179,12 @@
       const stored = Number.parseInt(changes[RECENT_COUNT_STORAGE_KEY].newValue, 10);
       const count = Number.isFinite(stored) ? stored : 4;
       recentCountSelect.value = String(count);
+      refreshCustomSelects();
+    }
+    if (changes[RECENT_MODE_STORAGE_KEY] && recentModeSelect) {
+      const nextValue = changes[RECENT_MODE_STORAGE_KEY].newValue;
+      const mode = nextValue === 'most' ? 'most' : 'latest';
+      recentModeSelect.value = mode;
       refreshCustomSelects();
     }
     if (changes[RESTRICTED_ACTION_STORAGE_KEY] && restrictedActionSelect) {

@@ -16,6 +16,7 @@
   const THEME_STORAGE_KEY = '_x_extension_theme_mode_2024_unique_';
   const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
   const LANGUAGE_MESSAGES_STORAGE_KEY = '_x_extension_language_messages_2024_unique_';
+  const RECENT_MODE_STORAGE_KEY = '_x_extension_recent_mode_2024_unique_';
   const RECENT_COUNT_STORAGE_KEY = '_x_extension_recent_count_2024_unique_';
   const DEFAULT_SEARCH_ENGINE_STORAGE_KEY = '_x_extension_default_search_engine_2024_unique_';
   const RI_SPRITE_URL = (chrome && chrome.runtime && chrome.runtime.getURL)
@@ -30,6 +31,7 @@
   let currentMessages = null;
   let currentLanguageMode = 'system';
   let defaultPlaceholderText = '搜索或输入网址...';
+  let currentRecentMode = 'latest';
   let currentRecentCount = 4;
 
   // 使用系统字体，避免外链字体依赖。
@@ -293,10 +295,17 @@
     });
   }
 
-  function applyLanguageStrings() {
-    if (recentHeading) {
-      recentHeading.textContent = t('recent_heading', '最近访问');
+  function updateRecentHeading() {
+    if (!recentHeading) {
+      return;
     }
+    const key = currentRecentMode === 'most' ? 'recent_heading_most' : 'recent_heading_latest';
+    const fallback = currentRecentMode === 'most' ? '最常访问' : '最近访问';
+    recentHeading.textContent = t(key, fallback);
+  }
+
+  function applyLanguageStrings() {
+    updateRecentHeading();
     if (inputParts && inputParts.input) {
       defaultPlaceholderText = t('search_placeholder', defaultPlaceholderText);
       if (!siteSearchState) {
@@ -413,6 +422,12 @@
       currentRecentCount = Number.isFinite(nextCount) ? nextCount : 4;
       loadRecentSites();
     }
+    if (changes[RECENT_MODE_STORAGE_KEY]) {
+      const nextMode = changes[RECENT_MODE_STORAGE_KEY].newValue;
+      currentRecentMode = nextMode === 'most' ? 'most' : 'latest';
+      updateRecentHeading();
+      loadRecentSites();
+    }
     if (changes[LANGUAGE_MESSAGES_STORAGE_KEY]) {
       const payload = changes[LANGUAGE_MESSAGES_STORAGE_KEY].newValue;
       const targetLocale = currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(currentLanguageMode);
@@ -432,6 +447,16 @@
       const stored = result[RECENT_COUNT_STORAGE_KEY];
       const count = Number.isFinite(stored) ? stored : 4;
       currentRecentCount = count;
+      loadRecentSites();
+    });
+    storageArea.get([RECENT_MODE_STORAGE_KEY], (result) => {
+      const stored = result[RECENT_MODE_STORAGE_KEY];
+      const mode = stored === 'most' ? 'most' : 'latest';
+      currentRecentMode = mode;
+      updateRecentHeading();
+      if (stored !== mode) {
+        storageArea.set({ [RECENT_MODE_STORAGE_KEY]: mode });
+      }
       loadRecentSites();
     });
   }
@@ -588,6 +613,7 @@
     THEME_STORAGE_KEY,
     LANGUAGE_STORAGE_KEY,
     LANGUAGE_MESSAGES_STORAGE_KEY,
+    RECENT_MODE_STORAGE_KEY,
     RECENT_COUNT_STORAGE_KEY,
     DEFAULT_SEARCH_ENGINE_STORAGE_KEY,
     SITE_SEARCH_STORAGE_KEY,
@@ -679,10 +705,9 @@
         border: 'transparent'
       };
     }
-    const accentRgb = resolvedTheme.accentRgb || parseCssColor(resolvedTheme.accent) || defaultAccentColor;
     return {
-      bg: resolvedTheme.highlightBg || rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.88)),
-      border: resolvedTheme.highlightBorder || rgbToCss(mixColor(accentRgb, [255, 255, 255], 0.68))
+      bg: resolvedTheme.highlightBg,
+      border: resolvedTheme.highlightBorder
     };
   }
 
@@ -1233,8 +1258,6 @@
   const iconPreloadCache = new Map();
   const faviconDataCache = new Map();
   const faviconDataPending = new Map();
-  const FALLBACK_ICON_SVG_LIGHT = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%236B7280"/></svg>';
-  const FALLBACK_ICON_SVG_DARK = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.06 8.11l1.415 1.415a7 7 0 0 1 0 9.9l-.354.353a7 7 0 0 1-9.9-9.9l1.415 1.415a5 5 0 1 0 7.071 7.071l.354-.354a5 5 0 0 0 0-7.07l-1.415-1.415 1.415-1.414zm6.718 6.011l-1.414-1.414a5 5 0 1 0-7.071-7.071l-.354.354a5 5 0 0 0 0 7.07l1.415 1.415-1.415 1.414-1.414-1.414a7 7 0 0 1 0-9.9l.354-.353a7 7 0 0 1 9.9 9.9z" fill="%239CA3AF"/></svg>';
   const missingIconCache = new Set();
 
   function reportMissingIcon(context, url, iconUrl) {
@@ -1250,25 +1273,66 @@
     });
   }
 
-  function getFallbackIconSvg() {
-    const theme = document.body ? document.body.getAttribute('data-theme') : '';
-    return theme === 'dark' ? FALLBACK_ICON_SVG_DARK : FALLBACK_ICON_SVG_LIGHT;
+  function ensureFallbackIconNode(img) {
+    if (!img || !img.parentElement) {
+      return null;
+    }
+    let node = img.parentElement.querySelector('._x_extension_favicon_fallback_2024_unique_');
+    if (node) {
+      return node;
+    }
+    node = document.createElement('span');
+    node.className = '_x_extension_favicon_fallback_2024_unique_';
+    node.style.cssText = `
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: ${img.clientWidth || 25}px !important;
+      height: ${img.clientHeight || 25}px !important;
+      border-radius: 6px !important;
+      background: var(--x-nt-tag-bg, #F3F4F6) !important;
+      color: var(--x-nt-tag-text, #6B7280) !important;
+      box-sizing: border-box !important;
+      padding: 3px !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+    `;
+    node.innerHTML = getRiSvg('ri-link-m', 'ri-size-14');
+    img.parentElement.insertBefore(node, img.nextSibling);
+    return node;
   }
 
   function applyFallbackIcon(img) {
     if (!img) {
       return;
     }
+    const node = ensureFallbackIconNode(img);
     img.setAttribute('data-fallback-icon', 'true');
-    img.src = getFallbackIconSvg();
+    img.style.setProperty('display', 'none', 'important');
+    if (node) {
+      node.style.setProperty('display', 'inline-flex', 'important');
+      return;
+    }
+    // Some local-network entries fallback before the image is attached to DOM.
+    // Retry once on next tick so the fallback icon can be mounted after attach.
+    setTimeout(() => {
+      if (!img || !img.isConnected) {
+        return;
+      }
+      const delayedNode = ensureFallbackIconNode(img);
+      if (delayedNode) {
+        delayedNode.style.setProperty('display', 'inline-flex', 'important');
+      }
+    }, 0);
   }
 
   function refreshFallbackIcons() {
-    const next = getFallbackIconSvg();
     document.querySelectorAll('img[data-fallback-icon=\"true\"]').forEach((img) => {
-      if (img.src !== next) {
-        img.src = next;
+      const node = ensureFallbackIconNode(img);
+      if (node) {
+        node.style.setProperty('display', 'inline-flex', 'important');
       }
+      img.style.setProperty('display', 'none', 'important');
     });
   }
   const recentActionOffsetUpdaters = new Set();
@@ -1396,6 +1460,32 @@
   function createSearchIcon() {
     const icon = document.createElement('span');
     icon.innerHTML = getRiSvg('ri-search-line', 'ri-size-16');
+    icon.style.cssText = `
+      all: unset !important;
+      width: 16px !important;
+      height: 16px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+      text-decoration: none !important;
+      list-style: none !important;
+      outline: none !important;
+      background: transparent !important;
+      color: inherit !important;
+      font-size: 100% !important;
+      font: inherit !important;
+      vertical-align: baseline !important;
+    `;
+    return icon;
+  }
+
+  function createLinkIcon() {
+    const icon = document.createElement('span');
+    icon.innerHTML = getRiSvg('ri-link-m', 'ri-size-16');
     icon.style.cssText = `
       all: unset !important;
       width: 16px !important;
@@ -1622,7 +1712,7 @@
   recentSection.style.setProperty('display', 'none', 'important');
   const recentHeading = document.createElement('div');
   recentHeading.className = 'x-nt-recent-heading';
-  recentHeading.textContent = t('recent_heading', '最近访问');
+  updateRecentHeading();
   const recentGrid = document.createElement('div');
   recentGrid.id = '_x_extension_newtab_recent_sites_grid_2024_unique_';
   recentSection.appendChild(recentHeading);
@@ -1648,7 +1738,7 @@
       recentSection.style.setProperty('display', 'none', 'important');
       return;
     }
-    getRecentSites(currentRecentCount).then((items) => {
+    getRecentSites(currentRecentCount, currentRecentMode).then((items) => {
       renderRecentSites(items);
     });
   }
@@ -1777,7 +1867,6 @@
       return;
     }
     const faviconHostKey = normalizeFaviconHost(hostKey);
-    const fallbackIcon = getFallbackIconSvg();
     const chromeFavicon = getChromeFaviconUrl(url);
     const googleFavicon = faviconHostKey ? getGoogleFaviconUrl(faviconHostKey) : '';
     let didFallback = false;
@@ -1811,58 +1900,103 @@
     attachFaviconData(img, googleFavicon, hostKey);
   }
 
-  function getRecentSites(limit) {
+  function getRecentSites(limit, mode) {
     return new Promise((resolve) => {
-      if (!chrome.history || !chrome.history.search) {
-        resolve([]);
-        return;
-      }
-      chrome.history.search({
-        text: '',
-        maxResults: 60,
-        startTime: Date.now() - 1000 * 60 * 60 * 24 * 30
-      }, (items) => {
-        if (chrome.runtime.lastError || !Array.isArray(items)) {
+      function loadLatestRecentSites() {
+        if (!chrome.history || !chrome.history.search) {
           resolve([]);
           return;
         }
-        const results = [];
-        const seenHosts = new Set();
-        for (let i = 0; i < items.length; i += 1) {
-          const item = items[i];
-          const url = item && item.url ? String(item.url) : '';
-          if (!url || isRestrictedUrl(url)) {
-            continue;
+        chrome.history.search({
+          text: '',
+          maxResults: 60,
+          startTime: Date.now() - 1000 * 60 * 60 * 24 * 30
+        }, (items) => {
+          if (chrome.runtime.lastError || !Array.isArray(items)) {
+            resolve([]);
+            return;
           }
-          let host = '';
-          try {
-            host = normalizeHost(new URL(url).hostname);
-          } catch (e) {
-            continue;
+          const results = [];
+          const seenHosts = new Set();
+          for (let i = 0; i < items.length; i += 1) {
+            const item = items[i];
+            const url = item && item.url ? String(item.url) : '';
+            if (!url || isRestrictedUrl(url)) {
+              continue;
+            }
+            let host = '';
+            try {
+              host = normalizeHost(new URL(url).hostname);
+            } catch (e) {
+              continue;
+            }
+            if (!host || seenHosts.has(host)) {
+              continue;
+            }
+            seenHosts.add(host);
+            results.push({
+              title: item.title || host,
+              url: url,
+              host: host,
+              lastVisitTime: item.lastVisitTime || 0
+            });
+            if (results.length >= limit) {
+              break;
+            }
           }
-          if (!host || seenHosts.has(host)) {
-            continue;
+          if (results.length >= limit || !chrome.topSites || !chrome.topSites.get) {
+            resolve(results);
+            return;
           }
-          seenHosts.add(host);
-          results.push({
-            title: item.title || host,
-            url: url,
-            host: host,
-            lastVisitTime: item.lastVisitTime || 0
+          chrome.topSites.get((topSites) => {
+            if (!Array.isArray(topSites)) {
+              resolve(results);
+              return;
+            }
+            for (let i = 0; i < topSites.length; i += 1) {
+              const item = topSites[i];
+              const url = item && item.url ? String(item.url) : '';
+              if (!url || isRestrictedUrl(url)) {
+                continue;
+              }
+              let host = '';
+              try {
+                host = normalizeHost(new URL(url).hostname);
+              } catch (e) {
+                continue;
+              }
+              if (!host || seenHosts.has(host)) {
+                continue;
+              }
+              seenHosts.add(host);
+              results.push({
+                title: item.title || host,
+                url: url,
+                host: host,
+                lastVisitTime: 0
+              });
+              if (results.length >= limit) {
+                break;
+              }
+            }
+            resolve(results);
           });
-          if (results.length >= limit) {
-            break;
-          }
-        }
-        if (results.length >= limit || !chrome.topSites || !chrome.topSites.get) {
-          resolve(results);
+        });
+      }
+
+      const viewMode = mode === 'most' ? 'most' : 'latest';
+      if (viewMode === 'most') {
+        if (!chrome.topSites || !chrome.topSites.get) {
+          loadLatestRecentSites();
           return;
         }
         chrome.topSites.get((topSites) => {
           if (!Array.isArray(topSites)) {
-            resolve(results);
+            loadLatestRecentSites();
             return;
           }
+          const results = [];
+          const seenHosts = new Set();
           for (let i = 0; i < topSites.length; i += 1) {
             const item = topSites[i];
             const url = item && item.url ? String(item.url) : '';
@@ -1883,15 +2017,23 @@
               title: item.title || host,
               url: url,
               host: host,
-              lastVisitTime: 0
+              lastVisitTime: 0,
+              visitCount: 0
             });
             if (results.length >= limit) {
               break;
             }
           }
+          if (results.length === 0) {
+            loadLatestRecentSites();
+            return;
+          }
           resolve(results);
         });
-      });
+        return;
+      }
+
+      loadLatestRecentSites();
     });
   }
 
@@ -3626,6 +3768,8 @@
           searchIcon.style.setProperty('color', 'var(--x-nt-subtext, #6B7280)', 'important');
           iconNode = searchIcon;
         } else if (suggestion.favicon) {
+          const suggestionHost = suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : '';
+          const isLocalSuggestion = suggestionHost && isLocalNetworkHost(suggestionHost);
           const favicon = document.createElement('img');
           favicon.src = suggestion.favicon || '';
           favicon.decoding = 'async';
@@ -3661,9 +3805,8 @@
           `;
           favicon.onerror = function() {
             reportMissingIcon('suggestion', suggestion && suggestion.url ? suggestion.url : '', favicon.src);
-            const searchIconSvg = getRiSvg('ri-search-line', 'ri-size-16');
             const fallbackDiv = document.createElement('div');
-            fallbackDiv.innerHTML = searchIconSvg;
+            fallbackDiv.innerHTML = getRiSvg(isLocalSuggestion ? 'ri-link-m' : 'ri-search-line', 'ri-size-16');
             fallbackDiv.style.cssText = `
               all: unset !important;
               width: 16px !important;
@@ -3690,9 +3833,16 @@
           };
           iconNode = favicon;
         } else {
-          const searchIcon = createSearchIcon();
-          searchIcon.style.setProperty('color', 'var(--x-nt-subtext, #6B7280)', 'important');
-          iconNode = searchIcon;
+          const suggestionHost = suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : '';
+          if (suggestionHost && isLocalNetworkHost(suggestionHost)) {
+            const linkIcon = createLinkIcon();
+            linkIcon.style.setProperty('color', 'var(--x-nt-subtext, #6B7280)', 'important');
+            iconNode = linkIcon;
+          } else {
+            const searchIcon = createSearchIcon();
+            searchIcon.style.setProperty('color', 'var(--x-nt-subtext, #6B7280)', 'important');
+            iconNode = searchIcon;
+          }
         }
 
         if (iconNode) {
