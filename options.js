@@ -907,15 +907,18 @@
         return;
       }
       currentMessages = messages || {};
+      if (languageSelect) {
+        languageSelect.value = normalizedMode;
+        if (languageSelect.value !== normalizedMode) {
+          languageSelect.value = 'system';
+        }
+      }
       applyI18n();
       refreshCustomSelects();
       requestAnimationFrame(() => {
         updateTabIndicator();
         updateThemeIndicator();
       });
-      if (languageSelect) {
-        languageSelect.value = normalizedMode;
-      }
       setEditingState(editingSiteSearchKey);
       updateBuiltinResetTooltip();
       updateCustomClearTooltip();
