@@ -40,7 +40,6 @@
   const confirmOk = document.getElementById('_x_extension_confirm_ok_2024_unique_');
   const confirmCancel = document.getElementById('_x_extension_confirm_cancel_2024_unique_');
   const confirmDialog = document.querySelector('._x_extension_confirm_dialog_2024_unique_');
-  const extensionName = (chrome && chrome.runtime && chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
   // 使用系统字体，避免外链字体依赖。
   if (!panel || themeButtons.length === 0 || tabButtons.length === 0) {
@@ -96,6 +95,7 @@
   let confirmClosingTimer = null;
   let bodyFixedSnapshot = null;
   let tooltipEl = null;
+  let languageApplyRequestId = 0;
   let editingSiteSearchKey = null;
   let activePopconfirm = null;
   let siteSearchFormExpanded = false;
@@ -122,6 +122,7 @@
   ];
 
   let currentMessages = null;
+  let currentLanguageMode = 'system';
   let openCustomSelect = null;
 
   function migrateStorageIfNeeded(keys) {
@@ -150,6 +151,9 @@
     if (currentMessages && currentMessages[key] && currentMessages[key].message) {
       return currentMessages[key].message;
     }
+    if (currentLanguageMode !== 'system') {
+      return fallback || '';
+    }
     if (chrome && chrome.i18n && chrome.i18n.getMessage) {
       const message = chrome.i18n.getMessage(key);
       if (message) {
@@ -176,7 +180,7 @@
       }
       const fallback = node.textContent || '';
       const rawMessage = getMessage(key, fallback);
-      const message = formatTemplate(rawMessage, { name: extensionName });
+      const message = formatTemplate(rawMessage, { name: 'Lumno' });
       if (message) {
         node.textContent = message;
         if (node.tagName === 'OPTION') {
@@ -830,18 +834,78 @@
     return normalizeLocale(navigator.language || 'en');
   }
 
+  function normalizeLanguageMode(mode) {
+    const raw = String(mode || '').trim();
+    if (!raw) {
+      return 'system';
+    }
+    const lower = raw.toLowerCase();
+    if (lower === 'system') {
+      return 'system';
+    }
+    if (lower === 'en' || lower.startsWith('en-') || lower.startsWith('en_')) {
+      return 'en';
+    }
+    if (lower === 'zh-hk' || lower === 'zh_hk') {
+      return 'zh-HK';
+    }
+    if (lower === 'zh-tw' || lower === 'zh_tw' || lower === 'zh-mo' || lower === 'zh_mo' || lower.includes('hant')) {
+      return 'zh-TW';
+    }
+    if (lower === 'zh-cn' || lower === 'zh_cn' || lower === 'zh-hans' || lower === 'zh_hans' || lower.startsWith('zh')) {
+      return 'zh-CN';
+    }
+    return 'system';
+  }
+
   function loadLocaleMessages(locale) {
     const normalized = normalizeLocale(locale);
     const localePath = chrome.runtime.getURL(`_locales/${normalized}/messages.json`);
+    const fetchFromBackground = () => new Promise((resolve) => {
+      if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+        resolve({});
+        return;
+      }
+      chrome.runtime.sendMessage({ action: 'getLocaleMessages', locale: normalized }, (response) => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          resolve({});
+          return;
+        }
+        resolve(response && response.messages ? response.messages : {});
+      });
+    });
     return fetch(localePath)
-      .then((response) => response.json())
-      .catch(() => ({}));
+      .then((response) => {
+        if (!response || !response.ok) {
+          throw new Error('locale fetch failed');
+        }
+        return response.json();
+      })
+      .catch(() => fetchFromBackground());
   }
 
   function applyLanguageMode(mode, options) {
-    const targetLocale = mode === 'system' ? getSystemLocale() : normalizeLocale(mode);
+    const requestId = ++languageApplyRequestId;
+    const normalizedMode = normalizeLanguageMode(mode);
+    currentLanguageMode = normalizedMode;
+    const targetLocale = normalizedMode === 'system' ? getSystemLocale() : normalizeLocale(normalizedMode);
     const shouldPersist = Boolean(options && options.persist);
+    if (shouldPersist) {
+      const payload = {
+        [LANGUAGE_STORAGE_KEY]: normalizedMode
+      };
+      const localArea = chrome && chrome.storage ? chrome.storage.local : null;
+      if (localArea) {
+        localArea.set(payload);
+      }
+      if (storageArea) {
+        storageArea.set(payload);
+      }
+    }
     loadLocaleMessages(targetLocale).then((messages) => {
+      if (requestId !== languageApplyRequestId) {
+        return;
+      }
       currentMessages = messages || {};
       applyI18n();
       refreshCustomSelects();
@@ -850,7 +914,7 @@
         updateThemeIndicator();
       });
       if (languageSelect) {
-        languageSelect.value = mode || 'system';
+        languageSelect.value = normalizedMode;
       }
       setEditingState(editingSiteSearchKey);
       updateBuiltinResetTooltip();
@@ -864,13 +928,15 @@
         if (!storageArea) {
           return;
         }
-        storageArea.set({
-          [LANGUAGE_STORAGE_KEY]: mode || 'system',
-          [LANGUAGE_MESSAGES_STORAGE_KEY]: {
-            locale: targetLocale,
-            messages: currentMessages
-          }
-        });
+        const syncArea = chrome && chrome.storage ? chrome.storage.sync : null;
+        if (storageArea !== syncArea) {
+          storageArea.set({
+            [LANGUAGE_MESSAGES_STORAGE_KEY]: {
+              locale: targetLocale,
+              messages: currentMessages
+            }
+          });
+        }
       }
     });
   }
@@ -1056,7 +1122,9 @@
     });
   });
 
-  applyLanguageMode('system');
+  if (!storageArea) {
+    applyLanguageMode('system');
+  }
   initTooltips();
 
   function getInitialTabKey() {
@@ -1359,14 +1427,59 @@
   }
 
 
+  function retryApplyLanguageFromStorage(delayMs) {
+    if (!storageArea) {
+      return;
+    }
+    const wait = Number.isFinite(delayMs) ? delayMs : 180;
+    setTimeout(() => {
+      storageArea.get([LANGUAGE_STORAGE_KEY], (retryResult) => {
+        if (!retryResult || !Object.prototype.hasOwnProperty.call(retryResult, LANGUAGE_STORAGE_KEY)) {
+          return;
+        }
+        const retryMode = normalizeLanguageMode(retryResult[LANGUAGE_STORAGE_KEY]);
+        applyLanguageMode(retryMode);
+      });
+    }, wait);
+  }
+
   if (storageArea) {
     storageArea.get([LANGUAGE_STORAGE_KEY], (result) => {
       const hasStored = Object.prototype.hasOwnProperty.call(result, LANGUAGE_STORAGE_KEY);
-      const stored = hasStored ? result[LANGUAGE_STORAGE_KEY] : 'system';
-      if (!hasStored) {
-        storageArea.set({ [LANGUAGE_STORAGE_KEY]: 'system' });
+      const syncArea = chrome && chrome.storage ? chrome.storage.sync : null;
+      const localArea = chrome && chrome.storage ? chrome.storage.local : null;
+      if (hasStored) {
+        const storedRaw = result[LANGUAGE_STORAGE_KEY];
+        const stored = normalizeLanguageMode(storedRaw);
+        if (storedRaw !== stored) {
+          storageArea.set({ [LANGUAGE_STORAGE_KEY]: stored });
+        }
+        if (localArea) {
+          localArea.set({ [LANGUAGE_STORAGE_KEY]: stored });
+        }
+        applyLanguageMode(stored);
+        return;
       }
-      applyLanguageMode(stored || 'system');
+      if (storageArea === syncArea && localArea) {
+        localArea.get([LANGUAGE_STORAGE_KEY], (localResult) => {
+          const localHasStored = Object.prototype.hasOwnProperty.call(localResult, LANGUAGE_STORAGE_KEY);
+          if (localHasStored) {
+            const localRaw = localResult[LANGUAGE_STORAGE_KEY];
+            const localMode = normalizeLanguageMode(localRaw);
+            localArea.set({ [LANGUAGE_STORAGE_KEY]: localMode });
+            storageArea.set({ [LANGUAGE_STORAGE_KEY]: localMode });
+            applyLanguageMode(localMode);
+            return;
+          }
+          // 避免刷新瞬间把尚未完成写入的语言偏好覆盖为 system。
+          applyLanguageMode('system');
+          retryApplyLanguageFromStorage(180);
+        });
+        return;
+      }
+      // 读不到时只做 UI 回退，不落盘，防止竞态覆盖用户刚设置的值。
+      applyLanguageMode('system');
+      retryApplyLanguageFromStorage(180);
     });
 
     storageArea.get([RECENT_COUNT_STORAGE_KEY], (result) => {

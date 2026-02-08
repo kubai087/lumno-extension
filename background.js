@@ -221,6 +221,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       sendResponse({ data: '' });
       return;
     }
+    try {
+      const targetHost = new URL(targetUrl).hostname;
+      if (isLocalNetworkHost(targetHost)) {
+        sendResponse({ data: '' });
+        return;
+      }
+    } catch (e) {
+      // Ignore parse failures and continue with non-local handling.
+    }
     fetchFaviconData(targetUrl).then((dataUrl) => {
       sendResponse({ data: dataUrl || '' });
     }).catch(() => {
@@ -1991,7 +2000,6 @@ async function getSearchSuggestions(query) {
     `;
     inputContainer.appendChild(modeBadge);
 
-    const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
 
     function applyLanguageStrings() {
       if (searchInput) {
@@ -2087,8 +2095,8 @@ async function getSearchSuggestions(query) {
     function buildCommandSuggestion(command) {
       let titleText = '';
       if (command.type === 'commandSettings') {
-        titleText = formatMessage('command_settings', `打开 ${extensionName} 设置`, {
-          name: extensionName
+        titleText = formatMessage('command_settings', '打开 Lumno 设置', {
+          name: 'Lumno'
         });
       } else {
         titleText = t('command_newtab', '新建标签页');
@@ -2149,8 +2157,8 @@ async function getSearchSuggestions(query) {
       const nextMode = getNextThemeMode(overlayThemeMode || 'system');
       return {
         type: 'modeSwitch',
-        title: formatMessage('mode_switch_title', `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`, {
-          name: extensionName,
+        title: formatMessage('mode_switch_title', `Lumno：切换到${getThemeModeLabel(nextMode)}模式`, {
+          name: 'Lumno',
           mode: getThemeModeLabel(nextMode)
         }),
         url: '',
@@ -3109,6 +3117,10 @@ async function getSearchSuggestions(query) {
 
     function preloadIcon(url) {
       if (!url || url.startsWith('data:') || iconPreloadCache.has(url)) {
+        return;
+      }
+      const host = getHostFromUrl(url);
+      if (host && isLocalNetworkHost(host)) {
         return;
       }
       const img = new Image();
@@ -5806,7 +5818,7 @@ async function getSearchSuggestions(query) {
           } else if (suggestion.type === 'commandNewTab') {
             visitButton.innerHTML = `${t('command_newtab', '新建标签页')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'commandSettings') {
-            visitButton.innerHTML = `${formatMessage('command_settings', `打开 ${extensionName} 设置`, { name: extensionName })} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
+            visitButton.innerHTML = `${formatMessage('command_settings', '打开 Lumno 设置', { name: 'Lumno' })} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'siteSearch') {
             visitButton.innerHTML = `${t('action_search', '搜索')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
           } else if (suggestion.type === 'directUrl' || suggestion.type === 'browserPage') {

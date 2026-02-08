@@ -27,7 +27,6 @@
   let currentThemeMode = 'system';
   let modeBadge = null;
   const recentCards = [];
-  const extensionName = (chrome.runtime.getManifest && chrome.runtime.getManifest().name) || 'Lumno';
   let currentMessages = null;
   let currentLanguageMode = 'system';
   let defaultPlaceholderText = '搜索或输入网址...';
@@ -305,6 +304,7 @@
   }
 
   function applyLanguageStrings() {
+    document.title = t('newtab_page_title', 'New Tab');
     updateRecentHeading();
     if (inputParts && inputParts.input) {
       defaultPlaceholderText = t('search_placeholder', defaultPlaceholderText);
@@ -508,8 +508,8 @@
   function buildCommandSuggestion(command) {
     let titleText = '';
     if (command.type === 'commandSettings') {
-      titleText = formatMessage('command_settings', `打开 ${extensionName} 设置`, {
-        name: extensionName
+      titleText = formatMessage('command_settings', '打开 Lumno 设置', {
+        name: 'Lumno'
       });
     } else {
       titleText = t('command_newtab', '新建标签页');
@@ -556,8 +556,8 @@
     const nextMode = getNextThemeMode(currentThemeMode);
     return {
       type: 'modeSwitch',
-      title: formatMessage('mode_switch_title', `${extensionName}：切换到${getThemeModeLabel(nextMode)}模式`, {
-        name: extensionName,
+      title: formatMessage('mode_switch_title', `Lumno：切换到${getThemeModeLabel(nextMode)}模式`, {
+        name: 'Lumno',
         mode: getThemeModeLabel(nextMode)
       }),
       url: '',
@@ -1413,6 +1413,10 @@
 
   function preloadIcon(url) {
     if (!url || url.startsWith('data:') || iconPreloadCache.has(url)) {
+      return;
+    }
+    const host = getHostFromUrl(url);
+    if (host && isLocalNetworkHost(host)) {
       return;
     }
     const img = new Image();

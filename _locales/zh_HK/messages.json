@@ -71,6 +71,7 @@
   "shortcuts_error_key": { "message": "請填寫觸發詞。" },
   "shortcuts_error_key_space": { "message": "觸發詞不能包含空格。" },
   "search_placeholder": { "message": "搜尋或輸入網址..." },
+  "newtab_page_title": { "message": "新分頁" },
   "recent_heading": { "message": "最近瀏覽" },
   "recent_heading_latest": { "message": "最近瀏覽" },
   "recent_heading_most": { "message": "最常瀏覽" },

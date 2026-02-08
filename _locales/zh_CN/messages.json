@@ -71,6 +71,7 @@
   "shortcuts_error_key": { "message": "请填写触发词。" },
   "shortcuts_error_key_space": { "message": "触发词不能包含空格。" },
   "search_placeholder": { "message": "搜索或输入网址..." },
+  "newtab_page_title": { "message": "新标签页" },
   "recent_heading": { "message": "最近访问" },
   "recent_heading_latest": { "message": "最近访问" },
   "recent_heading_most": { "message": "最常访问" },
