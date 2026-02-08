@@ -1,4 +1,6 @@
 {
+  "ext_name": { "message": "Lumno｜全域快捷指令浮層" },
+  "ext_description": { "message": "在任何網頁一鍵喚起指令浮層，快速搜尋、直達網址、切換分頁，並強化新分頁體驗。" },
   "settings_tab_general": { "message": "一般" },
   "settings_tab_appearance": { "message": "外觀" },
   "settings_tab_shortcuts": { "message": "站內搜尋" },

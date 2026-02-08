@@ -11,7 +11,7 @@
          }
       }
    },
-   "description": "A lightweight new-tab search and quick navigation overlay for Chromium browsers.",
+   "description": "__MSG_ext_description__",
    "chrome_url_overrides": {
       "newtab": "newtab.html"
    },
@@ -33,7 +33,7 @@
    ],
   "manifest_version": 3,
   "default_locale": "zh_CN",
-   "name": "Lumno - The Ultimate Browser Command Bar",
+   "name": "__MSG_ext_name__",
    "author": "Kubai087",
    "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks", "storage", "search" ],
    "version": "0.9.1"

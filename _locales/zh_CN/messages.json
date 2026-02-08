@@ -1,4 +1,6 @@
 {
+  "ext_name": { "message": "Lumno｜全局快捷命令浮层" },
+  "ext_description": { "message": "任意网页一键唤起命令浮层，快速搜索、直达网址、切换标签页，并增强新标签页体验。" },
   "settings_tab_general": { "message": "常规" },
   "settings_tab_appearance": { "message": "外观" },
   "settings_tab_shortcuts": { "message": "站内搜索" },

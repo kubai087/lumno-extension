@@ -1,4 +1,6 @@
 {
+  "ext_name": { "message": "Lumno - The Ultimate Browser Command Bar" },
+  "ext_description": { "message": "A lightweight new-tab search and quick navigation overlay for Chromium browsers." },
   "settings_tab_general": { "message": "General" },
   "settings_tab_appearance": { "message": "Appearance" },
   "settings_tab_shortcuts": { "message": "Site Search" },
