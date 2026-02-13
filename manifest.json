@@ -36,5 +36,5 @@
    "name": "__MSG_ext_name__",
    "author": "Kubai087",
    "permissions": [ "scripting", "tabs", "history", "topSites", "bookmarks", "storage", "search" ],
-   "version": "0.9.1"
+   "version": "0.9.2"
 }
