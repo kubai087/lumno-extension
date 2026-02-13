@@ -1657,13 +1657,10 @@
   }
 
   function navigateToQuery(query, forceSearch) {
-    const isUrl = !forceSearch && query.includes('.') && !query.includes(' ');
+    const directUrl = !forceSearch ? getDirectNavigationUrl(query) : '';
     let targetUrl = query;
-    if (isUrl) {
-      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-        targetUrl = 'https://' + targetUrl;
-      }
-      navigateToUrl(targetUrl);
+    if (directUrl) {
+      navigateToUrl(directUrl);
       return;
     }
     markCurrentTabForSearchTracking();
@@ -1872,36 +1869,74 @@
     }
     const faviconHostKey = normalizeFaviconHost(hostKey);
     const chromeFavicon = getChromeFaviconUrl(url);
+    const siteSvgFavicon = faviconHostKey ? `https://${faviconHostKey}/favicon.svg` : '';
+    const siteIcoFavicon = faviconHostKey ? `https://${faviconHostKey}/favicon.ico` : '';
     const googleFavicon = faviconHostKey ? getGoogleFaviconUrl(faviconHostKey) : '';
-    let didFallback = false;
-    img.onerror = function() {
-      if (didFallback) {
-        return;
+    const fallbackCandidates = [chromeFavicon, googleFavicon, siteSvgFavicon, siteIcoFavicon].filter(Boolean);
+    const quickSrc = fallbackCandidates[0] || '';
+    const tried = new Set();
+    const trySetDirect = (nextSrc) => {
+      if (!nextSrc || !img) {
+        return false;
       }
-      didFallback = true;
-      img.onerror = null;
-      if (googleFavicon) {
-        img.src = googleFavicon;
-      } else {
-        applyFallbackIcon(img);
+      if (tried.has(nextSrc)) {
+        return false;
       }
-      if (googleFavicon) {
+      tried.add(nextSrc);
+      img.src = nextSrc;
+      if (nextSrc === googleFavicon) {
         attachFaviconData(img, googleFavicon, hostKey);
       }
+      return true;
     };
-    if (chromeFavicon) {
-      img.src = chromeFavicon;
-      if (googleFavicon) {
-        attachFaviconData(img, googleFavicon, hostKey);
-      }
-      return;
-    }
-    if (!googleFavicon) {
+    if (!trySetDirect(quickSrc)) {
       applyFallbackIcon(img);
       return;
     }
-    img.src = googleFavicon;
-    attachFaviconData(img, googleFavicon, hostKey);
+    img.onerror = function() {
+      const nextFallback = fallbackCandidates.find((candidate) => !tried.has(candidate));
+      if (!trySetDirect(nextFallback)) {
+        applyFallbackIcon(img);
+      }
+    };
+
+    // Improve icon quality in background without blocking first paint.
+    const tryUpgradeCandidates = (candidateUrls) => {
+      const unique = Array.from(new Set((candidateUrls || []).filter(Boolean)));
+      const upgrades = unique.filter((candidate) => candidate && candidate !== img.src);
+      if (upgrades.length === 0) {
+        return;
+      }
+      const loadNext = (index) => {
+        if (!img || !img.isConnected || index >= upgrades.length) {
+          return;
+        }
+        const candidate = upgrades[index];
+        const probe = new Image();
+        probe.referrerPolicy = 'no-referrer';
+        probe.onload = () => {
+          if (!img || !img.isConnected) {
+            return;
+          }
+          img.src = candidate;
+          if (candidate === googleFavicon) {
+            attachFaviconData(img, googleFavicon, hostKey);
+          }
+        };
+        probe.onerror = () => {
+          loadNext(index + 1);
+        };
+        probe.src = candidate;
+      };
+      loadNext(0);
+    };
+    chrome.runtime.sendMessage(
+      { action: 'resolveFaviconCandidates', url: url, host: hostKey, fallbackUrl: '' },
+      (response) => {
+        const resolved = response && Array.isArray(response.urls) ? response.urls : [];
+        tryUpgradeCandidates([...resolved, ...fallbackCandidates]);
+      }
+    );
   }
 
   function getRecentSites(limit, mode) {
@@ -2043,27 +2078,174 @@
 
   function getSiteDisplayName(hostname, title) {
     const rawTitle = String(title || '').trim();
-    if (rawTitle) {
-      const separators = [' | ', ' - ', ' — ', ' – ', ' · ', ' • '];
-      for (let i = 0; i < separators.length; i += 1) {
-        const sep = separators[i];
+    const host = String(hostname || '').toLowerCase().replace(/^(www|m)\./i, '');
+    const brandMap = {
+      'github.com': 'GitHub',
+      'youtube.com': 'YouTube',
+      'google.com': 'Google',
+      'weibo.com': '微博',
+      'x.com': 'X',
+      'twitter.com': 'X',
+      'immersivetranslate.com': 'Immersive Translate',
+      'abouttrans.info': 'aboutTrans',
+      'aboutrans.info': 'aboutTrans'
+    };
+    const suffixes = new Set([
+      'co.uk', 'org.uk', 'gov.uk', 'ac.uk',
+      'com.cn', 'net.cn', 'org.cn', 'gov.cn',
+      'com.hk', 'com.tw', 'com.au', 'com.sg',
+      'co.jp', 'co.kr'
+    ]);
+    const noisySubdomains = new Set([
+      'onboarding', 'login', 'signin', 'auth', 'account',
+      'web', 'app', 'admin', 'stage', 'staging', 'preview', 'dev'
+    ]);
+    const separators = [' | ', ' - ', ' — ', ' – ', ' · ', ' • ', '：', ':'];
+
+    function getPrimaryLabelFromHost(hostValue) {
+      if (!hostValue) {
+        return '';
+      }
+      const parts = hostValue.split('.').filter(Boolean);
+      if (parts.length === 0) {
+        return '';
+      }
+      if (parts.length === 1) {
+        return parts[0];
+      }
+      const tail2 = `${parts[parts.length - 2]}.${parts[parts.length - 1]}`;
+      const index = suffixes.has(tail2) && parts.length >= 3 ? parts.length - 3 : parts.length - 2;
+      return parts[index] || parts[0];
+    }
+
+    function prettifyLabel(label) {
+      const value = String(label || '').trim();
+      if (!value) {
+        return '';
+      }
+      if (value.length === 1) {
+        return value.toUpperCase();
+      }
+      if (/^[a-z]+$/.test(value)) {
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      }
+      return value;
+    }
+
+    function pickTitleCandidate() {
+      if (!rawTitle) {
+        return '';
+      }
+      const candidates = [rawTitle];
+      separators.forEach((sep) => {
         if (rawTitle.includes(sep)) {
-          const parts = rawTitle.split(sep).map((part) => part.trim()).filter(Boolean);
-          if (parts.length > 0) {
-            const candidate = parts[parts.length - 1];
-            if (candidate.length <= 18) {
-              return candidate;
-            }
-          }
+          rawTitle.split(sep).forEach((part) => candidates.push(part));
+        }
+      });
+      let best = '';
+      let bestScore = -1;
+      candidates.forEach((part) => {
+        const value = String(part || '').trim();
+        if (!value || value.length < 2 || value.length > 24) {
+          return;
+        }
+        if (/https?:|\/|\\|\?|=|&/.test(value)) {
+          return;
+        }
+        if (/^\d+$/.test(value)) {
+          return;
+        }
+        let score = 0;
+        if (/[\u4e00-\u9fff]/.test(value)) {
+          score += 2;
+        }
+        if (/\s/.test(value)) {
+          score += 1;
+        }
+        if (value.length >= 3 && value.length <= 14) {
+          score += 1;
+        }
+        if (score > bestScore) {
+          best = value;
+          bestScore = score;
+        }
+      });
+      return best;
+    }
+
+    function normalizeWordToken(value) {
+      return String(value || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    }
+
+    function pickCasedLabelFromTitle(hostLabelRaw) {
+      const raw = String(hostLabelRaw || '').trim();
+      if (!raw || !rawTitle) {
+        return '';
+      }
+      const target = normalizeWordToken(raw);
+      if (!target) {
+        return '';
+      }
+      const candidates = [rawTitle];
+      separators.forEach((sep) => {
+        if (rawTitle.includes(sep)) {
+          rawTitle.split(sep).forEach((part) => candidates.push(part));
+        }
+      });
+      for (let i = 0; i < candidates.length; i += 1) {
+        const token = String(candidates[i] || '').trim();
+        if (!token) {
+          continue;
+        }
+        if (normalizeWordToken(token) === target) {
+          return token;
         }
       }
+      const words = rawTitle.split(/[\s|—–\-·•:：()（）\[\]【】]+/).map((part) => String(part || '').trim()).filter(Boolean);
+      for (let i = 0; i < words.length; i += 1) {
+        const word = words[i];
+        if (normalizeWordToken(word) === target) {
+          return word;
+        }
+      }
+      return '';
     }
-    const host = String(hostname || '').replace(/^www\./i, '');
+
+    function isWeakHostLabel(label) {
+      const value = String(label || '').trim().toLowerCase();
+      if (!value) {
+        return true;
+      }
+      if (value.length <= 1 || /^\d+$/.test(value)) {
+        return true;
+      }
+      return noisySubdomains.has(value);
+    }
+
     if (host) {
-      const pieces = host.split('.').filter(Boolean);
-      const base = pieces.length >= 2 ? pieces[pieces.length - 2] : pieces[0];
-      if (base) {
-        return base.charAt(0).toUpperCase() + base.slice(1);
+      if (brandMap[host]) {
+        return brandMap[host];
+      }
+      const matchedBrandHost = Object.keys(brandMap).find((key) => host === key || host.endsWith(`.${key}`));
+      if (matchedBrandHost) {
+        return brandMap[matchedBrandHost];
+      }
+      const primaryHostLabel = getPrimaryLabelFromHost(host);
+      const casedFromTitle = pickCasedLabelFromTitle(primaryHostLabel);
+      const hostLabel = casedFromTitle || prettifyLabel(primaryHostLabel);
+      const titleCandidate = pickTitleCandidate();
+      const firstSubdomain = host.split('.').filter(Boolean)[0] || '';
+      if (noisySubdomains.has(firstSubdomain) && titleCandidate) {
+        return titleCandidate;
+      }
+      if (isWeakHostLabel(hostLabel) && titleCandidate) {
+        return titleCandidate;
+      }
+      if (hostLabel) {
+        return hostLabel;
+      }
+      if (titleCandidate) {
+        return titleCandidate;
       }
     }
     return rawTitle || hostname || '';
@@ -2212,13 +2394,105 @@
     updateRecentActionOffset(card, actionLine);
     recentCards.push(card);
 
-    card.addEventListener('click', () => {
+    let isCardPointerActive = false;
+    let hasNavigateAttempted = false;
+    let rollbackTimerId = null;
+    let hoverUnlockTimerId = null;
+    let isHoverLocked = false;
+    const rollbackClassName = 'x-nt-recent-card--rollback';
+    const ROLLBACK_ANIMATION_MS = 220;
+    const HOVER_REENABLE_DELAY_MS = 1000;
+    const clearRollbackTimer = () => {
+      if (rollbackTimerId !== null) {
+        window.clearTimeout(rollbackTimerId);
+        rollbackTimerId = null;
+      }
+    };
+    const clearHoverUnlockTimer = () => {
+      if (hoverUnlockTimerId !== null) {
+        window.clearTimeout(hoverUnlockTimerId);
+        hoverUnlockTimerId = null;
+      }
+    };
+    const lockHoverAfterRollback = () => {
+      clearHoverUnlockTimer();
+      isHoverLocked = true;
+      card.classList.add(rollbackClassName);
+      hoverUnlockTimerId = window.setTimeout(() => {
+        hoverUnlockTimerId = null;
+        isHoverLocked = false;
+        card.classList.remove(rollbackClassName);
+      }, ROLLBACK_ANIMATION_MS + HOVER_REENABLE_DELAY_MS);
+    };
+    const markNavigationSuccess = () => {
+      clearRollbackTimer();
+      clearHoverUnlockTimer();
+    };
+    const scheduleRollbackIfPending = () => {
+      clearRollbackTimer();
+      rollbackTimerId = window.setTimeout(() => {
+        rollbackTimerId = null;
+        if (document.visibilityState === 'hidden') {
+          return;
+        }
+        lockHoverAfterRollback();
+        hasNavigateAttempted = false;
+      }, 180);
+    };
+    const navigateFromCard = () => {
+      if (hasNavigateAttempted) {
+        return;
+      }
+      hasNavigateAttempted = true;
+      if (!isHoverLocked) {
+        card.classList.remove(rollbackClassName);
+      }
       navigateToUrl(item.url);
+      scheduleRollbackIfPending();
+    };
+    card.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      isCardPointerActive = true;
+      if (typeof card.setPointerCapture === 'function') {
+        try {
+          card.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // Ignore capture errors and keep pointer flow fallback.
+        }
+      }
+      navigateFromCard();
+    });
+    card.addEventListener('pointercancel', () => {
+      isCardPointerActive = false;
+    });
+    card.addEventListener('pointerup', (event) => {
+      if (event.button !== 0 || !isCardPointerActive) {
+        return;
+      }
+      isCardPointerActive = false;
+    });
+    card.addEventListener('pointerleave', () => {
+      if (!hasNavigateAttempted && !isHoverLocked) {
+        card.classList.remove(rollbackClassName);
+      }
+    });
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        markNavigationSuccess();
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', markNavigationSuccess, { once: true });
+    card.addEventListener('click', () => {
+      navigateFromCard();
     });
     card.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        navigateToUrl(item.url);
+        navigateFromCard();
       }
     });
 
@@ -2901,19 +3175,9 @@
   }
 
   function getDirectUrlSuggestion(input) {
-    const queryLower = input.toLowerCase();
-    const isInternal = ['chrome://', 'edge://', 'brave://', 'vivaldi://', 'opera://'].some((prefix) =>
-      queryLower.startsWith(prefix)
-    );
-    const ipMatch = input.trim().match(/^\d{1,3}([.\s]\d{1,3}){3}$/);
-    const normalizedIp = ipMatch ? input.trim().replace(/\s+/g, '.').replace(/\.{2,}/g, '.') : '';
-    const looksLikeUrl = (input.includes('.') && !input.includes(' ')) || isInternal || Boolean(normalizedIp);
-    if (!looksLikeUrl) {
+    const targetUrl = getDirectNavigationUrl(input);
+    if (!targetUrl) {
       return null;
-    }
-    let targetUrl = normalizedIp || input;
-    if (!isInternal && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-      targetUrl = 'https://' + targetUrl;
     }
     return {
       type: 'directUrl',
@@ -2921,6 +3185,94 @@
       url: targetUrl,
       favicon: ''
     };
+  }
+
+  function isNumericHostLike(hostname) {
+    if (!hostname) {
+      return false;
+    }
+    if (!/^(\d{1,3})(\.\d{1,3}){0,3}$/.test(hostname)) {
+      return false;
+    }
+    const parts = hostname.split('.');
+    if (parts.length < 1 || parts.length > 4) {
+      return false;
+    }
+    if (parts.length === 1) {
+      return parts[0] === '127';
+    }
+    return parts.every((part) => {
+      const value = Number(part);
+      return Number.isInteger(value) && value >= 0 && value <= 255;
+    });
+  }
+
+  function extractHostFromInput(rawInput) {
+    const withoutScheme = String(rawInput || '').replace(/^https?:\/\//i, '');
+    const authority = withoutScheme.split(/[/?#]/)[0] || '';
+    if (!authority) {
+      return '';
+    }
+    if (authority.startsWith('[')) {
+      const endBracket = authority.indexOf(']');
+      if (endBracket > 1) {
+        return authority.slice(1, endBracket).toLowerCase();
+      }
+      return '';
+    }
+    if (authority.includes('::') && !authority.includes('.')) {
+      return authority.toLowerCase();
+    }
+    return (authority.split(':')[0] || '').toLowerCase();
+  }
+
+  function isDevHostLike(hostname) {
+    if (!hostname) {
+      return false;
+    }
+    if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
+      return true;
+    }
+    if (hostname === 'host.docker.internal') {
+      return true;
+    }
+    if (
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.test') ||
+      hostname.endsWith('.localdev') ||
+      hostname.endsWith('.internal')
+    ) {
+      return true;
+    }
+    return hostname === '::1' || hostname === '0:0:0:0:0:0:0:1';
+  }
+
+  function getDirectNavigationUrl(input) {
+    const raw = String(input || '').trim();
+    if (!raw) {
+      return '';
+    }
+    const queryLower = raw.toLowerCase();
+    const isInternal = ['chrome://', 'edge://', 'brave://', 'vivaldi://', 'opera://'].some((prefix) =>
+      queryLower.startsWith(prefix)
+    );
+    let normalizedInput = raw.match(/^(\d{1,3})([.\s]\d{1,3}){0,3}(?::\d{1,5})?(?:[/?#].*)?$/)
+      ? raw.replace(/\s+/g, '.').replace(/\.{2,}/g, '.')
+      : raw;
+    const hostOnly = extractHostFromInput(normalizedInput);
+    const isDevHost = isDevHostLike(hostOnly);
+    const isNumericLike = isNumericHostLike(hostOnly);
+    const looksLikeUrl = (normalizedInput.includes('.') && !normalizedInput.includes(' ')) || isInternal || isDevHost || isNumericLike;
+    if (!looksLikeUrl) {
+      return '';
+    }
+    if (hostOnly.includes(':') && !/^https?:\/\//i.test(normalizedInput) && !normalizedInput.startsWith('[')) {
+      normalizedInput = `[${normalizedInput}]`;
+    }
+    if (!isInternal && !normalizedInput.startsWith('http://') && !normalizedInput.startsWith('https://')) {
+      return `https://${normalizedInput}`;
+    }
+    return normalizedInput;
   }
 
   function resolveQuickNavigation(query) {
@@ -4392,32 +4744,47 @@
         setThemeMode(getNextThemeMode(currentThemeMode));
         return;
       }
-      if (selectedIndex >= 0 && currentSuggestions[selectedIndex]) {
-        const selectedSuggestion = currentSuggestions[selectedIndex];
+      const executeSuggestion = (selectedSuggestion) => {
+        if (!selectedSuggestion) {
+          return false;
+        }
         if (selectedSuggestion.type === 'modeSwitch') {
           setThemeMode(selectedSuggestion.nextMode);
-          return;
+          return true;
         }
         if (selectedSuggestion.type === 'commandNewTab') {
           chrome.runtime.sendMessage({ action: 'openNewTab' });
-          return;
+          return true;
         }
         if (selectedSuggestion.type === 'commandSettings') {
           chrome.runtime.sendMessage({ action: 'openOptionsPage' });
-          return;
+          return true;
         }
         if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
           activateSiteSearch(selectedSuggestion.provider);
           inputParts.input.focus();
-          return;
+          return true;
         }
         if (selectedSuggestion.forceSearch && selectedSuggestion.searchQuery) {
           navigateToQuery(selectedSuggestion.searchQuery, true);
-          return;
+          return true;
         }
         if (selectedSuggestion.url) {
           navigateToUrl(selectedSuggestion.url);
+          return true;
+        }
+        return false;
+      };
+      if (selectedIndex >= 0 && currentSuggestions[selectedIndex]) {
+        if (executeSuggestion(currentSuggestions[selectedIndex])) {
           return;
+        }
+      } else {
+        const autoIndex = getAutoHighlightIndex();
+        if (autoIndex >= 0 && currentSuggestions[autoIndex]) {
+          if (executeSuggestion(currentSuggestions[autoIndex])) {
+            return;
+          }
         }
       }
       if (siteSearchState) {

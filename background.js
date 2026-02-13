@@ -124,16 +124,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         sendResponse({ ok: true, url: shortcutUrl });
         return;
       }
-      // Check if it's a URL - very simple and reliable
-      const isUrl = !forceSearch && query.includes('.') && !query.includes(' ');
-      if (isUrl) {
-        // It's a URL - navigate directly
-        let url = query;
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-          url = 'https://' + url;
-        }
-        chrome.tabs.create({ url: url });
-        sendResponse({ ok: true, url: url });
+      const directUrl = !forceSearch ? getDirectNavigationUrl(query) : '';
+      if (directUrl) {
+        chrome.tabs.create({ url: directUrl });
+        sendResponse({ ok: true, url: directUrl });
       } else {
         // It's a search query - use browser default search engine
         const fallbackUrl = buildDefaultSearchUrl(query);
@@ -215,6 +209,16 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     chrome.tabs.create({ url: request.url });
   } else if (request.action === 'openNewTab') {
     chrome.tabs.create({});
+  } else if (request.action === 'resolveFaviconCandidates') {
+    const targetUrl = request.url || '';
+    const hostOverride = request.host || '';
+    const fallbackUrl = request.fallbackUrl || '';
+    resolveFaviconCandidates(targetUrl, hostOverride, fallbackUrl).then((urls) => {
+      sendResponse({ urls: Array.isArray(urls) ? urls : [] });
+    }).catch(() => {
+      sendResponse({ urls: [] });
+    });
+    return true;
   } else if (request.action === 'getFaviconData') {
     const targetUrl = request.url || '';
     if (!targetUrl || typeof targetUrl !== 'string' || targetUrl.startsWith('data:')) {
@@ -255,6 +259,8 @@ migrateStorageIfNeeded([
 const FAVICON_GOOGLE_SIZE = 128;
 const faviconDataCache = new Map();
 const faviconPending = new Map();
+const faviconResolveCache = new Map();
+const faviconResolvePending = new Map();
 
 const SEARCH_ENGINE_DEFS = [
   {
@@ -475,6 +481,94 @@ function buildDefaultSearchUrl(query) {
     return engine.searchUrl(query);
   }
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function isNumericHostLike(hostname) {
+  if (!hostname) {
+    return false;
+  }
+  if (!/^(\d{1,3})(\.\d{1,3}){0,3}$/.test(hostname)) {
+    return false;
+  }
+  const parts = hostname.split('.');
+  if (parts.length < 1 || parts.length > 4) {
+    return false;
+  }
+  if (parts.length === 1) {
+    return parts[0] === '127';
+  }
+  return parts.every((part) => {
+    const value = Number(part);
+    return Number.isInteger(value) && value >= 0 && value <= 255;
+  });
+}
+
+function extractHostFromInput(rawInput) {
+  const withoutScheme = String(rawInput || '').replace(/^https?:\/\//i, '');
+  const authority = withoutScheme.split(/[/?#]/)[0] || '';
+  if (!authority) {
+    return '';
+  }
+  if (authority.startsWith('[')) {
+    const endBracket = authority.indexOf(']');
+    if (endBracket > 1) {
+      return authority.slice(1, endBracket).toLowerCase();
+    }
+    return '';
+  }
+  if (authority.includes('::') && !authority.includes('.')) {
+    return authority.toLowerCase();
+  }
+  return (authority.split(':')[0] || '').toLowerCase();
+}
+
+function isDevHostLike(hostname) {
+  if (!hostname) {
+    return false;
+  }
+  if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
+    return true;
+  }
+  if (hostname === 'host.docker.internal') {
+    return true;
+  }
+  if (
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.test') ||
+    hostname.endsWith('.localdev') ||
+    hostname.endsWith('.internal')
+  ) {
+    return true;
+  }
+  return hostname === '::1' || hostname === '0:0:0:0:0:0:0:1';
+}
+
+function getDirectNavigationUrl(input) {
+  const raw = String(input || '').trim();
+  if (!raw) {
+    return '';
+  }
+  const lower = raw.toLowerCase();
+  const isInternal = ['chrome://', 'edge://', 'brave://', 'vivaldi://', 'opera://'].some((prefix) =>
+    lower.startsWith(prefix)
+  );
+  let normalizedInput = raw.match(/^(\d{1,3})([.\s]\d{1,3}){0,3}(?::\d{1,5})?(?:[/?#].*)?$/)
+    ? raw.replace(/\s+/g, '.').replace(/\.{2,}/g, '.')
+    : raw;
+  const hostOnly = extractHostFromInput(normalizedInput);
+  const isDevHost = isDevHostLike(hostOnly);
+  const isNumericLike = isNumericHostLike(hostOnly);
+  const looksLikeUrl = (normalizedInput.includes('.') && !normalizedInput.includes(' ')) || isInternal || isDevHost || isNumericLike;
+  if (!looksLikeUrl) {
+    return '';
+  }
+  if (hostOnly.includes(':') && !/^https?:\/\//i.test(normalizedInput) && !normalizedInput.startsWith('[')) {
+    normalizedInput = `[${normalizedInput}]`;
+  }
+  if (!isInternal && !normalizedInput.startsWith('http://') && !normalizedInput.startsWith('https://')) {
+    return `https://${normalizedInput}`;
+  }
+  return normalizedInput;
 }
 
 function getDefaultSearchEngineThemeUrl() {
@@ -754,6 +848,160 @@ function normalizeFaviconHost(hostname) {
     return 'feishu.cn';
   }
   return host;
+}
+
+function getChromeFaviconUrl(url) {
+  if (!url || !/^https?:\/\//i.test(url)) {
+    return '';
+  }
+  return `chrome://favicon2/?size=128&scale_factor=2x&show_fallback_monogram=1&url=${encodeURIComponent(url)}`;
+}
+
+function parseHtmlIconCandidates(html, pageUrl) {
+  if (!html || !pageUrl) {
+    return [];
+  }
+  const list = [];
+  const linkMatches = String(html).match(/<link\b[^>]*>/gi) || [];
+  linkMatches.forEach((tag) => {
+    const relMatch = tag.match(/\brel\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const hrefMatch = tag.match(/\bhref\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    if (!relMatch || !hrefMatch) {
+      return;
+    }
+    const rel = String(relMatch[2] || relMatch[3] || relMatch[4] || '').toLowerCase();
+    const hrefRaw = String(hrefMatch[2] || hrefMatch[3] || hrefMatch[4] || '').trim();
+    if (!rel.includes('icon') || !hrefRaw) {
+      return;
+    }
+    let href = '';
+    try {
+      href = new URL(hrefRaw, pageUrl).href;
+    } catch (e) {
+      return;
+    }
+    const typeMatch = tag.match(/\btype\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const sizesMatch = tag.match(/\bsizes\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const type = String(typeMatch ? (typeMatch[2] || typeMatch[3] || typeMatch[4] || '') : '').toLowerCase();
+    const sizes = String(sizesMatch ? (sizesMatch[2] || sizesMatch[3] || sizesMatch[4] || '') : '').toLowerCase();
+    let score = 10;
+    if (/\bicon\b/.test(rel)) {
+      score += 20;
+    }
+    if (rel.includes('shortcut')) {
+      score += 6;
+    }
+    if (rel.includes('apple-touch-icon')) {
+      score += 8;
+    }
+    if (type.includes('svg') || href.toLowerCase().endsWith('.svg')) {
+      score += 14;
+    }
+    if (href.toLowerCase().includes('favicon')) {
+      score += 6;
+    }
+    const sizeNumbers = sizes.match(/\d+/g);
+    if (sizeNumbers && sizeNumbers.length > 0) {
+      const size = Math.max(...sizeNumbers.map((n) => Number(n) || 0));
+      score += Math.min(20, Math.floor(size / 8));
+    }
+    list.push({ url: href, score: score });
+  });
+  return list;
+}
+
+function buildFaviconFallbackCandidates(pageUrl, hostOverride, fallbackUrl) {
+  const candidates = [];
+  const inputUrl = String(pageUrl || '').trim();
+  const fallback = String(fallbackUrl || '').trim();
+  let host = normalizeFaviconHost(hostOverride || '');
+  if (!host && inputUrl) {
+    try {
+      host = normalizeFaviconHost(new URL(inputUrl).hostname);
+    } catch (e) {
+      host = '';
+    }
+  }
+  if (host) {
+    candidates.push({ url: `https://${host}/favicon.svg`, score: 28 });
+    candidates.push({ url: `https://${host}/favicon.ico`, score: 24 });
+    candidates.push({ url: `https://${host}/apple-touch-icon.png`, score: 16 });
+    candidates.push({ url: getGoogleFaviconUrl(host), score: 8 });
+  }
+  if (inputUrl) {
+    candidates.push({ url: getChromeFaviconUrl(inputUrl), score: 12 });
+  }
+  if (fallback) {
+    candidates.push({ url: fallback, score: 10 });
+  }
+  return candidates.filter((item) => item && item.url);
+}
+
+function dedupeAndSortFaviconCandidates(candidates) {
+  const byUrl = new Map();
+  (candidates || []).forEach((item) => {
+    if (!item || !item.url) {
+      return;
+    }
+    const key = String(item.url);
+    const current = byUrl.get(key);
+    if (!current || Number(item.score || 0) > Number(current.score || 0)) {
+      byUrl.set(key, { url: key, score: Number(item.score || 0) });
+    }
+  });
+  return Array.from(byUrl.values())
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.url);
+}
+
+function resolveFaviconCandidates(targetUrl, hostOverride, fallbackUrl) {
+  const inputUrl = String(targetUrl || '').trim();
+  if (!inputUrl) {
+    return Promise.resolve([]);
+  }
+  let parsed = null;
+  try {
+    parsed = new URL(inputUrl);
+  } catch (e) {
+    return Promise.resolve([]);
+  }
+  if (!/^https?:$/i.test(parsed.protocol)) {
+    return Promise.resolve([]);
+  }
+  const normalizedHost = normalizeFaviconHost(hostOverride || parsed.hostname);
+  const cacheKey = `${normalizedHost}::${parsed.origin}`;
+  if (faviconResolveCache.has(cacheKey)) {
+    const cached = faviconResolveCache.get(cacheKey);
+    const extra = buildFaviconFallbackCandidates(inputUrl, hostOverride, fallbackUrl);
+    return Promise.resolve(dedupeAndSortFaviconCandidates([...(cached || []).map((url) => ({ url: url, score: 20 })), ...extra]));
+  }
+  if (faviconResolvePending.has(cacheKey)) {
+    return faviconResolvePending.get(cacheKey);
+  }
+  const promise = fetch(inputUrl, { cache: 'force-cache' })
+    .then((response) => {
+      if (!response || !response.ok) {
+        return '';
+      }
+      return response.text();
+    })
+    .then((html) => {
+      const parsedCandidates = parseHtmlIconCandidates(html, inputUrl);
+      const fallbackCandidates = buildFaviconFallbackCandidates(inputUrl, hostOverride, fallbackUrl);
+      const resolved = dedupeAndSortFaviconCandidates([...parsedCandidates, ...fallbackCandidates]);
+      faviconResolveCache.set(cacheKey, resolved.slice(0, 8));
+      faviconResolvePending.delete(cacheKey);
+      return resolved;
+    })
+    .catch(() => {
+      const fallbackCandidates = buildFaviconFallbackCandidates(inputUrl, hostOverride, fallbackUrl);
+      const resolved = dedupeAndSortFaviconCandidates(fallbackCandidates);
+      faviconResolveCache.set(cacheKey, resolved.slice(0, 8));
+      faviconResolvePending.delete(cacheKey);
+      return resolved;
+    });
+  faviconResolvePending.set(cacheKey, promise);
+  return promise;
 }
 
 function escapeRegExp(text) {
@@ -1521,6 +1769,19 @@ async function getSearchSuggestions(query) {
       }
     });
   }
+
+  function applyNoTranslate(element) {
+    if (!element || !element.setAttribute) {
+      return element;
+    }
+    element.setAttribute('translate', 'no');
+    element.setAttribute('lang', 'zxx');
+    element.setAttribute('data-no-translate', 'true');
+    if (element.classList) {
+      element.classList.add('notranslate');
+    }
+    return element;
+  }
   let modeBadge = null;
   let overlayLanguageMode = 'system';
   let currentMessages = null;
@@ -1838,6 +2099,7 @@ async function getSearchSuggestions(query) {
     // If it doesn't exist, create it (toggle on)
     overlay = document.createElement('div');
     overlay.id = '_x_extension_overlay_2024_unique_';
+    applyNoTranslate(overlay);
     overlay.style.cssText = `
       all: unset !important;
       position: fixed !important;
@@ -1970,8 +2232,12 @@ async function getSearchSuggestions(query) {
     const searchInput = inputParts.input;
     const inputContainer = inputParts.container;
     const rightIcon = inputParts.rightIcon;
+    applyNoTranslate(searchInput);
+    applyNoTranslate(inputContainer);
+    applyNoTranslate(rightIcon);
     modeBadge = document.createElement('div');
     modeBadge.id = '_x_extension_mode_badge_2024_unique_';
+    applyNoTranslate(modeBadge);
     modeBadge.style.cssText = `
       all: unset !important;
       position: absolute !important;
@@ -2453,6 +2719,35 @@ async function getSearchSuggestions(query) {
       if (!docEl) {
         return null;
       }
+      // Some sites use boolean dark/light attributes instead of data-theme tokens.
+      if (docEl.hasAttribute('dark') || (body && body.hasAttribute('dark'))) {
+        return 'dark';
+      }
+      if (docEl.hasAttribute('light') || (body && body.hasAttribute('light'))) {
+        return 'light';
+      }
+      const darkAttrNode = document.querySelector(
+        'html[dark], body[dark], ytd-app[dark], ytm-app[dark], [data-dark], [dark-mode], [theme="dark"], [color-scheme="dark"], [data-color-mode="dark"], [data-mode="dark"], [data-appearance="dark"]'
+      );
+      if (darkAttrNode) {
+        return 'dark';
+      }
+      const lightAttrNode = document.querySelector(
+        '[theme="light"], [color-scheme="light"], [data-color-mode="light"], [data-mode="light"], [data-appearance="light"]'
+      );
+      if (lightAttrNode) {
+        return 'light';
+      }
+      const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+      if (colorSchemeMeta) {
+        const metaContent = String(colorSchemeMeta.getAttribute('content') || '').toLowerCase();
+        if (metaContent.includes('dark') && !metaContent.includes('light')) {
+          return 'dark';
+        }
+        if (metaContent.includes('light') && !metaContent.includes('dark')) {
+          return 'light';
+        }
+      }
       const schemeValue = (window.getComputedStyle(docEl).colorScheme || '').toLowerCase();
       if (schemeValue.includes('dark') && !schemeValue.includes('light')) {
         return 'dark';
@@ -2463,9 +2758,19 @@ async function getSearchSuggestions(query) {
       const attrCandidates = [
         docEl.getAttribute('data-theme'),
         docEl.getAttribute('data-color-scheme'),
+        docEl.getAttribute('data-color-mode'),
+        docEl.getAttribute('data-mode'),
+        docEl.getAttribute('data-appearance'),
+        docEl.getAttribute('color-scheme'),
+        docEl.getAttribute('theme'),
         docEl.getAttribute('data-bs-theme'),
         body ? body.getAttribute('data-theme') : null,
         body ? body.getAttribute('data-color-scheme') : null,
+        body ? body.getAttribute('data-color-mode') : null,
+        body ? body.getAttribute('data-mode') : null,
+        body ? body.getAttribute('data-appearance') : null,
+        body ? body.getAttribute('color-scheme') : null,
+        body ? body.getAttribute('theme') : null,
         body ? body.getAttribute('data-bs-theme') : null
       ];
       for (let i = 0; i < attrCandidates.length; i += 1) {
@@ -2473,10 +2778,22 @@ async function getSearchSuggestions(query) {
         if (!value) {
           continue;
         }
-        if (value.includes('dark')) {
+        if (
+          value.includes('dark') ||
+          value.includes('night') ||
+          value === '1' ||
+          value === 'true' ||
+          value === 'on'
+        ) {
           return 'dark';
         }
-        if (value.includes('light')) {
+        if (
+          value.includes('light') ||
+          value.includes('day') ||
+          value === '0' ||
+          value === 'false' ||
+          value === 'off'
+        ) {
           return 'light';
         }
       }
@@ -2485,12 +2802,27 @@ async function getSearchSuggestions(query) {
         body ? body.className || '' : ''
       ];
       for (let i = 0; i < classTokens.length; i += 1) {
-        const tokenList = String(classTokens[i] || '').toLowerCase().split(/\s+/);
+        const classText = String(classTokens[i] || '').toLowerCase();
+        const tokenList = classText.split(/\s+/);
         if (tokenList.includes('dark')) {
           return 'dark';
         }
         if (tokenList.includes('light')) {
           return 'light';
+        }
+        if (/(^|[\s_-])(dark|darkmode|dark-theme|theme-dark|night)([\s_-]|$)/.test(classText)) {
+          return 'dark';
+        }
+        if (/(^|[\s_-])(light|lightmode|light-theme|theme-light|day)([\s_-]|$)/.test(classText)) {
+          return 'light';
+        }
+      }
+      const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeColorMeta) {
+        const themeColor = String(themeColorMeta.getAttribute('content') || '').trim();
+        const rgb = parseCssColor(themeColor);
+        if (rgb && rgb.length === 3) {
+          return getLuminance(rgb) < 0.42 ? 'dark' : 'light';
         }
       }
       const bodyStyle = body ? window.getComputedStyle(body) : null;
@@ -3065,6 +3397,45 @@ async function getSearchSuggestions(query) {
       });
       faviconDataPending.set(url, promise);
       return promise;
+    }
+
+    function attachResolvedFaviconWithFallbacks(img, pageUrl, hostKey, fallbackUrl, onFailed) {
+      if (!img) {
+        return;
+      }
+      const handleFailed = typeof onFailed === 'function' ? onFailed : function() {};
+      chrome.runtime.sendMessage(
+        {
+          action: 'resolveFaviconCandidates',
+          url: pageUrl || '',
+          host: hostKey || '',
+          fallbackUrl: fallbackUrl || ''
+        },
+        (response) => {
+          const urls = response && Array.isArray(response.urls) ? response.urls.filter(Boolean) : [];
+          if (!urls.length) {
+            handleFailed();
+            return;
+          }
+          let index = 0;
+          const tryNext = () => {
+            if (!img || !img.isConnected) {
+              return;
+            }
+            if (index >= urls.length) {
+              handleFailed();
+              return;
+            }
+            const nextUrl = urls[index];
+            index += 1;
+            img.src = nextUrl;
+          };
+          img.onerror = () => {
+            tryNext();
+          };
+          tryNext();
+        }
+      );
     }
 
     function attachFaviconData(img, url, hostOverride) {
@@ -4287,12 +4658,15 @@ async function getSearchSuggestions(query) {
           return;
         }
         
-        if (selectedIndex >= 0 && suggestionItems[selectedIndex]) {
+        const activeSuggestionIndex = selectedIndex >= 0
+          ? selectedIndex
+          : (query.length > 0 ? getAutoHighlightIndex() : -1);
+        if (activeSuggestionIndex >= 0 && suggestionItems[activeSuggestionIndex]) {
           // Check if we're showing search suggestions or tab suggestions
           const isSearchSuggestion = query.length > 0;
           
-          if (isSearchSuggestion && currentSuggestions[selectedIndex]) {
-            const selectedSuggestion = currentSuggestions[selectedIndex];
+          if (isSearchSuggestion && currentSuggestions[activeSuggestionIndex]) {
+            const selectedSuggestion = currentSuggestions[activeSuggestionIndex];
             if (selectedSuggestion.type === 'modeSwitch') {
               applyThemeModeChange(selectedSuggestion.nextMode);
               searchInput.focus();
@@ -4327,13 +4701,13 @@ async function getSearchSuggestions(query) {
               });
             } else {
               // Navigate to the suggested URL
-              console.log('Opening URL from keyboard:', currentSuggestions[selectedIndex].url);
+              console.log('Opening URL from keyboard:', selectedSuggestion.url);
               chrome.runtime.sendMessage({
                 action: 'createTab',
-                url: currentSuggestions[selectedIndex].url
+                url: selectedSuggestion.url
               });
             }
-          } else if (!isSearchSuggestion) {
+          } else if (!isSearchSuggestion && selectedIndex >= 0) {
             // Switch to existing tab
             chrome.runtime.sendMessage({
               action: 'switchToTab',
@@ -4563,6 +4937,7 @@ async function getSearchSuggestions(query) {
       });
       list.forEach((tab, index) => {
         const suggestionItem = document.createElement('div');
+        applyNoTranslate(suggestionItem);
         suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
         const isLastItem = index === list.length - 1;
         suggestionItem.style.cssText = `
@@ -4633,7 +5008,6 @@ async function getSearchSuggestions(query) {
         } else {
           favicon = document.createElement('img');
           favicon.id = `_x_extension_favicon_${index}_2024_unique_`;
-          favicon.src = tab.favIconUrl;
           favicon.decoding = 'async';
           favicon.loading = 'eager';
           favicon.referrerPolicy = 'no-referrer';
@@ -4659,6 +5033,15 @@ async function getSearchSuggestions(query) {
             vertical-align: baseline !important;
             display: block !important;
           `;
+          attachResolvedFaviconWithFallbacks(
+            favicon,
+            tab && tab.url ? tab.url : '',
+            hostForTab,
+            tab.favIconUrl || '',
+            () => {
+              favicon.style.setProperty('display', 'none', 'important');
+            }
+          );
           iconNode = favicon;
           isFaviconIcon = true;
         }
@@ -4691,6 +5074,7 @@ async function getSearchSuggestions(query) {
 
         // Create title
         const title = document.createElement('span');
+        applyNoTranslate(title);
         title.id = `_x_extension_title_${index}_2024_unique_`;
         title.textContent = tab.title || t('untitled', '无标题');
         title.style.cssText = `
@@ -4716,6 +5100,7 @@ async function getSearchSuggestions(query) {
 
         // Create switch button
         const switchButton = document.createElement('button');
+        applyNoTranslate(switchButton);
         switchButton.id = `_x_extension_switch_button_${index}_2024_unique_`;
         switchButton.innerHTML = `${t('switch_to_tab', '切换到标签页')} ${getRiSvg('ri-arrow-right-line', 'ri-size-12')}`;
         switchButton.style.cssText = `
@@ -4904,20 +5289,98 @@ async function getSearchSuggestions(query) {
       return matches;
     }
 
-    function getDirectUrlSuggestion(input) {
-      const queryLower = input.toLowerCase();
+    function isNumericHostLike(hostname) {
+      if (!hostname) {
+        return false;
+      }
+      if (!/^(\d{1,3})(\.\d{1,3}){0,3}$/.test(hostname)) {
+        return false;
+      }
+      const parts = hostname.split('.');
+      if (parts.length < 1 || parts.length > 4) {
+        return false;
+      }
+      if (parts.length === 1) {
+        return parts[0] === '127';
+      }
+      return parts.every((part) => {
+        const value = Number(part);
+        return Number.isInteger(value) && value >= 0 && value <= 255;
+      });
+    }
+
+    function extractHostFromInput(rawInput) {
+      const withoutScheme = String(rawInput || '').replace(/^https?:\/\//i, '');
+      const authority = withoutScheme.split(/[/?#]/)[0] || '';
+      if (!authority) {
+        return '';
+      }
+      if (authority.startsWith('[')) {
+        const endBracket = authority.indexOf(']');
+        if (endBracket > 1) {
+          return authority.slice(1, endBracket).toLowerCase();
+        }
+        return '';
+      }
+      if (authority.includes('::') && !authority.includes('.')) {
+        return authority.toLowerCase();
+      }
+      return (authority.split(':')[0] || '').toLowerCase();
+    }
+
+    function isDevHostLike(hostname) {
+      if (!hostname) {
+        return false;
+      }
+      if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
+        return true;
+      }
+      if (hostname === 'host.docker.internal') {
+        return true;
+      }
+      if (
+        hostname.endsWith('.local') ||
+        hostname.endsWith('.test') ||
+        hostname.endsWith('.localdev') ||
+        hostname.endsWith('.internal')
+      ) {
+        return true;
+      }
+      return hostname === '::1' || hostname === '0:0:0:0:0:0:0:1';
+    }
+
+    function getDirectNavigationUrl(input) {
+      const raw = String(input || '').trim();
+      if (!raw) {
+        return '';
+      }
+      const queryLower = raw.toLowerCase();
       const isInternal = ['chrome://', 'edge://', 'brave://', 'vivaldi://', 'opera://'].some((prefix) =>
         queryLower.startsWith(prefix)
       );
-      const ipMatch = input.trim().match(/^\d{1,3}([.\s]\d{1,3}){3}$/);
-      const normalizedIp = ipMatch ? input.trim().replace(/\s+/g, '.').replace(/\.{2,}/g, '.') : '';
-      const looksLikeUrl = (input.includes('.') && !input.includes(' ')) || isInternal || Boolean(normalizedIp);
+      let normalizedInput = raw.match(/^(\d{1,3})([.\s]\d{1,3}){0,3}(?::\d{1,5})?(?:[/?#].*)?$/)
+        ? raw.replace(/\s+/g, '.').replace(/\.{2,}/g, '.')
+        : raw;
+      const hostOnly = extractHostFromInput(normalizedInput);
+      const isDevHost = isDevHostLike(hostOnly);
+      const isNumericLike = isNumericHostLike(hostOnly);
+      const looksLikeUrl = (normalizedInput.includes('.') && !normalizedInput.includes(' ')) || isInternal || isDevHost || isNumericLike;
       if (!looksLikeUrl) {
-        return null;
+        return '';
       }
-      let targetUrl = normalizedIp || input;
-      if (!isInternal && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-        targetUrl = 'https://' + targetUrl;
+      if (hostOnly.includes(':') && !/^https?:\/\//i.test(normalizedInput) && !normalizedInput.startsWith('[')) {
+        normalizedInput = `[${normalizedInput}]`;
+      }
+      if (!isInternal && !normalizedInput.startsWith('http://') && !normalizedInput.startsWith('https://')) {
+        return `https://${normalizedInput}`;
+      }
+      return normalizedInput;
+    }
+
+    function getDirectUrlSuggestion(input) {
+      const targetUrl = getDirectNavigationUrl(input);
+      if (!targetUrl) {
+        return null;
       }
       let isLocalNetwork = isLocalNetworkInput(input);
       if (!isLocalNetwork) {
@@ -5257,6 +5720,7 @@ async function getSearchSuggestions(query) {
             return;
           }
           const suggestionItem = document.createElement('div');
+          applyNoTranslate(suggestionItem);
           suggestionItem.id = `_x_extension_suggestion_item_${index}_2024_unique_`;
           const isLastItem = index === allSuggestions.length - 1;
           const isPrimaryHighlight = index === primaryHighlightIndex;
@@ -5421,7 +5885,6 @@ async function getSearchSuggestions(query) {
             } else if (suggestion.favicon) {
               // Create icon for suggestions - always use img for all types
               const favicon = document.createElement('img');
-              favicon.src = suggestion.favicon || '';
               favicon.decoding = 'async';
               favicon.loading = 'eager';
               favicon.referrerPolicy = 'no-referrer';
@@ -5453,10 +5916,7 @@ async function getSearchSuggestions(query) {
                 display: block !important;
                 object-fit: contain !important;
               `;
-              
-              // Fallback to search icon if favicon fails to load
-              favicon.onerror = function() {
-                // Replace with search icon SVG if favicon fails
+              const replaceWithSearchIcon = function() {
                 const searchIconSvg = getRiSvg('ri-search-line', 'ri-size-16');
                 const fallbackDiv = document.createElement('div');
                 fallbackDiv.innerHTML = searchIconSvg;
@@ -5484,6 +5944,13 @@ async function getSearchSuggestions(query) {
                   favicon.parentNode.replaceChild(fallbackDiv, favicon);
                 }
               };
+              attachResolvedFaviconWithFallbacks(
+                favicon,
+                suggestion && suggestion.url ? suggestion.url : '',
+                suggestionHost,
+                suggestion.favicon || '',
+                replaceWithSearchIcon
+              );
               iconNode = favicon;
             } else {
               const searchIcon = createSearchIcon();
@@ -5553,6 +6020,7 @@ async function getSearchSuggestions(query) {
           
           // Create title with highlighted query
           const title = document.createElement('span');
+          applyNoTranslate(title);
           let highlightedTitle;
           if (isPrimarySearchSuggest ||
               suggestion.type === 'chatgpt' ||
@@ -5786,6 +6254,7 @@ async function getSearchSuggestions(query) {
 
           // Create visit button
           const visitButton = document.createElement('button');
+          applyNoTranslate(visitButton);
           visitButton.style.cssText = `
             all: unset !important;
             background: transparent !important;
@@ -5997,6 +6466,7 @@ async function getSearchSuggestions(query) {
     
     // Create suggestions container
     const suggestionsContainer = document.createElement('div');
+    applyNoTranslate(suggestionsContainer);
     suggestionsContainer.id = '_x_extension_suggestions_container_2024_unique_';
     suggestionsContainer.style.cssText = `
       all: unset !important;

@@ -12,10 +12,24 @@
     });
   }
 
+  function applyNoTranslate(element) {
+    if (!element || !element.setAttribute) {
+      return element;
+    }
+    element.setAttribute('translate', 'no');
+    element.setAttribute('lang', 'zxx');
+    element.setAttribute('data-no-translate', 'true');
+    if (element.classList) {
+      element.classList.add('notranslate');
+    }
+    return element;
+  }
+
 
   window._x_extension_createSearchInput_2024_unique_ = function(options) {
     const config = options || {};
     const input = document.createElement('input');
+    applyNoTranslate(input);
     input.id = config.inputId || '_x_extension_search_input_2024_unique_';
     input.autocomplete = 'off';
     input.type = 'text';
@@ -52,6 +66,7 @@
     const showUnderlineWhenEmpty = Boolean(config.showUnderlineWhenEmpty);
 
     const divider = document.createElement('div');
+    applyNoTranslate(divider);
     divider.id = config.dividerId || '_x_extension_input_divider_2024_unique_';
     divider.style.cssText = `
       all: unset !important;
@@ -134,6 +149,7 @@
 
     ensureInlineSprite();
     const icon = document.createElement('div');
+    applyNoTranslate(icon);
     icon.id = config.iconId || '_x_extension_search_icon_2024_unique_';
     icon.innerHTML = '<svg class="_x_extension_svg_2024_unique_ ri-icon ri-size-16" aria-hidden="true" focusable="false"><use href="#ri-search-line"></use></svg>';
     icon.style.cssText = `
@@ -163,6 +179,7 @@
     applyStyleOverrides(icon, config.iconStyleOverrides);
 
     const rightIcon = document.createElement('img');
+    applyNoTranslate(rightIcon);
     rightIcon.id = config.rightIconId || '_x_extension_search_right_icon_2024_unique_';
     const runtimeUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
       ? chrome.runtime.getURL('lumno-input-light.png')
@@ -193,6 +210,7 @@
     applyStyleOverrides(rightIcon, config.rightIconStyleOverrides);
 
     const container = document.createElement('div');
+    applyNoTranslate(container);
     container.id = config.containerId || '_x_extension_input_container_2024_unique_';
     container.style.cssText = `
       all: unset !important;

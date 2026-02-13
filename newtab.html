@@ -194,6 +194,12 @@
         --x-nt-recent-title-lines: 4;
         transform: rotate(-5deg) scale(1.04, 1.02);
       }
+      .x-nt-recent-card.x-nt-recent-card--rollback,
+      .x-nt-recent-card.x-nt-recent-card--rollback:hover {
+        box-shadow: var(--x-nt-recent-card-shadow);
+        --x-nt-recent-title-lines: 3;
+        transform: none;
+      }
       .x-nt-recent-card--alt {
         --x-nt-recent-card-color: var(--x-nt-recent-card-bg-alt);
       }
@@ -229,6 +235,12 @@
         /* background-image: linear-gradient(rgba(var(--x-nt-recent-inner-tint-rgb, 247, 232, 218), 0) 0%,rgba(var(--x-nt-recent-inner-tint-rgb, 247, 232, 218), 0.02) 100%),
           linear-gradient(90deg, rgb(var(--x-nt-recent-inner-base-rgb, 255, 255, 255)) 0%, rgb(var(--x-nt-recent-inner-base-rgb, 255, 255, 255)) 100%); */
       }
+      .x-nt-recent-card.x-nt-recent-card--rollback .x-nt-recent-inner,
+      .x-nt-recent-card.x-nt-recent-card--rollback:hover .x-nt-recent-inner {
+        height: 98px;
+        transform: none;
+        margin-bottom: 0;
+      }
       body[data-theme="dark"] .x-nt-recent-inner {
         border: none;
       }
@@ -254,7 +266,8 @@
         width: 25px;
         height: 25px;
         border-radius: 6px;
-        object-fit: cover;
+        object-fit: contain;
+        background: rgba(255, 255, 255, 0.01);
         flex-shrink: 0;
       }
       .x-nt-recent-name {
@@ -300,6 +313,10 @@
       .x-nt-recent-card:hover .x-nt-recent-url {
         padding-left: var(--x-nt-recent-action-offset);
       }
+      .x-nt-recent-card.x-nt-recent-card--rollback .x-nt-recent-url,
+      .x-nt-recent-card.x-nt-recent-card--rollback:hover .x-nt-recent-url {
+        padding-left: 0;
+      }
       .x-nt-recent-action {
         display: inline-flex;
         align-items: center;
@@ -334,6 +351,11 @@
         max-height: 24px;
         opacity: 1;
         transform: translateY(0);
+      }
+      .x-nt-recent-card.x-nt-recent-card--rollback .x-nt-recent-action,
+      .x-nt-recent-card.x-nt-recent-card--rollback:hover .x-nt-recent-action {
+        opacity: 0;
+        transform: translateY(-4px);
       }
       .x-nt-recent-empty {
         width: 100%;
