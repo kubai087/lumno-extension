@@ -4126,50 +4126,23 @@
         } else if (suggestion.favicon) {
           const suggestionHost = suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : '';
           const isLocalSuggestion = suggestionHost && isLocalNetworkHost(suggestionHost);
-          const favicon = document.createElement('img');
-          favicon.src = suggestion.favicon || '';
-          favicon.decoding = 'async';
-          favicon.loading = 'eager';
-          favicon.referrerPolicy = 'no-referrer';
-          if (index < 4) {
-            favicon.fetchPriority = 'high';
-          }
-          attachFaviconData(
-            favicon,
-            suggestion.favicon || '',
-            suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : ''
-          );
-          favicon.style.cssText = `
-            all: unset !important;
-            width: 16px !important;
-            height: 16px !important;
-            border-radius: 2px !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1 !important;
-            text-decoration: none !important;
-            list-style: none !important;
-            outline: none !important;
-            background: transparent !important;
-            color: inherit !important;
-            font-size: 100% !important;
-            font: inherit !important;
-            vertical-align: baseline !important;
-            display: block !important;
-            object-fit: contain !important;
-          `;
-          favicon.onerror = function() {
-            reportMissingIcon('suggestion', suggestion && suggestion.url ? suggestion.url : '', favicon.src);
-            const fallbackDiv = document.createElement('div');
-            fallbackDiv.innerHTML = getRiSvg(isLocalSuggestion ? 'ri-link-m' : 'ri-search-line', 'ri-size-16');
-            fallbackDiv.style.cssText = `
+          if (isLocalSuggestion) {
+            iconNode = createLinkIcon();
+          } else {
+            const favicon = document.createElement('img');
+            favicon.decoding = 'async';
+            favicon.loading = 'eager';
+            favicon.referrerPolicy = 'no-referrer';
+            if (index < 4) {
+              favicon.fetchPriority = 'high';
+            }
+            const faviconPageUrl = suggestion && suggestion.url ? suggestion.url : (suggestion.favicon || '');
+            attachFaviconWithFallbacks(favicon, faviconPageUrl, suggestionHost);
+            favicon.style.cssText = `
               all: unset !important;
               width: 16px !important;
               height: 16px !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
+              border-radius: 2px !important;
               box-sizing: border-box !important;
               margin: 0 !important;
               padding: 0 !important;
@@ -4182,12 +4155,11 @@
               font-size: 100% !important;
               font: inherit !important;
               vertical-align: baseline !important;
+              display: block !important;
+              object-fit: contain !important;
             `;
-            if (favicon.parentNode) {
-              favicon.parentNode.replaceChild(fallbackDiv, favicon);
-            }
-          };
-          iconNode = favicon;
+            iconNode = favicon;
+          }
         } else {
           const suggestionHost = suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : '';
           if (suggestionHost && isLocalNetworkHost(suggestionHost)) {
