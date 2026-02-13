@@ -1293,7 +1293,7 @@
 
   if (restrictedActionSelect) {
     restrictedActionSelect.addEventListener('change', () => {
-      const next = restrictedActionSelect.value || 'lumno';
+      const next = restrictedActionSelect.value || 'default';
       if (!storageArea) {
         return;
       }
@@ -1512,12 +1512,13 @@
 
     storageArea.get([RESTRICTED_ACTION_STORAGE_KEY], (result) => {
       const stored = result[RESTRICTED_ACTION_STORAGE_KEY];
-      const hasStored = typeof stored === 'string';
-      const nextAction = hasStored ? stored : 'lumno';
+      const normalizedStored = stored === 'lumno' ? 'default' : stored;
+      const hasStored = normalizedStored === 'default' || normalizedStored === 'none';
+      const nextAction = hasStored ? normalizedStored : 'default';
       if (restrictedActionSelect) {
         restrictedActionSelect.value = nextAction;
       }
-      if (!hasStored) {
+      if (!hasStored || normalizedStored !== stored) {
         storageArea.set({ [RESTRICTED_ACTION_STORAGE_KEY]: nextAction });
       }
       refreshCustomSelects();
@@ -2304,8 +2305,12 @@
       refreshCustomSelects();
     }
     if (changes[RESTRICTED_ACTION_STORAGE_KEY] && restrictedActionSelect) {
-      const nextValue = changes[RESTRICTED_ACTION_STORAGE_KEY].newValue || 'lumno';
+      const raw = changes[RESTRICTED_ACTION_STORAGE_KEY].newValue;
+      const nextValue = raw === 'none' ? 'none' : 'default';
       restrictedActionSelect.value = nextValue;
+      if (raw !== nextValue && storageArea) {
+        storageArea.set({ [RESTRICTED_ACTION_STORAGE_KEY]: nextValue });
+      }
       refreshCustomSelects();
     }
     if (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY]) {

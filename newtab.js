@@ -344,11 +344,13 @@
         if (payload && payload.locale === targetLocale && payload.messages) {
           currentMessages = payload.messages || {};
           applyLanguageStrings();
+          forceReloadRecentSitesForI18n();
           return;
         }
         loadLocaleMessages(targetLocale).then((messages) => {
           currentMessages = messages || {};
           applyLanguageStrings();
+          forceReloadRecentSitesForI18n();
         });
       });
       return;
@@ -356,6 +358,7 @@
     loadLocaleMessages(targetLocale).then((messages) => {
       currentMessages = messages || {};
       applyLanguageStrings();
+      forceReloadRecentSitesForI18n();
     });
   }
 
@@ -434,6 +437,7 @@
       if (payload && payload.locale === targetLocale && payload.messages) {
         currentMessages = payload.messages || {};
         applyLanguageStrings();
+        forceReloadRecentSitesForI18n();
       }
     }
   });
@@ -1260,6 +1264,47 @@
   const faviconDataPending = new Map();
   const missingIconCache = new Set();
 
+  function isBlockedLocalFaviconUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) {
+      return false;
+    }
+    const decodedRaw = (() => {
+      try {
+        return decodeURIComponent(raw);
+      } catch (e) {
+        return raw;
+      }
+    })();
+    const localPattern = /(https?:\/\/)?(localhost|127(?:\.\d{1,3}){0,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?::\d+)?(?:[/?#]|$)/i;
+    if (localPattern.test(decodedRaw)) {
+      return true;
+    }
+    try {
+      const parsed = new URL(raw);
+      const protocol = String(parsed.protocol || '').toLowerCase();
+      if ((protocol === 'http:' || protocol === 'https:') && isLocalNetworkHost(parsed.hostname)) {
+        return true;
+      }
+      if (protocol === 'chrome:' && parsed.hostname === 'favicon2') {
+        const nested = parsed.searchParams.get('url') || '';
+        if (nested) {
+          try {
+            const nestedUrl = new URL(nested);
+            if (isLocalNetworkHost(nestedUrl.hostname)) {
+              return true;
+            }
+          } catch (e) {
+            // Ignore malformed nested URL.
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore malformed URL.
+    }
+    return false;
+  }
+
   function reportMissingIcon(context, url, iconUrl) {
     const key = `${context || 'unknown'}::${url || ''}::${iconUrl || ''}`;
     if (missingIconCache.has(key)) {
@@ -1340,7 +1385,7 @@
   const recentActionObservers = new WeakMap();
 
   function requestFaviconData(url) {
-    if (!url || url.startsWith('data:')) {
+    if (!url || url.startsWith('data:') || isBlockedLocalFaviconUrl(url)) {
       return Promise.resolve(null);
     }
     if (faviconDataCache.has(url)) {
@@ -1363,13 +1408,57 @@
     return promise;
   }
 
+  function setFaviconSrcWithAnimation(img, nextSrc) {
+    if (!img || !nextSrc || isBlockedLocalFaviconUrl(nextSrc)) {
+      return false;
+    }
+    const currentSrc = img.getAttribute('data-favicon-current-src') || '';
+    if (currentSrc === nextSrc) {
+      return false;
+    }
+    const hasAppeared = img.getAttribute('data-favicon-has-appeared') === 'true';
+    const shouldAnimate = !hasAppeared;
+    img._xFaviconLoadToken = (img._xFaviconLoadToken || 0) + 1;
+    const token = img._xFaviconLoadToken;
+    const finalize = () => {
+      if (!img || token !== img._xFaviconLoadToken) {
+        return;
+      }
+      img.setAttribute('data-favicon-current-src', nextSrc);
+      img.setAttribute('data-favicon-has-appeared', 'true');
+      if (!shouldAnimate) {
+        img.style.setProperty('filter', 'none', 'important');
+        img.style.setProperty('opacity', '1', 'important');
+        img.style.setProperty('transition', 'none', 'important');
+        return;
+      }
+      img.style.setProperty('transition', 'none', 'important');
+      img.style.setProperty('filter', 'blur(4px)', 'important');
+      img.style.setProperty('opacity', '0.72', 'important');
+      requestAnimationFrame(() => {
+        if (!img || token !== img._xFaviconLoadToken) {
+          return;
+        }
+        img.style.setProperty('transition', 'filter 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms cubic-bezier(0.22, 1, 0.36, 1)', 'important');
+        img.style.setProperty('filter', 'blur(0)', 'important');
+        img.style.setProperty('opacity', '1', 'important');
+      });
+    };
+    img.addEventListener('load', finalize, { once: true });
+    img.src = nextSrc;
+    if (img.complete && img.naturalWidth > 0) {
+      finalize();
+    }
+    return true;
+  }
+
   function attachFaviconData(img, url, hostOverride) {
     if (!img || !url) {
       return;
     }
     const cached = faviconDataCache.get(url);
     if (cached) {
-      img.src = cached;
+      setFaviconSrcWithAnimation(img, cached);
       preloadThemeFromFavicon(url, cached, hostOverride);
       return;
     }
@@ -1377,7 +1466,7 @@
       if (!dataUrl || !img.isConnected) {
         return;
       }
-      img.src = dataUrl;
+      setFaviconSrcWithAnimation(img, dataUrl);
       preloadThemeFromFavicon(url, dataUrl, hostOverride);
     });
   }
@@ -1412,7 +1501,7 @@
   }
 
   function preloadIcon(url) {
-    if (!url || url.startsWith('data:') || iconPreloadCache.has(url)) {
+    if (!url || url.startsWith('data:') || iconPreloadCache.has(url) || isBlockedLocalFaviconUrl(url)) {
       return;
     }
     const host = getHostFromUrl(url);
@@ -1718,14 +1807,41 @@
   recentGrid.id = '_x_extension_newtab_recent_sites_grid_2024_unique_';
   recentSection.appendChild(recentHeading);
   recentSection.appendChild(recentGrid);
+  let recentRenderSignature = '';
+
+  function getRecentSitesSignature(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '';
+    }
+    return items.map((item, index) => {
+      const url = item && item.url ? String(item.url) : '';
+      const title = item && item.title ? String(item.title) : '';
+      const siteName = item && item.siteName ? String(item.siteName) : '';
+      const lastVisitTime = item && item.lastVisitTime ? String(item.lastVisitTime) : '';
+      const visitCount = item && item.visitCount ? String(item.visitCount) : '';
+      return `${index}::${url}::${title}::${siteName}::${lastVisitTime}::${visitCount}`;
+    }).join('\n');
+  }
 
   function renderRecentSites(items) {
+    const normalizedItems = Array.isArray(items) ? items : [];
+    const nextSignature = getRecentSitesSignature(normalizedItems);
+    if (nextSignature === recentRenderSignature) {
+      if (normalizedItems.length === 0) {
+        recentSection.style.setProperty('display', 'none', 'important');
+      } else {
+        recentSection.style.setProperty('display', 'flex', 'important');
+      }
+      return;
+    }
+    recentRenderSignature = nextSignature;
     recentGrid.innerHTML = '';
-    if (!Array.isArray(items) || items.length === 0) {
+    recentCards.length = 0;
+    if (normalizedItems.length === 0) {
       recentSection.style.setProperty('display', 'none', 'important');
       return;
     }
-    items.forEach((item, index) => {
+    normalizedItems.forEach((item, index) => {
       const card = buildRecentSiteCard(item, index);
       if (card) {
         recentGrid.appendChild(card);
@@ -1736,6 +1852,9 @@
 
   function loadRecentSites() {
     if (!currentRecentCount || currentRecentCount <= 0) {
+      recentRenderSignature = '';
+      recentCards.length = 0;
+      recentGrid.innerHTML = '';
       recentSection.style.setProperty('display', 'none', 'important');
       return;
     }
@@ -1748,6 +1867,11 @@
     if (document.visibilityState === 'visible') {
       loadRecentSites();
     }
+  }
+
+  function forceReloadRecentSitesForI18n() {
+    recentRenderSignature = '';
+    loadRecentSites();
   }
 
   function setSuggestionsVisible(visible) {
@@ -1883,7 +2007,7 @@
         return false;
       }
       tried.add(nextSrc);
-      img.src = nextSrc;
+      setFaviconSrcWithAnimation(img, nextSrc);
       if (nextSrc === googleFavicon) {
         attachFaviconData(img, googleFavicon, hostKey);
       }
@@ -1918,7 +2042,7 @@
           if (!img || !img.isConnected) {
             return;
           }
-          img.src = candidate;
+          setFaviconSrcWithAnimation(img, candidate);
           if (candidate === googleFavicon) {
             attachFaviconData(img, googleFavicon, hostKey);
           }
@@ -2083,6 +2207,7 @@
       'github.com': 'GitHub',
       'youtube.com': 'YouTube',
       'google.com': 'Google',
+      'mp.weixin.qq.com': t('site_brand_wechat_official', '微信公众号'),
       'weibo.com': '微博',
       'x.com': 'X',
       'twitter.com': 'X',
@@ -5107,6 +5232,5 @@
   root.appendChild(suggestionsContainer);
   document.body.appendChild(recentSection);
   window.addEventListener('visibilitychange', handleRecentVisibilityChange);
-  window.addEventListener('focus', () => loadRecentSites());
 
 })();

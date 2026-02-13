@@ -15,6 +15,10 @@ function isRestrictedUrl(url) {
   }
   try {
     const parsed = new URL(url);
+    const protocol = String(parsed.protocol || '').toLowerCase();
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return true;
+    }
     const host = parsed.hostname.toLowerCase();
     const path = parsed.pathname.toLowerCase();
     if ((host === 'chrome.google.com' && path.startsWith('/webstore')) ||
@@ -34,6 +38,15 @@ function openNewtabFallback() {
   chrome.tabs.create({ url: newtabUrl });
 }
 
+function logHotkeyDebug(stage, payload) {
+  try {
+    const detail = payload && typeof payload === 'object' ? payload : {};
+    console.log(`[Lumno][hotkey] ${stage}`, detail);
+  } catch (e) {
+    // Ignore logging errors.
+  }
+}
+
 const storageArea = (chrome && chrome.storage && chrome.storage.sync)
   ? chrome.storage.sync
   : (chrome && chrome.storage ? chrome.storage.local : null);
@@ -41,14 +54,16 @@ const storageAreaName = storageArea
   ? (storageArea === (chrome && chrome.storage ? chrome.storage.sync : null) ? 'sync' : 'local')
   : null;
 const RESTRICTED_ACTION_STORAGE_KEY = '_x_extension_restricted_action_2024_unique_';
-let restrictedActionCache = 'lumno';
+let restrictedActionCache = 'default';
 
 if (storageArea) {
   storageArea.get([RESTRICTED_ACTION_STORAGE_KEY], (result) => {
     const stored = result[RESTRICTED_ACTION_STORAGE_KEY];
-    if (typeof stored === 'string') {
-      restrictedActionCache = stored;
+    const normalized = stored === 'none' ? 'none' : 'default';
+    if (normalized !== stored) {
+      storageArea.set({ [RESTRICTED_ACTION_STORAGE_KEY]: normalized });
     }
+    restrictedActionCache = normalized;
   });
 }
 
@@ -76,32 +91,66 @@ function migrateStorageIfNeeded(keys) {
 
 chrome.commands.onCommand.addListener(function(command) {
   if (command === "show-search") {
+    logHotkeyDebug('received', { command: command });
     // Get all tabs in the current window
     chrome.tabs.query({currentWindow: true}, function(tabs) {
       // Get the current active tab and inject the script with tabs data
       chrome.tabs.query({active: true, currentWindow: true}, function(activeTabs) {
         const activeTab = activeTabs[0];
+        logHotkeyDebug('active-tab', {
+          tabId: activeTab && activeTab.id ? activeTab.id : null,
+          url: activeTab && activeTab.url ? activeTab.url : '',
+          restricted: Boolean(activeTab && isRestrictedUrl(activeTab.url))
+        });
         if (activeTab && isRestrictedUrl(activeTab.url)) {
-          const action = restrictedActionCache || 'lumno';
+          const action = restrictedActionCache || 'default';
+          logHotkeyDebug('restricted-url', {
+            action: action,
+            url: activeTab.url || ''
+          });
           if (action === 'none') {
+            logHotkeyDebug('suppressed', { reason: 'restricted_action_none' });
             return;
           }
           if (action === 'default') {
+            logHotkeyDebug('fallback-open-default-newtab', { reason: 'restricted_url' });
             chrome.tabs.create({});
             return;
           }
+          logHotkeyDebug('fallback-open-lumno-newtab', { reason: 'restricted_url' });
           openNewtabFallback();
           return;
         }
         if (activeTab) {
+          logHotkeyDebug('inject-start', { tabId: activeTab.id, file: 'input-ui.js' });
           chrome.scripting.executeScript({
             target: {tabId: activeTab.id},
             files: ['input-ui.js']
           }, function() {
+            if (chrome.runtime.lastError) {
+              logHotkeyDebug('inject-failed', {
+                step: 'input-ui.js',
+                tabId: activeTab.id,
+                error: chrome.runtime.lastError.message || 'unknown'
+              });
+              openNewtabFallback();
+              return;
+            }
             chrome.scripting.executeScript({
               target: {tabId: activeTab.id},
               function: toggleBlackRectangle,
               args: [tabs]
+            }, function() {
+              if (chrome.runtime.lastError) {
+                logHotkeyDebug('inject-failed', {
+                  step: 'toggleBlackRectangle',
+                  tabId: activeTab.id,
+                  error: chrome.runtime.lastError.message || 'unknown'
+                });
+                openNewtabFallback();
+                return;
+              }
+              logHotkeyDebug('overlay-opened', { tabId: activeTab.id, tabCount: Array.isArray(tabs) ? tabs.length : 0 });
             });
           });
         }
@@ -221,7 +270,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     return true;
   } else if (request.action === 'getFaviconData') {
     const targetUrl = request.url || '';
-    if (!targetUrl || typeof targetUrl !== 'string' || targetUrl.startsWith('data:')) {
+    if (!targetUrl || typeof targetUrl !== 'string' || targetUrl.startsWith('data:') || isBlockedLocalFaviconUrl(targetUrl)) {
+      if (targetUrl && isBlockedLocalFaviconUrl(targetUrl)) {
+        logBlockedLocalFavicon(targetUrl, 'message:getFaviconData');
+      }
       sendResponse({ data: '' });
       return;
     }
@@ -261,6 +313,19 @@ const faviconDataCache = new Map();
 const faviconPending = new Map();
 const faviconResolveCache = new Map();
 const faviconResolvePending = new Map();
+const blockedLocalFaviconLogCache = new Set();
+
+function logBlockedLocalFavicon(url, source) {
+  const key = `${source || 'unknown'}::${String(url || '')}`;
+  if (blockedLocalFaviconLogCache.has(key)) {
+    return;
+  }
+  blockedLocalFaviconLogCache.add(key);
+  console.log('[Lumno][favicon-blocked-local]', {
+    source: source || 'unknown',
+    url: String(url || '')
+  });
+}
 
 const SEARCH_ENGINE_DEFS = [
   {
@@ -839,6 +904,47 @@ function isLocalNetworkHost(hostname) {
   return false;
 }
 
+function isBlockedLocalFaviconUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) {
+    return false;
+  }
+  const decodedRaw = (() => {
+    try {
+      return decodeURIComponent(raw);
+    } catch (e) {
+      return raw;
+    }
+  })();
+  const localPattern = /(https?:\/\/)?(localhost|127(?:\.\d{1,3}){0,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?::\d+)?(?:[/?#]|$)/i;
+  if (localPattern.test(decodedRaw)) {
+    return true;
+  }
+  try {
+    const parsed = new URL(raw);
+    const protocol = String(parsed.protocol || '').toLowerCase();
+    if ((protocol === 'http:' || protocol === 'https:') && isLocalNetworkHost(parsed.hostname)) {
+      return true;
+    }
+    if (protocol === 'chrome:' && parsed.hostname === 'favicon2') {
+      const nested = parsed.searchParams.get('url') || '';
+      if (nested) {
+        try {
+          const nestedUrl = new URL(nested);
+          if (isLocalNetworkHost(nestedUrl.hostname)) {
+            return true;
+          }
+        } catch (e) {
+          // Ignore malformed nested URL.
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore malformed URL.
+  }
+  return false;
+}
+
 function normalizeFaviconHost(hostname) {
   if (!hostname) {
     return '';
@@ -922,6 +1028,9 @@ function buildFaviconFallbackCandidates(pageUrl, hostOverride, fallbackUrl) {
       host = '';
     }
   }
+  if (host && isLocalNetworkHost(host)) {
+    return [];
+  }
   if (host) {
     candidates.push({ url: `https://${host}/favicon.svg`, score: 28 });
     candidates.push({ url: `https://${host}/favicon.ico`, score: 24 });
@@ -966,6 +1075,10 @@ function resolveFaviconCandidates(targetUrl, hostOverride, fallbackUrl) {
     return Promise.resolve([]);
   }
   if (!/^https?:$/i.test(parsed.protocol)) {
+    return Promise.resolve([]);
+  }
+  if (isLocalNetworkHost(parsed.hostname) || (hostOverride && isLocalNetworkHost(hostOverride))) {
+    logBlockedLocalFavicon(targetUrl || hostOverride || '', 'resolveFaviconCandidates');
     return Promise.resolve([]);
   }
   const normalizedHost = normalizeFaviconHost(hostOverride || parsed.hostname);
@@ -1044,6 +1157,21 @@ function renderHighlightedText(target, text, query, styles) {
 }
 
 function fetchFaviconData(url) {
+  if (!url) {
+    return Promise.resolve(null);
+  }
+  if (isBlockedLocalFaviconUrl(url)) {
+    logBlockedLocalFavicon(url, 'fetchFaviconData');
+    return Promise.resolve(null);
+  }
+  try {
+    const parsed = new URL(url);
+    if (isLocalNetworkHost(parsed.hostname)) {
+      return Promise.resolve(null);
+    }
+  } catch (e) {
+    // Keep existing behavior for non-standard URL formats.
+  }
   if (faviconDataCache.has(url)) {
     return Promise.resolve(faviconDataCache.get(url));
   }
@@ -1277,7 +1405,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
   if (changes[RESTRICTED_ACTION_STORAGE_KEY]) {
     const next = changes[RESTRICTED_ACTION_STORAGE_KEY].newValue;
-    restrictedActionCache = typeof next === 'string' ? next : 'lumno';
+    restrictedActionCache = next === 'none' ? 'none' : 'default';
+    if (typeof next !== 'undefined' && next !== restrictedActionCache && storageArea) {
+      storageArea.set({ [RESTRICTED_ACTION_STORAGE_KEY]: restrictedActionCache });
+    }
   }
   if (!changes[SITE_SEARCH_STORAGE_KEY] && !changes[SITE_SEARCH_DISABLED_STORAGE_KEY]) {
     return;
@@ -3374,9 +3505,52 @@ async function getSearchSuggestions(query) {
     const iconPreloadCache = new Map();
     const faviconDataCache = new Map();
     const faviconDataPending = new Map();
+    const resolvedFaviconUrlCache = window._x_extension_overlay_favicon_url_cache_2024_unique_ || new Map();
+    window._x_extension_overlay_favicon_url_cache_2024_unique_ = resolvedFaviconUrlCache;
+
+    function isBlockedLocalFaviconUrl(url) {
+      const raw = String(url || '').trim();
+      if (!raw) {
+        return false;
+      }
+      const decodedRaw = (() => {
+        try {
+          return decodeURIComponent(raw);
+        } catch (e) {
+          return raw;
+        }
+      })();
+      const localPattern = /(https?:\/\/)?(localhost|127(?:\.\d{1,3}){0,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?::\d+)?(?:[/?#]|$)/i;
+      if (localPattern.test(decodedRaw)) {
+        return true;
+      }
+      try {
+        const parsed = new URL(raw);
+        const protocol = String(parsed.protocol || '').toLowerCase();
+        if ((protocol === 'http:' || protocol === 'https:') && isLocalNetworkHost(parsed.hostname)) {
+          return true;
+        }
+        if (protocol === 'chrome:' && parsed.hostname === 'favicon2') {
+          const nested = parsed.searchParams.get('url') || '';
+          if (nested) {
+            try {
+              const nestedUrl = new URL(nested);
+              if (isLocalNetworkHost(nestedUrl.hostname)) {
+                return true;
+              }
+            } catch (e) {
+              // Ignore malformed nested URL.
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore malformed URL.
+      }
+      return false;
+    }
 
     function requestFaviconData(url) {
-      if (!url || url.startsWith('data:')) {
+      if (!url || url.startsWith('data:') || isBlockedLocalFaviconUrl(url)) {
         return Promise.resolve(null);
       }
       if (faviconDataCache.has(url)) {
@@ -3399,11 +3573,63 @@ async function getSearchSuggestions(query) {
       return promise;
     }
 
+    function setFaviconSrcWithAnimation(img, nextSrc) {
+      if (!img || !nextSrc || isBlockedLocalFaviconUrl(nextSrc)) {
+        return false;
+      }
+      const currentSrc = img.getAttribute('data-favicon-current-src') || '';
+      if (currentSrc === nextSrc) {
+        return false;
+      }
+      const hasAppeared = img.getAttribute('data-favicon-has-appeared') === 'true';
+      const shouldAnimate = !hasAppeared;
+      img._xFaviconLoadToken = (img._xFaviconLoadToken || 0) + 1;
+      const token = img._xFaviconLoadToken;
+      const finalize = () => {
+        if (!img || token !== img._xFaviconLoadToken) {
+          return;
+        }
+        img.setAttribute('data-favicon-current-src', nextSrc);
+        img.setAttribute('data-favicon-has-appeared', 'true');
+        if (!shouldAnimate) {
+          img.style.setProperty('filter', 'none', 'important');
+          img.style.setProperty('opacity', '1', 'important');
+          img.style.setProperty('transition', 'none', 'important');
+          return;
+        }
+        img.style.setProperty('transition', 'none', 'important');
+        img.style.setProperty('filter', 'blur(4px)', 'important');
+        img.style.setProperty('opacity', '0.72', 'important');
+        requestAnimationFrame(() => {
+          if (!img || token !== img._xFaviconLoadToken) {
+            return;
+          }
+          img.style.setProperty('transition', 'filter 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms cubic-bezier(0.22, 1, 0.36, 1)', 'important');
+          img.style.setProperty('filter', 'blur(0)', 'important');
+          img.style.setProperty('opacity', '1', 'important');
+        });
+      };
+      img.addEventListener('load', finalize, { once: true });
+      img.src = nextSrc;
+      if (img.complete && img.naturalWidth > 0) {
+        finalize();
+      }
+      return true;
+    }
+
     function attachResolvedFaviconWithFallbacks(img, pageUrl, hostKey, fallbackUrl, onFailed) {
       if (!img) {
         return;
       }
       const handleFailed = typeof onFailed === 'function' ? onFailed : function() {};
+      const cacheKey = `${String(hostKey || '')}::${String(pageUrl || '')}::${String(fallbackUrl || '')}`;
+      const cachedUrl = resolvedFaviconUrlCache.get(cacheKey) || '';
+      const safeCachedUrl = isBlockedLocalFaviconUrl(cachedUrl) ? '' : cachedUrl;
+      const safeFallbackUrl = isBlockedLocalFaviconUrl(fallbackUrl) ? '' : String(fallbackUrl || '');
+      const quickUrl = safeCachedUrl || safeFallbackUrl;
+      if (quickUrl) {
+        setFaviconSrcWithAnimation(img, quickUrl);
+      }
       chrome.runtime.sendMessage(
         {
           action: 'resolveFaviconCandidates',
@@ -3412,14 +3638,17 @@ async function getSearchSuggestions(query) {
           fallbackUrl: fallbackUrl || ''
         },
         (response) => {
-          const urls = response && Array.isArray(response.urls) ? response.urls.filter(Boolean) : [];
+          const resolved = response && Array.isArray(response.urls) ? response.urls.filter(Boolean) : [];
+          const urls = Array.from(new Set([safeCachedUrl, ...resolved, safeFallbackUrl].filter((url) => url && !isBlockedLocalFaviconUrl(url))));
           if (!urls.length) {
-            handleFailed();
+            if (!quickUrl) {
+              handleFailed();
+            }
             return;
           }
-          let index = 0;
+          let index = quickUrl ? Math.max(0, urls.indexOf(quickUrl) + 1) : 0;
           const tryNext = () => {
-            if (!img || !img.isConnected) {
+            if (!img) {
               return;
             }
             if (index >= urls.length) {
@@ -3428,12 +3657,15 @@ async function getSearchSuggestions(query) {
             }
             const nextUrl = urls[index];
             index += 1;
-            img.src = nextUrl;
+            setFaviconSrcWithAnimation(img, nextUrl);
+            resolvedFaviconUrlCache.set(cacheKey, nextUrl);
           };
           img.onerror = () => {
             tryNext();
           };
-          tryNext();
+          if (!quickUrl) {
+            tryNext();
+          }
         }
       );
     }
@@ -3444,7 +3676,7 @@ async function getSearchSuggestions(query) {
       }
       const cached = faviconDataCache.get(url);
       if (cached) {
-        img.src = cached;
+        setFaviconSrcWithAnimation(img, cached);
         preloadThemeFromFavicon(url, cached, hostOverride);
         return;
       }
@@ -3452,7 +3684,7 @@ async function getSearchSuggestions(query) {
         if (!dataUrl || !img.isConnected) {
           return;
         }
-        img.src = dataUrl;
+        setFaviconSrcWithAnimation(img, dataUrl);
         preloadThemeFromFavicon(url, dataUrl, hostOverride);
       });
     }
@@ -3487,7 +3719,7 @@ async function getSearchSuggestions(query) {
     }
 
     function preloadIcon(url) {
-      if (!url || url.startsWith('data:') || iconPreloadCache.has(url)) {
+      if (!url || url.startsWith('data:') || iconPreloadCache.has(url) || isBlockedLocalFaviconUrl(url)) {
         return;
       }
       const host = getHostFromUrl(url);
