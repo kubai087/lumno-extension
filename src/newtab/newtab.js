@@ -11658,6 +11658,9 @@
     if (feedbackControl && (target === feedbackControl || feedbackControl.contains(target))) {
       return false;
     }
+    if (bookmarkSection && (target === bookmarkSection || bookmarkSection.contains(target))) {
+      return false;
+    }
     if (shortcutSection && (target === shortcutSection || shortcutSection.contains(target))) {
       return false;
     }

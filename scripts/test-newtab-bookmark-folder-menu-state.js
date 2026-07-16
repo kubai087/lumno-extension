@@ -1,7 +1,20 @@
 const assert = require('assert');
+const fs = require('fs');
 const path = require('path');
 
 require(path.join('..', 'src', 'newtab', 'bookmarks-view.js'));
+
+const newtabJs = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'newtab', 'newtab.js'),
+  'utf8'
+).replace(/\r\n/g, '\n');
+
+assert.ok(
+  newtabJs.includes(
+    "if (bookmarkSection && (target === bookmarkSection || bookmarkSection.contains(target))) {\n      return false;\n    }"
+  ),
+  'bookmark interactions should not trigger background search focus'
+);
 
 const { createBookmarksView } = globalThis.LumnoNewtabBookmarksView;
 
