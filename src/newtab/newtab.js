@@ -90,6 +90,7 @@
   const NEWTAB_TOAST = globalThis.LumnoNewtabToast || {};
   const NEWTAB_LAYOUT = globalThis.LumnoNewtabLayout || {};
   const NEWTAB_DOCK = globalThis.LumnoNewtabDock || {};
+  const NEWTAB_BACKGROUND_SEARCH_FOCUS = globalThis.LumnoNewtabBackgroundSearchFocus || {};
   const NEWTAB_RECENT_VIEW = globalThis.LumnoNewtabRecentSitesView || {};
   const NEWTAB_BOOKMARKS_VIEW = globalThis.LumnoNewtabBookmarksView || {};
   const NEWTAB_BOOKMARK_CASCADE_POSITION = globalThis.LumnoNewtabBookmarkCascadePosition || {};
@@ -113,6 +114,7 @@
       typeof NEWTAB_LAYOUT.getAdaptiveGridColumnCount !== 'function' ||
       typeof NEWTAB_LAYOUT.getGridContentWidthForColumns !== 'function' ||
       typeof NEWTAB_DOCK.createBottomDockRuntime !== 'function' ||
+      typeof NEWTAB_BACKGROUND_SEARCH_FOCUS.createBackgroundFocusHandler !== 'function' ||
       typeof NEWTAB_RECENT_VIEW.createRecentSitesView !== 'function' ||
       typeof NEWTAB_BOOKMARKS_VIEW.createBookmarksView !== 'function' ||
       typeof NEWTAB_BOOKMARK_CASCADE_POSITION.placeRootCascadeMenu !== 'function' ||
@@ -11643,45 +11645,10 @@
     }
   }
 
-  function shouldFocusOnBackground(target) {
-    if (!target) {
-      return false;
-    }
-    if (wordmarkContainer && (target === wordmarkContainer || wordmarkContainer.contains(target))) {
-      return false;
-    }
-    if (target === inputParts.input || inputParts.input.contains(target)) {
-      return false;
-    }
-    if (inputContainer && (target === inputContainer || inputContainer.contains(target))) {
-      return false;
-    }
-    if (isEditableElement(target)) {
-      return false;
-    }
-    if (modeBadge && modeBadge.contains(target)) {
-      return false;
-    }
-    if (wallpaperControl && (target === wallpaperControl || wallpaperControl.contains(target))) {
-      return false;
-    }
-    if (feedbackControl && (target === feedbackControl || feedbackControl.contains(target))) {
-      return false;
-    }
-    if (shortcutSection && (target === shortcutSection || shortcutSection.contains(target))) {
-      return false;
-    }
-    if (shortcutDialogBackdrop && (target === shortcutDialogBackdrop || shortcutDialogBackdrop.contains(target))) {
-      return false;
-    }
-    if (rightIcon && (target === rightIcon || rightIcon.contains(target))) {
-      return false;
-    }
-    if (suggestionsContainer && suggestionsContainer.contains(target)) {
-      return false;
-    }
-    return true;
-  }
+  const handleBackgroundPointerFocus = NEWTAB_BACKGROUND_SEARCH_FOCUS.createBackgroundFocusHandler({
+    getBackgroundTargets: () => [document.body, root, searchLayer],
+    focusSearch: focusSearchInputPreservingScroll
+  });
 
   window.addEventListener('keydown', handleGlobalTypingFocus, true);
   window.addEventListener('focus', () => refreshFallbackShortcut(true), true);
@@ -11690,14 +11657,7 @@
       refreshFallbackShortcut(false);
     }
   }, true);
-  window.addEventListener('pointerdown', function(event) {
-    if (!event || event.defaultPrevented) {
-      return;
-    }
-    if (shouldFocusOnBackground(event.target)) {
-      focusSearchInputPreservingScroll();
-    }
-  }, true);
+  window.addEventListener('pointerdown', handleBackgroundPointerFocus, true);
   modeBadge = document.createElement('div');
   modeBadge.id = '_x_extension_newtab_mode_badge_2024_unique_';
   modeBadge.className = 'x-lumno-search-input-mode__badge';
@@ -11706,7 +11666,6 @@
   inputParts.container.appendChild(modeBadge);
   const searchInput = inputParts.input;
   searchInputRef = searchInput;
-  const inputContainer = inputParts.container;
   const rightIcon = inputParts.rightIcon;
   wordmarkContainer = document.createElement('div');
   wordmarkContainer.id = '_x_extension_newtab_wordmark_2026_unique_';
