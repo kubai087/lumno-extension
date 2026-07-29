@@ -930,8 +930,12 @@
         return;
       }
       sampler = null;
-      clear({ updateWordmark: false });
-      applyWordmarkThemeAppearance();
+      // Keep old adaptive values during async image load to prevent icon flash.
+      // Cancel stale toneFrame — if it fires with sampler===null, apply() calls clear().
+      if (toneFrame) {
+        cancelFrame(toneFrame);
+        toneFrame = 0;
+      }
       loadImage(imageUrl).then((image) => {
         if (token !== loadToken) {
           return;
