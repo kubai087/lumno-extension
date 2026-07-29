@@ -530,6 +530,7 @@
     const applyWordmarkThemeAppearance = getFunction(options, 'applyWordmarkThemeAppearance');
 
     let sampler = null;
+    let pendingImageUrl = '';
     let loadToken = 0;
     let toneFrame = 0;
 
@@ -579,11 +580,15 @@
       clearAdaptiveToneStyles(element);
     }
 
-    function clear(options) {
+    function cancelScheduledApply() {
       if (toneFrame) {
         cancelFrame(toneFrame);
         toneFrame = 0;
       }
+    }
+
+    function clear(options) {
+      cancelScheduledApply();
       getToneTargets().forEach((target) => {
         if (!target || !target.element) {
           return;
@@ -902,7 +907,7 @@
     }
 
     function schedule() {
-      if (!getCurrentWallpaper() || !sampler) {
+      if (!getCurrentWallpaper() || !sampler || pendingImageUrl) {
         return;
       }
       if (toneFrame) {
@@ -919,27 +924,32 @@
     function refresh() {
       const wallpaper = getCurrentWallpaper();
       const imageUrl = wallpaper ? getWallpaperImageUrl(wallpaper) : '';
-      const token = ++loadToken;
       if (!wallpaper || !imageUrl) {
+        loadToken += 1;
+        pendingImageUrl = '';
         sampler = null;
         clear();
         return;
       }
       if (sampler && sampler.url === imageUrl) {
+        if (pendingImageUrl) {
+          loadToken += 1;
+          pendingImageUrl = '';
+        }
         schedule();
         return;
       }
-      sampler = null;
-      // Keep old adaptive values during async image load to prevent icon flash.
-      // Cancel stale toneFrame — if it fires with sampler===null, apply() calls clear().
-      if (toneFrame) {
-        cancelFrame(toneFrame);
-        toneFrame = 0;
+      if (pendingImageUrl === imageUrl) {
+        return;
       }
+      const token = ++loadToken;
+      pendingImageUrl = imageUrl;
+      cancelScheduledApply();
       loadImage(imageUrl).then((image) => {
         if (token !== loadToken) {
           return;
         }
+        pendingImageUrl = '';
         sampler = createSampler(image, imageUrl);
         apply();
         schedule();
@@ -947,6 +957,7 @@
         if (token !== loadToken) {
           return;
         }
+        pendingImageUrl = '';
         sampler = null;
         clear();
       });
