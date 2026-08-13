@@ -76,6 +76,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
   const SUGGESTION_ACTION_MODEL = window.LumnoSuggestionActionModel || {};
   const SUGGESTION_NAVIGATION = window.LumnoSuggestionNavigation || {};
   const SEARCH_INPUT_HISTORY = window.LumnoSearchInputHistory || {};
+  const SEARCH_NAVIGATION_SHORTCUT = window.LumnoSearchNavigationShortcut || {};
   const OVERLAY_SUGGESTIONS_VIEW = window.LumnoOverlaySuggestionsView || {};
   const OVERLAY_TOAST = window.LumnoToast || {};
   const SEARCH_INPUT_MODE = window.LumnoSearchInputMode || {};
@@ -163,35 +164,16 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       input.setAttribute(name, value);
     });
   }
-  function isMacKeyboardPlatform() {
-    const navigatorLike = window && window.navigator ? window.navigator : {};
-    const userAgentDataPlatform = navigatorLike.userAgentData &&
-      typeof navigatorLike.userAgentData.platform === 'string'
-      ? navigatorLike.userAgentData.platform
-      : '';
-    const platformText = String(
-      userAgentDataPlatform || navigatorLike.platform || navigatorLike.userAgent || ''
-    );
-    return /Mac|iPhone|iPad|iPod/i.test(platformText);
-  }
   function getSuggestionNavigationKey(event) {
+    if (typeof SEARCH_NAVIGATION_SHORTCUT.getSuggestionNavigationKey === 'function') {
+      return SEARCH_NAVIGATION_SHORTCUT.getSuggestionNavigationKey(event, {
+        navigatorLike: window && window.navigator ? window.navigator : null
+      });
+    }
     const key = String(event && event.key || '');
-    if (key === 'ArrowDown' || key === 'ArrowUp') {
-      return key;
-    }
-    if (!isMacKeyboardPlatform() || !event ||
-        !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
-      return '';
-    }
-    const code = String(event.code || '');
-    const normalizedKey = key.toLowerCase();
-    if (normalizedKey === 'n' || code === 'KeyN') {
-      return 'ArrowDown';
-    }
-    if (normalizedKey === 'p' || code === 'KeyP') {
-      return 'ArrowUp';
-    }
-    return '';
+    return key === 'ArrowDown' || key === 'ArrowUp'
+      ? key
+      : '';
   }
   const normalizedOverlayContext = (overlayContext && typeof overlayContext === 'object') ? overlayContext : {};
   const requestedTabZoomFactorRaw = Number(normalizedOverlayContext.tabZoomFactor);

@@ -120,6 +120,10 @@ function testSurfaceIntegrationContract() {
     path.join(repoRoot, 'src/overlay/search-panel.js'),
     'utf8'
   );
+  const navigationShortcutSource = fs.readFileSync(
+    path.join(repoRoot, 'src/shared/search-navigation-shortcut.js'),
+    'utf8'
+  );
   const shortcutReferenceSource = fs.readFileSync(
     path.join(repoRoot, 'src/shared/shortcut-reference.js'),
     'utf8'
@@ -130,8 +134,16 @@ function testSurfaceIntegrationContract() {
     'New Tab should load the shared input history helper'
   );
   assert.ok(
+    newtabHtml.includes('<script src="../shared/search-navigation-shortcut.js"></script>'),
+    'New Tab should load the shared search navigation shortcut helper'
+  );
+  assert.ok(
     backgroundSource.includes("'src/shared/search-input-history.js'"),
     'overlay injection should load the shared input history helper'
+  );
+  assert.ok(
+    backgroundSource.includes("'src/shared/search-navigation-shortcut.js'"),
+    'overlay injection should load the shared search navigation shortcut helper'
   );
   assert.ok(
     newtabSource.includes('SEARCH_INPUT_HISTORY.getShortcutDirection(event)'),
@@ -146,18 +158,21 @@ function testSurfaceIntegrationContract() {
     'General settings should list the input history shortcut'
   );
   assert.ok(
-    overlaySource.includes("normalizedKey === 'n' || code === 'KeyN'") &&
-      overlaySource.includes("normalizedKey === 'p' || code === 'KeyP'"),
-    'overlay should map Ctrl+N/Ctrl+P to suggestion navigation on macOS'
+    overlaySource.includes('SEARCH_NAVIGATION_SHORTCUT.getSuggestionNavigationKey'),
+    'overlay should use the shared search navigation shortcut helper'
   );
   assert.ok(
-    newtabSource.includes("normalizedKey === 'n' || code === 'KeyN'") &&
-      newtabSource.includes("normalizedKey === 'p' || code === 'KeyP'"),
-    'New Tab should map Ctrl+N/Ctrl+P to suggestion navigation on macOS'
+    newtabSource.includes('SEARCH_NAVIGATION_SHORTCUT.getSuggestionNavigationKey'),
+    'New Tab should use the shared search navigation shortcut helper'
   );
   assert.ok(
     shortcutReferenceSource.includes("mac: 'ArrowUp / ArrowDown / Ctrl+P / Ctrl+N'"),
     'General settings should list Ctrl+P/Ctrl+N as macOS alternatives for suggestion navigation'
+  );
+  assert.ok(
+    navigationShortcutSource.includes("normalizedKey === 'n' || code === 'KeyN'") &&
+      navigationShortcutSource.includes("normalizedKey === 'p' || code === 'KeyP'"),
+    'shared navigation helper should map Ctrl+N/Ctrl+P to arrow navigation'
   );
 }
 

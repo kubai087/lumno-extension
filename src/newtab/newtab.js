@@ -169,6 +169,7 @@
   const SUGGESTION_ACTION_MODEL = globalThis.LumnoSuggestionActionModel || {};
   const SUGGESTION_NAVIGATION = globalThis.LumnoSuggestionNavigation || {};
   const SEARCH_INPUT_HISTORY = globalThis.LumnoSearchInputHistory || {};
+  const SEARCH_NAVIGATION_SHORTCUT = globalThis.LumnoSearchNavigationShortcut || {};
   const SEARCH_INPUT_MODE = globalThis.LumnoSearchInputMode || {};
   const FEATURE_HINTS = globalThis.LumnoFeatureHints || {};
   const UPDATE_NOTICE = globalThis.LumnoUpdateNotice || {};
@@ -14793,32 +14794,12 @@
     onKeyDown: function(event) {
       syncSuggestionActionModifiersFromEvent(event);
       dismissAutocompletePreviewOnNonTabKey(event);
-      const suggestionNavigationKey = (() => {
-        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-          return event.key;
-        }
-        const navigatorLike = typeof navigator === 'object' && navigator ? navigator : {};
-        const userAgentDataPlatform = navigatorLike.userAgentData &&
-          typeof navigatorLike.userAgentData.platform === 'string'
-          ? navigatorLike.userAgentData.platform
-          : '';
-        const platformText = String(
-          userAgentDataPlatform || navigatorLike.platform || navigatorLike.userAgent || ''
-        );
-        const isMacPlatform = /Mac|iPhone|iPad|iPod/i.test(platformText);
-        if (!isMacPlatform || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
-          return '';
-        }
-        const normalizedKey = String(event.key || '').toLowerCase();
-        const code = String(event.code || '');
-        if (normalizedKey === 'n' || code === 'KeyN') {
-          return 'ArrowDown';
-        }
-        if (normalizedKey === 'p' || code === 'KeyP') {
-          return 'ArrowUp';
-        }
-        return '';
-      })();
+      const suggestionNavigationKey =
+        typeof SEARCH_NAVIGATION_SHORTCUT.getSuggestionNavigationKey === 'function'
+          ? SEARCH_NAVIGATION_SHORTCUT.getSuggestionNavigationKey(event, {
+            navigatorLike: typeof navigator === 'object' && navigator ? navigator : null
+          })
+          : (event.key === 'ArrowDown' || event.key === 'ArrowUp' ? event.key : '');
       if (event.key !== 'Backspace' && !event.metaKey && !event.ctrlKey && !event.altKey) {
         latestRawQuery = inputParts.input.value;
         latestQuery = inputParts.input.value.trim();

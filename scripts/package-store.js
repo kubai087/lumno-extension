@@ -37,6 +37,7 @@ const injectedScriptFiles = [
   'src/shared/suggestion-navigation.js',
   'src/react/overlay-islands.js',
   'src/shared/search-input-history.js',
+  'src/shared/search-navigation-shortcut.js',
   'src/shared/search-input-mode.js',
   'src/shared/toast.js',
   'src/shared/shortcut-favicon.js',

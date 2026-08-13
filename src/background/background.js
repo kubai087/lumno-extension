@@ -3975,6 +3975,7 @@ function openOverlayOnTab(activeTab, tabs, source) {
     'src/shared/suggestion-navigation.js',
     'src/shared/ime-key-guard.js',
     'src/shared/search-input-history.js',
+    'src/shared/search-navigation-shortcut.js',
     'src/shared/toast.js',
     'src/shared/menu-surface.js',
     'assets/vendor/pinyin-pro.js',

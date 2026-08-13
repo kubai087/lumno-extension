@@ -24,6 +24,7 @@ const injectedScriptFiles = [
   'src/shared/ime-key-guard.js',
   'src/react/overlay-islands.js',
   'src/shared/search-input-history.js',
+  'src/shared/search-navigation-shortcut.js',
   'assets/vendor/pinyin-pro.js',
   'src/shared/search-input-mode.js',
   'src/shared/toast.js',
