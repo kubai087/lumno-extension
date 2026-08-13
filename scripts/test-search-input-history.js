@@ -145,6 +145,20 @@ function testSurfaceIntegrationContract() {
     shortcutReferenceSource.includes("shortcut: 'Alt+ArrowUp / Alt+ArrowDown'"),
     'General settings should list the input history shortcut'
   );
+  assert.ok(
+    overlaySource.includes("normalizedKey === 'n' || code === 'KeyN'") &&
+      overlaySource.includes("normalizedKey === 'p' || code === 'KeyP'"),
+    'overlay should map Ctrl+N/Ctrl+P to suggestion navigation on macOS'
+  );
+  assert.ok(
+    newtabSource.includes("normalizedKey === 'n' || code === 'KeyN'") &&
+      newtabSource.includes("normalizedKey === 'p' || code === 'KeyP'"),
+    'New Tab should map Ctrl+N/Ctrl+P to suggestion navigation on macOS'
+  );
+  assert.ok(
+    shortcutReferenceSource.includes("mac: 'ArrowUp / ArrowDown / Ctrl+P / Ctrl+N'"),
+    'General settings should list Ctrl+P/Ctrl+N as macOS alternatives for suggestion navigation'
+  );
 }
 
 (async () => {

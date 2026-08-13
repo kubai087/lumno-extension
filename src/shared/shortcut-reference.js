@@ -71,7 +71,10 @@
       titleFallback: 'Move through suggestions',
       descKey: 'shortcut_reference_search_navigate_desc',
       descFallback: 'Move the active result in Lumno search and New Tab',
-      shortcut: 'ArrowUp / ArrowDown'
+      defaultShortcut: {
+        default: 'ArrowUp / ArrowDown',
+        mac: 'ArrowUp / ArrowDown / Ctrl+P / Ctrl+N'
+      }
     },
     {
       id: 'search-number-jump',

@@ -163,6 +163,36 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       input.setAttribute(name, value);
     });
   }
+  function isMacKeyboardPlatform() {
+    const navigatorLike = window && window.navigator ? window.navigator : {};
+    const userAgentDataPlatform = navigatorLike.userAgentData &&
+      typeof navigatorLike.userAgentData.platform === 'string'
+      ? navigatorLike.userAgentData.platform
+      : '';
+    const platformText = String(
+      userAgentDataPlatform || navigatorLike.platform || navigatorLike.userAgent || ''
+    );
+    return /Mac|iPhone|iPad|iPod/i.test(platformText);
+  }
+  function getSuggestionNavigationKey(event) {
+    const key = String(event && event.key || '');
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      return key;
+    }
+    if (!isMacKeyboardPlatform() || !event ||
+        !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+      return '';
+    }
+    const code = String(event.code || '');
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey === 'n' || code === 'KeyN') {
+      return 'ArrowDown';
+    }
+    if (normalizedKey === 'p' || code === 'KeyP') {
+      return 'ArrowUp';
+    }
+    return '';
+  }
   const normalizedOverlayContext = (overlayContext && typeof overlayContext === 'object') ? overlayContext : {};
   const requestedTabZoomFactorRaw = Number(normalizedOverlayContext.tabZoomFactor);
   const initialPrefillQuery = typeof normalizedOverlayContext.prefillQuery === 'string'
@@ -6672,7 +6702,8 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         handleTabKey(e);
         return;
       }
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape') {
+      const suggestionNavigationKey = getSuggestionNavigationKey(e);
+      if (suggestionNavigationKey || e.key === 'Enter' || e.key === 'Escape') {
         keydownHandler(e);
         return;
       }
@@ -6720,6 +6751,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       if (!e || e.isTrusted !== true) {
         return;
       }
+      const suggestionNavigationKey = getSuggestionNavigationKey(e);
       syncSuggestionActionModifiersFromEvent(e);
       if (SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
         e,
@@ -6736,7 +6768,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       if (e.key === 'Escape' && overlay) {
         removeOverlay(overlay);
         document.removeEventListener('keydown', keydownHandler);
-      } else if (e.key === 'ArrowDown') {
+      } else if (suggestionNavigationKey === 'ArrowDown') {
         e.preventDefault();
         if (suggestionItems.length === 0) {
           return;
@@ -6758,7 +6790,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         updateSelection();
         scrollSelectedSuggestionIntoView('down', didWrap);
         searchInput.focus();
-      } else if (e.key === 'ArrowUp') {
+      } else if (suggestionNavigationKey === 'ArrowUp') {
         e.preventDefault();
         if (suggestionItems.length === 0) {
           return;

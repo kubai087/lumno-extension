@@ -14793,6 +14793,32 @@
     onKeyDown: function(event) {
       syncSuggestionActionModifiersFromEvent(event);
       dismissAutocompletePreviewOnNonTabKey(event);
+      const suggestionNavigationKey = (() => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          return event.key;
+        }
+        const navigatorLike = typeof navigator === 'object' && navigator ? navigator : {};
+        const userAgentDataPlatform = navigatorLike.userAgentData &&
+          typeof navigatorLike.userAgentData.platform === 'string'
+          ? navigatorLike.userAgentData.platform
+          : '';
+        const platformText = String(
+          userAgentDataPlatform || navigatorLike.platform || navigatorLike.userAgent || ''
+        );
+        const isMacPlatform = /Mac|iPhone|iPad|iPod/i.test(platformText);
+        if (!isMacPlatform || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+          return '';
+        }
+        const normalizedKey = String(event.key || '').toLowerCase();
+        const code = String(event.code || '');
+        if (normalizedKey === 'n' || code === 'KeyN') {
+          return 'ArrowDown';
+        }
+        if (normalizedKey === 'p' || code === 'KeyP') {
+          return 'ArrowUp';
+        }
+        return '';
+      })();
       if (event.key !== 'Backspace' && !event.metaKey && !event.ctrlKey && !event.altKey) {
         latestRawQuery = inputParts.input.value;
         latestQuery = inputParts.input.value.trim();
@@ -14856,13 +14882,13 @@
         }
         return;
       }
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (suggestionNavigationKey) {
         if (suggestionItems.length === 0) {
           return;
         }
         event.preventDefault();
         let didWrap = false;
-        if (event.key === 'ArrowDown') {
+        if (suggestionNavigationKey === 'ArrowDown') {
           if (selectedIndex === -1) {
             const autoIndex = getAutoHighlightIndex();
             selectedIndex = autoIndex >= 0
@@ -14894,7 +14920,10 @@
           }
         }
         updateSelection();
-        scrollSelectedSuggestionIntoView(event.key === 'ArrowDown' ? 'down' : 'up', didWrap);
+        scrollSelectedSuggestionIntoView(
+          suggestionNavigationKey === 'ArrowDown' ? 'down' : 'up',
+          didWrap
+        );
         return;
       }
       if (event.key === 'Tab' && handleTabKey) {

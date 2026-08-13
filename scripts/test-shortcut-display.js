@@ -119,12 +119,27 @@ assert.ok(
 const macNumberJump = searchShortcutGroup.items.find((item) => (
   item.id === 'search-number-jump'
 ));
+const macSearchNavigate = searchShortcutGroup.items.find((item) => (
+  item.id === 'search-navigate'
+));
 const windowsNumberJump = shortcutReference
   .getShortcutReferenceGroups({ platform: 'windows' })
   .find((group) => group.id === 'search')
   .items.find((item) => item.id === 'search-number-jump');
+const windowsSearchNavigate = shortcutReference
+  .getShortcutReferenceGroups({ platform: 'windows' })
+  .find((group) => group.id === 'search')
+  .items.find((item) => item.id === 'search-navigate');
 assert.strictEqual(macNumberJump.shortcut, 'Command 0.4s → 0–9');
 assert.strictEqual(windowsNumberJump.shortcut, 'Ctrl 0.4s → 0–9');
+assert.strictEqual(
+  macSearchNavigate.shortcut,
+  'ArrowUp / ArrowDown / Ctrl+P / Ctrl+N'
+);
+assert.strictEqual(
+  windowsSearchNavigate.shortcut,
+  'ArrowUp / ArrowDown'
+);
 assert.strictEqual(
   shortcutDisplay.formatShortcutReference(macNumberJump.shortcut, {
     platform: 'mac'
@@ -136,6 +151,18 @@ assert.strictEqual(
     platform: 'windows'
   }),
   'Ctrl 0.4s → 0–9'
+);
+assert.strictEqual(
+  shortcutDisplay.formatShortcutReference(macSearchNavigate.shortcut, {
+    platform: 'mac'
+  }),
+  '↑ / ↓ / ⌃P / ⌃N'
+);
+assert.strictEqual(
+  shortcutDisplay.formatShortcutReference(windowsSearchNavigate.shortcut, {
+    platform: 'windows'
+  }),
+  '↑ / ↓'
 );
 ['en', 'ja', 'zh_CN', 'zh_TW'].forEach((locale) => {
   const messages = JSON.parse(fs.readFileSync(
