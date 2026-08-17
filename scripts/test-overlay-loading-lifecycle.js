@@ -27,6 +27,83 @@ const loadingTab = {
   pendingUrl: 'https://after.example/'
 };
 const initialRecord = lifecycle.createRecord(loadingTab, 'commands', 1000);
+
+const slowNavigationState = lifecycle.createTopFrameNavigationState({
+  tabId: 54,
+  frameId: 0,
+  url: 'https://destination.example.test/slow'
+}, 900);
+assert.deepStrictEqual(slowNavigationState, {
+  tabId: 54,
+  url: 'https://destination.example.test/slow',
+  startedAt: 900,
+  updatedAt: 900
+});
+const staleCommandTabDuringNavigation = {
+  id: 54,
+  status: 'complete',
+  url: 'about:blank',
+  pendingUrl: ''
+};
+const resolvedCommandTabDuringNavigation = lifecycle.applyTopFrameNavigationState(
+  staleCommandTabDuringNavigation,
+  slowNavigationState,
+  { now: 1000 }
+);
+assert.strictEqual(
+  resolvedCommandTabDuringNavigation.status,
+  'loading',
+  'a top-frame navigation event should override stale complete status from tabs.query'
+);
+assert.strictEqual(
+  resolvedCommandTabDuringNavigation.pendingUrl,
+  'https://destination.example.test/slow',
+  'the navigation event should supply the target Chrome omitted from pendingUrl'
+);
+assert.strictEqual(
+  lifecycle.shouldDeferRestrictedLoadingTab(
+    resolvedCommandTabDuringNavigation,
+    canInjectOverlayUrl
+  ),
+  true,
+  'the exact about:blank slow-navigation race should retain the shortcut intent'
+);
+assert.ok(
+  lifecycle.createRecord(resolvedCommandTabDuringNavigation, 'commands', 1000),
+  'the exact slow-navigation race should create a recoverable loading record'
+);
+assert.strictEqual(
+  lifecycle.applyTopFrameNavigationState(
+    staleCommandTabDuringNavigation,
+    slowNavigationState,
+    { now: 901000, ttlMs: 1000 }
+  ),
+  staleCommandTabDuringNavigation,
+  'an expired navigation event must not affect a later command'
+);
+assert.strictEqual(
+  lifecycle.createTopFrameNavigationState({
+    tabId: 54,
+    frameId: 1,
+    url: 'https://frame.example.test/'
+  }, 900),
+  null,
+  'subframe navigation must never claim the tab-level shortcut intent'
+);
+const committedSlowNavigationState = lifecycle.updateTopFrameNavigationState(
+  slowNavigationState,
+  {
+    tabId: 54,
+    frameId: 0,
+    url: 'https://destination.example.test/final'
+  },
+  1100
+);
+assert.strictEqual(
+  committedSlowNavigationState.url,
+  'https://destination.example.test/final',
+  'the tracked target should follow a top-frame redirect at commit'
+);
 assert.ok(
   lifecycle.createRecord({
     id: 41,
@@ -368,6 +445,28 @@ assert.strictEqual(
   closedStateInNewDocument.action,
   'restore',
   'a default closed flag in a replacement Document is not an intentional close of the old Overlay'
+);
+
+const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
+assert.ok(
+  Array.isArray(manifest.permissions) && manifest.permissions.includes('webNavigation'),
+  'the background must receive top-frame navigation start events before tabs.query exposes the target'
+);
+const backgroundSource = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'background', 'background.js'),
+  'utf8'
+);
+assert.ok(
+  backgroundSource.includes('chrome.webNavigation.onBeforeNavigate.addListener'),
+  'the background should record top-frame navigation before the network response commits'
+);
+assert.ok(
+  backgroundSource.includes('const cachedNavigationState = overlayNavigationStateByTabId.get(tab.id) || null;'),
+  'shortcut dispatch should merge the navigation event with the stale tabs.query snapshot'
+);
+assert.ok(
+  backgroundSource.includes('chrome.webNavigation.onCommitted.addListener'),
+  'the committed Document should trigger recovery without waiting for load completion'
 );
 
 console.log('overlay loading lifecycle tests passed');

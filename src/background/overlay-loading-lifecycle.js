@@ -6,7 +6,68 @@
   root.LumnoOverlayLoadingLifecycle = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   const DEFAULT_RECORD_TTL_MS = 5 * 60 * 1000;
+  const DEFAULT_NAVIGATION_STATE_TTL_MS = 5 * 60 * 1000;
   const MAX_INPUT_VALUE_LENGTH = 64 * 1024;
+
+  function createTopFrameNavigationState(details, now) {
+    const input = details && typeof details === 'object' ? details : {};
+    if (typeof input.tabId !== 'number' || input.tabId < 0 || input.frameId !== 0) {
+      return null;
+    }
+    const createdAt = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+    return {
+      tabId: input.tabId,
+      url: typeof input.url === 'string' ? input.url.trim() : '',
+      startedAt: createdAt,
+      updatedAt: createdAt
+    };
+  }
+
+  function updateTopFrameNavigationState(record, details, now) {
+    const input = details && typeof details === 'object' ? details : {};
+    if (!record || typeof record.tabId !== 'number' || input.frameId !== 0 ||
+        (typeof input.tabId === 'number' && input.tabId !== record.tabId)) {
+      return null;
+    }
+    const updatedAt = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+    const nextUrl = typeof input.url === 'string' && input.url.trim()
+      ? input.url.trim()
+      : String(record.url || '');
+    return {
+      ...record,
+      url: nextUrl,
+      updatedAt
+    };
+  }
+
+  function isNavigationStateExpired(state, now, ttlMs) {
+    if (!state || typeof state.tabId !== 'number') {
+      return true;
+    }
+    const currentTime = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+    const maxAge = Number.isFinite(Number(ttlMs)) && Number(ttlMs) > 0
+      ? Number(ttlMs)
+      : DEFAULT_NAVIGATION_STATE_TTL_MS;
+    return currentTime - Number(state.updatedAt || state.startedAt || 0) > maxAge;
+  }
+
+  function applyTopFrameNavigationState(tab, state, options) {
+    if (!tab || typeof tab.id !== 'number' || !state || state.tabId !== tab.id) {
+      return tab;
+    }
+    const settings = options && typeof options === 'object' ? options : {};
+    if (isNavigationStateExpired(state, settings.now, settings.ttlMs)) {
+      return tab;
+    }
+    const reportedPendingUrl = typeof tab.pendingUrl === 'string'
+      ? tab.pendingUrl.trim()
+      : '';
+    return {
+      ...tab,
+      status: 'loading',
+      pendingUrl: reportedPendingUrl || String(state.url || '')
+    };
+  }
 
   function isLoadingTab(tab) {
     if (!tab || typeof tab.id !== 'number') {
@@ -220,16 +281,21 @@
   }
 
   return Object.freeze({
+    DEFAULT_NAVIGATION_STATE_TTL_MS,
     DEFAULT_RECORD_TTL_MS,
+    applyTopFrameNavigationState,
     applyInvocationResult,
     applySessionUpdate,
+    createTopFrameNavigationState,
     createRecord,
     decideRecovery,
     getMainFrameResult,
     getPendingInjectableUrl,
     isExpired,
     isLoadingTab,
+    isNavigationStateExpired,
     normalizeSessionState,
-    shouldDeferRestrictedLoadingTab
+    shouldDeferRestrictedLoadingTab,
+    updateTopFrameNavigationState
   });
 });
