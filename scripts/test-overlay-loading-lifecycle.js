@@ -449,24 +449,24 @@ assert.strictEqual(
 
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
 assert.ok(
-  Array.isArray(manifest.permissions) && manifest.permissions.includes('webNavigation'),
-  'the background must receive top-frame navigation start events before tabs.query exposes the target'
+  Array.isArray(manifest.permissions) && !manifest.permissions.includes('webNavigation'),
+  'loading intent tracking should reuse the existing tabs permission'
 );
 const backgroundSource = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'background', 'background.js'),
   'utf8'
 );
 assert.ok(
-  backgroundSource.includes('chrome.webNavigation.onBeforeNavigate.addListener'),
-  'the background should record top-frame navigation before the network response commits'
+  backgroundSource.includes("if (changeInfo.status === 'loading') {\n      rememberOverlayTopFrameNavigation({"),
+  'the tabs loading event should be recorded independently of the stale tabs.query snapshot'
 );
 assert.ok(
   backgroundSource.includes('const cachedNavigationState = overlayNavigationStateByTabId.get(tab.id) || null;'),
   'shortcut dispatch should merge the navigation event with the stale tabs.query snapshot'
 );
 assert.ok(
-  backgroundSource.includes('chrome.webNavigation.onCommitted.addListener'),
-  'the committed Document should trigger recovery without waiting for load completion'
+  backgroundSource.includes("if (changeInfo.status === 'complete') {\n      clearOverlayNavigationState(tabId);"),
+  'the transient navigation state should be cleared when that tab finishes loading'
 );
 
 console.log('overlay loading lifecycle tests passed');

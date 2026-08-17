@@ -4123,28 +4123,6 @@ function updateOverlayTopFrameNavigation(details) {
   });
 }
 
-function finishOverlayTopFrameNavigation(details, callback) {
-  const done = typeof callback === 'function' ? callback : () => {};
-  if (!details || typeof details.tabId !== 'number' || details.frameId !== 0) {
-    done(false);
-    return;
-  }
-  getOverlayNavigationState(details.tabId, (state) => {
-    if (!state) {
-      done(false);
-      return;
-    }
-    const finishedUrl = typeof details.url === 'string' ? details.url.trim() : '';
-    const trackedUrl = typeof state.url === 'string' ? state.url.trim() : '';
-    if (finishedUrl && trackedUrl && finishedUrl !== trackedUrl) {
-      done(false);
-      return;
-    }
-    clearOverlayNavigationState(details.tabId);
-    done(true);
-  });
-}
-
 function getOverlayLoadingRecordStorageKey(tabId) {
   return `${OVERLAY_LOADING_RECORD_STORAGE_PREFIX}${tabId}`;
 }
@@ -5894,61 +5872,6 @@ if (chrome && chrome.windows && chrome.windows.onFocusChanged) {
   });
 }
 
-if (chrome && chrome.webNavigation) {
-  if (chrome.webNavigation.onBeforeNavigate) {
-    chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-      rememberOverlayTopFrameNavigation(details);
-    });
-  }
-  if (chrome.webNavigation.onCommitted) {
-    chrome.webNavigation.onCommitted.addListener((details) => {
-      if (!details || typeof details.tabId !== 'number' || details.frameId !== 0) {
-        return;
-      }
-      updateOverlayTopFrameNavigation(details);
-      if (!chrome.tabs || typeof chrome.tabs.get !== 'function') {
-        return;
-      }
-      chrome.tabs.get(details.tabId, (tab) => {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          return;
-        }
-        recoverOverlayAfterLoadingUpdate(
-          details.tabId,
-          { url: typeof details.url === 'string' ? details.url : '' },
-          tab
-        );
-      });
-    });
-  }
-  if (chrome.webNavigation.onCompleted) {
-    chrome.webNavigation.onCompleted.addListener((details) => {
-      if (!details || typeof details.tabId !== 'number' || details.frameId !== 0) {
-        return;
-      }
-      finishOverlayTopFrameNavigation(details);
-      if (!chrome.tabs || typeof chrome.tabs.get !== 'function') {
-        return;
-      }
-      chrome.tabs.get(details.tabId, (tab) => {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          return;
-        }
-        recoverOverlayAfterLoadingUpdate(details.tabId, { status: 'complete' }, tab);
-      });
-    });
-  }
-  if (chrome.webNavigation.onErrorOccurred) {
-    chrome.webNavigation.onErrorOccurred.addListener((details) => {
-      finishOverlayTopFrameNavigation(details, (finished) => {
-        if (finished) {
-          clearOverlayLoadingRecord(details.tabId);
-        }
-      });
-    });
-  }
-}
-
 if (chrome && chrome.tabs && chrome.tabs.onRemoved) {
   chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
     const overlayOpening = overlayOpeningByTabId.get(tabId);
@@ -5977,7 +5900,25 @@ if (chrome && chrome.tabs && chrome.tabs.onUpdated) {
     if (!changeInfo) {
       return;
     }
+    if (changeInfo.status === 'loading') {
+      rememberOverlayTopFrameNavigation({
+        tabId,
+        frameId: 0,
+        url: typeof changeInfo.url === 'string'
+          ? changeInfo.url
+          : (tab && typeof tab.pendingUrl === 'string' ? tab.pendingUrl : '')
+      });
+    } else if (typeof changeInfo.url === 'string') {
+      updateOverlayTopFrameNavigation({
+        tabId,
+        frameId: 0,
+        url: changeInfo.url
+      });
+    }
     recoverOverlayAfterLoadingUpdate(tabId, changeInfo, tab);
+    if (changeInfo.status === 'complete') {
+      clearOverlayNavigationState(tabId);
+    }
     if (typeof changeInfo.url === 'string' || changeInfo.status === 'complete') {
       const providerTab = Object.assign({}, tab || {}, {
         id: typeof tabId === 'number' ? tabId : (tab && tab.id),
