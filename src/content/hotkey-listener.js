@@ -655,6 +655,9 @@
     if (!event || event.isComposing || event.repeat) {
       return;
     }
+    if (window._x_extension_shortcut_key_observer_2026_unique_) {
+      return;
+    }
     refreshShortcut(false);
     const editableTarget = isEditableTarget(event.target);
     const matchedConfiguredShortcut = Boolean(shortcutSpec && shortcutMatchesEvent(event, shortcutSpec));

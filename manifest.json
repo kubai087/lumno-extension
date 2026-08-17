@@ -43,10 +43,11 @@
       },
       {
          "matches": [ "\u003Call_urls>" ],
-         "js": [ "src/content/tab-switcher-shortcut-release.js" ],
+         "js": [ "src/shared/shortcut-key-matcher.js", "src/content/shortcut-key-observer.js" ],
          "run_at": "document_start",
          "all_frames": true,
-         "match_about_blank": true
+         "match_about_blank": true,
+         "match_origin_as_fallback": true
       },
       {
          "matches": [ "\u003Call_urls>" ],

@@ -3,7 +3,7 @@ const fs = require('fs');
 
 const contentHotkeySource = fs.readFileSync('src/content/hotkey-listener.js', 'utf8');
 const shortcutReleaseRelaySource = fs.readFileSync(
-  'src/content/tab-switcher-shortcut-release.js',
+  'src/content/shortcut-key-observer.js',
   'utf8'
 );
 const backgroundSource = fs.readFileSync('src/background/background.js', 'utf8');
@@ -156,25 +156,37 @@ assert.match(
 );
 assert.match(
   backgroundSource,
-  /function prepareTabSwitcherShortcutReleaseObserver\(tab\)[\s\S]*allFrames:\s*true[\s\S]*files:\s*\['src\/content\/tab-switcher-shortcut-release\.js'\]/,
+  /function prepareShortcutKeyObserver\(tab\)[\s\S]*allFrames:\s*true[\s\S]*files:\s*\['src\/shared\/shortcut-key-matcher\.js',\s*'src\/content\/shortcut-key-observer\.js'\]/,
   'the background should dynamically install the release observer in already-open tabs and focused frames'
 );
 assert.match(
   backgroundSource,
-  /function prepareTabSwitcherShortcutReleaseObserversInOpenTabs\(\)[\s\S]*chrome\.tabs\.query\(\{\},[\s\S]*prepareTabSwitcherShortcutReleaseObserver\(tab\)[\s\S]*chrome\.runtime\.onInstalled\.addListener\([\s\S]*prepareTabSwitcherShortcutReleaseObserversInOpenTabs\(\)[\s\S]*chrome\.runtime\.onStartup\.addListener\([\s\S]*prepareTabSwitcherShortcutReleaseObserversInOpenTabs\(\)/,
+  /function prepareShortcutKeyObserversInOpenTabs\(\)[\s\S]*chrome\.tabs\.query\(\{\},[\s\S]*prepareShortcutKeyObserver\(tab\)[\s\S]*chrome\.runtime\.onInstalled\.addListener\([\s\S]*prepareShortcutKeyObserversInOpenTabs\(\)[\s\S]*chrome\.runtime\.onStartup\.addListener\([\s\S]*prepareShortcutKeyObserversInOpenTabs\(\)/,
   'extension reload and browser startup should prepare already-open tabs before the user presses the shortcut'
 );
 const shortcutReleaseContentScript = manifest.content_scripts.find((entry) => (
   entry &&
   Array.isArray(entry.js) &&
-  entry.js.includes('src/content/tab-switcher-shortcut-release.js')
+  entry.js.includes('src/content/shortcut-key-observer.js')
 ));
 assert.ok(
   shortcutReleaseContentScript &&
+    shortcutReleaseContentScript.js[0] === 'src/shared/shortcut-key-matcher.js' &&
     shortcutReleaseContentScript.run_at === 'document_start' &&
     shortcutReleaseContentScript.all_frames === true &&
-    shortcutReleaseContentScript.match_about_blank === true,
-  'the release observer should be present before the command in every focused frame, including inherited about:blank editors'
+    shortcutReleaseContentScript.match_about_blank === true &&
+    shortcutReleaseContentScript.match_origin_as_fallback === true,
+  'the shortcut observer should be present in every focused frame and related transient document'
+);
+assert.match(
+  shortcutReleaseRelaySource,
+  /function relayUnresolvedShowSearchShortcut\(event, descriptor\)[\s\S]*requiresShortcutVerification:\s*true[\s\S]*if \(!showSearchShortcutSpec\)\s*\{\s*relayUnresolvedShowSearchShortcut\(event, descriptor\);\s*return;/,
+  'the first trusted keydown should be relayed for background verification while shortcut configuration is pending'
+);
+assert.match(
+  backgroundSource,
+  /case 'triggerShowSearchFromPageHotkey':[\s\S]*request\.requiresShortcutVerification === true[\s\S]*getConfiguredFallbackShortcut\(\(shortcut\) =>[\s\S]*SHORTCUT_KEY_MATCHER\.descriptorMatchesShortcut\(request\.observedShortcut, spec\)[\s\S]*triggerVerifiedPageHotkey\(shortcut\)/,
+  'the background should validate the cold-start key descriptor against the live browser shortcut before opening Lumno'
 );
 assert.match(
   switcherBridgeSource,
@@ -1548,12 +1560,12 @@ assert.match(
 );
 assert.match(
   triggerSwitcherBlock,
-  /const releaseObserverReady = prepareTabSwitcherShortcutReleaseObserver\(tab\);[\s\S]*advanceExistingTabSwitcherOnTab\(tab,[\s\S]*Promise\.all\(\[startupStateReady,\s*tabQueryReady,\s*shortcutReady,\s*releaseObserverReady\]\)/,
+  /const shortcutObserverReady = prepareShortcutKeyObserver\(tab\);[\s\S]*advanceExistingTabSwitcherOnTab\(tab,[\s\S]*Promise\.all\(\[startupStateReady,\s*tabQueryReady,\s*shortcutReady,\s*shortcutObserverReady\]\)/,
   'the trusted release observer should start before asynchronous switcher opening work so quick releases can be buffered'
 );
 assert.match(
   triggerSwitcherBlock,
-  /const startupStateReady = Promise\.all\(\[\s*ensureTabSwitcherStateLoaded\(\),\s*loadFaviconRequestBlacklistItems\(\),\s*loadFaviconEnhancedFetchEnabled\(\)\s*\]\)[\s\S]*const shortcutReady = new Promise[\s\S]*getConfiguredTabSwitcherShortcut\(resolve\)[\s\S]*const tabQueryReady = new Promise[\s\S]*Promise\.all\(\[startupStateReady,\s*tabQueryReady,\s*shortcutReady,\s*releaseObserverReady\]\)[\s\S]*getRecentTabsForSwitcher/,
+  /const startupStateReady = Promise\.all\(\[\s*ensureTabSwitcherStateLoaded\(\),\s*loadFaviconRequestBlacklistItems\(\),\s*loadFaviconEnhancedFetchEnabled\(\)\s*\]\)[\s\S]*const shortcutReady = new Promise[\s\S]*getConfiguredTabSwitcherShortcut\(resolve\)[\s\S]*const tabQueryReady = new Promise[\s\S]*Promise\.all\(\[startupStateReady,\s*tabQueryReady,\s*shortcutReady,\s*shortcutObserverReady\]\)[\s\S]*getRecentTabsForSwitcher/,
   'the tab switcher should resolve tabs, local state, favicon policy, and the configured shortcut in parallel'
 );
 assert.match(

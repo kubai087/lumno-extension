@@ -108,8 +108,13 @@ assert.match(
 );
 assert.match(
   backgroundSource,
-  /function scheduleOverlayLoadingRecoveryRetry\(tab, record\)[\s\S]*?OVERLAY_LOADING_RECOVERY_MAX_ATTEMPTS[\s\S]*?recoverOverlayAfterLoadingUpdate\(tab\.id, \{ status: 'complete' \}, tab\)[\s\S]*?if \(complete === true\) \{[\s\S]*?if \(ok\) \{[\s\S]*?clearOverlayLoadingRecord\(tab\.id\);[\s\S]*?scheduleOverlayLoadingRecoveryRetry\(tab, record\);/,
-  'a transient final-Document injection failure should retry without prematurely discarding the session'
+  /function scheduleOverlayLoadingRecoveryRetry\(tab, record\)[\s\S]*?OVERLAY_LOADING_RECOVERY_MAX_ATTEMPTS[\s\S]*?recoverOverlayAfterLoadingUpdate\(tab\.id, \{ status: 'complete' \}, tab\)[\s\S]*?if \(complete === true\) \{[\s\S]*?if \(ok\) \{[\s\S]*?scheduleOverlayLoadingStableCompletion\(tab, restoredRecord\);[\s\S]*?scheduleOverlayLoadingRecoveryRetry\(tab, record\);/,
+  'a transient final-Document injection failure should retry and a success should retain the session through stabilization'
+);
+assert.match(
+  backgroundSource,
+  /function scheduleOverlayLoadingStableCompletion\(tab, record\)[\s\S]*?stableCompletionToken[\s\S]*?stable: true,[\s\S]*?OVERLAY_LOADING_STABLE_COMPLETE_MS/,
+  'the first load completion should clear tracking only after a bounded stable-Document probe'
 );
 const preCompleteRetryStart = backgroundSource.indexOf(
   'function scheduleOverlayLoadingPreCompleteRetry(tab, record)'

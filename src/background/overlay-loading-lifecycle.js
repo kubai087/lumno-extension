@@ -262,9 +262,16 @@
     }
     const nextRecord = withResultDocument(record, mainResult, now);
     if (payload.overlayConnected === true) {
-      return settings.complete === true
-        ? { action: 'clear', record: null, reason: 'complete-and-connected' }
-        : { action: 'keep', record: nextRecord, reason: 'connected' };
+      if (settings.complete === true && settings.stable === true) {
+        return { action: 'clear', record: null, reason: 'stable-complete-and-connected' };
+      }
+      return {
+        action: 'keep',
+        record: nextRecord,
+        reason: settings.complete === true
+          ? 'complete-awaiting-stability'
+          : 'connected'
+      };
     }
     const previousDocumentId = String(record.documentId || '');
     const currentDocumentId = String(mainResult.documentId || '');
