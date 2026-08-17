@@ -1,7 +1,8 @@
 'use strict';
 
 window._x_extension_search_overlay_runtime_version_2026_unique_ =
-  '2026-08-17-fast-open-v4';
+  '2026-08-17-loading-session-v6';
+window._x_extension_search_overlay_open_2026_unique_ = false;
 
 window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayContext) {
   let captureTabHandler = null;
@@ -50,6 +51,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
   let overlaySuggestionRequestSeq = 0;
   let overlayRemoteSuggestionDebounceTimer = null;
   let overlayFirstResultRevealTimer = null;
+  let suppressOverlayLoadingSessionNotification = false;
   const OVERLAY_FIRST_RESULT_REVEAL_DELAY_MS = 120;
   let openInCurrentTabModifierActive = false;
   let openSwitchInNewTabModifierActive = false;
@@ -177,6 +179,37 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
   const initialContextTabUrl = typeof normalizedOverlayContext.currentTabUrl === 'string'
     ? String(normalizedOverlayContext.currentTabUrl).trim()
     : '';
+  const ensureOverlayOpen = normalizedOverlayContext.ensureOpen === true;
+  let loadingSessionTrackingActive = normalizedOverlayContext.loadingSessionTracked === true;
+  const rawLoadingSession = normalizedOverlayContext.loadingSession &&
+    typeof normalizedOverlayContext.loadingSession === 'object'
+    ? normalizedOverlayContext.loadingSession
+    : null;
+  const initialLoadingSession = rawLoadingSession &&
+    typeof rawLoadingSession.inputValue === 'string'
+    ? (() => {
+        const inputValue = rawLoadingSession.inputValue;
+        const inputLength = inputValue.length;
+        const rawStart = Number(rawLoadingSession.selectionStart);
+        const selectionStart = Number.isFinite(rawStart)
+          ? Math.max(0, Math.min(inputLength, Math.trunc(rawStart)))
+          : inputLength;
+        const rawEnd = Number(rawLoadingSession.selectionEnd);
+        const selectionEnd = Number.isFinite(rawEnd)
+          ? Math.max(selectionStart, Math.min(inputLength, Math.trunc(rawEnd)))
+          : selectionStart;
+        return {
+          inputValue,
+          selectionStart,
+          selectionEnd,
+          selectionDirection: rawLoadingSession.selectionDirection === 'backward' ||
+            rawLoadingSession.selectionDirection === 'forward'
+            ? rawLoadingSession.selectionDirection
+            : 'none',
+          focused: rawLoadingSession.focused !== false
+        };
+      })()
+    : null;
   function isLocalFileLikeOverlayUrl(url) {
     if (!url) {
       return false;
@@ -1433,8 +1466,78 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     };
   }
 
+  function notifyOverlayClosed() {
+    if (!chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
+      return;
+    }
+    try {
+      chrome.runtime.sendMessage({ action: 'notifyOverlayClosed' }, () => {
+        void chrome.runtime.lastError;
+      });
+    } catch (error) {
+      // The document may already be unloading.
+    }
+  }
+
+  function isOverlayInputFocused(input) {
+    if (!input) {
+      return false;
+    }
+    if (document.activeElement === input) {
+      return true;
+    }
+    const root = typeof input.getRootNode === 'function' ? input.getRootNode() : null;
+    return Boolean(root && root.activeElement === input);
+  }
+
+  function notifyOverlayLoadingSession(input) {
+    if (suppressOverlayLoadingSessionNotification || !loadingSessionTrackingActive || !input ||
+        !chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
+      return;
+    }
+    const inputValue = typeof input.value === 'string' ? input.value : '';
+    const inputLength = inputValue.length;
+    const rawSelectionStart = Number(input.selectionStart);
+    const selectionStart = Number.isFinite(rawSelectionStart)
+      ? Math.max(0, Math.min(inputLength, Math.trunc(rawSelectionStart)))
+      : inputLength;
+    const rawSelectionEnd = Number(input.selectionEnd);
+    const selectionEnd = Number.isFinite(rawSelectionEnd)
+      ? Math.max(selectionStart, Math.min(inputLength, Math.trunc(rawSelectionEnd)))
+      : selectionStart;
+    try {
+      chrome.runtime.sendMessage({
+        action: 'updateOverlayLoadingSession',
+        session: {
+          inputValue,
+          selectionStart,
+          selectionEnd,
+          selectionDirection: input.selectionDirection === 'backward' ||
+            input.selectionDirection === 'forward'
+            ? input.selectionDirection
+            : 'none',
+          focused: isOverlayInputFocused(input)
+        }
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          return;
+        }
+        if (response && response.tracked === false) {
+          loadingSessionTrackingActive = false;
+        }
+      });
+    } catch (error) {
+      // The loading Document can be replaced between the input event and delivery.
+    }
+  }
+
   // Helper function to remove overlay and clean up styles
-  function removeOverlay(overlayElement) {
+  function removeOverlay(overlayElement, options) {
+    const removalOptions = options && typeof options === 'object' ? options : {};
+    window._x_extension_search_overlay_open_2026_unique_ = false;
+    if (removalOptions.preserveLoadingIntent !== true) {
+      notifyOverlayClosed();
+    }
     clearOverlayEnterAnimationFrames();
     clearOverlayPanelEnterCleanup();
     cancelPendingOverlaySuggestionRequests();
@@ -1705,7 +1808,13 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
   if (overlay) {
     const shouldReplaceStaleOverlay = isStaleOverlay(overlay);
     shouldReplaceExistingOverlay = shouldReplaceStaleOverlay;
-    removeOverlay(overlay);
+    if (ensureOverlayOpen && !shouldReplaceStaleOverlay) {
+      window._x_extension_search_overlay_open_2026_unique_ = true;
+      return;
+    }
+    removeOverlay(overlay, {
+      preserveLoadingIntent: shouldReplaceStaleOverlay
+    });
     if (!shouldReplaceStaleOverlay) {
       return;
     }
@@ -6384,6 +6493,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       runSearchInputEventOnce(event, () => {
         imeKeyGuard.markCompositionEnd(event);
         const liveInput = syncLiveSearchInputFromEvent(event);
+        notifyOverlayLoadingSession(liveInput);
         const rawValue = liveInput ? (liveInput.value || '') : '';
         const query = rawValue.trim();
         updateModeBadge(rawValue);
@@ -6429,6 +6539,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           inputHistoryController.resetNavigation();
         }
         const liveInput = syncLiveSearchInputFromEvent(event);
+        notifyOverlayLoadingSession(liveInput);
         const rawValue = liveInput ? liveInput.value : '';
         const query = rawValue.trim();
         if (query &&
@@ -6498,6 +6609,12 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     inputContainer.addEventListener('compositionstart', handleSearchInputCompositionStart, true);
     inputContainer.addEventListener('compositionend', handleSearchInputCompositionEnd, true);
     inputContainer.addEventListener('input', handleSearchInputEvent, true);
+    const handleOverlayLoadingSessionSelection = (event) => {
+      notifyOverlayLoadingSession(syncLiveSearchInputFromEvent(event));
+    };
+    inputContainer.addEventListener('select', handleOverlayLoadingSessionSelection, true);
+    inputContainer.addEventListener('focusin', handleOverlayLoadingSessionSelection, true);
+    inputContainer.addEventListener('pointerup', handleOverlayLoadingSessionSelection, true);
 
     // Add click outside to close functionality
     clickOutsideHandler = function(e) {
@@ -8762,6 +8879,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       document.documentElement ||
       document.body;
     overlayMountParent.appendChild(overlayHost);
+    window._x_extension_search_overlay_open_2026_unique_ = true;
     if (typeof overlayHost.showPopover === 'function') {
       try {
         overlayHost.showPopover();
@@ -8790,6 +8908,9 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           typeof searchInput.focus !== 'function') {
         return;
       }
+      if (initialLoadingSession && initialLoadingSession.focused === false) {
+        return;
+      }
       searchInput.focus({ preventScroll: true });
     }
 
@@ -8801,15 +8922,36 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       if (!overlay || !overlay.isConnected) {
         return false;
       }
-      if (initialPrefillQuery) {
-        searchInput.value = initialPrefillQuery;
+      if (initialLoadingSession || initialPrefillQuery) {
+        const initialInputValue = initialLoadingSession
+          ? initialLoadingSession.inputValue
+          : initialPrefillQuery;
+        searchInput.value = initialInputValue;
         if (typeof searchInput.setSelectionRange === 'function') {
-          searchInput.setSelectionRange(initialPrefillQuery.length, initialPrefillQuery.length);
+          const selectionStart = initialLoadingSession
+            ? initialLoadingSession.selectionStart
+            : initialInputValue.length;
+          const selectionEnd = initialLoadingSession
+            ? initialLoadingSession.selectionEnd
+            : initialInputValue.length;
+          const selectionDirection = initialLoadingSession
+            ? initialLoadingSession.selectionDirection
+            : 'none';
+          searchInput.setSelectionRange(
+            selectionStart,
+            selectionEnd,
+            selectionDirection
+          );
         }
-        latestRawInputValue = initialPrefillQuery;
-        latestOverlayQuery = initialPrefillQuery.trim();
-        updateModeBadge(initialPrefillQuery);
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        latestRawInputValue = initialInputValue;
+        latestOverlayQuery = initialInputValue.trim();
+        updateModeBadge(initialInputValue);
+        suppressOverlayLoadingSessionNotification = true;
+        try {
+          searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        } finally {
+          suppressOverlayLoadingSessionNotification = false;
+        }
         return true;
       }
       return initialLanguageReady.catch(() => {}).then(() => {

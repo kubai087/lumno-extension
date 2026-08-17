@@ -252,7 +252,7 @@ assert.match(
 );
 const openOverlayBlock = getFunctionBlock(
   backgroundSource,
-  'function openOverlayOnTab(activeTab, tabs, source)',
+  'function openOverlayOnTab(activeTab, tabs, source, options)',
   'function triggerShowSearchForTab(tab, source)'
 );
 assert.match(

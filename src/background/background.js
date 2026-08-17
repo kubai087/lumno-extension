@@ -150,6 +150,12 @@ try {
 }
 
 try {
+  importScripts(chrome.runtime.getURL('src/background/overlay-loading-lifecycle.js'));
+} catch (error) {
+  console.warn('Lumno: failed to load Overlay loading lifecycle helpers.', error);
+}
+
+try {
   importScripts(chrome.runtime.getURL('src/background/dev-extension-startup.js'));
 } catch (error) {
   console.warn('Lumno: failed to load development startup helpers.', error);
@@ -194,6 +200,7 @@ const openNewtabFallback = BACKGROUND_NEWTAB_FALLBACK.openNewtabFallback;
 const openNewtabFallbackForUrl = BACKGROUND_NEWTAB_FALLBACK.openNewtabFallbackForUrl;
 const BACKGROUND_SHORTCUT_RULES = globalThis.LumnoShortcutRules || {};
 const RECENT_TAB_SWITCHER = globalThis.LumnoRecentTabSwitcher || {};
+const OVERLAY_LOADING_LIFECYCLE = globalThis.LumnoOverlayLoadingLifecycle || {};
 const DEV_EXTENSION_STARTUP = globalThis.LumnoDevExtensionStartup || {};
 const CODEX_DEBUG_BRIDGE = globalThis.LumnoCodexDebugBackground || {};
 const codexDebugBridge = CODEX_DEBUG_BRIDGE && typeof CODEX_DEBUG_BRIDGE.create === 'function'
@@ -1649,6 +1656,18 @@ const tabSwitcherOpeningByWindowKey = new Map();
 const TAB_SWITCHER_HOST_STATE_TIMEOUT_MS = 400;
 const tabSwitcherHostTabIdByWindowId = new Map();
 const HOTKEY_DUP_GUARD_MS = 180;
+const OVERLAY_OPENING_GUARD_MS = 5000;
+const OVERLAY_RUNTIME_VERSION = '2026-08-17-loading-session-v6';
+const OVERLAY_HOST_ID = '_x_extension_overlay_host_2026_unique_';
+const OVERLAY_LOADING_RECORD_STORAGE_PREFIX =
+  '_x_extension_overlay_loading_record_2026_unique_:';
+const OVERLAY_LOADING_RECORD_TTL_MS = Number(
+  OVERLAY_LOADING_LIFECYCLE.DEFAULT_RECORD_TTL_MS
+) || (5 * 60 * 1000);
+const OVERLAY_LOADING_RECOVERY_MAX_ATTEMPTS = 3;
+const OVERLAY_LOADING_RECOVERY_RETRY_MS = 120;
+const OVERLAY_LOADING_PRE_COMPLETE_RETRY_MAX_ATTEMPTS = 3;
+const OVERLAY_LOADING_PRE_COMPLETE_RETRY_MS = 120;
 const PAGE_HOTKEY_NEWTAB_RECOVER_MS = 1200;
 const BROWSER_NEWTAB_PROVIDER_DETECTION_MS = 6000;
 const TAB_SWITCHER_LIMIT = 5;
@@ -1678,6 +1697,10 @@ let documentPipEnabledCache = false;
 let tabSwitcherEnabledCache = true;
 let pinnedTabRecoveryEnabledCache = false;
 const hotkeyInvokeAtByTabId = new Map();
+const overlayOpeningByTabId = new Map();
+const overlayLoadingRecordsByTabId = new Map();
+const overlayLoadingRecoveryInFlightByTabId = new Set();
+const overlayLoadingPendingUpdateByTabId = new Map();
 const browserNewtabProviderCandidateTabIds = new Map();
 let lastPageHotkeyContext = null;
 const tabSwitchEventsByTabId = new Map();
@@ -2864,6 +2887,45 @@ function shouldIgnoreDuplicateHotkey(tabId) {
   return (now - lastAt) <= HOTKEY_DUP_GUARD_MS;
 }
 
+function finishOverlayOpening(opening) {
+  if (!opening || typeof opening.tabId !== 'number') {
+    return;
+  }
+  if (opening.timer) {
+    clearTimeout(opening.timer);
+    opening.timer = null;
+  }
+  if (overlayOpeningByTabId.get(opening.tabId) === opening) {
+    overlayOpeningByTabId.delete(opening.tabId);
+  }
+}
+
+function beginOverlayOpening(tab, source) {
+  if (!tab || typeof tab.id !== 'number') {
+    return null;
+  }
+  const existing = overlayOpeningByTabId.get(tab.id);
+  if (existing) {
+    logHotkeyDebug('overlay-opening-guarded', {
+      tabId: tab.id,
+      source: source || '',
+      age: Date.now() - existing.startedAt
+    });
+    return null;
+  }
+  const opening = {
+    tabId: tab.id,
+    source: source || '',
+    startedAt: Date.now(),
+    timer: null
+  };
+  opening.timer = setTimeout(() => {
+    finishOverlayOpening(opening);
+  }, OVERLAY_OPENING_GUARD_MS);
+  overlayOpeningByTabId.set(tab.id, opening);
+  return opening;
+}
+
 function rememberPageHotkeyContext(tab) {
   if (!tab || typeof tab.id !== 'number' || typeof tab.windowId !== 'number') {
     lastPageHotkeyContext = null;
@@ -3926,14 +3988,543 @@ function createTabSwitcherOpeningFinisher(opening) {
   };
 }
 
-function openOverlayOnTab(activeTab, tabs, source) {
+function getOverlayLoadingRecordStorageArea() {
+  return chrome && chrome.storage && chrome.storage.session &&
+    typeof chrome.storage.session.get === 'function'
+    ? chrome.storage.session
+    : null;
+}
+
+function getOverlayLoadingRecordStorageKey(tabId) {
+  return `${OVERLAY_LOADING_RECORD_STORAGE_PREFIX}${tabId}`;
+}
+
+function setOverlayLoadingRecord(record) {
+  if (!record || typeof record.tabId !== 'number') {
+    return;
+  }
+  const currentRecord = overlayLoadingRecordsByTabId.get(record.tabId) || null;
+  const currentSession = currentRecord && currentRecord.session &&
+    typeof currentRecord.session === 'object'
+    ? currentRecord.session
+    : null;
+  const incomingSession = record.session && typeof record.session === 'object'
+    ? record.session
+    : null;
+  const shouldPreserveCurrentSession = Boolean(
+    currentSession &&
+    (!incomingSession ||
+      Number(currentSession.revision || 0) > Number(incomingSession.revision || 0) ||
+      (Number(currentSession.revision || 0) === Number(incomingSession.revision || 0) &&
+        Number(currentSession.updatedAt || 0) > Number(incomingSession.updatedAt || 0)))
+  );
+  const nextRecord = {
+    ...record,
+    session: shouldPreserveCurrentSession ? currentSession : incomingSession
+  };
+  overlayLoadingRecordsByTabId.set(record.tabId, nextRecord);
+  const sessionArea = getOverlayLoadingRecordStorageArea();
+  if (!sessionArea || typeof sessionArea.set !== 'function') {
+    return;
+  }
+  try {
+    sessionArea.set({
+      [getOverlayLoadingRecordStorageKey(record.tabId)]: nextRecord
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch (error) {
+    // The in-memory record still covers ordinary loading lifetimes.
+  }
+}
+
+function clearOverlayLoadingRecord(tabId) {
+  if (typeof tabId !== 'number') {
+    return;
+  }
+  overlayLoadingRecordsByTabId.delete(tabId);
+  overlayLoadingRecoveryInFlightByTabId.delete(tabId);
+  overlayLoadingPendingUpdateByTabId.delete(tabId);
+  const sessionArea = getOverlayLoadingRecordStorageArea();
+  if (!sessionArea || typeof sessionArea.remove !== 'function') {
+    return;
+  }
+  try {
+    sessionArea.remove(getOverlayLoadingRecordStorageKey(tabId), () => {
+      void chrome.runtime.lastError;
+    });
+  } catch (error) {
+    // Ignore session-storage cleanup failures.
+  }
+}
+
+function getOverlayLoadingRecord(tabId, callback) {
+  const done = typeof callback === 'function' ? callback : () => {};
+  if (typeof tabId !== 'number') {
+    done(null);
+    return;
+  }
+  const cached = overlayLoadingRecordsByTabId.get(tabId) || null;
+  if (cached) {
+    if (typeof OVERLAY_LOADING_LIFECYCLE.isExpired === 'function' &&
+        OVERLAY_LOADING_LIFECYCLE.isExpired(
+          cached,
+          Date.now(),
+          OVERLAY_LOADING_RECORD_TTL_MS
+        )) {
+      clearOverlayLoadingRecord(tabId);
+      done(null);
+      return;
+    }
+    done(cached);
+    return;
+  }
+  const sessionArea = getOverlayLoadingRecordStorageArea();
+  if (!sessionArea) {
+    done(null);
+    return;
+  }
+  const storageKey = getOverlayLoadingRecordStorageKey(tabId);
+  try {
+    sessionArea.get(storageKey, (result) => {
+      if (chrome.runtime && chrome.runtime.lastError) {
+        done(null);
+        return;
+      }
+      const stored = result && result[storageKey] && typeof result[storageKey] === 'object'
+        ? result[storageKey]
+        : null;
+      if (!stored || stored.tabId !== tabId ||
+          (typeof OVERLAY_LOADING_LIFECYCLE.isExpired === 'function' &&
+            OVERLAY_LOADING_LIFECYCLE.isExpired(
+              stored,
+              Date.now(),
+              OVERLAY_LOADING_RECORD_TTL_MS
+            ))) {
+        if (stored) {
+          clearOverlayLoadingRecord(tabId);
+        }
+        done(null);
+        return;
+      }
+      overlayLoadingRecordsByTabId.set(tabId, stored);
+      done(stored);
+    });
+  } catch (error) {
+    done(null);
+  }
+}
+
+function rememberOverlayLoadingRecord(activeTab, source, options) {
+  const settings = options && typeof options === 'object' ? options : {};
+  if (settings.loadingRecovery === true) {
+    return settings.loadingRecord || overlayLoadingRecordsByTabId.get(activeTab.id) || null;
+  }
+  const record = typeof OVERLAY_LOADING_LIFECYCLE.createRecord === 'function'
+    ? OVERLAY_LOADING_LIFECYCLE.createRecord(activeTab, source, Date.now())
+    : null;
+  if (!record) {
+    clearOverlayLoadingRecord(activeTab.id);
+    return null;
+  }
+  setOverlayLoadingRecord(record);
+  overlayLoadingRecoveryInFlightByTabId.add(activeTab.id);
+  return record;
+}
+
+function getPendingOverlayNavigationUrl(tab) {
+  if (typeof OVERLAY_LOADING_LIFECYCLE.getPendingInjectableUrl === 'function') {
+    return OVERLAY_LOADING_LIFECYCLE.getPendingInjectableUrl(
+      tab,
+      canOpenOverlayOnUrl
+    );
+  }
+  if (!tab || typeof tab.id !== 'number') {
+    return '';
+  }
+  const currentUrl = typeof tab.url === 'string' ? tab.url.trim() : '';
+  const pendingUrl = typeof tab.pendingUrl === 'string' ? tab.pendingUrl.trim() : '';
+  const isLoading = tab.status === 'loading' || Boolean(pendingUrl);
+  if (!isLoading || !pendingUrl || canOpenOverlayOnUrl(currentUrl) ||
+      !canOpenOverlayOnUrl(pendingUrl)) {
+    return '';
+  }
+  return pendingUrl;
+}
+
+function rememberOverlayPendingNavigationIntent(activeTab, source, pendingUrl) {
+  if (!activeTab || typeof activeTab.id !== 'number' || !pendingUrl) {
+    return null;
+  }
+  const record = typeof OVERLAY_LOADING_LIFECYCLE.createRecord === 'function'
+    ? OVERLAY_LOADING_LIFECYCLE.createRecord(activeTab, source, Date.now())
+    : null;
+  if (!record) {
+    return null;
+  }
+  const currentRecord = overlayLoadingRecordsByTabId.get(activeTab.id) || null;
+  const nextRecord = {
+    ...record,
+    documentId: currentRecord && currentRecord.documentId
+      ? currentRecord.documentId
+      : record.documentId,
+    session: currentRecord && currentRecord.session
+      ? currentRecord.session
+      : record.session,
+    pendingNavigationUrl: pendingUrl
+  };
+  setOverlayLoadingRecord(nextRecord);
+  logHotkeyDebug('overlay-deferred-for-pending-navigation', {
+    tabId: activeTab.id,
+    currentUrl: typeof activeTab.url === 'string' ? activeTab.url : '',
+    pendingUrl,
+    source: source || ''
+  });
+  return nextRecord;
+}
+
+function queueOverlayLoadingUpdate(tabId, changeInfo, tab) {
+  const current = overlayLoadingPendingUpdateByTabId.get(tabId) || null;
+  const incomingComplete = Boolean(changeInfo && changeInfo.status === 'complete');
+  const currentComplete = Boolean(current && current.changeInfo &&
+    current.changeInfo.status === 'complete');
+  if (currentComplete && !incomingComplete) {
+    return;
+  }
+  overlayLoadingPendingUpdateByTabId.set(tabId, {
+    changeInfo: { ...(changeInfo || {}) },
+    tab: tab ? { ...tab } : null
+  });
+}
+
+function finishOverlayLoadingOpenAttempt(tabId) {
+  if (typeof tabId !== 'number' ||
+      !overlayLoadingRecoveryInFlightByTabId.has(tabId)) {
+    return;
+  }
+  overlayLoadingRecoveryInFlightByTabId.delete(tabId);
+  const pendingUpdate = overlayLoadingPendingUpdateByTabId.get(tabId) || null;
+  overlayLoadingPendingUpdateByTabId.delete(tabId);
+  if (!pendingUpdate) {
+    return;
+  }
+  setTimeout(() => {
+    recoverOverlayAfterLoadingUpdate(
+      tabId,
+      pendingUpdate.changeInfo,
+      pendingUpdate.tab
+    );
+  }, 0);
+}
+
+function updateOverlayLoadingRecordFromInvocation(activeTab, results) {
+  if (!activeTab || typeof activeTab.id !== 'number') {
+    return;
+  }
+  const record = overlayLoadingRecordsByTabId.get(activeTab.id) || null;
+  if (!record || typeof OVERLAY_LOADING_LIFECYCLE.applyInvocationResult !== 'function') {
+    return;
+  }
+  const outcome = OVERLAY_LOADING_LIFECYCLE.applyInvocationResult(
+    record,
+    results,
+    Date.now()
+  );
+  if (!outcome || outcome.action === 'clear') {
+    clearOverlayLoadingRecord(activeTab.id);
+    return;
+  }
+  if (outcome.record) {
+    setOverlayLoadingRecord(outcome.record);
+  }
+}
+
+function updateOverlayLoadingSessionFromMessage(request, sender, sendResponse) {
+  const senderTab = sender && sender.tab ? sender.tab : null;
+  if (!senderTab || typeof senderTab.id !== 'number' ||
+      (typeof sender.frameId === 'number' && sender.frameId !== 0)) {
+    sendResponse({ ok: false, tracked: false });
+    return;
+  }
+  getOverlayLoadingRecord(senderTab.id, (record) => {
+    if (!record || typeof OVERLAY_LOADING_LIFECYCLE.applySessionUpdate !== 'function') {
+      sendResponse({ ok: true, tracked: false });
+      return;
+    }
+    const outcome = OVERLAY_LOADING_LIFECYCLE.applySessionUpdate(
+      record,
+      request && request.session,
+      {
+        documentId: sender && typeof sender.documentId === 'string'
+          ? sender.documentId
+          : '',
+        now: Date.now()
+      }
+    );
+    if (!outcome || !outcome.record) {
+      sendResponse({ ok: true, tracked: false });
+      return;
+    }
+    setOverlayLoadingRecord(outcome.record);
+    sendResponse({
+      ok: true,
+      tracked: outcome.reason !== 'stale-document'
+    });
+  });
+}
+
+function probeOverlayLoadingState(tabId, callback) {
+  chrome.scripting.executeScript({
+    target: { tabId },
+    injectImmediately: true,
+    func: (runtimeVersion, hostId) => {
+      const rawOpenState = window._x_extension_search_overlay_open_2026_unique_;
+      const host = document.getElementById(hostId);
+      return {
+        runtimeReady:
+          window._x_extension_search_overlay_runtime_version_2026_unique_ === runtimeVersion &&
+          typeof window._x_extension_toggleSearchOverlay_2026_unique_ === 'function',
+        overlayOpenState: rawOpenState === true
+          ? 'open'
+          : (rawOpenState === false ? 'closed' : 'unknown'),
+        overlayConnected: Boolean(host && host.isConnected)
+      };
+    },
+    args: [OVERLAY_RUNTIME_VERSION, OVERLAY_HOST_ID]
+  }, callback);
+}
+
+function scheduleOverlayLoadingRecoveryRetry(tab, record) {
+  if (!tab || typeof tab.id !== 'number' || !record) {
+    return;
+  }
+  const recoveryAttempts = Math.max(0, Number(record.recoveryAttempts) || 0) + 1;
+  if (recoveryAttempts > OVERLAY_LOADING_RECOVERY_MAX_ATTEMPTS) {
+    clearOverlayLoadingRecord(tab.id);
+    return;
+  }
+  const nextRecord = {
+    ...record,
+    recoveryAttempts,
+    updatedAt: Date.now()
+  };
+  setOverlayLoadingRecord(nextRecord);
+  setTimeout(() => {
+    recoverOverlayAfterLoadingUpdate(tab.id, { status: 'complete' }, tab);
+  }, OVERLAY_LOADING_RECOVERY_RETRY_MS * recoveryAttempts);
+}
+
+function scheduleOverlayLoadingPreCompleteRetry(tab, record) {
+  if (!tab || typeof tab.id !== 'number' || !record) {
+    return;
+  }
+  const committedUrl = getResolvedTabUrl(tab);
+  if (!canOpenOverlayOnUrl(committedUrl)) {
+    return;
+  }
+  const currentRecord = overlayLoadingRecordsByTabId.get(tab.id) || record;
+  const previousAttempts = currentRecord.preCompleteRetryUrl === committedUrl
+    ? Math.max(0, Number(currentRecord.preCompleteRecoveryAttempts) || 0)
+    : 0;
+  const preCompleteRecoveryAttempts = previousAttempts + 1;
+  if (preCompleteRecoveryAttempts > OVERLAY_LOADING_PRE_COMPLETE_RETRY_MAX_ATTEMPTS) {
+    logHotkeyDebug('loading-pre-complete-retry-paused', {
+      tabId: tab.id,
+      url: committedUrl,
+      source: currentRecord.source || ''
+    });
+    return;
+  }
+  const nextRecord = {
+    ...currentRecord,
+    preCompleteRetryUrl: committedUrl,
+    preCompleteRecoveryAttempts,
+    updatedAt: Date.now()
+  };
+  setOverlayLoadingRecord(nextRecord);
+  setTimeout(() => {
+    getOverlayLoadingRecord(tab.id, (latestRecord) => {
+      if (!latestRecord || latestRecord.preCompleteRetryUrl !== committedUrl ||
+          Number(latestRecord.preCompleteRecoveryAttempts) !== preCompleteRecoveryAttempts) {
+        return;
+      }
+      const retryWithCurrentTab = (currentTab) => {
+        const stillTracked = overlayLoadingRecordsByTabId.get(tab.id) || null;
+        if (!stillTracked || stillTracked.preCompleteRetryUrl !== committedUrl ||
+            Number(stillTracked.preCompleteRecoveryAttempts) !== preCompleteRecoveryAttempts) {
+          return;
+        }
+        const retryTab = currentTab && typeof currentTab === 'object'
+          ? currentTab
+          : tab;
+        const retryUrl = getResolvedTabUrl(retryTab);
+        if (!canOpenOverlayOnUrl(retryUrl)) {
+          return;
+        }
+        const retryChangeInfo = retryTab.status === 'complete'
+          ? { status: retryTab.status }
+          : { url: retryUrl };
+        recoverOverlayAfterLoadingUpdate(tab.id, retryChangeInfo, retryTab);
+      };
+      if (chrome.tabs && typeof chrome.tabs.get === 'function') {
+        chrome.tabs.get(tab.id, (currentTab) => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            return;
+          }
+          retryWithCurrentTab(currentTab);
+        });
+        return;
+      }
+      retryWithCurrentTab(tab);
+    });
+  }, OVERLAY_LOADING_PRE_COMPLETE_RETRY_MS * preCompleteRecoveryAttempts);
+}
+
+function restoreOverlayAfterLoadingDocumentChange(tab, record, complete) {
+  if (!tab || typeof tab.id !== 'number' || !record) {
+    return;
+  }
+  openOverlayOnTab(tab, [], record.source, {
+    loadingRecovery: true,
+    loadingRecord: record,
+    ensureOpen: true,
+    skipDuplicateGuard: true,
+    onComplete: (ok) => {
+      if (complete === true) {
+        if (ok) {
+          clearOverlayLoadingRecord(tab.id);
+        } else {
+          scheduleOverlayLoadingRecoveryRetry(tab, record);
+        }
+        return;
+      }
+      if (!ok) {
+        logHotkeyDebug('loading-recovery-failed', {
+          tabId: tab.id,
+          source: record.source || ''
+        });
+        scheduleOverlayLoadingPreCompleteRetry(tab, record);
+      }
+    }
+  });
+}
+
+function recoverOverlayAfterLoadingUpdate(tabId, changeInfo, tab) {
+  const isComplete = Boolean(changeInfo && changeInfo.status === 'complete');
+  const isCommittedUrl = Boolean(changeInfo && typeof changeInfo.url === 'string');
+  if (!isComplete && !isCommittedUrl) {
+    return;
+  }
+  if (overlayLoadingRecoveryInFlightByTabId.has(tabId)) {
+    queueOverlayLoadingUpdate(tabId, changeInfo, tab);
+    return;
+  }
+  getOverlayLoadingRecord(tabId, (record) => {
+    if (!record) {
+      return;
+    }
+    if (overlayLoadingRecoveryInFlightByTabId.has(tabId)) {
+      queueOverlayLoadingUpdate(tabId, changeInfo, tab);
+      return;
+    }
+    const resolvedTab = Object.assign({}, tab || {}, { id: tabId });
+    if (isCommittedUrl) {
+      resolvedTab.url = changeInfo.url;
+    }
+    const resolvedUrl = getResolvedTabUrl(resolvedTab);
+    if (!canOpenOverlayOnUrl(resolvedUrl)) {
+      const trackedPendingUrl = typeof record.pendingNavigationUrl === 'string'
+        ? record.pendingNavigationUrl
+        : '';
+      if (!isComplete && canOpenOverlayOnUrl(trackedPendingUrl)) {
+        return;
+      }
+      clearOverlayLoadingRecord(tabId);
+      return;
+    }
+    overlayLoadingRecoveryInFlightByTabId.add(tabId);
+    probeOverlayLoadingState(tabId, (results) => {
+      if (chrome.runtime && chrome.runtime.lastError) {
+        if (isComplete) {
+          restoreOverlayAfterLoadingDocumentChange(resolvedTab, record, true);
+        } else {
+          finishOverlayLoadingOpenAttempt(tabId);
+          scheduleOverlayLoadingPreCompleteRetry(resolvedTab, record);
+        }
+        return;
+      }
+      const outcome = typeof OVERLAY_LOADING_LIFECYCLE.decideRecovery === 'function'
+        ? OVERLAY_LOADING_LIFECYCLE.decideRecovery(record, results, {
+          complete: isComplete,
+          now: Date.now(),
+          ttlMs: OVERLAY_LOADING_RECORD_TTL_MS
+        })
+        : { action: 'clear', record: null };
+      if (!outcome || outcome.action === 'clear' || outcome.action === 'none') {
+        clearOverlayLoadingRecord(tabId);
+        return;
+      }
+      if (outcome.record) {
+        setOverlayLoadingRecord(outcome.record);
+      }
+      if (outcome.action === 'keep') {
+        finishOverlayLoadingOpenAttempt(tabId);
+        return;
+      }
+      restoreOverlayAfterLoadingDocumentChange(
+        resolvedTab,
+        outcome.record || record,
+        isComplete
+      );
+    });
+  });
+}
+
+function openOverlayOnTab(activeTab, tabs, source, options) {
+  const openOptions = options && typeof options === 'object' ? options : {};
+  let overlayOpening = null;
+  let didFinishOpenAttempt = false;
+  let shouldRetryPreCompleteFailure = false;
+  const finishOpenAttempt = (ok) => {
+    if (didFinishOpenAttempt) {
+      return;
+    }
+    didFinishOpenAttempt = true;
+    if (typeof openOptions.onComplete === 'function') {
+      openOptions.onComplete(ok === true);
+    }
+    if (overlayOpening) {
+      finishOverlayOpening(overlayOpening);
+      overlayOpening = null;
+    }
+    if (ok !== true && openOptions.loadingRecovery !== true &&
+        shouldRetryPreCompleteFailure && activeTab &&
+        typeof activeTab.id === 'number') {
+      const trackedRecord = overlayLoadingRecordsByTabId.get(activeTab.id) || null;
+      if (trackedRecord) {
+        scheduleOverlayLoadingPreCompleteRetry(activeTab, trackedRecord);
+      }
+    }
+    if ((openOptions.loadingRecovery === true || shouldRetryPreCompleteFailure) &&
+        activeTab && typeof activeTab.id === 'number') {
+      finishOverlayLoadingOpenAttempt(activeTab.id);
+    }
+  };
   if (!activeTab || typeof activeTab.id !== 'number') {
     logHotkeyDebug('no-active-tab', { source: source || '' });
     openNewtabFallback();
+    finishOpenAttempt(false);
     return;
   }
-  if (shouldIgnoreDuplicateHotkey(activeTab.id)) {
+  if (openOptions.skipDuplicateGuard !== true && shouldIgnoreDuplicateHotkey(activeTab.id)) {
     logHotkeyDebug('duplicate-ignored', { tabId: activeTab.id, source: source || '' });
+    finishOpenAttempt(false);
+    return;
+  }
+  const pendingNavigationUrl = getPendingOverlayNavigationUrl(activeTab);
+  if (openOptions.loadingRecovery !== true && pendingNavigationUrl &&
+      rememberOverlayPendingNavigationIntent(activeTab, source, pendingNavigationUrl)) {
+    finishOpenAttempt(false);
     return;
   }
   const activeUrl = getResolvedTabUrl(activeTab);
@@ -3950,6 +4541,7 @@ function openOverlayOnTab(activeTab, tabs, source) {
     source: source || ''
   });
   if (restricted) {
+    finishOpenAttempt(false);
     if (isSearchCommandSource(source) && (isLumnoNewtabUrl(activeUrl) || isBrowserNewtabUrl(activeUrl))) {
       requestFocusVisibleNewtabInput(source, activeTab.id);
       return;
@@ -3982,6 +4574,13 @@ function openOverlayOnTab(activeTab, tabs, source) {
     openNewtabFallbackForUrl(activeUrl, { sourceTab: activeTab });
     return;
   }
+  overlayOpening = beginOverlayOpening(activeTab, source);
+  if (!overlayOpening) {
+    finishOpenAttempt(false);
+    return;
+  }
+  const overlayLoadingRecord = rememberOverlayLoadingRecord(activeTab, source, openOptions);
+  shouldRetryPreCompleteFailure = Boolean(overlayLoadingRecord);
   const overlayInjectionFiles = [
     'src/shared/icon-font-preload.js',
     'src/shared/codex-debug-surface.js',
@@ -4016,7 +4615,6 @@ function openOverlayOnTab(activeTab, tabs, source) {
     'src/react/overlay-islands.js',
     'src/overlay/search-panel.js'
   ];
-  const expectedOverlayRuntimeVersion = '2026-08-17-fast-open-v4';
   const runOverlayScript = (tabZoomFactor) => {
       const prefillQuery = getOverlayPrefillQueryForSource(activeTab, source);
       const prioritizeCurrentPageMatch = source === 'page-hotkey-prefill';
@@ -4028,14 +4626,21 @@ function openOverlayOnTab(activeTab, tabs, source) {
         .catch(() => {});
       chrome.scripting.executeScript({
             target: {tabId: activeTab.id},
-            func: (overlayTabs, overlayPanelContext) => {
+            injectImmediately: true,
+            func: (overlayTabs, overlayPanelContext, overlayHostId) => {
               const toggleOverlay = window._x_extension_toggleSearchOverlay_2026_unique_;
               if (typeof toggleOverlay !== 'function') {
                 console.warn('Lumno: overlay search panel helper not available.');
                 return { ok: false, reason: 'search_panel_missing' };
               }
               toggleOverlay(overlayTabs, overlayPanelContext);
-              return { ok: true };
+              const overlayHost = document.getElementById(overlayHostId);
+              return {
+                ok: true,
+                overlayOpen:
+                  window._x_extension_search_overlay_open_2026_unique_ === true &&
+                  Boolean(overlayHost && overlayHost.isConnected)
+              };
             },
             args: [tabs, {
               tabZoomFactor: tabZoomFactor,
@@ -4044,8 +4649,13 @@ function openOverlayOnTab(activeTab, tabs, source) {
               currentTabId: typeof activeTab.id === 'number' ? activeTab.id : null,
               currentTabUrl: getResolvedTabUrl(activeTab),
               documentPipEnabled: documentPipEnabledCache,
-              siteSearchProviders: Array.isArray(siteSearchProviders) ? siteSearchProviders : []
-            }]
+              siteSearchProviders: Array.isArray(siteSearchProviders) ? siteSearchProviders : [],
+              ensureOpen: openOptions.ensureOpen === true,
+              loadingSessionTracked: Boolean(overlayLoadingRecord),
+              loadingSession: overlayLoadingRecord && overlayLoadingRecord.session
+                ? overlayLoadingRecord.session
+                : null
+            }, OVERLAY_HOST_ID]
           }, function(results) {
             if (chrome.runtime.lastError) {
               logHotkeyDebug('inject-failed', {
@@ -4054,10 +4664,17 @@ function openOverlayOnTab(activeTab, tabs, source) {
                 error: chrome.runtime.lastError.message || 'unknown',
                 source: source || ''
               });
-              openNewtabFallback({ sourceTab: activeTab });
+              if (openOptions.loadingRecovery !== true &&
+                  !overlayLoadingRecordsByTabId.has(activeTab.id)) {
+                openNewtabFallback({ sourceTab: activeTab });
+              }
+              finishOpenAttempt(false);
               return;
             }
-            const result = Array.isArray(results) && results[0] ? results[0].result : null;
+            const mainResult = typeof OVERLAY_LOADING_LIFECYCLE.getMainFrameResult === 'function'
+              ? OVERLAY_LOADING_LIFECYCLE.getMainFrameResult(results)
+              : (Array.isArray(results) && results[0] ? results[0] : null);
+            const result = mainResult ? mainResult.result : null;
             if (result && result.ok === false) {
               logHotkeyDebug('inject-failed', {
                 step: 'src/overlay/search-panel.js',
@@ -4065,9 +4682,14 @@ function openOverlayOnTab(activeTab, tabs, source) {
                 error: result.reason || 'unknown',
                 source: source || ''
               });
-              openNewtabFallback({ sourceTab: activeTab });
+              if (openOptions.loadingRecovery !== true &&
+                  !overlayLoadingRecordsByTabId.has(activeTab.id)) {
+                openNewtabFallback({ sourceTab: activeTab });
+              }
+              finishOpenAttempt(false);
               return;
             }
+            updateOverlayLoadingRecordFromInvocation(activeTab, results);
             logHotkeyDebug('overlay-opened', {
               tabId: activeTab.id,
               tabCount: Array.isArray(tabs) ? tabs.length : 0,
@@ -4075,6 +4697,7 @@ function openOverlayOnTab(activeTab, tabs, source) {
               tabZoomFactor: tabZoomFactor,
               siteSearchProviderCount: Array.isArray(siteSearchProviders) ? siteSearchProviders.length : 0
             });
+            finishOpenAttempt(Boolean(result && result.overlayOpen === true));
           });
   };
   const runOverlayWithResolvedZoom = () => {
@@ -4093,6 +4716,7 @@ function openOverlayOnTab(activeTab, tabs, source) {
     logHotkeyDebug('inject-start', { tabId: activeTab.id, file: overlayInjectionFiles.join(','), source: source || '' });
     chrome.scripting.executeScript({
       target: {tabId: activeTab.id},
+      injectImmediately: true,
       files: overlayInjectionFiles
     }, function() {
       if (chrome.runtime.lastError) {
@@ -4102,7 +4726,11 @@ function openOverlayOnTab(activeTab, tabs, source) {
           error: chrome.runtime.lastError.message || 'unknown',
           source: source || ''
         });
-        openNewtabFallbackForUrl(activeUrl, { sourceTab: activeTab });
+        if (openOptions.loadingRecovery !== true &&
+            !overlayLoadingRecordsByTabId.has(activeTab.id)) {
+          openNewtabFallbackForUrl(activeUrl, { sourceTab: activeTab });
+        }
+        finishOpenAttempt(false);
         return;
       }
       runOverlayWithResolvedZoom();
@@ -4110,11 +4738,12 @@ function openOverlayOnTab(activeTab, tabs, source) {
   };
   chrome.scripting.executeScript({
     target: {tabId: activeTab.id},
+    injectImmediately: true,
     func: (runtimeVersion) => {
       return window._x_extension_search_overlay_runtime_version_2026_unique_ === runtimeVersion &&
         typeof window._x_extension_toggleSearchOverlay_2026_unique_ === 'function';
     },
-    args: [expectedOverlayRuntimeVersion]
+    args: [OVERLAY_RUNTIME_VERSION]
   }, (results) => {
     const probeError = chrome.runtime.lastError;
     const runtimeReady = !probeError &&
@@ -4125,7 +4754,7 @@ function openOverlayOnTab(activeTab, tabs, source) {
       logHotkeyDebug('runtime-reused', {
         tabId: activeTab.id,
         source: source || '',
-        version: expectedOverlayRuntimeVersion
+        version: OVERLAY_RUNTIME_VERSION
       });
       runOverlayWithResolvedZoom();
       return;
@@ -4138,6 +4767,10 @@ function triggerShowSearchForTab(tab, source) {
   if (!tab || typeof tab.id !== 'number') {
     logHotkeyDebug('no-active-tab', { source: source || '' });
     openNewtabFallback();
+    return;
+  }
+  if (getPendingOverlayNavigationUrl(tab)) {
+    openOverlayOnTab(tab, [], source);
     return;
   }
   const activeUrl = getResolvedTabUrl(tab);
@@ -5035,6 +5668,11 @@ if (chrome && chrome.windows && chrome.windows.onFocusChanged) {
 
 if (chrome && chrome.tabs && chrome.tabs.onRemoved) {
   chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+    const overlayOpening = overlayOpeningByTabId.get(tabId);
+    if (overlayOpening) {
+      finishOverlayOpening(overlayOpening);
+    }
+    clearOverlayLoadingRecord(tabId);
     clearTabSwitchStat(tabId);
     removeRecentSwitcherTab(tabId);
     clearGlobalPipOwnerForTabId(tabId);
@@ -5055,6 +5693,7 @@ if (chrome && chrome.tabs && chrome.tabs.onUpdated) {
     if (!changeInfo) {
       return;
     }
+    recoverOverlayAfterLoadingUpdate(tabId, changeInfo, tab);
     if (typeof changeInfo.url === 'string' || changeInfo.status === 'complete') {
       const providerTab = Object.assign({}, tab || {}, {
         id: typeof tabId === 'number' ? tabId : (tab && tab.id),
@@ -5519,6 +6158,8 @@ const BACKGROUND_MESSAGE_ROUTE_GROUPS = Object.freeze({
     actions: [
       'switchToTab',
       'reportTabVisible',
+      'notifyOverlayClosed',
+      'updateOverlayLoadingSession',
       'getTabsForOverlay',
       'trackSearchTab',
       'closeOtherTabsForOverlay'
@@ -5650,6 +6291,18 @@ function handleTabMessage(request, sender, sendResponse) {
       }
       sendResponse({ ok: true });
       return;
+    }
+    case 'notifyOverlayClosed': {
+      const senderTab = sender && sender.tab ? sender.tab : null;
+      if (senderTab && typeof senderTab.id === 'number') {
+        clearOverlayLoadingRecord(senderTab.id);
+      }
+      sendResponse({ ok: true });
+      return;
+    }
+    case 'updateOverlayLoadingSession': {
+      updateOverlayLoadingSessionFromMessage(request, sender, sendResponse);
+      return true;
     }
     case 'getTabsForOverlay': {
       ensureTabSwitchStatsLoaded()
