@@ -1,7 +1,7 @@
 'use strict';
 
 window._x_extension_search_overlay_runtime_version_2026_unique_ =
-  '2026-08-17-navigation-intent-v8';
+  '2026-08-17-fast-reveal-navigation-intent-v10';
 window._x_extension_search_overlay_open_2026_unique_ = false;
 
 window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayContext) {
@@ -181,6 +181,14 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     ? String(normalizedOverlayContext.currentTabUrl).trim()
     : '';
   const ensureOverlayOpen = normalizedOverlayContext.ensureOpen === true;
+  const initialOverlayOpenStartedAtRaw = Number(normalizedOverlayContext.openedAt);
+  const initialOverlayClockNow = Date.now();
+  const initialOverlayOpenStartedAt = Number.isFinite(initialOverlayOpenStartedAtRaw) &&
+    initialOverlayOpenStartedAtRaw <= initialOverlayClockNow + 1000 &&
+    initialOverlayOpenStartedAtRaw >= initialOverlayClockNow - 60 * 1000
+    ? initialOverlayOpenStartedAtRaw
+    : initialOverlayClockNow;
+  const OVERLAY_STARTUP_ENTRY_MOTION_BUDGET_MS = 280;
   let loadingSessionTrackingActive = normalizedOverlayContext.loadingSessionTracked === true;
   const rawLoadingSession = normalizedOverlayContext.loadingSession &&
     typeof normalizedOverlayContext.loadingSession === 'object'
@@ -779,6 +787,10 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     }
     return motionEffectsEnabled === false ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function shouldSkipOverlayEntryMotionForSlowStartup() {
+    return Date.now() - initialOverlayOpenStartedAt > OVERLAY_STARTUP_ENTRY_MOTION_BUDGET_MS;
   }
 
   function getOverlayEnterAnimationRevealTransform() {
@@ -2482,9 +2494,35 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       const value = Number.parseFloat(rawValue);
       return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
+    function syncOpenTabsScrollbarGutter(computedStyle) {
+      if (!suggestionsContainer.hasAttribute('data-open-tabs-visible-row-limit')) {
+        return;
+      }
+      const style = computedStyle || window.getComputedStyle(suggestionsContainer);
+      const gutterWidth = Math.max(
+        0,
+        Math.round(
+          (Number(suggestionsContainer.offsetWidth) || 0) -
+          (Number(suggestionsContainer.clientWidth) || 0) -
+          readComputedCssPixels(style, 'borderLeftWidth') -
+          readComputedCssPixels(style, 'borderRightWidth')
+        )
+      );
+      // Keep the CSS fallback while an async stylesheet has not exposed its
+      // native gutter yet. Once it has, give that exact width back to rows.
+      if (!gutterWidth) {
+        return;
+      }
+      suggestionsContainer.style.setProperty(
+        '--x-ov-open-tabs-scrollbar-gutter',
+        `${gutterWidth}px`,
+        inputUsesIsolatedStyles ? '' : 'important'
+      );
+    }
     function setOpenTabsResultsViewport(active, itemCount) {
       if (!active) {
         suggestionsContainer.style.removeProperty('--x-ov-suggestions-max-height');
+        suggestionsContainer.style.removeProperty('--x-ov-open-tabs-scrollbar-gutter');
         suggestionsContainer.removeAttribute('data-open-tabs-visible-row-limit');
         return;
       }
@@ -2496,6 +2534,12 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         String(visibleRowLimit)
       );
       const computedStyle = window.getComputedStyle(suggestionsContainer);
+      syncOpenTabsScrollbarGutter(computedStyle);
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => {
+          syncOpenTabsScrollbarGutter();
+        });
+      }
       const maxHeight = SUGGESTION_NAVIGATION.getVisibleRowsViewportHeight({
         visibleRowLimit,
         itemCount,
@@ -2514,21 +2558,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         suggestionsContainer.style.removeProperty('--x-ov-suggestions-max-height');
       }
     }
-    let suggestionsHeightAnimationFrame = 0;
-    let suggestionsHeightAnimationTimer = 0;
-    let suggestionsHeightTransitionEndHandler = null;
-    let suggestionsHeightAnimationTarget = 0;
-    let suggestionsHeightAnimationTargetIsCapped = false;
-    let searchPanelsLayoutTransitionActive = false;
-    const searchPanelsLayoutTransitionDurationMs = 180;
-    const searchPanelsLayoutTransitionEasing =
-      'cubic-bezier(0.22, 1, 0.36, 1)';
-    const suggestionsHeightInputSettleMs = 280;
-    const suggestionsHeightRemoteMixSettleMs = 1200;
-    let suggestionsHeightInputSettleTimer = 0;
-    let suggestionsHeightInputLockedHeight = 0;
-    let suggestionsHeightInputLockedPadding = null;
-    let deferredSuggestionsHeightQuery = '';
     const inputDivider = inputParts.divider;
     overlayWheelIsolationHandler = createOverlayWheelIsolationHandler(overlay);
     overlay.addEventListener('wheel', overlayWheelIsolationHandler, { passive: false, capture: true });
@@ -2561,9 +2590,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     function syncSearchModeMenuResultOffset() {
       if (!inputModeController ||
           typeof inputModeController.setModeMenuResultOffset !== 'function') {
-        return;
-      }
-      if (searchPanelsLayoutTransitionActive) {
         return;
       }
       const fitMaxHeightProperty =
@@ -2609,9 +2635,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           : 'var(--x-ov-content-radius, 27px) var(--x-ov-content-radius, 27px) 0 0'
       );
       if (shouldCollapse) {
-        finishSuggestionsHeightInputSession({ animate: false });
-        deferredSuggestionsHeightQuery = '';
-        cancelSuggestionsHeightAnimation(suggestionsContainer);
+        applyInstantSuggestionsHeightLayout(suggestionsContainer);
         suggestionsContainer.style.setProperty('max-height', '0px', inputUsesIsolatedStyles ? '' : 'important');
         suggestionsContainer.style.setProperty('min-height', '0px', inputUsesIsolatedStyles ? '' : 'important');
         suggestionsContainer.style.setProperty('padding-top', '0px', inputUsesIsolatedStyles ? '' : 'important');
@@ -2623,6 +2647,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         syncSearchModeMenuResultOffset();
         return;
       }
+      applyInstantSuggestionsHeightLayout(suggestionsContainer);
       if (!wasCollapsed) {
         setInputDividerVisible(true);
         if (shouldSyncLayout) {
@@ -2637,7 +2662,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       suggestionsContainer.style.removeProperty('opacity');
       suggestionsContainer.style.removeProperty('pointer-events');
       suggestionsContainer.style.removeProperty('overflow');
-      suggestionsContainer.style.removeProperty('transition');
       suggestionsContainer.removeAttribute('aria-hidden');
       setInputDividerVisible(true);
       if (shouldSyncLayout) {
@@ -3860,12 +3884,12 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     };
     chrome.storage.onChanged.addListener(overlaySearchEngineStorageListener);
 
-    function updatePendingSearchSuggestions(query, options) {
+    function updatePendingSearchSuggestions(query) {
       if (suggestionsContainer.getAttribute('data-collapsed') === 'true' ||
           suggestionsContainer.getAttribute('aria-hidden') === 'true') {
         return false;
       }
-      updateSearchSuggestions(lastSuggestionResponse, query, options);
+      updateSearchSuggestions(lastSuggestionResponse, query);
       return true;
     }
 
@@ -3889,9 +3913,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         settled: false,
         hasFinalSuggestions: false
       };
-      if (!requestLocalSearchScope) {
-        extendSuggestionsHeightInputSessionForRemoteMix(requestQuery);
-      }
       if (overlayRemoteSuggestionDebounceTimer) {
         clearTimeout(overlayRemoteSuggestionDebounceTimer);
         overlayRemoteSuggestionDebounceTimer = null;
@@ -3911,9 +3932,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           return;
         }
         if (chrome.runtime && chrome.runtime.lastError) {
-          updatePendingSearchSuggestions(requestQuery, {
-            settleHeightAfterRemoteMix: true
-          });
+          updatePendingSearchSuggestions(requestQuery);
           return;
         }
         const localSuggestions = response && Array.isArray(response.suggestions) ? response.suggestions : [];
@@ -3940,13 +3959,11 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
             remoteMixState.visualSettled = true;
             updateSearchSuggestions(localSuggestions, requestQuery, {
               remoteMixState,
-              finalRemoteMix: true,
-              settleHeightAfterRemoteMix: true
+              finalRemoteMix: true
             });
           }, OVERLAY_FIRST_RESULT_REVEAL_DELAY_MS);
         } else {
           updateSearchSuggestions(localSuggestions, requestQuery, {
-            deferCappedShrink: true,
             remoteMixState
           });
         }
@@ -3975,14 +3992,12 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
                 remoteMixState.visualSettled = true;
                 updateSearchSuggestions(localSuggestions, requestQuery, {
                   remoteMixState,
-                  finalRemoteMix: true,
-                  settleHeightAfterRemoteMix: true
+                  finalRemoteMix: true
                 });
               } else {
                 updateSearchSuggestions(localSuggestions, requestQuery, {
                   remoteMixState,
-                  finalRemoteMix: true,
-                  settleHeightAfterRemoteMix: true
+                  finalRemoteMix: true
                 });
               }
               return;
@@ -3998,14 +4013,12 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
                 remoteMixState.visualSettled = true;
                 updateSearchSuggestions(localSuggestions, requestQuery, {
                   remoteMixState,
-                  finalRemoteMix: true,
-                  settleHeightAfterRemoteMix: true
+                  finalRemoteMix: true
                 });
               } else {
                 updateSearchSuggestions(localSuggestions, requestQuery, {
                   remoteMixState,
-                  finalRemoteMix: true,
-                  settleHeightAfterRemoteMix: true
+                  finalRemoteMix: true
                 });
               }
               return;
@@ -4021,15 +4034,13 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
               remoteMixState.visualSettled = true;
               updateSearchSuggestions(remoteResponse.suggestions, requestQuery, {
                 remoteMixState,
-                finalRemoteMix: true,
-                settleHeightAfterRemoteMix: true
+                finalRemoteMix: true
               });
               return;
             }
             updateSearchSuggestions(remoteResponse.suggestions, requestQuery, {
               remoteMixState,
-              finalRemoteMix: true,
-              settleHeightAfterRemoteMix: true
+              finalRemoteMix: true
             });
           });
         }, remoteDelay);
@@ -6169,7 +6180,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           return false;
         }
         if (expectedInputValue.trim()) {
-          beginSearchModeResultTransition(expectedInputValue);
           activateSiteSearch(provider, {
             animatePrefix: false,
             preserveResults: true
@@ -6198,13 +6208,8 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    function beginSearchModeResultTransition(rawQuery) {
-      const query = String(rawQuery || '').trim();
-      if (!query) {
-        return false;
-      }
-      beginSuggestionsHeightInputSession(query);
-      return true;
+    function shouldPreserveSearchModeResults(rawQuery) {
+      return Boolean(String(rawQuery || '').trim());
     }
 
     function selectSearchModeMenuItem(item) {
@@ -6212,7 +6217,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         return;
       }
       const rawQuery = searchInput.value || '';
-      const preserveResults = beginSearchModeResultTransition(rawQuery);
+      const preserveResults = shouldPreserveSearchModeResults(rawQuery);
       if (item.kind === 'openTabs') {
         activateOpenTabsSearchMode({
           deferResults: true,
@@ -6311,8 +6316,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       cancelPendingOpenTabsPrefixEntry();
       if (options.preserveResults === true) {
         cancelPendingOverlaySuggestionRequests();
-      } else {
-        finishSuggestionsHeightInputSession({ animate: false });
       }
       openTabsSearchModeActive = false;
       localSearchScopeState = null;
@@ -6514,9 +6517,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         clearAutocomplete();
         syncSearchTriggerHintFromInput(rawValue);
         if (query.length > 0) {
-          if (!siteSearchState) {
-            beginSuggestionsHeightInputSession(query);
-          }
           if (!localSearchScopeState && isSlashCommandInput(query)) {
             updateSearchSuggestions([], query);
             return;
@@ -6526,9 +6526,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
             return;
           }
           if (getDirectUrlSuggestion(query)) {
-            updatePendingSearchSuggestions(query, {
-              deferCappedShrink: true
-            });
+            updatePendingSearchSuggestions(query);
           }
           requestOverlaySearchSuggestions(query);
         } else {
@@ -6583,9 +6581,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         clearAutocomplete();
         syncSearchTriggerHintFromInput(rawValue);
         if (query.length > 0) {
-          if (!siteSearchState) {
-            beginSuggestionsHeightInputSession(query);
-          }
           if (!localSearchScopeState && isSlashCommandInput(query)) {
             updateSearchSuggestions([], query);
             return;
@@ -6595,9 +6590,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
             return;
           }
           if (isPaste || getDirectUrlSuggestion(query)) {
-            updatePendingSearchSuggestions(query, {
-              deferCappedShrink: true
-            });
+            updatePendingSearchSuggestions(query);
           }
           requestOverlaySearchSuggestions(query);
         } else {
@@ -7381,451 +7374,30 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       return menu && !menu.hidden ? menu : null;
     }
 
-    function clearSearchPanelsLayoutTransitionStyles() {
-      searchPanelsLayoutTransitionActive = false;
-      if (inputModeController &&
-          typeof inputModeController.finishModeMenuResultTransition === 'function') {
-        inputModeController.finishModeMenuResultTransition();
-      }
-    }
-
-    function readSuggestionsVerticalPadding(container) {
-      if (!container) {
-        return { top: 0, bottom: 0 };
-      }
-      const computedStyle = window.getComputedStyle(container);
-      const read = (property) => Math.max(
-        0,
-        Number.parseFloat(
-          computedStyle && typeof computedStyle.getPropertyValue === 'function'
-            ? computedStyle.getPropertyValue(property)
-            : ''
-        ) || 0
-      );
-      return {
-        top: read('padding-top'),
-        bottom: read('padding-bottom')
-      };
-    }
-
-    function clipSuggestionsToHeight(container, height, options) {
+    function applyInstantSuggestionsHeightLayout(container) {
       if (!container) {
         return;
       }
-      const clipOptions = options || {};
-      const clippedHeight = Math.max(0, Number(height) || 0);
-      const clippedPadding = clipOptions.collapsePadding === true
-        ? { top: 0, bottom: 0 }
-        : clipOptions.padding;
-      container.setAttribute('data-height-clipped', 'true');
-      container.style.setProperty('flex', '0 0 auto', 'important');
-      container.style.setProperty('height', `${clippedHeight}px`, 'important');
-      if (clippedPadding) {
-        container.style.setProperty(
-          'padding-top',
-          `${Math.max(0, Number(clippedPadding.top) || 0)}px`,
-          'important'
-        );
-        container.style.setProperty(
-          'padding-bottom',
-          `${Math.max(0, Number(clippedPadding.bottom) || 0)}px`,
-          'important'
-        );
-      }
-      container.style.setProperty('overflow-x', 'hidden', 'important');
-      container.style.setProperty(
-        'overflow-y',
-        clipOptions.scrollable === true ? 'auto' : 'hidden',
-        'important'
-      );
-    }
-
-    function cancelSuggestionsHeightAnimation(container) {
-      if (!container) {
-        return;
-      }
-      if (suggestionsHeightAnimationFrame) {
-        cancelAnimationFrame(suggestionsHeightAnimationFrame);
-        suggestionsHeightAnimationFrame = 0;
-      }
-      if (suggestionsHeightAnimationTimer) {
-        clearTimeout(suggestionsHeightAnimationTimer);
-        suggestionsHeightAnimationTimer = 0;
-      }
-      if (suggestionsHeightTransitionEndHandler) {
-        container.removeEventListener('transitionend', suggestionsHeightTransitionEndHandler);
-        suggestionsHeightTransitionEndHandler = null;
-      }
-      suggestionsHeightAnimationTarget = 0;
-      suggestionsHeightAnimationTargetIsCapped = false;
       container.removeAttribute('data-height-clipped');
-      container.style.removeProperty('flex');
-      container.style.removeProperty('height');
-      container.style.removeProperty('overflow');
-      container.style.removeProperty('overflow-x');
-      container.style.removeProperty('overflow-y');
-      container.style.removeProperty('transition');
-      container.style.removeProperty('will-change');
-      container.style.removeProperty('padding-top');
-      container.style.removeProperty('padding-bottom');
-      clearSearchPanelsLayoutTransitionStyles();
-    }
-
-    function readSuggestionsHeightMetrics(container) {
-      const metrics = {
-        height: 0,
-        maxHeight: 0,
-        atMaxHeight: false
-      };
-      if (!container) {
-        return metrics;
-      }
-      const layoutHeight = Math.max(
-        0,
-        Number(container.offsetHeight) ||
-          Number(container.clientHeight) ||
-          Number(container.getBoundingClientRect().height) ||
-          0
-      );
-      const computedStyle = window.getComputedStyle(container);
-      const maxHeight = Number.parseFloat(computedStyle && computedStyle.maxHeight) || 0;
-      const clientHeight = Math.max(0, Number(container.clientHeight) || layoutHeight);
-      const scrollHeight = Math.max(0, Number(container.scrollHeight) || 0);
-      metrics.height = layoutHeight;
-      metrics.maxHeight = maxHeight;
-      metrics.atMaxHeight = Boolean(
-        (maxHeight > 0 && layoutHeight >= maxHeight - 1) ||
-        scrollHeight > clientHeight + 1
-      );
-      return metrics;
-    }
-
-    function captureSuggestionsHeightState(container) {
-      const state = {
-        height: 0,
-        heldHeight: 0,
-        atMaxHeight: false,
-        padding: null
-      };
-      if (!container) {
-        return state;
-      }
-      const isCollapsed = typeof container.getAttribute === 'function' && (
-        container.getAttribute('data-collapsed') === 'true' ||
-        container.getAttribute('aria-hidden') === 'true'
-      );
-      if (isCollapsed) {
-        return state;
-      }
-      const hasRenderedContent = Boolean(container.children && container.children.length > 0);
-      if (hasRenderedContent) {
-        const metrics = readSuggestionsHeightMetrics(container);
-        const hasTrackedAnimationTarget = suggestionsHeightAnimationTarget > 0;
-        state.height = metrics.height;
-        state.atMaxHeight = hasTrackedAnimationTarget
-          ? suggestionsHeightAnimationTargetIsCapped
-          : metrics.atMaxHeight;
-        state.heldHeight = metrics.height;
-        state.padding = readSuggestionsVerticalPadding(container);
-      }
-      cancelSuggestionsHeightAnimation(container);
-      return state;
-    }
-
-    function holdSuggestionsHeightForRemoteMix(container, previousState, query, enabled) {
-      if (!container || !previousState || !previousState.height) {
-        return false;
-      }
-      const shouldHold = Boolean(enabled || suggestionsHeightInputLockedHeight > 0);
-      if (!shouldHold) {
-        return false;
-      }
-      const heldHeight = Math.max(
-        0,
-        Number(suggestionsHeightInputLockedHeight) ||
-          Number(previousState.heldHeight) ||
-          previousState.height
-      );
-      const heldPadding = suggestionsHeightInputLockedPadding ||
-        previousState.padding ||
-        readSuggestionsVerticalPadding(container);
-      if (suggestionsHeightInputSettleTimer && !suggestionsHeightInputLockedHeight) {
-        suggestionsHeightInputLockedHeight = heldHeight;
-      }
-      cancelSuggestionsHeightAnimation(container);
-      clipSuggestionsToHeight(container, heldHeight, {
-        scrollable: true,
-        padding: heldPadding
-      });
+      [
+        'flex',
+        'height',
+        'overflow',
+        'overflow-x',
+        'overflow-y',
+        'padding-top',
+        'padding-bottom',
+        'transition',
+        'will-change'
+      ].forEach((property) => container.style.removeProperty(property));
+      // Results adopt their natural height in the same render commit. Keep an
+      // explicit guard so page styles cannot reintroduce a container tween.
       container.style.setProperty('transition', 'none', 'important');
-      deferredSuggestionsHeightQuery = query;
-      return true;
     }
 
-    function reconcileSuggestionsHeightAfterRender(previousState, query, options) {
-      if (!previousState) {
-        return false;
-      }
-      const reconcileOptions = options && typeof options === 'object'
-        ? options
-        : {};
-      const heightHeld = holdSuggestionsHeightForRemoteMix(
-        suggestionsContainer,
-        previousState,
-        query,
-        reconcileOptions.deferCappedShrink === true
-      );
-      if (heightHeld) {
-        return true;
-      }
-      if (deferredSuggestionsHeightQuery === query) {
-        deferredSuggestionsHeightQuery = '';
-      }
-      animateSuggestionsHeight(suggestionsContainer, previousState);
-      return false;
-    }
-
-    function clearSuggestionsHeightInputSettleTimer() {
-      if (!suggestionsHeightInputSettleTimer) {
-        return;
-      }
-      clearTimeout(suggestionsHeightInputSettleTimer);
-      suggestionsHeightInputSettleTimer = 0;
-      overlay._lumnoSuggestionsHeightSettleTimer = 0;
-    }
-
-    function finishSuggestionsHeightInputSession(options) {
-      const finishOptions = options || {};
-      clearSuggestionsHeightInputSettleTimer();
-      suggestionsHeightInputLockedHeight = 0;
-      suggestionsHeightInputLockedPadding = null;
-      deferredSuggestionsHeightQuery = '';
-      const previousState = captureSuggestionsHeightState(suggestionsContainer);
-      if (finishOptions.animate !== false && latestOverlayQuery) {
-        animateSuggestionsHeight(suggestionsContainer, previousState);
-      }
-    }
-
-    function beginSuggestionsHeightInputSession(query) {
-      clearSuggestionsHeightInputSettleTimer();
-      if (!suggestionsHeightInputLockedHeight) {
-        const previousState = captureSuggestionsHeightState(suggestionsContainer);
-        suggestionsHeightInputLockedHeight = Math.max(
-          0,
-          Number(previousState.heldHeight) || previousState.height
-        );
-        suggestionsHeightInputLockedPadding = previousState.padding;
-      }
-      // Input settling only needs to preserve an already-rendered result
-      // surface. Starting a timer for the collapsed zero-height state makes
-      // it fire during the first result expansion and restart that animation.
-      if (suggestionsHeightInputLockedHeight <= 0) {
-        suggestionsHeightInputLockedPadding = null;
-        deferredSuggestionsHeightQuery = '';
-        overlay._lumnoSuggestionsHeightSettleTimer = 0;
-        return;
-      }
-      cancelSuggestionsHeightAnimation(suggestionsContainer);
-      clipSuggestionsToHeight(
-        suggestionsContainer,
-        suggestionsHeightInputLockedHeight,
-        {
-          scrollable: true,
-          padding: suggestionsHeightInputLockedPadding
-        }
-      );
-      suggestionsContainer.style.setProperty('transition', 'none', 'important');
-      deferredSuggestionsHeightQuery = query;
-      suggestionsHeightInputSettleTimer = setTimeout(() => {
-        suggestionsHeightInputSettleTimer = 0;
-        overlay._lumnoSuggestionsHeightSettleTimer = 0;
-        finishSuggestionsHeightInputSession();
-      }, suggestionsHeightInputSettleMs);
-      overlay._lumnoSuggestionsHeightSettleTimer = suggestionsHeightInputSettleTimer;
-    }
-
-    function extendSuggestionsHeightInputSessionForRemoteMix(query) {
-      if (!query || suggestionsHeightInputLockedHeight <= 0) {
-        return false;
-      }
-      clearSuggestionsHeightInputSettleTimer();
-      deferredSuggestionsHeightQuery = query;
-      suggestionsHeightInputSettleTimer = setTimeout(() => {
-        suggestionsHeightInputSettleTimer = 0;
-        overlay._lumnoSuggestionsHeightSettleTimer = 0;
-        finishSuggestionsHeightInputSession();
-      }, suggestionsHeightRemoteMixSettleMs);
-      overlay._lumnoSuggestionsHeightSettleTimer = suggestionsHeightInputSettleTimer;
-      return true;
-    }
-
-    function getSuggestionsHeightTransitionProperties(
-      duration,
-      easing,
-      fromPadding,
-      targetPadding
-    ) {
-      const properties = [`height ${duration}ms ${easing}`];
-      if (Math.abs(targetPadding.top - fromPadding.top) > 0.1) {
-        properties.push(`padding-top ${duration}ms ${easing}`);
-      }
-      if (Math.abs(targetPadding.bottom - fromPadding.bottom) > 0.1) {
-        properties.push(`padding-bottom ${duration}ms ${easing}`);
-      }
-      return properties.join(', ');
-    }
-
-    function scheduleSearchPanelsLayoutTransition(
-      container,
-      previousState,
-      targetMetrics
-    ) {
-      const fromHeight = previousState.height;
-      const toHeight = targetMetrics.height;
-      const targetPadding = readSuggestionsVerticalPadding(container);
-      const fromPadding = previousState.padding ||
-        (fromHeight <= 0 ? { top: 0, bottom: 0 } : targetPadding);
-      cancelSuggestionsHeightAnimation(container);
-      suggestionsHeightAnimationTarget = toHeight;
-      suggestionsHeightAnimationTargetIsCapped = targetMetrics.atMaxHeight;
-      clipSuggestionsToHeight(container, fromHeight, {
-        collapsePadding: fromHeight <= 0,
-        padding: fromPadding
-      });
-      container.style.setProperty('transition', 'none', 'important');
-      container.style.setProperty('will-change', 'height', 'important');
-      searchPanelsLayoutTransitionActive = Boolean(
-        inputModeController &&
-        typeof inputModeController.beginModeMenuResultTransition === 'function' &&
-        inputModeController.beginModeMenuResultTransition({ fromOffset: fromHeight })
-      );
-      void container.offsetHeight;
-      suggestionsHeightAnimationFrame = requestAnimationFrame(() => {
-        suggestionsHeightAnimationFrame = 0;
-        container.style.setProperty(
-          'transition',
-          getSuggestionsHeightTransitionProperties(
-            searchPanelsLayoutTransitionDurationMs,
-            searchPanelsLayoutTransitionEasing,
-            fromPadding,
-            targetPadding
-          ),
-          'important'
-        );
-        container.style.setProperty('height', `${toHeight}px`, 'important');
-        container.style.setProperty('padding-top', `${targetPadding.top}px`, 'important');
-        container.style.setProperty('padding-bottom', `${targetPadding.bottom}px`, 'important');
-        if (searchPanelsLayoutTransitionActive && inputModeController &&
-            typeof inputModeController.targetModeMenuResultTransition === 'function') {
-          inputModeController.targetModeMenuResultTransition({
-            duration: searchPanelsLayoutTransitionDurationMs,
-            easing: searchPanelsLayoutTransitionEasing,
-            toOffset: toHeight
-          });
-        }
-      });
-      suggestionsHeightTransitionEndHandler = (event) => {
-        if (event && event.propertyName && event.propertyName !== 'height') {
-          return;
-        }
-        cancelSuggestionsHeightAnimation(container);
-      };
-      container.addEventListener('transitionend', suggestionsHeightTransitionEndHandler);
-      suggestionsHeightAnimationTimer = setTimeout(() => {
-        cancelSuggestionsHeightAnimation(container);
-        syncSearchModeMenuResultOffset();
-      }, searchPanelsLayoutTransitionDurationMs + 60);
-    }
-
-    function scheduleStandaloneSuggestionsHeightTransition(container, previousState, targetMetrics) {
-      const fromHeight = previousState.height;
-      const toHeight = targetMetrics.height;
-      const targetPadding = readSuggestionsVerticalPadding(container);
-      const fromPadding = previousState.padding ||
-        (fromHeight <= 0 ? { top: 0, bottom: 0 } : targetPadding);
-      const isLargeShrink = toHeight < fromHeight - Math.max(104, fromHeight * 0.35);
-      const transitionDurationMs = isLargeShrink ? 100 : 180;
-      const transitionEasing = 'ease-in-out';
-      cancelSuggestionsHeightAnimation(container);
-      suggestionsHeightAnimationTarget = toHeight;
-      suggestionsHeightAnimationTargetIsCapped = targetMetrics.atMaxHeight;
-      clipSuggestionsToHeight(container, fromHeight, {
-        collapsePadding: fromHeight <= 0,
-        padding: fromPadding
-      });
-      container.style.setProperty('transition', 'none', 'important');
-      container.style.setProperty('will-change', 'height', 'important');
-      void container.offsetHeight;
-      suggestionsHeightAnimationFrame = requestAnimationFrame(() => {
-        suggestionsHeightAnimationFrame = 0;
-        container.style.setProperty(
-          'transition',
-          getSuggestionsHeightTransitionProperties(
-            transitionDurationMs,
-            transitionEasing,
-            fromPadding,
-            targetPadding
-          ),
-          'important'
-        );
-        container.style.setProperty('height', `${toHeight}px`, 'important');
-        container.style.setProperty('padding-top', `${targetPadding.top}px`, 'important');
-        container.style.setProperty('padding-bottom', `${targetPadding.bottom}px`, 'important');
-      });
-      suggestionsHeightTransitionEndHandler = (event) => {
-        if (event && event.propertyName && event.propertyName !== 'height') {
-          return;
-        }
-        cancelSuggestionsHeightAnimation(container);
-      };
-      container.addEventListener('transitionend', suggestionsHeightTransitionEndHandler);
-      suggestionsHeightAnimationTimer = setTimeout(() => {
-        cancelSuggestionsHeightAnimation(container);
-      }, transitionDurationMs + 60);
-    }
-
-    function animateSuggestionsHeight(container, previousState) {
-      const normalizedPreviousState = previousState && typeof previousState === 'object'
-        ? previousState
-        : { height: Math.max(0, Number(previousState) || 0), padding: null };
-      const fromHeight = Math.max(0, Number(normalizedPreviousState.height) || 0);
-      if (!container || container.getAttribute('data-collapsed') === 'true') {
-        return;
-      }
-      const modeMenu = getSearchPanelsLayoutTransitionMenu();
-      const hasRenderedContent = Boolean(
-        container.children && container.children.length > 0
-      );
-      // Ordinary first results are already rendered while the surface is
-      // hidden. Reveal their rows and final box in one paint instead of
-      // exposing an empty zero-to-content height animation. Scope-menu mode
-      // changes keep the coordinated transition because the adjacent menu is
-      // already visible and needs to travel with the result surface.
-      const allowFromZero = Boolean(hasRenderedContent && modeMenu);
-      if (!fromHeight && !allowFromZero) {
-        syncSearchModeMenuResultOffset();
-        return;
-      }
-      const targetMetrics = readSuggestionsHeightMetrics(container);
-      const toHeight = targetMetrics.height;
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (reduceMotion || Math.abs(toHeight - fromHeight) <= 1) {
-        syncSearchModeMenuResultOffset();
-        return;
-      }
-      if (modeMenu) {
-        scheduleSearchPanelsLayoutTransition(
-          container,
-          normalizedPreviousState,
-          targetMetrics
-        );
-        return;
-      }
-      scheduleStandaloneSuggestionsHeightTransition(
-        container,
-        normalizedPreviousState,
-        targetMetrics
-      );
+    function commitSuggestionsNaturalHeightAfterRender() {
+      applyInstantSuggestionsHeightLayout(suggestionsContainer);
+      syncSearchModeMenuResultOffset();
     }
 
     function closeOverlayAfterCommand() {
@@ -8068,7 +7640,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     function renderTabSuggestions(tabList) {
       pauseOverlayAntiTranslateObserverForMutationBurst();
       suggestionsContainer.removeAttribute('data-scope-result-enter');
-      const previousHeightState = captureSuggestionsHeightState(suggestionsContainer);
       const reactView = ensureOverlaySuggestionsView();
       suggestionItems.length = 0;
       currentSuggestions = [];
@@ -8082,10 +7653,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           : t('overlay_empty_result', '无匹配结果');
         renderOverlayEmptyState(emptyText);
         setOverlayResultsCollapsed(false, { deferLayoutSync: true });
-        reconcileSuggestionsHeightAfterRender(
-          previousHeightState,
-          latestOverlayQuery
-        );
+        commitSuggestionsNaturalHeightAfterRender();
         return;
       }
       reactView.renderTabs(list);
@@ -8093,10 +7661,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       setOverlayResultsCollapsed(false, { deferLayoutSync: true });
       selectedIndex = -1;
       updateSelection();
-      reconcileSuggestionsHeightAfterRender(
-        previousHeightState,
-        latestOverlayQuery
-      );
+      commitSuggestionsNaturalHeightAfterRender();
     }
 
     function getOverlaySearchModeKey() {
@@ -8445,10 +8010,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       }
       const renderOptions = options && typeof options === 'object' ? options : {};
       const forceFullRerender = renderOptions.forceFullRerender === true;
-      const deferCappedShrink = renderOptions.deferCappedShrink === true;
       const finalRemoteMix = renderOptions.finalRemoteMix === true;
-      const settleHeightAfterRemoteMix =
-        renderOptions.settleHeightAfterRemoteMix === true;
       const remoteMixState = renderOptions.remoteMixState && typeof renderOptions.remoteMixState === 'object'
         ? renderOptions.remoteMixState
         : null;
@@ -8513,7 +8075,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
             remoteMixState.settled && remoteMixState.hasFinalSuggestions) {
           return;
         }
-        const shouldDeferCappedShrink = deferCappedShrink && !(remoteMixState && remoteMixState.settled);
         const commandMatches = (slashCommandModeActive && !modeCommandActive && !siteSearchQueryModeActive)
           ? getCommandMatches(rawTagInput)
           : [];
@@ -8797,10 +8358,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           ? Math.max(0, Number(suggestionsContainer.scrollTop) || 0)
           : 0;
         const startIndex = canAppend ? currentSuggestions.length : 0;
-        const previousHeightState =
-          updateKind === 'highlight' || updateKind === 'content'
-            ? null
-            : captureSuggestionsHeightState(suggestionsContainer);
         pauseOverlayAntiTranslateObserverForMutationBurst();
         setOpenTabsResultsViewport(false);
         const reactView = ensureOverlaySuggestionsView();
@@ -8830,11 +8387,10 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           mergedProvider,
           emptyMessage
         });
-        // Keep the collapsed result surface in place until the target rows
-        // have been rendered. Revealing it before this async render completes
-        // lets the flex panel jump to its natural height for one paint.
+        // Reveal only after the target rows render, then adopt their natural
+        // height directly in the same commit.
         setOverlayResultsCollapsed(false, {
-          deferLayoutSync: Boolean(previousHeightState)
+          deferLayoutSync: true
         });
         if (shouldAnimateScopeResultEnter) {
           suggestionsContainer.setAttribute('data-scope-result-enter', 'run');
@@ -8848,12 +8404,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           syncSuggestionLastState();
           updateSelection();
         }
-        reconcileSuggestionsHeightAfterRender(previousHeightState, query, {
-          deferCappedShrink: shouldDeferCappedShrink
-        });
-        if (settleHeightAfterRemoteMix) {
-          finishSuggestionsHeightInputSession();
-        }
+        commitSuggestionsNaturalHeightAfterRender();
         if (updateKind === 'structure') {
           selectedIndex = -1;
         }
@@ -8997,28 +8548,35 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       });
     }).catch(() => false);
 
-    const revealOverlay = () => {
+    const revealOverlay = (options) => {
       if (!overlay || !overlay.isConnected) {
         return;
       }
+      const revealOptions = options && typeof options === 'object' ? options : {};
       setOverlayMountVisibility(overlayHost, false);
       if (overlayRevealGate && typeof overlayRevealGate.release === 'function') {
         overlayRevealGate.release();
       }
-      const reduceMotion = shouldSkipOverlayEntryMotion();
+      // The style gate has just released the result surface, so take one last
+      // measurement before it can become visible on a slow stylesheet load.
+      syncOpenTabsScrollbarGutter();
+      // Focusing before the two animation frames lets typing begin as soon as
+      // the command bar is visually released, instead of after the entry
+      // motion has already started.
+      focusOverlayInputForReveal();
+      const reduceMotion = revealOptions.forceInstant === true ||
+        shouldSkipOverlayEntryMotion();
       const revealTransform = getOverlayEnterAnimationRevealTransform();
       if (reduceMotion) {
         overlay.style.setProperty('transition', 'none', 'important');
         overlay.style.setProperty('opacity', '1', 'important');
         overlay.style.setProperty('transform', revealTransform, 'important');
         finishOverlayPanelEnterAnimation(overlay);
-        focusOverlayInputForReveal();
         scheduleOverlayUpdateNoticeMount(0);
       } else {
         clearOverlayEnterAnimationFrames();
         overlayFrameTracker.runEnterAnimation(overlay, () => {
           playOverlayPanelEnterAnimation(overlay, revealTransform);
-          focusOverlayInputForReveal();
           scheduleOverlayUpdateNoticeMount(360);
         });
       }
@@ -9045,12 +8603,19 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       initialMacosCtrlSuggestionNavigationReady.catch(() => {
         macosCtrlSuggestionNavigationEnabled = false;
       })
-    ]).then(() => {
+    ]).then((readyStates) => {
       if (!overlay || !overlay.isConnected) {
         return;
       }
       applyOverlayEnterAnimationInitialState(overlay);
-      revealOverlay();
+      const styleGateResult = readyStates[0];
+      revealOverlay({
+        // A late stylesheet uses the shell's stable fallback. Starting a
+        // spring while that fallback is about to upgrade only makes slow
+        // devices look more broken, so reveal its final state instead.
+        forceInstant: !styleGateResult || styleGateResult.ok !== true ||
+          shouldSkipOverlayEntryMotionForSlowStartup()
+      });
     });
     overlayScrollPauseHandler = () => {
       pauseOverlayAntiTranslateObserverForScroll();

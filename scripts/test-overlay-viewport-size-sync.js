@@ -147,8 +147,8 @@ assert.match(
 );
 assert.match(
   searchPanelSource,
-  /Promise\.all\(\[[\s\S]*?revealReady[\s\S]*?initialOverlayThemeReady,[\s\S]*?initialOverlaySizeReady,[\s\S]*?initialOverlayEnterAnimationReady[\s\S]*?initialMotionEffectsReady[\s\S]*?applyOverlayEnterAnimationInitialState\(overlay\);\s*revealOverlay\(\);/,
-  'overlay reveal should wait only for critical styles and stable visual preferences'
+  /Promise\.all\(\[[\s\S]*?revealReady[\s\S]*?initialOverlayThemeReady,[\s\S]*?initialOverlaySizeReady,[\s\S]*?initialOverlayEnterAnimationReady[\s\S]*?initialMotionEffectsReady[\s\S]*?applyOverlayEnterAnimationInitialState\(overlay\);[\s\S]*?const styleGateResult = readyStates\[0\];[\s\S]*?revealOverlay\(\{[\s\S]*?forceInstant:/,
+  'overlay reveal should wait only for critical styles and stable visual preferences, then skip stuttering entry motion when startup is late'
 );
 const overlayRevealBlock = searchPanelSource.slice(
   searchPanelSource.lastIndexOf('const revealReady =')
@@ -290,63 +290,38 @@ assert.match(
 );
 assert.match(
   searchPanelSource,
-  /function captureSuggestionsHeightState\(container\)[\s\S]*?suggestionsHeightAnimationTargetIsCapped[\s\S]*?state\.heldHeight = metrics\.height;[\s\S]*?state\.padding = readSuggestionsVerticalPadding\(container\)[\s\S]*?cancelSuggestionsHeightAnimation\(container\)/,
-  'interrupted overlay animation should restart from its current rendered box and padding'
+  /function applyInstantSuggestionsHeightLayout\(container\)[\s\S]*?removeAttribute\('data-height-clipped'\)[\s\S]*?'height'[\s\S]*?'padding-top'[\s\S]*?'transition'[\s\S]*?setProperty\('transition', 'none', 'important'\)/,
+  'overlay results should clear fixed-height styles and explicitly disable container transitions'
 );
 assert.match(
   searchPanelSource,
-  /const previousHeightState =[\s\S]*?updateKind === 'highlight' \|\| updateKind === 'content'[\s\S]*?\? null[\s\S]*?: captureSuggestionsHeightState\(suggestionsContainer\);[\s\S]*?reactView\.render\(\{[\s\S]*?reconcileSuggestionsHeightAfterRender\(previousHeightState, query, \{[\s\S]*?deferCappedShrink: shouldDeferCappedShrink/,
-  'overlay structural replacements should animate from the existing height while local content and highlight updates bypass the height pipeline'
+  /reactView\.render\(\{[\s\S]*?setOverlayResultsCollapsed\(false, \{\s*deferLayoutSync: true\s*\}\);[\s\S]*?commitSuggestionsNaturalHeightAfterRender\(\);/,
+  'every result renderer should publish the new natural height directly after rendering rows'
 );
 assert.match(
   searchPanelSource,
-  /function reconcileSuggestionsHeightAfterRender\(previousState, query, options\)[\s\S]*?holdSuggestionsHeightForRemoteMix\([\s\S]*?animateSuggestionsHeight\(suggestionsContainer, previousState\)/,
-  'overlay result renderers should share one measured-height reconciliation pipeline'
+  /function commitSuggestionsNaturalHeightAfterRender\(\) \{\s*applyInstantSuggestionsHeightLayout\(suggestionsContainer\);\s*syncSearchModeMenuResultOffset\(\);/,
+  'the scope-menu offset should synchronize with the same direct height commit'
+);
+assert.doesNotMatch(
+  searchPanelSource,
+  /captureSuggestionsHeightState|deferCappedShrink|suggestionsHeightInputSettleTimer|scheduleStandaloneSuggestionsHeightTransition|settleHeightAfterRemoteMix/,
+  'overlay typing and remote mixing should not capture, lock, defer, or animate result height'
 );
 assert.match(
   searchPanelSource,
-  /function holdSuggestionsHeightForRemoteMix\(container, previousState, query, enabled\)[\s\S]*?shouldHold[\s\S]*?previousState\.heldHeight[\s\S]*?heldPadding[\s\S]*?clipSuggestionsToHeight\(container, heldHeight, \{[\s\S]*?scrollable: true,[\s\S]*?padding: heldPadding[\s\S]*?transition', 'none'/,
-  'intermediate URL and remote result renders should keep the prior input-session height while mixing'
+  /handleSearchInputCompositionEnd\(event\)[\s\S]*?if \(query\.length > 0\) \{[\s\S]*?requestOverlaySearchSuggestions\(query\)/,
+  'overlay composition input should request results without starting a height session'
 );
 assert.match(
   searchPanelSource,
-  /function beginSuggestionsHeightInputSession\(query\)[\s\S]*?suggestionsHeightInputLockedHeight[\s\S]*?setTimeout\([\s\S]*?finishSuggestionsHeightInputSession\(\)/,
-  'overlay typing should lock suggestion height until the input burst settles'
+  /handleSearchInputEvent\(event\)[\s\S]*?if \(query\.length > 0\) \{[\s\S]*?requestOverlaySearchSuggestions\(query\)/,
+  'overlay input should request results without starting a height session'
 );
 assert.match(
   searchPanelSource,
-  /handleSearchInputCompositionEnd\(event\)[\s\S]*?if \(query\.length > 0\) \{\s*if \(!siteSearchState\) \{\s*beginSuggestionsHeightInputSession\(query\);\s*\}[\s\S]*?requestOverlaySearchSuggestions\(query\)/,
-  'overlay composition input should bypass the stable-height session for deterministic site-search results'
-);
-assert.match(
-  searchPanelSource,
-  /handleSearchInputEvent\(event\)[\s\S]*?if \(query\.length > 0\) \{\s*if \(!siteSearchState\) \{\s*beginSuggestionsHeightInputSession\(query\);\s*\}[\s\S]*?requestOverlaySearchSuggestions\(query\)/,
-  'overlay input should bypass the stable-height session for deterministic site-search results'
-);
-assert.match(
-  searchPanelSource,
-  /function activateSiteSearch\(provider, activationOptions\)[\s\S]*?finishSuggestionsHeightInputSession\(\{ animate: false \}\);[\s\S]*?siteSearchState = provider;/,
-  'entering site search should release any stable-height session inherited from the previous search mode'
-);
-assert.match(
-  searchPanelSource,
-  /function readSuggestionsHeightMetrics\(container\)[\s\S]*?const layoutHeight = Math\.max\([\s\S]*?container\.offsetHeight[\s\S]*?container\.clientHeight[\s\S]*?container\.getBoundingClientRect\(\)\.height[\s\S]*?metrics\.height = layoutHeight;/,
-  'overlay result height should prefer untransformed layout measurements before falling back to a visual rect'
-);
-assert.match(
-  searchPanelSource,
-  /function animateSuggestionsHeight\(container, previousState\)[\s\S]*?const fromHeight =[\s\S]*?const targetMetrics = readSuggestionsHeightMetrics\(container\);\s*const toHeight = targetMetrics\.height;/,
-  'overlay result animations should use the same layout-space height for both measurement and CSS writes'
-);
-assert.match(
-  searchPanelSource,
-  /suggestionsHeightAnimationTarget = toHeight;[\s\S]*?suggestionsHeightAnimationTargetIsCapped = targetMetrics\.atMaxHeight;/,
-  'height animations should retain target metadata while interruption capture uses the live rendered height'
-);
-assert.match(
-  searchPanelSource,
-  /updateSearchSuggestions\(localSuggestions, requestQuery, \{[\s\S]*?deferCappedShrink: true,[\s\S]*?remoteMixState[\s\S]*?remoteMixState\.settled = true;[\s\S]*?updateSearchSuggestions\(remoteResponse\.suggestions, requestQuery, \{[\s\S]*?finalRemoteMix: true,[\s\S]*?settleHeightAfterRemoteMix: true/,
-  'the overlay request pipeline should defer capped shrink until the final remote mix can release it in one transition'
+  /updateSearchSuggestions\(localSuggestions, requestQuery, \{\s*remoteMixState\s*\}\);[\s\S]*?remoteMixState\.settled = true;[\s\S]*?updateSearchSuggestions\(remoteResponse\.suggestions, requestQuery, \{\s*remoteMixState,\s*finalRemoteMix: true\s*\}\);/,
+  'local and remote result sets should each use an ordinary direct render commit'
 );
 assert.match(
   searchPanelSource,
@@ -355,33 +330,8 @@ assert.match(
 );
 assert.match(
   searchPanelSource,
-  /const searchPanelsLayoutTransitionDurationMs = 180;[\s\S]*?const searchPanelsLayoutTransitionEasing =[\s\S]*?'cubic-bezier\(0\.22, 1, 0\.36, 1\)'/,
-  'the result surface and scope panel should share one layout-transition rhythm'
-);
-assert.match(
-  searchPanelSource,
-  /function scheduleSearchPanelsLayoutTransition\([\s\S]*?beginModeMenuResultTransition\(\{ fromOffset: fromHeight \}\)[\s\S]*?requestAnimationFrame\(\(\) => \{[\s\S]*?getSuggestionsHeightTransitionProperties\([\s\S]*?searchPanelsLayoutTransitionDurationMs[\s\S]*?targetModeMenuResultTransition\(\{[\s\S]*?duration: searchPanelsLayoutTransitionDurationMs,[\s\S]*?toOffset: toHeight/,
-  'one animation frame should target result height and shared scope-panel displacement with identical timing'
-);
-assert.match(
-  searchPanelSource,
-  /function scheduleStandaloneSuggestionsHeightTransition\(container, previousState, targetMetrics\)[\s\S]*?const isLargeShrink = toHeight < fromHeight - Math\.max\(104, fromHeight \* 0\.35\);[\s\S]*?transitionDurationMs = isLargeShrink \? 100 : 180;[\s\S]*?transitionEasing = 'ease-in-out'/,
-  'results without an open scope panel should retain the ordinary search height rhythm'
-);
-assert.match(
-  searchPanelSource,
-  /const modeMenu = getSearchPanelsLayoutTransitionMenu\(\);[\s\S]*?if \(modeMenu\) \{\s*scheduleSearchPanelsLayoutTransition\([\s\S]*?targetMetrics[\s\S]*?return;\s*\}\s*scheduleStandaloneSuggestionsHeightTransition\(/,
-  'the coordinated scheduler should only run while the scope panel is actually open'
-);
-assert.match(
-  searchPanelSource,
-  /function syncSearchModeMenuResultOffset\(\) \{[\s\S]*?if \(searchPanelsLayoutTransitionActive\) \{\s*return;\s*\}/,
-  'ResizeObserver should not retarget the scope panel while the coordinated transition is active'
-);
-assert.match(
-  searchPanelSource,
-  /if \(isPaste \|\| getDirectUrlSuggestion\(query\)\) \{[\s\S]*?updatePendingSearchSuggestions\(query, \{[\s\S]*?deferCappedShrink: true[\s\S]*?\}\);/,
-  'an immediate URL preview should retain existing rows and height until its full local and remote results arrive'
+  /if \(isPaste \|\| getDirectUrlSuggestion\(query\)\) \{\s*updatePendingSearchSuggestions\(query\);\s*\}/,
+  'an immediate URL preview should render without a height-deferral option'
 );
 assert.match(
   searchPanelSource,

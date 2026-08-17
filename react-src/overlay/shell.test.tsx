@@ -65,7 +65,13 @@ describe('Overlay React shell', () => {
     const root = document.createElement('div');
     api.appendOverlayStyleNodes(document, {
       root,
-      searchInputCssUrl: 'chrome-extension://example/search-input.css'
+      searchInputCssUrl: 'chrome-extension://example/search-input.css',
+      remixBrush2IconSvgUrl:
+        'chrome-extension://example/assets/remixicon/icons/brush-2-line.svg',
+      remixSearchIconSvgUrl:
+        'chrome-extension://example/assets/remixicon/icons/search-line.svg',
+      remixSettingsIconSvgUrl:
+        'chrome-extension://example/assets/remixicon/icons/settings-line.svg'
     });
     expect(
       root.querySelector('#_x_extension_input_component_style_2026_unique_')
@@ -81,6 +87,21 @@ describe('Overlay React shell', () => {
     );
     expect(criticalStyle?.textContent).not.toMatch(
       /#_x_extension_overlay_2024_unique_\s+\.x-ov-suggestion-switch-button/
+    );
+    expect(criticalStyle?.textContent).toContain(
+      'url("chrome-extension://example/assets/remixicon/icons/search-line.svg")'
+    );
+    expect(criticalStyle?.textContent).toContain(
+      'url("chrome-extension://example/assets/remixicon/icons/settings-line.svg")'
+    );
+    expect(criticalStyle?.textContent).toContain(
+      'url("chrome-extension://example/assets/remixicon/icons/brush-2-line.svg")'
+    );
+    expect(criticalStyle?.textContent).toMatch(
+      /background-color:\s*currentColor;[\s\S]*?-webkit-mask-image:/
+    );
+    expect(criticalStyle?.textContent).not.toContain(
+      'border: 1.5px solid currentColor'
     );
   });
 });

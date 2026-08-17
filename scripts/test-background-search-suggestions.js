@@ -851,6 +851,128 @@ async function run() {
     'a timed-out remote request should leave the local response unchanged'
   );
 
+  let prefetchFetchCount = 0;
+  let prefetchFetchStartedAt = 0;
+  const { messageListeners: prefetchListeners } = loadBackgroundForTest({
+    historySearchDelayMs: 280,
+    fetch: async (url) => {
+      const parsedUrl = new URL(String(url));
+      if (
+        parsedUrl.hostname === 'suggestqueries.google.com' &&
+        parsedUrl.searchParams.get('q') === 'prefetch-engine'
+      ) {
+        prefetchFetchCount += 1;
+        prefetchFetchStartedAt = Date.now();
+        return {
+          ok: true,
+          json: async () => [
+            'prefetch-engine',
+            ['prefetch engine result']
+          ]
+        };
+      }
+      throw new Error('unexpected prefetch request');
+    }
+  });
+  const prefetchRequestStartedAt = Date.now();
+  const prefetchLocalResponse = await sendBackgroundMessage(prefetchListeners, {
+    action: 'getSearchSuggestions',
+    query: 'prefetch-engine',
+    context: 'overlay'
+  }, 1000);
+  const prefetchLocalResponseAt = Date.now();
+  assert.ok(
+    prefetchLocalResponse && Array.isArray(prefetchLocalResponse.suggestions),
+    'the local search response should remain available while engine suggestions prefetch'
+  );
+  assert.strictEqual(
+    prefetchLocalResponse.suggestions.some((item) => item && item.type === 'googleSuggest'),
+    false,
+    'prefetching must not add remote engine suggestions to the local response'
+  );
+  assert.ok(
+    prefetchFetchStartedAt > prefetchRequestStartedAt &&
+      prefetchFetchStartedAt < prefetchLocalResponseAt,
+    'the engine request should begin before a slow local search completes'
+  );
+  const prefetchRemoteResponse = await sendBackgroundMessage(prefetchListeners, {
+    action: 'getSearchEngineSuggestions',
+    query: 'prefetch-engine',
+    context: 'overlay',
+    localSuggestions: prefetchLocalResponse.suggestions
+  }, 1000);
+  assert.strictEqual(
+    prefetchFetchCount,
+    1,
+    'the remote merge should reuse the in-flight or completed engine prefetch'
+  );
+  assert.ok(
+    prefetchRemoteResponse && prefetchRemoteResponse.hasRemoteSuggestions === true,
+    'the reused prefetch should still produce remote engine suggestions'
+  );
+
+  let supersededPrefetchAbortCount = 0;
+  const { messageListeners: supersededPrefetchListeners } = loadBackgroundForTest({
+    fetch: async (url, fetchOptions) => {
+      const parsedUrl = new URL(String(url));
+      if (parsedUrl.hostname !== 'suggestqueries.google.com') {
+        throw new Error('unexpected prefetch host');
+      }
+      if (parsedUrl.searchParams.get('q') === 'prefetch-superseded') {
+        return new Promise((_resolve, reject) => {
+          const signal = fetchOptions && fetchOptions.signal;
+          if (signal) {
+            signal.addEventListener('abort', () => {
+              supersededPrefetchAbortCount += 1;
+              reject(new Error('prefetch superseded'));
+            }, { once: true });
+          }
+        });
+      }
+      if (parsedUrl.searchParams.get('q') === 'prefetch-replacement') {
+        return {
+          ok: true,
+          json: async () => [
+            'prefetch-replacement',
+            ['prefetch replacement result']
+          ]
+        };
+      }
+      throw new Error('unexpected prefetch query');
+    }
+  });
+  await sendBackgroundMessage(supersededPrefetchListeners, {
+    action: 'getSearchSuggestions',
+    query: 'prefetch-superseded',
+    context: 'overlay'
+  }, 1000);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const replacementLocalResponse = await sendBackgroundMessage(supersededPrefetchListeners, {
+    action: 'getSearchSuggestions',
+    query: 'prefetch-replacement',
+    context: 'overlay'
+  }, 1000);
+  assert.strictEqual(
+    supersededPrefetchAbortCount,
+    1,
+    'a newer local query should abort an already-started engine prefetch for the same context'
+  );
+  const replacementRemoteAfterPrefetchResponse = await sendBackgroundMessage(
+    supersededPrefetchListeners,
+    {
+      action: 'getSearchEngineSuggestions',
+      query: 'prefetch-replacement',
+      context: 'overlay',
+      localSuggestions: replacementLocalResponse.suggestions
+    },
+    1000
+  );
+  assert.ok(
+    replacementRemoteAfterPrefetchResponse &&
+      replacementRemoteAfterPrefetchResponse.hasRemoteSuggestions === true,
+    'the replacement query should still receive its engine suggestion result'
+  );
+
   const deleteResponse = await sendBackgroundMessage(messageListeners, {
     action: 'deleteHistoryUrl',
     url: 'https://github.com/'

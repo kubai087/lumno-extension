@@ -106,6 +106,10 @@ function createWindow(hostname) {
   };
 }
 
+function waitForQueuedPromiseHandlers() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 async function testOrdinarySitesWaitForCriticalOverlayStyles() {
   const inputStyle = createStylesheet(
     overlaySiteFixes.OVERLAY_STYLE_IDS.input,
@@ -136,6 +140,14 @@ async function testOrdinarySitesWaitForCriticalOverlayStyles() {
     overlay.getAttribute('data-lumno-site-fix-reveal'),
     overlaySiteFixes.OVERLAY_STYLE_REVEAL_POLICY.id
   );
+  assert.deepStrictEqual(
+    overlaySiteFixes.OVERLAY_STYLE_REVEAL_POLICY.styleIds,
+    [
+      overlaySiteFixes.OVERLAY_STYLE_IDS.input,
+      overlaySiteFixes.OVERLAY_STYLE_IDS.suggestions
+    ],
+    'both input controls and result rows must be treated as critical first-frame styles'
+  );
 
   let settled = false;
   const ready = gate.waitUntilReady().then((result) => {
@@ -147,7 +159,7 @@ async function testOrdinarySitesWaitForCriticalOverlayStyles() {
 
   inputStyle.sheet = {};
   inputStyle.dispatch('load');
-  await Promise.resolve();
+  await waitForQueuedPromiseHandlers();
   assert.strictEqual(settled, false, 'all critical styles must be ready before reveal');
 
   suggestionsStyle.sheet = {};
@@ -167,6 +179,11 @@ async function testOrdinarySitesWaitForCriticalOverlayStyles() {
   gate.release();
   assert.strictEqual(overlay.style.getPropertyValue('visibility'), '');
   assert.strictEqual(overlay.hasAttribute('data-lumno-site-fix-reveal'), false);
+  assert.strictEqual(
+    overlay.getAttribute('data-lumno-site-fix-style-fallback'),
+    null,
+    'a fully styled first frame should not retain fallback-only behavior'
+  );
 }
 
 async function testAlreadyLoadedStylesDoNotDelayReveal() {
@@ -202,6 +219,57 @@ async function testAlreadyLoadedStylesDoNotDelayReveal() {
   assert.strictEqual(result.reason, 'already-loaded');
 }
 
+async function testTimeoutKeepsSafeFallbackUntilStylesFinish() {
+  const inputStyle = createStylesheet(
+    overlaySiteFixes.OVERLAY_STYLE_IDS.input,
+    false
+  );
+  const suggestionsStyle = createStylesheet(
+    overlaySiteFixes.OVERLAY_STYLE_IDS.suggestions,
+    false
+  );
+  const overlay = createOverlay();
+  const gate = overlaySiteFixes.createOverlayRevealGate(
+    createWindow('slow.example'),
+    {
+      overlay,
+      styleRoot: createStyleRoot([inputStyle, suggestionsStyle]),
+      maxWaitMs: 8
+    }
+  );
+
+  const result = await gate.waitUntilReady();
+  assert.deepStrictEqual(result, {
+    ok: false,
+    reason: 'timeout',
+    fixId: overlaySiteFixes.OVERLAY_STYLE_REVEAL_POLICY.id
+  });
+  gate.release();
+  assert.strictEqual(
+    overlay.getAttribute('data-lumno-site-fix-style-fallback'),
+    overlaySiteFixes.OVERLAY_STYLE_REVEAL_POLICY.id,
+    'a timed-out stylesheet must reveal only the safe inline fallback'
+  );
+
+  inputStyle.sheet = {};
+  inputStyle.dispatch('load');
+  await waitForQueuedPromiseHandlers();
+  assert.strictEqual(
+    overlay.getAttribute('data-lumno-site-fix-style-fallback'),
+    overlaySiteFixes.OVERLAY_STYLE_REVEAL_POLICY.id,
+    'result rows should remain protected until their stylesheet is also ready'
+  );
+
+  suggestionsStyle.sheet = {};
+  suggestionsStyle.dispatch('load');
+  await waitForQueuedPromiseHandlers();
+  assert.strictEqual(
+    overlay.getAttribute('data-lumno-site-fix-style-fallback'),
+    null,
+    'late component styles should upgrade the visible fallback automatically'
+  );
+}
+
 function testBootstrapDisablesRightButtonTransitions() {
   const overlayShellSource = fs.readFileSync(
     path.join(repoRoot, 'react-src/overlay/shell.tsx'),
@@ -213,6 +281,14 @@ function testBootstrapDisablesRightButtonTransitions() {
   );
   const suggestionsCss = fs.readFileSync(
     path.join(repoRoot, 'src/overlay/suggestions-view.css'),
+    'utf8'
+  );
+  const searchPanelSource = fs.readFileSync(
+    path.join(repoRoot, 'src/overlay/search-panel.js'),
+    'utf8'
+  );
+  const backgroundSource = fs.readFileSync(
+    path.join(repoRoot, 'src/background/background.js'),
     'utf8'
   );
 
@@ -236,11 +312,76 @@ function testBootstrapDisablesRightButtonTransitions() {
     /#_x_extension_overlay_2024_unique_\s+\.x-ov-suggestion-switch-button/,
     'the bootstrap fallback must stay lower-specificity than the complete suggestion stylesheet'
   );
+  assert.match(
+    overlayShellSource,
+    /:where\(#_x_extension_overlay_2024_unique_\)\s+:where\(\.x-lumno-search-input,\s+\.x-lumno-search-input__container\)\s*\{[\s\S]*?all:\s*unset;[\s\S]*?width:\s*100%;/,
+    'the input must have a zero-specificity structural fallback before its stylesheet arrives'
+  );
+  assert.match(
+    overlayShellSource,
+    /:where\(#_x_extension_overlay_2024_unique_\[data-lumno-site-fix-style-fallback\]\)\s+:where\(\.x-ov-suggestions-container\)\s*\{\s*visibility:\s*hidden;/,
+    'late result CSS must hide rows instead of exposing unstyled HTML'
+  );
+  const fallbackHiddenControls = overlayShellSource.match(
+    /:where\(#_x_extension_overlay_2024_unique_\[data-lumno-site-fix-style-fallback\]\)\s+:where\(\s*\n(\s*\.x-lumno-search-input-mode__prefix,[\s\S]*?)\n\s*\)\s*\{\s*display:\s*none;/
+  );
+  assert(fallbackHiddenControls, 'the late input fallback should hide only deferred mode controls');
+  assert.match(
+    fallbackHiddenControls[1],
+    /\.x-lumno-search-input-mode__prefix,[\s\S]*?\.x-lumno-search-input-mode__badge,[\s\S]*?\.x-lumno-search-input-mode__tab-hint/,
+    'the deferred mode controls should remain hidden until their stylesheet is ready'
+  );
+  assert.doesNotMatch(
+    fallbackHiddenControls[1],
+    /x-lumno-search-input__right-icon|x-ov-close-other-tabs/,
+    'cached Remix SVGs should keep the action icons visible during the fallback'
+  );
+  assert.match(
+    overlayShellSource,
+    /getRemixIconMaskCss\(searchIconUrl\)[\s\S]*?getRemixIconMaskCss\(settingsIconUrl\)[\s\S]*?getRemixIconMaskCss\(brush2IconUrl\)/,
+    'the fallback should use all cached Remix SVGs instead of drawing substitute glyphs'
+  );
+  assert.match(
+    overlayShellSource,
+    /after the delayed icon-font stylesheet[\s\S]*?Overlay's light\/dark theme token[\s\S]*?background-color:\s*currentColor;/,
+    'cached SVG masks should inherit the existing light or dark theme icon color'
+  );
+  assert.match(
+    overlayShellSource,
+    /:where\(#_x_extension_overlay_2024_unique_\)\s+:where\(\.x-lumno-search-input__icon\)::before/,
+    'the cached search SVG should remain active even after component CSS has arrived'
+  );
+  assert.doesNotMatch(
+    overlayShellSource,
+    /border:\s*1\.5px solid currentColor|transform:\s*rotate\(45deg\)/,
+    'the fallback must not retain the hand-drawn magnifier geometry'
+  );
+  assert.match(
+    searchPanelSource,
+    /focusOverlayInputForReveal\(\);[\s\S]*?const reduceMotion = revealOptions\.forceInstant === true \|\|[\s\S]*?overlayFrameTracker\.runEnterAnimation/,
+    'the input should become focusable before waiting through entry animation frames'
+  );
+  assert.match(
+    searchPanelSource,
+    /forceInstant:\s*!styleGateResult \|\| styleGateResult\.ok !== true \|\|[\s\S]*?shouldSkipOverlayEntryMotionForSlowStartup\(\)/,
+    'slow first-frame or style-fallback paths should skip stuttering entry motion'
+  );
+  assert.match(
+    backgroundSource,
+    /const overlayOpenStartedAt = Date\.now\(\);[\s\S]*?openedAt:\s*overlayOpenStartedAt/,
+    'the renderer should receive the actual command-start timestamp for adaptive entry motion'
+  );
+  assert.match(
+    backgroundSource,
+    /const shouldInjectOverlayCodexDebugSurface = Boolean\([\s\S]*?codexDebugBridge\.isEnabled\(\)[\s\S]*?\.\.\.\(shouldInjectOverlayCodexDebugSurface \? \['src\/shared\/codex-debug-surface\.js'\] : \[\]\)/,
+    'the development-only debug surface must stay out of the production critical injection list'
+  );
 }
 
 Promise.resolve()
   .then(testOrdinarySitesWaitForCriticalOverlayStyles)
   .then(testAlreadyLoadedStylesDoNotDelayReveal)
+  .then(testTimeoutKeepsSafeFallbackUntilStylesFinish)
   .then(testBootstrapDisablesRightButtonTransitions)
   .then(() => {
     console.log('Overlay critical style reveal tests passed.');

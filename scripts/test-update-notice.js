@@ -387,7 +387,7 @@ function flushMicrotasks() {
   );
   const overlayNoticeAppendIndex = overlaySource.indexOf('overlayStyleRoot.insertBefore(noticeElement, overlay)');
   const overlayInputAppendIndex = overlaySource.indexOf('overlay.appendChild(inputContainer)');
-  const overlayRevealIndex = overlaySource.indexOf('const revealOverlay = () =>');
+  const overlayRevealIndex = overlaySource.indexOf('const revealOverlay = (options) =>');
   const overlayScheduledMountIndex = overlaySource.indexOf('scheduleOverlayUpdateNoticeMount(360)');
   const overlayMountingSetIndex = overlaySource.indexOf("noticeElement.setAttribute('data-overlay-mounting', 'true')");
   const overlayMountingFinishIndex = overlaySource.indexOf('finishOverlayUpdateNoticeMountAnimation(noticeElement)');

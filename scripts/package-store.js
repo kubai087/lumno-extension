@@ -170,9 +170,23 @@ stagedBackground = replaceRequired(
 );
 stagedBackground = replaceRequired(
   stagedBackground,
+  /  const shouldInjectOverlayCodexDebugSurface = Boolean\(\r?\n    codexDebugBridge && typeof codexDebugBridge\.isEnabled === 'function' &&\r?\n    codexDebugBridge\.isEnabled\(\)\r?\n  \);\r?\n/,
+  '',
+  1,
+  'conditional Overlay debug surface flag'
+);
+stagedBackground = replaceRequired(
+  stagedBackground,
+  /^[ \t]*\.\.\.\(shouldInjectOverlayCodexDebugSurface \? \['src\/shared\/codex-debug-surface\.js'\] : \[\]\),\r?\n/gm,
+  '',
+  1,
+  'conditional Overlay debug surface entry'
+);
+stagedBackground = replaceRequired(
+  stagedBackground,
   /^[ \t]*'src\/shared\/codex-debug-surface\.js',\r?\n/gm,
   '',
-  3,
+  2,
   'injected debug surface entry'
 );
 fs.writeFileSync(stagedBackgroundPath, stagedBackground);

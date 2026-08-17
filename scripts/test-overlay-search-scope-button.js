@@ -40,8 +40,8 @@ assert.match(
 );
 assert.match(
   overlaySource,
-  /function openSearchModeMenuFromDoubleTab\(\)[\s\S]*?beginSearchModeResultTransition\(expectedInputValue\);[\s\S]*?preserveResults: true[\s\S]*?restoreSearchModeQuery\(expectedInputValue\);/,
-  'the overlay search action should preserve a typed query while opening the scope panel'
+  /function openSearchModeMenuFromDoubleTab\(\)[\s\S]*?if \(expectedInputValue\.trim\(\)\) \{[\s\S]*?preserveResults: true[\s\S]*?restoreSearchModeQuery\(expectedInputValue\);/,
+  'the overlay search action should preserve a typed query without starting a result-height transition'
 );
 assert.doesNotMatch(
   overlaySource,

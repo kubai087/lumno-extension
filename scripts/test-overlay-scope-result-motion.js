@@ -14,10 +14,15 @@ assert.match(
   /if \(shouldAnimateScopeResultEnter\) \{[\s\S]*?data-scope-result-enter', 'run'[\s\S]*?\} else \{\s*suggestionsContainer\.removeAttribute\('data-scope-result-enter'\);/,
   'site-search results without a lower panel should clear the expansion marker'
 );
+assert.doesNotMatch(
+  overlaySource,
+  /allowFromZero|scheduleSearchPanelsLayoutTransition|animateSuggestionsHeight/,
+  'the optional row entrance should not reintroduce a coordinated container-height animation'
+);
 assert.match(
   overlaySource,
-  /const allowFromZero = Boolean\(hasRenderedContent && modeMenu\);[\s\S]*?\(!fromHeight && !allowFromZero\)/,
-  'only a visible scope menu should coordinate with a result expansion from zero height'
+  /if \(shouldAnimateScopeResultEnter\) \{[\s\S]*?commitSuggestionsNaturalHeightAfterRender\(\);/,
+  'the row-only entrance marker should coexist with a direct natural-height commit'
 );
 assert.match(
   overlaySource,

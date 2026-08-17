@@ -141,13 +141,13 @@ assert.match(
 );
 assert.match(
   overlaySource,
-  /updateKind === 'highlight' \|\| updateKind === 'content'[\s\S]*?\? null[\s\S]*?: captureSuggestionsHeightState\(suggestionsContainer\)/,
-  'Overlay highlight and content updates should bypass height capture and animation'
+  /function commitSuggestionsNaturalHeightAfterRender\(\) \{[\s\S]*?applyInstantSuggestionsHeightLayout\(suggestionsContainer\);[\s\S]*?syncSearchModeMenuResultOffset\(\);/,
+  'Overlay result commits should adopt natural height and publish the final menu offset synchronously'
 );
-assert.match(
+assert.doesNotMatch(
   overlaySource,
-  /reconcileSuggestionsHeightAfterRender\(previousHeightState, query, \{[\s\S]*?deferCappedShrink: shouldDeferCappedShrink/,
-  'Overlay should run its height pipeline only for append or structure updates'
+  /captureSuggestionsHeightState|deferCappedShrink|animateSuggestionsHeight/,
+  'Overlay should not capture, defer, or animate result height for any update kind'
 );
 assert.match(
   newtabHtml,
@@ -181,8 +181,8 @@ assert.match(
 );
 assert.match(
   overlaySource,
-  /if \(isPaste \|\| getDirectUrlSuggestion\(query\)\) \{[\s\S]*?updatePendingSearchSuggestions\(query, \{[\s\S]*?deferCappedShrink: true[\s\S]*?\}\);/,
-  'Overlay should retain the previous result rows while a direct URL request is pending'
+  /if \(isPaste \|\| getDirectUrlSuggestion\(query\)\) \{[\s\S]*?updatePendingSearchSuggestions\(query\);/,
+  'Overlay should update a direct URL preview without arming a height deferral'
 );
 assert.match(
   newtabSource,

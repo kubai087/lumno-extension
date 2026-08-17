@@ -12,6 +12,11 @@ const remixCss = fs.readFileSync(
   'utf8'
 );
 const optionsHtml = fs.readFileSync(path.join(repoRoot, 'src/options/options.html'), 'utf8');
+const fallbackSvgAssets = [
+  'assets/remixicon/icons/search-line.svg',
+  'assets/remixicon/icons/settings-line.svg',
+  'assets/remixicon/icons/brush-2-line.svg'
+];
 
 assert(
   fs.existsSync(preloadPath),
@@ -62,15 +67,45 @@ const preloadSource = fs.readFileSync(preloadPath, 'utf8');
 vm.runInNewContext(preloadSource, sandbox, { filename: 'icon-font-preload.js' });
 vm.runInNewContext(preloadSource, sandbox, { filename: 'icon-font-preload.js' });
 
-assert.strictEqual(appended.length, 1, 'icon font preload should be idempotent');
-assert.strictEqual(appended[0].rel, 'preload');
-assert.strictEqual(appended[0].as, 'font');
-assert.strictEqual(appended[0].type, 'font/woff2');
-assert.strictEqual(appended[0].crossOrigin, 'anonymous');
-assert.strictEqual(appended[0].fetchPriority, 'high');
+assert.strictEqual(appended.length, 4, 'Remix asset preloads should be idempotent');
+const fontPreload = appended.find((node) => (
+  node.id === '_x_extension_remixicon_font_preload_2026_unique_'
+));
+assert(fontPreload, 'the existing Remix font should still be warmed');
+assert.strictEqual(fontPreload.rel, 'preload');
+assert.strictEqual(fontPreload.as, 'font');
+assert.strictEqual(fontPreload.type, 'font/woff2');
+assert.strictEqual(fontPreload.crossOrigin, 'anonymous');
+assert.strictEqual(fontPreload.fetchPriority, 'high');
 assert.strictEqual(
-  appended[0].href,
+  fontPreload.href,
   'chrome-extension://lumno/assets/remixicon/fonts/remixicon.woff2'
+);
+const svgPreloads = appended.filter((node) => node.as === 'image');
+assert.deepStrictEqual(
+  svgPreloads.map((node) => node.href),
+  fallbackSvgAssets.map((assetPath) => `chrome-extension://lumno/${assetPath}`),
+  'the first-frame Remix SVG masks should be warmed before Overlay React mounts'
+);
+svgPreloads.forEach((node) => {
+  assert.strictEqual(node.rel, 'preload');
+  assert.strictEqual(node.type, 'image/svg+xml');
+  assert.strictEqual(node.fetchPriority, 'high');
+});
+fallbackSvgAssets.forEach((assetPath) => {
+  const svg = fs.readFileSync(path.join(repoRoot, assetPath), 'utf8');
+  assert.match(
+    svg,
+    /^<svg viewBox="0 0 24 24" fill="currentColor" xmlns="http:\/\/www\.w3\.org\/2000\/svg">/,
+    `${assetPath} should remain the cached, theme-tintable official Remix SVG`
+  );
+});
+assert(
+  manifest.web_accessible_resources.some((entry) => (
+    Array.isArray(entry.resources) &&
+    entry.resources.includes('assets/remixicon/icons/*.svg')
+  )),
+  'the cached Remix SVGs must be available to the isolated Overlay Shadow DOM'
 );
 assert(
   remixCss.includes('src: url("remixicon.woff2") format("woff2");'),

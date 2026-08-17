@@ -60,6 +60,18 @@ assert.match(overlaySuggestionsStyles,
   /\.x-ov-suggestions-container\[data-open-tabs-visible-row-limit\] \{[\s\S]*?scrollbar-width:\s*thin;[\s\S]*?scrollbar-color:/,
   'the scrollable opened-tab viewport should restore its visible scrollbar');
 assert.match(overlaySuggestionsStyles,
+  /\.x-ov-suggestions-container\[data-open-tabs-visible-row-limit\] \{[\s\S]*?--x-ov-open-tabs-scrollbar-gutter:\s*10px;[\s\S]*?scrollbar-gutter:\s*stable;[\s\S]*?padding-inline-end:\s*max\([\s\S]*?var\(--x-ov-results-inset,\s*12px\)[\s\S]*?var\(--x-ov-open-tabs-scrollbar-gutter,\s*10px\)/,
+  'opened-tab rows should give the measured scrollbar gutter back to the right inset instead of shrinking their text column');
+assert.match(overlaySource,
+  /function syncOpenTabsScrollbarGutter\(computedStyle\)[\s\S]*?offsetWidth[\s\S]*?clientWidth[\s\S]*?--x-ov-open-tabs-scrollbar-gutter/,
+  'overlay should measure the browser scrollbar gutter instead of assuming an OS-specific width');
+assert.match(overlaySource,
+  /function setOpenTabsResultsViewport\(active, itemCount\)[\s\S]*?removeProperty\('--x-ov-open-tabs-scrollbar-gutter'\)[\s\S]*?syncOpenTabsScrollbarGutter\(computedStyle\)[\s\S]*?requestAnimationFrame\([\s\S]*?syncOpenTabsScrollbarGutter\(\)/,
+  'opened-tab viewport changes should refresh gutter compensation and clear it for ordinary results');
+assert.match(overlaySource,
+  /const revealOverlay = \(options\) => \{[\s\S]*?overlayRevealGate\.release\(\);[\s\S]*?syncOpenTabsScrollbarGutter\(\);/,
+  'the style-gated overlay reveal should measure the native gutter once more before rows become visible');
+assert.match(overlaySuggestionsStyles,
   /\.x-ov-suggestions-container\[data-open-tabs-visible-row-limit\]::\-webkit-scrollbar-thumb \{[\s\S]*?border-radius:\s*999px;[\s\S]*?background-color:/,
   'Chromium should render the opened-tab scrollbar thumb');
 assert.match(overlaySource,

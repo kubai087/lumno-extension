@@ -1664,7 +1664,7 @@ const TAB_SWITCHER_HOST_STATE_TIMEOUT_MS = 400;
 const tabSwitcherHostTabIdByWindowId = new Map();
 const HOTKEY_DUP_GUARD_MS = 180;
 const OVERLAY_OPENING_GUARD_MS = 5000;
-const OVERLAY_RUNTIME_VERSION = '2026-08-17-navigation-intent-v8';
+const OVERLAY_RUNTIME_VERSION = '2026-08-17-fast-reveal-navigation-intent-v10';
 const OVERLAY_HOST_ID = '_x_extension_overlay_host_2026_unique_';
 const OVERLAY_NAVIGATION_STATE_STORAGE_PREFIX =
   '_x_extension_overlay_navigation_state_2026_unique_:';
@@ -4784,6 +4784,7 @@ function recoverOverlayAfterTopFrameDocumentStart(request, sender) {
 
 function openOverlayOnTab(activeTab, tabs, source, options) {
   const openOptions = options && typeof options === 'object' ? options : {};
+  const overlayOpenStartedAt = Date.now();
   let overlayOpening = null;
   let didFinishOpenAttempt = false;
   let shouldRetryPreCompleteFailure = false;
@@ -4884,9 +4885,13 @@ function openOverlayOnTab(activeTab, tabs, source, options) {
   }
   const overlayLoadingRecord = rememberOverlayLoadingRecord(activeTab, source, openOptions);
   shouldRetryPreCompleteFailure = Boolean(overlayLoadingRecord);
+  const shouldInjectOverlayCodexDebugSurface = Boolean(
+    codexDebugBridge && typeof codexDebugBridge.isEnabled === 'function' &&
+    codexDebugBridge.isEnabled()
+  );
   const overlayInjectionFiles = [
     'src/shared/icon-font-preload.js',
-    'src/shared/codex-debug-surface.js',
+    ...(shouldInjectOverlayCodexDebugSurface ? ['src/shared/codex-debug-surface.js'] : []),
     'src/shared/settings.js',
     'src/shared/navigation-disposition.js',
     'src/shared/search-utils.js',
@@ -4951,6 +4956,7 @@ function openOverlayOnTab(activeTab, tabs, source, options) {
               prioritizeCurrentPageMatch: prioritizeCurrentPageMatch,
               currentTabId: typeof activeTab.id === 'number' ? activeTab.id : null,
               currentTabUrl: getResolvedTabUrl(activeTab),
+              openedAt: overlayOpenStartedAt,
               documentPipEnabled: documentPipEnabledCache,
               siteSearchProviders: Array.isArray(siteSearchProviders) ? siteSearchProviders : [],
               ensureOpen: openOptions.ensureOpen === true,
@@ -7019,6 +7025,12 @@ function handleSearchMessage(request, sender, sendResponse) {
     }
     case 'getSearchSuggestions': {
       const query = request.query;
+      const requestKey = getSearchEngineSuggestionRequestKey(request, sender);
+      if (shouldPrefetchSearchEngineSuggestions(request, query)) {
+        scheduleSearchEngineSuggestionPrefetch(requestKey, query);
+      } else {
+        abortSearchEngineSuggestionRequest(requestKey);
+      }
       getSearchSuggestions(query, {
         sourceTypes: request.sourceTypes,
         includeOpenTabs: request.includeOpenTabs
@@ -7032,16 +7044,17 @@ function handleSearchMessage(request, sender, sendResponse) {
     case 'getSearchEngineSuggestions': {
       const query = request.query;
       const requestKey = getSearchEngineSuggestionRequestKey(request, sender);
-      const previousController = searchEngineSuggestionAbortControllers.get(requestKey);
-      if (previousController) {
-        previousController.abort();
+      const requestRecord = consumeSearchEngineSuggestionRequest(requestKey, query);
+      if (!requestRecord) {
+        sendResponse({ suggestions: [], aborted: false, hasRemoteSuggestions: false });
+        return;
       }
-      const controller = new AbortController();
-      searchEngineSuggestionAbortControllers.set(requestKey, controller);
+      const controller = requestRecord.controller;
       getSearchEngineSuggestions(query, request.localSuggestions, {
-        signal: controller.signal
+        signal: controller.signal,
+        rawEngineSuggestionsPromise: startSearchEngineSuggestionRequest(requestRecord)
       }).then((suggestions) => {
-        const isCurrent = searchEngineSuggestionAbortControllers.get(requestKey) === controller;
+        const isCurrent = searchEngineSuggestionRequests.get(requestKey) === requestRecord;
         const hasRemoteSuggestions = isCurrent && !controller.signal.aborted && suggestions.some((suggestion) => (
           suggestion && suggestion.type === 'googleSuggest'
         ));
@@ -7053,8 +7066,8 @@ function handleSearchMessage(request, sender, sendResponse) {
       }).catch(() => {
         sendResponse({ suggestions: [], aborted: controller.signal.aborted, hasRemoteSuggestions: false });
       }).finally(() => {
-        if (searchEngineSuggestionAbortControllers.get(requestKey) === controller) {
-          searchEngineSuggestionAbortControllers.delete(requestKey);
+        if (searchEngineSuggestionRequests.get(requestKey) === requestRecord) {
+          releaseSearchEngineSuggestionRequest(requestKey, requestRecord);
         }
       });
       return true;
@@ -7409,6 +7422,8 @@ let searchResultSourceTypesPromise = null;
 let searchSelectionStatsCache = null;
 let searchSelectionStatsPromise = null;
 const SEARCH_ENGINE_SUGGEST_TIMEOUT_MS = 900;
+const SEARCH_ENGINE_SUGGEST_PREFETCH_DELAY_MS = 120;
+const SEARCH_ENGINE_SUGGEST_PREFETCH_RETENTION_MS = 1500;
 const LOCAL_SUGGEST_SOURCE_TIMEOUT_MS = 800;
 const LOCAL_SEARCH_INDEX_WARMUP_TIMEOUT_MS = 80;
 const HISTORY_FALLBACK_CACHE_TTL_MS = 45 * 1000;
@@ -7434,7 +7449,7 @@ let bookmarkItemsCache = {
 let bookmarkTreeIndexPromise = null;
 let bookmarkItemsPromise = null;
 let bookmarkTreeCacheListenersBound = false;
-const searchEngineSuggestionAbortControllers = new Map();
+const searchEngineSuggestionRequests = new Map();
 const SITE_SEARCH_STORAGE_KEY = '_x_extension_site_search_custom_2024_unique_';
 const SITE_SEARCH_DISABLED_STORAGE_KEY = '_x_extension_site_search_disabled_2024_unique_';
 const SEARCH_BLACKLIST_STORAGE_KEY = '_x_extension_search_blacklist_2026_unique_';
@@ -9584,6 +9599,144 @@ async function fetchSearchEngineSuggestionsWithTimeout(query, externalSignal) {
   }
 }
 
+function shouldPrefetchSearchEngineSuggestions(request, query) {
+  const context = request && request.context ? String(request.context) : '';
+  const normalizedQuery = String(query || '').trim();
+  const isScopedLocalSearch = Array.isArray(request && request.sourceTypes) &&
+    request.sourceTypes.length > 0;
+  return (context === 'newtab' || context === 'overlay') &&
+    Boolean(normalizedQuery) &&
+    !normalizedQuery.startsWith('/') &&
+    !isScopedLocalSearch;
+}
+
+function clearSearchEngineSuggestionRequestTimers(record) {
+  if (!record) {
+    return;
+  }
+  if (record.startTimer !== null) {
+    clearTimeout(record.startTimer);
+    record.startTimer = null;
+  }
+  if (record.releaseTimer !== null) {
+    clearTimeout(record.releaseTimer);
+    record.releaseTimer = null;
+  }
+}
+
+function releaseSearchEngineSuggestionRequest(requestKey, record) {
+  if (!record || searchEngineSuggestionRequests.get(requestKey) !== record) {
+    return;
+  }
+  clearSearchEngineSuggestionRequestTimers(record);
+  searchEngineSuggestionRequests.delete(requestKey);
+}
+
+function abortSearchEngineSuggestionRequest(requestKey) {
+  const record = searchEngineSuggestionRequests.get(requestKey);
+  if (!record) {
+    return;
+  }
+  clearSearchEngineSuggestionRequestTimers(record);
+  if (record.controller && !record.controller.signal.aborted) {
+    record.controller.abort();
+  }
+  if (searchEngineSuggestionRequests.get(requestKey) === record) {
+    searchEngineSuggestionRequests.delete(requestKey);
+  }
+}
+
+function startSearchEngineSuggestionRequest(record) {
+  if (!record) {
+    return Promise.resolve([]);
+  }
+  if (record.promise) {
+    return record.promise;
+  }
+  if (record.startTimer !== null) {
+    clearTimeout(record.startTimer);
+    record.startTimer = null;
+  }
+  record.promise = Promise.resolve(defaultSearchEngineStateReady)
+    .then(() => {
+      if (record.controller.signal.aborted) {
+        return [];
+      }
+      return fetchSearchEngineSuggestionsWithTimeout(record.query, record.controller.signal);
+    })
+    .catch(() => []);
+  record.promise.then(() => {
+    if (record.consumed ||
+        searchEngineSuggestionRequests.get(record.requestKey) !== record ||
+        record.releaseTimer !== null) {
+      return;
+    }
+    record.releaseTimer = setTimeout(() => {
+      releaseSearchEngineSuggestionRequest(record.requestKey, record);
+    }, SEARCH_ENGINE_SUGGEST_PREFETCH_RETENTION_MS);
+  });
+  return record.promise;
+}
+
+function getOrCreateSearchEngineSuggestionRequest(requestKey, query, options) {
+  const normalizedQuery = String(query || '').trim();
+  if (!normalizedQuery) {
+    abortSearchEngineSuggestionRequest(requestKey);
+    return null;
+  }
+  const settings = options && typeof options === 'object' ? options : {};
+  const existing = searchEngineSuggestionRequests.get(requestKey);
+  if (existing && existing.query === normalizedQuery && !existing.controller.signal.aborted) {
+    if (settings.consume === true) {
+      existing.consumed = true;
+      if (existing.releaseTimer !== null) {
+        clearTimeout(existing.releaseTimer);
+        existing.releaseTimer = null;
+      }
+    }
+    if (settings.startImmediately === true) {
+      startSearchEngineSuggestionRequest(existing);
+    }
+    return existing;
+  }
+  if (existing) {
+    abortSearchEngineSuggestionRequest(requestKey);
+  }
+  const record = {
+    requestKey,
+    query: normalizedQuery,
+    controller: new AbortController(),
+    startTimer: null,
+    releaseTimer: null,
+    promise: null,
+    consumed: settings.consume === true
+  };
+  searchEngineSuggestionRequests.set(requestKey, record);
+  const delayMs = Math.max(0, Number(settings.delayMs) || 0);
+  if (delayMs > 0 && settings.startImmediately !== true) {
+    record.startTimer = setTimeout(() => {
+      record.startTimer = null;
+      startSearchEngineSuggestionRequest(record);
+    }, delayMs);
+  } else {
+    startSearchEngineSuggestionRequest(record);
+  }
+  return record;
+}
+
+function scheduleSearchEngineSuggestionPrefetch(requestKey, query) {
+  return getOrCreateSearchEngineSuggestionRequest(requestKey, query, {
+    delayMs: SEARCH_ENGINE_SUGGEST_PREFETCH_DELAY_MS
+  });
+}
+
+function consumeSearchEngineSuggestionRequest(requestKey, query) {
+  return getOrCreateSearchEngineSuggestionRequest(requestKey, query, {
+    consume: true,
+    startImmediately: true
+  });
+}
+
 function callChromeApiWithTimeout(invoke, fallbackValue, timeoutMs) {
   return withTimeout(new Promise((resolve) => {
     let settled = false;
@@ -10444,8 +10597,12 @@ async function getSearchEngineSuggestions(query, localSuggestions, options) {
     return normalizedLocalSuggestions;
   }
 
+  const rawEngineSuggestionsPromise = settings.rawEngineSuggestionsPromise &&
+    typeof settings.rawEngineSuggestionsPromise.then === 'function'
+    ? settings.rawEngineSuggestionsPromise
+    : fetchSearchEngineSuggestionsWithTimeout(query, signal);
   const [rawEngineSuggestions, searchBlacklistItems, sourceTypes] = await Promise.all([
-    fetchSearchEngineSuggestionsWithTimeout(query, signal),
+    rawEngineSuggestionsPromise,
     loadSearchBlacklistItems(),
     loadSearchResultSourceTypes()
   ]);

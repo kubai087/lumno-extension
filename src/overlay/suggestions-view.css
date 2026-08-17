@@ -46,6 +46,17 @@
 }
 
 :is(#_x_extension_overlay_2024_unique_, #_x_extension_onboarding_overlay_demo_2026_unique_) .x-ov-suggestions-container[data-open-tabs-visible-row-limit] {
+  --x-ov-open-tabs-scrollbar-gutter: 10px;
+  /* The stable gutter keeps the native scrollbar out of the row geometry.
+     Its measured width is then taken from this container's right inset. */
+  scrollbar-gutter: stable;
+  padding-inline-end: max(
+    0px,
+    calc(
+      var(--x-ov-results-inset, 12px) -
+      var(--x-ov-open-tabs-scrollbar-gutter, 10px)
+    )
+  );
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.68) transparent;
 }

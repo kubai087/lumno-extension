@@ -9,14 +9,16 @@
     input: '_x_extension_input_component_style_2026_unique_',
     suggestions: '_x_extension_overlay_suggestions_style_2026_unique_'
   });
+  const OVERLAY_STYLE_FALLBACK_ATTRIBUTE = 'data-lumno-site-fix-style-fallback';
 
   const OVERLAY_STYLE_REVEAL_POLICY = Object.freeze({
     id: 'overlay-critical-style-reveal',
     waitForStyleSheets: true,
     styleIds: Object.freeze([
-      OVERLAY_STYLE_IDS.input
+      OVERLAY_STYLE_IDS.input,
+      OVERLAY_STYLE_IDS.suggestions
     ]),
-    maxWaitMs: 160
+    maxWaitMs: 80
   });
 
   const SITE_FIXES = Object.freeze([]);
@@ -118,11 +120,14 @@
     return win || (typeof window !== 'undefined' ? window : null);
   }
 
-  function waitForStyleLinks(win, links, maxWaitMs) {
+  function waitForStyleLinks(win, links, maxWaitMs, onAllLoaded) {
     const targetWindow = getTimerWindow(win);
     const pendingLinks = (Array.isArray(links) ? links : []).filter((link) => !isStylesheetLoaded(link));
     if (pendingLinks.length === 0) {
       (Array.isArray(links) ? links : []).forEach(markStylesheetReady);
+      if (typeof onAllLoaded === 'function') {
+        onAllLoaded();
+      }
       return Promise.resolve({ ok: true, reason: 'already-loaded' });
     }
     if (!targetWindow || typeof targetWindow.setTimeout !== 'function') {
@@ -130,35 +135,42 @@
     }
 
     return new Promise((resolve) => {
-      let settled = false;
+      let initialResultSettled = false;
       let remaining = pendingLinks.length;
       let timer = null;
       let raf = null;
       const cleanups = [];
+      const readyLinks = new Set();
 
-      const finish = (ok, reason) => {
-        if (settled) {
+      const settleInitialResult = (ok, reason) => {
+        if (initialResultSettled) {
           return;
         }
-        settled = true;
+        initialResultSettled = true;
         if (timer !== null && typeof targetWindow.clearTimeout === 'function') {
           targetWindow.clearTimeout(timer);
+          timer = null;
         }
         if (raf !== null && typeof targetWindow.cancelAnimationFrame === 'function') {
           targetWindow.cancelAnimationFrame(raf);
+          raf = null;
         }
-        cleanups.forEach((cleanup) => cleanup());
         resolve({ ok: Boolean(ok), reason: reason || (ok ? 'loaded' : 'unknown') });
       };
 
       const handleReady = (link, reason) => {
-        if (settled) {
+        if (readyLinks.has(link)) {
           return;
         }
+        readyLinks.add(link);
         markStylesheetReady(link);
         remaining -= 1;
         if (remaining <= 0) {
-          finish(true, reason || 'loaded');
+          cleanups.forEach((cleanup) => cleanup());
+          if (typeof onAllLoaded === 'function') {
+            onAllLoaded();
+          }
+          settleInitialResult(true, reason || 'loaded');
         }
       };
 
@@ -168,7 +180,9 @@
           return;
         }
         const onLoad = () => handleReady(link, 'loaded');
-        const onError = () => handleReady(link, 'error');
+        // A failed local stylesheet must keep the inline fallback active rather
+        // than treating the error as if the component CSS had applied.
+        const onError = () => settleInitialResult(false, 'error');
         link.addEventListener('load', onLoad, { once: true });
         link.addEventListener('error', onError, { once: true });
         cleanups.push(() => {
@@ -180,13 +194,9 @@
       if (typeof targetWindow.requestAnimationFrame === 'function') {
         raf = targetWindow.requestAnimationFrame(() => {
           raf = null;
-          if (settled) {
-            return;
-          }
           const stillPending = pendingLinks.filter((link) => !isStylesheetLoaded(link));
           if (stillPending.length === 0) {
-            pendingLinks.forEach(markStylesheetReady);
-            finish(true, 'loaded-after-frame');
+            pendingLinks.forEach((link) => handleReady(link, 'loaded-after-frame'));
           }
         });
       }
@@ -194,7 +204,10 @@
       const waitMs = Math.max(0, Number(maxWaitMs) || 0);
       if (waitMs > 0) {
         timer = targetWindow.setTimeout(() => {
-          finish(false, 'timeout');
+          // Keep load listeners alive after the first-frame budget expires:
+          // the panel can reveal with its safe fallback now and upgrade as soon
+          // as the real stylesheets finish loading.
+          settleInitialResult(false, 'timeout');
         }, waitMs);
       }
     });
@@ -211,6 +224,19 @@
     }
     overlay.removeAttribute('data-lumno-site-fix-reveal');
     overlay.style.removeProperty('visibility');
+  }
+
+  function setOverlayStyleFallback(overlay, enabled, fixId) {
+    if (!overlay || typeof overlay.setAttribute !== 'function') {
+      return;
+    }
+    if (enabled) {
+      overlay.setAttribute(OVERLAY_STYLE_FALLBACK_ATTRIBUTE, fixId || 'waiting');
+      return;
+    }
+    if (typeof overlay.removeAttribute === 'function') {
+      overlay.removeAttribute(OVERLAY_STYLE_FALLBACK_ATTRIBUTE);
+    }
   }
 
   function createNoopRevealGate() {
@@ -242,6 +268,7 @@
       ? Number(settings.maxWaitMs)
       : activeFix.maxWaitMs;
     let released = false;
+    let stylesReady = false;
     let waitPromise = null;
 
     setOverlayDeferredVisibility(overlay, true, activeFix.id);
@@ -251,11 +278,14 @@
         return;
       }
       released = true;
+      setOverlayStyleFallback(overlay, !stylesReady, activeFix.id);
       setOverlayDeferredVisibility(overlay, false, activeFix.id);
     }
 
     function cancel() {
-      release();
+      released = true;
+      setOverlayDeferredVisibility(overlay, false, activeFix.id);
+      setOverlayStyleFallback(overlay, false, activeFix.id);
     }
 
     function waitUntilReady() {
@@ -270,7 +300,10 @@
         } else {
           // The entry animation already commits its hidden initial state across two frames.
           // Adding paint frames here would delay every overlay reveal without extra protection.
-          waitPromise = waitForStyleLinks(win, links, maxWaitMs).then((result) => ({
+          waitPromise = waitForStyleLinks(win, links, maxWaitMs, () => {
+            stylesReady = true;
+            setOverlayStyleFallback(overlay, false, activeFix.id);
+          }).then((result) => ({
             ok: Boolean(result && result.ok),
             reason: result && result.reason ? result.reason : 'unknown',
             fixId: activeFix.id
