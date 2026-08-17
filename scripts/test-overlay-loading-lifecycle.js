@@ -93,6 +93,48 @@ injectablePendingNavigationCases.forEach(({ name, tab }) => {
   );
 });
 
+const unknownPendingNavigationCases = [
+  {
+    name: 'about:blank before Chrome exposes the target URL',
+    tab: {
+      id: 54,
+      status: 'loading',
+      url: 'about:blank',
+      pendingUrl: ''
+    }
+  },
+  {
+    name: 'browser New Tab before Chrome exposes the target URL',
+    tab: {
+      id: 55,
+      status: 'loading',
+      url: 'chrome://newtab/'
+    }
+  },
+  {
+    name: 'loading tab before Chrome exposes either URL',
+    tab: {
+      id: 56,
+      status: 'loading',
+      url: '',
+      pendingUrl: ''
+    }
+  }
+];
+
+unknownPendingNavigationCases.forEach(({ name, tab }) => {
+  assert.strictEqual(
+    lifecycle.getPendingInjectableUrl(tab, canInjectOverlayUrl),
+    '',
+    `${name} should not invent a target URL`
+  );
+  assert.strictEqual(
+    lifecycle.shouldDeferRestrictedLoadingTab(tab, canInjectOverlayUrl),
+    true,
+    `${name} should preserve the shortcut until the same tab commits`
+  );
+});
+
 const nonDeferredNavigationCases = [
   {
     name: 'protected browser target',
@@ -155,6 +197,11 @@ nonDeferredNavigationCases.forEach(({ name, tab }) => {
     lifecycle.getPendingInjectableUrl(tab, canInjectOverlayUrl),
     '',
     `${name} should retain the ordinary restricted/current-Document behavior`
+  );
+  assert.strictEqual(
+    lifecycle.shouldDeferRestrictedLoadingTab(tab, canInjectOverlayUrl),
+    false,
+    `${name} should not create an unknown navigation intent`
   );
 });
 

@@ -1,7 +1,7 @@
 'use strict';
 
 window._x_extension_search_overlay_runtime_version_2026_unique_ =
-  '2026-08-17-loading-session-v6';
+  '2026-08-17-loading-lifecycle-v7';
 window._x_extension_search_overlay_open_2026_unique_ = false;
 
 window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayContext) {
@@ -130,6 +130,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
   if (!overlayLifecycle ||
       typeof overlayLifecycle.createFrameTracker !== 'function' ||
       typeof overlayLifecycle.createViewportSizeSync !== 'function' ||
+      typeof overlayLifecycle.createMountConnectionGuard !== 'function' ||
       typeof overlayLifecycle.createAntiTranslateGuard !== 'function') {
     console.warn('Lumno: overlay lifecycle helper not available.');
     return;
@@ -1561,6 +1562,13 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         overlayWheelIsolationHandler = null;
       }
       const mountHost = getOverlayMountHost(overlayElement);
+      const mountConnectionGuard = mountHost && mountHost._lumnoMountConnectionGuard;
+      if (mountConnectionGuard && typeof mountConnectionGuard.stop === 'function') {
+        mountConnectionGuard.stop();
+      }
+      if (mountHost) {
+        mountHost._lumnoMountConnectionGuard = null;
+      }
       const mountedSuggestionsView = overlayElement._lumnoSuggestionsView ||
         overlaySuggestionsView;
       if (mountedSuggestionsView &&
@@ -8888,6 +8896,35 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         overlayHost.removeAttribute('popover');
       }
     }
+    const mountConnectionGuard = overlayLifecycle.createMountConnectionGuard(window, {
+      getMountParent(doc) {
+        return doc.fullscreenElement || doc.documentElement || doc.body;
+      },
+      onRestore(restoredHost) {
+        window._x_extension_search_overlay_open_2026_unique_ = true;
+        if (typeof restoredHost.showPopover === 'function') {
+          try {
+            restoredHost.showPopover();
+          } catch (error) {
+            restoredHost.removeAttribute('popover');
+          }
+        }
+        overlayViewportSizeSync.apply(overlay);
+        const restoreFocus = () => {
+          if (restoredHost.isConnected &&
+              window._x_extension_search_overlay_open_2026_unique_ === true) {
+            focusOverlayInputForReveal();
+          }
+        };
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(restoreFocus);
+        } else {
+          window.setTimeout(restoreFocus, 0);
+        }
+      }
+    });
+    overlayHost._lumnoMountConnectionGuard = mountConnectionGuard;
+    mountConnectionGuard.start(overlayHost);
     startOverlayViewportSizeSync(overlay);
     startOverlayUpdateNoticeFrameSync(overlay);
     startOverlayAntiTranslateObserver(overlay);

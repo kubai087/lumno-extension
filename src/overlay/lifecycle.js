@@ -205,6 +205,176 @@
     });
   }
 
+  function createMountConnectionGuard(win, config) {
+    const targetWindow = win || window;
+    const settings = config && typeof config === 'object' ? config : {};
+    const doc = targetWindow.document;
+    const MutationObserverCtor = targetWindow.MutationObserver;
+    const MAX_RESTORE_ATTEMPTS = 4;
+    const RESTORE_RETRY_MS = 16;
+
+    let active = false;
+    let mountHost = null;
+    let documentObserver = null;
+    let parentObserver = null;
+    let observedParent = null;
+    let restoreTimer = null;
+    let restoreAttempts = 0;
+
+    function clearRestoreTimer() {
+      if (restoreTimer === null) {
+        return;
+      }
+      targetWindow.clearTimeout(restoreTimer);
+      restoreTimer = null;
+    }
+
+    function resolveMountParent() {
+      let candidate = null;
+      if (typeof settings.getMountParent === 'function') {
+        try {
+          candidate = settings.getMountParent(doc);
+        } catch (error) {
+          candidate = null;
+        }
+      }
+      if (!candidate && doc) {
+        candidate = doc.fullscreenElement || doc.documentElement || doc.body;
+      }
+      if (!candidate || candidate.isConnected === false ||
+          typeof candidate.appendChild !== 'function') {
+        return null;
+      }
+      return candidate;
+    }
+
+    function observeParent(parent) {
+      if (!active || !parent || typeof MutationObserverCtor !== 'function') {
+        return;
+      }
+      if (!parentObserver) {
+        parentObserver = new MutationObserverCtor(() => {
+          if (active && mountHost && mountHost.isConnected !== true) {
+            scheduleRestore();
+          }
+        });
+      }
+      if (observedParent === parent) {
+        return;
+      }
+      parentObserver.disconnect();
+      observedParent = parent;
+      parentObserver.observe(parent, { childList: true });
+    }
+
+    function ensureConnected() {
+      if (!active || !mountHost) {
+        return false;
+      }
+      if (mountHost.isConnected === true) {
+        observeParent(mountHost.parentNode || resolveMountParent());
+        restoreAttempts = 0;
+        return true;
+      }
+      const parent = resolveMountParent();
+      if (!parent) {
+        return false;
+      }
+      observeParent(parent);
+      try {
+        parent.appendChild(mountHost);
+      } catch (error) {
+        return false;
+      }
+      if (mountHost.isConnected !== true) {
+        return false;
+      }
+      restoreAttempts = 0;
+      if (typeof settings.onRestore === 'function') {
+        try {
+          settings.onRestore(mountHost, parent);
+        } catch (error) {
+          // Reconnection itself succeeded; optional UI restoration is best effort.
+        }
+      }
+      return true;
+    }
+
+    function scheduleRestore() {
+      if (!active || !mountHost || mountHost.isConnected === true || restoreTimer !== null) {
+        return;
+      }
+      const delay = restoreAttempts > 0 ? RESTORE_RETRY_MS : 0;
+      restoreTimer = targetWindow.setTimeout(() => {
+        restoreTimer = null;
+        if (ensureConnected()) {
+          return;
+        }
+        restoreAttempts += 1;
+        if (restoreAttempts < MAX_RESTORE_ATTEMPTS) {
+          scheduleRestore();
+        }
+      }, delay);
+    }
+
+    function handleDocumentMutation() {
+      if (!active || !mountHost) {
+        return;
+      }
+      observeParent(mountHost.isConnected === true
+        ? mountHost.parentNode
+        : resolveMountParent());
+      if (mountHost.isConnected !== true) {
+        scheduleRestore();
+      }
+    }
+
+    function start(host) {
+      stop();
+      if (!host) {
+        return;
+      }
+      active = true;
+      mountHost = host;
+      if (doc && typeof MutationObserverCtor === 'function') {
+        documentObserver = new MutationObserverCtor(handleDocumentMutation);
+        documentObserver.observe(doc, { childList: true });
+      }
+      observeParent(host.parentNode || resolveMountParent());
+      if (typeof targetWindow.addEventListener === 'function') {
+        targetWindow.addEventListener('fullscreenchange', handleDocumentMutation);
+      }
+      if (host.isConnected !== true) {
+        scheduleRestore();
+      }
+    }
+
+    function stop() {
+      active = false;
+      clearRestoreTimer();
+      restoreAttempts = 0;
+      if (documentObserver) {
+        documentObserver.disconnect();
+        documentObserver = null;
+      }
+      if (parentObserver) {
+        parentObserver.disconnect();
+        parentObserver = null;
+      }
+      if (typeof targetWindow.removeEventListener === 'function') {
+        targetWindow.removeEventListener('fullscreenchange', handleDocumentMutation);
+      }
+      observedParent = null;
+      mountHost = null;
+    }
+
+    return Object.freeze({
+      ensureConnected,
+      start,
+      stop
+    });
+  }
+
   function createAntiTranslateGuard(win, deps) {
     const targetWindow = win || window;
     const helpers = deps && typeof deps === 'object' ? deps : {};
@@ -476,6 +646,7 @@
   return Object.freeze({
     createAntiTranslateGuard,
     createFrameTracker,
+    createMountConnectionGuard,
     createViewportSizeSync
   });
 });

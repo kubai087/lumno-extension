@@ -1657,7 +1657,7 @@ const TAB_SWITCHER_HOST_STATE_TIMEOUT_MS = 400;
 const tabSwitcherHostTabIdByWindowId = new Map();
 const HOTKEY_DUP_GUARD_MS = 180;
 const OVERLAY_OPENING_GUARD_MS = 5000;
-const OVERLAY_RUNTIME_VERSION = '2026-08-17-loading-session-v6';
+const OVERLAY_RUNTIME_VERSION = '2026-08-17-loading-lifecycle-v7';
 const OVERLAY_HOST_ID = '_x_extension_overlay_host_2026_unique_';
 const OVERLAY_LOADING_RECORD_STORAGE_PREFIX =
   '_x_extension_overlay_loading_record_2026_unique_:';
@@ -4152,8 +4152,18 @@ function getPendingOverlayNavigationUrl(tab) {
   return pendingUrl;
 }
 
+function shouldDeferRestrictedOverlayNavigation(tab) {
+  if (typeof OVERLAY_LOADING_LIFECYCLE.shouldDeferRestrictedLoadingTab === 'function') {
+    return OVERLAY_LOADING_LIFECYCLE.shouldDeferRestrictedLoadingTab(
+      tab,
+      canOpenOverlayOnUrl
+    );
+  }
+  return Boolean(getPendingOverlayNavigationUrl(tab));
+}
+
 function rememberOverlayPendingNavigationIntent(activeTab, source, pendingUrl) {
-  if (!activeTab || typeof activeTab.id !== 'number' || !pendingUrl) {
+  if (!activeTab || typeof activeTab.id !== 'number') {
     return null;
   }
   const record = typeof OVERLAY_LOADING_LIFECYCLE.createRecord === 'function'
@@ -4171,13 +4181,14 @@ function rememberOverlayPendingNavigationIntent(activeTab, source, pendingUrl) {
     session: currentRecord && currentRecord.session
       ? currentRecord.session
       : record.session,
-    pendingNavigationUrl: pendingUrl
+    pendingNavigationDeferred: true,
+    pendingNavigationUrl: typeof pendingUrl === 'string' ? pendingUrl : ''
   };
   setOverlayLoadingRecord(nextRecord);
   logHotkeyDebug('overlay-deferred-for-pending-navigation', {
     tabId: activeTab.id,
     currentUrl: typeof activeTab.url === 'string' ? activeTab.url : '',
-    pendingUrl,
+    pendingUrl: typeof pendingUrl === 'string' ? pendingUrl : '',
     source: source || ''
   });
   return nextRecord;
@@ -4439,7 +4450,21 @@ function recoverOverlayAfterLoadingUpdate(tabId, changeInfo, tab) {
       if (!isComplete && canOpenOverlayOnUrl(trackedPendingUrl)) {
         return;
       }
+      const shouldReplayRestrictedIntent = isComplete &&
+        record.pendingNavigationDeferred === true;
       clearOverlayLoadingRecord(tabId);
+      if (shouldReplayRestrictedIntent) {
+        const settledTab = {
+          ...resolvedTab,
+          status: 'complete',
+          pendingUrl: ''
+        };
+        setTimeout(() => {
+          openOverlayOnTab(settledTab, [], record.source, {
+            skipDuplicateGuard: true
+          });
+        }, 0);
+      }
       return;
     }
     overlayLoadingRecoveryInFlightByTabId.add(tabId);
@@ -4522,7 +4547,8 @@ function openOverlayOnTab(activeTab, tabs, source, options) {
     return;
   }
   const pendingNavigationUrl = getPendingOverlayNavigationUrl(activeTab);
-  if (openOptions.loadingRecovery !== true && pendingNavigationUrl &&
+  if (openOptions.loadingRecovery !== true &&
+      shouldDeferRestrictedOverlayNavigation(activeTab) &&
       rememberOverlayPendingNavigationIntent(activeTab, source, pendingNavigationUrl)) {
     finishOpenAttempt(false);
     return;
@@ -4769,7 +4795,7 @@ function triggerShowSearchForTab(tab, source) {
     openNewtabFallback();
     return;
   }
-  if (getPendingOverlayNavigationUrl(tab)) {
+  if (shouldDeferRestrictedOverlayNavigation(tab)) {
     openOverlayOnTab(tab, [], source);
     return;
   }

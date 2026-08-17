@@ -15,8 +15,8 @@ assert.match(
 );
 assert.match(
   triggerSource,
-  /if \(getPendingOverlayNavigationUrl\(tab\)\) \{[\s\S]*?openOverlayOnTab\(tab, \[\], source\);[\s\S]*?return;/,
-  'a shortcut on a provisional HTTP(S) navigation should record intent without waiting for a tab refresh'
+  /if \(shouldDeferRestrictedOverlayNavigation\(tab\)\) \{[\s\S]*?openOverlayOnTab\(tab, \[\], source\);[\s\S]*?return;/,
+  'a shortcut on any unresolved restricted navigation should record intent without waiting for a tab refresh'
 );
 
 const pendingIntentStart = backgroundSource.indexOf(
@@ -51,8 +51,8 @@ assert.ok(
 );
 assert.match(
   pendingIntentSource,
-  /createRecord\(activeTab, source, Date\.now\(\)\)[\s\S]*?pendingNavigationUrl: pendingUrl[\s\S]*?setOverlayLoadingRecord\(nextRecord\)/,
-  'a provisional navigation should persist the same loading-lifecycle record used after commit'
+  /createRecord\(activeTab, source, Date\.now\(\)\)[\s\S]*?pendingNavigationDeferred: true,[\s\S]*?pendingNavigationUrl:[\s\S]*?setOverlayLoadingRecord\(nextRecord\)/,
+  'a provisional navigation should persist the same loading-lifecycle record even before Chrome exposes its URL'
 );
 assert.doesNotMatch(
   pendingIntentSource,

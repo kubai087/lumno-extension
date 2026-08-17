@@ -29,6 +29,18 @@
     return pendingUrl;
   }
 
+  function shouldDeferRestrictedLoadingTab(tab, canInjectUrl) {
+    if (!isLoadingTab(tab) || typeof canInjectUrl !== 'function') {
+      return false;
+    }
+    const currentUrl = typeof tab.url === 'string' ? tab.url.trim() : '';
+    if (canInjectUrl(currentUrl)) {
+      return false;
+    }
+    const pendingUrl = typeof tab.pendingUrl === 'string' ? tab.pendingUrl.trim() : '';
+    return !pendingUrl || canInjectUrl(pendingUrl);
+  }
+
   function createRecord(tab, source, now) {
     if (!isLoadingTab(tab)) {
       return null;
@@ -217,6 +229,7 @@
     getPendingInjectableUrl,
     isExpired,
     isLoadingTab,
-    normalizeSessionState
+    normalizeSessionState,
+    shouldDeferRestrictedLoadingTab
   });
 });
