@@ -2133,7 +2133,6 @@
       destroyCrtWebglRenderer();
       if (windowObj && typeof windowObj.removeEventListener === 'function') {
         windowObj.removeEventListener('resize', handleWindowResize);
-        windowObj.removeEventListener('beforeunload', destroy);
       }
       if (canvas && canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
@@ -2145,7 +2144,6 @@
 
     if (windowObj && typeof windowObj.addEventListener === 'function') {
       windowObj.addEventListener('resize', handleWindowResize, { passive: true });
-      windowObj.addEventListener('beforeunload', destroy, { once: true });
     }
 
     return {

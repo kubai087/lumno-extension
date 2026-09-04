@@ -908,10 +908,14 @@ async function testEffectRefreshWaitsForPaint() {
   assert.notStrictEqual(createdCanvases[0].style.opacity, '0');
   assert.strictEqual(typeof controller.destroy, 'function');
   assert.ok(listeners.has('resize'));
+  assert.strictEqual(
+    listeners.has('beforeunload'),
+    false,
+    'same-tab navigation should leave the effect canvas painted until the page is replaced'
+  );
   controller.destroy();
   assert.strictEqual(createdCanvases[0].parentNode, null, 'destroy should remove the effect canvas');
   assert.strictEqual(listeners.has('resize'), false, 'destroy should remove the resize listener');
-  assert.strictEqual(listeners.has('beforeunload'), false, 'destroy should remove the unload listener');
 }
 
 async function testStandardGlassRendersCachedMaterialTexture() {
