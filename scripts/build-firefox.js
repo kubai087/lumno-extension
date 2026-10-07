@@ -49,6 +49,21 @@ ffManifest.browser_specific_settings = {
   }
 };
 
+// Chrome's defaults collide in Firefox-based browsers: Cmd/Ctrl+Shift+K and
+// +C open DevTools, and Zen binds Cmd+Shift+K/L/C (K closes unpinned tabs).
+// MacCtrl+Shift and Alt (as with the tab switcher) are free in both.
+const FIREFOX_COMMAND_KEYS = {
+  'show-search': { default: 'Alt+K', mac: 'MacCtrl+Shift+K' },
+  'show-search-prefill': { default: 'Alt+L', mac: 'MacCtrl+Shift+L' },
+  'show-search-prefill-v': { default: 'Alt+C', mac: 'MacCtrl+Shift+C' }
+};
+Object.entries(FIREFOX_COMMAND_KEYS).forEach(([name, suggestedKey]) => {
+  if (!ffManifest.commands[name]) {
+    throw new Error(`Manifest command ${name} is missing.`);
+  }
+  ffManifest.commands[name].suggested_key = suggestedKey;
+});
+
 // Chrome-only: the _favicon service and its permission.
 ffManifest.permissions = ffManifest.permissions.filter((permission) => permission !== 'favicon');
 ffManifest.web_accessible_resources.forEach((entry) => {
