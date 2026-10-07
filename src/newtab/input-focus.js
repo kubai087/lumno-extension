@@ -117,10 +117,15 @@
       const clearExplicitFocusQuery = () => {
         try {
           const url = new URL(window.location.href);
-          if (url.searchParams.get('focus') !== '1') {
+          const hasFocusQuery = url.searchParams.get('focus') === '1';
+          const hasFocusHash = url.hash === '#focus';
+          if (!hasFocusQuery && !hasFocusHash) {
             return;
           }
           url.searchParams.delete('focus');
+          if (hasFocusHash) {
+            url.hash = '';
+          }
           window.history.replaceState(window.history.state, '', url.toString());
         } catch (_error) {
           // Keep focus recovery independent from address cleanup failures.

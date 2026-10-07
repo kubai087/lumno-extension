@@ -75,6 +75,7 @@ const checkFileSchemeAccess = BACKGROUND_NEWTAB_FALLBACK.checkFileSchemeAccess;
 const openBrowserNewtabFallback = BACKGROUND_NEWTAB_FALLBACK.openBrowserNewtabFallback;
 const openNewtabFallback = BACKGROUND_NEWTAB_FALLBACK.openNewtabFallback;
 const openNewtabFallbackForUrl = BACKGROUND_NEWTAB_FALLBACK.openNewtabFallbackForUrl;
+const swapNewtabForFocus = BACKGROUND_NEWTAB_FALLBACK.swapNewtabForFocus;
 const BACKGROUND_SHORTCUT_RULES = globalThis.LumnoShortcutRules;
 const RECENT_TAB_SWITCHER = globalThis.LumnoRecentTabSwitcher;
 const OVERLAY_LOADING_LIFECYCLE = globalThis.LumnoOverlayLoadingLifecycle;
@@ -6158,7 +6159,8 @@ const BACKGROUND_MESSAGE_ROUTE_GROUPS = Object.freeze({
       'updateOverlayLoadingSession',
       'getTabsForOverlay',
       'trackSearchTab',
-      'closeOtherTabsForOverlay'
+      'closeOtherTabsForOverlay',
+      'swapNewtabForFocus'
     ],
     handler: handleTabMessage
   },
@@ -6286,6 +6288,12 @@ function handleWebDavMessage(request, sender, sendResponse) {
 
 function handleTabMessage(request, sender, sendResponse) {
   switch (request.action) {
+    case 'swapNewtabForFocus': {
+      swapNewtabForFocus(sender && sender.tab ? sender.tab : null, sender && sender.url, (result) => {
+        sendResponse(result);
+      });
+      return true;
+    }
     case 'switchToTab': {
       if (typeof request.tabId === 'number') {
         recordTabSwitchEvent(request.tabId);

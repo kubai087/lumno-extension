@@ -66,6 +66,8 @@ Object.entries(FIREFOX_COMMAND_KEYS).forEach(([name, suggestedKey]) => {
 
 // Chrome-only: the _favicon service and its permission.
 ffManifest.permissions = ffManifest.permissions.filter((permission) => permission !== 'favicon');
+// Lets the New Tab focus swap drop the replaced tab from recently closed.
+ffManifest.permissions.push('sessions');
 ffManifest.web_accessible_resources.forEach((entry) => {
   entry.resources = entry.resources.filter((resource) => resource !== '_favicon/*');
 });

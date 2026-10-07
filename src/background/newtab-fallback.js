@@ -178,12 +178,106 @@
     });
   }
 
+  function isLumnoNewtabPageUrl(chromeApi, url) {
+    if (!chromeApi || !chromeApi.runtime || typeof chromeApi.runtime.getURL !== 'function') {
+      return false;
+    }
+    try {
+      const parsed = new URL(String(url || ''));
+      const newtabUrl = new URL(chromeApi.runtime.getURL('newtab.html'));
+      return parsed.origin === newtabUrl.origin && parsed.pathname === newtabUrl.pathname;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Session stores may record the close slightly later (Zen does), so retry;
+  // lastModified keeps an older, user-closed New Tab from being forgotten.
+  function forgetClosedNewtab(chromeApi, closedUrl, closedAfter, attemptsLeft) {
+    const sessions = chromeApi && chromeApi.sessions;
+    if (!sessions || typeof sessions.getRecentlyClosed !== 'function' ||
+        typeof sessions.forgetClosedTab !== 'function') {
+      return;
+    }
+    const remaining = typeof attemptsLeft === 'number' ? attemptsLeft : 3;
+    sessions.getRecentlyClosed({ maxResults: 5 }, (entries) => {
+      if (chromeApi.runtime && chromeApi.runtime.lastError) {
+        return;
+      }
+      const entry = (Array.isArray(entries) ? entries : []).find((item) => (
+        item && item.tab && item.tab.url === closedUrl && item.tab.sessionId &&
+        Number(item.lastModified) >= closedAfter
+      ));
+      if (!entry) {
+        if (remaining > 1) {
+          setTimeout(() => forgetClosedNewtab(chromeApi, closedUrl, closedAfter, remaining - 1), 150);
+        }
+        return;
+      }
+      // Firefox-only API; its schema takes no callback and returns a promise.
+      try {
+        const forgetting = sessions.forgetClosedTab(entry.tab.windowId, entry.tab.sessionId);
+        if (forgetting && typeof forgetting.catch === 'function') {
+          forgetting.catch(() => {});
+        }
+      } catch (e) {
+        // Keeping the closed entry is harmless.
+      }
+    });
+  }
+
+  // Firefox keeps URL-bar focus on a New Tab page through same-tab navigation
+  // (its initial-page check ignores the query), so focus only reaches a
+  // freshly created tab. Replace the sender tab with one marked #focus: a
+  // query would leave the URL bar showing the extension URL once cleared,
+  // because Firefox compares it with the page principal.
+  function swapNewtabForFocus(sourceTab, senderUrl, callback) {
+    const chromeApi = getChromeApi();
+    const done = typeof callback === 'function' ? callback : () => {};
+    if (!sourceTab || typeof sourceTab.id !== 'number' || !isLumnoNewtabPageUrl(chromeApi, senderUrl)) {
+      done({ ok: false, reason: 'invalid-sender' });
+      return;
+    }
+    // Recreating a container tab needs the cookies permission; leave it as is.
+    if (/^firefox-container-/.test(String(sourceTab.cookieStoreId || ''))) {
+      done({ ok: false, reason: 'container-tab' });
+      return;
+    }
+    const focusUrl = new URL(String(senderUrl));
+    focusUrl.hash = 'focus';
+    const createProperties = {
+      url: focusUrl.toString(),
+      index: sourceTab.index,
+      windowId: sourceTab.windowId,
+      active: true
+    };
+    if (typeof sourceTab.openerTabId === 'number') {
+      createProperties.openerTabId = sourceTab.openerTabId;
+    }
+    createTab({ sourceTab, createProperties }, (tab, result) => {
+      if (!tab) {
+        done({ ok: false, reason: (result && result.reason) || 'tab-create-failed' });
+        return;
+      }
+      const removeStartedAt = Date.now();
+      chromeApi.tabs.remove(sourceTab.id, () => {
+        if (chromeApi.runtime && chromeApi.runtime.lastError) {
+          done({ ok: true, removed: false });
+          return;
+        }
+        forgetClosedNewtab(chromeApi, String(senderUrl), removeStartedAt);
+        done({ ok: true, removed: true });
+      });
+    });
+  }
+
   return Object.freeze({
     buildNewtabFallbackUrl,
     checkFileSchemeAccess,
     isLocalFileLikeTargetUrl,
     openBrowserNewtabFallback,
     openNewtabFallback,
-    openNewtabFallbackForUrl
+    openNewtabFallbackForUrl,
+    swapNewtabForFocus
   });
 });
