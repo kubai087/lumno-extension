@@ -21,6 +21,8 @@
     "audit:i18n": "node scripts/audit-i18n.js",
     "profile:newtab-data": "node --expose-gc scripts/profile-newtab-data-performance.js",
     "package:store": "npm run build:react && node scripts/package-store.js",
+    "package:firefox": "npm run package:store && node scripts/build-firefox.js",
+    "lint:firefox": "npx --yes web-ext@latest lint -s dist/firefox",
     "test:package-store": "node scripts/test-package-store.js",
     "test:blacklist": "node scripts/test-blacklist.js",
     "test:url-guards": "node scripts/test-url-guards.js",

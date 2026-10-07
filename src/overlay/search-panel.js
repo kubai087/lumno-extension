@@ -55,30 +55,30 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
   const OVERLAY_CONTEXT_TOKEN_KEY = '__lumnoOverlayContextToken2026';
   const OVERLAY_CONTEXT_TOKEN_ATTRIBUTE = 'data-lumno-overlay-context-token';
   const overlayContextToken = getOrCreateOverlayContextToken();
-  const SETTINGS = window.LumnoSettings;
-  const NAVIGATION_DISPOSITION = window.LumnoNavigationDisposition;
-  const SEARCH_UTILS = window.LumnoSearchUtils;
-  const SITE_SEARCH_STORE = window.LumnoSiteSearchStore;
-  const AGGREGATE_SEARCH_STORE = window.LumnoAggregateSearchStore;
-  const AGGREGATE_SEARCH_SURFACE = window.LumnoAggregateSearchSurface;
-  const SHORTCUT_FAVICON = window.LumnoShortcutFavicon;
-  const SUGGESTION_ACTION_MODEL = window.LumnoSuggestionActionModel;
-  const SUGGESTION_NAVIGATION = window.LumnoSuggestionNavigation;
-  const SUGGESTIONS_HEIGHT_LAYOUT = window.LumnoSuggestionsHeightLayout;
-  const SEARCH_INPUT_HISTORY = window.LumnoSearchInputHistory;
-  const OVERLAY_SUGGESTIONS_VIEW = window.LumnoOverlaySuggestionsView;
-  const OVERLAY_TOAST = window.LumnoToast;
-  const SEARCH_INPUT_MODE = window.LumnoSearchInputMode;
-  const FEATURE_HINTS = window.LumnoFeatureHints;
-  const UPDATE_NOTICE = window.LumnoUpdateNotice;
-  const ENGAGEMENT_NOTICE = window.LumnoEngagementNotice;
-  const FAVICON_UTILS = window.LumnoFaviconUtils;
-  const FAVICON_THEME = window.LumnoNewtabFaviconTheme;
-  const overlayRuntime = window.LumnoOverlayRuntime;
-  const overlayLifecycle = window.LumnoOverlayLifecycle;
-  const overlayFaviconView = window.LumnoOverlayFaviconView;
-  const overlaySiteFixes = window.LumnoOverlaySiteFixes;
-  const overlayPageTheme = window.LumnoOverlayPageTheme;
+  const SETTINGS = globalThis.LumnoSettings;
+  const NAVIGATION_DISPOSITION = globalThis.LumnoNavigationDisposition;
+  const SEARCH_UTILS = globalThis.LumnoSearchUtils;
+  const SITE_SEARCH_STORE = globalThis.LumnoSiteSearchStore;
+  const AGGREGATE_SEARCH_STORE = globalThis.LumnoAggregateSearchStore;
+  const AGGREGATE_SEARCH_SURFACE = globalThis.LumnoAggregateSearchSurface;
+  const SHORTCUT_FAVICON = globalThis.LumnoShortcutFavicon;
+  const SUGGESTION_ACTION_MODEL = globalThis.LumnoSuggestionActionModel;
+  const SUGGESTION_NAVIGATION = globalThis.LumnoSuggestionNavigation;
+  const SUGGESTIONS_HEIGHT_LAYOUT = globalThis.LumnoSuggestionsHeightLayout;
+  const SEARCH_INPUT_HISTORY = globalThis.LumnoSearchInputHistory;
+  const OVERLAY_SUGGESTIONS_VIEW = globalThis.LumnoOverlaySuggestionsView;
+  const OVERLAY_TOAST = globalThis.LumnoToast;
+  const SEARCH_INPUT_MODE = globalThis.LumnoSearchInputMode;
+  const FEATURE_HINTS = globalThis.LumnoFeatureHints;
+  const UPDATE_NOTICE = globalThis.LumnoUpdateNotice;
+  const ENGAGEMENT_NOTICE = globalThis.LumnoEngagementNotice;
+  const FAVICON_UTILS = globalThis.LumnoFaviconUtils;
+  const FAVICON_THEME = globalThis.LumnoNewtabFaviconTheme;
+  const overlayRuntime = globalThis.LumnoOverlayRuntime;
+  const overlayLifecycle = globalThis.LumnoOverlayLifecycle;
+  const overlayFaviconView = globalThis.LumnoOverlayFaviconView;
+  const overlaySiteFixes = globalThis.LumnoOverlaySiteFixes;
+  const overlayPageTheme = globalThis.LumnoOverlayPageTheme;
   if (!overlayRuntime.STORAGE_KEYS) {
     console.warn('Lumno: overlay runtime helper not available.');
     return;
@@ -87,7 +87,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     chrome && chrome.storage ? chrome.storage.onChanged : null
   );
   function getSearchUtilsRuntime() {
-    return window.LumnoSearchUtils;
+    return globalThis.LumnoSearchUtils;
   }
   function applyOverlayInputExtensionIsolation(input) {
     if (!input || typeof input.setAttribute !== 'function') {
@@ -1596,7 +1596,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     }
   }
 
-  const overlayShell = window.LumnoOverlayShell;
+  const overlayShell = globalThis.LumnoOverlayShell;
 
   // Check if the overlay already exists
   let overlay = overlayShell.findOverlayPanel(document, {
@@ -1856,7 +1856,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       overlay,
       styleRoot: overlayStyleRoot || document.head || document.documentElement
     });
-    if (typeof window._x_extension_createSearchInput_2024_unique_ !== 'function') {
+    if (typeof globalThis._x_extension_createSearchInput_2024_unique_ !== 'function') {
       console.warn('Lumno: input UI helper not available.');
       removeOverlay(overlay);
       return;
@@ -1867,7 +1867,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     ).catch(() => {});
 
     const inputUsesIsolatedStyles = Boolean(overlayStyleRoot);
-    const inputParts = window._x_extension_createSearchInput_2024_unique_({
+    const inputParts = globalThis._x_extension_createSearchInput_2024_unique_({
       styleRoot: overlayStyleRoot,
       useIsolatedStyles: inputUsesIsolatedStyles,
       useInlineBaseStyles: !inputUsesIsolatedStyles,
@@ -2095,7 +2095,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     applyNoTranslate(searchInput);
     applyNoTranslate(inputContainer);
     applyNoTranslate(rightIcon);
-    const topActionTooltipController = window.LumnoTooltip.createController({
+    const topActionTooltipController = globalThis.LumnoTooltip.createController({
       documentObj: document,
       windowObj: window,
       id: '_x_extension_top_action_tooltip_2026_unique_',
@@ -2105,7 +2105,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       maxWidth: 420,
       decorateElement: applyNoTranslate
     });
-    const overlayCursorTooltipController = window.LumnoCursorTooltip.createController({
+    const overlayCursorTooltipController = globalThis.LumnoCursorTooltip.createController({
       documentObj: document,
       windowObj: window,
       id: '_x_extension_overlay_cursor_tooltip_2026_unique_',
@@ -2117,7 +2117,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       offsetY: 16,
       decorateElement: applyNoTranslate
     });
-    const overlayModeMenuCursorTooltipController = window.LumnoCursorTooltip.createController({
+    const overlayModeMenuCursorTooltipController = globalThis.LumnoCursorTooltip.createController({
       documentObj: document,
       windowObj: window,
       id: '_x_extension_overlay_mode_menu_cursor_tooltip_2026_unique_',
@@ -2163,7 +2163,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       overlayCursorTooltipController.hide();
     };
     function isSuggestionTitleOverflowing(title) {
-      const overflowApi = window.LumnoCursorTooltip;
+      const overflowApi = globalThis.LumnoCursorTooltip;
       return overflowApi.isElementTextTruncated(title);
     }
     function getSuggestionTextCursorTooltipOptions(extraOptions) {
@@ -8243,3 +8243,6 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     window.addEventListener('touchmove', overlayScrollPauseHandler, { passive: true, capture: true });
   }
 };
+
+// Keep the injected script completion value structured-clonable (Firefox rejects functions).
+void 0;

@@ -1057,7 +1057,7 @@
     if (!tabs.length) {
       return { ok: false, reason: 'empty' };
     }
-    const tabSwitcherReactViewApi = window.LumnoOverlayTabSwitcherView;
+    const tabSwitcherReactViewApi = globalThis.LumnoOverlayTabSwitcherView;
     if (!tabSwitcherReactViewApi ||
         typeof tabSwitcherReactViewApi.createTabSwitcherView !== 'function') {
       return { ok: false, reason: 'react-view-unavailable' };
