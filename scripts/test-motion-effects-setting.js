@@ -177,7 +177,7 @@ const expectedCopy = {
   en: ['Motion effects', 'Turn this off if performance stutters or you prefer a snappier opening experience'],
   ja: ['アニメーション効果', '動作が重い場合や、より素早く表示したい場合はオフにできます'],
   zh_CN: ['动态效果', '如遇卡顿，或倾向于更利落的唤起方式，可关闭'],
-  zh_TW: ['動態效果', '若遇到卡頓，或偏好更俐落的喚起方式，可關閉']
+  zh_TW: ['動態效果', '若畫面不順暢，或偏好更俐落的叫出方式，可關閉']
 };
 Object.entries(expectedCopy).forEach(([locale, [title, description]]) => {
   const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));

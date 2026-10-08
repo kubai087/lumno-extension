@@ -643,7 +643,7 @@ describe('Shared search scope menu', () => {
     ).toBeNull();
     localizedShortcutHint = '開啟面板';
     localizedFocusToggleHint = '切換聚焦';
-    localizedFilterHint = '點擊面板，輸入拼音或英文快速篩選';
+    localizedFilterHint = '點按面板，輸入拼音或英文快速篩選';
     localizedFilterQuery = '搜尋：{query}';
     macController.refreshModeMenuLanguage();
     expect(
@@ -659,7 +659,7 @@ describe('Shared search scope menu', () => {
       macFooter?.querySelector(
         '[data-search-input-mode-menu-footer-filter-text]'
       )?.textContent
-    ).toBe('點擊面板，輸入拼音或英文快速篩選');
+    ).toBe('點按面板，輸入拼音或英文快速篩選');
     macController.destroy();
 
     const windowsParts = createModeParts();

@@ -269,7 +269,7 @@
           browser: '支援主流瀏覽器',
           compatibility: '可與其他新分頁擴充功能並用',
           githubLabel: 'GitHub 倉庫',
-          githubTooltip: '以 GPL-3.0 授權開源，點擊前往 GitHub 倉庫。',
+          githubTooltip: '以 GPL-3.0 授權開源，點按前往 GitHub 倉庫。',
           browserTooltipLabel: '支援的瀏覽器',
           compatibilityTooltipLabel: '相容說明',
           compatibilityTooltip: '受 Chrome 限制，Lumno 無法單獨關閉新分頁接管，但可與其他新分頁擴充功能一起使用。\n安裝 Lumno 後，再覆蓋安裝或重新啟用你慣用的新分頁擴充功能即可。',
@@ -280,14 +280,14 @@
       }),
       setup: Object.freeze({
         title: '原生聚焦搜尋體驗',
-        body: '在任意網站按下快捷鍵{shortcut}，喚起聚焦搜尋浮窗。',
+        body: '在任意網站按下快速鍵{shortcut}，叫出聚焦搜尋浮動視窗。',
         diaLabel: '致 Dia 瀏覽器使用者',
-        diaText: '在 Dia 中，若聚焦搜尋浮窗快捷鍵不可用，請到瀏覽器快捷鍵設定頁面，將「Open command bar」從「In Dia」改為「Global」。',
-        shortcutsLink: '快捷鍵設定頁面',
+        diaText: '在 Dia 中，若聚焦搜尋浮動視窗快速鍵不可用，請到瀏覽器快速鍵設定頁面，將「Open command bar」從「In Dia」改為「Global」。',
+        shortcutsLink: '快速鍵設定頁面',
         localFileLabel: '在本機 PDF/HTML 分頁中使用聚焦搜尋',
         localFileText: '請前往擴充功能詳細資料頁，為 Lumno 開啟「允許存取檔案網址」，開啟後重新整理該分頁。',
         detailsLink: '擴充功能詳細資料頁',
-        shortcutActionTooltip: '受瀏覽器限制，請在「擴充功能 / 鍵盤快速鍵」頁面修改 Lumno 快捷鍵，點擊前往。'
+        shortcutActionTooltip: '受瀏覽器限制，請在「擴充功能 / 鍵盤快速鍵」頁面修改 Lumno 快速鍵，點按前往。'
       }),
       search: Object.freeze({
         title: '精美新分頁',
@@ -297,7 +297,7 @@
         title: 'AI / 站內搜尋一鍵直達',
         body: '輸入關鍵字後按 Tab，直接搜尋站內結果。',
         supportList: '支援列表',
-        supportTooltip: '可自訂，點擊前往設定。'
+        supportTooltip: '可自訂，點按前往設定。'
       }),
       finish: Object.freeze({
         title: '更多實用功能',
@@ -306,7 +306,7 @@
         ratingAction: '為我們評分',
         settingsAction: '設定'
       }),
-      actions: Object.freeze({ next: '下一頁', back: '返回', changeShortcut: '更換快捷鍵' }),
+      actions: Object.freeze({ next: '下一頁', back: '返回', changeShortcut: '更換快速鍵' }),
       runtimeCopy: Object.freeze({
         misc: Object.freeze({
           infoLabel: '說明',

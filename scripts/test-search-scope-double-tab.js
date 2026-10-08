@@ -342,7 +342,7 @@ const expectedFilterHints = {
   en: 'Type to filter',
   ja: 'パネルをクリックし、英字またはピンインで絞り込み',
   zh_CN: '点击面板，输入拼音或英文快速筛选',
-  zh_TW: '點擊面板，輸入拼音或英文快速篩選'
+  zh_TW: '點按面板，輸入拼音或英文快速篩選'
 };
 const expectedShortcutDescriptions = {
   en: 'When the input is empty, press Tab twice; with a search scope selected, press Tab once',
