@@ -2660,6 +2660,9 @@
   "webdav_error_directory_unavailable": {
     "message": "無法在伺服器上建立同步資料夾，請檢查伺服器位址和資料夾權限。"
   },
+  "webdav_error_folder_create_refused": {
+    "message": "伺服器拒絕建立新資料夾（MKCOL 405），無法建立同步鎖。請檢查帳號是否有建立資料夾的權限、掛載是否為唯讀，或反向代理是否攔截了 MKCOL。"
+  },
   "webdav_error_http": {
     "message": "伺服器回傳錯誤（HTTP {status}），請稍後重試。本機資料已保留。"
   },

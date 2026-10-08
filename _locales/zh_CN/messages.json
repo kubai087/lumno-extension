@@ -2660,6 +2660,9 @@
   "webdav_error_directory_unavailable": {
     "message": "无法在服务器上创建同步目录，请检查服务器地址和目录权限。"
   },
+  "webdav_error_folder_create_refused": {
+    "message": "服务器拒绝创建新文件夹（MKCOL 405），无法建立同步锁。请检查账号是否有新建文件夹的权限、挂载是否只读，或反向代理是否拦截了 MKCOL。"
+  },
   "webdav_error_http": {
     "message": "服务器返回错误（HTTP {status}），请稍后重试。本机数据已保留。"
   },

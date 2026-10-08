@@ -21,7 +21,7 @@ function createServer() {
   const server = { files, directories, requests: [], offline: false, ignoreConditions: false,
     unsafeCollections: false, brokenDelete: false, etagMode: 'strong', beforeRequest: null, afterPut: null,
     rejectStatePut: 0, ignoreMoveOverwrite: false, moveConflictStatus: 412, moveUnsupported: false,
-    loseMoveSource: false, refuseMoves: 0, refusalStillMoves: false };
+    loseMoveSource: false, refuseMoves: 0, refusalStillMoves: false, refuseCollections: false, compressAbove: 0 };
   server.fetch = async (url, options) => {
     if (server.offline) throw new Error('network is offline');
     const path = new URL(url).pathname;
@@ -33,9 +33,12 @@ function createServer() {
     if (server.beforeRequest) await server.beforeRequest(path, options);
     const entry = files.get(path);
     const response = (status, bytes, etag) => new Response([204, 304].includes(status) || options.method === 'HEAD' ? null : bytes || '', {
-      status, headers: { ...(etag && server.etagMode !== 'none' ? { ETag: server.etagMode === 'weak' ? `W/${etag}` : etag } : {}), 'Content-Length': String(bytes && bytes.byteLength || 0) }
+      // compressAbove mimics Cloudflare weakening strong ETags on bodies it compresses.
+      status, headers: { ...(etag && server.etagMode !== 'none' ? { ETag: server.etagMode === 'weak' ||
+        (server.compressAbove && bytes && bytes.byteLength > server.compressAbove) ? `W/${etag}` : etag } : {}), 'Content-Length': String(bytes && bytes.byteLength || 0) }
     });
     if (options.method === 'MKCOL') {
+      if (server.refuseCollections) return response(405);
       if (directories.has(path) && !server.unsafeCollections) return response(405);
       directories.add(path);
       return response(201);
@@ -207,10 +210,31 @@ async function run() {
   unsafe.brokenDelete = true;
   await assert.rejects(client.createClient(config, { fetch: unsafe.fetch }).testConnection(), /conditional-write-unsupported/);
   unsafe.brokenDelete = false;
+  // Existing sync folders also answer 405, so only a fresh path proves the
+  // server refuses folder creation; that is reported apart from concurrency.
+  unsafe.refuseCollections = true;
+  for (const attempt of [() => client.createClient(config, { fetch: unsafe.fetch }).testConnection(),
+    () => client.createClient({ ...config, concurrency: 'collection-lock' }, { fetch: unsafe.fetch }).writeState(empty(), null)]) {
+    await assert.rejects(attempt(), (cause) => {
+      assert.deepStrictEqual(cause.diagnostic, { revision: 'dav-lock-5', phase: 'state-lock-create', statuses: [405] });
+      return cause.code === 'folder-create-refused';
+    }, 'a refused MKCOL on a fresh path is not a concurrency failure');
+  }
+  unsafe.refuseCollections = false;
   assert.deepStrictEqual(client.diagnostic({ revision: 'dav-lock-5', phase: 'directory-race', statuses: [201, 'app-password', 405], password: 'app-password' }),
     { revision: 'dav-lock-5', phase: 'directory-race', statuses: [201, 405] });
   assert.strictEqual(client.diagnostic({ revision: 'dav-lock-5', phase: 'https://private-user:password@host/' }), null);
 
+  // Small probe files keep a strong ETag while a compressed state.json gets a
+  // weak one. The SHA-256 revision and write lock make that irrelevant.
+  const compressing = createServer();
+  compressing.compressAbove = 64;
+  const compressed = createDevice(compressing, { sync: { [theme]: 'light' } });
+  await compressed.controller.handle({ operation: 'connect', config });
+  assert.strictEqual(compressed.privateValues.get('session').config.concurrency, 'conditional');
+  await set(compressed.chrome.storage.sync, { [theme]: 'dark' });
+  await compressed.createController().handle({ operation: 'sync' });
+  assert.strictEqual(compressing.state().data[theme], 'dark', 'a weakened state.json ETag never blocks conditional servers');
   const lockConfig = { ...config, concurrency: 'collection-lock' };
   const lockPath = '/dav/lumno/v1/write-lock/';
   for (const etagMode of ['weak', 'none', 'strong']) {

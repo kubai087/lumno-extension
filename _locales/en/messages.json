@@ -2660,6 +2660,9 @@
   "webdav_error_directory_unavailable": {
     "message": "Couldn’t create the sync folder on the server. Check the server address and folder permissions."
   },
+  "webdav_error_folder_create_refused": {
+    "message": "The server refused to create a new folder (MKCOL 405), so the sync lock can’t be set up. Check that the account can create folders, the mount isn’t read-only, and no proxy blocks MKCOL."
+  },
   "webdav_error_http": {
     "message": "The server returned an error (HTTP {status}). Try again later. Local data is retained."
   },

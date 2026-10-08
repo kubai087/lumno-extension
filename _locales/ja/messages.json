@@ -2660,6 +2660,9 @@
   "webdav_error_directory_unavailable": {
     "message": "サーバーに同期フォルダーを作成できませんでした。サーバーのアドレスとフォルダーの権限を確認してください。"
   },
+  "webdav_error_folder_create_refused": {
+    "message": "サーバーが新しいフォルダーの作成を拒否したため（MKCOL 405）、同期ロックを設定できません。アカウントのフォルダー作成権限、マウントが読み取り専用でないか、プロキシが MKCOL をブロックしていないかを確認してください。"
+  },
   "webdav_error_http": {
     "message": "サーバーがエラーを返しました（HTTP {status}）。後で再試行してください。端末のデータは保持しています。"
   },

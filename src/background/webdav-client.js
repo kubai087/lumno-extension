@@ -21,6 +21,13 @@
   function unsupported(phase, statuses) {
     return Object.assign(error('conditional-write-unsupported'), { diagnostic: diagnostic({ revision: REVISION, phase, statuses }) });
   }
+  // A uniquely named path cannot already exist, so 405 there means the server
+  // refuses to create folders at all (read-only mounts, Go x/net/webdav backend
+  // errors, proxies blocking MKCOL), not a concurrency weakness.
+  function creationFailed(status) {
+    if (status !== 405) return unsupported('state-lock-create', [status]);
+    return Object.assign(error('folder-create-refused'), { diagnostic: diagnostic({ revision: REVISION, phase: 'state-lock-create', statuses: [status] }) });
+  }
   function normalizeConfig(input) {
     let endpoint;
     try { endpoint = new URL(String(input.endpoint || '').trim()); } catch (_error) { throw error('invalid-endpoint'); }
@@ -41,7 +48,6 @@
     const fetchFn = opts.fetch || root.fetch.bind(root);
     const parts = [...connection.directory.split('/'), 'v1'].map(encodeURIComponent);
     const prefix = `${connection.endpoint}${parts.join('/')}/`;
-    let concurrency = connection.concurrency;
     let lockStrategy = connection.lockStrategy;
     const token = new TextEncoder().encode(`${connection.username}:${connection.password}`);
     const authorization = 'Basic ' + root.btoa(Array.from(token, (byte) => String.fromCharCode(byte)).join(''));
@@ -103,10 +109,11 @@
       if (result.status !== 200) {
         throw Object.assign(error('remote-unreadable'), { diagnostic: diagnostic({ revision: REVISION, phase: 'state-read', statuses: [result.status] }) });
       }
-      if (concurrency === 'conditional' && !/^"[^"\r\n]+"$/.test(result.etag || '')) throw unsupported('state-etag', [result.status]);
       // The revision is a local content digest, never an HTTP validator. Weak
       // or absent ETags, and strong ones derived from size plus a one-second
       // mtime (sabre/dav's filesystem backend), cannot hide a changed state.
+      // Writes always hold the shared lock, so a strong ETag is optional: CDNs
+      // such as Cloudflare weaken it whenever they compress the response.
       const digest = new Uint8Array(await root.crypto.subtle.digest('SHA-256', result.bytes));
       const revision = Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
       if (etag === revision) return { unchanged: true };
@@ -138,7 +145,7 @@
       let cleanup = false;
       try {
         const created = await requestUrl(candidate, 'MKCOL', undefined, {}, 65536);
-        if (created.status !== 201) throw unsupported('state-lock-create', [created.status]);
+        if (created.status !== 201) throw creationFailed(created.status);
         cleanup = true;
         const written = await requestUrl(candidate + 'owner.txt', 'PUT', owner, { 'Content-Type': 'text/plain' }, 65536);
         if (![200, 201, 204].includes(written.status)) throw error('write-failed');
@@ -238,7 +245,7 @@
       try {
         for (let index = 0; index < sources.length; index += 1) {
           const created = await requestUrl(sources[index], 'MKCOL', undefined, {}, 65536);
-          if (created.status !== 201) throw unsupported('state-lock-create', [created.status]);
+          if (created.status !== 201) throw creationFailed(created.status);
           const written = await requestUrl(sources[index] + 'owner.txt', 'PUT', owners[index], { 'Content-Type': 'text/plain' }, 65536);
           if (![200, 201, 204].includes(written.status)) throw error('write-failed');
         }
@@ -280,12 +287,12 @@
       await ensureDirectories();
       const path = `probe-${root.crypto.randomUUID()}.txt`;
       const content = 'lumno-webdav-probe';
+      let conditional = false;
       try {
         const put = await request(path, 'PUT', content, { 'Content-Type': 'text/plain' }, 65536);
         if (![200, 201, 204].includes(put.status)) throw error('write-failed');
         const read = await request(path, 'GET', undefined, {}, 65536);
         if (read.status !== 200 || new TextDecoder().decode(read.bytes) !== content) throw error('write-failed');
-        let conditional = false;
         if (/^"[^"\r\n]+"$/.test(read.etag || '')) {
           try {
             const rejected = await request(path, 'PUT', 'must-not-overwrite', { 'If-Match': '"lumno-invalid-etag"' }, 65536);
@@ -306,11 +313,10 @@
         // the same directory even though sequential MKCOL looks exclusive.
         if (await testMoveLock()) lockStrategy = 'collection-move';
         else { await testCollectionLock(); lockStrategy = 'collection-create'; }
-        concurrency = conditional ? 'conditional' : 'collection-lock';
       } finally {
         await request(path, 'DELETE', undefined, {}, 65536).catch(() => {});
       }
-      return { ok: true, concurrency, lockStrategy };
+      return { ok: true, concurrency: conditional ? 'conditional' : 'collection-lock', lockStrategy };
     }
     return Object.freeze({ request, ensureDirectories, readState, writeState, testConnection });
   }

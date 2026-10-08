@@ -198,7 +198,7 @@
       'invalid-shortcuts', 'invalid-icon', 'invalid-wallpaper', 'invalid-asset', 'asset-missing', 'asset-integrity',
       'local-invalid-state', 'local-state-too-large', 'local-invalid-shortcuts', 'local-invalid-icon', 'local-invalid-wallpaper',
       'local-invalid-asset', 'local-asset-too-large', 'shortcut-id-conflict', 'write-failed', 'directory-unavailable',
-      'merge-too-large'];
+      'folder-create-refused', 'merge-too-large'];
     function errorText(code) {
       const generic = t('webdav_error_generic', '同步失败，请稍后重试。');
       if (DETAILED_CODES.includes(code)) return t(`webdav_error_${code.replace(/-/g, '_')}`, generic);
