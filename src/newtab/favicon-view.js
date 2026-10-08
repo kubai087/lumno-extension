@@ -84,6 +84,7 @@
     const faviconCandidateLoadTimeoutMs = Number.isFinite(config.faviconCandidateLoadTimeoutMs)
       ? Math.max(0, config.faviconCandidateLoadTimeoutMs)
       : 2600;
+    const THEME_FAVICON_RESCUE_MAX_ATTEMPTS = 2;
     let themeFaviconRescueTimer = null;
 
     const {
@@ -647,6 +648,18 @@
       });
     }
 
+    // Every failed rescue schedules another rescue, so an icon that can never
+    // load would be refetched forever. Cap the extra attempts per image and page.
+    function consumeThemeAwareFaviconRescueAttempt(img, pageUrl) {
+      const previous = img._xThemeFaviconRescue;
+      const attempts = previous && previous.pageUrl === pageUrl ? previous.attempts : 0;
+      if (attempts >= THEME_FAVICON_RESCUE_MAX_ATTEMPTS) {
+        return false;
+      }
+      img._xThemeFaviconRescue = { pageUrl, attempts: attempts + 1 };
+      return true;
+    }
+
     function rescueThemeAwareFallbackFavicons() {
       doc.querySelectorAll(
         'img[data-x-nt-theme-favicon="1"][data-fallback-icon="true"], ' +
@@ -656,7 +669,7 @@
           return;
         }
         const pageUrl = img.getAttribute('data-x-nt-favicon-page-url') || '';
-        if (!pageUrl) {
+        if (!pageUrl || !consumeThemeAwareFaviconRescueAttempt(img, pageUrl)) {
           return;
         }
         const host = img.getAttribute('data-x-nt-favicon-host') || '';

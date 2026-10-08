@@ -204,7 +204,7 @@ function createRuntime(options) {
         return [];
       }
     },
-    windowObj: {
+    windowObj: config.windowObj || {
       setTimeout,
       clearTimeout,
       requestAnimationFrame(callback) {
@@ -267,6 +267,47 @@ function createRuntime(options) {
 }
 
 (async () => {
+  const unreachablePageUrl = 'https://unreachable.example/';
+  const unreachableImg = createFakeImage();
+  let unreachableSrc = '';
+  let unreachableSrcAssignments = 0;
+  Object.defineProperty(unreachableImg, 'src', {
+    get() {
+      return unreachableSrc;
+    },
+    set(value) {
+      unreachableSrc = String(value || '');
+      if (unreachableSrc) {
+        unreachableSrcAssignments += 1;
+        setTimeout(() => unreachableImg.dispatchEvent('error'), 0);
+      }
+    }
+  });
+  const unreachableRuntime = createRuntime({
+    document: {
+      querySelectorAll() {
+        return unreachableImg.getAttribute('data-fallback-icon') === 'true' ? [unreachableImg] : [];
+      }
+    },
+    windowObj: {
+      setTimeout: (callback, ms) => setTimeout(callback, Math.ceil((Number(ms) || 0) / 50)),
+      clearTimeout,
+      requestAnimationFrame(callback) {
+        return setTimeout(callback, 0);
+      }
+    },
+    requestFaviconData() {
+      return Promise.resolve(null);
+    }
+  });
+  unreachableRuntime.attachFaviconWithFallbacks(unreachableImg, unreachablePageUrl, 'unreachable.example');
+  await wait(300);
+  const settledAssignments = unreachableSrcAssignments;
+  await wait(300);
+  assert.strictEqual(unreachableSrcAssignments, settledAssignments,
+    'a favicon that never loads must stop being retried instead of polling forever');
+  assert.strictEqual(unreachableImg.getAttribute('data-fallback-icon'), 'true');
+
   const nestedPageUrl = 'https://chrome.google.com/webstore/devconsole?hl=zh-CN';
   const rootBrowserUrl = 'chrome-extension://abc/_favicon/?pageUrl=https%3A%2F%2Fchrome.google.com%2F&size=128&fallbackToHost=0';
   const nestedPageImage = createFakeImage();
