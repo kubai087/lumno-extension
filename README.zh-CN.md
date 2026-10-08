@@ -36,7 +36,7 @@ Lumno 是一个面向 Chromium 浏览器的 Manifest V3 扩展，把「聚焦搜
   </a>
 </p>
 
-<p align="center">当前版本：<code>0.9.57</code></p>
+<p align="center">当前版本：<code>0.9.58</code></p>
 
 <img width="1200" height="480" alt="Lumno command bar preview" src="./assets/images/readme/banner.webp" decoding="async" />
 

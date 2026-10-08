@@ -25,7 +25,7 @@
 
 Lumno は Chromium ブラウザ向けの Manifest V3 拡張機能です。集中して使えるブラウザコマンドバーとミニマルな新しいタブを組み合わせ、ブックマーク、履歴、よく使うサイト、開いているタブ、サイト内検索、AI アシスタントをひとつの入口から探せます。
 
-現在のバージョン：`0.9.57`
+現在のバージョン：`0.9.58`
 
 <img width="1200" height="480" alt="Lumno command bar preview" src="./assets/images/readme/banner.webp" decoding="async" />
 
