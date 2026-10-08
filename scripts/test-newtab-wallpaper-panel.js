@@ -1846,10 +1846,11 @@ async function testWallpaperPreloadUsesTheCachedResolvedMode() {
     runWallpaperPreload(remoteDocument, remoteWindow);
     return remoteDocument.documentElement.style.getPropertyValue('--x-nt-wallpaper-image');
   };
-  assert.ok(preloadRemote('https://picsum.photos/id/28/2560/1440').includes('picsum.photos/id/28/2560/1440'),
-    'a curated photo paints on the first frame like a Bing photo');
-  assert.doesNotMatch(preloadRemote('https://evil.example/id/28/2560/1440'), /evil\.example/,
-    'the first frame only loads images from known wallpaper hosts');
+  for (const url of ['https://picsum.photos/id/28/2560/1440',
+    'https://www.bing.com/th?id=OHR.Example_1920x1080.jpg&pid=hp', 'https://evil.example/id/28/2560/1440']) {
+    assert.strictEqual(preloadRemote(url), '',
+      'the first frame never waits on the network, even for an online photo an older version cached');
+  }
 
   const staleDocument = createFakeDocument();
   const staleWindow = createFakeWindow();
@@ -4143,7 +4144,7 @@ async function testCuratedWallpapersSyncAsIdsAndRotateDaily() {
   assert.strictEqual(prefs.data[WALLPAPER_STORAGE_KEY], DEFAULT_WALLPAPER_ID,
     'The shared key keeps a built-in stand-in that older versions accept');
   assert.ok(context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image')
-    .includes(picked.imageUrl), 'The photo loads from its Picsum URL');
+    .includes(picked.thumbnailUrl), 'The photo shows its Picsum thumbnail until this device caches a copy');
   assert.strictEqual(ref('curatedSelectedTitle').textContent, `Photo by ${picked.name}`,
     'Bundled credits name the photographer');
   assert.strictEqual(ref('curatedSelectedLink').href, picked.sourceUrl);
@@ -4192,7 +4193,7 @@ async function testCuratedWallpapersSyncAsIdsAndRotateDaily() {
   assert.deepStrictEqual(clonePlain(prefs.data[DAILY_WALLPAPER_PICKS_STORAGE_KEY].picks),
     { 'curated-daily-water': otherWater }, 'The pick for today syncs with the daily choice');
   assert.ok(context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image')
-    .includes(remote.wallpaperFromId(otherWater).imageUrl), 'The picked photo shows instead of the scheduled one');
+    .includes(remote.wallpaperFromId(otherWater).thumbnailUrl), 'The picked photo shows instead of the scheduled one');
   assert.strictEqual(getDescendantByAttribute(control, 'data-wallpaper-id', otherWater).getAttribute('data-selected'), 'true');
   assert.strictEqual(ref('curatedDailyRestore').hidden, false, 'A restore button appears once today is overridden');
 
@@ -4209,8 +4210,9 @@ async function testCuratedWallpapersSyncAsIdsAndRotateDaily() {
   stalePicks.data[DAILY_WALLPAPER_PICKS_STORAGE_KEY] = { day: '2000-1-1', picks: { 'curated-daily-water': otherWater } };
   const nextDay = createCuratedRuntime(stalePicks);
   await nextDay.runtime.bootstrapInitialWallpaper();
+  await waitForAsyncWallpaperApply();
   assert.ok(nextDay.context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image')
-    .includes(todayWater.imageUrl), 'A pick from another day no longer counts');
+    .includes(todayWater.thumbnailUrl), 'A pick from another day no longer counts');
 
   daily.checked = false;
   daily.dispatchEvent(new context.windowObj.Event('change'));
@@ -4305,6 +4307,138 @@ async function testCuratedArtCachesOneDownscaledPrintPerDevice() {
 
   const preload = JSON.parse(context.windowObj.localStorage.getItem(WALLPAPER_PRELOAD_STORAGE_KEY));
   assert.strictEqual(preload.wallpapers.light, null, 'The first frame never loads a multi-megabyte print');
+}
+
+async function testCuratedPhotoOpensNewTabsFromTheCachedCopy() {
+  const remote = require('../src/newtab/remote-content.js');
+  const requests = [];
+  const cache = createWallpaperImageCacheDouble();
+  const fetchRemoteContent = async (url) => {
+    requests.push(url);
+    return { ok: true, status: 200, url, blob: async () => new Blob(['photo'], { type: 'image/jpeg' }) };
+  };
+  const prefs = createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: DEFAULT_WALLPAPER_ID });
+  const { context, runtime } = createCuratedRuntime(prefs, {
+    sandbox: { localStoreApi: createLinkLocalStoreApi(cache, []) },
+    fetchRemoteContent
+  });
+  await runtime.bootstrapInitialWallpaper();
+  runtime.createControls();
+  const control = runtime.getControlElement();
+  control.querySelector('.x-nt-wallpaper-button').click();
+  getDescendantByAttribute(control, 'data-wallpaper-tab', 'curated').click();
+  getDescendantByAttribute(control, 'data-curated-category', 'nature').click();
+  await waitForAsyncWallpaperApply();
+  const photo = remote.getCuratedWallpapers('nature')[0];
+  getDescendantByAttribute(control, 'data-wallpaper-id', photo.id).onclick();
+  await waitForAsyncWallpaperApply();
+  await waitForAsyncWallpaperApply();
+  assert.deepStrictEqual(requests, [photo.imageUrl], 'The photo downloads once');
+  assert.ok(cache.images.has(photo.id), 'The downscaled photo is cached on this device');
+  assert.ok(context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image')
+    .includes('data:image/webp;base64,bGluaw=='), 'The wallpaper shows the cached copy');
+
+  const nextTab = createCuratedRuntime(prefs, {
+    sandbox: { localStoreApi: createLinkLocalStoreApi(cache, []) },
+    fetchRemoteContent
+  });
+  await nextTab.runtime.bootstrapInitialWallpaper();
+  await waitForAsyncWallpaperApply();
+  assert.deepStrictEqual(requests, [photo.imageUrl], 'A new tab does not wait on Picsum again');
+  assert.ok(nextTab.context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image')
+    .includes('data:image/webp;base64,bGluaw=='), 'A new tab opens on the cached copy');
+}
+
+function createOfflineImageClass(requests) {
+  return class OfflineImage {
+    constructor() {
+      this.onload = null;
+      this.onerror = null;
+      this.decoding = '';
+      this._src = '';
+    }
+
+    set src(value) {
+      this._src = String(value || '');
+      if (!this._src) return;
+      requests.push(this._src);
+      setTimeout(() => {
+        const callback = /^https?:/i.test(this._src) ? this.onerror : this.onload;
+        if (typeof callback === 'function') callback();
+      }, 0);
+    }
+
+    get src() {
+      return this._src;
+    }
+
+    decode() {
+      return Promise.resolve();
+    }
+  };
+}
+
+async function testNetworkWallpaperWaitsForThePageAndFallsBackOffline() {
+  const remote = require('../src/newtab/remote-content.js');
+  const photo = remote.getCuratedWallpapers('nature')[0];
+  const prefs = createMemoryStorage({
+    [WALLPAPER_STORAGE_KEY]: DEFAULT_WALLPAPER_ID,
+    [ONLINE_WALLPAPER_STORAGE_KEY]: { value: photo.id, shared: DEFAULT_WALLPAPER_ID }
+  });
+  const requests = [];
+  const offline = {
+    sandbox: { Image: createOfflineImageClass(requests) },
+    fetchRemoteContent: async () => { throw new Error('offline'); }
+  };
+  const { context, runtime } = createCuratedRuntime(prefs, offline);
+  const image = () => context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image');
+  context.documentObj.readyState = 'loading';
+  await runtime.bootstrapInitialWallpaper();
+  await waitForAsyncWallpaperApply();
+  assert.strictEqual(image(), 'none', 'A photo without a cached copy does not paint from the network on load');
+  assert.ok(!requests.some((url) => /^https?:/.test(url)), 'Network images wait for the page, so the tab stops loading');
+
+  context.documentObj.readyState = 'complete';
+  context.windowObj.__dispatchEvent('load');
+  await waitForAsyncWallpaperApply();
+  assert.ok(requests.includes(photo.thumbnailUrl), 'The thumbnail loads once the page has');
+  assert.ok(image().includes('lumno-newtab-monet-coastal-white.webp'),
+    'An image the network cannot deliver falls back to the bundled default instead of a blank page');
+  const preload = JSON.parse(context.windowObj.localStorage.getItem(WALLPAPER_PRELOAD_STORAGE_KEY));
+  assert.strictEqual(preload.wallpapers.light, null, 'The next tab does not start on a network image either');
+}
+
+async function testBingPhotoOpensNewTabsFromTheCachedCopy() {
+  const id = 'bing-20261002-OHR.River_ZH-CN123';
+  const remote = require('../src/newtab/remote-content.js');
+  const photo = remote.wallpaperFromId(id);
+  assert.strictEqual(photo.cacheImage, true, 'Bing photos are cached once per device');
+  const requests = [];
+  const cache = createWallpaperImageCacheDouble();
+  const prefs = createMemoryStorage({
+    [WALLPAPER_STORAGE_KEY]: DEFAULT_WALLPAPER_ID,
+    [ONLINE_WALLPAPER_STORAGE_KEY]: { value: id, shared: DEFAULT_WALLPAPER_ID }
+  });
+  const options = {
+    sandbox: { localStoreApi: createLinkLocalStoreApi(cache, []) },
+    fetchRemoteContent: async (url) => {
+      requests.push(url);
+      return { ok: true, status: 200, url, blob: async () => new Blob(['photo'], { type: 'image/jpeg' }) };
+    }
+  };
+  const first = createCuratedRuntime(prefs, options);
+  await first.runtime.bootstrapInitialWallpaper();
+  await waitForAsyncWallpaperApply();
+  await waitForAsyncWallpaperApply();
+  assert.deepStrictEqual(requests, [photo.imageUrl], 'The photo downloads once');
+  assert.ok(cache.images.has(id), 'The downscaled photo is cached on this device');
+
+  const nextTab = createCuratedRuntime(prefs, options);
+  await nextTab.runtime.bootstrapInitialWallpaper();
+  assert.ok(nextTab.context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image')
+    .includes('data:image/webp;base64,bGluaw=='), 'A new tab opens on the cached copy');
+  await waitForAsyncWallpaperApply();
+  assert.deepStrictEqual(requests, [photo.imageUrl], 'A new tab does not wait on Bing again');
 }
 
 async function testRandomDailyWallpaperReopensOnTheRandomMix() {
@@ -4442,6 +4576,9 @@ Promise.resolve()
   .then(testLinkedWallpaperSyncsItsUrlAndCachesTheImage)
   .then(testRandomDailyWallpaperReopensOnTheRandomMix)
   .then(testCuratedArtCachesOneDownscaledPrintPerDevice)
+  .then(testCuratedPhotoOpensNewTabsFromTheCachedCopy)
+  .then(testNetworkWallpaperWaitsForThePageAndFallsBackOffline)
+  .then(testBingPhotoOpensNewTabsFromTheCachedCopy)
   .then(testWallpaperSourcesHintWaitsForFinalFocusRoute)
   .then(testNewtabFaviconPreloadAppliesCachedAlternateBeforeMainRuntime)
   .then(testWallpaperPreloadUsesTheCachedResolvedMode)

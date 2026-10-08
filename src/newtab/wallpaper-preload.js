@@ -5,11 +5,9 @@
   const FAVICON_STORAGE_KEY = '_x_extension_newtab_favicon_2026_unique_';
   const FAVICON_PRELOAD_STORAGE_KEY = '_x_extension_newtab_favicon_preload_2026_unique_';
   const providerStorageRuntime = globalThis.LumnoSettings.createProviderStorageRuntime(window.chrome);
+  // Only bundled files paint on the first frame. Online photos load from their IndexedDB copies,
+  // so a slow or failing network never holds the tab's spinner or blanks the page.
   const WALLPAPER_PATH_PATTERN = /^(?:assets\/wallpapers|output\/imagegen)\/[-.\w]+\.webp$/;
-  const REMOTE_WALLPAPER_URL_PATTERNS = [
-    /^https:\/\/www\.bing\.com\/th\?id=OHR\.[-\w]{1,160}_1920x1080\.jpg&pid=hp$/,
-    /^https:\/\/picsum\.photos\/id\/\d{1,4}\/2560\/1440$/
-  ];
   const FAVICON_OPTIONS = {
     default: {
       file: 'assets/images/lumno.png',
@@ -95,7 +93,6 @@
       const mode = resolveCachedWallpaperMode(data);
       const entry = data.wallpapers[mode];
       const path = entry && typeof entry.path === 'string' ? entry.path.trim() : '';
-      const remoteUrl = entry && typeof entry.url === 'string' ? entry.url.trim() : '';
       const overlayStops = normalizeCachedOverlayStops(data.overlayStops);
       if (!overlayStops) {
         return null;
@@ -103,7 +100,6 @@
       return {
         mode,
         path: WALLPAPER_PATH_PATTERN.test(path) ? path : '',
-        url: REMOTE_WALLPAPER_URL_PATTERNS.some((pattern) => pattern.test(remoteUrl)) ? remoteUrl : '',
         overlayStops,
         effectPrefs: getEffectPrefsForMode(data.wallpaperEffects, mode)
       };
@@ -277,16 +273,16 @@
       });
     });
   }
-  if (!cachedWallpaper.path && !cachedWallpaper.url) {
+  if (!cachedWallpaper.path) {
     return;
   }
-  const url = cachedWallpaper.url || getRuntimeUrl(cachedWallpaper.path);
+  const url = getRuntimeUrl(cachedWallpaper.path);
   const preloadState = {
     effectPrefsReady: readStoredEffectPrefs(cachedWallpaper.mode, cachedWallpaper.effectPrefs),
     imageUrl: url,
     mode: cachedWallpaper.mode,
     wallpaper: {
-      id: cachedWallpaper.path || cachedWallpaper.url,
+      id: cachedWallpaper.path,
       path: cachedWallpaper.path
     }
   };

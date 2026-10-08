@@ -459,6 +459,7 @@
     const WALLPAPER_FILTER_TRANSITION_MS = 180;
     const WALLPAPER_VISUAL_REFRESH_DELAY_MS = 80;
     const WALLPAPER_IMAGE_READY_CACHE_LIMIT = 8;
+    const WALLPAPER_NETWORK_IMAGE_TIMEOUT_MS = 8000;
 
     let initialWallpaperApplied = false;
     let hasWallpaperBootstrapStarted = false;
@@ -612,6 +613,8 @@
     let appliedWallpaperVisualUrl = '';
     let appliedWallpaperVisualActive = false;
     const wallpaperImageReadyCache = new Map();
+    // Whether each network image loaded on this page: 'loaded' or 'failed'. A new tab tries again.
+    const wallpaperNetworkImageStates = new Map();
 
     function ensureWallpaperSliderValueBubble() {
       if (wallpaperSliderValueBubble && wallpaperSliderValueBubble.isConnected) {
@@ -1308,6 +1311,26 @@
       return `../../${runtimePath}`;
     }
 
+    function isNetworkWallpaperImageUrl(url) {
+      return /^https?:/i.test(String(url || ''));
+    }
+
+    // A network image never paints straight from CSS: it would hold the tab's loading spinner, and
+    // a failed download would leave the page blank. It shows once loaded after the page; if it fails
+    // or stalls, the bundled default wallpaper stands in. Copies in IndexedDB and bundled files
+    // show at once, and the fallback never depends on data that sync or pruning may remove.
+    function getDisplayedWallpaperImageUrl(item) {
+      const url = getWallpaperImageUrl(item);
+      if (!isNetworkWallpaperImageUrl(url)) {
+        return url;
+      }
+      const state = wallpaperNetworkImageStates.get(url);
+      if (state === 'loaded') {
+        return url;
+      }
+      return state === 'failed' ? getWallpaperImageUrl(getWallpaperById(NEWTAB_WALLPAPER_DEFAULT_ID)) : '';
+    }
+
     function getWallpaperThumbnailUrl(item) {
       if (item && remoteClient && REMOTE_CONTENT.wallpaperFromId(item.id)) {
         return item.thumbnailUrl || getWallpaperImageUrl(item);
@@ -1395,7 +1418,7 @@
       windowObj,
       getTargets: getWallpaperAdaptiveToneTargets,
       getCurrentWallpaper: () => getWallpaperById(currentWallpaperId),
-      getWallpaperImageUrl,
+      getWallpaperImageUrl: getDisplayedWallpaperImageUrl,
       getOverlayAlphaAtViewportY: getWallpaperOverlayAlphaAtViewportY,
       getOverlayLuminance: () => getResolvedWallpaperOverlayMode() === 'dark' ? 0 : 1,
       getEffectLuminanceAtViewport: (viewportX, viewportY, baseLuminance) => {
@@ -1410,7 +1433,7 @@
         documentObj,
         windowObj,
         getCurrentWallpaper: () => getWallpaperById(currentWallpaperId),
-        getWallpaperImageUrl,
+        getWallpaperImageUrl: getDisplayedWallpaperImageUrl,
         shouldAnimateTransition: () => Boolean(
           documentObj.body &&
           documentObj.body.getAttribute('data-nt-enter') === 'done'
@@ -1488,21 +1511,52 @@
       if (cached) {
         return cached;
       }
-      const promise = new Promise((resolve) => {
+      const isNetwork = isNetworkWallpaperImageUrl(imageUrl);
+      const load = () => new Promise((resolve) => {
         const image = new Image();
-        image.decoding = 'async';
-        image.onload = () => {
-          if (typeof image.decode === 'function') {
-            image.decode().then(resolve).catch(resolve);
+        let timer = 0;
+        let settled = false;
+        const finish = (loaded) => {
+          if (settled) {
             return;
+          }
+          settled = true;
+          window.clearTimeout(timer);
+          if (isNetwork) {
+            wallpaperNetworkImageStates.set(imageUrl, loaded ? 'loaded' : 'failed');
           }
           resolve();
         };
-        image.onerror = resolve;
+        if (isNetwork) {
+          timer = window.setTimeout(() => {
+            finish(false);
+            image.src = '';
+          }, WALLPAPER_NETWORK_IMAGE_TIMEOUT_MS);
+        }
+        image.decoding = 'async';
+        image.onload = () => {
+          if (typeof image.decode === 'function') {
+            image.decode().then(() => finish(true)).catch(() => finish(true));
+            return;
+          }
+          finish(true);
+        };
+        image.onerror = () => finish(false);
         image.src = imageUrl;
       });
+      const promise = isNetwork ? waitForDocumentLoad().then(load) : load();
       cacheWallpaperImageReady(imageUrl, promise);
       return promise;
+    }
+
+    // Network images start after the page has loaded, so they never hold the tab's spinner.
+    function waitForDocumentLoad() {
+      if (!document || typeof document.readyState !== 'string' || document.readyState === 'complete') {
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
     }
 
     function createWallpaperTransitionLayer() {
@@ -1564,7 +1618,7 @@
 
     function applyWallpaperVisualState(wallpaper) {
       const target = document.documentElement;
-      const imageUrl = wallpaper ? getWallpaperImageUrl(wallpaper) : '';
+      const imageUrl = wallpaper ? getDisplayedWallpaperImageUrl(wallpaper) : '';
       appliedWallpaperVisualUrl = imageUrl;
       appliedWallpaperVisualActive = Boolean(wallpaper);
       if (target) {
@@ -2085,9 +2139,9 @@
 
     function getWallpaperPreloadEntryForMode(mode) {
       const wallpaper = getWallpaperById(getEffectiveWallpaperIdForMode(mode));
+      // Online photos load from IndexedDB, which the first frame cannot read.
       if (wallpaper && REMOTE_CONTENT.wallpaperFromId(wallpaper.id)) {
-        // Cached museum prints load from IndexedDB, which the first frame cannot read.
-        return wallpaper.imageUrl && !wallpaper.cacheImage ? { id: wallpaper.id, url: wallpaper.imageUrl } : null;
+        return null;
       }
       const path = wallpaper && !isCustomWallpaperId(wallpaper.id)
         ? getWallpaperRuntimePath(wallpaper)
@@ -4419,10 +4473,7 @@
       const nextId = normalizeNewtabWallpaperId(value);
       const wallpaper = getWallpaperById(nextId);
       const imageUrl = wallpaper ? getWallpaperImageUrl(wallpaper) : '';
-      const active = Boolean(wallpaper);
       const isInitialWallpaperApply = !initialWallpaperApplied;
-      const shouldAnimateVisualChange = initialWallpaperApplied &&
-        (imageUrl !== appliedWallpaperVisualUrl || active !== appliedWallpaperVisualActive);
       const visualSeq = ++wallpaperVisualSeq;
       currentWallpaperId = wallpaper ? wallpaper.id : '';
       if (currentWallpaperId) {
@@ -4435,13 +4486,26 @@
         refreshWallpaperAdaptiveSampler();
         scheduleWallpaperVisualRefresh(visualSeq);
         finalizeInitialWallpaper();
+        if (appliedWallpaperVisualUrl !== imageUrl) {
+          showWallpaperWhenReady(wallpaper, imageUrl, visualSeq);
+        }
         return;
       }
       finalizeInitialWallpaper();
+      showWallpaperWhenReady(wallpaper, imageUrl, visualSeq);
+    }
+
+    // Keeps the current wallpaper until the next one has loaded, or until its fallback is ready.
+    function showWallpaperWhenReady(wallpaper, imageUrl, visualSeq) {
       waitForWallpaperImageReady(imageUrl).then(() => {
+        return waitForWallpaperImageReady(wallpaper ? getDisplayedWallpaperImageUrl(wallpaper) : '');
+      }).then(() => {
         if (visualSeq !== wallpaperVisualSeq) {
           return;
         }
+        const displayedUrl = wallpaper ? getDisplayedWallpaperImageUrl(wallpaper) : '';
+        const shouldAnimateVisualChange = displayedUrl !== appliedWallpaperVisualUrl ||
+          Boolean(wallpaper) !== appliedWallpaperVisualActive;
         const transitionLayer = shouldAnimateVisualChange ? createWallpaperTransitionLayer() : null;
         applyWallpaperVisualState(wallpaper);
         releaseWallpaperTransitionLayer(transitionLayer);
@@ -4518,11 +4582,11 @@
           .filter((id) => REMOTE_CONTENT.wallpaperFromId(id));
         // Picks are dated Bing photos or bundled ones; restore them like any chosen photo.
         const pickIds = remoteIds.map(getDailyWallpaperPick).filter(Boolean);
-        const remoteTask = Promise.all(remoteIds.concat(pickIds).map((id) => remoteClient.restoreWallpaper(id)));
-        const cachedPhotoIds = linkIds.concat(remoteIds.map((id) => getWallpaperById(id))
-          .filter((item) => item && item.cacheImage).map((item) => item.dailyId || item.id));
-        const linkTask = readCachedWallpaperImages(cachedPhotoIds);
-        return Promise.all([customWallpaperPromise, remoteTask, linkTask]).then(() => {
+        // Read cached copies only once photos are restored: the daily Bing photo resolves from storage.
+        const cachedImagesTask = Promise.all(remoteIds.concat(pickIds).map((id) => remoteClient.restoreWallpaper(id)))
+          .then(() => readCachedWallpaperImages(linkIds.concat(remoteIds.map((id) => getWallpaperById(id))
+            .filter((item) => item && item.cacheImage).map((item) => item.dailyId || item.id))));
+        return Promise.all([customWallpaperPromise, cachedImagesTask]).then(() => {
           if (changeSeq !== wallpaperStorageChangeSeq ||
               typeof config.shouldApply === 'function' && !config.shouldApply()) {
             return false;
@@ -4931,8 +4995,9 @@
       if (wallpaperImageCache) wallpaperImageCache.write(image).catch(() => {});
     }
 
-    // A link names a single image. Each device downloads it, or a museum print, once and keeps a
-    // downscaled copy, so the wallpaper keeps showing if the link later breaks.
+    // A link names a single image. Each device downloads it, or a curated photo or print, once and
+    // keeps a downscaled copy, so new tabs skip the network and the wallpaper keeps showing if the
+    // link later breaks.
     function cacheWallpaperImage(photoId, url) {
       if (getCachedWallpaperImage(photoId, url)) return Promise.resolve(true);
       if (wallpaperImageCaching.has(photoId)) return wallpaperImageCaching.get(photoId);
@@ -4958,7 +5023,7 @@
       return entry ? cacheWallpaperImage(id, entry.url) : Promise.resolve(false);
     }
 
-    // The photo a mode shows: the link itself, or the print a curated or daily pick resolves to.
+    // The photo a mode shows: the link itself, or the photo or print a curated or daily pick resolves to.
     function getEffectiveWallpaperPhotoId(mode) {
       const id = getEffectiveWallpaperIdForMode(mode);
       if (isLinkWallpaperId(id)) return id;
@@ -4978,8 +5043,8 @@
       });
     }
 
-    // Saved links keep their copies; a print stays only while a mode shows it, so daily art
-    // does not pile up one image per day.
+    // Saved links keep their copies; a curated photo or print stays only while a mode shows it, so
+    // daily picks do not pile up one image per day.
     function pruneCachedWallpaperImages() {
       if (!wallpaperImageCache || !hasStoredWallpaperStateLoaded) return;
       const keep = new Set(linkWallpapers.map((item) => item.id)

@@ -428,8 +428,15 @@
     };
   }
 
-  // Downscaled copies of link wallpapers and museum prints live in their own database: only their
-  // IDs and links sync, and WebDAV, which uploads the custom wallpaper library, never carries them.
+  // Downscaled copies of link wallpapers and online photos (Bing, curated photos and museum prints)
+  // live in their own database: only their IDs and links sync. The cache stays device-local, and
+  // WebDAV, which uploads the custom wallpaper library, never reads or writes it, because:
+  // - each device rebuilds a copy from the synced ID and encodes it to different bytes, so uploads
+  //   would add one asset per device, and daily photos would pile up on the server;
+  // - applying a WebDAV snapshot replaces the library database wholesale, which must not drop copies;
+  // - the page prunes copies no mode shows, which must not delete synced media.
+  // A sync that ever ships these images should seed this cache through write(), keyed by photo ID
+  // with its source URL, rather than adding them to the library.
   const IMAGE_CACHE_DB_NAME = 'lumno-newtab-wallpaper-cache';
   const IMAGE_CACHE_STORE_NAME = 'images';
 

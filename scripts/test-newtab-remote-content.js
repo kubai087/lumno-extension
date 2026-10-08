@@ -266,6 +266,7 @@ async function main() {
   assert.equal(curated.name, catalog.city[0][1], 'Bundled credits name the photographer');
   assert.equal(curated.sourceUrl, `https://unsplash.com/photos/${catalog.city[0][2]}`);
   assert.equal(curated.imageUrl, `https://picsum.photos/id/${catalog.city[0][0]}/2560/1440`);
+  assert.equal(curated.cacheImage, true, 'Curated photos are cached once per device, not fetched on every new tab');
   const unknown = remote.wallpaperFromId('picsum-5');
   assert.equal(unknown.imageUrl, 'https://picsum.photos/id/5/2560/1440',
     'A photo synced from a version with a larger catalog still resolves from its ID');

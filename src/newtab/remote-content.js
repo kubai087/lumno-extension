@@ -94,20 +94,23 @@
     }
     const match = PICSUM_ID_PATTERN.exec(id);
     if (!match) return null;
+    // Picsum can take seconds or fail on some networks, and a failed photo never reaches the HTTP
+    // cache, so every new tab would wait on it again. Photos are cached once per device like prints.
     return { id, provider: 'curated', category: credit ? credit.category : '',
       name: credit ? credit.author : 'Picsum',
       sourceUrl: credit ? `https://unsplash.com/photos/${credit.detail}` : PICSUM_ORIGIN,
       imageUrl: `${PICSUM_ORIGIN}/id/${match[1]}/2560/1440`,
-      thumbnailUrl: `${PICSUM_ORIGIN}/id/${match[1]}/480/270` };
+      thumbnailUrl: `${PICSUM_ORIGIN}/id/${match[1]}/480/270`, cacheImage: true };
   }
 
   function wallpaperFromId(id) {
     const value = String(id || '');
     if (value === BING_DAILY_ID) return { id, provider: 'bing', name: 'Bing', sourceUrl: BING_ORIGIN };
     const match = BING_ID_PATTERN.exec(value);
+    // Like curated photos, a Bing photo is cached once per device, so new tabs open without the network.
     return match ? { id, provider: 'bing', date: match[1], rawId: match[2], name: 'Bing', sourceUrl: BING_ORIGIN,
       imageUrl: `${BING_ORIGIN}/th?id=${match[2]}_1920x1080.jpg&pid=hp`,
-      thumbnailUrl: `${BING_ORIGIN}/th?id=${match[2]}_1920x1080.jpg&pid=hp&w=480&h=270&c=1` }
+      thumbnailUrl: `${BING_ORIGIN}/th?id=${match[2]}_1920x1080.jpg&pid=hp&w=480&h=270&c=1`, cacheImage: true }
       : curatedWallpaperFromId(value);
   }
 
@@ -201,7 +204,7 @@
       copyrightlink: value.sourceUrl }) : null;
   }
 
-  // Earlier versions downloaded Bing images into IndexedDB; the browser HTTP cache now covers this.
+  // Earlier versions kept Bing images in their own database; copies now share the wallpaper image cache.
   function deleteLegacyMediaStore(indexedDB) {
     try {
       if (indexedDB && typeof indexedDB.deleteDatabase === 'function') indexedDB.deleteDatabase('lumno-bing');
