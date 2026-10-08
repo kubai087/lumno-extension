@@ -3,7 +3,7 @@
     "message": "Lumno ｜ 搜尋與新分頁"
   },
   "ext_description": {
-    "message": "在任何網頁一鍵喚起指令浮層，快速搜尋、直達網址、切換分頁，並強化新分頁體驗。"
+    "message": "在任何網頁一鍵叫出指令視窗，快速搜尋、直達網址、切換分頁，並強化新分頁體驗。"
   },
   "settings_tab_general": {
     "message": "一般"
@@ -15,7 +15,7 @@
     "message": "全域"
   },
   "settings_webpage_focus_overlay_section_title": {
-    "message": "網頁聚焦搜尋浮層"
+    "message": "網頁聚焦搜尋視窗"
   },
   "newtab_theme_scope_label": {
     "message": "深淺色作用範圍"
@@ -120,7 +120,7 @@
     "message": "傳送失敗，請重試。"
   },
   "selection_debug_decision_title": {
-    "message": "劃詞判定"
+    "message": "選字判定"
   },
   "selection_debug_status_show": {
     "message": "顯示"
@@ -165,7 +165,7 @@
     "message": "此操作的配對得分最高"
   },
   "selection_debug_rejection_disabled": {
-    "message": "劃詞快捷操作的功能開關未開啟"
+    "message": "選字快捷操作的功能開關未開啟"
   },
   "selection_debug_rejection_sensitive": {
     "message": "所選區域屬於密碼、付款或其他敏感欄位，未讀取內容"
@@ -270,7 +270,7 @@
     "message": "跟隨瀏覽器語言"
   },
   "settings_recent_title": {
-    "message": "新分頁底部內容"
+    "message": "新分頁底端內容"
   },
   "settings_newtab_section_title": {
     "message": "新分頁"
@@ -279,7 +279,7 @@
     "message": "搜尋結果設定"
   },
   "settings_search_result_priority_title": {
-    "message": "搜尋結果首位優先級"
+    "message": "搜尋結果首位優先順序"
   },
   "settings_search_result_tab_position_title": {
     "message": "搜尋結果分頁開啟位置"
@@ -300,7 +300,7 @@
     "message": "最多顯示結果"
   },
   "settings_overlay_open_tabs_default_visible_title": {
-    "message": "在網頁喚起時，預設展示所有已開啟分頁"
+    "message": "在網頁叫出時，預設顯示所有已開啟分頁"
   },
   "settings_favicon_enhanced_fetch_title": {
     "message": "增強圖示與主題色取得"
@@ -327,10 +327,10 @@
     "message": "搜尋優先"
   },
   "settings_recent_desc": {
-    "message": "顯示最近/最常瀏覽站點"
+    "message": "顯示最近/最常瀏覽網站"
   },
   "settings_recent_sites_title": {
-    "message": "站點卡片"
+    "message": "網站卡片"
   },
   "settings_newtab_width_title": {
     "message": "新分頁內容寬度"
@@ -345,7 +345,7 @@
     "message": "網頁剪裁"
   },
   "settings_document_pip_desc": {
-    "message": "把網頁中的局部內容單獨剪出來懸浮查看，可用於參考、對照"
+    "message": "把網頁中的局部內容單獨剪出來浮動查看，可用於參考、對照"
   },
   "document_pip_command_title": {
     "message": "開啟網頁剪裁"
@@ -363,7 +363,7 @@
     "message": "動態效果"
   },
   "settings_motion_effects_desc": {
-    "message": "若遇到卡頓，或偏好更俐落的喚起方式，可關閉"
+    "message": "若畫面不順暢，或偏好更俐落的叫出方式，可關閉"
   },
   "settings_simple_mode_title": {
     "message": "簡潔模式"
@@ -372,16 +372,16 @@
     "message": "移除更多裝飾元素，讓搜尋框更整潔"
   },
   "settings_auto_pip_title": {
-    "message": "自動畫中畫"
+    "message": "自動子母畫面"
   },
   "settings_auto_pip_desc": {
-    "message": "在網頁上播放影片時，若切換至其他分頁，正在播放的影片將以浮窗形式播放"
+    "message": "在網頁上播放影片時，若切換至其他分頁，正在播放的影片將以浮動視窗形式播放"
   },
   "settings_pinned_tab_recovery_title": {
-    "message": "重啟後恢復置頂分頁"
+    "message": "重新啟動後還原釘選分頁"
   },
   "settings_pinned_tab_recovery_desc": {
-    "message": "記錄可恢復的置頂網頁分頁，瀏覽器重啟後自動補回"
+    "message": "記錄可還原的釘選網頁分頁，瀏覽器重新啟動後自動補回"
   },
   "settings_number_shortcut_instant_title": {
     "message": "單按 Command 顯示數字跳轉"
@@ -396,28 +396,28 @@
     "message": "在 macOS 的新分頁與指令列中，用 Ctrl+N / Ctrl+P 選擇下一項 / 上一項。感謝 @wanghanzhen 的貢獻。"
   },
   "document_pip_picker_hint": {
-    "message": "移動滑鼠選擇元素，點擊開啟懸浮窗，滾輪切換父層，Esc 取消。"
+    "message": "移動滑鼠選擇元素，點按開啟浮動視窗，滾輪切換父層，Esc 取消。"
   },
   "document_pip_picker_idle": {
     "message": "將滑鼠移到網頁可見區域開始選擇。"
   },
   "document_pip_picker_started": {
-    "message": "點擊要懸浮的內容，滾輪可切換範圍，Esc 取消。"
+    "message": "點按要浮動的內容，滾輪可切換範圍，Esc 取消。"
   },
   "document_pip_picker_cancelled": {
     "message": "已退出內容選取"
   },
   "document_pip_picker_closed": {
-    "message": "已關閉內容懸浮窗"
+    "message": "已關閉內容浮動視窗"
   },
   "document_pip_picker_guidance_default": {
-    "message": "目前選取更適合內容懸浮。"
+    "message": "目前選取更適合內容浮動。"
   },
   "document_pip_picker_guidance_leaf": {
     "message": "目前是較小的葉節點，如需更穩定可滾輪切到父層。"
   },
   "document_pip_picker_guidance_interactive": {
-    "message": "目前像互動按鈕群，如在 PiP 中點擊異常，建議切到更大的有背景容器。"
+    "message": "目前像互動按鈕群，如在 PiP 中點按異常，建議切到更大的有背景容器。"
   },
   "document_pip_picker_guidance_toolbar": {
     "message": "目前像導覽或工具列區域，複雜選單在 PiP 中可能不完整，必要時請切到更外層容器。"
@@ -426,16 +426,16 @@
     "message": "目前頁面暫不支援 Document PiP。"
   },
   "document_pip_picker_conflict_video_pip": {
-    "message": "目前已有影片畫中畫，請先關閉後再進行網頁剪裁。"
+    "message": "目前已有影片子母畫面，請先關閉後再進行網頁剪裁。"
   },
   "document_pip_picker_invalid": {
-    "message": "這個區域暫時無法懸浮，請改選較大的內容區域。"
+    "message": "這個區域暫時無法浮動，請改選較大的內容區域。"
   },
   "document_pip_picker_open_failed": {
-    "message": "開啟內容懸浮窗失敗，請改選其他區域再試。"
+    "message": "開啟內容浮動視窗失敗，請改選其他區域再試。"
   },
   "document_pip_picker_badge": {
-    "message": "已在懸浮窗開啟"
+    "message": "已在浮動視窗開啟"
   },
   "document_pip_picker_button_reselect": {
     "message": "重新選擇"
@@ -453,7 +453,7 @@
     "message": "快速切換已開啟分頁"
   },
   "settings_overlay_tab_priority_desc": {
-    "message": "當輸入文字匹配到已開啟分頁時，首個候選項的快捷鍵動作"
+    "message": "當輸入文字符合到已開啟分頁時，首個候選項的快速鍵動作"
   },
   "overlay_tab_priority_switch_first": {
     "message": "按下 Enter 切換已開啟分頁"
@@ -462,7 +462,7 @@
     "message": "按下 Enter 用新分頁開啟"
   },
   "settings_shortcuts_title": {
-    "message": "喚起聚焦搜尋視窗"
+    "message": "叫出聚焦搜尋視窗"
   },
   "settings_shortcuts_browser_desc_prefix": {
     "message": "需在"
@@ -474,19 +474,19 @@
     "message": "「鍵盤快速鍵」"
   },
   "settings_shortcuts_browser_desc_suffix": {
-    "message": "修改快捷鍵"
+    "message": "修改快速鍵"
   },
   "settings_shortcuts_dia_tag": {
     "message": "在 Dia 中使用"
   },
   "settings_shortcuts_dia_tooltip": {
-    "message": "在 Dia 環境下，受瀏覽器限制，Lumno 的新分頁功能暫不可用，但聚焦搜尋功能仍可正常運行。\n\n若快捷鍵在 Dia 中不可用，請點擊下方右側按鈕進入瀏覽器的快捷鍵設定頁面，將「Open command bar」從 In Dia 改成 Global。"
+    "message": "在 Dia 環境下，受瀏覽器限制，Lumno 的新分頁功能暫不可用，但聚焦搜尋功能仍可正常運作。\n\n若快速鍵在 Dia 中不可用，請點按下方右側按鈕進入瀏覽器的快速鍵設定頁面，將「Open command bar」從 In Dia 改成 Global。"
   },
   "settings_shortcuts_section_title": {
-    "message": "快捷鍵設定"
+    "message": "快速鍵設定"
   },
   "settings_shortcuts_desc": {
-    "message": "用於喚起 Lumno 搜尋框"
+    "message": "用於叫出 Lumno 搜尋框"
   },
   "overlay_close_other_tabs_tooltip": {
     "message": "關閉其他分頁"
@@ -498,31 +498,31 @@
     "message": "未設定"
   },
   "settings_shortcuts_action": {
-    "message": "前往快捷鍵設定"
+    "message": "前往快速鍵設定"
   },
   "settings_shortcuts_browser_tooltip": {
-    "message": "在 Chromium 瀏覽器中，喚起浮層快捷鍵需要前往擴充功能快捷鍵頁面設定或修改。"
+    "message": "在 Chromium 瀏覽器中，叫出搜尋視窗的快速鍵需要前往擴充功能快速鍵頁面設定或修改。"
   },
   "settings_shortcuts_save": {
-    "message": "儲存快捷鍵"
+    "message": "儲存快速鍵"
   },
   "settings_shortcuts_reset": {
-    "message": "恢復預設"
+    "message": "還原預設"
   },
   "settings_shortcuts_record_placeholder": {
-    "message": "按下快捷鍵"
+    "message": "按下快速鍵"
   },
   "settings_shortcuts_empty_state": {
     "message": "無"
   },
   "settings_shortcuts_invalid": {
-    "message": "快捷鍵無效，請按組合鍵（如 Ctrl+K）。"
+    "message": "快速鍵無效，請按組合鍵（如 Ctrl+K）。"
   },
   "settings_restricted_title": {
     "message": "在受限頁行為"
   },
   "settings_restricted_tooltip": {
-    "message": "受限頁（如 chrome://、擴充功能商店、部分 file:// 頁面）無法開啟聚焦搜尋；按下快捷鍵將依此處規則處理。"
+    "message": "受限頁（如 chrome://、擴充功能商店、部分 file:// 頁面）無法開啟聚焦搜尋；按下快速鍵將依此處規則處理。"
   },
   "restricted_action_default": {
     "message": "前往 Lumno 新分頁"
@@ -531,10 +531,10 @@
     "message": "遵循瀏覽器設定"
   },
   "newtab_file_access_notice_title": {
-    "message": "由於瀏覽器限制，若要在本機檔案頁面（如 PDF、HTML）中喚起聚焦搜尋，請手動開啟「允許存取檔案網址」"
+    "message": "由於瀏覽器限制，若要在本機檔案頁面（如 PDF、HTML）中叫出聚焦搜尋，請手動開啟「允許存取檔案網址」"
   },
   "newtab_file_access_notice_body": {
-    "message": "目前尚未授予 file URL 存取權限。請在擴充功能詳情頁開啟「允許存取檔案網址」，再回到剛才的頁面重新按一次快捷鍵。"
+    "message": "目前尚未授予 file URL 存取權限。請在擴充功能詳細資料頁面開啟「允許存取檔案網址」，再回到剛才的頁面重新按一次快速鍵。"
   },
   "newtab_file_access_notice_open_cta": {
     "message": "前往開啟"
@@ -573,7 +573,7 @@
     "message": "書籤每行數量"
   },
   "settings_bookmark_columns_desc": {
-    "message": "設定每行最多顯示數量，窄螢幕會自動適配"
+    "message": "設定每行最多顯示數量，窄螢幕會自動調整"
   },
   "settings_bookmark_adaptive_count_tooltip": {
     "message": "此值為寬度充足時的最大數量，實際顯示數量會依可用空間自適應。"
@@ -672,7 +672,7 @@
     "message": "顯示外觀按鈕"
   },
   "settings_newtab_shortcuts_title": {
-    "message": "快捷方式"
+    "message": "捷徑"
   },
   "settings_newtab_shortcut_add_title": {
     "message": "顯示「+」"
@@ -693,13 +693,13 @@
     "message": "捷徑間距"
   },
   "settings_newtab_shortcut_size_reset": {
-    "message": "恢復預設大小"
+    "message": "還原預設大小"
   },
   "settings_newtab_shortcut_gap_reset": {
-    "message": "恢復預設間距"
+    "message": "還原預設間距"
   },
   "settings_wallpaper_title": {
-    "message": "新分頁壁紙"
+    "message": "新分頁桌布"
   },
   "settings_wallpaper_desc": {
     "message": "上傳本機圖片作為 newtab 背景"
@@ -717,25 +717,25 @@
     "message": "完整顯示"
   },
   "settings_wallpaper_status_none": {
-    "message": "未上傳壁紙"
+    "message": "未上傳桌布"
   },
   "settings_wallpaper_status_ready": {
-    "message": "已上傳壁紙"
+    "message": "已上傳桌布"
   },
   "settings_wallpaper_status_local_only": {
-    "message": "已上傳壁紙（僅此裝置）"
+    "message": "已上傳桌布（僅此裝置）"
   },
   "settings_wallpaper_status_missing": {
-    "message": "壁紙檔案遺失，請重新上傳。"
+    "message": "桌布檔案遺失，請重新上傳。"
   },
   "settings_wallpaper_status_processing": {
     "message": "處理中…"
   },
   "settings_wallpaper_upload_done": {
-    "message": "壁紙已更新"
+    "message": "桌布已更新"
   },
   "settings_wallpaper_remove_done": {
-    "message": "壁紙已移除"
+    "message": "桌布已移除"
   },
   "settings_wallpaper_error_type": {
     "message": "請上傳圖片檔（JPG / PNG / WEBP）。"
@@ -747,10 +747,10 @@
     "message": "壓縮後仍過大，請更換較小圖片。"
   },
   "settings_wallpaper_error_save": {
-    "message": "壁紙儲存失敗，請重試。"
+    "message": "桌布儲存失敗，請重試。"
   },
   "newtab_wallpaper_title": {
-    "message": "壁紙"
+    "message": "桌布"
   },
   "newtab_logo_title": {
     "message": "品牌標識"
@@ -780,25 +780,25 @@
     "message": "本機"
   },
   "newtab_wallpaper_toggle_label": {
-    "message": "開啟或關閉壁紙"
+    "message": "開啟或關閉桌布"
   },
   "newtab_wallpaper_select_label": {
     "message": "選擇 {name}"
   },
   "newtab_wallpaper_add_local": {
-    "message": "新增本機壁紙"
+    "message": "新增本機桌布"
   },
   "newtab_wallpaper_mode_sync_title": {
     "message": "深淺模式一致"
   },
   "newtab_wallpaper_mode_sync_toggle_label": {
-    "message": "深淺模式使用同一張壁紙"
+    "message": "深淺模式使用同一張桌布"
   },
   "newtab_wallpaper_mode_row_title": {
     "message": "模式"
   },
   "newtab_wallpaper_mode_tabs_label": {
-    "message": "壁紙深淺模式"
+    "message": "桌布深淺模式"
   },
   "newtab_wallpaper_light_mode_tab": {
     "message": "淺色"
@@ -807,7 +807,7 @@
     "message": "深色"
   },
   "newtab_wallpaper_mode_select_label": {
-    "message": "設定{mode}模式壁紙"
+    "message": "設定{mode}模式桌布"
   },
   "newtab_wallpaper_sources_feature_hint_badge": {
     "message": "新功能"
@@ -822,7 +822,7 @@
     "message": "測試中"
   },
   "newtab_webdav_feature_hint_text": {
-    "message": "WebDAV 同步開放測試：透過雲端硬碟或 NAS 同步設定、圖示和壁紙，還能跨瀏覽器使用。"
+    "message": "WebDAV 同步開放測試：透過雲端硬碟或 NAS 同步設定、圖示和桌布，還能跨瀏覽器使用。"
   },
   "newtab_webdav_feature_hint_link": {
     "message": "前往設定"
@@ -834,7 +834,7 @@
     "message": "新功能"
   },
   "newtab_ai_quick_jump_feature_hint_text": {
-    "message": "常用 AI 網站現已支援一鍵輸入並跳轉。試著輸入「doubao」並按下 Tab。"
+    "message": "常用 AI 網站現已支援一鍵輸入並前往。試著輸入「doubao」並按下 Tab。"
   },
   "newtab_ai_quick_jump_feature_hint_link": {
     "message": "支援列表"
@@ -993,10 +993,10 @@
     "message": "瀏覽器"
   },
   "newtab_wallpaper_delete_local": {
-    "message": "刪除已匯入的壁紙"
+    "message": "刪除已匯入的桌布"
   },
   "newtab_wallpaper_custom_name": {
-    "message": "本機壁紙"
+    "message": "本機桌布"
   },
   "newtab_wallpaper_overlay_opacity": {
     "message": "遮罩效果"
@@ -1011,7 +1011,7 @@
     "message": "覆蓋"
   },
   "newtab_wallpaper_effect_title": {
-    "message": "壁紙濾鏡"
+    "message": "桌布濾鏡"
   },
   "newtab_wallpaper_effect_strength": {
     "message": "取樣強度"
@@ -1059,7 +1059,7 @@
     "message": "網點"
   },
   "newtab_wallpaper_effect_dither": {
-    "message": "抖色"
+    "message": "混色"
   },
   "newtab_wallpaper_effect_ascii": {
     "message": "ASCII"
@@ -1080,22 +1080,22 @@
     "message": "從{tone}取樣網點或字元"
   },
   "newtab_wallpaper_save_error": {
-    "message": "壁紙儲存失敗"
+    "message": "桌布儲存失敗"
   },
   "newtab_wallpaper_importing": {
-    "message": "正在匯入壁紙…"
+    "message": "正在匯入桌布…"
   },
   "newtab_wallpaper_import_done": {
-    "message": "壁紙匯入成功"
+    "message": "桌布匯入成功"
   },
   "newtab_wallpaper_import_error": {
-    "message": "壁紙匯入失敗"
+    "message": "桌布匯入失敗"
   },
   "newtab_wallpaper_delete_done": {
     "message": "刪除成功"
   },
   "newtab_wallpaper_delete_error": {
-    "message": "壁紙刪除失敗"
+    "message": "桌布刪除失敗"
   },
   "newtab_wallpaper_name_dark_linocut_topographic": {
     "message": "夜色等高線"
@@ -1161,7 +1161,7 @@
     "message": "自訂"
   },
   "blacklist_section_title": {
-    "message": "搜尋與最近訪問黑名單"
+    "message": "搜尋與最近造訪黑名單"
   },
   "blacklist_section_desc": {
     "message": "加入要從搜尋結果和新分頁中隱藏的網址。"
@@ -1266,7 +1266,7 @@
     "message": "AI"
   },
   "shortcuts_group_ai_desc": {
-    "message": "輸入關鍵詞，按下 Tab 並輸入內容（Prompt）後，可跳轉至以下 AI 網站並自動填入（需先登入對應網站）"
+    "message": "輸入關鍵字，按下 Tab 並輸入內容（Prompt）後，可前往以下 AI 網站並自動填入（需先登入對應網站）"
   },
   "shortcuts_badge_custom": {
     "message": "自訂"
@@ -1284,7 +1284,7 @@
     "message": "定位內置項"
   },
   "shortcuts_template_help": {
-    "message": "1.打開你想新增的網站\n2.輸入任一搜尋詞觸發搜尋\n3.將搜尋結果頁面 URL 貼上在此\n4.將關鍵詞替換為{query}"
+    "message": "1.開啟你想新增的網站\n2.輸入任一搜尋詞觸發搜尋\n3.將搜尋結果頁面 URL 貼上在此\n4.將關鍵字替換為{query}"
   },
   "shortcuts_label_key": {
     "message": "觸發詞"
@@ -1434,7 +1434,7 @@
     "message": "多層級列表檢視"
   },
   "bookmark_view_mode_top": {
-    "message": "頂部書籤列"
+    "message": "頂端書籤列"
   },
   "bookmark_topbar_surface_title": {
     "message": "書籤列背景"
@@ -1455,13 +1455,13 @@
     "message": "背景取色"
   },
   "bookmark_topbar_color_reset": {
-    "message": "恢復自動配色"
+    "message": "還原自動配色"
   },
   "bookmark_topbar_color_picked": {
     "message": "已取色"
   },
   "bookmark_topbar_color_reset_done": {
-    "message": "已恢復自動配色"
+    "message": "已還原自動配色"
   },
   "bookmark_topbar_color_unsupported": {
     "message": "目前瀏覽器不支援螢幕取色。"
@@ -1566,7 +1566,7 @@
     "message": "無法移動書籤"
   },
   "bookmarks_moved_to_shortcuts": {
-    "message": "已移至快捷方式"
+    "message": "已移至捷徑"
   },
   "search_tag_history": {
     "message": "歷史"
@@ -1647,13 +1647,13 @@
     "message": "開啟設定"
   },
   "command_show_search": {
-    "message": "喚起聚焦搜尋視窗"
+    "message": "叫出聚焦搜尋視窗"
   },
   "command_show_search_prefill": {
-    "message": "喚起搜尋並預填當前網頁連結"
+    "message": "叫出搜尋並預填目前網頁連結"
   },
   "command_show_search_prefill_v": {
-    "message": "複製當前網頁連結"
+    "message": "複製目前網頁連結"
   },
   "mode_switch_title": {
     "message": "{name}：切換為{mode}模式"
@@ -1827,7 +1827,7 @@
     "message": "切換聚焦"
   },
   "search_scope_menu_filter_hint": {
-    "message": "點擊面板，輸入拼音或英文快速篩選"
+    "message": "點按面板，輸入拼音或英文快速篩選"
   },
   "search_scope_menu_filter_query": {
     "message": "搜尋：{query}"
@@ -2013,7 +2013,7 @@
     "message": "設定檔無效"
   },
   "document_pip_picker_unsupported_policy": {
-    "message": "此網站透過站點策略停用了畫中畫。"
+    "message": "此網站透過網站政策停用了子母畫面。"
   },
   "document_pip_picker_unsupported_iframe": {
     "message": "Document Picture-in-Picture 僅支援在頂層頁面使用。"
@@ -2028,7 +2028,7 @@
     "message": "目前選取內容在此頁面中無法透過 Document Picture-in-Picture 開啟。"
   },
   "document_pip_picker_open_failed_invalid_state": {
-    "message": "已有懸浮視窗開啟，或頁面狀態已變更。請再試一次。"
+    "message": "已有浮動視窗開啟，或頁面狀態已變更。請再試一次。"
   },
   "document_pip_picker_open_failed_security": {
     "message": "瀏覽器基於安全策略阻止了此操作。"
@@ -2055,31 +2055,31 @@
     "message": "複製失敗，請檢查剪貼簿權限。"
   },
   "recent_pin_add": {
-    "message": "置頂"
+    "message": "釘選"
   },
   "recent_pin_remove": {
-    "message": "取消置頂"
+    "message": "取消釘選"
   },
   "recent_pin_limit": {
-    "message": "最多置頂 3 個"
+    "message": "最多釘選 3 個"
   },
   "recent_pin_limit_toast": {
-    "message": "最多只能置頂 3 個卡片。"
+    "message": "最多只能釘選 3 個卡片。"
   },
   "recent_dismiss_tooltip": {
     "message": "移除"
   },
   "recent_add_to_shortcuts": {
-    "message": "新增至快捷方式"
+    "message": "新增至捷徑"
   },
   "recent_dismiss_pinned_tooltip": {
-    "message": "取消置頂並移除"
+    "message": "取消釘選並移除"
   },
   "recent_dismiss_toast": {
     "message": "已移除"
   },
   "recent_dismiss_pinned_toast": {
-    "message": "已取消置頂並移除"
+    "message": "已取消釘選並移除"
   },
   "recent_context_menu_label": {
     "message": "最近造訪操作"
@@ -2097,7 +2097,7 @@
     "message": "開啟最近分頁切換器"
   },
   "shortcut_reference_title": {
-    "message": "快捷鍵列表"
+    "message": "快速鍵列表"
   },
   "shortcut_reference_group_search": {
     "message": "聚焦搜尋"
@@ -2115,13 +2115,13 @@
     "message": "未設定"
   },
   "shortcut_reference_show_search_title": {
-    "message": "喚起聚焦搜尋視窗"
+    "message": "叫出聚焦搜尋視窗"
   },
   "shortcut_reference_show_search_desc": {
     "message": "在目前頁面開啟 Lumno"
   },
   "shortcut_reference_show_search_prefill_title": {
-    "message": "喚起搜尋並填入目前網頁連結"
+    "message": "叫出搜尋並填入目前網頁連結"
   },
   "shortcut_reference_show_search_prefill_desc": {
     "message": "開啟 Lumno，並把目前網頁連結放入輸入框"
@@ -2151,7 +2151,7 @@
     "message": "在聚焦搜尋和新分頁中移動目前候選項"
   },
   "shortcut_reference_search_number_jump_title": {
-    "message": "按編號跳轉搜尋結果"
+    "message": "按編號跳至搜尋結果"
   },
   "shortcut_reference_search_number_jump_desc": {
     "message": "長按主修飾鍵並放開，再按 0–9 執行對應候選項"
@@ -2193,7 +2193,7 @@
     "message": "已開啟分頁結果新開"
   },
   "shortcut_reference_search_switch_new_tab_desc": {
-    "message": "當結果匹配已開啟分頁時，在新分頁開啟它的 URL"
+    "message": "當結果符合已開啟分頁時，在新分頁開啟它的 URL"
   },
   "shortcut_reference_tab_switcher_cycle_title": {
     "message": "在分頁切換器中移動選擇"
@@ -2220,19 +2220,19 @@
     "message": "選擇網頁剪裁目標時切到更小的子層元素"
   },
   "newtab_shortcuts_section_label": {
-    "message": "快捷方式"
+    "message": "捷徑"
   },
   "newtab_shortcuts_add": {
-    "message": "新增快捷方式"
+    "message": "新增捷徑"
   },
   "newtab_shortcuts_hide_add": {
     "message": "隱藏"
   },
   "newtab_shortcuts_add_hidden": {
-    "message": "已隱藏「+」，可在設定 → 外觀 → 快捷方式 → 顯示「+」中重新開啟。"
+    "message": "已隱藏「+」，可在設定 → 外觀 → 捷徑 → 顯示「+」中重新開啟。"
   },
   "newtab_shortcuts_dialog_title": {
-    "message": "新增快捷方式"
+    "message": "新增捷徑"
   },
   "newtab_shortcuts_name_label": {
     "message": "名稱"
@@ -2262,7 +2262,7 @@
     "message": "內建圖示"
   },
   "newtab_shortcuts_icon_builtin_hint": {
-    "message": "直接使用 Lumno 內建的高清圖示。"
+    "message": "直接使用 Lumno 內建的高解析度圖示。"
   },
   "newtab_shortcuts_icon_builtin_network_hint": {
     "message": "無需連網取得。"
@@ -2286,7 +2286,7 @@
     "message": "瀏覽器快取"
   },
   "newtab_shortcuts_icon_service_hint": {
-    "message": "向 Gstatic 傳送網域取得圖示，穩定、高清。"
+    "message": "向 Gstatic 傳送網域取得圖示，穩定、高解析度。"
   },
   "newtab_shortcuts_icon_cache_hint": {
     "message": "讀取瀏覽器快取，快速、比對準確。"
@@ -2388,7 +2388,7 @@
     "message": "預設顏色"
   },
   "folder_color_reset": {
-    "message": "恢復預設"
+    "message": "還原預設"
   },
   "folder_color_saved": {
     "message": "已儲存的顏色"
@@ -2427,31 +2427,31 @@
     "message": "請輸入有效的 http、https 或瀏覽器內建頁面網址。"
   },
   "newtab_shortcuts_limit_reached": {
-    "message": "最多可新增 {count} 個快捷方式。"
+    "message": "最多可新增 {count} 個捷徑。"
   },
   "newtab_shortcuts_added": {
-    "message": "已新增快捷方式"
+    "message": "已新增捷徑"
   },
   "newtab_shortcuts_already_added": {
-    "message": "已在快捷方式中"
+    "message": "已在捷徑中"
   },
   "newtab_shortcuts_sync_limit_reached": {
-    "message": "快捷方式已達同步上限，新增項目將無法同步。"
+    "message": "捷徑已達同步上限，新增項目將無法同步。"
   },
   "newtab_shortcuts_edited": {
-    "message": "已更新快捷方式"
+    "message": "已更新捷徑"
   },
   "newtab_shortcuts_removed": {
-    "message": "已移除快捷方式"
+    "message": "已移除捷徑"
   },
   "newtab_shortcuts_removed_undo": {
-    "message": "已移除快捷方式 · 按 {shortcut} 復原"
+    "message": "已移除捷徑 · 按 {shortcut} 復原"
   },
   "newtab_shortcuts_remove_undone": {
-    "message": "已恢復快捷方式 · 按 {shortcut} 重做"
+    "message": "已還原捷徑 · 按 {shortcut} 重做"
   },
   "newtab_shortcuts_remove_redone": {
-    "message": "已重新移除快捷方式 · 按 {shortcut} 復原"
+    "message": "已重新移除捷徑 · 按 {shortcut} 復原"
   },
   "newtab_shortcuts_open_folder": {
     "message": "開啟資料夾"
@@ -2463,7 +2463,7 @@
     "message": "已新增資料夾快捷入口"
   },
   "newtab_shortcuts_folder_missing": {
-    "message": "此收藏夾資料夾已不存在。"
+    "message": "此書籤資料夾已不存在。"
   },
   "newtab_shortcuts_moved_to_bookmarks": {
     "message": "已移至書籤"
@@ -2472,10 +2472,10 @@
     "message": "無法移至書籤"
   },
   "newtab_shortcuts_edit_dialog_title": {
-    "message": "編輯快捷方式"
+    "message": "編輯捷徑"
   },
   "newtab_shortcuts_context_menu_label": {
-    "message": "快捷方式操作"
+    "message": "捷徑操作"
   },
   "settings_tab_switcher_title": {
     "message": "分頁切換器"
@@ -2727,7 +2727,7 @@
     "message": "伺服器上的設定不見了。可以重新上傳本機設定，或先檢查伺服器位址。"
   },
   "webdav_error_locked": {
-    "message": "另一台裝置正在寫入，請稍後重試。若長期無法恢復，請依 WebDAV 接入說明處理殘留鎖。"
+    "message": "另一台裝置正在寫入，請稍後重試。若長期無法還原，請依 WebDAV 接入說明處理殘留鎖。"
   },
   "webdav_error_lock_recovery": {
     "message": "遠端寫入未能安全結束，已保留寫入保護。請先暫停所有裝置的同步並確認中斷請求已結束，再清理遠端同步目錄下的 v1/write-lock 資料夾。"
@@ -2739,10 +2739,10 @@
     "message": "WebDAV 同步"
   },
   "webdav_beta_hint": {
-    "message": "功能測試中：透過 WebDAV 雲端硬碟或 NAS 同步設定、自訂圖示和壁紙。相較於瀏覽器內建同步，支援跨瀏覽器，也能同步圖示和壁紙。"
+    "message": "功能測試中：透過 WebDAV 雲端硬碟或 NAS 同步設定、自訂圖示和桌布。相較於瀏覽器內建同步，支援跨瀏覽器，也能同步圖示和桌布。"
   },
   "webdav_setup_hint": {
-    "message": "透過堅果雲或其他 WebDAV 服務同步設定、自訂圖示和壁紙，與瀏覽器內建的同步同時執行。"
+    "message": "透過堅果雲或其他 WebDAV 服務同步設定、自訂圖示和桌布，與瀏覽器內建的同步同時執行。"
   },
   "webdav_edit_config": {
     "message": "編輯連線設定"
@@ -2832,16 +2832,16 @@
     "message": "調整了順序"
   },
   "webdav_diff_selection": {
-    "message": "換了目前壁紙"
+    "message": "換了目前桌布"
   },
   "webdav_diff_unchanged": {
     "message": "沒有變更"
   },
   "webdav_diff_shortcut_total": {
-    "message": "共 {count} 個快捷方式"
+    "message": "共 {count} 個捷徑"
   },
   "webdav_diff_wallpaper_total": {
-    "message": "共 {count} 張壁紙"
+    "message": "共 {count} 張桌布"
   },
   "webdav_diff_loading": {
     "message": "正在讀取…"
@@ -2892,10 +2892,10 @@
     "message": "輸入框下方"
   },
   "newtab_quote_search": {
-    "message": "快捷方式下方"
+    "message": "捷徑下方"
   },
   "newtab_quote_bottom": {
-    "message": "頁面底部"
+    "message": "頁面底端"
   },
   "newtab_quote_literature": {
     "message": "文學"
@@ -2928,7 +2928,7 @@
     "message": "每天跟隨 Bing 更新。開啟時手動選的桌布當天有效，隔天自動換回。"
   },
   "newtab_daily_restore": {
-    "message": "恢復今日桌布"
+    "message": "還原今日桌布"
   },
   "newtab_bing_recent": {
     "message": "最近一週"
@@ -3051,10 +3051,10 @@
     "message": "關閉"
   },
   "settings_progress_tracking_title": {
-    "message": "置頂劇集、小說時自動更新進度"
+    "message": "釘選劇集、小說時自動更新進度"
   },
   "settings_progress_tracking_desc": {
-    "message": "在新分頁的站點卡片中置頂劇集或小說頁面後，繼續看同一部作品的下一集或下一章時，置頂的卡片會自動換成最新的那一集，下次點開直接接著看"
+    "message": "在新分頁的網站卡片中釘選劇集或小說頁面後，繼續看同一部作品的下一集或下一章時，釘選的卡片會自動換成最新的那一集，下次點開直接接著看"
   },
   "recent_progress_track": {
     "message": "追蹤觀看進度"
@@ -3072,7 +3072,7 @@
     "message": "正在追蹤觀看進度"
   },
   "recent_progress_auto_toast": {
-    "message": "已置頂，並開始追蹤進度。點擊卡片上的雷達圖示可停止。"
+    "message": "已釘選，並開始追蹤進度。點按卡片上的雷達圖示可停止。"
   },
   "settings_general_newtab_section_title": {
     "message": "新分頁設定"
@@ -3081,6 +3081,6 @@
     "message": "追蹤觀看進度\n────────\n適合追劇、看連載小說時開啟。\n開啟後，在同一部作品裡看到下一集或下一章，這張卡片會自動更新到最新進度。"
   },
   "recent_progress_stop_tooltip": {
-    "message": "正在追蹤觀看進度\n────────\n在同一部作品裡看到下一集或下一章時，這張卡片會自動更新。\n點擊停止追蹤。"
+    "message": "正在追蹤觀看進度\n────────\n在同一部作品裡看到下一集或下一章時，這張卡片會自動更新。\n點按停止追蹤。"
   }
 }
