@@ -140,6 +140,21 @@ const core = sandbox.LumnoFaviconViewCore.createFaviconViewCore({
     'stale favicon data responses must not replace the currently rendered favicon'
   );
 
+  {
+    // A failed live candidate (e.g. _favicon in Firefox) can stay the rendered
+    // src after an interrupted reveal; restoring the remembered icon must swap
+    // it back and end the blurred priming state.
+    const stuck = createFakeImage();
+    const workingData = 'data:image/png;base64,d29ya2luZy1pY29u';
+    stuck.setAttribute('data-favicon-current-src', workingData);
+    stuck.setAttribute('data-favicon-has-appeared', 'true');
+    stuck.setAttribute('data-favicon-load-state', 'priming');
+    stuck.src = 'moz-extension://abc/_favicon/?pageUrl=https%3A%2F%2Fexample.com%2F';
+    assert.strictEqual(core.restoreWorkingFaviconOrFallback(stuck, workingData), true);
+    assert.strictEqual(stuck.src, workingData, 'the remembered working icon is rendered again');
+    assert.strictEqual(stuck.getAttribute('data-favicon-load-state'), 'loaded', 'the blurred priming state ends');
+  }
+
   console.log('favicon data race tests passed');
 })().catch((error) => {
   console.error(error);

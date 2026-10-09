@@ -311,6 +311,12 @@
       : 128;
     try {
       const faviconUrl = new URL(getRuntimeUrl('/_favicon/'));
+      // Only Chromium serves _favicon. Elsewhere (Firefox) the URL would never
+      // load, so it is kept solely as the browser-cache request marker that the
+      // background resolves from the browser's own icons.
+      if (faviconUrl.protocol !== 'chrome-extension:' && !(options && options.browserCacheRequest === true)) {
+        return '';
+      }
       faviconUrl.searchParams.set('pageUrl', pageUrl);
       faviconUrl.searchParams.set('size', String(size));
       // A same-host icon can belong to a different application or page path.
@@ -1256,7 +1262,7 @@
       return getCanonicalPageUrlForFavicon(raw) || raw;
     }
 
-    function getResolverExtensionFaviconUrl(pageUrl) {
+    function getResolverExtensionFaviconUrl(pageUrl, options) {
       const page = getCanonicalFaviconPage(pageUrl);
       if (!page || !/^https?:\/\//i.test(page)) {
         return '';
@@ -1267,7 +1273,11 @@
           return configured;
         }
       }
-      return getExtensionFaviconUrl(page, { getRuntimeUrl, size });
+      return getExtensionFaviconUrl(page, {
+        getRuntimeUrl,
+        size,
+        browserCacheRequest: Boolean(options && options.browserCacheRequest === true)
+      });
     }
 
     function getResolverBrowserPageFaviconUrl(pageUrl) {
@@ -1563,7 +1573,11 @@
       return [
         {
           kind: 'browser-cache',
-          url: getSafeFaviconCandidateUrl(getResolverExtensionFaviconUrl(page), page, 'shortcut-browser-snapshot'),
+          url: getSafeFaviconCandidateUrl(
+            getResolverExtensionFaviconUrl(page, { browserCacheRequest: true }),
+            page,
+            'shortcut-browser-snapshot'
+          ),
           placeholderUrl: getResolverExtensionFaviconUrl(placeholderPage)
         },
         {
