@@ -75,41 +75,38 @@ jobs:
       - name: Archive source code for AMO review
         run: git archive --format=zip --output "dist/lumno-firefox-source-v${{ steps.version.outputs.version }}.zip" HEAD
 
-      # The store listing (summary, description, categories, links) is only
-      # sent when AMO creates the add-on, so later edits on AMO stick.
+      # The store listing (summary, description, categories, links) and
+      # screenshots go up with the first listed version only, so later edits
+      # on AMO stick.
       - name: Prepare AMO metadata
+        id: metadata
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          CHANNEL: ${{ inputs.channel || 'listed' }}
         run: |
           addon_id="$(node -p "require('./dist/firefox/manifest.json').browser_specific_settings.gecko.id")"
-          token="$(node -e '
-            const crypto = require("crypto");
-            const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
-            const now = Math.floor(Date.now() / 1000);
-            const unsigned = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({
-              iss: process.env.AMO_JWT_ISSUER, jti: crypto.randomUUID(), iat: now, exp: now + 60
-            })}`;
-            const signature = crypto.createHmac("sha256", process.env.AMO_JWT_SECRET).update(unsigned).digest("base64url");
-            process.stdout.write(`${unsigned}.${signature}`);
-          ')"
+          echo "addon_id=$addon_id" >> "$GITHUB_OUTPUT"
+          token="$(node scripts/amo-jwt.js)"
           echo "::add-mask::$token"
-          status="$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: JWT $token" \
-            "https://addons.mozilla.org/api/v5/addons/addon/${addon_id}/")"
+          status="$(curl -sS -o dist/amo-versions.json -w '%{http_code}' -H "Authorization: JWT $token" \
+            "https://addons.mozilla.org/api/v5/addons/addon/${addon_id}/versions/?filter=all_without_unlisted")"
           case "$status" in
-            200)
-              echo "$addon_id is on AMO; submitting a new version only."
-              cp scripts/amo-metadata.json dist/amo-metadata.json
-              ;;
-            404)
-              echo "$addon_id is new on AMO; including the store listing."
-              jq -s '.[0] * .[1]' scripts/amo-listing.json scripts/amo-metadata.json > dist/amo-metadata.json
-              ;;
+            200) listed_versions="$(jq '.count' dist/amo-versions.json)" ;;
+            404) listed_versions=0 ;; # the add-on isn't on AMO yet
             *)
               echo "::error::AMO returned HTTP $status when looking up $addon_id."
               exit 1
               ;;
           esac
+          if [ "$CHANNEL" = "listed" ] && [ "$listed_versions" = "0" ]; then
+            echo "First listed version of $addon_id; including the store listing and screenshots."
+            jq -s '.[0] * .[1]' scripts/amo-listing.json scripts/amo-metadata.json > dist/amo-metadata.json
+            echo "first_listed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Submitting a new $CHANNEL version of $addon_id."
+            cp scripts/amo-metadata.json dist/amo-metadata.json
+          fi
 
       - name: Submit to AMO
         env:
@@ -131,6 +128,23 @@ jobs:
             --amo-metadata dist/amo-metadata.json \
             --upload-source-code "dist/lumno-firefox-source-v${VERSION}.zip" \
             --approval-timeout "$approval_timeout"
+
+      - name: Upload store screenshots
+        if: ${{ steps.metadata.outputs.first_listed == 'true' }}
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
+        run: |
+          for image in scripts/amo-screenshots/*.jpg; do
+            token="$(node scripts/amo-jwt.js)"
+            echo "::add-mask::$token"
+            curl -fsS -o /dev/null -H "Authorization: JWT $token" \
+              -F "image=@$image" -F "position=$(basename "$image" .jpg)" \
+              "https://addons.mozilla.org/api/v5/addons/addon/${ADDON_ID}/previews/" \
+              || { echo "::error::Could not upload $image. Add the screenshots on AMO by hand."; exit 1; }
+            echo "Uploaded $image"
+          done
 
       - name: Upload signed package
         if: ${{ inputs.channel == 'unlisted' }}
