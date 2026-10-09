@@ -1,0 +1,30 @@
+{
+   "categories": [
+      "tabs",
+      "search-tools"
+   ],
+   "summary": {
+      "zh-CN": "任意网页一键唤起命令浮层，快速搜索、直达网址、切换标签页，并增强新标签页体验。",
+      "zh-TW": "在任何網頁一鍵叫出指令視窗，快速搜尋、直達網址、切換分頁，並強化新分頁體驗。",
+      "en-US": "A lightweight command bar and new-tab search for Firefox.",
+      "ja": "どのページからでもLumnoを呼び出し、検索、URL移動、タブ切り替えをすばやく実行できます。新しいタブも使いやすくします。"
+   },
+   "description": {
+      "zh-CN": "注：本扩展完全开源，重视用户隐私，不收集、不上传任何用户数据。由于搜索功能需要读取浏览历史、书签、标签页和当前网页信息，因此会申请相应权限；相关处理默认均在本地完成。\n\nLumno 是一款轻量的浏览器搜索与新标签页工具。你可以在任意网页通过快捷键唤起搜索浮层，快速查找标签页、书签、历史记录和常用网站；也可以在新标签页中使用同样的搜索体验，减少来回切换。\n\n🦋 适用场景：\n1. 在多个标签页间快速切换\n2. 一步查找书签、历史记录或常用网站\n3. 更快打开网页、执行搜索\n4. 希望新标签页更简洁高效\n\n🦋 主要功能：\n1. 任意网页一键唤起搜索浮层\n2. 快速搜索并切换已打开标签页\n3. 检索书签、历史记录、常访问网站与搜索建议\n4. 支持站内搜索和自定义搜索规则\n5. 替换新标签页，集中展示常用站点与书签\n6. 支持深浅色主题、多语言与设置同步\n\n🦋 使用方式：\n1. 打开新标签页查看常用内容\n2. 使用快捷键唤起搜索浮层\n3. 输入关键词后回车，或选择建议项跳转\n4. 在设置页中调整语言、主题、快捷键与站内搜索\n\n作者：枯白啃设计\n小红书：https://www.xiaohongshu.com/user/profile/5f30130300000000010006eb\nX：https://x.com/Kubai087\n支持邮箱：i@kubai.design",
+      "zh-TW": "註：本擴充功能完全開源，重視使用者隱私，不會蒐集或上傳任何使用者資料。由於搜尋功能需要讀取瀏覽紀錄、書籤、分頁與目前網頁資訊，因此會申請相應權限；相關處理預設皆在本機完成。\n\nLumno 是一款輕量的瀏覽器搜尋與新分頁工具。你可以在任何網頁透過快捷鍵喚起搜尋浮層，快速查找分頁、書籤、瀏覽紀錄與常用網站；也可以在新分頁中使用相同的搜尋體驗，減少來回切換。\n\n🦋 適用場景：\n1. 經常在大量分頁之間切換\n2. 常需要查找書籤、瀏覽紀錄或常用網站\n3. 想更快速地開啟網頁與執行搜尋\n4. 希望新分頁更簡潔、更有效率\n\n🦋 主要功能：\n1. 在任何網頁一鍵喚起搜尋浮層\n2. 快速搜尋並切換已開啟的分頁\n3. 檢索書籤、瀏覽紀錄、常用網站與搜尋建議\n4. 支援站內搜尋與自訂搜尋規則\n5. 取代新分頁頁面，集中顯示常用網站與書籤\n6. 支援深色 / 淺色主題、多語言與設定同步\n\n🦋 使用方式：\n1. 開啟新分頁查看常用內容\n2. 使用快捷鍵喚起搜尋浮層\n3. 輸入關鍵字後按 Enter，或選擇建議項目跳轉\n4. 在設定頁調整語言、主題、快捷鍵與站內搜尋\n\n作者：枯白啃設計\n小紅書：https://www.xiaohongshu.com/user/profile/5f30130300000000010006eb\nX：https://x.com/Kubai087\n支援信箱：i@kubai.design",
+      "en-US": "Note: Lumno is fully open source and built with privacy in mind. It does not collect or upload any user data. To enable search across your browsing history, bookmarks, tabs, and current page information, it requests the necessary permissions. All related processing stays local by default.\n\nLumno is a lightweight browser search and new tab extension. You can open a search overlay from any page with a keyboard shortcut to quickly find tabs, bookmarks, browsing history, and frequently visited sites. The same search experience is also available on the new tab page, so you can get where you want with less switching.\n\n🦋 Best for:\n1. Frequently switching between many tabs\n2. Often searching bookmarks, browsing history, or frequently visited sites\n3. Wanting a faster way to open pages and run searches\n4. Preferring a cleaner and more efficient new tab page\n\n🦋 Key features:\n1. Open the search overlay from any page with a single shortcut\n2. Quickly search and switch between open tabs\n3. Search bookmarks, browsing history, frequently visited sites, and search suggestions\n4. Support site search and custom search rules\n5. Replace the new tab page with quick access to frequently used sites and bookmarks\n6. Support light and dark themes, multiple languages, and settings sync\n\n🦋 How to use:\n1. Open a new tab to view frequently used content\n2. Use the keyboard shortcut to open the search overlay\n3. Type a keyword and press Enter, or choose a suggestion\n4. Adjust language, theme, shortcuts, and site search in Settings\n\nAuthor: Kubai087\nX: https://x.com/Kubai087\nSupport: i@kubai.design",
+      "ja": "注記：本拡張機能は完全にオープンソースで、ユーザーのプライバシーを重視しています。ユーザーデータを収集したり、外部へアップロードしたりすることはありません。検索機能のために、閲覧履歴、ブックマーク、タブ、現在開いているページの情報を読み取る権限を求めますが、関連する処理は既定ですべてローカルで行われます。\n\nLumno は、軽量なブラウザ検索・新しいタブツールです。どのWebページからでもショートカットキーで検索パネルを呼び出し、タブ、ブックマーク、閲覧履歴、よく使うサイトをすばやく探せます。新しいタブでも同じ検索体験を使えるため、ページを行き来する手間を減らせます。\n\n🦋 こんなときに便利：\n1. 複数のタブをすばやく切り替えたいとき\n2. ブックマーク、閲覧履歴、よく使うサイトを一度に探したいとき\n3. Webページをより速く開いたり、検索を実行したいとき\n4. 新しいタブをもっとシンプルで効率的に使いたいとき\n\n🦋 主な機能：\n1. どのWebページからでも、ワンキーで検索パネルを呼び出し\n2. 開いているタブをすばやく検索・切り替え\n3. ブックマーク、閲覧履歴、よく使うサイト、検索候補を検索\n4. サイト内検索とカスタム検索ルールに対応\n5. 新しいタブを置き換え、よく使うサイトやブックマークをまとめて表示\n6. ライト／ダークテーマ、多言語表示、設定の同期に対応\n\n🦋 使い方：\n1. 新しいタブを開いて、よく使う内容を確認\n2. ショートカットキーで検索パネルを呼び出し\n3. キーワードを入力して Enter、または候補を選択して移動\n4. 設定ページで、言語、テーマ、ショートカットキー、サイト内検索を調整\n\n作者：枯白啃设计\nXiaohongshu：https://www.xiaohongshu.com/user/profile/5f30130300000000010006eb\nX：https://x.com/Kubai087\nサポートメール：i@kubai.design"
+   },
+   "homepage": {
+      "zh-CN": "https://lumno.kubai.design/",
+      "zh-TW": "https://lumno.kubai.design/zh-tw/",
+      "en-US": "https://lumno.kubai.design/en/",
+      "ja": "https://lumno.kubai.design/ja/"
+   },
+   "support_email": {
+      "zh-CN": "i@kubai.design",
+      "zh-TW": "i@kubai.design",
+      "en-US": "i@kubai.design",
+      "ja": "i@kubai.design"
+   }
+}
