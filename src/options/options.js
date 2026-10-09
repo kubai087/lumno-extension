@@ -352,18 +352,28 @@
   ].forEach(([input, kind]) => registerOptionsToggleControl(input, kind));
 
   // Settings this browser cannot honor stay visible but disabled, with the
-  // reason on hover: <div data-browser-unsupported="firefox"
-  // data-unsupported-reason-key="...">. applyI18n fills in the tooltip text.
+  // reason in a tooltip that follows the cursor: <div
+  // data-browser-unsupported="firefox" data-unsupported-reason-key="...">.
   function markBrowserUnsupportedSettings() {
     const family = document.documentElement.getAttribute('data-browser-family');
+    let reasonTooltip = null;
     document.querySelectorAll('[data-browser-unsupported]').forEach((row) => {
       if (row.getAttribute('data-browser-unsupported') !== family) {
         return;
       }
       row.setAttribute('data-unsupported', 'true');
       row.setAttribute('aria-disabled', 'true');
-      row.setAttribute('data-i18n-tooltip', row.getAttribute('data-unsupported-reason-key') || '');
-      row.setAttribute('data-tooltip', '');
+      reasonTooltip = reasonTooltip || globalThis.LumnoCursorTooltip.createController({
+        documentObj: document,
+        windowObj: window,
+        id: '_x_extension_options_unsupported_cursor_tooltip_2026_unique_',
+        appendTo: document.body,
+        maxWidth: 360,
+        offsetX: 14,
+        offsetY: 16
+      });
+      const reasonKey = row.getAttribute('data-unsupported-reason-key') || '';
+      reasonTooltip.bind(row, () => getMessage(reasonKey, ''));
       // The toggle's React view replaces its <input>; the label keeps the id.
       row.querySelectorAll('label[for]').forEach((label) => unsupportedSettingInputIds.add(label.htmlFor));
     });
