@@ -85,6 +85,13 @@
     let timer = null;
     let started = false;
     let stopped = false;
+    // Two browsers on one account, even on the same computer, routinely meet
+    // at the write lock or commit between each other's read and write. Merge
+    // again after a short, jittered wait before calling it a failure. A lock
+    // that outlasts every retry is reported: an uncertain write may own it.
+    const CONTENTION_CODES = ['remote-locked', 'remote-changed'];
+    const contentionDelays = opts.contentionDelays || [3000, 10000, 30000];
+    let contention = 0;
     const fail = (code) => { throw clientApi.error(code); };
     const watchedKeys = [...settings.CHROME_SYNC_STORAGE_KEYS, contract.ICONS_KEY, ...contract.LOCAL_PREFERENCE_KEYS,
       contract.OVERFLOW_KEY, settings.ASSET_REVISION_STORAGE_KEY];
@@ -428,8 +435,21 @@
       return { ok: true };
     }
     async function guardedSync(decision) {
-      try { await recoverPendingApply(); return await syncInternal(decision); }
-      catch (cause) {
+      try {
+        await recoverPendingApply();
+        const result = await syncInternal(decision);
+        contention = 0;
+        return result;
+      } catch (cause) {
+        // A first-join choice is retried by the user, who is still on the page.
+        if (!decision && CONTENTION_CODES.includes(cause.code) && contention < contentionDelays.length && !stopped) {
+          const delay = contentionDelays[contention] * (0.75 + Math.random() * 0.5);
+          contention += 1;
+          await setStatus({ state: 'pending', error: null, diagnostic: null });
+          queueSync(delay);
+          return { pending: true };
+        }
+        contention = 0;
         const diagnostic = clientApi.diagnostic(cause.diagnostic);
         await setStatus({ state: cause.code === 'local-changed' ? 'pending' : cause.code === 'remote-missing' ? 'choice' : 'error',
           error: cause.code || 'sync-failed', diagnostic });
@@ -557,12 +577,15 @@
             watchedKeys.some((key) => changes[key])) generation += 1;
         if (!((areaName === 'sync' && !runtime.isActiveAreaName('local')) || areaName === 'local') ||
             !(watchedKeys.some((key) => changes[key]) || (areaName === 'sync' && changes[CHROME_SYNC_META_KEY]))) return;
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          timer = null;
-          exclusive(async () => { if (!stopped) { await mirrorChrome(); await guardedSync(); } }).catch(() => {});
-        }, 1500);
-        if (timer && typeof timer.unref === 'function') timer.unref();
+        queueSync(1500);
+    }
+    function queueSync(delay) {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        exclusive(async () => { if (!stopped) { await mirrorChrome(); await guardedSync(); } }).catch(() => {});
+      }, delay);
+      if (timer && typeof timer.unref === 'function') timer.unref();
     }
     function onAlarm(alarm) {
       if (!stopped && alarm.name === alarmName) exclusive(async () => { if (!stopped) { await mirrorChrome(); await guardedSync(); } }).catch(() => {});
