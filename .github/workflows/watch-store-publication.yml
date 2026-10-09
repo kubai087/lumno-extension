@@ -1,7 +1,7 @@
 name: Watch Store Publication
 
 # Store review finishes hours or days after a GitHub release, and the website's
-# scheduled rebuild is throttled to every few hours. This watches both stores
+# scheduled rebuild is throttled to every few hours. This watches every store
 # and redeploys the website as soon as each one serves the new version, so the
 # release page status chips and install-menu versions catch up within minutes.
 
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
-      - name: Poll Chrome Web Store and Microsoft Edge Add-ons
+      - name: Poll Chrome Web Store, Microsoft Edge Add-ons and Firefox Add-ons
         env:
           GH_TOKEN: ${{ github.token }}
           WEB_TOKEN: ${{ secrets.LUMNO_WEB_ACTIONS_TOKEN }}
@@ -46,6 +46,8 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           CHROME_EXTENSION_ID: nggfkkbmogmadfoikakkfegkoilfcfao
           EDGE_EXTENSION_ID: pfbklkaefmfamjpibfiapaiihlddhchc
+          FIREFOX_ADDON_ID: lumno@kubai087
+          STORES: chrome edge firefox
           POLL_SECONDS: 300
           RUN_SECONDS: 19800 # hand over before the 6-hour job limit
           WATCH_SECONDS: 1209600 # give up after 14 days
@@ -76,6 +78,13 @@ jobs:
               | jq -r '.version // empty'
           }
 
+          # Only approved listed versions are public; until then AMO answers 401.
+          firefox_version() {
+            curl -fsS --max-time 20 \
+              "https://addons.mozilla.org/api/v5/addons/addon/${FIREFOX_ADDON_ID}/" \
+              | jq -r '.current_version.version // empty'
+          }
+
           is_live() {
             case "$live" in *",$1,"*) return 0 ;; esac
             return 1
@@ -86,10 +95,10 @@ jobs:
             [ -n "$1" ] && [ "$(printf '%s\n%s\n' "$version" "$1" | sort -V | head -n1)" = "$version" ]
           }
 
-          echo "Waiting for $version in both stores."
+          echo "Waiting for $version in: $STORES."
           while true; do
             newly_live=""
-            for store in chrome edge; do
+            for store in $STORES; do
               is_live "$store" && continue
               store_version="$("${store}_version" 2>/dev/null || true)"
               echo "$(date -u +%H:%M:%S) $store serves ${store_version:-unknown}"
@@ -105,8 +114,12 @@ jobs:
                 || echo "::warning::Could not dispatch the website deploy."
             fi
 
-            if is_live chrome && is_live edge; then
-              echo "Both stores serve $version."
+            all_live=true
+            for store in $STORES; do
+              is_live "$store" || all_live=false
+            done
+            if [ "$all_live" = true ]; then
+              echo "Every store serves $version."
               exit 0
             fi
 
