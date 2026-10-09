@@ -1707,7 +1707,10 @@
         return '';
       }
     };
-    const isUsableIconUrl = (iconUrl) => /^(?:data:image\/|https:)/i.test(String(iconUrl || ''));
+    // Firefox hands these out as data: URLs read from its own icon cache.
+    // Anything else would be a request to the site, which automatic sources
+    // never make (see resolveFaviconSource).
+    const isUsableIconUrl = (iconUrl) => /^data:image\//i.test(String(iconUrl || ''));
     function add(pageUrl, iconUrl) {
       const pageKey = getPageKey(pageUrl);
       if (!pageKey || !isUsableIconUrl(iconUrl)) {

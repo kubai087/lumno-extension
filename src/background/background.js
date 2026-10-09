@@ -8231,17 +8231,11 @@ function fetchShortcutFaviconResource(candidate, pageUrl, signal) {
 }
 
 // Firefox has no _favicon endpoint. Its own icon cache is reachable through
-// open tabs and top sites; the site's favicon.ico covers the rest.
+// open tabs and top sites; like Chrome's cache it never contacts the site.
 async function getFirefoxBrowserFaviconUrl(pageUrl) {
-  let origin = '';
-  try {
-    origin = new URL(pageUrl).origin;
-  } catch (error) {
-    return '';
-  }
   const browserIcons = FAVICON_UTILS.createBrowserIconIndex();
   await browserIcons.load(chrome);
-  return browserIcons.get(pageUrl) || `${origin}/favicon.ico`;
+  return browserIcons.get(pageUrl);
 }
 
 async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
@@ -8250,12 +8244,8 @@ async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
     return null;
   }
   try {
-    const response = await fetch(iconUrl, {
-      cache: candidate.refresh === true ? 'reload' : 'force-cache',
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
-      signal
-    });
+    // A data: URL from Firefox's icon cache; decoding it is local.
+    const response = await fetch(iconUrl, { signal });
     if (!response || !response.ok) {
       return null;
     }
