@@ -26,6 +26,7 @@ class FakeElement {
   }
 
   set innerText(value) {
+    this.env.editorWrites += 1;
     this._text = String(value || '');
   }
 
@@ -42,6 +43,7 @@ class FakeElement {
   }
 
   set innerHTML(value) {
+    this.env.editorWrites += 1;
     this._text = String(value || '').replace(/<[^>]*>/g, '');
   }
 
@@ -100,7 +102,12 @@ function withFakePromptDom(callback, options) {
     activeElement: null,
     enterPressed: false,
     sleepsAfterEnter: 0,
+    editorWrites: 0,
+    totalSleeps: 0,
     isSendButtonVisible() {
+      if (settings.sendButtonAlwaysVisible) {
+        return true;
+      }
       return this.enterPressed && this.sleepsAfterEnter > 0;
     }
   };
@@ -129,6 +136,10 @@ function withFakePromptDom(callback, options) {
   global.HTMLTextAreaElement = class HTMLTextAreaElement {};
   global.HTMLInputElement = class HTMLInputElement {};
   global.setTimeout = (done) => {
+    env.totalSleeps += 1;
+    if (typeof settings.onSleep === 'function') {
+      settings.onSleep(env);
+    }
     if (env.enterPressed) {
       env.sleepsAfterEnter += 1;
     }
@@ -159,6 +170,9 @@ function withFakePromptDom(callback, options) {
     querySelectorAll(selector) {
       if (queryEditor(selector)) {
         return [editor];
+      }
+      if (selector === 'button[data-testid="send-button"]') {
+        return [sendButton];
       }
       return [];
     },
@@ -232,6 +246,35 @@ async function run() {
     assert.strictEqual(env.sendButton.clickCount, 1, 'Gemini send button should be clicked once it appears');
     assert.strictEqual(observations.executeCount, 1);
   }, { documentOrigin: 'https://gemini.google.com' });
+
+  await withFakePromptDom(async (env) => {
+    const prompt = '这个插件支持和tasks插件联动吗？\nhttps://github.com/example/repo';
+    const result = await submitWithFakeChrome('chatgptPrompt', prompt, {
+      expectedUrl: 'https://chatgpt.com/?hints=search&ref=ext&q=x'
+    });
+    assert.deepStrictEqual(result, { ok: true, method: 'prefill-button' });
+    assert.strictEqual(env.editorWrites, 0,
+      'ChatGPT prefilled from ?q= must not be rewritten, or the web search pill gets sent alone');
+    assert.strictEqual(env.sendButton.clickCount, 1);
+  }, {
+    sendButtonAlwaysVisible: true,
+    onSleep(env) {
+      // ChatGPT applies ?q= after hydration, next to the web search pill.
+      if (env.totalSleeps === 3) {
+        env.editor._text = '网页搜索 这个插件支持和tasks插件联动吗？ https://github.com/example/repo';
+      }
+    }
+  });
+
+  await withFakePromptDom(async (env) => {
+    const result = await submitWithFakeChrome('chatgptPrompt', 'Explain Lumno', {
+      expectedUrl: 'https://chatgpt.com/?q=Explain%20Lumno'
+    });
+    assert.deepStrictEqual(result, { ok: true, method: 'button' });
+    assert.strictEqual(env.editor.innerText, 'Explain Lumno',
+      'ChatGPT should still be filled by Lumno when the page ignores ?q=');
+    assert.strictEqual(env.sendButton.clickCount, 1);
+  }, { sendButtonAlwaysVisible: true });
 
   const expectedStrategyOrigins = {
     geminiPrompt: 'https://gemini.google.com',

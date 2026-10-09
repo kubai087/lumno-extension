@@ -67,6 +67,7 @@
       ]),
       buttonWaitAttempts: Math.max(0, Number(settings.buttonWaitAttempts) || 0),
       editorWaitAttempts: Math.max(1, Number(settings.editorWaitAttempts) || 12),
+      urlPrefillWaitAttempts: Math.max(0, Number(settings.urlPrefillWaitAttempts) || 0),
       enterDelayMs: Math.max(0, Number(settings.enterDelayMs) || 0),
       postEnterDelayMs: Math.max(0, Number(settings.postEnterDelayMs) || 0),
       postEnterButtonAttempts: Math.max(0, Number(settings.postEnterButtonAttempts) || 0),
@@ -141,7 +142,10 @@
         'button[aria-label*="send" i]',
         'button[aria-label*="submit" i]'
       ],
-      buttonWaitAttempts: 24
+      buttonWaitAttempts: 24,
+      // ChatGPT fills the composer from ?q= itself (next to the ?hints=search
+      // pill). Rewriting its editor races that prefill and can send the pill alone.
+      urlPrefillWaitAttempts: 20
     }),
     doubaoPrompt: createEnterPromptStrategy([
       'textarea[placeholder*="发消息"]',
@@ -332,6 +336,7 @@
           const sendButtonSelectors = Array.isArray(config.sendButtonSelectors) ? config.sendButtonSelectors : [];
           const buttonWaitAttempts = Math.max(0, Number(config.buttonWaitAttempts) || 0);
           const editorWaitAttempts = Math.max(1, Number(config.editorWaitAttempts) || 12);
+          const urlPrefillWaitAttempts = Math.max(0, Number(config.urlPrefillWaitAttempts) || 0);
           const enterDelayMs = Math.max(0, Number(config.enterDelayMs) || 0);
           const postEnterDelayMs = Math.max(0, Number(config.postEnterDelayMs) || 0);
           const postEnterButtonAttempts = Math.max(0, Number(config.postEnterButtonAttempts) || 0);
@@ -506,6 +511,26 @@
             }
             return String(editor.innerText || editor.textContent || '').trim();
           };
+          const normalizeWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+          const hasUrlPrefill = (editor) => {
+            const normalizedPrompt = normalizeWhitespace(promptText);
+            return Boolean(normalizedPrompt) && normalizeWhitespace(getEditorText(editor)).includes(normalizedPrompt);
+          };
+          const waitForUrlPrefill = async () => {
+            for (let attempt = 0; attempt < urlPrefillWaitAttempts; attempt += 1) {
+              const editor = findEditor();
+              if (editor && hasUrlPrefill(editor)) {
+                // Let the page finish applying the prefill before sending.
+                await sleep(200);
+                const settledEditor = findEditor();
+                if (settledEditor && hasUrlPrefill(settledEditor)) {
+                  return settledEditor;
+                }
+              }
+              await sleep(250);
+            }
+            return null;
+          };
           const collapseDuplicatePrompt = (editor) => {
             const currentText = getEditorText(editor);
             if (!currentText || currentText === promptText) {
@@ -547,6 +572,19 @@
               editor.dispatchEvent(event);
             });
           };
+          const prefilledEditor = urlPrefillWaitAttempts > 0 ? await waitForUrlPrefill() : null;
+          if (prefilledEditor) {
+            for (let sendAttempt = 0; sendAttempt < Math.max(1, buttonWaitAttempts); sendAttempt += 1) {
+              const sendButton = findSendButton(prefilledEditor, { useNearby: useNearbySendButton });
+              if (sendButton && isActionableButton(sendButton)) {
+                sendButton.click();
+                return { ok: true, method: 'prefill-button' };
+              }
+              await sleep(sendAttempt < 4 ? 150 : 250);
+            }
+            pressEnter(prefilledEditor);
+            return { ok: true, method: 'prefill-enter' };
+          }
           for (let attempt = 0; attempt < editorWaitAttempts; attempt += 1) {
             const editor = findEditor();
             if (!editor) {
