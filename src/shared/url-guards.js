@@ -26,7 +26,9 @@
       lower === 'edge://newtab' ||
       lower === 'brave://newtab' ||
       lower === 'vivaldi://newtab' ||
-      lower === 'opera://startpage';
+      lower === 'opera://startpage' ||
+      lower === 'about:newtab' ||
+      lower === 'about:home';
   }
 
   function isExtensionStoreUrl(url) {
@@ -40,7 +42,8 @@
       return (host === 'chrome.google.com' && path.startsWith('/webstore')) ||
         host === 'chromewebstore.google.com' ||
         (host === 'microsoftedge.microsoft.com' && path.startsWith('/addons')) ||
-        host === 'addons.opera.com';
+        host === 'addons.opera.com' ||
+        host === 'addons.mozilla.org';
     } catch (e) {
       return false;
     }

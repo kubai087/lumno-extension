@@ -602,7 +602,9 @@ function normalizeOptions(
       'edge://newtab',
       'brave://newtab',
       'vivaldi://newtab',
-      'opera://startpage'
+      'opera://startpage',
+      'about:newtab',
+      'about:home'
     ].includes(normalized);
   });
   const isBrowserInternalUrl = raw.isBrowserInternalUrl || ((url) =>

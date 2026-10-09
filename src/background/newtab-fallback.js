@@ -97,10 +97,25 @@
     return false;
   }
 
+  function isFirefoxRuntime(chromeApi) {
+    try {
+      return Boolean(chromeApi && chromeApi.runtime && typeof chromeApi.runtime.getURL === 'function' &&
+        /^moz-extension:/i.test(chromeApi.runtime.getURL('')));
+    } catch (e) {
+      return false;
+    }
+  }
+
   function checkFileSchemeAccess(callback) {
     const chromeApi = getChromeApi();
     const done = typeof callback === 'function' ? callback : () => {};
     if (!chromeApi || !chromeApi.extension || typeof chromeApi.extension.isAllowedFileSchemeAccess !== 'function') {
+      done(null);
+      return;
+    }
+    // Firefox answers false but offers users no file-URL access setting, so
+    // report it as unsupported rather than prompting for a missing toggle.
+    if (isFirefoxRuntime(chromeApi)) {
       done(null);
       return;
     }

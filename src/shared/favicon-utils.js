@@ -463,14 +463,18 @@
     const runtime = options && options.chromeApi && options.chromeApi.runtime
       ? options.chromeApi.runtime
       : null;
+    // The id is the extension URL host. Chrome uses runtime.id as that host;
+    // Firefox uses a per-install UUID, so the runtime URL is authoritative.
     const info = {
-      id: runtime && runtime.id ? String(runtime.id) : '',
+      id: '',
       protocol: 'chrome-extension:'
     };
+    const fallbackId = runtime && runtime.id ? String(runtime.id) : '';
     if (typeof getRuntimeUrl !== 'function') {
+      info.id = fallbackId;
       return info;
     }
-    ['', '/'].some((path) => {
+    const resolved = ['', '/'].some((path) => {
       let runtimeUrl = '';
       try {
         runtimeUrl = String(getRuntimeUrl(path) || '').trim();
@@ -482,20 +486,19 @@
       }
       try {
         const parsed = new URL(runtimeUrl);
-        if (!isBrowserExtensionProtocol(parsed.protocol)) {
+        if (!isBrowserExtensionProtocol(parsed.protocol) || !parsed.hostname) {
           return false;
         }
-        if (!info.id && parsed.hostname) {
-          info.id = parsed.hostname;
-        }
-        if (!info.protocol || !info.id || parsed.hostname === info.id) {
-          info.protocol = parsed.protocol;
-        }
-        return Boolean(info.id);
+        info.id = parsed.hostname;
+        info.protocol = parsed.protocol;
+        return true;
       } catch (e) {
         return false;
       }
     });
+    if (!resolved) {
+      info.id = fallbackId;
+    }
     return info;
   }
 

@@ -245,7 +245,7 @@ assert.match(
 );
 assert.match(
   backgroundSource,
-  /function isOwnExtensionPageUrl\(url\)[\s\S]*chrome\.runtime\.id[\s\S]*parsed\.hostname === chrome\.runtime\.id/,
+  /function isOwnExtensionPageUrl\(url\)[\s\S]*chrome\.runtime\.id[\s\S]*getExtensionUrlKey\(url\) === origin/,
   'Alt+Q should only treat this extension own pages as extension-page switcher hosts'
 );
 assert.match(

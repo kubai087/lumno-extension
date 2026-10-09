@@ -301,8 +301,9 @@
       return false;
     }
     try {
-      const parsed = new URL(window.location.href);
-      return parsed.protocol === 'chrome-extension:' && parsed.hostname === chromeApi.runtime.id;
+      // Firefox hosts extension pages on a per-install UUID, not runtime.id.
+      const own = new URL(chromeApi.runtime.getURL(''));
+      return window.location.protocol === own.protocol && window.location.hostname === own.hostname;
     } catch (error) {
       return false;
     }

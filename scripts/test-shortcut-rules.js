@@ -53,6 +53,14 @@ function testBrowserScheme() {
   assert.strictEqual(browserProfile.getBrowserInternalScheme('Vivaldi'), 'vivaldi://');
   assert.strictEqual(browserProfile.getBrowserInternalScheme('OPR/99'), 'opera://');
   assert.strictEqual(browserProfile.getBrowserInternalScheme('Chrome'), 'chrome://');
+  const firefoxUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:157.0) Gecko/20100101 Firefox/157.0';
+  assert.deepStrictEqual(
+    browserProfile.getBrowserInternalProfile({ userAgent: firefoxUserAgent }),
+    { scheme: 'about:', name: 'Firefox' }
+  );
+  assert.strictEqual(browserProfile.canOpenBrowserPages('about:'), false,
+    'Firefox blocks extensions from opening privileged about: pages');
+  assert.strictEqual(browserProfile.canOpenBrowserPages('chrome://'), true);
 }
 
 function testBrowserProfileUsesClientHintBrand() {

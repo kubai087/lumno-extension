@@ -4926,6 +4926,10 @@
   bookmarkPagerPrevButton = pageStructureRuntime.bookmark.previousButton;
   bookmarkPagerNextButton = pageStructureRuntime.bookmark.nextButton;
   bookmarkOpenManagerButton = pageStructureRuntime.bookmark.managerButton;
+  // Firefox gives extensions no way to open its bookmarks Library.
+  if (window.location.protocol === 'moz-extension:') {
+    bookmarkOpenManagerButton.style.display = 'none';
+  }
   bindBookmarkPagerTooltip(
     bookmarkPagerPrevButton,
     () => bookmarkPagerPrevButton.getAttribute('data-tooltip') || t('bookmarks_page_prev', '上一页')

@@ -72,6 +72,9 @@
           return;
         }
         if (rule.type === 'browserPage' && rule.path) {
+          if (!BROWSER_PROFILE.canOpenBrowserPages(scheme)) {
+            return;
+          }
           const targetUrl = `${scheme}${rule.path}`;
           matches.push({
             type: 'browserPage',

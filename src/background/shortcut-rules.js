@@ -73,7 +73,10 @@
 
     function getShortcutUrl(query, rules) {
       const scheme = browserProfile.getBrowserInternalProfile(navigatorLike).scheme;
-      return getShortcutUrlForScheme(query, rules, scheme);
+      const usableRules = browserProfile.canOpenBrowserPages(scheme)
+        ? rules
+        : (Array.isArray(rules) ? rules.filter((rule) => !rule || rule.type !== 'browserPage') : rules);
+      return getShortcutUrlForScheme(query, usableRules, scheme);
     }
 
     return Object.freeze({

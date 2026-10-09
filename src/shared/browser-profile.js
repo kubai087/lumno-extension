@@ -7,6 +7,10 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   function getBrowserInternalScheme(userAgent) {
     const ua = String(userAgent || '');
+    // Firefox and its forks (Zen, LibreWolf) report Firefox/ and no Chrome/.
+    if (ua.includes('Firefox/') && !ua.includes('Chrome/')) {
+      return 'about:';
+    }
     if (ua.includes('Edg/')) {
       return 'edge://';
     }
@@ -57,6 +61,9 @@
   }
 
   function getFallbackBrowserName(scheme) {
+    if (scheme === 'about:') {
+      return 'Firefox';
+    }
     if (scheme === 'edge://') {
       return 'Microsoft Edge';
     }
@@ -70,6 +77,12 @@
       return 'Opera';
     }
     return 'Chrome';
+  }
+
+  // Firefox refuses to let extensions open privileged about: pages, so its
+  // internal-page shortcuts would only fail silently.
+  function canOpenBrowserPages(scheme) {
+    return scheme !== 'about:';
   }
 
   function getBrowserInternalProfile(navigatorLike) {
@@ -88,6 +101,7 @@
     getBrowserInternalScheme,
     getClientHintBrowserName,
     getFallbackBrowserName,
-    getBrowserInternalProfile
+    getBrowserInternalProfile,
+    canOpenBrowserPages
   });
 });

@@ -115,13 +115,28 @@ function canFetchPageForFavicon(url) {
   return guards.canFetchPageForFavicon(url);
 }
 
+// Firefox hosts extension pages on a per-install UUID, not runtime.id. Compare
+// protocol and host: URL.origin is "null" for these schemes outside browsers.
+function getExtensionUrlKey(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname ? `${parsed.protocol}//${parsed.hostname}` : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function getOwnExtensionOrigin() {
+  return getExtensionUrlKey(chrome.runtime.getURL(''));
+}
+
 function isOwnExtensionPageUrl(url) {
   if (!url || !chrome || !chrome.runtime || !chrome.runtime.id) {
     return false;
   }
   try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'chrome-extension:' && parsed.hostname === chrome.runtime.id;
+    const origin = getOwnExtensionOrigin();
+    return Boolean(origin) && getExtensionUrlKey(url) === origin;
   } catch (error) {
     return false;
   }
@@ -954,7 +969,9 @@ function isBrowserNewtabUrl(url) {
     lower === 'chrome://new-tab-page/' ||
     lower === 'edge://newtab/' ||
     lower === 'brave://newtab/' ||
-    lower === 'opera://startpage/';
+    lower === 'opera://startpage/' ||
+    lower === 'about:newtab' ||
+    lower === 'about:home';
 }
 
 function isOwnExtensionUrl(url) {
@@ -964,8 +981,8 @@ function isOwnExtensionUrl(url) {
   try {
     const parsed = new URL(url);
     const protocol = String(parsed.protocol || '').toLowerCase();
-    return isBrowserExtensionProtocol(protocol) &&
-      String(parsed.hostname || '') === String(chrome.runtime.id);
+    const origin = getOwnExtensionOrigin();
+    return isBrowserExtensionProtocol(protocol) && Boolean(origin) && getExtensionUrlKey(url) === origin;
   } catch (e) {
     return false;
   }
@@ -8170,12 +8187,108 @@ function fetchShortcutFaviconResource(candidate, pageUrl, signal) {
   });
 }
 
+function isFirefoxExtensionRuntime() {
+  return getOwnExtensionOrigin().startsWith('moz-extension:');
+}
+
+function isSameFaviconHost(url, host) {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '') === host;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Firefox has no _favicon endpoint. Its own icon cache is reachable through
+// open tabs and top sites; the site's favicon.ico covers the rest.
+async function getFirefoxBrowserFaviconUrl(pageUrl) {
+  let host = '';
+  let origin = '';
+  try {
+    const parsed = new URL(pageUrl);
+    host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    origin = parsed.origin;
+  } catch (error) {
+    return '';
+  }
+  const isUsableIconUrl = (url) => /^(?:data:image\/|https?:)/i.test(String(url || ''));
+  try {
+    const tabs = await chrome.tabs.query({});
+    const tab = (tabs || []).find((item) => item && isUsableIconUrl(item.favIconUrl) && isSameFaviconHost(item.url, host));
+    if (tab) {
+      return tab.favIconUrl;
+    }
+  } catch (error) {
+    // Fall through to top sites.
+  }
+  try {
+    const sites = await chrome.topSites.get({ includeFavicon: true, onePerDomain: true, limit: 100 });
+    const site = (sites || []).find((item) => item && isUsableIconUrl(item.favicon) && isSameFaviconHost(item.url, host));
+    if (site) {
+      return site.favicon;
+    }
+  } catch (error) {
+    // Fall through to the site's own icon.
+  }
+  return `${origin}/favicon.ico`;
+}
+
+async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
+  const iconUrl = await getFirefoxBrowserFaviconUrl(pageUrl);
+  if (!iconUrl || (signal && signal.aborted)) {
+    return null;
+  }
+  try {
+    const response = await fetch(iconUrl, {
+      cache: candidate.refresh === true ? 'reload' : 'force-cache',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      signal
+    });
+    if (!response || !response.ok) {
+      return null;
+    }
+    const blob = await response.blob();
+    if (!blob || blob.size <= 0 || blob.size > SHORTCUT_FAVICON_RESOURCE_MAX_BYTES) {
+      return null;
+    }
+    const buffer = await blob.arrayBuffer();
+    const inspection = SHORTCUT_FAVICON.inspectIconResource(buffer, blob.type, iconUrl, candidate, { minDimension: 16 });
+    if (inspection.usable !== true) {
+      return null;
+    }
+    // Keep the browser-cache request URL as the source so the snapshot reads
+    // as a cache icon for this page, exactly like a Chrome snapshot.
+    return {
+      data: `data:${inspection.mimeType || blob.type || 'image/png'};base64,${arrayBufferToBase64(buffer)}`,
+      sourceUrl: candidate.url,
+      width: Number(inspection.width || 0),
+      height: Number(inspection.height || 0),
+      vector: inspection.vector === true,
+      pageUrl
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
 async function resolveShortcutFaviconData(pageUrl, preferredTheme, signal, explicitIconUrl, refresh, iconSource) {
   const resolver = getBackgroundFaviconUrlResolver();
   const candidates = resolver ? resolver.getShortcutFaviconFetchCandidates(pageUrl, iconSource) : [];
+  const firefoxRuntime = isFirefoxExtensionRuntime();
   for (const candidate of candidates) {
     if (signal && signal.aborted) {
       break;
+    }
+    if (firefoxRuntime && candidate.kind === 'browser-cache') {
+      const firefoxResult = await fetchFirefoxBrowserCacheFavicon({
+        ...candidate,
+        refresh: refresh === true
+      }, pageUrl, signal);
+      if (firefoxResult) {
+        return firefoxResult;
+      }
+      continue;
     }
     const result = await fetchShortcutFaviconResource({
       ...candidate,

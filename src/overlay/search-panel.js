@@ -5265,7 +5265,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
 
     function attachInputModeProviderIcon(icon, context) {
       const iconUrl = context && context.iconUrl ? String(context.iconUrl).trim() : '';
-      if (!icon || !iconUrl || iconUrl.startsWith('data:') || iconUrl.startsWith('chrome-extension:')) {
+      if (!icon || !iconUrl || iconUrl.startsWith('data:') || /^(?:chrome|moz)-extension:/i.test(iconUrl)) {
         return false;
       }
       const iconHost = context && context.iconHost ? String(context.iconHost).trim() : '';
@@ -7477,6 +7477,9 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
           return;
         }
         if (rule.type === 'browserPage' && rule.path) {
+          if (!BROWSER_PROFILE.canOpenBrowserPages(scheme)) {
+            return;
+          }
           const targetUrl = `${scheme}${rule.path}`;
           matches.push({
             type: 'browserPage',
