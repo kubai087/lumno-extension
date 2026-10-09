@@ -603,6 +603,12 @@
   let initialHiddenRecentSitesReadyTask = Promise.resolve([]);
   let searchBlacklistItems = [];
   let currentMessages = null;
+  // Text set once at startup may be read before the chosen language loads;
+  // controls register here to re-read it whenever the language is applied.
+  const languageChangeListeners = [];
+  function onLanguageChange(listener) {
+    languageChangeListeners.push(listener);
+  }
   let currentLanguageMode = 'system';
   let currentResolvedLocale = null;
   let defaultPlaceholderText = 'Search or enter URL…';
@@ -1478,6 +1484,7 @@
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
     t,
+    notifyLanguageChange: () => languageChangeListeners.forEach((listener) => listener()),
     renderNewtabTopContent: (...args) => renderNewtabTopContent(...args),
     updateRecentHeading: (...args) => updateRecentHeading(...args),
     updateBookmarkHeading: (...args) => updateBookmarkHeading(...args),
@@ -4943,10 +4950,6 @@
   bookmarkPagerPrevButton = pageStructureRuntime.bookmark.previousButton;
   bookmarkPagerNextButton = pageStructureRuntime.bookmark.nextButton;
   bookmarkOpenManagerButton = pageStructureRuntime.bookmark.managerButton;
-  // Firefox gives extensions no way to open its bookmarks Library.
-  if (window.location.protocol === 'moz-extension:') {
-    bookmarkOpenManagerButton.style.display = 'none';
-  }
   bindBookmarkPagerTooltip(
     bookmarkPagerPrevButton,
     () => bookmarkPagerPrevButton.getAttribute('data-tooltip') || t('bookmarks_page_prev', '上一页')
@@ -7102,6 +7105,11 @@
       searchScopeIcon.blur();
     }
   }
+  onLanguageChange(() => {
+    if (searchScopeIcon) {
+      setSearchScopeIconEnabled(searchScopeIcon.getAttribute('aria-disabled') !== 'true');
+    }
+  });
   function activateSearchScopeIcon(event) {
     if (!searchScopeIcon || searchScopeIcon.getAttribute('aria-disabled') === 'true') {
       return;
@@ -7259,8 +7267,12 @@
       '打开设置',
       { name: 'Lumno' }
     );
-    rightIcon.setAttribute('aria-label', settingsTooltipText());
-    rightIcon.setAttribute('data-tooltip', settingsTooltipText());
+    const applySettingsTooltip = () => {
+      rightIcon.setAttribute('aria-label', settingsTooltipText());
+      rightIcon.setAttribute('data-tooltip', settingsTooltipText());
+    };
+    applySettingsTooltip();
+    onLanguageChange(applySettingsTooltip);
     bindSearchInputCursorTooltip(rightIcon, settingsTooltipText);
     rightIcon.addEventListener('click', function(event) {
       event.preventDefault();
@@ -7311,7 +7323,12 @@
   const SEARCH_CLEAR_BUTTON_INSET = 36;
   if (searchClearButton) {
     const searchClearTooltipText = () => t('search_input_clear', '清空');
-    searchClearButton.setAttribute('data-tooltip', searchClearTooltipText());
+    const applySearchClearTooltip = () => {
+      searchClearButton.setAttribute('aria-label', searchClearTooltipText());
+      searchClearButton.setAttribute('data-tooltip', searchClearTooltipText());
+    };
+    applySearchClearTooltip();
+    onLanguageChange(applySearchClearTooltip);
     bindSearchInputCursorTooltip(searchClearButton, searchClearTooltipText);
     searchClearButton.addEventListener('click', hideSearchInputCursorTooltip);
     searchInput.addEventListener('input', updateInputRightPadding);

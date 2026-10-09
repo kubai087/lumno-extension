@@ -4,6 +4,12 @@
     module.exports = api;
   }
   root.LumnoBrowserProfile = api;
+  // Extension pages only: this file is also injected into web pages for the
+  // overlay, which must never be restyled.
+  const location = root.location;
+  if (location && /^(?:chrome|moz)-extension:$/.test(location.protocol) && root.document) {
+    api.applyDocumentBrowserFamily(root.document, root.navigator);
+  }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   function getBrowserInternalScheme(userAgent) {
     const ua = String(userAgent || '');
@@ -97,7 +103,32 @@
     });
   }
 
+  function getBrowserFamily(navigatorLike) {
+    return getBrowserInternalProfile(navigatorLike).scheme === 'about:' ? 'firefox' : 'chromium';
+  }
+
+  // Marks an extension page with its browser family and hides UI declared for
+  // the other one, e.g. <button data-browser-only="chromium"> in Firefox.
+  function applyDocumentBrowserFamily(documentObj, navigatorLike) {
+    const rootElement = documentObj && documentObj.documentElement;
+    if (!rootElement) {
+      return '';
+    }
+    const family = getBrowserFamily(navigatorLike);
+    rootElement.setAttribute('data-browser-family', family);
+    if (!documentObj.getElementById('lumno-browser-family-style')) {
+      const style = documentObj.createElement('style');
+      style.id = 'lumno-browser-family-style';
+      style.textContent = 'html[data-browser-family="firefox"] [data-browser-only="chromium"],' +
+        'html[data-browser-family="chromium"] [data-browser-only="firefox"]{display:none !important;}';
+      (documentObj.head || rootElement).appendChild(style);
+    }
+    return family;
+  }
+
   return Object.freeze({
+    getBrowserFamily,
+    applyDocumentBrowserFamily,
     getBrowserInternalScheme,
     getClientHintBrowserName,
     getFallbackBrowserName,

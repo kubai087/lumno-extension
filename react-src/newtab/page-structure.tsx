@@ -121,11 +121,13 @@ function BookmarkStructure({
             ref={nextButtonRef}
             type="button"
           />
+          {/* Firefox gives extensions no way to open its bookmarks Library. */}
           <button
             className="x-nt-bookmarks-pager-btn"
             dangerouslySetInnerHTML={{
               __html: getRiSvg('ri-bookmark-line', 'ri-size-16')
             }}
+            data-browser-only="chromium"
             ref={managerButtonRef}
             type="button"
           />

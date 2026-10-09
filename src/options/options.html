@@ -104,7 +104,8 @@
               <span class="_x_extension_switch_slider_2024_unique_" aria-hidden="true"></span>
             </label>
           </div>
-          <div class="_x_extension_setting_row_2024_unique_ _x_extension_setting_row_compact_2024_unique_">
+          <!-- Firefox lacks requestPictureInPicture for web pages. -->
+          <div class="_x_extension_setting_row_2024_unique_ _x_extension_setting_row_compact_2024_unique_" data-browser-only="chromium">
             <div>
               <p class="_x_extension_setting_title_2024_unique_">
                 <span data-i18n="settings_auto_pip_title">视频自动画中画</span>
@@ -276,6 +277,7 @@
                 <span data-i18n="settings_shortcuts_title">唤起聚焦搜索窗口</span>
                 <span
                   class="_x_extension_shortcut_badge_2024_unique_ _x_extension_shortcuts_dia_badge_2026_unique_ _x_extension_tooltip_host_2024_unique_"
+                  data-browser-only="chromium"
                   data-i18n-tooltip="settings_shortcuts_dia_tooltip"
                   data-tooltip="在 Dia 环境下，受浏览器限制，Lumno 的新标签页功能暂不可用，但聚焦搜索功能仍可正常运行。&#10;&#10;若快捷键在 Dia 中不可用，请点击下方右侧按钮进入浏览器的快捷键设置页面，将「Open command bar」从 In Dia 改成 Global。"
                   aria-label="在 Dia 环境下，受浏览器限制，Lumno 的新标签页功能暂不可用，但聚焦搜索功能仍可正常运行。若快捷键在 Dia 中不可用，请点击下方右侧按钮进入浏览器的快捷键设置页面，将「Open command bar」从 In Dia 改成 Global。"
@@ -872,10 +874,11 @@
               <span class="_x_extension_switch_slider_2024_unique_" aria-hidden="true"></span>
             </label>
           </div>
-          <div class="_x_extension_setting_divider_wrap_2024_unique_" role="presentation">
+          <!-- Document Picture-in-Picture is Chromium-only. -->
+          <div class="_x_extension_setting_divider_wrap_2024_unique_" role="presentation" data-browser-only="chromium">
             <div class="_x_extension_setting_divider_2024_unique_"></div>
           </div>
-          <div class="_x_extension_setting_row_2024_unique_ _x_extension_setting_row_compact_2024_unique_">
+          <div class="_x_extension_setting_row_2024_unique_ _x_extension_setting_row_compact_2024_unique_" data-browser-only="chromium">
             <div>
               <p class="_x_extension_setting_title_2024_unique_">
                 <span class="_x_extension_setting_title_with_icon_2024_unique_">

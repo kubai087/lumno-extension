@@ -24,6 +24,14 @@
       name: 'Microsoft Edge Add-ons',
       host: 'microsoftedge.microsoft.com',
       url: `https://microsoftedge.microsoft.com/addons/detail/${EDGE_ADDONS_EXTENSION_ID}`
+    }),
+    // No addons.mozilla.org listing yet: Firefox points at the website and has
+    // no review page (see getReviewUrl) until one is published.
+    firefox: Object.freeze({
+      id: 'firefox',
+      name: 'lumno.kubai.design',
+      host: 'lumno.kubai.design',
+      url: `${WEB_ORIGIN}/`
     })
   });
   const FALLBACK_LINKS = Object.freeze({
@@ -158,14 +166,26 @@
     return id === EDGE_ADDONS_EXTENSION_ID;
   }
 
+  // Gecko add-on IDs are email-like or a braced GUID; Chromium IDs are 32 letters.
+  function isFirefoxInstall(extensionId) {
+    const id = extensionId === undefined ? getRuntimeExtensionId() : String(extensionId || '');
+    return id.includes('@') || /^\{[0-9a-f-]+\}$/i.test(id);
+  }
+
   function getReviewUrl(links, extensionId) {
     const source = links && typeof links === 'object' ? links : FALLBACK_LINKS;
+    if (isFirefoxInstall(extensionId)) {
+      return '';
+    }
     return isEdgeAddonsInstall(extensionId)
       ? (source.edgeReview || FALLBACK_LINKS.edgeReview)
       : (source.chromeReview || FALLBACK_LINKS.chromeReview);
   }
 
   function getStoreListing(extensionId) {
+    if (isFirefoxInstall(extensionId)) {
+      return STORE_LISTINGS.firefox;
+    }
     return isEdgeAddonsInstall(extensionId) ? STORE_LISTINGS.edge : STORE_LISTINGS.chrome;
   }
 
@@ -273,6 +293,7 @@
     getReviewUrl,
     getStoreListing,
     isEdgeAddonsInstall,
+    isFirefoxInstall,
     load: defaultLoader.load,
     normalizeHttpsUrl,
     normalizeLinksPayload,

@@ -1005,6 +1005,9 @@
   let editingSiteSearchKey = null;
   let siteSearchDraftCategory = 'site';
   let activePopconfirm = null;
+  // A closed popconfirm renders its aria-label once; applyI18n re-renders each
+  // after a language change so the label follows the chosen language.
+  const popconfirmLanguageRefreshers = new Set();
   let siteSearchFormExpanded = false;
   let siteSearchRefreshSuppressUntil = 0;
   let siteSearchRefreshTimer = null;
@@ -1687,7 +1690,8 @@
           ),
           labelKey: 'settings_feedback_support_contact_author_action'
         }
-      ]
+      // Firefox has no store listing to review yet (empty review URL).
+      ].filter((item) => Boolean(item.href))
     });
   }
 
@@ -2729,6 +2733,7 @@
 
   function applyI18n() {
     if (webDavSettingsController) webDavSettingsController.render();
+    popconfirmLanguageRefreshers.forEach((refresh) => refresh());
     const browserName = globalThis.LumnoBrowserProfile?.getBrowserInternalProfile(navigator).name || 'Chrome';
     document.querySelectorAll('[data-i18n]').forEach((node) => {
       const key = node.getAttribute('data-i18n');
@@ -3232,8 +3237,13 @@
         }
       }
     });
+    const refreshPopconfirmLanguage = () => {
+      popconfirmController.render(getPopconfirmRenderModel(popconfirm.getAttribute('data-open') === 'true'));
+    };
+    popconfirmLanguageRefreshers.add(refreshPopconfirmLanguage);
     popconfirm._xOptionsDestroyPopconfirm = () => {
       closePopconfirm();
+      popconfirmLanguageRefreshers.delete(refreshPopconfirmLanguage);
       popconfirmController.destroy();
       popconfirmController = null;
     };

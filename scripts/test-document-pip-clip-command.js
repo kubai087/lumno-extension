@@ -53,7 +53,7 @@ assert.doesNotMatch(
 
 assert.match(
   overlayJs,
-  /let documentPipEnabled = Boolean\(normalizedOverlayContext\.documentPipEnabled\);/,
+  /let documentPipEnabled = documentPipSupported && Boolean\(normalizedOverlayContext\.documentPipEnabled\);/,
   'overlay should initialize web clip command visibility from the injected context'
 );
 assert.match(
@@ -78,7 +78,7 @@ assert.match(
 );
 assert.match(
   overlayJs,
-  /storageChangeListeners\.add\(\(changes,\s*areaName\) => \{[\s\S]*?!changes\[DOCUMENT_PIP_ENABLED_STORAGE_KEY\][\s\S]*?documentPipEnabled = changes\[DOCUMENT_PIP_ENABLED_STORAGE_KEY\]\.newValue === true[\s\S]*?\}\);/,
+  /storageChangeListeners\.add\(\(changes,\s*areaName\) => \{[\s\S]*?!changes\[DOCUMENT_PIP_ENABLED_STORAGE_KEY\][\s\S]*?documentPipEnabled = documentPipSupported && changes\[DOCUMENT_PIP_ENABLED_STORAGE_KEY\]\.newValue === true[\s\S]*?\}\);/,
   'overlay should keep clip command visibility synced if the setting changes'
 );
 

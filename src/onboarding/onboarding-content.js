@@ -61,7 +61,7 @@
           githubTooltip: '以 GPL-3.0 许可证开源，点击访问 GitHub 仓库。',
           browserTooltipLabel: '支持的浏览器',
           compatibilityTooltipLabel: '兼容说明',
-          compatibilityTooltip: '受 Chrome 限制，Lumno 无法提供单独关闭新标签页的入口，但它可以与其他新标签页插件同时使用。\n具体而言，安装 Lumno 后，再覆盖安装或重新启用你正在使用的新标签页插件，让它继续接管新标签页即可。',
+          compatibilityTooltip: '受浏览器限制，Lumno 无法提供单独关闭新标签页的入口，但它可以与其他新标签页插件同时使用。\n具体而言，安装 Lumno 后，再覆盖安装或重新启用你正在使用的新标签页插件，让它继续接管新标签页即可。',
           browserAvatarPrefix: '支持',
           browserAvatarSuffix: '主流浏览器'
         }),
@@ -76,7 +76,7 @@
         localFileLabel: '在本地 PDF/HTML 标签页中使用聚焦搜索',
         localFileText: '请前往扩展程序详情页，为 Lumno 开启“允许访问文件网址”，开启后刷新对应标签页。',
         detailsLink: '扩展程序详情页',
-        shortcutActionTooltip: '由于浏览器限制，请在「扩展程序 / 键盘快捷键」页面修改 Lumno 的快捷键，点击前往。'
+        shortcutActionTooltip: '由于浏览器限制，请在浏览器的扩展快捷键页面修改 Lumno 的快捷键，点击前往。'
       }),
       search: Object.freeze({
         title: '精美新标签页',
@@ -272,7 +272,7 @@
           githubTooltip: '以 GPL-3.0 授權開源，點按前往 GitHub 倉庫。',
           browserTooltipLabel: '支援的瀏覽器',
           compatibilityTooltipLabel: '相容說明',
-          compatibilityTooltip: '受 Chrome 限制，Lumno 無法單獨關閉新分頁接管，但可與其他新分頁擴充功能一起使用。\n安裝 Lumno 後，再覆蓋安裝或重新啟用你慣用的新分頁擴充功能即可。',
+          compatibilityTooltip: '受瀏覽器限制，Lumno 無法單獨關閉新分頁接管，但可與其他新分頁擴充功能一起使用。\n安裝 Lumno 後，再覆蓋安裝或重新啟用你慣用的新分頁擴充功能即可。',
           browserAvatarPrefix: '支援',
           browserAvatarSuffix: '主流瀏覽器'
         }),
@@ -287,7 +287,7 @@
         localFileLabel: '在本機 PDF/HTML 分頁中使用聚焦搜尋',
         localFileText: '請前往擴充功能詳細資料頁，為 Lumno 開啟「允許存取檔案網址」，開啟後重新整理該分頁。',
         detailsLink: '擴充功能詳細資料頁',
-        shortcutActionTooltip: '受瀏覽器限制，請在「擴充功能 / 鍵盤快速鍵」頁面修改 Lumno 快速鍵，點按前往。'
+        shortcutActionTooltip: '受瀏覽器限制，請在瀏覽器的擴充功能快速鍵頁面修改 Lumno 快速鍵，點按前往。'
       }),
       search: Object.freeze({
         title: '精美新分頁',
@@ -401,7 +401,7 @@
           githubTooltip: 'GPL-3.0 で公開中。GitHub を開きます。',
           browserTooltipLabel: '対応ブラウザ',
           compatibilityTooltipLabel: '互換性について',
-          compatibilityTooltip: 'Chrome の制限により、Lumno だけで新しいタブの上書きをオフにはできませんが、他の新しいタブ拡張と併用できます。\nLumno を入れたあと、使いたい新しいタブ拡張をもう一度有効にしてください。',
+          compatibilityTooltip: 'ブラウザの制限により、Lumno だけで新しいタブの上書きをオフにはできませんが、他の新しいタブ拡張と併用できます。\nLumno を入れたあと、使いたい新しいタブ拡張をもう一度有効にしてください。',
           browserAvatarPrefix: '対応',
           browserAvatarSuffix: '主要ブラウザ'
         }),
@@ -530,7 +530,7 @@
           githubTooltip: 'Open-sourced under GPL-3.0. View the repo on GitHub.',
           browserTooltipLabel: 'Supported browsers',
           compatibilityTooltipLabel: 'Compatibility',
-          compatibilityTooltip: 'Chrome does not let Lumno disable its new-tab override on its own, but Lumno can live alongside another new-tab extension.\nAfter installing Lumno, reinstall or re-enable your favorite new-tab extension so it stays in charge.',
+          compatibilityTooltip: 'Browsers do not let Lumno disable its new-tab override on its own, but Lumno can live alongside another new-tab extension.\nAfter installing Lumno, reinstall or re-enable your favorite new-tab extension so it stays in charge.',
           browserAvatarPrefix: 'Works in',
           browserAvatarSuffix: 'major browsers'
         }),
@@ -546,7 +546,7 @@
         localFileLabel: 'Working with local files?',
         localFileText: 'Click Open extension details, allow Lumno to access file URLs, then refresh the PDF or HTML tab.',
         detailsLink: 'Open extension details',
-        shortcutActionTooltip: 'Browser shortcuts live on the Extensions / Keyboard shortcuts page. Click to open it.'
+        shortcutActionTooltip: "Browser shortcuts live on the browser's extension shortcuts page. Click to open it."
       }),
       search: Object.freeze({
         title: 'A calmer new tab for where you go',
@@ -844,6 +844,15 @@
     });
   }
 
+  // Rows and actions that only apply to one browser family carry
+  // browserOnly; the page hides them elsewhere (see browser-profile.js).
+  function copyBrowserOnly(source, target) {
+    if (source && (source.browserOnly === 'chromium' || source.browserOnly === 'firefox')) {
+      target.browserOnly = source.browserOnly;
+    }
+    return target;
+  }
+
   function cloneAction(action) {
     if (!action || typeof action !== 'object') {
       return null;
@@ -866,7 +875,7 @@
     if (Number.isFinite(tooltipMaxWidth) && tooltipMaxWidth > 0) {
       cloned.tooltipMaxWidth = Math.round(tooltipMaxWidth);
     }
-    return Object.freeze(cloned);
+    return Object.freeze(copyBrowserOnly(action, cloned));
   }
 
   function cloneActions(actions) {
@@ -1026,6 +1035,7 @@
         kind: 'accordion-row',
         actionId: 'toggleInteractionAccordion',
         accordionId: 'dia-browser',
+        browserOnly: 'chromium',
         icon: 'ri-information-line',
         label: text.setup.diaLabel,
         accordion: Object.freeze({
@@ -1045,6 +1055,8 @@
         kind: 'accordion-row',
         actionId: 'toggleInteractionAccordion',
         accordionId: 'local-file-search',
+        // Firefox offers extensions no file-URL access to enable.
+        browserOnly: 'chromium',
         icon: 'ri-information-line',
         label: text.setup.localFileLabel,
         accordion: Object.freeze({
@@ -1185,7 +1197,9 @@
           }),
           secondary: Object.freeze({
             actionId: 'openChromeWebStore',
-            label: text.finish.ratingAction
+            label: text.finish.ratingAction,
+            // No addons.mozilla.org listing to rate yet.
+            browserOnly: 'chromium'
           }),
           ghost: Object.freeze({
             actionId: 'openOptions',
@@ -1209,6 +1223,7 @@
           label: row.label || '',
           description: String(row.description || '')
         };
+        copyBrowserOnly(row, interactionSlot);
         const browserAvatars = cloneBrowserAvatars(row.browserAvatars);
         if (browserAvatars && browserAvatars.browsers.length > 0) {
           interactionSlot.browserAvatars = Object.freeze({
