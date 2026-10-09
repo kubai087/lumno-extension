@@ -5,9 +5,13 @@
   const FAVICON_STORAGE_KEY = '_x_extension_newtab_favicon_2026_unique_';
   const FAVICON_PRELOAD_STORAGE_KEY = '_x_extension_newtab_favicon_preload_2026_unique_';
   const providerStorageRuntime = globalThis.LumnoSettings.createProviderStorageRuntime(window.chrome);
-  // Only bundled files paint on the first frame. Online photos load from their IndexedDB copies,
-  // so a slow or failing network never holds the tab's spinner or blanks the page.
+  // Only bundled files paint on the first frame. Online photos and links paint from this device's
+  // IndexedDB copy as soon as it is read, so a slow or failing network never holds the tab's spinner
+  // or blanks the page.
   const WALLPAPER_PATH_PATTERN = /^(?:assets\/wallpapers|output\/imagegen)\/[-.\w]+\.webp$/;
+  // Shared with createWallpaperImageCache in wallpaper-local-store.js.
+  const IMAGE_CACHE_DB_NAME = 'lumno-newtab-wallpaper-cache';
+  const IMAGE_CACHE_STORE_NAME = 'images';
   const FAVICON_OPTIONS = {
     default: {
       file: 'assets/images/lumno.png',
@@ -99,13 +103,59 @@
       }
       return {
         mode,
+        id: entry && typeof entry.id === 'string' ? entry.id : '',
         path: WALLPAPER_PATH_PATTERN.test(path) ? path : '',
+        cachedImage: normalizeCachedImage(entry && entry.cachedImage),
         overlayStops,
         effectPrefs: getEffectPrefsForMode(data.wallpaperEffects, mode)
       };
     } catch (e) {
       return null;
     }
+  }
+
+  function normalizeCachedImage(value) {
+    const id = value && typeof value.id === 'string' ? value.id : '';
+    const url = value && typeof value.url === 'string' ? value.url : '';
+    return id && url ? { id, url } : null;
+  }
+
+  // Reads the copy wallpaper.js saved, and only when it is still the copy of the same image.
+  function readCachedImage(cachedImage) {
+    return new Promise((resolve) => {
+      let request = null;
+      try {
+        request = window.indexedDB ? window.indexedDB.open(IMAGE_CACHE_DB_NAME, 1) : null;
+      } catch (e) {
+        request = null;
+      }
+      if (!request) {
+        resolve(null);
+        return;
+      }
+      // wallpaper.js creates the cache; an empty one has nothing to paint.
+      request.onupgradeneeded = () => request.transaction.abort();
+      request.onerror = () => resolve(null);
+      request.onsuccess = () => {
+        const db = request.result;
+        const finish = (record) => {
+          db.close();
+          resolve(record &&
+            record.url === cachedImage.url &&
+            typeof record.imageDataUrl === 'string' &&
+            record.imageDataUrl.startsWith('data:image/') ? record : null);
+        };
+        try {
+          const read = db.transaction(IMAGE_CACHE_STORE_NAME, 'readonly')
+            .objectStore(IMAGE_CACHE_STORE_NAME)
+            .get(cachedImage.id);
+          read.onsuccess = () => finish(read.result);
+          read.onerror = () => finish(null);
+        } catch (e) {
+          finish(null);
+        }
+      };
+    });
   }
 
   function normalizeCachedOverlayStops(value) {
@@ -273,33 +323,62 @@
       });
     });
   }
-  if (!cachedWallpaper.path) {
+  function applyWallpaperImage(url) {
+    if (root) {
+      root.style.setProperty('--x-nt-wallpaper-image', getCssUrlValue(url));
+      root.style.setProperty('--x-nt-wallpaper-size', 'cover');
+      root.style.setProperty('--x-nt-wallpaper-position', 'center center');
+      root.setAttribute('data-wallpaper-active', 'true');
+    }
+    markBodyActive();
+  }
+
+  if (cachedWallpaper.path) {
+    const url = getRuntimeUrl(cachedWallpaper.path);
+    globalThis.LumnoNewtabWallpaperPreload = {
+      effectPrefsReady: readStoredEffectPrefs(cachedWallpaper.mode, cachedWallpaper.effectPrefs),
+      imageUrl: url,
+      mode: cachedWallpaper.mode,
+      wallpaper: {
+        id: cachedWallpaper.path,
+        path: cachedWallpaper.path
+      }
+    };
+    applyWallpaperImage(url);
+    if (document.head) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = url;
+      link.fetchPriority = 'high';
+      document.head.appendChild(link);
+    }
     return;
   }
-  const url = getRuntimeUrl(cachedWallpaper.path);
+  if (!cachedWallpaper.cachedImage) {
+    return;
+  }
+  // wallpaper.js sets runtimeApplied once it paints, and reuses cachedImageRecord instead of reading
+  // the same copy again.
   const preloadState = {
     effectPrefsReady: readStoredEffectPrefs(cachedWallpaper.mode, cachedWallpaper.effectPrefs),
-    imageUrl: url,
+    imageUrl: '',
+    imageReady: null,
+    cachedImageRecord: null,
+    runtimeApplied: false,
     mode: cachedWallpaper.mode,
     wallpaper: {
-      id: cachedWallpaper.path,
-      path: cachedWallpaper.path
+      id: cachedWallpaper.id || cachedWallpaper.cachedImage.id
     }
   };
+  preloadState.imageReady = readCachedImage(cachedWallpaper.cachedImage).then((record) => {
+    preloadState.cachedImageRecord = record;
+    if (!record || preloadState.runtimeApplied) {
+      return '';
+    }
+    preloadState.imageUrl = record.imageDataUrl;
+    applyWallpaperImage(record.imageDataUrl);
+    return record.imageDataUrl;
+  });
   globalThis.LumnoNewtabWallpaperPreload = preloadState;
-  if (root) {
-    root.style.setProperty('--x-nt-wallpaper-image', getCssUrlValue(url));
-    root.style.setProperty('--x-nt-wallpaper-size', 'cover');
-    root.style.setProperty('--x-nt-wallpaper-position', 'center center');
-    root.setAttribute('data-wallpaper-active', 'true');
-  }
-  if (document.head) {
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    link.href = url;
-    link.fetchPriority = 'high';
-    document.head.appendChild(link);
-  }
-  markBodyActive();
 })();

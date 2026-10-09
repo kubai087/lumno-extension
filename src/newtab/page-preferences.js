@@ -109,6 +109,12 @@
       return SETTINGS.normalizeNewtabInputAutoFocusEnabled(value);
     }
 
+    function cacheNewtabInputAutoFocusEnabled(value) {
+      if (typeof SETTINGS.cacheNewtabInputAutoFocusEnabled === 'function') {
+        SETTINGS.cacheNewtabInputAutoFocusEnabled(value);
+      }
+    }
+
     function normalizeNewtabFeedbackButtonVisible(value) {
       return SETTINGS.normalizeNewtabFeedbackButtonVisible(value);
     }
@@ -126,6 +132,7 @@
     function setNewtabInputAutoFocusEnabled(enabled) {
       const nextValue = normalizeNewtabInputAutoFocusEnabled(enabled);
       pageState.newtabInputAutoFocusEnabled = nextValue;
+      cacheNewtabInputAutoFocusEnabled(nextValue);
       updateNewtabInputAutoFocusUi();
       if (storageArea) {
         storageArea.set({ [NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY]: nextValue });
@@ -234,6 +241,7 @@
         storageArea.get([NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY], (result) => {
           const rawValue = result && result[NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY];
           pageState.newtabInputAutoFocusEnabled = normalizeNewtabInputAutoFocusEnabled(rawValue);
+          cacheNewtabInputAutoFocusEnabled(pageState.newtabInputAutoFocusEnabled);
           updateNewtabInputAutoFocusUi();
           resolve(pageState.newtabInputAutoFocusEnabled);
         });

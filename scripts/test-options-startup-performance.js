@@ -51,6 +51,7 @@ async function run() {
   assert.deepStrictEqual(readRequests, [['alpha', 'beta', 'gamma', 'missing']]);
   assert.deepStrictEqual(writes, [{ delta: 4 }], 'writes should not wait for the read batch');
   assert.deepStrictEqual(metrics, {
+    keys: ['alpha', 'beta', 'gamma', 'missing'],
     keyCount: 4,
     requestCount: 3,
     underlyingReadCount: 1
@@ -78,7 +79,65 @@ async function run() {
     'Options runtime should agree with the statically active General tab'
   );
 
+  await testStartupReadPrefetch();
   console.log('Options startup performance tests passed');
+}
+
+function createPrefetchHarness(values) {
+  const reads = [];
+  const listeners = new Set();
+  const area = {
+    get(keys, callback) {
+      reads.push(keys);
+      const selected = {};
+      keys.forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(values, key)) selected[key] = values[key];
+      });
+      Promise.resolve().then(() => callback(selected));
+    }
+  };
+  const chromeApi = {
+    storage: {
+      onChanged: {
+        addListener: (listener) => listeners.add(listener),
+        removeListener: (listener) => listeners.delete(listener)
+      }
+    }
+  };
+  const change = (key, newValue) => {
+    values[key] = newValue;
+    listeners.forEach((listener) => listener({ [key]: { newValue } }, 'sync'));
+  };
+  return { area, chromeApi, reads, listeners, change };
+}
+
+async function testStartupReadPrefetch() {
+  const covered = createPrefetchHarness({ alpha: 1, beta: 2 });
+  assert.strictEqual(settings.prefetchStorageRead(covered.area, ['alpha', 'beta'], covered.chromeApi), true);
+  const coveredBatch = settings.createStorageReadBatch(covered.area);
+  const coveredResult = await coveredBatch.area.get(['alpha']);
+  assert.deepStrictEqual(coveredResult, { alpha: 1 });
+  assert.deepStrictEqual(covered.reads, [['alpha', 'beta']],
+    'a batch covered by the prefetch should take its result instead of reading again');
+  assert.strictEqual(covered.listeners.size, 0, 'the prefetch should stop watching once taken');
+
+  const stale = createPrefetchHarness({ alpha: 1 });
+  settings.prefetchStorageRead(stale.area, ['alpha'], stale.chromeApi);
+  stale.change('alpha', 5);
+  const staleResult = await settings.createStorageReadBatch(stale.area).area.get(['alpha']);
+  assert.deepStrictEqual(staleResult, { alpha: 5 }, 'a key that changed after the prefetch should be read again');
+  assert.strictEqual(stale.reads.length, 2);
+
+  const uncovered = createPrefetchHarness({ alpha: 1, gamma: 3 });
+  settings.prefetchStorageRead(uncovered.area, ['alpha'], uncovered.chromeApi);
+  const uncoveredResult = await settings.createStorageReadBatch(uncovered.area).area.get(['alpha', 'gamma']);
+  assert.deepStrictEqual(uncoveredResult, { alpha: 1, gamma: 3 });
+  assert.deepStrictEqual(uncovered.reads, [['alpha'], ['alpha', 'gamma']],
+    'a batch asking for keys the prefetch lacks should read them all itself');
+  assert.strictEqual(uncovered.listeners.size, 0);
+
+  assert.strictEqual(settings.prefetchStorageRead(covered.area, ['alpha'], {}), false,
+    'without change events a prefetch could serve stale values, so it should not start');
 }
 
 run().catch((error) => {

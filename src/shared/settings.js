@@ -47,6 +47,10 @@
   const NEWTAB_SHORTCUT_GAP_MAX = 24;
   const NEWTAB_SHORTCUT_GAP_DEFAULT = 4;
   const NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY = '_x_extension_newtab_input_auto_focus_enabled_2026_unique_';
+  // localStorage keys: the New Tab's startup read and auto-focus choice from its last load, so the
+  // next load can act on them before its scripts finish loading.
+  const NEWTAB_STARTUP_STORAGE_KEYS_CACHE_KEY = '_x_extension_newtab_startup_storage_keys_2026_unique_';
+  const NEWTAB_INPUT_AUTO_FOCUS_CACHE_KEY = '_x_extension_newtab_input_auto_focus_cache_2026_unique_';
   const NEWTAB_QUOTE_PREFS_STORAGE_KEY = '_x_extension_newtab_quote_prefs_2026_unique_';
   // Online wallpaper picks live apart from the shared wallpaper key, which older versions sanitize.
   const NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY = '_x_extension_newtab_online_wallpaper_2026_unique_';
@@ -409,6 +413,19 @@
     return value === true;
   }
 
+  // newtab-focus-entry.js reads this copy to route a new tab before storage answers.
+  function cacheNewtabInputAutoFocusEnabled(value) {
+    try {
+      const localStorageObj = globalThis.localStorage;
+      const next = normalizeNewtabInputAutoFocusEnabled(value) ? 'true' : 'false';
+      if (localStorageObj && localStorageObj.getItem(NEWTAB_INPUT_AUTO_FOCUS_CACHE_KEY) !== next) {
+        localStorageObj.setItem(NEWTAB_INPUT_AUTO_FOCUS_CACHE_KEY, next);
+      }
+    } catch (_error) {
+      // The copy is only a fast path; the focus entry falls back to reading storage.
+    }
+  }
+
   function normalizeBookmarkFolderIconsVisible(value) {
     return value !== false;
   }
@@ -684,6 +701,45 @@
       .then(() => value);
   }
 
+  const storageReadPrefetches = new WeakMap();
+
+  // Starts a read before the page's scripts have loaded. The batch created later for the same area
+  // takes the result when it covers every requested key and none of them changed in the meantime.
+  function prefetchStorageRead(area, keys, chromeApi) {
+    const onChanged = chromeApi && chromeApi.storage && chromeApi.storage.onChanged;
+    if (!area || typeof area.get !== 'function' || !Array.isArray(keys) || !keys.length ||
+        !onChanged || typeof onChanged.addListener !== 'function') {
+      return false;
+    }
+    const keySet = new Set(keys.map(String));
+    const prefetch = { keys: keySet, stale: false, result: null, release: null };
+    const markStale = (changes) => {
+      if (Object.keys(changes || {}).some((key) => keySet.has(key))) prefetch.stale = true;
+    };
+    onChanged.addListener(markStale);
+    prefetch.release = () => {
+      if (typeof onChanged.removeListener === 'function') onChanged.removeListener(markStale);
+    };
+    prefetch.result = new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value && typeof value === 'object' ? value : null);
+      };
+      try {
+        const maybePromise = area.get(Array.from(keySet), finish);
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          maybePromise.then(finish, () => finish(null));
+        }
+      } catch (_error) {
+        finish(null);
+      }
+    });
+    storageReadPrefetches.set(area, prefetch);
+    return true;
+  }
+
   function createStorageReadBatch(area) {
     if (!area || typeof area.get !== 'function') {
       return null;
@@ -770,6 +826,7 @@
           }
         });
         resolveReady(Object.freeze({
+          keys: keys === null ? null : Object.freeze(keys.slice()),
           keyCount: keys === null ? null : keys.length,
           requestCount: pending.length,
           underlyingReadCount: 1
@@ -780,14 +837,32 @@
           });
         });
       };
-      try {
-        const maybePromise = area.get(keys, finish);
-        if (maybePromise && typeof maybePromise.then === 'function') {
-          maybePromise.then(finish).catch(() => finish({}));
+      const readArea = () => {
+        try {
+          const maybePromise = area.get(keys, finish);
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.then(finish).catch(() => finish({}));
+          }
+        } catch (error) {
+          finish({});
         }
-      } catch (error) {
-        finish({});
+      };
+      const prefetch = storageReadPrefetches.get(area);
+      storageReadPrefetches.delete(area);
+      if (!prefetch) {
+        readArea();
+        return;
       }
+      if (keys === null || !keys.every((key) => prefetch.keys.has(key))) {
+        prefetch.release();
+        readArea();
+        return;
+      }
+      prefetch.result.then((value) => {
+        prefetch.release();
+        if (value && !prefetch.stale) finish(value);
+        else readArea();
+      });
     }
 
     function get(keys, callback) {
@@ -970,6 +1045,8 @@
     NEWTAB_SHORTCUT_GAP_MAX,
     NEWTAB_SHORTCUT_GAP_DEFAULT,
     NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY,
+    NEWTAB_STARTUP_STORAGE_KEYS_CACHE_KEY,
+    NEWTAB_INPUT_AUTO_FOCUS_CACHE_KEY,
     NEWTAB_QUOTE_PREFS_STORAGE_KEY,
     NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY,
     NEWTAB_LINK_WALLPAPERS_STORAGE_KEY,
@@ -1030,6 +1107,7 @@
     normalizeNewtabShortcutGap,
     inferNewtabShortcutColumnsFromWidth,
     normalizeNewtabInputAutoFocusEnabled,
+    cacheNewtabInputAutoFocusEnabled,
     normalizeBookmarkCount,
     normalizeBookmarkColumns,
     normalizeBookmarkFolderIconsVisible,
@@ -1063,6 +1141,7 @@
     writeStorageValue,
     writeStorageValues,
     createStorageReadBatch,
+    prefetchStorageRead,
     createProviderStorageRuntime,
     addStorageChangeListener
   });

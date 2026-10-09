@@ -897,7 +897,7 @@
     let dailyWallpaperCheckedDay = '';
     // { day, picks: { [daily ID]: photo ID } }; picks from another date no longer count.
     let dailyWallpaperPicks = { day: '', picks: {} };
-    let hasDailyWallpaperRolloverListeners = false;
+    let hasWallpaperPageShownListeners = false;
     let activeWallpaperTab = 'built-in';
     let lastSyncedWallpaperSourceId = null;
     let activeWallpaperMode = NEWTAB_WALLPAPER_MODE_LIGHT;
@@ -1619,6 +1619,11 @@
     function applyWallpaperVisualState(wallpaper) {
       const target = document.documentElement;
       const imageUrl = wallpaper ? getDisplayedWallpaperImageUrl(wallpaper) : '';
+      const wallpaperPreload = globalThis.LumnoNewtabWallpaperPreload;
+      if (wallpaperPreload && typeof wallpaperPreload === 'object') {
+        // A copy the preload is still reading must not paint over the runtime's choice.
+        wallpaperPreload.runtimeApplied = true;
+      }
       appliedWallpaperVisualUrl = imageUrl;
       appliedWallpaperVisualActive = Boolean(wallpaper);
       if (target) {
@@ -2139,9 +2144,14 @@
 
     function getWallpaperPreloadEntryForMode(mode) {
       const wallpaper = getWallpaperById(getEffectiveWallpaperIdForMode(mode));
-      // Online photos load from IndexedDB, which the first frame cannot read.
-      if (wallpaper && REMOTE_CONTENT.wallpaperFromId(wallpaper.id)) {
-        return null;
+      // Online photos and links cannot paint on the first frame, but the preload reads this device's
+      // IndexedDB copy while the page is still parsing.
+      if (wallpaper && (REMOTE_CONTENT.wallpaperFromId(wallpaper.id) || isLinkWallpaperId(wallpaper.id))) {
+        const photoId = isLinkWallpaperId(wallpaper.id) ? wallpaper.id : wallpaper.dailyId || wallpaper.id;
+        const sourceUrl = isLinkWallpaperId(wallpaper.id) ? wallpaper.url : wallpaper.imageUrl;
+        return (wallpaper.cacheImage || isLinkWallpaperId(wallpaper.id)) && getCachedWallpaperImage(photoId, sourceUrl)
+          ? { id: wallpaper.id, cachedImage: { id: photoId, url: sourceUrl } }
+          : null;
       }
       const path = wallpaper && !isCustomWallpaperId(wallpaper.id)
         ? getWallpaperRuntimePath(wallpaper)
@@ -4528,6 +4538,7 @@
       );
       setWallpaperPrefs(syncedResolution.prefs, migrated.overrides);
       hasStoredWallpaperStateLoaded = true;
+      bindWallpaperPageShownListeners();
       activeWallpaperMode = currentWallpaperPrefs.sameForModes
         ? getResolvedWallpaperMode()
         : normalizeWallpaperMode(activeWallpaperMode);
@@ -4978,7 +4989,25 @@
       };
     }
 
+    // The preload already reads the shown photo's copy; take it instead of opening the cache again.
+    function takePreloadedWallpaperImage() {
+      const wallpaperPreload = globalThis.LumnoNewtabWallpaperPreload;
+      const ready = wallpaperPreload && wallpaperPreload.imageReady;
+      if (!ready || typeof ready.then !== 'function') return Promise.resolve();
+      wallpaperPreload.imageReady = null;
+      return ready.then(() => {
+        const record = wallpaperPreload.cachedImageRecord;
+        if (record && record.id && record.imageDataUrl && !cachedWallpaperImages.has(record.id)) {
+          cachedWallpaperImages.set(record.id, record);
+        }
+      }, () => {});
+    }
+
     function readCachedWallpaperImages(ids) {
+      return takePreloadedWallpaperImage().then(() => readStoredCachedWallpaperImages(ids));
+    }
+
+    function readStoredCachedWallpaperImages(ids) {
       const missing = ids.filter((id) => !cachedWallpaperImages.has(id));
       if (!wallpaperImageCache || !missing.length) return Promise.resolve();
       return wallpaperImageCache.readByIds(missing).then((records) => {
@@ -5779,15 +5808,30 @@
       }).catch(() => {});
     }
 
-    function bindDailyWallpaperRolloverListeners() {
-      if (hasDailyWallpaperRolloverListeners) return;
-      hasDailyWallpaperRolloverListeners = true;
+    // A background tab can miss the effect redraw for a photo that changed while it was hidden.
+    function syncWallpaperEffectSource() {
+      if (document.visibilityState === 'hidden' || !wallpaperEffects ||
+          typeof wallpaperEffects.isSourceStale !== 'function' || !wallpaperEffects.isSourceStale()) {
+        return;
+      }
+      wallpaperEffects.refresh({ immediate: true });
+    }
+
+    function handleWallpaperPageShown() {
+      refreshDailyWallpapersIfStale();
+      syncWallpaperEffectSource();
+    }
+
+    // Bound once the stored wallpaper loads, so a tab that never opens the panel still rolls over.
+    function bindWallpaperPageShownListeners() {
+      if (hasWallpaperPageShownListeners) return;
+      hasWallpaperPageShownListeners = true;
       dailyWallpaperCheckedDay = REMOTE_CONTENT.localDay(Date.now());
       if (window && typeof window.addEventListener === 'function') {
-        window.addEventListener('focus', refreshDailyWallpapersIfStale, { passive: true });
+        window.addEventListener('focus', handleWallpaperPageShown, { passive: true });
       }
       if (document && typeof document.addEventListener === 'function') {
-        document.addEventListener('visibilitychange', refreshDailyWallpapersIfStale, { passive: true });
+        document.addEventListener('visibilitychange', handleWallpaperPageShown, { passive: true });
       }
     }
 
@@ -6581,7 +6625,6 @@
         });
       });
       bindInfoButtonTooltip(refs.quoteInfoButton, () => t('newtab_quote_provider', 'Powered by Hitokoto'));
-      bindDailyWallpaperRolloverListeners();
       if (refs.bingDailyToggle) refs.bingDailyToggle.addEventListener('change', () => {
         const daily = getWallpaperById(REMOTE_CONTENT.BING_DAILY_ID);
         if (refs.bingDailyToggle.checked) {

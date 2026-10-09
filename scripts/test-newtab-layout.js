@@ -890,8 +890,8 @@ function testContinuousResizeKeepsDockDensityStableUntilSettle() {
   );
   assert.match(
     newtabSource,
-    /const NEWTAB_INITIAL_VIEWPORT_SETTLE_MS = 32;[\s\S]*?function scheduleNewtabReadyAfterViewportSettle\(\)[\s\S]*?window\.setTimeout\([\s\S]*?updateBookmarkSectionPosition\(\{ releaseDockDensityLock: true \}\);[\s\S]*?requestAnimationFrame\(\(\) => \{[\s\S]*?setAttribute\('data-nt-ready', '1'\)[\s\S]*?NEWTAB_INITIAL_VIEWPORT_SETTLE_MS/,
-    'new-tab content should become visible after one short viewport settle window and one paint frame'
+    /const NEWTAB_INITIAL_VIEWPORT_SETTLE_MS = 32;[\s\S]*?const startupViewport = getSearchEntryViewportSnapshot\(\);[\s\S]*?function scheduleNewtabReadyAfterViewportSettle\(\)[\s\S]*?const revealAfterViewportSettles = \(\) => \{[\s\S]*?updateBookmarkSectionPosition\(\{ releaseDockDensityLock: true \}\);[\s\S]*?requestAnimationFrame\(\(\) => \{[\s\S]*?setAttribute\('data-nt-ready', '1'\)[\s\S]*?\};[\s\S]*?if \(viewportRevision === 0 &&\s*!(?:pageState\.)?newtabResizeLayoutLocked &&\s*!hasSearchEntryViewportChanged\(startupViewport\)\) \{\s*revealAfterViewportSettles\(\);\s*return;\s*\}\s*newtabReadySettleTimer = window\.setTimeout\(revealAfterViewportSettles, NEWTAB_INITIAL_VIEWPORT_SETTLE_MS\);/,
+    'new-tab content should skip the settle window when the viewport never changed while loading, and still wait one paint frame'
   );
   assert.match(
     newtabSource,

@@ -4306,7 +4306,123 @@ async function testCuratedArtCachesOneDownscaledPrintPerDevice() {
     'A print no mode shows is dropped, so daily art does not pile up');
 
   const preload = JSON.parse(context.windowObj.localStorage.getItem(WALLPAPER_PRELOAD_STORAGE_KEY));
-  assert.strictEqual(preload.wallpapers.light, null, 'The first frame never loads a multi-megabyte print');
+  assert.deepStrictEqual(preload.wallpapers.light, {
+    id: second.id,
+    cachedImage: { id: second.id, url: second.imageUrl }
+  }, 'The first frame paints the downscaled copy, never the multi-megabyte print');
+  assert.strictEqual(preload.wallpapers.light.path, undefined, 'The preload names no network file to load');
+}
+
+function createFakeImageCacheDatabase(records) {
+  const store = new Map((records || []).map((record) => [record.id, record]));
+  const later = (callback) => setTimeout(callback, 0);
+  return {
+    opened: [],
+    open(name, version) {
+      this.opened.push([name, version]);
+      const request = { result: null, onsuccess: null, onerror: null, onupgradeneeded: null };
+      later(() => {
+        request.result = {
+          close() {},
+          transaction: () => ({
+            objectStore: () => ({
+              get(id) {
+                const read = { result: undefined, onsuccess: null, onerror: null };
+                later(() => {
+                  read.result = store.get(id);
+                  if (read.onsuccess) read.onsuccess();
+                });
+                return read;
+              }
+            })
+          })
+        };
+        if (request.onsuccess) request.onsuccess();
+      });
+      return request;
+    }
+  };
+}
+
+async function testPreloadPaintsTheCachedOnlineCopyBeforeTheRuntime() {
+  const photoUrl = 'https://www.bing.com/th?id=OHR.River_ZH-CN123_1920x1080.jpg&pid=hp';
+  const dataUrl = 'data:image/webp;base64,cml2ZXI=';
+  const run = (records, entry, beforeRead) => {
+    const documentObj = createFakeDocument();
+    const windowObj = createFakeWindow();
+    windowObj.indexedDB = createFakeImageCacheDatabase(records);
+    windowObj.localStorage.setItem(WALLPAPER_PRELOAD_STORAGE_KEY, JSON.stringify({
+      version: WALLPAPER_PRELOAD_STORAGE_VERSION,
+      mode: 'light',
+      themeMode: 'light',
+      overlayStops: {
+        light: { top: 0, mid: 0, bottom: 0 },
+        dark: { top: 0, mid: 0, bottom: 0 }
+      },
+      wallpapers: { light: entry, dark: null }
+    }));
+    const sandbox = { ...REAL_WALLPAPER_DEPENDENCIES, document: documentObj, window: windowObj, chrome: {} };
+    vm.runInNewContext(fs.readFileSync('src/newtab/wallpaper-preload.js', 'utf8'), sandbox, {
+      filename: 'src/newtab/wallpaper-preload.js'
+    });
+    if (beforeRead) beforeRead(sandbox.LumnoNewtabWallpaperPreload);
+    return { documentObj, windowObj, preload: sandbox.LumnoNewtabWallpaperPreload };
+  };
+  const entry = { id: 'bing-daily', cachedImage: { id: 'bing-20261002-OHR.River_ZH-CN123', url: photoUrl } };
+  const record = { id: entry.cachedImage.id, url: photoUrl, imageDataUrl: dataUrl };
+
+  const painted = run([record], entry);
+  assert.strictEqual(painted.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image'), '',
+    'IndexedDB is asynchronous, so nothing paints before the copy is read');
+  assert.strictEqual(await painted.preload.imageReady, dataUrl);
+  assert.ok(painted.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image').includes(dataUrl),
+    'The cached copy paints while the page is still loading');
+  assert.strictEqual(painted.documentObj.documentElement.getAttribute('data-wallpaper-active'), 'true');
+  assert.deepStrictEqual(painted.windowObj.indexedDB.opened, [['lumno-newtab-wallpaper-cache', 1]]);
+  assert.strictEqual(painted.preload.cachedImageRecord, record, 'The runtime reuses the copy instead of reading it again');
+
+  const replaced = run([{ ...record, url: 'https://www.bing.com/th?id=OHR.Other' }], entry);
+  assert.strictEqual(await replaced.preload.imageReady, '', 'A copy of another image never paints');
+  assert.strictEqual(replaced.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image'), '');
+
+  const late = run([record], entry, (preload) => { preload.runtimeApplied = true; });
+  assert.strictEqual(await late.preload.imageReady, '');
+  assert.strictEqual(late.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image'), '',
+    'A copy read after the runtime painted must not cover its choice');
+}
+
+async function testOpenTabRollsOverWithoutOpeningThePanel() {
+  const remote = require('../src/newtab/remote-content.js');
+  const prefs = createMemoryStorage({
+    [WALLPAPER_STORAGE_KEY]: DEFAULT_WALLPAPER_ID,
+    [ONLINE_WALLPAPER_STORAGE_KEY]: { value: 'curated-daily-nature', shared: DEFAULT_WALLPAPER_ID }
+  });
+  // The client keeps its own reference to Date.now; read the clock through it so the test can move it.
+  const { context, runtime } = createCuratedRuntime(prefs, { sandbox: { remoteApi: {
+    ...remote, createClient: (config) => remote.createClient({ ...config, now: () => Date.now() })
+  } } });
+  runtime.createControls();
+  await runtime.bootstrapInitialWallpaper();
+  context.windowObj.__dispatchEvent('load');
+  await waitForAsyncWallpaperApply();
+  const image = () => context.documentObj.documentElement.style.getPropertyValue('--x-nt-wallpaper-image');
+  const today = remote.getCuratedDailyWallpaper('nature', Date.now());
+  assert.ok(image().includes(today.thumbnailUrl));
+
+  const realNow = Date.now;
+  const tomorrowNow = () => realNow() + 24 * 60 * 60 * 1000;
+  Date.now = tomorrowNow;
+  vm.runInContext('Date.now = globalThis.__tomorrowNow;', Object.assign(context.sandbox, { __tomorrowNow: tomorrowNow }));
+  try {
+    const tomorrow = remote.getCuratedDailyWallpaper('nature', Date.now());
+    assert.notStrictEqual(tomorrow.id, today.id);
+    context.windowObj.__dispatchEvent('focus');
+    await waitForAsyncWallpaperApply();
+    assert.ok(image().includes(tomorrow.thumbnailUrl),
+      'A tab left open past midnight shows the new daily photo even if the panel was never opened');
+  } finally {
+    Date.now = realNow;
+  }
 }
 
 async function testCuratedPhotoOpensNewTabsFromTheCachedCopy() {
@@ -4579,6 +4695,8 @@ Promise.resolve()
   .then(testCuratedPhotoOpensNewTabsFromTheCachedCopy)
   .then(testNetworkWallpaperWaitsForThePageAndFallsBackOffline)
   .then(testBingPhotoOpensNewTabsFromTheCachedCopy)
+  .then(testPreloadPaintsTheCachedOnlineCopyBeforeTheRuntime)
+  .then(testOpenTabRollsOverWithoutOpeningThePanel)
   .then(testWallpaperSourcesHintWaitsForFinalFocusRoute)
   .then(testNewtabFaviconPreloadAppliesCachedAlternateBeforeMainRuntime)
   .then(testWallpaperPreloadUsesTheCachedResolvedMode)

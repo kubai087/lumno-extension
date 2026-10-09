@@ -30,6 +30,21 @@
     : ((chrome && chrome.storage && chrome.storage.sync)
         ? chrome.storage.sync
         : (chrome && chrome.storage ? chrome.storage.local : null));
+  // The next New Tab prefetches these keys before its scripts load (newtab-storage-prefetch.js).
+  function rememberStartupStorageKeys(keys) {
+    if (!Array.isArray(keys) || !keys.length) {
+      return;
+    }
+    try {
+      const value = JSON.stringify(keys.slice().sort());
+      const cacheKey = settingsRuntimeApi.NEWTAB_STARTUP_STORAGE_KEYS_CACHE_KEY;
+      if (window.localStorage.getItem(cacheKey) !== value) {
+        window.localStorage.setItem(cacheKey, value);
+      }
+    } catch (_error) {
+      // localStorage is only a fast path; the next load reads storage as before.
+    }
+  }
   const startupStorageReadBatch = rawStorageArea
     ? settingsRuntimeApi.createStorageReadBatch(rawStorageArea)
     : null;
@@ -38,6 +53,7 @@
     : rawStorageArea;
   if (startupStorageReadBatch) {
     startupStorageReadBatch.ready.then((metrics) => {
+      rememberStartupStorageKeys(metrics && metrics.keys);
       if (!document.documentElement) {
         return;
       }
@@ -57,6 +73,16 @@
       );
     });
   }
+  // The first recent-sites pass waits for every layout preference, so the browser reads start now
+  // and that pass takes them; later passes, or one long after load, read afresh.
+  const STARTUP_RECENT_SOURCE_MAX_AGE_MS = 3000;
+  const startupRecentSourceReadsAt = Date.now();
+  const startupRecentSourceReads = {
+    historyItems: readRecentHistoryItems(),
+    topSites: readRecentTopSites(),
+    tabs: readRecentOpenTabs()
+  };
+
   const localStorageArea = (chrome && chrome.storage && chrome.storage.local)
     ? chrome.storage.local
     : storageArea;
@@ -2689,6 +2715,7 @@
     if (changes[NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY]) {
       const rawValue = changes[NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY].newValue;
       newtabInputAutoFocusEnabled = normalizeNewtabInputAutoFocusEnabled(rawValue);
+      settingsRuntimeApi.cacheNewtabInputAutoFocusEnabled(newtabInputAutoFocusEnabled);
       updateNewtabInputAutoFocusUi();
     }
     if (changes[RECENT_COUNT_STORAGE_KEY]) {
@@ -5784,6 +5811,54 @@
     }
   }
 
+  function readRecentOpenTabs() {
+    return new Promise((resolve) => {
+      if (!chrome.tabs || !chrome.tabs.query) {
+        resolve([]);
+        return;
+      }
+      chrome.tabs.query({}, (tabs) => {
+        resolve(chrome.runtime.lastError || !Array.isArray(tabs) ? [] : tabs);
+      });
+    });
+  }
+
+  function readRecentTopSites() {
+    return new Promise((resolve) => {
+      if (!chrome.topSites || !chrome.topSites.get) {
+        resolve(null);
+        return;
+      }
+      chrome.topSites.get((items) => {
+        resolve(chrome.runtime.lastError || !Array.isArray(items) ? null : items);
+      });
+    });
+  }
+
+  function readRecentHistoryItems() {
+    return new Promise((resolve) => {
+      if (!chrome.history || !chrome.history.search) {
+        resolve(null);
+        return;
+      }
+      chrome.history.search({
+        text: '',
+        maxResults: 60,
+        startTime: Date.now() - 1000 * 60 * 60 * 24 * 30
+      }, (items) => {
+        resolve(chrome.runtime.lastError || !Array.isArray(items) ? null : items);
+      });
+    });
+  }
+
+  function takeStartupRecentSourceRead(name, read) {
+    const pending = startupRecentSourceReads[name];
+    startupRecentSourceReads[name] = null;
+    return pending && Date.now() - startupRecentSourceReadsAt <= STARTUP_RECENT_SOURCE_MAX_AGE_MS
+      ? pending
+      : read();
+  }
+
   function getRecentSites(limit, mode) {
     const safeLimit = Math.max(0, Number(limit) || 0);
     const viewMode = mode === 'most' ? 'most' : 'latest';
@@ -5801,39 +5876,9 @@
       hidden: []
     });
 
-    const readOpenTabs = () => new Promise((resolve) => {
-      if (!chrome.tabs || !chrome.tabs.query) {
-        resolve([]);
-        return;
-      }
-      chrome.tabs.query({}, (tabs) => {
-        resolve(chrome.runtime.lastError || !Array.isArray(tabs) ? [] : tabs);
-      });
-    });
-
-    const readTopSites = () => new Promise((resolve) => {
-      if (!chrome.topSites || !chrome.topSites.get) {
-        resolve(null);
-        return;
-      }
-      chrome.topSites.get((items) => {
-        resolve(chrome.runtime.lastError || !Array.isArray(items) ? null : items);
-      });
-    });
-
-    const readHistoryItems = () => new Promise((resolve) => {
-      if (!chrome.history || !chrome.history.search) {
-        resolve(null);
-        return;
-      }
-      chrome.history.search({
-        text: '',
-        maxResults: 60,
-        startTime: Date.now() - 1000 * 60 * 60 * 24 * 30
-      }, (items) => {
-        resolve(chrome.runtime.lastError || !Array.isArray(items) ? null : items);
-      });
-    });
+    const readOpenTabs = () => takeStartupRecentSourceRead('tabs', readRecentOpenTabs);
+    const readTopSites = () => takeStartupRecentSourceRead('topSites', readRecentTopSites);
+    const readHistoryItems = () => takeStartupRecentSourceRead('historyItems', readRecentHistoryItems);
 
     const mergeWithTabsIfNeeded = (sources, mergeMode) => {
       const withoutTabs = mergeSources(sources, mergeMode);

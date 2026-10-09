@@ -39,9 +39,13 @@
   }
 
   function read(area, key) {
+    return readMany(area, [key]).then((values) => values[key]);
+  }
+
+  function readMany(area, keys) {
     return new Promise((resolve) => {
-      if (!area || typeof area.get !== 'function') return resolve(undefined);
-      area.get([key], (values) => resolve(values && values[key]));
+      if (!area || typeof area.get !== 'function') return resolve({});
+      area.get(keys, (values) => resolve(values || {}));
     });
   }
 
@@ -359,11 +363,16 @@
       if (descriptor.provider === 'curated') return getWallpaper(id);
       if (id === BING_DAILY_ID) {
         const market = getMarket();
-        const entry = ((await read(area, BING_DAILY_CACHE_KEY)) || {})[market];
+        // New tabs wait on this, so read the photo's saved details along with the daily entry.
+        const stored = await readMany(area, [BING_DAILY_CACHE_KEY, BING_META_CACHE_KEY]);
+        const entry = (stored[BING_DAILY_CACHE_KEY] || {})[market];
         const daily = entry && wallpaperFromId(entry.id);
         // Without an entry for this market (e.g. after a language change), keep the previous
         // photo on screen until ensureDailyWallpaper fetches this market's one.
         if (daily && daily.rawId) {
+          const saved = (stored[BING_META_CACHE_KEY] || {})[entry.id];
+          const details = saved ? normalizeStoredWallpaper(saved) : null;
+          if (details && !images.has(entry.id)) images.set(entry.id, details);
           dailyWallpaper = await restoreWallpaper(entry.id);
           dailyMarket = market;
         }

@@ -375,6 +375,18 @@ html[data-wallpaper-active="true"] body[data-theme="dark"] {
     rgb(0 0 0 / var(--x-nt-wallpaper-overlay-dark-bottom, 50%)) 100%
   );
 }
+/* Until newtab.js sets data-theme, the preload's cached theme picks the mask, so a dark New Tab never
+   reveals its wallpaper under the light mask first. Only the gradient is set here: effects that drop
+   the mask keep doing so. */
+html[data-wallpaper-preload-theme="dark"] body[data-wallpaper-active="true"]:not([data-theme]),
+html[data-wallpaper-preload-theme="dark"][data-wallpaper-active="true"] body:not([data-theme]) {
+  --x-nt-wallpaper-effect-overlay: linear-gradient(
+    180deg,
+    rgb(0 0 0 / var(--x-nt-wallpaper-overlay-dark-top, 44%)) 0%,
+    rgb(0 0 0 / var(--x-nt-wallpaper-overlay-dark-mid, 20%)) 42%,
+    rgb(0 0 0 / var(--x-nt-wallpaper-overlay-dark-bottom, 50%)) 100%
+  );
+}
 .x-nt-wallpaper-transition-layer {
   position: fixed;
   inset: 0;

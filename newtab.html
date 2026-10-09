@@ -12,7 +12,7 @@
         visibility: hidden;
       }
       html[data-nt-focus-route-pending="true"] body,
-      html[data-nt-focus-route="true"] body:not([data-nt-wallpaper-ready="1"]) {
+      body:not([data-nt-wallpaper-ready="1"]) {
         visibility: hidden;
         background-image: none !important;
       }
@@ -20,6 +20,7 @@
     <script src="../shared/settings.js"></script>
     <script src="../shared/browser-profile.js"></script>
     <script src="newtab-focus-entry.js"></script>
+    <script src="newtab-storage-prefetch.js"></script>
     <script src="../shared/motion-preload.js"></script>
     <script src="wallpaper-crt-webgl.js"></script>
     <script src="wallpaper-effects.js"></script>

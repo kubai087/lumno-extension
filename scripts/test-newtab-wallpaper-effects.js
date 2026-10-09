@@ -1369,7 +1369,7 @@ async function testCrtRendersPhosphorScanlinesAndColorFringe() {
   }
 }
 
-async function testFocusedRoutePreloadsEffectBeforeContent() {
+function runEffectPreload({ focusRoute, imageReady, imageUrl = '' }) {
   const attributes = new Map();
   const body = {
     setAttribute(name, value) {
@@ -1377,11 +1377,13 @@ async function testFocusedRoutePreloadsEffectBeforeContent() {
     }
   };
   const appliedPrefs = [];
+  let refreshes = 0;
   const controller = {
     apply(prefs) {
       appliedPrefs.push(prefs);
     },
     refresh() {
+      refreshes += 1;
       return Promise.resolve();
     }
   };
@@ -1391,7 +1393,7 @@ async function testFocusedRoutePreloadsEffectBeforeContent() {
       body,
       documentElement: {
         getAttribute(name) {
-          return name === 'data-nt-focus-route' ? 'true' : null;
+          return name === 'data-nt-focus-route' && focusRoute ? 'true' : null;
         }
       }
     },
@@ -1408,7 +1410,8 @@ async function testFocusedRoutePreloadsEffectBeforeContent() {
     },
     LumnoNewtabWallpaperPreload: {
       effectPrefsReady: Promise.resolve({ type: 'grain', strength: 50, size: 50, spacing: 50 }),
-      imageUrl: 'chrome-extension://abc/assets/wallpapers/test.webp',
+      imageUrl,
+      imageReady,
       wallpaper: { id: 'test-wallpaper' }
     },
     window: {}
@@ -1417,17 +1420,109 @@ async function testFocusedRoutePreloadsEffectBeforeContent() {
   vm.runInNewContext(effectPreloadSource, preloadSandbox, {
     filename: 'src/newtab/wallpaper-effect-preload.js'
   });
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.strictEqual(appliedPrefs.length, 1);
-  assert.strictEqual(attributes.get('data-wallpaper-effect'), 'grain');
-  assert.strictEqual(attributes.get('data-nt-wallpaper-ready'), '1');
-  assert.strictEqual(preloadSandbox.LumnoNewtabWallpaperEffectPreload.controller, controller);
+  return {
+    attributes,
+    appliedPrefs,
+    getRefreshes: () => refreshes,
+    runtime: preloadSandbox.LumnoNewtabWallpaperEffectPreload
+  };
+}
+
+async function testFocusedRoutePreloadsEffectBeforeContent() {
+  for (const focusRoute of [true, false]) {
+    const preload = runEffectPreload({ focusRoute, imageUrl: 'chrome-extension://abc/assets/wallpapers/test.webp' });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.strictEqual(preload.appliedPrefs.length, 1, 'both New Tab routes render the effect before the runtime');
+    assert.strictEqual(preload.attributes.get('data-wallpaper-effect'), 'grain');
+    assert.strictEqual(preload.attributes.get('data-nt-wallpaper-ready'), '1');
+    assert.strictEqual(typeof preload.runtime.controller.refresh, 'function',
+      'wallpaper.js adopts the preload controller');
+  }
+
+  let resolveImage;
+  const late = runEffectPreload({ focusRoute: false, imageReady: new Promise((resolve) => { resolveImage = resolve; }) });
+  assert.ok(late.runtime.controller, 'the controller exists before the image does, so wallpaper.js never starts its own');
+  late.runtime.controller.apply({ type: 'dither' });
+  resolveImage('data:image/webp;base64,AAAA');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepStrictEqual(late.appliedPrefs, [{ type: 'dither' }],
+    'cached preferences never replace ones wallpaper.js already applied');
+  assert.strictEqual(late.getRefreshes(), 0);
+  assert.strictEqual(late.attributes.get('data-nt-wallpaper-ready'), undefined,
+    'once wallpaper.js owns the effect it also decides when the wallpaper is ready');
+}
+
+async function testEffectReportsAStaleSourceUntilRedrawn() {
+  const previousImage = sandbox.Image;
+  sandbox.Image = class FakeImage {
+    constructor() {
+      this.naturalHeight = 800;
+      this.naturalWidth = 1200;
+    }
+
+    decode() {
+      return Promise.resolve();
+    }
+
+    set src(value) {
+      this.currentSrc = value;
+      setTimeout(() => this.onload(), 0);
+    }
+  };
+  let imageUrl = 'test://yesterday';
+  const body = {
+    firstChild: null,
+    style: { setProperty() {} },
+    getAttribute: (name) => (name === 'data-wallpaper-active' ? 'true' : null),
+    insertBefore(element) {
+      element.parentNode = this;
+      this.firstChild = element;
+    }
+  };
+  const controller = effects.createWallpaperEffects({
+    documentObj: {
+      body,
+      documentElement: { clientHeight: 800, clientWidth: 1200 },
+      createElement: () => createFakeCanvas({ getSampleRgba: () => [120, 120, 120, 255] })
+    },
+    windowObj: {
+      devicePixelRatio: 1,
+      innerHeight: 800,
+      innerWidth: 1200,
+      addEventListener() {},
+      cancelAnimationFrame: clearTimeout,
+      requestAnimationFrame: (callback) => setTimeout(callback, 0)
+    },
+    getCurrentWallpaper: () => ({ id: 'bing-daily' }),
+    getWallpaperImageUrl: () => imageUrl,
+    shouldAnimateTransition: () => false
+  });
+  try {
+    controller.apply({ type: 'dither', strength: 50, size: 50, spacing: 50 });
+    await controller.refresh({ immediate: true });
+    assert.strictEqual(controller.isSourceStale(), false, 'a freshly drawn effect matches its wallpaper');
+
+    imageUrl = 'test://today';
+    assert.strictEqual(controller.isSourceStale(), true,
+      'a photo that changed without a redraw leaves the effect showing the old one');
+    const redraw = controller.refresh({ immediate: true });
+    assert.strictEqual(controller.isSourceStale(), false, 'a redraw on its way is not stale');
+    await redraw;
+    assert.strictEqual(controller.isSourceStale(), false);
+
+    await controller.apply({ type: 'grain', strength: 50, size: 50, spacing: 50 });
+    imageUrl = 'test://tomorrow';
+    assert.strictEqual(controller.isSourceStale(), false, 'grain does not draw from the photo');
+  } finally {
+    sandbox.Image = previousImage;
+  }
 }
 
 Promise.resolve()
   .then(testEffectRefreshWaitsForPaint)
+  .then(testEffectReportsAStaleSourceUntilRedrawn)
   .then(testStandardGlassRendersCachedMaterialTexture)
   .then(testGlassBackgroundAndTextureEnterTogether)
   .then(testStandardGlassAdaptsToWallpaperLuminance)

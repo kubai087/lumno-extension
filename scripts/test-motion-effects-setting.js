@@ -118,7 +118,7 @@ assert.match(
 );
 assert.match(
   newtabSource,
-  /function scheduleNewtabReadyAfterViewportSettle\(\)[\s\S]*if \(shouldSkipNewtabEntryMotion\(\)\) \{\s*revealNewtabWithoutEntryMotion\(\);\s*return;\s*\}[\s\S]*window\.setTimeout\([\s\S]*requestAnimationFrame/,
+  /function scheduleNewtabReadyAfterViewportSettle\(\)[\s\S]*if \(shouldSkipNewtabEntryMotion\(\)\) \{\s*revealNewtabWithoutEntryMotion\(\);\s*return;\s*\}[\s\S]*requestAnimationFrame[\s\S]*window\.setTimeout\(/,
   'motion-free New Tabs should bypass the animated viewport delay and paint-frame gate'
 );
 assert.match(

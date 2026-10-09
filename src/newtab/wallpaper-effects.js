@@ -379,6 +379,8 @@
     let loadedImageUrl = '';
     let loadedSampler = null;
     let loadedSamplerUrl = '';
+    // The wallpaper URL the canvas was last drawn from; '' while it shows nothing image-based.
+    let renderedSourceUrl = '';
     let observer = null;
     let asciiGlyphMetricsCache = null;
     let effectBaseCacheKey = '';
@@ -627,6 +629,7 @@
         renderTimer = 0;
       }
       clearEffectBaseCache();
+      renderedSourceUrl = '';
       if (canvas && context) {
         const viewport = getViewportSize();
         context.clearRect(0, 0, viewport.width, viewport.height);
@@ -1864,11 +1867,13 @@
         const imageUrl = wallpaper ? getWallpaperImageUrl(wallpaper) : '';
         if (loadedSampler && loadedSamplerUrl === imageUrl) {
           drawStandardGlassTexture(normalized.texture, loadedSampler.averageLuminance);
+          renderedSourceUrl = imageUrl;
           completeRender(revision);
           return;
         }
         drawStandardGlassTexture(normalized.texture, null);
         if (!imageUrl) {
+          renderedSourceUrl = '';
           completeRender(revision);
           return;
         }
@@ -1879,6 +1884,7 @@
           const sampler = image ? getSampler(image, imageUrl) : null;
           if (sampler) {
             drawStandardGlassTexture(normalized.texture, sampler.averageLuminance);
+            renderedSourceUrl = imageUrl;
           }
           completeRender(revision);
         }).catch(() => {
@@ -1930,6 +1936,7 @@
           completeRender(revision);
           return;
         }
+        renderedSourceUrl = imageUrl;
         if (normalized.type === 'blocks') {
           drawBlocks(
             nextViewport,
@@ -2109,6 +2116,18 @@
       return waitForRenderRevision(scheduleRender(immediate ? 0 : 60));
     }
 
+    // True when the canvas was drawn from an older wallpaper and no render is on its way, e.g. after
+    // a background tab missed the redraw for a photo that changed meanwhile.
+    function isSourceStale() {
+      const type = normalizePrefs(prefs).type;
+      if (destroyed || type === 'none' || type === 'grain' ||
+          renderCompletedRevision < renderRequestRevision || !isWallpaperActive()) {
+        return false;
+      }
+      const wallpaper = getCurrentWallpaper();
+      return renderedSourceUrl !== (wallpaper ? getWallpaperImageUrl(wallpaper) : '');
+    }
+
     function handleWindowResize() {
       const normalized = normalizePrefs(prefs);
       shouldCrossfadeResize = Boolean(
@@ -2164,6 +2183,7 @@
       apply,
       destroy,
       getLuminanceAtViewport,
+      isSourceStale,
       refresh,
       normalizePrefs
     };

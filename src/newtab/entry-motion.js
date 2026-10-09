@@ -17,6 +17,8 @@
 
     const NEWTAB_INITIAL_VIEWPORT_SETTLE_MS = 32;
     const NEWTAB_ENTRY_ANIMATION_TOTAL_MS = 460;
+    // Compared at reveal time: a viewport that never changed while the page loaded has settled.
+    const startupViewport = getSearchEntryViewportSnapshot();
     let newtabReadySettleTimer = 0;
     let newtabEntryAnimationTimer = 0;
 
@@ -96,7 +98,7 @@
       }
       const viewport = getSearchEntryViewportSnapshot();
       const viewportRevision = pageState.newtabReadyViewportRevision;
-      newtabReadySettleTimer = window.setTimeout(() => {
+      const revealAfterViewportSettles = () => {
         newtabReadySettleTimer = 0;
         if (pageState.newtabResizeLayoutLocked ||
             viewportRevision !== pageState.newtabReadyViewportRevision ||
@@ -117,7 +119,16 @@
           startNewtabEntryAnimation();
           rememberSearchEntryViewport();
         });
-      }, NEWTAB_INITIAL_VIEWPORT_SETTLE_MS);
+      };
+      // The wait only debounces resizes that arrive while the New Tab opens (the resize listener bumps
+      // the revision). Without any since the page started, skip it; the frame check below still runs.
+      if (viewportRevision === 0 &&
+          !pageState.newtabResizeLayoutLocked &&
+          !hasSearchEntryViewportChanged(startupViewport)) {
+        revealAfterViewportSettles();
+        return;
+      }
+      newtabReadySettleTimer = window.setTimeout(revealAfterViewportSettles, NEWTAB_INITIAL_VIEWPORT_SETTLE_MS);
     }
 
     function markNewtabReady() {
