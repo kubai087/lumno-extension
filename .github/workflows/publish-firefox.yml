@@ -15,6 +15,10 @@ on:
         type: choice
         options: [listed, unlisted]
         default: listed
+      screenshots:
+        description: "Upload the store screenshots AMO is missing, even for a version already on AMO"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -139,21 +143,11 @@ jobs:
             --approval-timeout "$approval_timeout"
 
       - name: Upload store screenshots
-        if: ${{ steps.metadata.outputs.first_listed == 'true' }}
+        if: ${{ steps.metadata.outputs.first_listed == 'true' || inputs.screenshots }}
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
-        run: |
-          for image in scripts/amo-screenshots/*.jpg; do
-            token="$(node scripts/amo-jwt.js)"
-            echo "::add-mask::$token"
-            curl -fsS -o /dev/null -H "Authorization: JWT $token" \
-              -F "image=@$image" -F "position=$(basename "$image" .jpg)" \
-              "https://addons.mozilla.org/api/v5/addons/addon/${ADDON_ID}/previews/" \
-              || { echo "::error::Could not upload $image. Add the screenshots on AMO by hand."; exit 1; }
-            echo "Uploaded $image"
-          done
+        run: node scripts/amo-upload-screenshots.js "${{ steps.metadata.outputs.addon_id }}"
 
       - name: Upload signed package
         if: ${{ inputs.channel == 'unlisted' && steps.metadata.outputs.skip != 'true' }}
