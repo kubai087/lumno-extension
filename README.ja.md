@@ -5,7 +5,7 @@
 <h1 align="center">Lumno：Chrome 向けコマンドバー & 新しいタブ拡張機能</h1>
 
 <p align="center">
-  無料・オープンソースの Chrome / Edge 拡張機能。Spotlight 風のコマンドバーとカスタマイズできるミニマルな新しいタブを、Brave や Arc などの Chromium ブラウザでも使えます。
+  無料・オープンソースの Chrome / Edge 拡張機能。Spotlight 風のコマンドバーとカスタマイズできるミニマルな新しいタブを、Brave や Arc などの Chromium ブラウザでも使えます。Firefox や Zen などの Firefox 系ブラウザ向けのビルドもあります。
   <br />
   ひとつのショートカットでタブ、ブックマーク、履歴を検索し、URL へ移動し、サイト内検索や AI 検索を呼び出せます。
 </p>
@@ -111,6 +111,8 @@
 
 ブラウザによっては拡張機能のショートカットが予約または制限される場合があります。`chrome://extensions/shortcuts`、`edge://extensions/shortcuts`、または利用中ブラウザのショートカット設定ページで変更してください。
 
+Firefox は `Cmd+Shift+K` / `Ctrl+Shift+K` などをすでに使っているため、Firefox 版の既定は macOS で `Ctrl+Shift+K/L/C`、Windows と Linux で `Alt+K/L/C` です（`Alt+Q` は同じ）。アドオンマネージャーの歯車メニュー →「拡張機能のショートカットキーの管理」で変更できます。
+
 ## インストール
 
 | ブラウザ | インストール |
@@ -118,6 +120,7 @@
 | Google Chrome | [Chrome ウェブストア](https://chromewebstore.google.com/detail/nggfkkbmogmadfoikakkfegkoilfcfao) |
 | Microsoft Edge | [Microsoft Edge アドオン](https://microsoftedge.microsoft.com/addons/detail/pfbklkaefmfamjpibfiapaiihlddhchc) |
 | Brave、Arc、Vivaldi、Opera などの Chromium ブラウザ | [Chrome ウェブストア](https://chromewebstore.google.com/detail/nggfkkbmogmadfoikakkfegkoilfcfao) |
+| Firefox 140 以降、Zen、LibreWolf、Floorp などの Firefox 系ブラウザ | Firefox Add-ons には未掲載のため、ソースからビルドしてください（[開発](#開発)を参照） |
 
 ソースからインストールする場合：
 
@@ -129,6 +132,29 @@
 
 ローカル HTML、PDF、`file://` ページでコマンドバーを使う場合は、拡張機能の詳細ページで「ファイルの URL へのアクセスを許可する」を有効にしてください。
 
+## ブラウザ互換性
+
+Lumno は Chromium ブラウザ向けに開発しており、Firefox 版も用意しています。Zen、LibreWolf、Floorp、Waterfox など Firefox ベースのブラウザでは Firefox 版を使い、Firefox 140 以降のエンジンが必要です。Safari には対応していません。
+
+**Firefox と Firefox 系ブラウザ。** Firefox の拡張機能 API は Chromium といくつかの点で異なります。
+
+| 機能 | Firefox での動作 | 理由 |
+| --- | --- | --- |
+| 動画の自動ピクチャーインピクチャー | 利用不可。設定では無効表示になり、ホバーで理由を表示 | Firefox は拡張機能がページの動画をピクチャーインピクチャーにすることを許可していない |
+| Webクリップ | 利用不可。設定では無効表示になり、ホバーで理由を表示 | Document Picture-in-Picture が必要だが、Firefox は未対応 |
+| 新しいタブのブックマークマネージャーボタン | 非表示 | 拡張機能から Firefox のライブラリウィンドウを開けない |
+| ショートカットやコマンドバーから `about:` ページ（`about:config` など）を開く | 利用不可 | Firefox は拡張機能が特権ページを開くことを許可していない |
+| `about:` ページと addons.mozilla.org でのコマンドバー | 利用不可 | Firefox がこれらのページで拡張機能のスクリプトを禁止しているため。ショートカットは制限ページの設定に従う |
+| ローカルの `file://` ページでのコマンドバー | 利用不可 | Firefox には拡張機能にファイル URL へのアクセスを許可する設定がない |
+| サイトアイコン | 動作が異なる | Firefox には拡張機能向けのアイコン API がないため、Firefox 自身のアイコンキャッシュ（開いているタブとよく使うサイト）を読み、オンにしていればオンラインのアイコンサービスを使う。未訪問のサイトは一度開くまでプレースホルダーになることがある |
+| タブスイッチャーでの `about:` ページ | 動作が異なる | Firefox はこれらのページをぼかした画像でしか返さないため、プレビューの代わりにブラウザのロゴを表示 |
+| 新しいタブの検索ボックスへのフォーカス | 動作が異なる | Firefox は新しいタブでアドレスバーにフォーカスするため、自動フォーカスがオンのとき Lumno はタブを開き直して検索ボックスにフォーカスする |
+| 「ショートカット設定を開く」 | 動作が異なる | アドオンマネージャーが開くので、歯車メニューから「拡張機能のショートカットキーの管理」を選ぶ |
+| 評価の案内とレビューへのリンク | 非表示 | Firefox Add-ons に掲載されるまで |
+| 設定の同期 | 動作が異なる | Chrome の同期ではなく Firefox Sync を使う。WebDAV 同期は Chrome と Firefox の間でも使え、同じパソコンで両方を開いていても動作する |
+
+**Chromium 系ブラウザ。** Brave、Arc、Vivaldi、Opera などは Chrome ウェブストア版を使い、機能は Chrome と同じですが、拡張機能のショートカットを予約または変更するブラウザもあります。Dia では新しいタブ機能は使えませんが、コマンドバーは使えます。ショートカットが効かない場合は、ブラウザのショートカット設定で「Open command bar」を In Dia から Global に変更してください。
+
 ## プライバシー
 
 Lumno はローカルファーストです。ブックマーク、履歴、タブは検索のために端末内でのみ読み取り、Lumno や開発者のサーバーへ送信しません。Lumno アカウント、利用統計、広告トラッキングはありません。サイトアイコン、オンライン壁紙、WebDAV など外部サービスと通信する機能は、オンにしたときだけ動作します。詳しくは[プライバシーポリシー](https://lumno.kubai.design/privacy/)をご覧ください。
@@ -139,7 +165,7 @@ Lumno はローカルファーストです。ブックマーク、履歴、タ�
 はい。Lumno は GPL-3.0 ライセンスの無料オープンソースソフトウェアです。開発を支援したい場合は [Sponsoring](SPONSORING.md) をご覧ください。
 
 **どのブラウザに対応していますか？**
-Manifest V3 拡張機能に対応した Chromium ブラウザ（Google Chrome、Microsoft Edge、Brave、Arc、Vivaldi、Opera など）で使えます。Firefox と Safari には対応していません。
+Manifest V3 拡張機能に対応した Chromium ブラウザ（Google Chrome、Microsoft Edge、Brave、Arc、Vivaldi、Opera など）に加え、Firefox 140 以降と Zen、LibreWolf などの Firefox 系ブラウザで使えます。Firefox では一部の機能が使えません。[ブラウザ互換性](#ブラウザ互換性)をご覧ください。Safari には対応していません。
 
 **設定を複数の端末で同期できますか？**
 はい。ブラウザにログインしていれば、設定は Chrome の同期機能で同期されます。[WebDAV 同期](#webdav-同期)をオンにすると、カスタムアイコンや壁紙も自分のサーバー経由で同期できます。
@@ -193,6 +219,8 @@ npm run test:onboarding-content
 ```
 
 `npm run package:store` は `manifest.json` のバージョンを読み取り、`dist/lumno-store-v<version>.zip` を生成します。このコマンドにはシステム上の `zip` と `zipinfo` が必要です。
+
+`npm run package:firefox` はストア用パッケージを作り、`dist/firefox` の Firefox 版に変換します。Firefox 固有の変更はすべて `scripts/build-firefox.js` にまとまっています（Service Worker の代わりのバックグラウンドスクリプト、Gecko のアドオン ID、Firefox 用ショートカット、自動ピクチャーインピクチャーのスクリプトの除外、`__firefox` 接尾辞付きのロケールメッセージによる元の文言の置き換え）。試すには `about:debugging#/runtime/this-firefox` を開き、「一時的なアドオンを読み込む」で `dist/firefox/manifest.json` を選びます。`npm run lint:firefox` で `web-ext` によるチェックができます。共有コードでは URL スキームを直接調べず `LumnoBrowserProfile.isFirefoxExtensionRuntime()` を使い、特定のブラウザ系統だけの UI には `data-browser-only="chromium"`（他では非表示）、設定項目には `data-browser-unsupported="firefox"`（無効表示で理由を示す）を付けてください。
 
 ### ディレクトリ構成
 
