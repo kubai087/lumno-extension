@@ -1019,20 +1019,12 @@
 
   const NEWTAB_URL_POLICY = globalThis.LumnoNewtabUrlPolicy;
   // Firefox: index the browser's own cached icons, which stand in for the
-  // missing _favicon endpoint (see createBrowserIconIndex). Open tabs are
-  // added last so their current icons win over top sites.
-  const firefoxBrowserIcons = window.location.protocol === 'moz-extension:' &&
-    typeof FAVICON_UTILS.createBrowserIconIndex === 'function'
+  // missing _favicon endpoint (see createBrowserIconIndex).
+  const firefoxBrowserIcons = BROWSER_PROFILE.isFirefoxExtensionRuntime()
     ? FAVICON_UTILS.createBrowserIconIndex()
     : null;
   const firefoxBrowserIconsReady = firefoxBrowserIcons
-    ? Promise.all([
-      Promise.resolve().then(() => chrome.topSites.get({ includeFavicon: true, limit: 100 })).catch(() => []),
-      Promise.resolve().then(() => chrome.tabs.query({})).catch(() => [])
-    ]).then(([sites, tabs]) => {
-      (Array.isArray(sites) ? sites : []).forEach((site) => site && firefoxBrowserIcons.add(site.url, site.favicon));
-      (Array.isArray(tabs) ? tabs : []).forEach((tab) => tab && firefoxBrowserIcons.add(tab.url, tab.favIconUrl));
-    }).catch(() => {})
+    ? firefoxBrowserIcons.load(chrome).catch(() => {})
     : Promise.resolve();
   const {
     isEnglishQuery,

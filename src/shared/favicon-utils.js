@@ -1726,7 +1726,17 @@
       }
       return byPage.get(pageKey) || byHost.get(getHostKey(pageKey)) || '';
     }
-    return Object.freeze({ add, get });
+    // Firefox exposes its cached icons only through top sites and open tabs.
+    // Tabs go last so their current icons win.
+    async function load(chromeApi) {
+      const [sites, tabs] = await Promise.all([
+        Promise.resolve().then(() => chromeApi.topSites.get({ includeFavicon: true, limit: 100 })).catch(() => []),
+        Promise.resolve().then(() => chromeApi.tabs.query({})).catch(() => [])
+      ]);
+      (Array.isArray(sites) ? sites : []).forEach((site) => site && add(site.url, site.favicon));
+      (Array.isArray(tabs) ? tabs : []).forEach((tab) => tab && add(tab.url, tab.favIconUrl));
+    }
+    return Object.freeze({ add, get, load });
   }
 
   return Object.freeze({

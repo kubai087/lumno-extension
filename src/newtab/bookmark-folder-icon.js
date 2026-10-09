@@ -1,10 +1,12 @@
 (function(root, factory) {
-  const api = factory();
+  const references = root.LumnoBookmarkFolderReference || (typeof require === 'function'
+    ? require('../shared/bookmark-folder-reference.js') : null);
+  const api = factory(references);
   if (typeof module === 'object' && module.exports) {
     module.exports = api;
   }
   root.LumnoNewtabBookmarkFolderIcon = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function(references) {
   const DEFAULT_FOLDER_COLOR = '#5393FF';
   // Legacy device-only map keyed by bookmark id. Ids differ on every device,
   // so it is migrated into the synced reference map below.
@@ -15,13 +17,6 @@
   const FOLDER_COLOR_REFS_STORAGE_KEY = '_x_extension_bookmark_folder_color_refs_2026_unique_';
   // Keeps the synced value well under the 8 KB browser sync item quota.
   const MAX_FOLDER_COLOR_REFS = 100;
-  // Chrome numbers its roots; Firefox uses fixed GUIDs. Both map onto the same
-  // types so folder colors follow a folder between the browsers.
-  const ROOT_TYPES_BY_ID = {
-    '1': 'bookmarks-bar', '2': 'other', '3': 'mobile',
-    'toolbar_____': 'bookmarks-bar', 'unfiled_____': 'other', 'mobile______': 'mobile', 'menu________': 'menu'
-  };
-  const TREE_ROOT_IDS = new Set(['0', 'root________']);
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
   function normalizeFolderColorMap(value) {
     const result = {};
@@ -34,25 +29,17 @@
     return result;
   }
   function hashFolderPath(path) {
-    const text = JSON.stringify(path);
-    let first = 2166136261;
-    let second = 0x9e3779b9;
-    for (let index = 0; index < text.length; index += 1) {
-      const code = text.charCodeAt(index);
-      first = Math.imul(first ^ code, 16777619);
-      second = Math.imul(second ^ code, 2246822519);
-    }
-    return [first, second].map((value) => (value >>> 0).toString(16).padStart(8, '0')).join('');
+    return references.hashText(JSON.stringify(path));
   }
   // Maps every folder id to its portable reference. Same-name siblings are
   // told apart by their order among themselves.
   function collectFolderColorRefs(nodeMap) {
     const refs = new Map();
     if (!(nodeMap instanceof Map)) return refs;
-    const top = nodeMap.get('0') || nodeMap.get('root________');
+    const top = references.getTreeRoot(nodeMap);
     const roots = top && Array.isArray(top.children)
       ? top.children
-      : [...nodeMap.values()].filter((node) => TREE_ROOT_IDS.has(String(node.parentId)));
+      : [...nodeMap.values()].filter((node) => references.isTreeRootId(node.parentId));
     function visit(node, path) {
       refs.set(String(node.id), hashFolderPath(path));
       if (path.length > 64) return;
@@ -66,7 +53,7 @@
       });
     }
     roots.forEach((node) => {
-      const rootType = node && !node.url && (node.folderType || ROOT_TYPES_BY_ID[String(node.id)]);
+      const rootType = node && !node.url && references.getBookmarkRootType(node);
       if (rootType) visit(node, [rootType]);
     });
     return refs;

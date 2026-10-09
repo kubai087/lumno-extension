@@ -125,9 +125,9 @@ function createAcquisition(options = {}) {
     const isAllowedFaviconProxyRequestUrl = FAVICON_UTILS.isAllowedFaviconProxyRequestUrl;
     const arrayBufferToBase64 = (buffer) => Buffer.from(buffer).toString('base64');
     const chrome = deps.chrome;
-    const isFirefoxExtensionRuntime = () => deps.firefoxRuntime;
+    const BROWSER_PROFILE = { isFirefoxExtensionRuntime: () => deps.firefoxRuntime };
     ${['getShortcutFaviconPreferredTheme', 'fetchShortcutFaviconResource',
-      'isSameFaviconHost', 'getFirefoxBrowserFaviconUrl', 'fetchFirefoxBrowserCacheFavicon',
+      'getFirefoxBrowserFaviconUrl', 'fetchFirefoxBrowserCacheFavicon',
       'resolveShortcutFaviconData', 'fetchShortcutFaviconData'].map((name) => extractFunction(backgroundSource, name)).join('\n')}
     return { fetchShortcutFaviconData };
   `);
@@ -237,12 +237,12 @@ async function run() {
     const firefoxPage = 'https://example.com/';
     const fromTab = createAcquisition({ firefox: {
       tabs: [{ url: 'https://www.example.com/docs', favIconUrl: 'https://cdn.example.com/tab.png' }],
-      topSites: [{ url: 'https://example.com/', favicon: 'data:image/png;base64,AAAA' }],
+      topSites: [{ url: 'https://example.com/blog', favicon: 'data:image/png;base64,AAAA' }],
       images: { 'https://cdn.example.com/tab.png': png(32, 5) }
     } });
     const tabResult = await fromTab.fetchShortcutFaviconData(firefoxPage, '', '', false, 'cache');
     assert.deepStrictEqual(fromTab.state.calls.map((call) => call.url), ['https://cdn.example.com/tab.png'],
-      'an open tab of the same site supplies Firefox\'s cached icon first');
+      'among same-site icons, an open tab\'s current icon wins over top sites');
     assert.strictEqual(shortcutFavicon.getCachedIconSource(tabResult), 'cache');
     assert.ok(shortcutFavicon.isCachedIconForPage(tabResult, firefoxPage));
 

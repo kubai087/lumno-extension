@@ -103,6 +103,18 @@
     });
   }
 
+  // The extension's own URL scheme is the reliable signal for code that cares
+  // about Firefox's extension APIs rather than the browser's branding.
+  function isFirefoxExtensionRuntime(chromeApi) {
+    const api = chromeApi === undefined && typeof chrome !== 'undefined' ? chrome : chromeApi;
+    try {
+      return Boolean(api && api.runtime && typeof api.runtime.getURL === 'function' &&
+        /^moz-extension:/i.test(api.runtime.getURL('')));
+    } catch (e) {
+      return false;
+    }
+  }
+
   function getBrowserFamily(navigatorLike) {
     return getBrowserInternalProfile(navigatorLike).scheme === 'about:' ? 'firefox' : 'chromium';
   }
@@ -127,6 +139,7 @@
   }
 
   return Object.freeze({
+    isFirefoxExtensionRuntime,
     getBrowserFamily,
     applyDocumentBrowserFamily,
     getBrowserInternalScheme,

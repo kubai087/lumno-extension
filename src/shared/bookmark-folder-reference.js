@@ -7,17 +7,22 @@
   const BINDINGS_KEY = '_x_extension_shortcut_folder_bindings_2026_unique_';
   const ROOT_TYPES = new Set(['bookmarks-bar', 'other', 'mobile', 'managed']);
   // Chrome numbers its roots; Firefox uses fixed 12-character GUIDs. Mapping
-  // both onto one root type keeps references portable between the browsers.
-  // Firefox's bookmarks menu has no Chrome counterpart and maps to "other":
-  // references sync through WebDAV, and older clients reject a whole state
-  // that holds a root type they do not know.
+  // both onto one root type keeps bookmark data portable between the browsers.
   const TREE_ROOT_IDS = new Set(['0', 'root________']);
-  const ROOT_TYPES_BY_ID = {
+  const ROOT_TYPES_BY_ID = Object.freeze({
     '1': 'bookmarks-bar', '2': 'other', '3': 'mobile',
-    'toolbar_____': 'bookmarks-bar', 'unfiled_____': 'other', 'mobile______': 'mobile', 'menu________': 'other'
-  };
+    'toolbar_____': 'bookmarks-bar', 'unfiled_____': 'other', 'mobile______': 'mobile', 'menu________': 'menu'
+  });
   const isTreeRootId = (id) => TREE_ROOT_IDS.has(String(id));
-  const getRootType = (node) => node.folderType || ROOT_TYPES_BY_ID[node.id];
+  const getTreeRoot = (nodeMap) => nodeMap.get('0') || nodeMap.get('root________');
+  const getBookmarkRootType = (node) => (node && (node.folderType || ROOT_TYPES_BY_ID[String(node.id)])) || '';
+  // Firefox's bookmarks menu has no Chrome counterpart. References sync through
+  // WebDAV, and older clients reject a whole state that holds a root type they
+  // do not know, so it is stored as "other".
+  const getRootType = (node) => {
+    const type = getBookmarkRootType(node);
+    return type === 'menu' ? 'other' : type;
+  };
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
   function normalizeReference(value) {
     if (!value || value.version !== 1 || !ROOT_TYPES.has(value.root) ||
@@ -26,9 +31,8 @@
         !/^[a-f0-9]{16}$/.test(value.fingerprint || '')) return null;
     return { version: 1, root: value.root, scope: value.scope, path: value.path.slice(), fingerprint: value.fingerprint };
   }
-  function fingerprint(node) {
-    const text = JSON.stringify((node.children || []).map((child) =>
-      JSON.stringify([child.url ? 'url' : 'folder', String(child.title || ''), String(child.url || '')])).sort());
+  // Two 32-bit FNV-style lanes, hex encoded. Stored hashes depend on it.
+  function hashText(text) {
     let first = 2166136261;
     let second = 0x9e3779b9;
     for (let index = 0; index < text.length; index += 1) {
@@ -37,6 +41,10 @@
       second = Math.imul(second ^ code, 2246822519);
     }
     return [first, second].map((value) => (value >>> 0).toString(16).padStart(8, '0')).join('');
+  }
+  function fingerprint(node) {
+    return hashText(JSON.stringify((node.children || []).map((child) =>
+      JSON.stringify([child.url ? 'url' : 'folder', String(child.title || ''), String(child.url || '')])).sort()));
   }
   function buildNodeMap(nodes) {
     const map = new Map();
@@ -70,7 +78,7 @@
     const ref = normalizeReference(reference);
     // A local-only directory is usable through its originating device's binding.
     if (!ref || ref.scope === 'local') return null;
-    const rootNode = nodeMap.get('0') || nodeMap.get('root________');
+    const rootNode = getTreeRoot(nodeMap);
     const rootNodes = rootNode && Array.isArray(rootNode.children) ? rootNode.children : [...nodeMap.values()];
     const roots = rootNodes.filter((node) => isTreeRootId(node.parentId) &&
       getRootType(node) === ref.root &&
@@ -286,5 +294,5 @@
     return { start, refresh };
   }
   return Object.freeze({ BINDINGS_KEY, normalizeReference, describe, resolveReference,
-    buildNodeMap, createEntryId, createRuntime, createSyncController });
+    isTreeRootId, getTreeRoot, getBookmarkRootType, hashText, buildNodeMap, createEntryId, createRuntime, createSyncController });
 });

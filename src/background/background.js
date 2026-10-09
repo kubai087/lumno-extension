@@ -68,6 +68,7 @@ const SHORTCUT_FAVICON = globalThis.LumnoShortcutFavicon;
 const SHORTCUT_KEY_MATCHER = globalThis.LumnoShortcutKeyMatcher;
 const NEWTAB_FAVICON_THEME = globalThis.LumnoNewtabFaviconTheme;
 const BACKGROUND_NEWTAB_FALLBACK = globalThis.LumnoBackgroundNewtabFallback;
+const BROWSER_PROFILE = globalThis.LumnoBrowserProfile;
 const BACKGROUND_TAB_GROUPS = globalThis.LumnoBackgroundTabGroups;
 const SEARCH_RESULT_TABS = globalThis.LumnoSearchResultTabs;
 const isLocalFileLikeTargetUrl = BACKGROUND_NEWTAB_FALLBACK.isLocalFileLikeTargetUrl;
@@ -8187,50 +8188,18 @@ function fetchShortcutFaviconResource(candidate, pageUrl, signal) {
   });
 }
 
-function isFirefoxExtensionRuntime() {
-  return getOwnExtensionOrigin().startsWith('moz-extension:');
-}
-
-function isSameFaviconHost(url, host) {
-  try {
-    return new URL(url).hostname.toLowerCase().replace(/^www\./, '') === host;
-  } catch (error) {
-    return false;
-  }
-}
-
 // Firefox has no _favicon endpoint. Its own icon cache is reachable through
 // open tabs and top sites; the site's favicon.ico covers the rest.
 async function getFirefoxBrowserFaviconUrl(pageUrl) {
-  let host = '';
   let origin = '';
   try {
-    const parsed = new URL(pageUrl);
-    host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-    origin = parsed.origin;
+    origin = new URL(pageUrl).origin;
   } catch (error) {
     return '';
   }
-  const isUsableIconUrl = (url) => /^(?:data:image\/|https?:)/i.test(String(url || ''));
-  try {
-    const tabs = await chrome.tabs.query({});
-    const tab = (tabs || []).find((item) => item && isUsableIconUrl(item.favIconUrl) && isSameFaviconHost(item.url, host));
-    if (tab) {
-      return tab.favIconUrl;
-    }
-  } catch (error) {
-    // Fall through to top sites.
-  }
-  try {
-    const sites = await chrome.topSites.get({ includeFavicon: true, onePerDomain: true, limit: 100 });
-    const site = (sites || []).find((item) => item && isUsableIconUrl(item.favicon) && isSameFaviconHost(item.url, host));
-    if (site) {
-      return site.favicon;
-    }
-  } catch (error) {
-    // Fall through to the site's own icon.
-  }
-  return `${origin}/favicon.ico`;
+  const browserIcons = FAVICON_UTILS.createBrowserIconIndex();
+  await browserIcons.load(chrome);
+  return browserIcons.get(pageUrl) || `${origin}/favicon.ico`;
 }
 
 async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
@@ -8275,7 +8244,7 @@ async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
 async function resolveShortcutFaviconData(pageUrl, preferredTheme, signal, explicitIconUrl, refresh, iconSource) {
   const resolver = getBackgroundFaviconUrlResolver();
   const candidates = resolver ? resolver.getShortcutFaviconFetchCandidates(pageUrl, iconSource) : [];
-  const firefoxRuntime = isFirefoxExtensionRuntime();
+  const firefoxRuntime = BROWSER_PROFILE.isFirefoxExtensionRuntime();
   for (const candidate of candidates) {
     if (signal && signal.aborted) {
       break;

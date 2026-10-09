@@ -33,13 +33,8 @@
 
   // Firefox forbids content scripts on its add-ons site; Chromium does not.
   function isFirefoxRuntime() {
-    try {
-      const runtime = typeof chrome !== 'undefined' && chrome && chrome.runtime;
-      return Boolean(runtime && typeof runtime.getURL === 'function' &&
-        /^moz-extension:/i.test(runtime.getURL('')));
-    } catch (e) {
-      return false;
-    }
+    const profile = globalThis.LumnoBrowserProfile;
+    return Boolean(profile && profile.isFirefoxExtensionRuntime());
   }
 
   function isExtensionStoreUrl(url) {
