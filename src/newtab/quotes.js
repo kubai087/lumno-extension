@@ -400,7 +400,13 @@
           }
         });
       }
+      // The body ships hidden and is bound on the panel's first open, so its first sync would
+      // otherwise play the collapsible entry animation. Flush that state with transitions off.
+      const body = refs.quoteBody;
+      body.style.transition = 'none';
       updateSettings();
+      body.getBoundingClientRect();
+      body.style.transition = '';
     }
     function mount() {
       mounted = true;
