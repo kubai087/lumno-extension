@@ -64,6 +64,16 @@ Object.entries(FIREFOX_COMMAND_KEYS).forEach(([name, suggestedKey]) => {
   ffManifest.commands[name].suggested_key = suggestedKey;
 });
 
+// Auto picture-in-picture needs requestPictureInPicture on web pages, which
+// Firefox does not offer; its per-site content scripts would only add work.
+const AUTO_PIP_SCRIPTS = ['src/content/site-auto-pip.js', 'src/content/youtube-auto-pip.js'];
+const contentScriptCount = ffManifest.content_scripts.length;
+ffManifest.content_scripts = ffManifest.content_scripts.filter((entry) =>
+  !entry.js.some((script) => AUTO_PIP_SCRIPTS.includes(script)));
+if (contentScriptCount - ffManifest.content_scripts.length !== AUTO_PIP_SCRIPTS.length) {
+  throw new Error('Expected one content_scripts entry per auto picture-in-picture script.');
+}
+
 // Chrome-only: the _favicon service and its permission.
 ffManifest.permissions = ffManifest.permissions.filter((permission) => permission !== 'favicon');
 // Lets the New Tab focus swap drop the replaced tab from recently closed.
@@ -73,4 +83,25 @@ ffManifest.web_accessible_resources.forEach((entry) => {
 });
 
 fs.writeFileSync(outPath('manifest.json'), `${JSON.stringify(ffManifest, null, 3)}\n`);
-console.log(`Firefox build ready: ${path.relative(repoRoot, outDir)} (${backgroundDeps.length} background deps)`);
+
+// Browser-specific copy lives in the locale files as "<key>__firefox"
+// variants. They replace their base message here, so every reader
+// (chrome.i18n, fetched messages.json, __MSG_ manifest strings) gets the
+// Firefox wording with no runtime branching. Chromium packages ignore them.
+const FIREFOX_VARIANT_SUFFIX = '__firefox';
+let variantCount = 0;
+fs.readdirSync(outPath('_locales')).forEach((locale) => {
+  const file = outPath(`_locales/${locale}/messages.json`);
+  const messages = JSON.parse(fs.readFileSync(file, 'utf8'));
+  Object.keys(messages).filter((key) => key.endsWith(FIREFOX_VARIANT_SUFFIX)).forEach((variantKey) => {
+    const baseKey = variantKey.slice(0, -FIREFOX_VARIANT_SUFFIX.length);
+    if (!messages[baseKey]) {
+      throw new Error(`${locale}: ${variantKey} has no base message ${baseKey}.`);
+    }
+    messages[baseKey] = messages[variantKey];
+    delete messages[variantKey];
+    variantCount += 1;
+  });
+  fs.writeFileSync(file, `${JSON.stringify(messages, null, 2)}\n`);
+});
+console.log(`Firefox build ready: ${path.relative(repoRoot, outDir)} (${backgroundDeps.length} background deps, ${variantCount} Firefox messages)`);

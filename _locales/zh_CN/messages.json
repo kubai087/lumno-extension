@@ -470,8 +470,14 @@
   "settings_shortcuts_browser_desc_path_extensions": {
     "message": "「扩展程序」"
   },
+  "settings_shortcuts_browser_desc_path_extensions__firefox": {
+    "message": "「附加组件和主题」"
+  },
   "settings_shortcuts_browser_desc_path_shortcuts": {
     "message": "「键盘快捷键」"
+  },
+  "settings_shortcuts_browser_desc_path_shortcuts__firefox": {
+    "message": "「管理扩展快捷键」"
   },
   "settings_shortcuts_browser_desc_suffix": {
     "message": "修改快捷键"
@@ -503,6 +509,9 @@
   "settings_shortcuts_browser_tooltip": {
     "message": "在 Chromium 浏览器中，唤起浮层快捷键需要前往扩展快捷键页面设置或修改。"
   },
+  "settings_shortcuts_browser_tooltip__firefox": {
+    "message": "在 Firefox 中，唤起浮层的快捷键需要在附加组件管理器的「管理扩展快捷键」中设置或修改。"
+  },
   "settings_shortcuts_save": {
     "message": "保存快捷键"
   },
@@ -523,6 +532,9 @@
   },
   "settings_restricted_tooltip": {
     "message": "受限页（如 chrome://、扩展商店、部分 file:// 页面）无法开启聚焦搜索；按下快捷键将按此处规则处理。"
+  },
+  "settings_restricted_tooltip__firefox": {
+    "message": "受限页（如 about: 页面、Firefox 附加组件网站、部分 file:// 页面）无法开启聚焦搜索；按下快捷键将按此处规则处理。"
   },
   "restricted_action_default": {
     "message": "前往 Lumno 新标签页"
@@ -2252,6 +2264,9 @@
   "newtab_shortcuts_url_info": {
     "message": "也支持浏览器内置页面，例如：\nchrome://inspect/#devices"
   },
+  "newtab_shortcuts_url_info__firefox": {
+    "message": "Firefox 不允许扩展打开浏览器内置页面（如 about:config），请填写网页地址。"
+  },
   "newtab_shortcuts_url_placeholder": {
     "message": "https://example.com"
   },
@@ -2590,6 +2605,9 @@
   },
   "webdav_error_chrome_capacity": {
     "message": "配置超过 Chrome 同步容量，WebDAV 未应用该版本。原有 Chrome 同步和本机数据保留，请减少配置内容后重试。"
+  },
+  "webdav_error_chrome_capacity__firefox": {
+    "message": "配置超过 Firefox 同步容量，WebDAV 未应用该版本。原有 Firefox 同步和本机数据保留，请减少配置内容后重试。"
   },
   "webdav_error_network": {
     "message": "连接失败或超时，请检查网络、服务器地址和证书。本机数据已保留。"

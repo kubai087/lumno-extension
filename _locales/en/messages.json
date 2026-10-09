@@ -3,7 +3,7 @@
     "message": "Lumno ｜ Command Bar & New Tab"
   },
   "ext_description": {
-    "message": "A lightweight browser command bar and new-tab search for Chromium browsers."
+    "message": "A lightweight browser command bar and new-tab search."
   },
   "settings_tab_general": {
     "message": "General"
@@ -470,8 +470,14 @@
   "settings_shortcuts_browser_desc_path_extensions": {
     "message": "Extensions"
   },
+  "settings_shortcuts_browser_desc_path_extensions__firefox": {
+    "message": "Add-ons and themes"
+  },
   "settings_shortcuts_browser_desc_path_shortcuts": {
     "message": "Keyboard shortcuts"
+  },
+  "settings_shortcuts_browser_desc_path_shortcuts__firefox": {
+    "message": "Manage Extension Shortcuts"
   },
   "settings_shortcuts_browser_desc_suffix": {
     "message": " to change shortcuts"
@@ -503,6 +509,9 @@
   "settings_shortcuts_browser_tooltip": {
     "message": "In Chromium browsers, you must open the extension shortcuts page to set or change the command bar shortcut."
   },
+  "settings_shortcuts_browser_tooltip__firefox": {
+    "message": "In Firefox, set or change the command bar shortcut under Manage Extension Shortcuts in the Add-ons Manager."
+  },
   "settings_shortcuts_save": {
     "message": "Save shortcut"
   },
@@ -523,6 +532,9 @@
   },
   "settings_restricted_tooltip": {
     "message": "Restricted pages (for example, chrome://) cannot open the command bar. Pressing the shortcut follows the rule set here."
+  },
+  "settings_restricted_tooltip__firefox": {
+    "message": "Restricted pages (for example, about: pages and the Firefox Add-ons site) cannot open the command bar. Pressing the shortcut follows the rule set here."
   },
   "restricted_action_default": {
     "message": "Go to Lumno new tab"
@@ -2252,6 +2264,9 @@
   "newtab_shortcuts_url_info": {
     "message": "Browser internal pages are also supported, for example:\nchrome://inspect/#devices"
   },
+  "newtab_shortcuts_url_info__firefox": {
+    "message": "Firefox doesn't let extensions open built-in pages such as about:config, so use a web address."
+  },
   "newtab_shortcuts_url_placeholder": {
     "message": "https://example.com"
   },
@@ -2590,6 +2605,9 @@
   },
   "webdav_error_chrome_capacity": {
     "message": "These settings exceed Chrome sync capacity and were not applied. Existing Chrome sync and local data are preserved. Reduce the settings and try again."
+  },
+  "webdav_error_chrome_capacity__firefox": {
+    "message": "These settings exceed Firefox Sync capacity and were not applied. Existing Firefox Sync and local data are preserved. Reduce the settings and try again."
   },
   "webdav_error_network": {
     "message": "Connection failed or timed out. Check the network, server address and certificate. Local data is retained."
