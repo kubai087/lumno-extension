@@ -5,13 +5,16 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(root) {
   'use strict';
   const BINDINGS_KEY = '_x_extension_shortcut_folder_bindings_2026_unique_';
-  const ROOT_TYPES = new Set(['bookmarks-bar', 'other', 'mobile', 'managed', 'menu']);
+  const ROOT_TYPES = new Set(['bookmarks-bar', 'other', 'mobile', 'managed']);
   // Chrome numbers its roots; Firefox uses fixed 12-character GUIDs. Mapping
   // both onto one root type keeps references portable between the browsers.
+  // Firefox's bookmarks menu has no Chrome counterpart and maps to "other":
+  // references sync through WebDAV, and older clients reject a whole state
+  // that holds a root type they do not know.
   const TREE_ROOT_IDS = new Set(['0', 'root________']);
   const ROOT_TYPES_BY_ID = {
     '1': 'bookmarks-bar', '2': 'other', '3': 'mobile',
-    'toolbar_____': 'bookmarks-bar', 'unfiled_____': 'other', 'mobile______': 'mobile', 'menu________': 'menu'
+    'toolbar_____': 'bookmarks-bar', 'unfiled_____': 'other', 'mobile______': 'mobile', 'menu________': 'other'
   };
   const isTreeRootId = (id) => TREE_ROOT_IDS.has(String(id));
   const getRootType = (node) => node.folderType || ROOT_TYPES_BY_ID[node.id];

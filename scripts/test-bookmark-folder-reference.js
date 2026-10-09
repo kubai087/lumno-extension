@@ -68,6 +68,11 @@ async function run() {
     'a folder referenced in Chrome resolves in Firefox, whose roots use GUIDs');
   assert.strictEqual(refs.describe('ffFolder0001', firefoxMap).root, 'bookmarks-bar');
   assert.strictEqual(refs.describe('root________', firefoxMap), null, 'the Firefox tree root is not a folder target');
+  const menuNodes = [{ id: 'root________', children: [{ id: 'menu________', parentId: 'root________',
+    title: 'Bookmarks Menu', children: [{ id: 'ffMenuFold01', parentId: 'menu________', title: 'Reading', children: [] }] }] }];
+  const menuRef = refs.describe('ffMenuFold01', refs.buildNodeMap(menuNodes));
+  assert.strictEqual(menuRef.root, 'other',
+    'Firefox menu folders use a root type that existing clients accept, since references sync through WebDAV');
   assert(!Object.hasOwn(item, 'folderId'), 'portable records contain no numeric bookmark ID');
   const generated = shortcuts.createShortcutRecord({ type: 'folder', folderRef: item.folderRef });
   assert(generated.id && generated.id.startsWith('shortcut-folder-'));
