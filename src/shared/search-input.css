@@ -844,6 +844,11 @@
 
 .x-lumno-search-input-mode__menu-check {
   all: unset !important;
+  /* all: unset also drops the icon font remixicon.css gives ri-* classes. */
+  font-family: 'remixicon' !important;
+  font-style: normal !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
   display: inline-flex !important;
   position: absolute !important;
   top: 6px !important;
