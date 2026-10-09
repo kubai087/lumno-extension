@@ -1681,8 +1681,57 @@
     });
   }
 
+  // Firefox has no _favicon endpoint, and blocks page-icon:/cached-favicon:
+  // for extensions. Its cached icons reach extension pages only through open
+  // tabs (favIconUrl) and topSites({ includeFavicon }); this indexes them.
+  // An exact page wins; otherwise the latest icon seen for the same host.
+  function createBrowserIconIndex() {
+    const byPage = new Map();
+    const byHost = new Map();
+    const getPageKey = (url) => {
+      try {
+        const parsed = new URL(String(url || ''));
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return '';
+        }
+        parsed.hash = '';
+        return parsed.href;
+      } catch (e) {
+        return '';
+      }
+    };
+    const getHostKey = (pageKey) => {
+      try {
+        return new URL(pageKey).hostname.toLowerCase().replace(/^www\./, '');
+      } catch (e) {
+        return '';
+      }
+    };
+    const isUsableIconUrl = (iconUrl) => /^(?:data:image\/|https:)/i.test(String(iconUrl || ''));
+    function add(pageUrl, iconUrl) {
+      const pageKey = getPageKey(pageUrl);
+      if (!pageKey || !isUsableIconUrl(iconUrl)) {
+        return;
+      }
+      byPage.set(pageKey, String(iconUrl));
+      const hostKey = getHostKey(pageKey);
+      if (hostKey) {
+        byHost.set(hostKey, String(iconUrl));
+      }
+    }
+    function get(pageUrl) {
+      const pageKey = getPageKey(pageUrl);
+      if (!pageKey) {
+        return '';
+      }
+      return byPage.get(pageKey) || byHost.get(getHostKey(pageKey)) || '';
+    }
+    return Object.freeze({ add, get });
+  }
+
   return Object.freeze({
     setBoundedCacheEntry,
+    createBrowserIconIndex,
     createFaviconDecisionLogger,
     createFaviconUrlResolver,
     getBrowserPageFaviconUrl,

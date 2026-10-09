@@ -15,7 +15,8 @@
       SEARCH_BLACKLIST_STORAGE_KEY,
       FAVICON_REQUEST_BLACKLIST_STORAGE_KEY,
       FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY,
-      SEARCH_UTILS
+      SEARCH_UTILS,
+      getBrowserIconUrl
     } = deps;
 
     // Page state still owned by newtab.js; read and written through accessors.
@@ -129,7 +130,9 @@
 
     function getExtensionFaviconUrl(pageUrl) {
       const resolver = getPageFaviconUrlResolver();
-      return resolver ? resolver.getExtensionFaviconUrl(pageUrl) : '';
+      const extensionUrl = resolver ? resolver.getExtensionFaviconUrl(pageUrl) : '';
+      // Without _favicon (Firefox), the browser's own icons stand in for it.
+      return extensionUrl || (typeof getBrowserIconUrl === 'function' ? getBrowserIconUrl(pageUrl) : '');
     }
 
     function getGstaticFaviconUrl(pageUrl) {
