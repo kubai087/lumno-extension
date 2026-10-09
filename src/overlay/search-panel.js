@@ -1901,6 +1901,15 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         '--x-ext-input-right-icon-inset': '13px',
         cursor: 'pointer'
       },
+      clearAction: {
+        id: '_x_extension_search_clear_2026_unique_',
+        ariaLabel: t('search_input_clear', '清空'),
+        html: getRiSvg('ri-close-line', 'ri-size-16'),
+        styleOverrides: {
+          '--x-ext-input-clear-right': '85px',
+          '--x-ext-input-clear-top': '13px'
+        }
+      },
       secondaryAction: {
         id: '_x_extension_search_close_other_tabs_2026_unique_',
         className: 'x-ov-close-other-tabs',
@@ -2205,6 +2214,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       );
     }
     const closeOtherTabsButton = inputParts.secondaryAction;
+    const searchClearButton = inputParts.clearAction;
     const resetCloseOtherTabsButtonVisualState = () => {
       closeOtherTabsButton.removeAttribute('data-hover-active');
     };
@@ -2502,6 +2512,9 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       }
       if (closeOtherTabsButton) {
         closeOtherTabsButton.setAttribute('aria-label', closeOtherTooltipText);
+      }
+      if (searchClearButton) {
+        searchClearButton.setAttribute('aria-label', t('search_input_clear', '清空'));
       }
       if (modeBadge) {
         updateModeBadge(searchInput ? searchInput.value : '');
@@ -2838,6 +2851,15 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         }
         if (captureTabHandler) {
           document.removeEventListener('keydown', captureTabHandler, true);
+        }
+      });
+    }
+    if (searchClearButton) {
+      bindInputActionCursorTooltip(searchClearButton, () => t('search_input_clear', '清空'));
+      searchClearButton.addEventListener('click', hideInputActionCursorTooltip);
+      inputParts.input.addEventListener('input', () => {
+        if (inputModeController) {
+          inputModeController.updateLayout();
         }
       });
     }
@@ -4612,6 +4634,8 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       modeBadgeElement: modeBadge,
       rightReserveBase: 92,
       rightAnchorOffset: 86,
+      // The clear button adds a 30px slot plus a 6px gap left of the close-other-tabs button.
+      getExtraRightInset: () => (inputParts.syncClearAction() ? 36 : 0),
       baseInputPaddingLeft: 50,
       setInputStyle: setInputScopedStyle,
       applyNoTranslate,

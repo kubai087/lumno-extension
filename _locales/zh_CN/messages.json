@@ -1643,6 +1643,9 @@
   "command_newtab": {
     "message": "新建标签页"
   },
+  "search_input_clear": {
+    "message": "清空"
+  },
   "command_settings": {
     "message": "打开设置"
   },

@@ -4,6 +4,12 @@ import { createRoot, type Root } from 'react-dom/client';
 type StyleOverrides = Record<string, string>;
 
 export interface SearchInputConfig {
+  clearAction?: {
+    ariaLabel?: string;
+    html?: string;
+    id: string;
+    styleOverrides?: StyleOverrides;
+  };
   containerId?: string;
   containerStyleOverrides?: StyleOverrides;
   dividerId?: string;
@@ -43,6 +49,7 @@ export interface SearchInputConfig {
 }
 
 export interface SearchInputParts {
+  clearAction: HTMLButtonElement | null;
   container: HTMLDivElement;
   divider: HTMLDivElement;
   icon: HTMLDivElement;
@@ -61,9 +68,12 @@ export interface SearchInputParts {
   modeTabHintText: HTMLSpanElement;
   rightIcon: HTMLButtonElement;
   secondaryAction: HTMLButtonElement | null;
+  syncClearAction(): boolean;
 }
 
 const CLASSES = Object.freeze({
+  clearAction:
+    'x-lumno-search-input__clear _x_extension_input_clear_class_2026_ notranslate',
   container:
     'x-lumno-search-input x-lumno-search-input__container _x_extension_input_container_class_2026_ notranslate',
   divider:
@@ -77,7 +87,10 @@ const CLASSES = Object.freeze({
 });
 const roots = new WeakMap<HTMLElement, Root>();
 
-const BASE_STYLES: Record<keyof typeof CLASSES, StyleOverrides> = {
+const BASE_STYLES: Record<
+  Exclude<keyof typeof CLASSES, 'clearAction'>,
+  StyleOverrides
+> = {
   container: {
     all: 'unset',
     background: 'transparent',
@@ -308,6 +321,21 @@ function SearchInput({ config }: { config: SearchInputConfig }) {
           type="button"
         />
       )}
+      {config.clearAction ? (
+        <button
+          {...noTranslateProps()}
+          aria-label={config.clearAction.ariaLabel || 'Clear'}
+          className={CLASSES.clearAction}
+          dangerouslySetInnerHTML={{
+            __html:
+              config.clearAction.html ||
+              '<i class="ri-icon ri-size-16 ri-close-line" aria-hidden="true"></i>'
+          }}
+          hidden
+          id={config.clearAction.id}
+          type="button"
+        />
+      ) : null}
       {config.secondaryAction ? (
         <button
           {...noTranslateProps()}
@@ -462,6 +490,9 @@ export function createSearchInput(
         `#${config.secondaryAction.id}`
       )
     : null;
+  const clearAction = config.clearAction
+    ? container.querySelector<HTMLButtonElement>(`#${config.clearAction.id}`)
+    : null;
   const modePrefix = container.querySelector<HTMLButtonElement>(
     '[data-search-input-mode-prefix]'
   );
@@ -511,7 +542,22 @@ export function createSearchInput(
     root.unmount();
     throw new Error('Search mode mount');
   }
+  // Shown only while the field has text; programmatic value changes are picked up by the caller.
+  const syncClearAction = () => {
+    if (!clearAction) {
+      return false;
+    }
+    const visible = input.value !== '';
+    if (clearAction.hidden === visible) {
+      clearAction.hidden = !visible;
+      if (!visible) {
+        clearAction.removeAttribute('data-hover-active');
+      }
+    }
+    return visible;
+  };
   const parts = {
+    clearAction,
     container,
     divider,
     icon,
@@ -529,7 +575,8 @@ export function createSearchInput(
     modeTabHintKey,
     modeTabHintText,
     rightIcon,
-    secondaryAction
+    secondaryAction,
+    syncClearAction
   };
   (
     [
@@ -629,6 +676,33 @@ export function createSearchInput(
     setRightIconVisualState(false);
     rightIcon.blur();
   });
+  if (clearAction) {
+    if (config.clearAction?.styleOverrides) {
+      applyStyles(clearAction, config.clearAction.styleOverrides, important);
+    }
+    const resetClearVisualState = () => {
+      clearAction.removeAttribute('data-hover-active');
+    };
+    clearAction.addEventListener('mouseenter', () => {
+      clearAction.setAttribute('data-hover-active', 'true');
+    });
+    ['mouseleave', 'blur', 'pointerup', 'pointercancel'].forEach((type) => {
+      clearAction.addEventListener(type, resetClearVisualState);
+    });
+    // Keep focus (and the caret) in the field while clearing.
+    clearAction.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+    });
+    clearAction.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus({ preventScroll: true });
+    });
+    input.addEventListener('input', syncClearAction);
+    syncClearAction();
+  }
   return parts;
 }
 

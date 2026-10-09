@@ -138,8 +138,9 @@ const assertWithinBudget = (actualBytes, budgetKiB, label) => {
 // Options was rebased at 0.9.56 (277 KiB / 81.4 KiB gzip) after the settings
 // growth since 0.9.44 and the WebDAV connection cards; the total rises by the
 // same amount so it stays consistent with the per-page ceilings.
+// New Tab moved to 386 KiB at 0.9.61 for the shared search input clear button.
 const bundleBudgets = {
-  newtab: { uncompressed: 384, gzip: 115 },
+  newtab: { uncompressed: 386, gzip: 115 },
   options: { uncompressed: 290, gzip: 85 },
   overlay: { uncompressed: 271, gzip: 82 },
   total: { uncompressed: 772, gzip: 225 }

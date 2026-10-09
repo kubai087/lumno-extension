@@ -166,4 +166,35 @@ describe('Shared search input React island', () => {
     expect(parts.modeBadge?.dataset.surface).toBe('overlay');
     expect(parts.modeBadge?.hidden).toBe(false);
   });
+  it('shows the clear action only while the field has text and clears on click', () => {
+    const onInput = vi.fn();
+    const parts = create({
+      clearAction: { ariaLabel: 'Clear', id: 'clear' },
+      onInput
+    });
+    const clear = parts.clearAction;
+    expect(clear?.id).toBe('clear');
+    expect(clear?.getAttribute('aria-label')).toBe('Clear');
+    expect(clear?.hidden).toBe(true);
+
+    parts.input.value = 'lumno';
+    parts.input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(clear?.hidden).toBe(false);
+
+    clear?.click();
+    expect(parts.input.value).toBe('');
+    expect(clear?.hidden).toBe(true);
+    expect(document.activeElement).toBe(parts.input);
+    expect(onInput).toHaveBeenCalledTimes(2);
+
+    parts.input.value = 'set programmatically';
+    expect(parts.syncClearAction()).toBe(true);
+    expect(clear?.hidden).toBe(false);
+  });
+
+  it('omits the clear action unless configured', () => {
+    const parts = create();
+    expect(parts.clearAction).toBeNull();
+    expect(parts.syncClearAction()).toBe(false);
+  });
 });

@@ -696,12 +696,71 @@ async function run() {
       raceServer.replaceState(empty({ [theme]: 'light', [language]: 'ja' }));
     }
   };
-  await assert.rejects(raceDevice.controller.handle({ operation: 'sync' }), /remote-changed/);
+  assert.deepStrictEqual(await raceDevice.controller.handle({ operation: 'sync' }), { pending: true },
+    'a concurrent commit waits and merges again instead of failing');
   assert.strictEqual(raceDevice.chrome.storage.sync.values[theme], 'dark');
   assert.strictEqual(raceServer.state().data[theme], 'light', 'conditional writes cannot clobber a concurrent device');
+  const raceStatus = await raceDevice.controller.handle({ operation: 'status' });
+  assert.strictEqual(raceStatus.state, 'pending');
+  assert.strictEqual(raceStatus.error, null, 'contention is not shown as a failure');
   raceServer.beforeRequest = null;
   await raceDevice.controller.handle({ operation: 'sync' });
   assert.strictEqual(raceDevice.chrome.storage.sync.values[language], 'ja');
+  assert.strictEqual(raceServer.state().data[theme], 'dark', 'the retried sync merges both devices');
+
+  // Another browser holding the write lock is retried on a timer; only a lock
+  // that outlasts every retry reaches the card as a failure.
+  const lockedServer = createServer();
+  const quickRetry = (input) => syncApi.createConnectionController({ ...input, contentionDelays: [5, 5] });
+  const lockedDevice = createDevice(lockedServer, { sync: { [theme]: 'light' } }, [], quickRetry);
+  await lockedDevice.controller.handle({ operation: 'connect', config });
+  const sharedLock = '/dav/lumno/v1/write-lock/';
+  lockedServer.directories.add(sharedLock);
+  await set(lockedDevice.chrome.storage.sync, { [theme]: 'dark' });
+  assert.deepStrictEqual(await lockedDevice.controller.handle({ operation: 'sync' }), { pending: true });
+  lockedServer.directories.delete(sharedLock);
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  await lockedDevice.controller.handle({ operation: 'status' });
+  assert.strictEqual(lockedServer.state().data[theme], 'dark', 'the queued retry writes once the other browser releases the lock');
+  assert.strictEqual((await lockedDevice.controller.handle({ operation: 'status' })).state, 'ready');
+  lockedServer.directories.add(sharedLock);
+  await set(lockedDevice.chrome.storage.sync, { [theme]: 'light' });
+  await new Promise((resolve) => setTimeout(resolve, 1600));
+  for (let wait = 0; wait < 50 && (await lockedDevice.controller.handle({ operation: 'status' })).state === 'pending'; wait += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  const stuck = await lockedDevice.controller.handle({ operation: 'status' });
+  assert.strictEqual(stuck.state, 'error');
+  assert.strictEqual(stuck.error, 'remote-locked', 'a lock that never clears is still reported');
+  assert.strictEqual(lockedServer.state().data[theme], 'dark');
+  await lockedDevice.controller.handle({ operation: 'pause' });
+  {
+    // The wait before a contention retry also keeps the background alive, or
+    // Firefox would unload the page and drop the queued retry.
+    const waitServer = createServer();
+    let waitTicks = 0;
+    const waiting = createDevice(waitServer, { sync: { [theme]: 'light' } }, [], (input) => {
+      input.chrome.runtime.getPlatformInfo = () => { waitTicks += 1; return Promise.resolve({}); };
+      return syncApi.createConnectionController({ ...input, contentionDelays: [120], keepAliveIntervalMs: 5 });
+    });
+    await waiting.controller.handle({ operation: 'connect', config });
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    waitServer.directories.add(sharedLock);
+    await set(waiting.chrome.storage.sync, { [theme]: 'dark' });
+    assert.deepStrictEqual(await waiting.controller.handle({ operation: 'sync' }), { pending: true });
+    const queuedAt = waitTicks;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert(waitTicks > queuedAt, 'a queued contention retry keeps the background alive while it waits');
+    waitServer.directories.delete(sharedLock);
+    for (let wait = 0; wait < 50 && (await waiting.controller.handle({ operation: 'status' })).state !== 'ready'; wait += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.strictEqual(waitServer.state().data[theme], 'dark');
+    const doneAt = waitTicks;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.strictEqual(waitTicks, doneAt, 'the keep-alive stops once the retry has run');
+    await waiting.controller.handle({ operation: 'pause' });
+  }
 
   const interruptedServer = createServer();
   const interrupted = createDevice(interruptedServer, { sync: { [theme]: 'light' } });

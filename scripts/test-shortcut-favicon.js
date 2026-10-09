@@ -199,6 +199,25 @@ function testStableShortcutArtwork() {
   assert.strictEqual(shortcutFavicon.getBundledShortcutIconAssetPath(
     'https://xiaohongshu.com.example.com/', providers
   ), '', 'unrelated hosts must not receive a bundled brand icon');
+  [
+    ['https://www.bilibili.com/', 'glyph-bb.svg'],
+    ['https://space.bilibili.com/123', 'glyph-bb.svg'],
+    ['https://www.taobao.com/', 'glyph-tb.png'],
+    ['https://weibo.com/u/1', 'glyph-wb.png'],
+    ['https://www.jd.com/', 'glyph-jd.png'],
+    ['https://twitter.com/home', 'glyph-tw.svg'],
+    ['https://cn.bing.com/', 'glyph-bi.svg'],
+    ['https://www.google.com/', 'glyph-gg.svg'],
+    ['https://www.google.com/maps/@31.2,121.4,12z', 'glyph-maps.png'],
+    ['https://maps.google.com/', 'glyph-maps.png'],
+    ['https://www.google.com/mapsearch', 'glyph-gg.svg']
+  ].forEach(([pageUrl, glyph]) => {
+    assert.strictEqual(shortcutFavicon.getBundledShortcutIconAssetPath(pageUrl, providers),
+      `assets/images/site-search/${glyph}`, `${pageUrl} should use its brand's bundled artwork`);
+  });
+  assert.strictEqual(shortcutFavicon.getBundledShortcutIconAssetPath(
+    'https://bilibili.com.example.com/', providers
+  ), '', 'site aliases must match exact hosts only');
   const now = Date.now();
   const fiveYearsAgo = now - (1000 * 60 * 60 * 24 * 365 * 5);
   const dataUrl = 'data:image/png;base64,c25hcHNob3Q=';
