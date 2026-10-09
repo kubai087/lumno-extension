@@ -143,6 +143,8 @@ assert.deepStrictEqual(
     browsers: [
       { id: 'chrome', name: 'Chrome', src: '../../assets/images/browser-logos/google-chrome-2022.svg' },
       { id: 'edge', name: 'Edge', src: '../../assets/images/browser-logos/microsoft-edge-2019.svg' },
+      { id: 'firefox', name: 'Firefox', src: '../../assets/images/browser-logos/firefox.svg' },
+      { id: 'zen', name: 'Zen', src: '../../assets/images/browser-logos/zen.svg' },
       { id: 'dia', name: 'Dia', src: '../../assets/images/browser-logos/dia.jpg' },
       { id: 'comet', name: 'Comet', src: '../../assets/images/browser-logos/comet.jpg' }
     ]
