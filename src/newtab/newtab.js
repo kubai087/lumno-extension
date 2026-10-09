@@ -6674,6 +6674,17 @@
       '--x-ext-input-icon-hover': 'var(--x-nt-settings-action-hover-color, #4B5563)',
       cursor: 'pointer'
     },
+    clearAction: {
+      id: '_x_extension_newtab_search_clear_2026_unique_',
+      ariaLabel: t('search_input_clear', '清空'),
+      html: getRiSvg('ri-close-line', 'ri-size-16'),
+      styleOverrides: {
+        '--x-ext-input-clear-right': '43px',
+        '--x-ext-input-clear-top': '7px',
+        '--x-ext-input-icon-hover-bg': 'var(--x-nt-settings-action-hover-bg, rgba(148, 163, 184, 0.16))',
+        '--x-ext-input-icon-hover': 'var(--x-nt-settings-action-hover-color, #4B5563)'
+      }
+    },
     onInput: function(event) {
       searchSuggestionsDismissed = false;
       if (!isApplyingSearchInputHistory) {
@@ -7265,6 +7276,17 @@
     }
   }
 
+  const searchClearButton = inputParts.clearAction;
+  // Width the clear button adds to the right-side actions: 30px button + 6px gap.
+  const SEARCH_CLEAR_BUTTON_INSET = 36;
+  if (searchClearButton) {
+    const searchClearTooltipText = () => t('search_input_clear', '清空');
+    searchClearButton.setAttribute('data-tooltip', searchClearTooltipText());
+    bindSearchInputCursorTooltip(searchClearButton, searchClearTooltipText);
+    searchClearButton.addEventListener('click', hideSearchInputCursorTooltip);
+    searchInput.addEventListener('input', updateInputRightPadding);
+  }
+
   function dismissWebdavFeatureHint() {
     if (webdavFeatureHintController && typeof webdavFeatureHintController.dismiss === 'function') {
       webdavFeatureHintController.dismiss();
@@ -7390,6 +7412,7 @@
     modeBadgeElement: modeBadge,
     rightReserveBase: 64,
     rightAnchorOffset: 52,
+    getExtraRightInset: () => (inputParts.syncClearAction() ? SEARCH_CLEAR_BUTTON_INSET : 0),
     baseInputPaddingLeft: 44,
     getThemeForMode,
     defaultTheme,

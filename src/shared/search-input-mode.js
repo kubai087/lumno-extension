@@ -337,6 +337,13 @@
     const rightAnchorOffset = Number.isFinite(Number(config.rightAnchorOffset))
       ? Number(config.rightAnchorOffset)
       : (surface === 'overlay' ? 86 : 52);
+    // Extra width taken by optional right-side actions (e.g. a clear button) shown beside the base icon.
+    const getExtraRightInset = typeof config.getExtraRightInset === 'function'
+      ? () => {
+        const extra = Number(config.getExtraRightInset());
+        return Number.isFinite(extra) && extra > 0 ? extra : 0;
+      }
+      : null;
     const configuredBaseInputPaddingLeft = Number.isFinite(Number(config.baseInputPaddingLeft))
       ? Number(config.baseInputPaddingLeft)
       : null;
@@ -1075,15 +1082,23 @@
       if (!input) {
         return;
       }
-      let totalReserve = rightReserveBase;
+      const extraInset = getExtraRightInset ? getExtraRightInset() : 0;
+      const anchorOffset = rightAnchorOffset + extraInset;
+      let totalReserve = rightReserveBase + extraInset;
       const badgeElement = getModeBadgeElement();
+      if (getExtraRightInset) {
+        setStyle(siteSearchTabHint, 'right', `${anchorOffset}px`, useImportantStyles);
+        if (badgeElement) {
+          setStyle(badgeElement, 'right', `${anchorOffset}px`, useImportantStyles);
+        }
+      }
       if (isElementVisible(badgeElement)) {
         const badgeWidth = Math.ceil(badgeElement.getBoundingClientRect().width || 0);
-        totalReserve = Math.max(totalReserve, rightAnchorOffset + badgeWidth + 12);
+        totalReserve = Math.max(totalReserve, anchorOffset + badgeWidth + 12);
       }
       if (isElementVisible(siteSearchTabHint)) {
         const hintWidth = Math.ceil(siteSearchTabHint.getBoundingClientRect().width || 0);
-        totalReserve = Math.max(totalReserve, rightAnchorOffset + hintWidth + 12);
+        totalReserve = Math.max(totalReserve, anchorOffset + hintWidth + 12);
       }
       setInputStyle(input, 'padding-right', `${totalReserve}px`);
     }

@@ -1643,6 +1643,9 @@
   "command_newtab": {
     "message": "New Tab"
   },
+  "search_input_clear": {
+    "message": "Clear"
+  },
   "command_settings": {
     "message": "Open settings"
   },

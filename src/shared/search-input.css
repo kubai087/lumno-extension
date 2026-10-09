@@ -228,6 +228,47 @@
   cursor: inherit;
 }
 
+.x-lumno-search-input__clear {
+  all: unset;
+  position: absolute;
+  right: var(--x-ext-input-clear-right, 49px);
+  top: var(--x-ext-input-clear-top, 13px);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--x-ext-input-right-icon-radius, 10px);
+  z-index: 2;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--x-ext-input-icon, #9ca3af);
+  cursor: pointer;
+  transition: background-color var(--lumno-duration-xs, 140ms) ease, color var(--lumno-duration-xs, 140ms) ease;
+}
+
+.x-lumno-search-input__clear[hidden] {
+  display: none !important;
+}
+
+.x-lumno-search-input__clear[data-hover-active="true"] {
+  background: var(--x-ext-input-icon-hover-bg, rgba(148, 163, 184, 0.16));
+  color: var(--x-ext-input-icon-hover, #4b5563);
+}
+
+.x-lumno-search-input__clear .ri-icon {
+  transition: transform var(--lumno-duration-sm, 160ms) ease;
+}
+
+.x-lumno-search-input__clear[data-hover-active="true"] .ri-icon {
+  transform: scale(1.06);
+}
+
+.x-lumno-search-input__clear * {
+  pointer-events: none;
+  cursor: inherit;
+}
+
 /* The menu panel and the icon buttons beside the field are continuous rounded rectangles.
    The right icon also renders with an inline `all: unset`, so its shape needs !important. */
 @supports (corner-shape: superellipse(1.25)) {
@@ -236,6 +277,7 @@
   }
 
   .x-lumno-search-input__right-icon,
+  .x-lumno-search-input__clear,
   .x-lumno-search-input__icon[data-search-scope-action="true"] {
     corner-shape: superellipse(1.25) !important;
   }

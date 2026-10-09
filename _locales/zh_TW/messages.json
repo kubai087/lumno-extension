@@ -1643,6 +1643,9 @@
   "command_newtab": {
     "message": "新增分頁"
   },
+  "search_input_clear": {
+    "message": "清除"
+  },
   "command_settings": {
     "message": "開啟設定"
   },

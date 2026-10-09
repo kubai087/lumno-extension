@@ -1643,6 +1643,9 @@
   "command_newtab": {
     "message": "新しいタブを開く"
   },
+  "search_input_clear": {
+    "message": "クリア"
+  },
   "command_settings": {
     "message": "設定を開く"
   },
