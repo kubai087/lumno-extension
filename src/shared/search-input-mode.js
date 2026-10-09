@@ -3024,10 +3024,6 @@
         const label = createModeMenuLabel(item.label);
         button.appendChild(label);
         bindModeMenuLabelTooltip(button, label, item.label);
-        const check = doc.createElement('i');
-        check.className = 'x-lumno-search-input-mode__menu-check ri-icon ri-size-16 ri-check-line';
-        check.setAttribute('aria-hidden', 'true');
-        button.appendChild(check);
         button.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
