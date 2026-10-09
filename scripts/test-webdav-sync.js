@@ -235,6 +235,22 @@ async function run() {
   await set(compressed.chrome.storage.sync, { [theme]: 'dark' });
   await compressed.createController().handle({ operation: 'sync' });
   assert.strictEqual(compressing.state().data[theme], 'dark', 'a weakened state.json ETag never blocks conditional servers');
+  {
+    // Firefox unloads an idle event page even with requests pending, which
+    // would strand the write lock; a running job ticks an extension API.
+    const slow = createServer();
+    slow.afterPut = () => new Promise((resolve) => setTimeout(resolve, 25));
+    let ticks = 0;
+    const kept = createDevice(slow, { sync: { [theme]: 'light' } }, [], (options) => {
+      options.chrome.runtime.getPlatformInfo = () => { ticks += 1; return Promise.resolve({}); };
+      return syncApi.createConnectionController({ ...options, keepAliveIntervalMs: 5 });
+    });
+    await kept.controller.handle({ operation: 'connect', config });
+    assert(ticks > 0, 'a running sync keeps the background alive');
+    const settled = ticks;
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.strictEqual(ticks, settled, 'the keep-alive stops once no job is running');
+  }
   const lockConfig = { ...config, concurrency: 'collection-lock' };
   const lockPath = '/dav/lumno/v1/write-lock/';
   for (const etagMode of ['weak', 'none', 'strong']) {
