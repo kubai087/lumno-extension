@@ -213,6 +213,69 @@ assert.deepStrictEqual(
   'browser newtab fallback should also join the source tab group'
 );
 
+{
+  const removedTabs = [];
+  const forgottenTabs = [];
+  globalThis.chrome.tabs.remove = (tabId, callback) => {
+    removedTabs.push(tabId);
+    callback();
+  };
+  globalThis.chrome.sessions = {
+    getRecentlyClosed: (_filter, callback) => {
+      callback([
+        { lastModified: Date.now(), tab: { url: 'https://example.com/', sessionId: 'other', windowId: 3 } },
+        { lastModified: Date.now(), tab: { url: 'chrome-extension://abc/newtab.html', sessionId: 'swapped', windowId: 3 } },
+        { lastModified: 1, tab: { url: 'chrome-extension://abc/newtab.html', sessionId: 'user-closed', windowId: 3 } }
+      ]);
+    },
+    forgetClosedTab: (...args) => {
+      assert.strictEqual(args.length, 2, 'Firefox rejects a callback argument for sessions.forgetClosedTab');
+      forgottenTabs.push({ windowId: args[0], sessionId: args[1] });
+      return Promise.resolve();
+    }
+  };
+  const swapResults = [];
+  const sourceTab = { id: 30, index: 4, windowId: 3, openerTabId: 12, cookieStoreId: 'firefox-default' };
+  fallback.swapNewtabForFocus(sourceTab, 'chrome-extension://abc/newtab.html', (result) => {
+    swapResults.push(result);
+  });
+  assert.deepStrictEqual(
+    createdTabs[createdTabs.length - 1],
+    {
+      url: 'chrome-extension://abc/newtab.html#focus',
+      index: 4,
+      windowId: 3,
+      active: true,
+      openerTabId: 12
+    },
+    'the focus swap should open the focused New Tab in place of the sender, keeping its opener'
+  );
+  assert.deepStrictEqual(removedTabs, [30], 'the focus swap should close the sender tab');
+  assert.deepStrictEqual(
+    forgottenTabs,
+    [{ windowId: 3, sessionId: 'swapped' }],
+    'the replaced New Tab should not linger in recently closed tabs'
+  );
+  assert.deepStrictEqual(swapResults, [{ ok: true, removed: true }]);
+
+  const createdBefore = createdTabs.length;
+  fallback.swapNewtabForFocus({ id: 31, index: 0, windowId: 3 }, 'https://example.com/newtab.html', (result) => {
+    swapResults.push(result);
+  });
+  assert.strictEqual(createdTabs.length, createdBefore, 'only the Lumno New Tab page may request a focus swap');
+  assert.deepStrictEqual(swapResults[1], { ok: false, reason: 'invalid-sender' });
+
+  fallback.swapNewtabForFocus(
+    { id: 32, index: 0, windowId: 3, cookieStoreId: 'firefox-container-2' },
+    'chrome-extension://abc/newtab.html',
+    (result) => {
+      swapResults.push(result);
+    }
+  );
+  assert.strictEqual(createdTabs.length, createdBefore, 'container tabs should not be recreated without the cookies permission');
+  assert.deepStrictEqual(swapResults[2], { ok: false, reason: 'container-tab' });
+}
+
 globalThis.chrome = originalChrome;
 
 console.log('newtab fallback tests passed');

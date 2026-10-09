@@ -434,6 +434,15 @@
         const applied = setFaviconSrcWithAnimation(img, fallbackSrc);
         if (applied || canReuseCurrentFavicon(img, fallbackSrc)) {
           if (!applied) {
+            // The failed candidate can still be the rendered src while the
+            // working icon is only remembered, and its interrupted reveal can
+            // leave the blurred priming state behind. Restore both.
+            if (String(img.getAttribute('src') || '') !== fallbackSrc) {
+              img.src = fallbackSrc;
+            }
+            if (img.getAttribute('data-favicon-load-state') === 'priming') {
+              setFaviconLoadState(img, 'loaded');
+            }
             showResolvedFavicon(img);
           }
           return true;

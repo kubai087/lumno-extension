@@ -66,14 +66,24 @@ function createLocalStorage(initial) {
   };
 }
 
-async function runEntry({ storedValue, search = '', storageAvailable = true, cachedEnabled }) {
+async function runEntry({
+  storedValue,
+  search = '',
+  storageAvailable = true,
+  cachedEnabled,
+  scheme = 'chrome-extension',
+  visibilityState = 'visible',
+  swapResponse = { ok: true, removed: true }
+}) {
   const localStorage = createLocalStorage(
     typeof cachedEnabled === 'string' ? { [autoFocusCacheKey]: cachedEnabled } : {}
   );
   const replacedUrls = [];
   const attributes = new Set();
+  const sentMessages = [];
+  const visibilityListeners = [];
   let storageReads = 0;
-  const href = `chrome-extension://abc/newtab.html${search}`;
+  const href = `${scheme}://abc/newtab.html${search}`;
   const location = {
     href,
     search,
@@ -81,8 +91,16 @@ async function runEntry({ storedValue, search = '', storageAvailable = true, cac
       replacedUrls.push(url);
     }
   };
+  const runtime = {
+    lastError: null,
+    sendMessage(message, callback) {
+      sentMessages.push(message);
+      callback(swapResponse);
+    }
+  };
   const chromeApi = storageAvailable
     ? {
+        runtime,
         storage: {
           local: {
             get(_keys, callback) {
@@ -104,6 +122,18 @@ async function runEntry({ storedValue, search = '', storageAvailable = true, cac
     localStorage,
     chrome: chromeApi,
     document: {
+      visibilityState,
+      addEventListener(type, listener) {
+        if (type === 'visibilitychange') {
+          visibilityListeners.push(listener);
+        }
+      },
+      removeEventListener(type, listener) {
+        const index = visibilityListeners.indexOf(listener);
+        if (type === 'visibilitychange' && index >= 0) {
+          visibilityListeners.splice(index, 1);
+        }
+      },
       documentElement: {
         setAttribute(name) {
           attributes.add(name);
@@ -124,7 +154,18 @@ async function runEntry({ storedValue, search = '', storageAvailable = true, cac
   vm.runInContext(source, sandbox, { filename: sourcePath });
   // Provider storage reads settle after the active storage area resolves.
   await new Promise((resolve) => setImmediate(resolve));
-  return { attributes, replacedUrls, storageReads, cachedEnabled: localStorage.getItem(autoFocusCacheKey) };
+  const show = () => {
+    sandbox.document.visibilityState = 'visible';
+    visibilityListeners.slice().forEach((listener) => listener());
+  };
+  return {
+    attributes,
+    replacedUrls,
+    sentMessages,
+    show,
+    storageReads,
+    cachedEnabled: localStorage.getItem(autoFocusCacheKey)
+  };
 }
 
 (async () => {
@@ -181,6 +222,56 @@ async function runEntry({ storedValue, search = '', storageAvailable = true, cac
   {
     const result = await runEntry({ storedValue: false });
     assert.strictEqual(result.cachedEnabled, 'false');
+  }
+
+  {
+    const result = await runEntry({ scheme: 'moz-extension', storedValue: true });
+    assert.deepStrictEqual(result.replacedUrls, [], 'Firefox must not rely on same-tab focus navigation');
+    assert.strictEqual(JSON.stringify(result.sentMessages), '[{"action":"swapNewtabForFocus"}]');
+    assert.strictEqual(
+      result.attributes.has('data-nt-focus-route-pending'),
+      true,
+      'the replaced Firefox tab should stay hidden while the focused tab takes over'
+    );
+  }
+
+  {
+    const result = await runEntry({ scheme: 'moz-extension', storedValue: true, cachedEnabled: 'true' });
+    assert.deepStrictEqual(result.replacedUrls, [], 'the remembered choice should also swap tabs in Firefox');
+    assert.strictEqual(result.storageReads, 0);
+    assert.strictEqual(JSON.stringify(result.sentMessages), '[{"action":"swapNewtabForFocus"}]');
+  }
+
+  {
+    const result = await runEntry({ scheme: 'moz-extension', storedValue: true, visibilityState: 'hidden' });
+    assert.deepStrictEqual(result.sentMessages, [], 'a preloaded hidden Firefox page should wait before swapping');
+    result.show();
+    assert.strictEqual(JSON.stringify(result.sentMessages), '[{"action":"swapNewtabForFocus"}]');
+  }
+
+  {
+    const result = await runEntry({
+      scheme: 'moz-extension',
+      storedValue: true,
+      swapResponse: { ok: false, reason: 'invalid-sender' }
+    });
+    assert.strictEqual(
+      result.attributes.has('data-nt-focus-route-pending'),
+      false,
+      'a failed Firefox swap should reveal the current page'
+    );
+  }
+
+  {
+    const result = await runEntry({ scheme: 'moz-extension', search: '#focus', storedValue: true });
+    assert.deepStrictEqual(result.sentMessages, [], 'the swapped-in Firefox tab must not swap again');
+    assert.strictEqual(result.storageReads, 0);
+    assert.strictEqual(result.attributes.has('data-nt-focus-route'), true);
+  }
+
+  {
+    const result = await runEntry({ scheme: 'moz-extension', storedValue: false });
+    assert.deepStrictEqual(result.sentMessages, [], 'Firefox should not swap tabs when auto-focus is disabled');
   }
 
   {

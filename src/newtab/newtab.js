@@ -1012,6 +1012,22 @@
   });
 
   const NEWTAB_URL_POLICY = globalThis.LumnoNewtabUrlPolicy;
+  // Firefox: index the browser's own cached icons, which stand in for the
+  // missing _favicon endpoint (see createBrowserIconIndex). Open tabs are
+  // added last so their current icons win over top sites.
+  const firefoxBrowserIcons = window.location.protocol === 'moz-extension:' &&
+    typeof FAVICON_UTILS.createBrowserIconIndex === 'function'
+    ? FAVICON_UTILS.createBrowserIconIndex()
+    : null;
+  const firefoxBrowserIconsReady = firefoxBrowserIcons
+    ? Promise.all([
+      Promise.resolve().then(() => chrome.topSites.get({ includeFavicon: true, limit: 100 })).catch(() => []),
+      Promise.resolve().then(() => chrome.tabs.query({})).catch(() => [])
+    ]).then(([sites, tabs]) => {
+      (Array.isArray(sites) ? sites : []).forEach((site) => site && firefoxBrowserIcons.add(site.url, site.favicon));
+      (Array.isArray(tabs) ? tabs : []).forEach((tab) => tab && firefoxBrowserIcons.add(tab.url, tab.favIconUrl));
+    }).catch(() => {})
+    : Promise.resolve();
   const {
     isEnglishQuery,
     getUrlDisplay,
@@ -1053,6 +1069,7 @@
     FAVICON_REQUEST_BLACKLIST_STORAGE_KEY,
     FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY,
     SEARCH_UTILS,
+    getBrowserIconUrl: firefoxBrowserIcons ? firefoxBrowserIcons.get : null,
     pageState: {
       get searchBlacklistItems() {
         return searchBlacklistItems;
@@ -4926,6 +4943,10 @@
   bookmarkPagerPrevButton = pageStructureRuntime.bookmark.previousButton;
   bookmarkPagerNextButton = pageStructureRuntime.bookmark.nextButton;
   bookmarkOpenManagerButton = pageStructureRuntime.bookmark.managerButton;
+  // Firefox gives extensions no way to open its bookmarks Library.
+  if (window.location.protocol === 'moz-extension:') {
+    bookmarkOpenManagerButton.style.display = 'none';
+  }
   bindBookmarkPagerTooltip(
     bookmarkPagerPrevButton,
     () => bookmarkPagerPrevButton.getAttribute('data-tooltip') || t('bookmarks_page_prev', '上一页')
@@ -5860,6 +5881,15 @@
   }
 
   function getRecentSites(limit, mode) {
+    const safeLimit = Math.max(0, Number(limit) || 0);
+    if (safeLimit > 0 && firefoxBrowserIcons) {
+      // Render recent cards once Firefox's own icons are indexed.
+      return firefoxBrowserIconsReady.then(() => getRecentSitesNow(safeLimit, mode));
+    }
+    return getRecentSitesNow(limit, mode);
+  }
+
+  function getRecentSitesNow(limit, mode) {
     const safeLimit = Math.max(0, Number(limit) || 0);
     const viewMode = mode === 'most' ? 'most' : 'latest';
     if (safeLimit <= 0) {

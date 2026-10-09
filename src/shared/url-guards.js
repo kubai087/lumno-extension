@@ -26,7 +26,20 @@
       lower === 'edge://newtab' ||
       lower === 'brave://newtab' ||
       lower === 'vivaldi://newtab' ||
-      lower === 'opera://startpage';
+      lower === 'opera://startpage' ||
+      lower === 'about:newtab' ||
+      lower === 'about:home';
+  }
+
+  // Firefox forbids content scripts on its add-ons site; Chromium does not.
+  function isFirefoxRuntime() {
+    try {
+      const runtime = typeof chrome !== 'undefined' && chrome && chrome.runtime;
+      return Boolean(runtime && typeof runtime.getURL === 'function' &&
+        /^moz-extension:/i.test(runtime.getURL('')));
+    } catch (e) {
+      return false;
+    }
   }
 
   function isExtensionStoreUrl(url) {
@@ -40,7 +53,8 @@
       return (host === 'chrome.google.com' && path.startsWith('/webstore')) ||
         host === 'chromewebstore.google.com' ||
         (host === 'microsoftedge.microsoft.com' && path.startsWith('/addons')) ||
-        host === 'addons.opera.com';
+        host === 'addons.opera.com' ||
+        (host === 'addons.mozilla.org' && isFirefoxRuntime());
     } catch (e) {
       return false;
     }

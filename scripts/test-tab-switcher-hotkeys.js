@@ -230,7 +230,7 @@ assert.match(
 });
 assert.match(
   switcherSource,
-  /const tabSwitcherReactViewApi = window\.LumnoOverlayTabSwitcherView;[\s\S]*typeof tabSwitcherReactViewApi\.createTabSwitcherView !== 'function'[\s\S]*reason: 'react-view-unavailable'/,
+  /const tabSwitcherReactViewApi = globalThis\.LumnoOverlayTabSwitcherView;[\s\S]*typeof tabSwitcherReactViewApi\.createTabSwitcherView !== 'function'[\s\S]*reason: 'react-view-unavailable'/,
   'the classic switcher runtime should resolve the page React API at invocation time'
 );
 assert.match(
@@ -245,7 +245,7 @@ assert.match(
 );
 assert.match(
   backgroundSource,
-  /function isOwnExtensionPageUrl\(url\)[\s\S]*chrome\.runtime\.id[\s\S]*parsed\.hostname === chrome\.runtime\.id/,
+  /function isOwnExtensionPageUrl\(url\)[\s\S]*chrome\.runtime\.id[\s\S]*getExtensionUrlKey\(url\) === origin/,
   'Alt+Q should only treat this extension own pages as extension-page switcher hosts'
 );
 assert.match(

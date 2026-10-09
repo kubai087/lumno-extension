@@ -79,6 +79,8 @@ WebDAV 标记为 Beta，标识右侧使用设置页共用的 info 图标说明�
 
 独占目录锁依赖参与同步的 Lumno 客户端遵守同一协议；请升级所有设备，勿用其他程序同时修改 `state.json`。确认写入完成后释放目录；上传超时、响应丢失或后台被终止时保留锁，不按设备时间自动过期或抢占，因为尚未结束的请求可能延迟提交。若长期被占用，请先在所有设备暂停同步、确认服务端中断请求已结束，再从坚果云或 NAS 文件管理器删除同步目录下的 `v1/write-lock` 保护文件夹（含 owner.txt）并重新启用。MOVE 结果不确定时还会保留私有 lock-candidate-* 目录，可在所有设备暂停且请求结束后清理。它们是写入保护目录，请勿删除 `state.json`、`assets` 或整个同步目录。
 
+同步任务执行期间，后台每 20 秒调用一次 `runtime.getPlatformInfo` 保活，下述冲突重试排队等待期间也保持，任务队列清空后停止。Firefox 的事件页与 Chrome 的服务工作线程在约 30 秒没有扩展事件时会被卸载；Firefox 实测中，正在进行的 `fetch` 不算活动（一个 60 秒的请求在返回前页面已被卸载），而扩展 API 调用会重置空闲计时。没有保活时，上传媒体等较长的同步可能在持锁后、释放前被卸载，留下需要手动删除的 `v1/write-lock`。
+
 自动同步在本机配置变化后约 1.5 秒触发，另用 Chrome alarms 每 5 分钟检查远端。同一账号的另一个浏览器（包括同一台电脑上同时开着的 Chrome 与 Firefox）正持有写入锁（`remote-locked`），或在本机读取与写入之间先提交（`remote-changed`）时，卡片显示「等待同步」而非失败，分别约 3、10、30 秒（±25% 随机抖动）后重新读取、合并并重试；三次后仍被占用才报告失败，因为这时锁可能来自结果不确定的写入。首次加入时的版本选择不自动重试。服务工作线程停止、离线或服务限流后，后续检查会重新比较完整本机状态。不同配置项可以合并；快捷方式与图标、壁纸与选图分别作为整体冲突域，避免排序和删除被错误拼接。
 
 ## 当前边界和验证
@@ -86,5 +88,7 @@ WebDAV 标记为 Beta，标识右侧使用设置页共用的 info 图标说明�
 当前会下载整个自定义壁纸库；尚无按需下载、自动删除远端历史快照/孤立媒体、端到端加密、图标缓存同步。关闭开关不会删除服务器文件。配置和图片由用户自己的服务器保存，服务器管理员可读取，清理历史数据需在服务器端完成。
 
 新增回归覆盖配置保存与开关、并行 Chrome 同步、两端合并/冲突、条件写竞争、弱/缺失 ETag 下的目录锁、目录竞争、陈旧基线拒写、上传结果不确定时保留锁、Chrome 配额、离线与暂停、后台中断恢复、损坏媒体、设置页选择、错误恢复及新页面与旧后台混用。模拟 WebDAV 服务验证了新版协议流程，包括反复开关、409 竞争、失败方内容丢失拒绝、锁归属确认失败、旧检测升级和 MOVE 不支持时的 MKCOL 退路。坚果云已有独立 MOVE 探测记录显示 409 / 201 且两方内容保留；新版的完整探测与浏览器内同步仍需实机确认，不能把旧 MKCOL 检测通过视为新版认证。2026-10-06 在本机以 HTTPS 运行 Apache mod_dav 2.4、WsgiDAV 4.3、rclone serve webdav、nginx dav、sabre/dav 4.7 文件后端与 Nextcloud 35.0.1（sqlite，非生产配置），用 `dav-lock-5` 客户端各执行 20 次连接测试及完整读写、陈旧基线拒写、10 轮双设备并发写入、媒体与快照流程：sabre/dav 有 2 次两方 MOVE 均返回 201（服务端虚报成功），被正确拒绝，其余 18 次通过；其他五种 20 次全部通过。各服务完整流程均正常，并发写入每轮至多一方提交，失败方为 `remote-locked`，无残留锁。`dav-lock-4` 在同一环境下 WsgiDAV 与 rclone 无法通过连接测试，其余仅 1–15 次通过。托管服务（Koofr、pCloud、Yandex、InfiniCLOUD 等）及群晖等 NAS 尚未实机验证，不能把本机测试视为这些服务的兼容性认证。2026-10-08 用户反馈的自建 Cloudflare Workers + R2 WebDAV（r2-webdav 一类实现）不受支持：MKCOL 对已有目录返回 405、新目录返回 201，均正常；0.9.57 首次读取 `state.json` 时 Cloudflare 压缩响应把强 ETag 改为弱 ETag，旧检查误报 `state-etag / 200`，已在 0.9.58 移除；0.9.58 的连接测试得到 `move-race / 201,201`。原因是其 MOVE 先查询目标是否存在、再逐个复制和删除对象，两次查询之间没有互斥，Overwrite: F 无法阻止并发覆盖。偶发通过只是请求恰好串行。服务端需用 R2 条件写入（如 `onlyIf: { etagDoesNotMatch: '*' }`，原子性须在线上 bucket 实测）或 Durable Object 串行化 MOVE / MKCOL 后，才能重新尝试。
+
+2026-10-09 在 Firefox 版（`npm run package:firefox`）与 Chrome 同时连接坚果云时，Firefox 报「另一台设备正在写入」，Chrome 停在「等待同步」：服务器上残留 `v1/write-lock`，原因是 Firefox 事件页在持锁的同步过程中被卸载。手动删除该目录后两端恢复，此后加入上述保活。快捷方式引用的书签文件夹随 WebDAV 同步：Firefox 书签根目录使用固定 GUID（`toolbar_____`、`unfiled_____`、`mobile______`、`menu________`），分别映射为 `bookmarks-bar`、`other`、`mobile`，书签菜单在 Chrome 中没有对应目录，也映射为 `other`。不新增根类型，因为已发布客户端在校验时会因未知根类型拒绝整个 `state.json`（`invalid-shortcuts`）；已用已发布版本的校验逻辑核对 Firefox 生成的引用均被接受。
 
 相关实现：`src/shared/webdav-contract.js`、`src/background/webdav-client.js`、`src/background/webdav-sync.js`、`src/options/webdav-options.js`。

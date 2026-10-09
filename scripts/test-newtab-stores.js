@@ -219,6 +219,20 @@ function testBookmarkStore() {
   const bar = bookmarkStore.findBookmarksBarNode(tree);
   assert.strictEqual(bar.id, '10');
 
+  const firefoxTree = [{
+    id: 'root________',
+    children: [
+      { id: 'menu________', parentId: 'root________', title: 'Bookmarks Menu', children: [] },
+      { id: 'toolbar_____', parentId: 'root________', title: 'Bookmarks Toolbar', children: [] },
+      { id: 'unfiled_____', parentId: 'root________', title: 'Other Bookmarks', children: [] }
+    ]
+  }];
+  assert.strictEqual(
+    bookmarkStore.findBookmarksBarNode(firefoxTree).id,
+    'toolbar_____',
+    'Firefox exposes the bookmarks toolbar under its fixed GUID, not id 1'
+  );
+
   const cache = bookmarkStore.buildBookmarkFolderCache(tree, {
     normalizeHost: (host) => String(host || '').toLowerCase().replace(/^www\./, '')
   });

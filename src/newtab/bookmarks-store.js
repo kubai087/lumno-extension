@@ -11,6 +11,9 @@
     '書籤列',
     '書籤欄'
   ]);
+  // Chrome's local bookmarks bar is id 1 (an account bar shares its folderType,
+  // so match by id only); Firefox's toolbar has a fixed GUID.
+  const BOOKMARKS_BAR_IDS = new Set(['1', 'toolbar_____']);
 
   function defaultNormalizeHost(hostname) {
     return String(hostname || '').trim().toLowerCase().replace(/^www\./i, '');
@@ -29,7 +32,7 @@
     for (let i = 0; i < treeNodes.length; i += 1) {
       const root = treeNodes[i];
       const rootChildren = Array.isArray(root && root.children) ? root.children : [];
-      const directMatch = rootChildren.find((child) => String(child && child.id || '') === '1');
+      const directMatch = rootChildren.find((child) => child && BOOKMARKS_BAR_IDS.has(String(child.id || '')));
       if (directMatch) {
         return directMatch;
       }

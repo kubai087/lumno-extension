@@ -235,6 +235,22 @@ async function run() {
   await set(compressed.chrome.storage.sync, { [theme]: 'dark' });
   await compressed.createController().handle({ operation: 'sync' });
   assert.strictEqual(compressing.state().data[theme], 'dark', 'a weakened state.json ETag never blocks conditional servers');
+  {
+    // Firefox unloads an idle event page even with requests pending, which
+    // would strand the write lock; a running job ticks an extension API.
+    const slow = createServer();
+    slow.afterPut = () => new Promise((resolve) => setTimeout(resolve, 25));
+    let ticks = 0;
+    const kept = createDevice(slow, { sync: { [theme]: 'light' } }, [], (options) => {
+      options.chrome.runtime.getPlatformInfo = () => { ticks += 1; return Promise.resolve({}); };
+      return syncApi.createConnectionController({ ...options, keepAliveIntervalMs: 5 });
+    });
+    await kept.controller.handle({ operation: 'connect', config });
+    assert(ticks > 0, 'a running sync keeps the background alive');
+    const settled = ticks;
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.strictEqual(ticks, settled, 'the keep-alive stops once no job is running');
+  }
   const lockConfig = { ...config, concurrency: 'collection-lock' };
   const lockPath = '/dav/lumno/v1/write-lock/';
   for (const etagMode of ['weak', 'none', 'strong']) {
@@ -718,6 +734,33 @@ async function run() {
   assert.strictEqual(stuck.error, 'remote-locked', 'a lock that never clears is still reported');
   assert.strictEqual(lockedServer.state().data[theme], 'dark');
   await lockedDevice.controller.handle({ operation: 'pause' });
+  {
+    // The wait before a contention retry also keeps the background alive, or
+    // Firefox would unload the page and drop the queued retry.
+    const waitServer = createServer();
+    let waitTicks = 0;
+    const waiting = createDevice(waitServer, { sync: { [theme]: 'light' } }, [], (input) => {
+      input.chrome.runtime.getPlatformInfo = () => { waitTicks += 1; return Promise.resolve({}); };
+      return syncApi.createConnectionController({ ...input, contentionDelays: [120], keepAliveIntervalMs: 5 });
+    });
+    await waiting.controller.handle({ operation: 'connect', config });
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    waitServer.directories.add(sharedLock);
+    await set(waiting.chrome.storage.sync, { [theme]: 'dark' });
+    assert.deepStrictEqual(await waiting.controller.handle({ operation: 'sync' }), { pending: true });
+    const queuedAt = waitTicks;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert(waitTicks > queuedAt, 'a queued contention retry keeps the background alive while it waits');
+    waitServer.directories.delete(sharedLock);
+    for (let wait = 0; wait < 50 && (await waiting.controller.handle({ operation: 'status' })).state !== 'ready'; wait += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.strictEqual(waitServer.state().data[theme], 'dark');
+    const doneAt = waitTicks;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.strictEqual(waitTicks, doneAt, 'the keep-alive stops once the retry has run');
+    await waiting.controller.handle({ operation: 'pause' });
+  }
 
   const interruptedServer = createServer();
   const interrupted = createDevice(interruptedServer, { sync: { [theme]: 'light' } });

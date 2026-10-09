@@ -175,7 +175,7 @@ assert.ok(
   'overlay injection should load the shared theme algorithm before the search panel'
 );
 assert.ok(
-  overlaySource.includes('const FAVICON_THEME = window.LumnoNewtabFaviconTheme;') &&
+  overlaySource.includes('const FAVICON_THEME = globalThis.LumnoNewtabFaviconTheme;') &&
     overlaySource.includes('return FAVICON_THEME.getThemeForMode(theme, {') &&
     overlaySource.includes('return FAVICON_THEME.getHoverColors(theme, {'),
   'overlay and New Tab search results should use the same contrast-aware theme algorithm'

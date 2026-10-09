@@ -60,13 +60,28 @@ function createAcquisition(options = {}) {
     getStrictFaviconReason: () => state.excluded ? 'exclusion' : (state.enhanced ? '' : 'global-off'),
     shouldBlockFaviconForHost: () => state.hardBlocked
   });
+  const firefox = options.firefox || null;
   const deps = {
     resolver,
+    firefoxRuntime: Boolean(firefox),
+    chrome: firefox ? {
+      tabs: { query: async () => firefox.tabs || [] },
+      topSites: { get: async () => firefox.topSites || [] }
+    } : {},
     setTimeout: (callback, ms) => setTimeout(callback, ms / 100),
     loadPolicy: () => Promise.resolve(),
     getTargetPolicy: () => ({ ok: true, hardBlocked: state.hardBlocked }),
     fetch: async (url, requestOptions) => {
       state.calls.push({ url, options: requestOptions });
+      if (firefox) {
+        const image = (firefox.images || {})[url];
+        return {
+          ok: Boolean(image),
+          url,
+          headers: { get: () => '' },
+          blob: async () => new Blob([image || ''], { type: 'image/png' })
+        };
+      }
       const parsed = new URL(url);
       const isBrowser = parsed.protocol === 'chrome-extension:';
       assert.ok(isBrowser || faviconUtils.isFaviconProxyUrl(url), 'only approved cache/proxy endpoints may be requested');
@@ -109,7 +124,10 @@ function createAcquisition(options = {}) {
     const getBackgroundFaviconUrlResolver = () => deps.resolver;
     const isAllowedFaviconProxyRequestUrl = FAVICON_UTILS.isAllowedFaviconProxyRequestUrl;
     const arrayBufferToBase64 = (buffer) => Buffer.from(buffer).toString('base64');
+    const chrome = deps.chrome;
+    const isFirefoxExtensionRuntime = () => deps.firefoxRuntime;
     ${['getShortcutFaviconPreferredTheme', 'fetchShortcutFaviconResource',
+      'isSameFaviconHost', 'getFirefoxBrowserFaviconUrl', 'fetchFirefoxBrowserCacheFavicon',
       'resolveShortcutFaviconData', 'fetchShortcutFaviconData'].map((name) => extractFunction(backgroundSource, name)).join('\n')}
     return { fetchShortcutFaviconData };
   `);
@@ -211,6 +229,35 @@ async function run() {
     writes.forEach((write) => write());
     assert.strictEqual(values[dataKey].version, 3);
     assert.strictEqual(values[urlKey].version, 3);
+  }
+
+  {
+    // Firefox has no _favicon endpoint: its cache source reads open tabs, then
+    // top sites, then the site's own favicon.ico, and keeps a cache source URL.
+    const firefoxPage = 'https://example.com/';
+    const fromTab = createAcquisition({ firefox: {
+      tabs: [{ url: 'https://www.example.com/docs', favIconUrl: 'https://cdn.example.com/tab.png' }],
+      topSites: [{ url: 'https://example.com/', favicon: 'data:image/png;base64,AAAA' }],
+      images: { 'https://cdn.example.com/tab.png': png(32, 5) }
+    } });
+    const tabResult = await fromTab.fetchShortcutFaviconData(firefoxPage, '', '', false, 'cache');
+    assert.deepStrictEqual(fromTab.state.calls.map((call) => call.url), ['https://cdn.example.com/tab.png'],
+      'an open tab of the same site supplies Firefox\'s cached icon first');
+    assert.strictEqual(shortcutFavicon.getCachedIconSource(tabResult), 'cache');
+    assert.ok(shortcutFavicon.isCachedIconForPage(tabResult, firefoxPage));
+
+    const topSiteIcon = 'data:image/png;base64,' + Buffer.from(png(32, 6)).toString('base64');
+    const fromTopSites = createAcquisition({ firefox: {
+      topSites: [{ url: 'https://example.com/', favicon: topSiteIcon }],
+      images: { [topSiteIcon]: png(32, 6) }
+    } });
+    assert.ok(await fromTopSites.fetchShortcutFaviconData(firefoxPage, '', '', false, 'cache'));
+    assert.deepStrictEqual(fromTopSites.state.calls.map((call) => call.url), [topSiteIcon]);
+
+    const fromSite = createAcquisition({ firefox: { images: { 'https://example.com/favicon.ico': png(32, 7) } } });
+    assert.ok(await fromSite.fetchShortcutFaviconData(firefoxPage, '', '', false, 'cache'));
+    assert.deepStrictEqual(fromSite.state.calls.map((call) => call.url), ['https://example.com/favicon.ico'],
+      'without a cached icon, Firefox falls back to the site favicon.ico');
   }
 
   const enabled = createAcquisition();

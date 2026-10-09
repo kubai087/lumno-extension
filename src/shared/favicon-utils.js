@@ -311,6 +311,12 @@
       : 128;
     try {
       const faviconUrl = new URL(getRuntimeUrl('/_favicon/'));
+      // Only Chromium serves _favicon. Elsewhere (Firefox) the URL would never
+      // load, so it is kept solely as the browser-cache request marker that the
+      // background resolves from the browser's own icons.
+      if (faviconUrl.protocol !== 'chrome-extension:' && !(options && options.browserCacheRequest === true)) {
+        return '';
+      }
       faviconUrl.searchParams.set('pageUrl', pageUrl);
       faviconUrl.searchParams.set('size', String(size));
       // A same-host icon can belong to a different application or page path.
@@ -463,14 +469,18 @@
     const runtime = options && options.chromeApi && options.chromeApi.runtime
       ? options.chromeApi.runtime
       : null;
+    // The id is the extension URL host. Chrome uses runtime.id as that host;
+    // Firefox uses a per-install UUID, so the runtime URL is authoritative.
     const info = {
-      id: runtime && runtime.id ? String(runtime.id) : '',
+      id: '',
       protocol: 'chrome-extension:'
     };
+    const fallbackId = runtime && runtime.id ? String(runtime.id) : '';
     if (typeof getRuntimeUrl !== 'function') {
+      info.id = fallbackId;
       return info;
     }
-    ['', '/'].some((path) => {
+    const resolved = ['', '/'].some((path) => {
       let runtimeUrl = '';
       try {
         runtimeUrl = String(getRuntimeUrl(path) || '').trim();
@@ -482,20 +492,19 @@
       }
       try {
         const parsed = new URL(runtimeUrl);
-        if (!isBrowserExtensionProtocol(parsed.protocol)) {
+        if (!isBrowserExtensionProtocol(parsed.protocol) || !parsed.hostname) {
           return false;
         }
-        if (!info.id && parsed.hostname) {
-          info.id = parsed.hostname;
-        }
-        if (!info.protocol || !info.id || parsed.hostname === info.id) {
-          info.protocol = parsed.protocol;
-        }
-        return Boolean(info.id);
+        info.id = parsed.hostname;
+        info.protocol = parsed.protocol;
+        return true;
       } catch (e) {
         return false;
       }
     });
+    if (!resolved) {
+      info.id = fallbackId;
+    }
     return info;
   }
 
@@ -1253,7 +1262,7 @@
       return getCanonicalPageUrlForFavicon(raw) || raw;
     }
 
-    function getResolverExtensionFaviconUrl(pageUrl) {
+    function getResolverExtensionFaviconUrl(pageUrl, options) {
       const page = getCanonicalFaviconPage(pageUrl);
       if (!page || !/^https?:\/\//i.test(page)) {
         return '';
@@ -1264,7 +1273,11 @@
           return configured;
         }
       }
-      return getExtensionFaviconUrl(page, { getRuntimeUrl, size });
+      return getExtensionFaviconUrl(page, {
+        getRuntimeUrl,
+        size,
+        browserCacheRequest: Boolean(options && options.browserCacheRequest === true)
+      });
     }
 
     function getResolverBrowserPageFaviconUrl(pageUrl) {
@@ -1560,7 +1573,11 @@
       return [
         {
           kind: 'browser-cache',
-          url: getSafeFaviconCandidateUrl(getResolverExtensionFaviconUrl(page), page, 'shortcut-browser-snapshot'),
+          url: getSafeFaviconCandidateUrl(
+            getResolverExtensionFaviconUrl(page, { browserCacheRequest: true }),
+            page,
+            'shortcut-browser-snapshot'
+          ),
           placeholderUrl: getResolverExtensionFaviconUrl(placeholderPage)
         },
         {
@@ -1664,8 +1681,57 @@
     });
   }
 
+  // Firefox has no _favicon endpoint, and blocks page-icon:/cached-favicon:
+  // for extensions. Its cached icons reach extension pages only through open
+  // tabs (favIconUrl) and topSites({ includeFavicon }); this indexes them.
+  // An exact page wins; otherwise the latest icon seen for the same host.
+  function createBrowserIconIndex() {
+    const byPage = new Map();
+    const byHost = new Map();
+    const getPageKey = (url) => {
+      try {
+        const parsed = new URL(String(url || ''));
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return '';
+        }
+        parsed.hash = '';
+        return parsed.href;
+      } catch (e) {
+        return '';
+      }
+    };
+    const getHostKey = (pageKey) => {
+      try {
+        return new URL(pageKey).hostname.toLowerCase().replace(/^www\./, '');
+      } catch (e) {
+        return '';
+      }
+    };
+    const isUsableIconUrl = (iconUrl) => /^(?:data:image\/|https:)/i.test(String(iconUrl || ''));
+    function add(pageUrl, iconUrl) {
+      const pageKey = getPageKey(pageUrl);
+      if (!pageKey || !isUsableIconUrl(iconUrl)) {
+        return;
+      }
+      byPage.set(pageKey, String(iconUrl));
+      const hostKey = getHostKey(pageKey);
+      if (hostKey) {
+        byHost.set(hostKey, String(iconUrl));
+      }
+    }
+    function get(pageUrl) {
+      const pageKey = getPageKey(pageUrl);
+      if (!pageKey) {
+        return '';
+      }
+      return byPage.get(pageKey) || byHost.get(getHostKey(pageKey)) || '';
+    }
+    return Object.freeze({ add, get });
+  }
+
   return Object.freeze({
     setBoundedCacheEntry,
+    createBrowserIconIndex,
     createFaviconDecisionLogger,
     createFaviconUrlResolver,
     getBrowserPageFaviconUrl,

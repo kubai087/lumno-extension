@@ -359,6 +359,14 @@
     const done = typeof options === 'function'
       ? options
       : (typeof callback === 'function' ? callback : () => {});
+    // Firefox cannot open about:addons from an extension; it offers this
+    // dedicated API for its shortcut manager instead.
+    if (chromeApi && chromeApi.commands && typeof chromeApi.commands.openShortcutSettings === 'function') {
+      Promise.resolve()
+        .then(() => chromeApi.commands.openShortcutSettings())
+        .then(() => done(true), () => done(false));
+      return;
+    }
     if (!chromeApi || !chromeApi.tabs) {
       done(false);
       return;

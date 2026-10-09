@@ -15,7 +15,13 @@
   const FOLDER_COLOR_REFS_STORAGE_KEY = '_x_extension_bookmark_folder_color_refs_2026_unique_';
   // Keeps the synced value well under the 8 KB browser sync item quota.
   const MAX_FOLDER_COLOR_REFS = 100;
-  const ROOT_TYPES_BY_ID = { '1': 'bookmarks-bar', '2': 'other', '3': 'mobile' };
+  // Chrome numbers its roots; Firefox uses fixed GUIDs. Both map onto the same
+  // types so folder colors follow a folder between the browsers.
+  const ROOT_TYPES_BY_ID = {
+    '1': 'bookmarks-bar', '2': 'other', '3': 'mobile',
+    'toolbar_____': 'bookmarks-bar', 'unfiled_____': 'other', 'mobile______': 'mobile', 'menu________': 'menu'
+  };
+  const TREE_ROOT_IDS = new Set(['0', 'root________']);
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
   function normalizeFolderColorMap(value) {
     const result = {};
@@ -43,10 +49,10 @@
   function collectFolderColorRefs(nodeMap) {
     const refs = new Map();
     if (!(nodeMap instanceof Map)) return refs;
-    const top = nodeMap.get('0');
+    const top = nodeMap.get('0') || nodeMap.get('root________');
     const roots = top && Array.isArray(top.children)
       ? top.children
-      : [...nodeMap.values()].filter((node) => String(node.parentId) === '0');
+      : [...nodeMap.values()].filter((node) => TREE_ROOT_IDS.has(String(node.parentId)));
     function visit(node, path) {
       refs.set(String(node.id), hashFolderPath(path));
       if (path.length > 64) return;

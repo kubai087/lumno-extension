@@ -83,6 +83,43 @@
     );
 }
 
+/* Firefox paints the track and thumb through its own pseudo-elements; it
+   has no margin-top quirk, the thumb centers on the track by itself. */
+.x-range-slider-input::-moz-range-track {
+  height: var(--x-range-slider-track-height);
+  border: 0;
+  border-radius: var(--lumno-radius-pill);
+  background:
+    var(--x-range-slider-marks, linear-gradient(transparent, transparent)),
+    linear-gradient(
+      90deg,
+      var(--x-range-slider-fill) 0 var(--x-range-slider-percent, 50%),
+      var(--x-range-slider-rail) var(--x-range-slider-percent, 50%) 100%
+    );
+}
+
+.x-range-slider-input::-moz-range-thumb {
+  box-sizing: border-box;
+  width: var(--x-range-slider-thumb-size);
+  height: var(--x-range-slider-thumb-size);
+  border: 0;
+  border-radius: var(--lumno-radius-pill);
+  background: var(--x-range-slider-thumb-bg);
+  box-shadow: var(--x-range-slider-thumb-shadow);
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.x-range-slider-input:not(:disabled):hover::-moz-range-thumb,
+.x-range-slider-input:not(:disabled):focus-visible::-moz-range-thumb {
+  box-shadow: var(--x-range-slider-thumb-shadow), 0 0 0 4px var(--x-range-slider-ring);
+}
+
+.x-range-slider-input:not(:disabled):active::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
 .x-range-slider-input::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
@@ -174,8 +211,17 @@
   flex: 1 1 auto;
 }
 
+/* Vendor pseudo-elements get their own rules: a browser drops a whole
+   selector list that contains one it does not recognize. */
 @media (prefers-reduced-motion: reduce) {
-  .x-range-slider-input::-webkit-slider-thumb,
+  .x-range-slider-input::-webkit-slider-thumb {
+    transition: none;
+  }
+
+  .x-range-slider-input::-moz-range-thumb {
+    transition: none;
+  }
+
   .x-range-slider-reset,
   .x-range-slider-reset:disabled {
     transition: none;

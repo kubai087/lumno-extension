@@ -55,7 +55,11 @@
   caret-color: var(--x-ext-input-caret, #7db7ff);
 }
 
-.x-lumno-search-input__field::placeholder,
+/* Separate rules: Firefox drops a selector list containing a -webkit- pseudo. */
+.x-lumno-search-input__field::placeholder {
+  font-weight: var(--x-ext-input-placeholder-font-weight, 400);
+}
+
 .x-lumno-search-input__field::-webkit-input-placeholder {
   font-weight: var(--x-ext-input-placeholder-font-weight, 400);
 }

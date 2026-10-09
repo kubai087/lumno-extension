@@ -6,6 +6,18 @@
   'use strict';
   const BINDINGS_KEY = '_x_extension_shortcut_folder_bindings_2026_unique_';
   const ROOT_TYPES = new Set(['bookmarks-bar', 'other', 'mobile', 'managed']);
+  // Chrome numbers its roots; Firefox uses fixed 12-character GUIDs. Mapping
+  // both onto one root type keeps references portable between the browsers.
+  // Firefox's bookmarks menu has no Chrome counterpart and maps to "other":
+  // references sync through WebDAV, and older clients reject a whole state
+  // that holds a root type they do not know.
+  const TREE_ROOT_IDS = new Set(['0', 'root________']);
+  const ROOT_TYPES_BY_ID = {
+    '1': 'bookmarks-bar', '2': 'other', '3': 'mobile',
+    'toolbar_____': 'bookmarks-bar', 'unfiled_____': 'other', 'mobile______': 'mobile', 'menu________': 'other'
+  };
+  const isTreeRootId = (id) => TREE_ROOT_IDS.has(String(id));
+  const getRootType = (node) => node.folderType || ROOT_TYPES_BY_ID[node.id];
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
   function normalizeReference(value) {
     if (!value || value.version !== 1 || !ROOT_TYPES.has(value.root) ||
@@ -38,18 +50,18 @@
   }
   function describe(folderId, nodeMap) {
     let node = nodeMap.get(String(folderId || ''));
-    if (!node || node.url || String(node.id) === '0') return null;
+    if (!node || node.url || isTreeRootId(node.id)) return null;
     const target = node;
     const path = [];
     const visited = new Set();
-    while (node && String(node.parentId) !== '0') {
+    while (node && !isTreeRootId(node.parentId)) {
       if (visited.has(node.id) || path.length >= 64) return null;
       visited.add(node.id);
       path.unshift(String(node.title || ''));
       node = nodeMap.get(String(node.parentId));
     }
     if (!node) return null;
-    const rootType = node.folderType || ({ '1': 'bookmarks-bar', '2': 'other', '3': 'mobile' })[node.id];
+    const rootType = getRootType(node);
     return normalizeReference({ version: 1, root: rootType,
       scope: typeof node.syncing === 'boolean' ? (node.syncing ? 'account' : 'local') : 'unknown',
       path, fingerprint: fingerprint(target) });
@@ -58,10 +70,10 @@
     const ref = normalizeReference(reference);
     // A local-only directory is usable through its originating device's binding.
     if (!ref || ref.scope === 'local') return null;
-    const rootNode = nodeMap.get('0');
+    const rootNode = nodeMap.get('0') || nodeMap.get('root________');
     const rootNodes = rootNode && Array.isArray(rootNode.children) ? rootNode.children : [...nodeMap.values()];
-    const roots = rootNodes.filter((node) => String(node.parentId) === '0' &&
-      (node.folderType || ({ '1': 'bookmarks-bar', '2': 'other', '3': 'mobile' })[node.id]) === ref.root &&
+    const roots = rootNodes.filter((node) => isTreeRootId(node.parentId) &&
+      getRootType(node) === ref.root &&
       (ref.scope === 'unknown' || typeof node.syncing !== 'boolean' || node.syncing === true));
     let candidates = roots;
     for (const part of ref.path) {
@@ -76,7 +88,7 @@
   function normalizeBindings(value) {
     const entries = Object.entries(value && typeof value === 'object' ? value : {}).slice(-512);
     return Object.fromEntries(entries.filter(([id, binding]) => id && id.length <= 180 && binding &&
-      typeof binding.folderId === 'string' && binding.folderId && binding.folderId !== '0' && binding.folderId.length <= 128)
+      typeof binding.folderId === 'string' && binding.folderId && !isTreeRootId(binding.folderId) && binding.folderId.length <= 128)
       .map(([id, binding]) => [id, { folderId: binding.folderId }]));
   }
   function createRuntime(options) {
@@ -112,7 +124,7 @@
     }
     function bind(id, folderId) {
       const next = { folderId: String(folderId) };
-      if (!id || !next.folderId || next.folderId === '0') return;
+      if (!id || !next.folderId || isTreeRootId(next.folderId)) return;
       if (own(bindings, id) && bindings[id].folderId === next.folderId) return;
       bindings = { ...bindings, [id]: next };
       pending = { ...pending, [id]: next };
@@ -155,7 +167,7 @@
           // Legacy sync IDs have no provenance. Migrate only a unique title,
           // rather than trusting a possibly unrelated matching numeric ID.
           const candidates = [...nodeMap.values()].filter((candidate) => !candidate.url &&
-            String(candidate.id) !== '0' && item.title && candidate.title === item.title);
+            !isTreeRootId(candidate.id) && item.title && candidate.title === item.title);
           if (candidates.length === 1 && String(candidates[0].id) === item.folderId) node = candidates[0];
           if (node) bind(item.id, node.id);
         }

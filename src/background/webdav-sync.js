@@ -8,6 +8,8 @@
   const ALARM_NAME = 'lumno-webdav-sync';
   const SYNC_REVISION = 'dav-multi-1';
   const PROBE_CACHE_MS = 10 * 60 * 1000;
+  // Below the 30 s idle limit of Firefox event pages and Chrome service workers.
+  const KEEP_ALIVE_INTERVAL_MS = 20 * 1000;
   const CHROME_SYNC_META_KEY = '_x_extension_sync_meta_2024_unique_';
   // Synced connection hints stay far below chrome.storage.sync's 8 KB item quota.
   const MAX_HINTS = 10;
@@ -80,7 +82,10 @@
     const alarmName = opts.alarmName || ALARM_NAME;
     const withLocalWrite = opts.withLocalWrite || ((fn) => fn());
     const probeCache = opts.probeCache || createProbeCache();
+    const keepAliveIntervalMs = opts.keepAliveIntervalMs || KEEP_ALIVE_INTERVAL_MS;
     let chain = Promise.resolve();
+    let activeJobs = 0;
+    let keepAliveTimer = null;
     let generation = 0;
     let timer = null;
     let started = false;
@@ -117,9 +122,34 @@
       await storage(localPrefsArea, 'set', { [statusKey]: status });
       return status;
     }
+    // Firefox unloads an idle event page even while its requests are pending
+    // (verified: a 60 s fetch never resolves), which strands the shared write
+    // lock mid-sync until someone deletes it by hand. An extension API call
+    // resets the idle timer in Firefox and Chrome, so tick one while jobs run.
+    function holdKeepAlive() {
+      activeJobs += 1;
+      if (keepAliveTimer || !chromeApi.runtime || typeof chromeApi.runtime.getPlatformInfo !== 'function') return;
+      keepAliveTimer = setInterval(() => {
+        try {
+          const pending = chromeApi.runtime.getPlatformInfo();
+          if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+        } catch (_cause) {
+          // A failed tick only loses this keep-alive beat.
+        }
+      }, keepAliveIntervalMs);
+    }
+    function releaseKeepAlive() {
+      activeJobs = Math.max(0, activeJobs - 1);
+      if (!activeJobs && keepAliveTimer) {
+        clearInterval(keepAliveTimer);
+        keepAliveTimer = null;
+      }
+    }
     function exclusive(fn) {
+      holdKeepAlive();
       const job = chain.then(fn);
       chain = job.catch(() => {});
+      job.then(releaseKeepAlive, releaseKeepAlive);
       return job;
     }
     async function session() { return await privateStore.get('session') || { config: null, base: null }; }
@@ -446,7 +476,7 @@
           const delay = contentionDelays[contention] * (0.75 + Math.random() * 0.5);
           contention += 1;
           await setStatus({ state: 'pending', error: null, diagnostic: null });
-          queueSync(delay);
+          queueSync(delay, { keepAlive: true });
           return { pending: true };
         }
         contention = 0;
@@ -579,11 +609,24 @@
             !(watchedKeys.some((key) => changes[key]) || (areaName === 'sync' && changes[CHROME_SYNC_META_KEY]))) return;
         queueSync(1500);
     }
-    function queueSync(delay) {
-      if (timer) clearTimeout(timer);
+    let timerKeepsAlive = false;
+    function queueSync(delay, queueOptions) {
+      if (timer) {
+        clearTimeout(timer);
+        if (timerKeepsAlive) releaseKeepAlive();
+      }
+      // A contention retry waits up to ~30 s, longer than Firefox keeps an
+      // idle event page; without this the retry would be lost until the alarm.
+      timerKeepsAlive = Boolean(queueOptions && queueOptions.keepAlive);
+      if (timerKeepsAlive) holdKeepAlive();
       timer = setTimeout(() => {
         timer = null;
         exclusive(async () => { if (!stopped) { await mirrorChrome(); await guardedSync(); } }).catch(() => {});
+        // exclusive() took its own hold above, so the page stays alive throughout.
+        if (timerKeepsAlive) {
+          timerKeepsAlive = false;
+          releaseKeepAlive();
+        }
       }, delay);
       if (timer && typeof timer.unref === 'function') timer.unref();
     }

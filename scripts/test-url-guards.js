@@ -17,6 +17,12 @@ const guards = sandbox.LumnoUrlGuards;
 assert.ok(guards, 'LumnoUrlGuards should be exported');
 
 assert.strictEqual(guards.isBrowserExtensionProtocol('chrome-extension:'), true);
+assert.strictEqual(guards.isRestrictedUrl('https://addons.mozilla.org/firefox/'), false,
+  'Chromium may run the overlay on the Firefox add-ons site');
+sandbox.chrome = { runtime: { getURL: () => 'moz-extension://uuid/' } };
+assert.strictEqual(guards.isRestrictedUrl('https://addons.mozilla.org/firefox/'), true,
+  'Firefox blocks content scripts on its own add-ons site');
+delete sandbox.chrome;
 assert.strictEqual(guards.isBrowserExtensionProtocol('https:'), false);
 
 assert.strictEqual(guards.isBrowserNewtabUrl('chrome://newtab/'), true);
