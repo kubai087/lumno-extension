@@ -77,28 +77,36 @@ jobs:
 
       # The store listing (summary, description, categories, links) and
       # screenshots go up with the first listed version only, so later edits
-      # on AMO stick.
+      # on AMO stick. A version already on AMO (say, submitted by hand before
+      # its GitHub release) is skipped.
       - name: Prepare AMO metadata
         id: metadata
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
           CHANNEL: ${{ inputs.channel || 'listed' }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           addon_id="$(node -p "require('./dist/firefox/manifest.json').browser_specific_settings.gecko.id")"
           echo "addon_id=$addon_id" >> "$GITHUB_OUTPUT"
           token="$(node scripts/amo-jwt.js)"
           echo "::add-mask::$token"
           status="$(curl -sS -o dist/amo-versions.json -w '%{http_code}' -H "Authorization: JWT $token" \
-            "https://addons.mozilla.org/api/v5/addons/addon/${addon_id}/versions/?filter=all_without_unlisted")"
+            "https://addons.mozilla.org/api/v5/addons/addon/${addon_id}/versions/?filter=all_with_unlisted&page_size=50")"
           case "$status" in
-            200) listed_versions="$(jq '.count' dist/amo-versions.json)" ;;
-            404) listed_versions=0 ;; # the add-on isn't on AMO yet
+            200) ;;
+            404) echo '{"results":[]}' > dist/amo-versions.json ;; # the add-on isn't on AMO yet
             *)
               echo "::error::AMO returned HTTP $status when looking up $addon_id."
               exit 1
               ;;
           esac
+          if jq -e --arg version "$VERSION" 'any(.results[]; .version == $version)' dist/amo-versions.json > /dev/null; then
+            echo "::notice::$addon_id $VERSION is already on AMO; nothing to submit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          listed_versions="$(jq '[.results[] | select(.channel == "listed")] | length' dist/amo-versions.json)"
           if [ "$CHANNEL" = "listed" ] && [ "$listed_versions" = "0" ]; then
             echo "First listed version of $addon_id; including the store listing and screenshots."
             jq -s '.[0] * .[1]' scripts/amo-listing.json scripts/amo-metadata.json > dist/amo-metadata.json
@@ -109,6 +117,7 @@ jobs:
           fi
 
       - name: Submit to AMO
+        if: ${{ steps.metadata.outputs.skip != 'true' }}
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
@@ -147,7 +156,7 @@ jobs:
           done
 
       - name: Upload signed package
-        if: ${{ inputs.channel == 'unlisted' }}
+        if: ${{ inputs.channel == 'unlisted' && steps.metadata.outputs.skip != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: lumno-firefox-v${{ steps.version.outputs.version }}-signed
