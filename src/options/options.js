@@ -253,6 +253,7 @@
     handleNewtabTopContentSelection
   );
   const optionsToggleControlRecords = new Map();
+  const unsupportedSettingInputIds = new Set();
   function registerOptionsToggleControl(input, kind) {
     if (!input) {
       return null;
@@ -283,6 +284,11 @@
   function setOptionsToggleState(input, checked, disabled) {
     if (!input) {
       return;
+    }
+    // Stays off without touching the synced value other browsers use.
+    if (unsupportedSettingInputIds.has(input.id)) {
+      checked = false;
+      disabled = true;
     }
     input.checked = Boolean(checked);
     if (typeof disabled === 'boolean') {
@@ -344,6 +350,30 @@
     [selectionQuickActionsToggle, 'selection-quick-actions'],
     [selectionQuickActionsGroupToggle, 'selection-quick-actions-group']
   ].forEach(([input, kind]) => registerOptionsToggleControl(input, kind));
+
+  // Settings this browser cannot honor stay visible but disabled, with the
+  // reason on hover: <div data-browser-unsupported="firefox"
+  // data-unsupported-reason-key="...">. applyI18n fills in the tooltip text.
+  function markBrowserUnsupportedSettings() {
+    const family = document.documentElement.getAttribute('data-browser-family');
+    document.querySelectorAll('[data-browser-unsupported]').forEach((row) => {
+      if (row.getAttribute('data-browser-unsupported') !== family) {
+        return;
+      }
+      row.setAttribute('data-unsupported', 'true');
+      row.setAttribute('aria-disabled', 'true');
+      row.setAttribute('data-i18n-tooltip', row.getAttribute('data-unsupported-reason-key') || '');
+      row.setAttribute('data-tooltip', '');
+      // The toggle's React view replaces its <input>; the label keeps the id.
+      row.querySelectorAll('label[for]').forEach((label) => unsupportedSettingInputIds.add(label.htmlFor));
+    });
+    optionsToggleControlRecords.forEach((record, input) => {
+      if (unsupportedSettingInputIds.has(input.id)) {
+        setOptionsToggleState(input, false, true);
+      }
+    });
+  }
+  markBrowserUnsupportedSettings();
 
   const searchResultSourceTypeItems = searchResultSourceTypeInputs.map((input) => {
     const label = input.closest('label');

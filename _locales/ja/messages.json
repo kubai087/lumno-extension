@@ -347,6 +347,9 @@
   "settings_document_pip_desc": {
     "message": "ページ内の一部を切り出して浮かせて表示し、参照や比較に使えます"
   },
+  "settings_document_pip_unsupported_tooltip": {
+    "message": "Webクリップは Document Picture-in-Picture を使いますが、Firefox はまだ対応していません。"
+  },
   "document_pip_command_title": {
     "message": "Webクリップを開始"
   },
@@ -376,6 +379,9 @@
   },
   "settings_auto_pip_desc": {
     "message": "動画の再生中に別タブへ移動すると、再生中の動画をピクチャーインピクチャーで表示します"
+  },
+  "settings_auto_pip_unsupported_tooltip": {
+    "message": "Firefox では拡張機能が動画を自動でピクチャーインピクチャー表示できないため、この機能は使えません。"
   },
   "settings_pinned_tab_recovery_title": {
     "message": "再起動後に固定タブを復元"

@@ -347,6 +347,9 @@
   "settings_document_pip_desc": {
     "message": "把網頁中的局部內容單獨剪出來浮動查看，可用於參考、對照"
   },
+  "settings_document_pip_unsupported_tooltip": {
+    "message": "網頁剪裁仰賴文件子母畫面（Document Picture-in-Picture），Firefox 暫不支援。"
+  },
   "document_pip_command_title": {
     "message": "開啟網頁剪裁"
   },
@@ -376,6 +379,9 @@
   },
   "settings_auto_pip_desc": {
     "message": "在網頁上播放影片時，若切換至其他分頁，正在播放的影片將以浮動視窗形式播放"
+  },
+  "settings_auto_pip_unsupported_tooltip": {
+    "message": "Firefox 不允許擴充功能讓網頁影片自動進入子母畫面，此功能暫不可用。"
   },
   "settings_pinned_tab_recovery_title": {
     "message": "重新啟動後還原釘選分頁"

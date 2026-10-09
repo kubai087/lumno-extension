@@ -347,6 +347,9 @@
   "settings_document_pip_desc": {
     "message": "把网页里的局部内容单独剪出来悬浮查看，可用于参考、对照"
   },
+  "settings_document_pip_unsupported_tooltip": {
+    "message": "网页剪裁依赖文档画中画（Document Picture-in-Picture），Firefox 暂不支持。"
+  },
   "document_pip_command_title": {
     "message": "开启网页剪裁"
   },
@@ -376,6 +379,9 @@
   },
   "settings_auto_pip_desc": {
     "message": "在网页上播放视频时，若切换至其他标签页，则正在播放中的视频将以浮窗的形式播放"
+  },
+  "settings_auto_pip_unsupported_tooltip": {
+    "message": "Firefox 不允许扩展让网页视频自动进入画中画，此功能暂不可用。"
   },
   "settings_pinned_tab_recovery_title": {
     "message": "重启后恢复置顶标签页"

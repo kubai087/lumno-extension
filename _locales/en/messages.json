@@ -347,6 +347,9 @@
   "settings_document_pip_desc": {
     "message": "Clip part of a page into a floating view for reference and side-by-side comparison"
   },
+  "settings_document_pip_unsupported_tooltip": {
+    "message": "Web Clip relies on Document Picture-in-Picture, which Firefox doesn't support yet."
+  },
   "document_pip_command_title": {
     "message": "Start Web Clip"
   },
@@ -376,6 +379,9 @@
   },
   "settings_auto_pip_desc": {
     "message": "When you switch tabs while a video is playing, it keeps playing in a floating window"
+  },
+  "settings_auto_pip_unsupported_tooltip": {
+    "message": "Firefox doesn't let extensions put web videos into Picture-in-Picture automatically, so this feature is unavailable."
   },
   "settings_pinned_tab_recovery_title": {
     "message": "Restore Pinned Tabs After Restart"
