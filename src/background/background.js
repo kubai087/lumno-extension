@@ -2816,6 +2816,10 @@ function getSwitcherThumbnailStateForTab(tabId, url) {
 }
 
 function getSwitcherThumbnailStateForPayload(tab, url) {
+  // Also drops blurred captures saved before such pages were skipped.
+  if (isFirefoxPrivilegedPageUrl(url)) {
+    return { status: 'restricted', reason: 'restricted-browser-page', dataUrl: '', capturedAt: 0, updatedAt: 0 };
+  }
   const status = typeof tab._xSwitcherThumbnailStatus === 'string' ? tab._xSwitcherThumbnailStatus : '';
   if (status) {
     return {
@@ -2939,8 +2943,41 @@ function markSwitcherThumbnailStatus(tab, status, requestReason, failureReason) 
   return didSet;
 }
 
+// Firefox gives its about: pages chrome:// icons that web pages cannot load,
+// and those monochrome icons would vanish on a dark switcher anyway. The
+// switcher shows the browser's own logo (Firefox, Zen, ...) for them instead,
+// rasterized once into a data URL that any page can render.
+let firefoxBrandIconDataUrl = '';
+function loadFirefoxBrandIcon() {
+  if (!BROWSER_PROFILE.isFirefoxExtensionRuntime() || typeof Image !== 'function' || typeof document === 'undefined') {
+    return;
+  }
+  const image = new Image();
+  image.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      canvas.getContext('2d').drawImage(image, 0, 0, 64, 64);
+      firefoxBrandIconDataUrl = canvas.toDataURL('image/png');
+    } catch (error) {
+      firefoxBrandIconDataUrl = '';
+    }
+  };
+  image.src = 'chrome://branding/content/icon64.png';
+}
+loadFirefoxBrandIcon();
+
+function isFirefoxPrivilegedPageUrl(url) {
+  return /^about:/i.test(String(url || '')) && BROWSER_PROFILE.isFirefoxExtensionRuntime();
+}
+
 function buildSwitcherTabFavicon(tab, url) {
   const resolved = String(url || getResolvedTabUrl(tab) || '').trim();
+  if (firefoxBrandIconDataUrl && isFirefoxPrivilegedPageUrl(resolved) &&
+      !/^(?:data:image\/|https?:)/i.test(String(tab && tab.favIconUrl || ''))) {
+    return firefoxBrandIconDataUrl;
+  }
   const resolver = getBackgroundFaviconUrlResolver();
   return resolver ? resolver.resolveFaviconSource(tab && tab.favIconUrl, resolved) : '';
 }
@@ -3242,6 +3279,11 @@ function getSwitcherThumbnailCaptureFailureReason(tab) {
     const protocol = String(parsed.protocol || '').toLowerCase();
     if (!protocol || protocol === 'javascript:') {
       return 'unsupported-protocol';
+    }
+    // Firefox only returns a small, deliberately blurred capture of its
+    // privileged pages; show the icon fallback instead, as for chrome:// pages.
+    if (isFirefoxPrivilegedPageUrl(url)) {
+      return 'restricted-browser-page';
     }
     return '';
   } catch (error) {
