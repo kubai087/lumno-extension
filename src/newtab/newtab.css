@@ -4223,6 +4223,7 @@ body[data-wallpaper-active="true"] .x-nt-wallpaper-button[data-open="true"]:not(
   interpolate-size: allow-keywords;
   --x-nt-panel-subsection-gap: var(--x-nt-panel-item-gap);
   --x-nt-panel-scroll-edge: 14px;
+  --x-nt-panel-padding: 20px;
   position: absolute;
   right: 0;
   bottom: 46px;
@@ -4236,7 +4237,8 @@ body[data-wallpaper-active="true"] .x-nt-wallpaper-button[data-open="true"]:not(
     calc(100dvh - 84px),
     calc(100dvh - 76px - var(--x-nt-top-occupied-inset, 0px))
   );
-  padding: 20px;
+  /* The bottom inset lives in the scroll area, so content scrolls all the way to the panel edge. */
+  padding: var(--x-nt-panel-padding) var(--x-nt-panel-padding) 0;
   border-radius: var(--lumno-radius-dialog);
   background: rgb(255 255 255);
   border: 1px solid var(
@@ -4282,6 +4284,7 @@ body[data-theme="dark"] .x-nt-wallpaper-panel {
   flex: 1 1 auto;
   margin-right: calc(-1 * var(--x-nt-panel-scroll-edge));
   padding-right: var(--x-nt-panel-scroll-edge);
+  padding-bottom: var(--x-nt-panel-padding);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -4300,6 +4303,8 @@ body[data-theme="dark"] .x-nt-wallpaper-panel {
 }
 .x-nt-wallpaper-panel-scroll::-webkit-scrollbar-track {
   background: transparent;
+  /* Keeps the thumb clear of the panel's rounded bottom corner. */
+  margin-bottom: var(--x-nt-panel-padding);
 }
 .x-nt-wallpaper-panel-title {
   color: var(--x-nt-text, #111827);
@@ -6553,7 +6558,7 @@ body[data-lumno-page="newtab"] [role="button"] .ri-icon {
       calc(100dvh - 100px - var(--x-nt-top-safe-inset) - var(--x-nt-bottom-safe-inset)),
       calc(100dvh - 80px - var(--x-nt-top-occupied-inset) - var(--x-nt-bottom-safe-inset))
     );
-    padding: 16px;
+    --x-nt-panel-padding: 16px;
   }
   .x-nt-wallpaper-panel-scroll {
     scrollbar-gutter: auto;
