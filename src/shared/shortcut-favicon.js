@@ -115,6 +115,36 @@
     wk: 'assets/images/site-search/glyph-wk.svg',
     zw: 'assets/images/site-search/glyph-zw.svg'
   });
+  // A provider's search often runs on its own subdomain (search.bilibili.com),
+  // so list the hosts people actually save as shortcuts for the same brand.
+  const SHORTCUT_ICON_SITE_HOSTS = Object.freeze({
+    yt: Object.freeze(['m.youtube.com', 'youtu.be']),
+    bb: Object.freeze(['bilibili.com', 'm.bilibili.com', 'space.bilibili.com']),
+    maps: Object.freeze(['maps.google.com']),
+    gpt: Object.freeze(['chat.openai.com']),
+    ds: Object.freeze(['deepseek.com']),
+    kimi: Object.freeze(['kimi.moonshot.cn']),
+    bd: Object.freeze(['m.baidu.com']),
+    bi: Object.freeze(['cn.bing.com']),
+    gg: Object.freeze(['google.com.hk']),
+    yh: Object.freeze(['yahoo.com']),
+    yx: Object.freeze(['yandex.ru', 'ya.ru']),
+    sm: Object.freeze(['sm.cn']),
+    zh: Object.freeze(['zhuanlan.zhihu.com']),
+    db: Object.freeze(['movie.douban.com', 'book.douban.com', 'music.douban.com']),
+    tb: Object.freeze(['taobao.com']),
+    tm: Object.freeze(['tmall.com']),
+    tw: Object.freeze(['twitter.com']),
+    rd: Object.freeze(['old.reddit.com']),
+    wb: Object.freeze(['weibo.com', 'm.weibo.cn']),
+    jd: Object.freeze(['jd.com']),
+    wk: Object.freeze(['wikipedia.org', 'en.m.wikipedia.org']),
+    zw: Object.freeze(['zh.m.wikipedia.org'])
+  });
+  // Products that share a host with another provider only own their section.
+  const SHORTCUT_ICON_PATH_SCOPES = Object.freeze({
+    maps: '/maps'
+  });
   // Shortcut artwork is a saved snapshot; deletion or a URL edit prunes it.
   const CACHE_TTL_MS = 0;
   const CACHE_MAX_ENTRIES = 60;
@@ -313,11 +343,21 @@
     if (!host) {
       return '';
     }
-    const provider = (Array.isArray(providers) ? providers : []).find((item) => (
-      getSiteSearchPinnedIconAssetPath(item) && getHost(getSiteSearchProviderPageUrl(item)) === host
+    const pathname = new URL(String(pageUrl)).pathname;
+    const getKey = (item) => String(item && (item.builtinKey || item.key) || '').trim().toLowerCase();
+    const matchesSearchHost = (item) => {
+      const scope = SHORTCUT_ICON_PATH_SCOPES[getKey(item)];
+      return getHost(getSiteSearchProviderPageUrl(item)) === host &&
+        (!scope || pathname === scope || pathname.startsWith(`${scope}/`));
+    };
+    const candidates = (Array.isArray(providers) ? providers : []).filter((item) => (
+      getSiteSearchPinnedIconAssetPath(item) &&
+      (matchesSearchHost(item) || (SHORTCUT_ICON_SITE_HOSTS[getKey(item)] || []).includes(host))
     ));
-    const providerKey = String(provider && (provider.builtinKey || provider.key) || '').trim().toLowerCase();
-    return SHORTCUT_PINNED_ICON_ASSETS[providerKey] || '';
+    // A path-scoped product (Google Maps) wins inside its section; elsewhere
+    // on a shared host the site's own artwork applies.
+    const provider = candidates.find((item) => SHORTCUT_ICON_PATH_SCOPES[getKey(item)]) || candidates[0];
+    return SHORTCUT_PINNED_ICON_ASSETS[getKey(provider)] || '';
   }
 
   function normalizeCacheOptions(options) {

@@ -158,7 +158,7 @@ function createFrontend(acquisition, pageUrl, options = {}) {
     const saveBookmarkFromDialog = () => Promise.resolve(true);
     const saveShortcutFromDialog = () => Promise.resolve(deps.saveResult !== false);
     const renderShortcuts = () => {};
-    ${['getShortcutFaviconDataUrl', 'getShortcutFaviconCandidateUrl', 'getShortcutDialogBuiltinIconUrl', 'saveShortcutFaviconSnapshot',
+    ${['getShortcutIconSource', 'getShortcutFaviconDataUrl', 'getShortcutFaviconCandidateUrl', 'getShortcutDialogBuiltinIconUrl', 'saveShortcutFaviconSnapshot',
       'resolveShortcutFaviconDataUrl', 'getShortcutDialogOnlineIconUrl',
       'getShortcutDialogOnlineIconSource', 'isShortcutDialogIconSourceAvailable',
       'refreshShortcutDialogOnlineIcon', 'createShortcutDialogComponent'].map((name) => extractFunction(newtabSource, name)).join('\n')}
@@ -319,6 +319,12 @@ async function run() {
   for (const unsupported of ['https://github.com.evil.test/', 'https://not-supported.test/', 'chrome://settings/']) {
     assert.strictEqual(builtinDialog.getBuiltinIconUrl(unsupported), '', 'eligibility must match a packaged exact host');
   }
+  const orphanedPage = 'https://not-supported.test/';
+  const orphanedAcquisition = createAcquisition();
+  const orphanedBuiltin = createFrontend(orphanedAcquisition, orphanedPage, { iconSource: 'builtin' });
+  await orphanedBuiltin.resolveShortcutFaviconDataUrl(orphanedPage);
+  assert.ok(orphanedBuiltin.messages.length > 0,
+    'a built-in choice without packaged artwork must fall back to automatic acquisition');
   const legacyBuiltin = createFrontend(createAcquisition(), githubPage).createShortcutDialogComponent();
   assert.strictEqual(legacyBuiltin.getOnlineIconSource(githubPage), 'cache',
     'automatic path-specific shortcuts must not silently select host-wide bundled artwork');

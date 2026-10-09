@@ -317,10 +317,17 @@
       return id && pageState.newtabShortcutIcons[id] ? pageState.newtabShortcutIcons[id] : '';
     }
 
+    // A built-in choice only holds while this extension still packages artwork
+    // for the URL; otherwise the tile resolves its icon automatically.
+    function getShortcutIconSource(shortcut) {
+      const source = shortcut && shortcut.iconSource;
+      return source === 'builtin' && !getShortcutDialogBuiltinIconUrl(shortcut.url) ? undefined : source;
+    }
+
     function getShortcutFaviconDataUrl(pageUrl) {
       const normalizedPageUrl = SHORTCUT_FAVICON.normalizePageUrl(pageUrl);
       const shortcut = pageState.newtabShortcuts.find((item) => SHORTCUT_FAVICON.normalizePageUrl(item && item.url) === normalizedPageUrl);
-      const source = shortcut && shortcut.iconSource;
+      const source = getShortcutIconSource(shortcut);
       if (source === 'builtin') return '';
       const entry = normalizedPageUrl && pageState.newtabShortcutFavicons[normalizedPageUrl];
       if (entry && ['service', 'favicon-is', 'cache'].includes(source)) {
@@ -337,7 +344,7 @@
       }
       const normalizedPageUrl = SHORTCUT_FAVICON.normalizePageUrl(pageUrl);
       const shortcut = pageState.newtabShortcuts.find((item) => SHORTCUT_FAVICON.normalizePageUrl(item && item.url) === normalizedPageUrl);
-      if (normalizedPageUrl && (!shortcut || shortcut.iconSource !== 'builtin')) return '';
+      if (normalizedPageUrl && getShortcutIconSource(shortcut) !== 'builtin') return '';
       const resolver = getPageFaviconUrlResolver();
       return resolver ? resolver.getShortcutFaviconCandidateUrl(
         pageUrl, getShortcutDialogBuiltinIconUrl(pageUrl)
@@ -501,7 +508,7 @@
         return Promise.resolve('');
       }
       const shortcut = pageState.newtabShortcuts.find((item) => SHORTCUT_FAVICON.normalizePageUrl(item && item.url) === normalizedPageUrl);
-      const iconSource = shortcut && shortcut.iconSource;
+      const iconSource = getShortcutIconSource(shortcut);
       if (iconSource === 'builtin') return Promise.resolve('');
       const cachedDataUrl = getShortcutFaviconDataUrl(normalizedPageUrl);
       if (cachedDataUrl) {
@@ -554,7 +561,7 @@
             }
             const currentShortcut = pageState.newtabShortcuts.find((item) =>
               SHORTCUT_FAVICON.normalizePageUrl(item && item.url) === normalizedPageUrl);
-            if (!currentShortcut || currentShortcut.iconSource !== iconSource ||
+            if (!currentShortcut || getShortcutIconSource(currentShortcut) !== iconSource ||
                 policyRevision !== pageState.shortcutFaviconPolicyRevision) {
               finish('');
               return;
