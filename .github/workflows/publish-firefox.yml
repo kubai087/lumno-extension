@@ -1,0 +1,155 @@
+name: Publish Firefox Add-on
+
+# Builds the Firefox package from the released commit and submits it to
+# addons.mozilla.org. Listed versions go into AMO review and appear on the
+# store once approved; unlisted versions are signed for self-hosting and the
+# signed .xpi is attached to the run.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "listed: submit to AMO for review. unlisted: only sign a self-hosted .xpi"
+        type: choice
+        options: [listed, unlisted]
+        default: listed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-firefox
+  cancel-in-progress: false
+
+env:
+  WEB_EXT: web-ext@10.7.0
+
+jobs:
+  publish:
+    name: Submit to addons.mozilla.org
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check AMO credentials
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -z "${AMO_JWT_ISSUER:-}" ] || [ -z "${AMO_JWT_SECRET:-}" ]; then
+            echo "::error::Add AMO_JWT_ISSUER and AMO_JWT_SECRET to this repository's Actions secrets. Generate them at https://addons.mozilla.org/developers/addon/api/key/"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(node -p "require('./manifest.json').version")"
+          if [ -n "${RELEASE_TAG:-}" ] && [ "${RELEASE_TAG#v}" != "$version" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not match manifest version $version."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build Firefox package
+        run: npm run package:firefox
+
+      - name: Lint Firefox package
+        run: npx --yes "$WEB_EXT" lint --source-dir dist/firefox
+
+      - name: Archive source code for AMO review
+        run: git archive --format=zip --output "dist/lumno-firefox-source-v${{ steps.version.outputs.version }}.zip" HEAD
+
+      # The store listing (summary, description, categories, links) and
+      # screenshots go up with the first listed version only, so later edits
+      # on AMO stick.
+      - name: Prepare AMO metadata
+        id: metadata
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          CHANNEL: ${{ inputs.channel || 'listed' }}
+        run: |
+          addon_id="$(node -p "require('./dist/firefox/manifest.json').browser_specific_settings.gecko.id")"
+          echo "addon_id=$addon_id" >> "$GITHUB_OUTPUT"
+          token="$(node scripts/amo-jwt.js)"
+          echo "::add-mask::$token"
+          status="$(curl -sS -o dist/amo-versions.json -w '%{http_code}' -H "Authorization: JWT $token" \
+            "https://addons.mozilla.org/api/v5/addons/addon/${addon_id}/versions/?filter=all_without_unlisted")"
+          case "$status" in
+            200) listed_versions="$(jq '.count' dist/amo-versions.json)" ;;
+            404) listed_versions=0 ;; # the add-on isn't on AMO yet
+            *)
+              echo "::error::AMO returned HTTP $status when looking up $addon_id."
+              exit 1
+              ;;
+          esac
+          if [ "$CHANNEL" = "listed" ] && [ "$listed_versions" = "0" ]; then
+            echo "First listed version of $addon_id; including the store listing and screenshots."
+            jq -s '.[0] * .[1]' scripts/amo-listing.json scripts/amo-metadata.json > dist/amo-metadata.json
+            echo "first_listed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Submitting a new $CHANNEL version of $addon_id."
+            cp scripts/amo-metadata.json dist/amo-metadata.json
+          fi
+
+      - name: Submit to AMO
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          CHANNEL: ${{ inputs.channel || 'listed' }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Listed review takes hours to days, so don't wait for it. Unlisted
+          # versions are signed automatically within minutes.
+          approval_timeout=0
+          if [ "$CHANNEL" = "unlisted" ]; then
+            approval_timeout=900000
+          fi
+          npx --yes "$WEB_EXT" sign \
+            --source-dir dist/firefox \
+            --artifacts-dir dist/web-ext-artifacts \
+            --channel "$CHANNEL" \
+            --amo-metadata dist/amo-metadata.json \
+            --upload-source-code "dist/lumno-firefox-source-v${VERSION}.zip" \
+            --approval-timeout "$approval_timeout"
+
+      - name: Upload store screenshots
+        if: ${{ steps.metadata.outputs.first_listed == 'true' }}
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
+        run: |
+          for image in scripts/amo-screenshots/*.jpg; do
+            token="$(node scripts/amo-jwt.js)"
+            echo "::add-mask::$token"
+            curl -fsS -o /dev/null -H "Authorization: JWT $token" \
+              -F "image=@$image" -F "position=$(basename "$image" .jpg)" \
+              "https://addons.mozilla.org/api/v5/addons/addon/${ADDON_ID}/previews/" \
+              || { echo "::error::Could not upload $image. Add the screenshots on AMO by hand."; exit 1; }
+            echo "Uploaded $image"
+          done
+
+      - name: Upload signed package
+        if: ${{ inputs.channel == 'unlisted' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumno-firefox-v${{ steps.version.outputs.version }}-signed
+          path: dist/web-ext-artifacts/*.xpi
+          if-no-files-found: error

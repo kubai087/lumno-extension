@@ -5,9 +5,9 @@ const path = require('path');
 const onboarding = require('../src/onboarding/onboarding-content.js');
 const GITHUB_HOMEPAGE_URL = 'https://github.com/kubai087/lumno-extension';
 const COMPATIBILITY_TOOLTIP =
-  '受 Chrome 限制，Lumno 无法提供单独关闭新标签页的入口，但它可以与其他新标签页插件同时使用。\n具体而言，安装 Lumno 后，再覆盖安装或重新启用你正在使用的新标签页插件，让它继续接管新标签页即可。';
+  '受浏览器限制，Lumno 无法提供单独关闭新标签页的入口，但它可以与其他新标签页插件同时使用。\n具体而言，安装 Lumno 后，再覆盖安装或重新启用你正在使用的新标签页插件，让它继续接管新标签页即可。';
 const SHORTCUT_ACTION_TOOLTIP =
-  '由于浏览器限制，请在「扩展程序 / 键盘快捷键」页面修改 Lumno 的快捷键，点击前往。';
+  '由于浏览器限制，请在浏览器的扩展快捷键页面修改 Lumno 的快捷键，点击前往。';
 const DIA_BROWSER_DISCLOSURE_TEXT =
   '在 Dia 中，若聚焦搜索浮窗的快捷键不可用，请进入浏览器的快捷键设置页面，将“Open command bar”从“In Dia”改为“Global”。';
 const SHORTCUTS_PAGE_URL = 'chrome://extensions/shortcuts';
@@ -143,6 +143,8 @@ assert.deepStrictEqual(
     browsers: [
       { id: 'chrome', name: 'Chrome', src: '../../assets/images/browser-logos/google-chrome-2022.svg' },
       { id: 'edge', name: 'Edge', src: '../../assets/images/browser-logos/microsoft-edge-2019.svg' },
+      { id: 'firefox', name: 'Firefox', src: '../../assets/images/browser-logos/firefox.svg' },
+      { id: 'zen', name: 'Zen', src: '../../assets/images/browser-logos/zen.svg' },
       { id: 'dia', name: 'Dia', src: '../../assets/images/browser-logos/dia.jpg' },
       { id: 'comet', name: 'Comet', src: '../../assets/images/browser-logos/comet.jpg' }
     ]
@@ -218,6 +220,7 @@ assert.deepStrictEqual(
       icon: 'ri-information-line',
       label: '致 Dia 浏览器用户',
       description: '',
+      browserOnly: 'chromium',
       accordion: {
         icon: 'ri-arrow-left-s-line',
         text: DIA_BROWSER_DISCLOSURE_TEXT,
@@ -239,6 +242,7 @@ assert.deepStrictEqual(
       icon: 'ri-information-line',
       label: '在本地 PDF/HTML 标签页中使用聚焦搜索',
       description: '',
+      browserOnly: 'chromium',
       accordion: {
         icon: 'ri-arrow-left-s-line',
         text: LOCAL_FILE_ACCORDION_TEXT,
@@ -404,7 +408,8 @@ assert.deepStrictEqual(
     secondary: {
       actionId: 'openChromeWebStore',
       label: '为我们评分',
-      icon: ''
+      icon: '',
+      browserOnly: 'chromium'
     },
     ghost: {
       actionId: 'openOptions',

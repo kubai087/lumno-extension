@@ -15,6 +15,7 @@
       updateWallpaperAppearanceSelectionUi,
       updateFeedbackLanguageStrings,
       updateShortcutLanguageStrings,
+      notifyLanguageChange,
       setLocalSearchScopePrefix,
       updateModeBadge,
       recentCards,
@@ -123,6 +124,7 @@
       if (pageState.latestQuery && pageState.latestQuery.trim()) {
         renderSuggestions(pageState.lastSuggestionResponse, pageState.latestQuery);
       }
+      notifyLanguageChange();
     }
 
     function applyLanguageMode(mode) {

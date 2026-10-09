@@ -5,7 +5,7 @@
 <h1 align="center">Lumno：Chrome 聚焦搜索命令栏 & 新标签页插件</h1>
 
 <p align="center">
-  免费开源的 Chrome / Edge 浏览器扩展：类 Spotlight 的命令栏 + 可自定义的极简新标签页，支持 Brave、Arc 等 Chromium 浏览器。
+  免费开源的 Chrome / Edge 浏览器扩展：类 Spotlight 的命令栏 + 可自定义的极简新标签页，支持 Brave、Arc 等 Chromium 浏览器，并提供适用于 Firefox、Zen 等 Firefox 系浏览器的版本。
   <br />
   一个快捷键搜索标签页、书签和历史记录，直达网址，并调用站内搜索与 AI 搜索。
 </p>
@@ -111,6 +111,8 @@
 
 浏览器可能会占用或限制扩展快捷键。请在 `chrome://extensions/shortcuts`、`edge://extensions/shortcuts` 或对应浏览器的扩展快捷键页面中修改。
 
+Firefox 已占用 `Cmd+Shift+K` / `Ctrl+Shift+K` 等按键，因此 Firefox 版默认在 macOS 上使用 `Ctrl+Shift+K/L/C`，在 Windows 和 Linux 上使用 `Alt+K/L/C`，`Alt+Q` 不变。可在附加组件管理器的齿轮菜单 →「管理扩展快捷键」中修改。
+
 ## 安装
 
 | 浏览器 | 安装入口 |
@@ -118,6 +120,7 @@
 | Google Chrome | [Chrome 应用商店](https://chromewebstore.google.com/detail/nggfkkbmogmadfoikakkfegkoilfcfao) |
 | Microsoft Edge | [Microsoft Edge 加载项](https://microsoftedge.microsoft.com/addons/detail/pfbklkaefmfamjpibfiapaiihlddhchc) |
 | Brave、Arc、Vivaldi、Opera 等 Chromium 浏览器 | [Chrome 应用商店](https://chromewebstore.google.com/detail/nggfkkbmogmadfoikakkfegkoilfcfao) |
+| Firefox 140+、Zen、LibreWolf、Floorp 等 Firefox 系浏览器 | 尚未上架 Firefox 附加组件商店，可从源码构建（见[开发](#开发)） |
 
 从源码安装：
 
@@ -129,6 +132,29 @@
 
 如果需要在本地 HTML、PDF 或 `file://` 页面使用命令栏，请在扩展详情页开启「允许访问文件网址」。
 
+## 浏览器兼容性
+
+Lumno 为 Chromium 浏览器开发，同时提供 Firefox 版。Zen、LibreWolf、Floorp、Waterfox 等基于 Firefox 的浏览器使用 Firefox 版，需要 Firefox 140 及以上的内核。暂不支持 Safari。
+
+**Firefox 及 Firefox 系浏览器。** Firefox 的扩展接口与 Chromium 有几处不同：
+
+| 功能 | 在 Firefox 中 | 原因 |
+| --- | --- | --- |
+| 视频自动画中画 | 不可用；设置中显示为禁用，悬停可查看原因 | Firefox 不允许扩展让网页视频进入画中画 |
+| 网页剪裁 | 不可用；设置中显示为禁用，悬停可查看原因 | 依赖文档画中画（Document Picture-in-Picture），Firefox 不支持 |
+| 新标签页的书签管理器按钮 | 隐藏 | 扩展无法打开 Firefox 的「我的足迹」窗口 |
+| 从快捷方式或命令栏打开 `about:` 页面（如 `about:config`） | 不可用 | Firefox 不允许扩展打开其特权页面 |
+| 在 `about:` 页面和 addons.mozilla.org 上打开命令栏 | 不可用 | Firefox 禁止扩展脚本在这些页面运行，快捷键按「受限页」设置处理 |
+| 在本地 `file://` 页面上打开命令栏 | 不可用 | Firefox 没有为扩展开放文件网址访问权限的设置 |
+| 网站图标 | 表现不同 | Firefox 没有供扩展使用的图标接口。Lumno 读取 Firefox 自己的图标缓存（已打开的标签页和常用网站），开启后再使用在线图标服务；从未访问过的网站可能先显示占位图标，访问一次后即可显示 |
+| `about:` 页面在标签切换器中 | 表现不同 | 显示浏览器 logo 而不是页面预览，因为 Firefox 只返回这些页面的模糊截图 |
+| 新标签页搜索框聚焦 | 表现不同 | Firefox 会把新标签页的焦点给地址栏；开启自动聚焦后，Lumno 会重新打开该标签页，让焦点落在搜索框 |
+| 「前往快捷键设置」 | 表现不同 | 打开附加组件管理器，需在齿轮菜单中选择「管理扩展快捷键」 |
+| 评分邀请和评价入口 | 隐藏 | 等 Lumno 上架 Firefox 附加组件商店后恢复 |
+| 设置同步 | 表现不同 | 使用 Firefox 同步而非 Chrome 同步。WebDAV 同步可在 Chrome 与 Firefox 之间进行，包括同一台电脑上同时打开两者 |
+
+**Chromium 系浏览器。** Brave、Arc、Vivaldi、Opera 等使用 Chrome 应用商店的版本，功能与 Chrome 相同，但部分浏览器会占用或改写扩展快捷键。在 Dia 中，新标签页功能暂不可用，聚焦搜索可正常使用；如果快捷键无效，请在浏览器的快捷键设置中把「Open command bar」从 In Dia 改为 Global。
+
 ## 隐私
 
 Lumno 本地优先。书签、历史和标签页仅在本机读取用于搜索，不会发送到 Lumno 或开发者服务器；没有 Lumno 账号、统计分析或广告追踪。网站图标、每日一言、在线壁纸和 WebDAV 等需要联网的可选功能，只在你开启后才会请求第三方服务。完整说明见[隐私政策](https://lumno.kubai.design/privacy/)。
@@ -139,7 +165,7 @@ Lumno 本地优先。书签、历史和标签页仅在本机读取用于搜索�
 免费。Lumno 以 GPL-3.0 许可证开源。如果想支持开发，可以查看[赞助说明](SPONSORING.zh-CN.md)。
 
 **支持哪些浏览器？**
-支持 Manifest V3 扩展的 Chromium 浏览器：Google Chrome、Microsoft Edge、Brave、Arc、Vivaldi、Opera 等。暂不支持 Firefox 和 Safari。
+支持 Manifest V3 扩展的 Chromium 浏览器（Google Chrome、Microsoft Edge、Brave、Arc、Vivaldi、Opera 等），以及 Firefox 140 及以上版本和 Zen、LibreWolf 等 Firefox 系浏览器。Firefox 中有少数功能不可用，见[浏览器兼容性](#浏览器兼容性)。暂不支持 Safari。
 
 **设置能在多台设备间同步吗？**
 可以。登录浏览器后，设置会通过 Chrome 内置同步；开启 [WebDAV 同步](#webdav-同步)后，还能通过你自己的服务器同步自定义图标和壁纸。
@@ -193,6 +219,8 @@ npm run test:onboarding-content
 ```
 
 `npm run package:store` 会读取 `manifest.json` 的版本号，并生成 `dist/lumno-store-v<version>.zip`。本命令依赖系统可用的 `zip` 和 `zipinfo`。
+
+`npm run package:firefox` 会先生成商店包，再转换为 `dist/firefox` 中的 Firefox 版。所有 Firefox 专属改动都列在 `scripts/build-firefox.js` 中：用后台脚本替代服务工作线程、Gecko 扩展 ID、Firefox 快捷键、去掉自动画中画脚本，以及用带 `__firefox` 后缀的语言条目替换对应的基础文案。试用时打开 `about:debugging#/runtime/this-firefox`，选择「临时加载附加组件」，再选中 `dist/firefox/manifest.json`；运行 `npm run lint:firefox` 可用 `web-ext` 检查。共享代码中请调用 `LumnoBrowserProfile.isFirefoxExtensionRuntime()` 判断运行环境，不要直接检查 URL 协议；只属于某一类浏览器的界面用 `data-browser-only="chromium"` 标记（在其他浏览器中隐藏），设置项则用 `data-browser-unsupported="firefox"`（显示为禁用并说明原因）。
 
 ### 目录结构
 

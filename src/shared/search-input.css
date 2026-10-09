@@ -842,24 +842,6 @@
   font: inherit !important;
 }
 
-.x-lumno-search-input-mode__menu-check {
-  all: unset !important;
-  display: inline-flex !important;
-  position: absolute !important;
-  top: 6px !important;
-  right: 6px !important;
-  color: var(
-    --x-lumno-search-mode-accent,
-    var(--x-ext-input-caret, #2563eb)
-  ) !important;
-  opacity: 0 !important;
-}
-
-.x-lumno-search-input-mode__menu-item[aria-checked="true"]
-  .x-lumno-search-input-mode__menu-check {
-  opacity: 1 !important;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .x-lumno-search-input-mode__menu {
     animation: none !important;

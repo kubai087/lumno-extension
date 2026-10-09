@@ -5,7 +5,7 @@
 <h1 align="center">Lumno: Command Bar & New Tab for Chrome</h1>
 
 <p align="center">
-  A free, open-source, Spotlight-style command bar and customizable new tab page for Chrome, Edge, Brave, Arc and other Chromium browsers.
+  A free, open-source, Spotlight-style command bar and customizable new tab page for Chrome, Edge, Brave, Arc and other Chromium browsers, with a build for Firefox, Zen and other Firefox-based browsers.
   <br />
   Search open tabs, bookmarks and history, jump to any URL, and launch site or AI search from one keyboard shortcut.
 </p>
@@ -111,6 +111,8 @@ Restore pinned tabs after a restart, fall back from restricted pages to the new 
 
 Browsers may reserve or limit extension shortcuts. Change them at `chrome://extensions/shortcuts`, `edge://extensions/shortcuts`, or the equivalent shortcuts page in your browser.
 
+Firefox already uses `Cmd+Shift+K` / `Ctrl+Shift+K` and similar keys, so the Firefox build defaults to `Ctrl+Shift+K/L/C` on macOS and `Alt+K/L/C` on Windows and Linux; `Alt+Q` is unchanged. Change them in the Add-ons Manager under the gear menu → **Manage Extension Shortcuts**.
+
 ## Installation
 
 | Browser | Install |
@@ -118,6 +120,7 @@ Browsers may reserve or limit extension shortcuts. Change them at `chrome://exte
 | Google Chrome | [Chrome Web Store](https://chromewebstore.google.com/detail/nggfkkbmogmadfoikakkfegkoilfcfao) |
 | Microsoft Edge | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/pfbklkaefmfamjpibfiapaiihlddhchc) |
 | Brave, Arc, Vivaldi, Opera and other Chromium browsers | [Chrome Web Store](https://chromewebstore.google.com/detail/nggfkkbmogmadfoikakkfegkoilfcfao) |
+| Firefox 140+, Zen, LibreWolf, Floorp and other Firefox-based browsers | Not yet listed on Firefox Add-ons; build it from source (see [Development](#development)) |
 
 To install from source:
 
@@ -129,6 +132,29 @@ To install from source:
 
 To use the command bar on local HTML, PDF or `file://` pages, enable "Allow access to file URLs" on the extension details page.
 
+## Browser compatibility
+
+Lumno is built for Chromium browsers and also ships a Firefox build. Browsers built on Firefox, such as Zen, LibreWolf, Floorp and Waterfox, use the Firefox build and need a Firefox 140 or later engine. Safari is not supported.
+
+**Firefox and Firefox-based browsers.** Firefox's extension APIs differ from Chromium's in a few places:
+
+| Feature | In Firefox | Reason |
+| --- | --- | --- |
+| Auto video Picture-in-Picture | Unavailable; shown disabled in settings with the reason | Firefox does not let extensions start Picture-in-Picture for page videos |
+| Web Clip | Unavailable; shown disabled in settings with the reason | It needs Document Picture-in-Picture, which Firefox does not support |
+| Bookmark manager button on New Tab | Hidden | Extensions cannot open Firefox's Library window |
+| Opening `about:` pages (such as `about:config`) from shortcuts or the command bar | Unavailable | Firefox does not let extensions open its privileged pages |
+| Command bar on `about:` pages and addons.mozilla.org | Unavailable | Firefox blocks extension scripts there; the shortcut follows the restricted-page setting |
+| Command bar on local `file://` pages | Unavailable | Firefox has no setting that grants extensions access to file URLs |
+| Site icons | Works differently | Firefox has no icon endpoint for extensions. Lumno reads Firefox's own icon cache (open tabs and top sites) and then, if enabled, the online icon service; a site you have never visited may show a placeholder until you visit it |
+| Tab switcher on `about:` pages | Works differently | Shows the browser's logo instead of a page preview, because Firefox only returns a blurred capture of those pages |
+| New Tab search box focus | Works differently | Firefox focuses the address bar on new tabs; with auto focus on, Lumno reopens the tab so focus lands in its search box |
+| "Open shortcut settings" | Works differently | Opens the Add-ons Manager; choose **Manage Extension Shortcuts** from the gear menu |
+| Rating prompts and review links | Hidden | Until Lumno is listed on Firefox Add-ons |
+| Settings sync | Works differently | Uses Firefox Sync instead of Chrome sync. WebDAV sync works across Chrome and Firefox, including both open on the same computer |
+
+**Chromium-based browsers.** Brave, Arc, Vivaldi, Opera and others use the Chrome Web Store build with the same features as Chrome, though some reserve or remap extension shortcuts. In Dia, the New Tab page is unavailable but the command bar works; if its shortcut does nothing, set "Open command bar" from **In Dia** to **Global** in the browser's shortcut settings.
+
 ## Privacy
 
 Lumno is local-first. Bookmarks, history and tabs are read on your device to power search and are never sent to Lumno or developer servers. There is no Lumno account, analytics or ad tracking. Optional features that contact third parties (site icons, daily quotes, online wallpapers and WebDAV) only do so after you turn them on. Read the full [privacy policy](https://lumno.kubai.design/privacy/).
@@ -139,7 +165,7 @@ Lumno is local-first. Bookmarks, history and tabs are read on your device to pow
 Yes. Lumno is free and open source under the GPL-3.0 license. If you would like to support development, see [Sponsoring](SPONSORING.md).
 
 **Which browsers does Lumno support?**
-Any Chromium-based browser that supports Manifest V3 extensions: Google Chrome, Microsoft Edge, Brave, Arc, Vivaldi, Opera and others. Firefox and Safari are not supported.
+Any Chromium-based browser that supports Manifest V3 extensions (Google Chrome, Microsoft Edge, Brave, Arc, Vivaldi, Opera and others), plus Firefox 140 or later and Firefox-based browsers such as Zen and LibreWolf. A few features are unavailable in Firefox; see [Browser compatibility](#browser-compatibility). Safari is not supported.
 
 **Does Lumno sync my settings across devices?**
 Yes. Settings sync through Chrome's built-in sync when you are signed in to the browser. Turn on [WebDAV sync](#webdav-sync) to also sync custom icons and wallpapers through your own server.
@@ -193,6 +219,8 @@ npm run test:onboarding-content
 ```
 
 `npm run package:store` reads the version from `manifest.json` and creates `dist/lumno-store-v<version>.zip`. It requires `zip` and `zipinfo` to be available on the system.
+
+`npm run package:firefox` builds the store package and turns it into the Firefox build in `dist/firefox`. `scripts/build-firefox.js` lists every Firefox-specific change: background scripts instead of a service worker, the Gecko add-on ID, Firefox shortcuts, no auto Picture-in-Picture scripts, and locale messages with a `__firefox` suffix that replace their base message. To try it, open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `dist/firefox/manifest.json`; run `npm run lint:firefox` to check it with `web-ext`. In shared code, ask `LumnoBrowserProfile.isFirefoxExtensionRuntime()` instead of checking the URL scheme, and mark UI for one browser family with `data-browser-only="chromium"` (hidden elsewhere) or, for settings, `data-browser-unsupported="firefox"` (shown disabled with a reason).
 
 ### Project structure
 

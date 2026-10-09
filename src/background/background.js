@@ -68,6 +68,7 @@ const SHORTCUT_FAVICON = globalThis.LumnoShortcutFavicon;
 const SHORTCUT_KEY_MATCHER = globalThis.LumnoShortcutKeyMatcher;
 const NEWTAB_FAVICON_THEME = globalThis.LumnoNewtabFaviconTheme;
 const BACKGROUND_NEWTAB_FALLBACK = globalThis.LumnoBackgroundNewtabFallback;
+const BROWSER_PROFILE = globalThis.LumnoBrowserProfile;
 const BACKGROUND_TAB_GROUPS = globalThis.LumnoBackgroundTabGroups;
 const SEARCH_RESULT_TABS = globalThis.LumnoSearchResultTabs;
 const isLocalFileLikeTargetUrl = BACKGROUND_NEWTAB_FALLBACK.isLocalFileLikeTargetUrl;
@@ -2815,6 +2816,10 @@ function getSwitcherThumbnailStateForTab(tabId, url) {
 }
 
 function getSwitcherThumbnailStateForPayload(tab, url) {
+  // Also drops blurred captures saved before such pages were skipped.
+  if (isFirefoxPrivilegedPageUrl(url)) {
+    return { status: 'restricted', reason: 'restricted-browser-page', dataUrl: '', capturedAt: 0, updatedAt: 0 };
+  }
   const status = typeof tab._xSwitcherThumbnailStatus === 'string' ? tab._xSwitcherThumbnailStatus : '';
   if (status) {
     return {
@@ -2938,8 +2943,41 @@ function markSwitcherThumbnailStatus(tab, status, requestReason, failureReason) 
   return didSet;
 }
 
+// Firefox gives its about: pages chrome:// icons that web pages cannot load,
+// and those monochrome icons would vanish on a dark switcher anyway. The
+// switcher shows the browser's own logo (Firefox, Zen, ...) for them instead,
+// rasterized once into a data URL that any page can render.
+let firefoxBrandIconDataUrl = '';
+function loadFirefoxBrandIcon() {
+  if (!BROWSER_PROFILE.isFirefoxExtensionRuntime() || typeof Image !== 'function' || typeof document === 'undefined') {
+    return;
+  }
+  const image = new Image();
+  image.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      canvas.getContext('2d').drawImage(image, 0, 0, 64, 64);
+      firefoxBrandIconDataUrl = canvas.toDataURL('image/png');
+    } catch (error) {
+      firefoxBrandIconDataUrl = '';
+    }
+  };
+  image.src = 'chrome://branding/content/icon64.png';
+}
+loadFirefoxBrandIcon();
+
+function isFirefoxPrivilegedPageUrl(url) {
+  return /^about:/i.test(String(url || '')) && BROWSER_PROFILE.isFirefoxExtensionRuntime();
+}
+
 function buildSwitcherTabFavicon(tab, url) {
   const resolved = String(url || getResolvedTabUrl(tab) || '').trim();
+  if (firefoxBrandIconDataUrl && isFirefoxPrivilegedPageUrl(resolved) &&
+      !/^(?:data:image\/|https?:)/i.test(String(tab && tab.favIconUrl || ''))) {
+    return firefoxBrandIconDataUrl;
+  }
   const resolver = getBackgroundFaviconUrlResolver();
   return resolver ? resolver.resolveFaviconSource(tab && tab.favIconUrl, resolved) : '';
 }
@@ -3241,6 +3279,11 @@ function getSwitcherThumbnailCaptureFailureReason(tab) {
     const protocol = String(parsed.protocol || '').toLowerCase();
     if (!protocol || protocol === 'javascript:') {
       return 'unsupported-protocol';
+    }
+    // Firefox only returns a small, deliberately blurred capture of its
+    // privileged pages; show the icon fallback instead, as for chrome:// pages.
+    if (isFirefoxPrivilegedPageUrl(url)) {
+      return 'restricted-browser-page';
     }
     return '';
   } catch (error) {
@@ -8187,50 +8230,12 @@ function fetchShortcutFaviconResource(candidate, pageUrl, signal) {
   });
 }
 
-function isFirefoxExtensionRuntime() {
-  return getOwnExtensionOrigin().startsWith('moz-extension:');
-}
-
-function isSameFaviconHost(url, host) {
-  try {
-    return new URL(url).hostname.toLowerCase().replace(/^www\./, '') === host;
-  } catch (error) {
-    return false;
-  }
-}
-
 // Firefox has no _favicon endpoint. Its own icon cache is reachable through
-// open tabs and top sites; the site's favicon.ico covers the rest.
+// open tabs and top sites; like Chrome's cache it never contacts the site.
 async function getFirefoxBrowserFaviconUrl(pageUrl) {
-  let host = '';
-  let origin = '';
-  try {
-    const parsed = new URL(pageUrl);
-    host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-    origin = parsed.origin;
-  } catch (error) {
-    return '';
-  }
-  const isUsableIconUrl = (url) => /^(?:data:image\/|https?:)/i.test(String(url || ''));
-  try {
-    const tabs = await chrome.tabs.query({});
-    const tab = (tabs || []).find((item) => item && isUsableIconUrl(item.favIconUrl) && isSameFaviconHost(item.url, host));
-    if (tab) {
-      return tab.favIconUrl;
-    }
-  } catch (error) {
-    // Fall through to top sites.
-  }
-  try {
-    const sites = await chrome.topSites.get({ includeFavicon: true, onePerDomain: true, limit: 100 });
-    const site = (sites || []).find((item) => item && isUsableIconUrl(item.favicon) && isSameFaviconHost(item.url, host));
-    if (site) {
-      return site.favicon;
-    }
-  } catch (error) {
-    // Fall through to the site's own icon.
-  }
-  return `${origin}/favicon.ico`;
+  const browserIcons = FAVICON_UTILS.createBrowserIconIndex();
+  await browserIcons.load(chrome);
+  return browserIcons.get(pageUrl);
 }
 
 async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
@@ -8239,12 +8244,8 @@ async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
     return null;
   }
   try {
-    const response = await fetch(iconUrl, {
-      cache: candidate.refresh === true ? 'reload' : 'force-cache',
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
-      signal
-    });
+    // A data: URL from Firefox's icon cache; decoding it is local.
+    const response = await fetch(iconUrl, { signal });
     if (!response || !response.ok) {
       return null;
     }
@@ -8275,7 +8276,7 @@ async function fetchFirefoxBrowserCacheFavicon(candidate, pageUrl, signal) {
 async function resolveShortcutFaviconData(pageUrl, preferredTheme, signal, explicitIconUrl, refresh, iconSource) {
   const resolver = getBackgroundFaviconUrlResolver();
   const candidates = resolver ? resolver.getShortcutFaviconFetchCandidates(pageUrl, iconSource) : [];
-  const firefoxRuntime = isFirefoxExtensionRuntime();
+  const firefoxRuntime = BROWSER_PROFILE.isFirefoxExtensionRuntime();
   for (const candidate of candidates) {
     if (signal && signal.aborted) {
       break;

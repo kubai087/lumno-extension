@@ -52,7 +52,12 @@
 
   function getHostLabel(url) {
     try {
-      return new URL(url).hostname.replace(/^www\./i, '');
+      const parsed = new URL(url);
+      // An extension page's host is an opaque ID (a per-install UUID in Firefox).
+      if (/^(?:chrome|moz)-extension:$/.test(parsed.protocol)) {
+        return getMessage('extension_page_label', 'Extension page');
+      }
+      return parsed.hostname.replace(/^www\./i, '');
     } catch (error) {
       return '';
     }

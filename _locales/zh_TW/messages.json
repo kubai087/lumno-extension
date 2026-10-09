@@ -347,6 +347,9 @@
   "settings_document_pip_desc": {
     "message": "把網頁中的局部內容單獨剪出來浮動查看，可用於參考、對照"
   },
+  "settings_document_pip_unsupported_tooltip": {
+    "message": "網頁剪裁仰賴文件子母畫面（Document Picture-in-Picture），Firefox 暫不支援。"
+  },
   "document_pip_command_title": {
     "message": "開啟網頁剪裁"
   },
@@ -376,6 +379,9 @@
   },
   "settings_auto_pip_desc": {
     "message": "在網頁上播放影片時，若切換至其他分頁，正在播放的影片將以浮動視窗形式播放"
+  },
+  "settings_auto_pip_unsupported_tooltip": {
+    "message": "Firefox 不允許擴充功能讓網頁影片自動進入子母畫面，此功能暫不可用。"
   },
   "settings_pinned_tab_recovery_title": {
     "message": "重新啟動後還原釘選分頁"
@@ -470,8 +476,14 @@
   "settings_shortcuts_browser_desc_path_extensions": {
     "message": "「擴充功能」"
   },
+  "settings_shortcuts_browser_desc_path_extensions__firefox": {
+    "message": "「附加元件與佈景主題」"
+  },
   "settings_shortcuts_browser_desc_path_shortcuts": {
     "message": "「鍵盤快速鍵」"
+  },
+  "settings_shortcuts_browser_desc_path_shortcuts__firefox": {
+    "message": "「管理擴充套件快速鍵」"
   },
   "settings_shortcuts_browser_desc_suffix": {
     "message": "修改快速鍵"
@@ -503,6 +515,9 @@
   "settings_shortcuts_browser_tooltip": {
     "message": "在 Chromium 瀏覽器中，叫出搜尋視窗的快速鍵需要前往擴充功能快速鍵頁面設定或修改。"
   },
+  "settings_shortcuts_browser_tooltip__firefox": {
+    "message": "在 Firefox 中，叫出搜尋視窗的快速鍵需要在附加元件管理員的「管理擴充套件快速鍵」中設定或修改。"
+  },
   "settings_shortcuts_save": {
     "message": "儲存快速鍵"
   },
@@ -523,6 +538,9 @@
   },
   "settings_restricted_tooltip": {
     "message": "受限頁（如 chrome://、擴充功能商店、部分 file:// 頁面）無法開啟聚焦搜尋；按下快速鍵將依此處規則處理。"
+  },
+  "settings_restricted_tooltip__firefox": {
+    "message": "受限頁（如 about: 頁面、Firefox 附加元件網站、部分 file:// 頁面）無法開啟聚焦搜尋；按下快速鍵將依此處規則處理。"
   },
   "restricted_action_default": {
     "message": "前往 Lumno 新分頁"
@@ -2252,6 +2270,9 @@
   "newtab_shortcuts_url_info": {
     "message": "也支援瀏覽器內建頁面，例如：\nchrome://inspect/#devices"
   },
+  "newtab_shortcuts_url_info__firefox": {
+    "message": "Firefox 不允許擴充功能開啟瀏覽器內建頁面（如 about:config），請填寫網頁網址。"
+  },
   "newtab_shortcuts_url_placeholder": {
     "message": "https://example.com"
   },
@@ -2590,6 +2611,9 @@
   },
   "webdav_error_chrome_capacity": {
     "message": "設定超過 Chrome 同步容量，WebDAV 未套用該版本。原有 Chrome 同步與本機資料保留，請減少設定內容後重試。"
+  },
+  "webdav_error_chrome_capacity__firefox": {
+    "message": "設定超過 Firefox 同步容量，WebDAV 未套用該版本。原有 Firefox 同步與本機資料保留，請減少設定內容後重試。"
   },
   "webdav_error_network": {
     "message": "連線失敗或逾時，請檢查網路、伺服器位址與憑證。本機資料已保留。"

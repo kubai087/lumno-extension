@@ -1,0 +1,6 @@
+{
+   "version": {
+      "license": "GPL-3.0-only",
+      "approval_notes": "The attached source archive is this repository at the submitted version's commit.\n\nTo rebuild the submitted package on Linux or macOS with Node.js 20 (see .nvmrc) and the zip and unzip tools:\n\n  npm ci\n  npm run package:firefox\n\nThe add-on is the dist/firefox directory. scripts/build-firefox.js lists every Firefox-specific manifest change.\n\nGenerated and third-party code:\n- src/react/*.js is built by Vite from react-src/ (npm run build:react, which package:firefox runs first).\n- assets/vendor/pinyin-pro.js is pinyin-pro 3.28.0, unmodified: https://unpkg.com/pinyin-pro@3.28.0/dist/index.js\n\nEvery other file ships as written."
+   }
+}

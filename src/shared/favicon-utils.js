@@ -1707,7 +1707,10 @@
         return '';
       }
     };
-    const isUsableIconUrl = (iconUrl) => /^(?:data:image\/|https:)/i.test(String(iconUrl || ''));
+    // Firefox hands these out as data: URLs read from its own icon cache.
+    // Anything else would be a request to the site, which automatic sources
+    // never make (see resolveFaviconSource).
+    const isUsableIconUrl = (iconUrl) => /^data:image\//i.test(String(iconUrl || ''));
     function add(pageUrl, iconUrl) {
       const pageKey = getPageKey(pageUrl);
       if (!pageKey || !isUsableIconUrl(iconUrl)) {
@@ -1726,7 +1729,17 @@
       }
       return byPage.get(pageKey) || byHost.get(getHostKey(pageKey)) || '';
     }
-    return Object.freeze({ add, get });
+    // Firefox exposes its cached icons only through top sites and open tabs.
+    // Tabs go last so their current icons win.
+    async function load(chromeApi) {
+      const [sites, tabs] = await Promise.all([
+        Promise.resolve().then(() => chromeApi.topSites.get({ includeFavicon: true, limit: 100 })).catch(() => []),
+        Promise.resolve().then(() => chromeApi.tabs.query({})).catch(() => [])
+      ]);
+      (Array.isArray(sites) ? sites : []).forEach((site) => site && add(site.url, site.favicon));
+      (Array.isArray(tabs) ? tabs : []).forEach((tab) => tab && add(tab.url, tab.favIconUrl));
+    }
+    return Object.freeze({ add, get, load });
   }
 
   return Object.freeze({

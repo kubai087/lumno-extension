@@ -40,6 +40,7 @@ export interface InteractionSlot {
   accordionId?: string;
   actionId?: string;
   browserAvatars?: unknown;
+  browserOnly?: string;
   description?: string;
   icon?: string;
   id: string;
@@ -395,6 +396,7 @@ function InteractionSlotView({
       <button
         className={className}
         data-action={String(slot.actionId)}
+        data-browser-only={slot.browserOnly || undefined}
         data-interaction-kind={String(slot.kind || '')}
         onClick={(event) => {
           event.preventDefault();
@@ -412,6 +414,7 @@ function InteractionSlotView({
     <div
       className={className}
       data-accordion-id={hasAccordion ? getAccordionId(slot) : undefined}
+      data-browser-only={slot.browserOnly || undefined}
       data-expanded={hasAccordion ? (expanded ? 'true' : 'false') : undefined}
       data-interaction-kind={String(slot.kind || '')}
     >

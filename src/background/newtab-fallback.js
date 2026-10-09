@@ -98,12 +98,8 @@
   }
 
   function isFirefoxRuntime(chromeApi) {
-    try {
-      return Boolean(chromeApi && chromeApi.runtime && typeof chromeApi.runtime.getURL === 'function' &&
-        /^moz-extension:/i.test(chromeApi.runtime.getURL('')));
-    } catch (e) {
-      return false;
-    }
+    const profile = globalThis.LumnoBrowserProfile;
+    return Boolean(profile && profile.isFirefoxExtensionRuntime(chromeApi));
   }
 
   function checkFileSchemeAccess(callback) {

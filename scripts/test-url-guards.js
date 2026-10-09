@@ -9,9 +9,9 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 
-vm.runInNewContext(fs.readFileSync('src/shared/url-guards.js', 'utf8'), sandbox, {
-  filename: 'src/shared/url-guards.js'
-});
+for (const file of ['src/shared/browser-profile.js', 'src/shared/url-guards.js']) {
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), sandbox, { filename: file });
+}
 
 const guards = sandbox.LumnoUrlGuards;
 assert.ok(guards, 'LumnoUrlGuards should be exported');

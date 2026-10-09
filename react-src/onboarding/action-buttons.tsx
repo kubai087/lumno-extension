@@ -8,6 +8,7 @@ import { createRoot, type Root } from 'react-dom/client';
 
 export interface OnboardingAction {
   actionId: string;
+  browserOnly?: string;
   label: string;
   icon?: string;
   tooltip?: string;
@@ -73,6 +74,7 @@ function ActionButton({
       aria-label={String(action.label || '')}
       className={`onboarding-action-button onboarding-action-button--${kind}`}
       data-action={String(action.actionId || '')}
+      data-browser-only={action.browserOnly || undefined}
       data-tooltip={tooltip || undefined}
       data-tooltip-max-width={
         Number.isFinite(tooltipMaxWidth) && tooltipMaxWidth > 0

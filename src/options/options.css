@@ -933,6 +933,9 @@ body[data-theme="dark"] ._x_extension_shortcut_ghost_2026_unique_ {
 ._x_extension_setting_subrow_2026_unique_[data-disabled="true"] {
   opacity: 0.5;
 }
+._x_extension_setting_row_2024_unique_[data-unsupported="true"] > * {
+  opacity: 0.5;
+}
 ._x_extension_setting_group_row_2026_unique_ {
   min-height: calc(var(--switch-height, 24px) + var(--settings-row-block-space) * 2);
   box-sizing: border-box;

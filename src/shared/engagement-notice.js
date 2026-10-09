@@ -311,6 +311,11 @@
       if (destroyed || suppressed) {
         return false;
       }
+      // The invitation is built around rating Lumno; skip it where there is no
+      // store listing to rate (Firefox, until addons.mozilla.org lists Lumno).
+      if (!getReviewUrl()) {
+        return false;
+      }
       return typeof config.canShow === 'function'
         ? config.canShow() !== false
         : true;

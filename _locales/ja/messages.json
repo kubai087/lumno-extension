@@ -347,6 +347,9 @@
   "settings_document_pip_desc": {
     "message": "ページ内の一部を切り出して浮かせて表示し、参照や比較に使えます"
   },
+  "settings_document_pip_unsupported_tooltip": {
+    "message": "Webクリップは Document Picture-in-Picture を使いますが、Firefox はまだ対応していません。"
+  },
   "document_pip_command_title": {
     "message": "Webクリップを開始"
   },
@@ -376,6 +379,9 @@
   },
   "settings_auto_pip_desc": {
     "message": "動画の再生中に別タブへ移動すると、再生中の動画をピクチャーインピクチャーで表示します"
+  },
+  "settings_auto_pip_unsupported_tooltip": {
+    "message": "Firefox では拡張機能が動画を自動でピクチャーインピクチャー表示できないため、この機能は使えません。"
   },
   "settings_pinned_tab_recovery_title": {
     "message": "再起動後に固定タブを復元"
@@ -470,8 +476,14 @@
   "settings_shortcuts_browser_desc_path_extensions": {
     "message": "「拡張機能」"
   },
+  "settings_shortcuts_browser_desc_path_extensions__firefox": {
+    "message": "「アドオンとテーマ」"
+  },
   "settings_shortcuts_browser_desc_path_shortcuts": {
     "message": "「キー設定」"
+  },
+  "settings_shortcuts_browser_desc_path_shortcuts__firefox": {
+    "message": "「拡張機能のショートカットキーを管理」"
   },
   "settings_shortcuts_browser_desc_suffix": {
     "message": "でキーを変更します"
@@ -503,6 +515,9 @@
   "settings_shortcuts_browser_tooltip": {
     "message": "Chromiumブラウザでは、Lumnoを開くキーを拡張機能のキー設定ページで変更します。"
   },
+  "settings_shortcuts_browser_tooltip__firefox": {
+    "message": "Firefox では、Lumnoを開くキーはアドオンマネージャーの「拡張機能のショートカットキーを管理」で変更します。"
+  },
   "settings_shortcuts_save": {
     "message": "キーを保存"
   },
@@ -523,6 +538,9 @@
   },
   "settings_restricted_tooltip": {
     "message": "制限ページ（chrome://、拡張機能ストア、一部のfile://ページなど）ではLumnoを開けません。キーを押したときはこの設定に従います。"
+  },
+  "settings_restricted_tooltip__firefox": {
+    "message": "制限ページ（about: ページ、Firefox アドオンサイト、一部のfile://ページなど）ではLumnoを開けません。キーを押したときはこの設定に従います。"
   },
   "restricted_action_default": {
     "message": "Lumno の新しいタブへ移動"
@@ -2252,6 +2270,9 @@
   "newtab_shortcuts_url_info": {
     "message": "ブラウザーの内部ページにも対応しています。例：\nchrome://inspect/#devices"
   },
+  "newtab_shortcuts_url_info__firefox": {
+    "message": "Firefox では拡張機能から about:config などの内部ページを開けないため、ウェブページの URL を入力してください。"
+  },
   "newtab_shortcuts_url_placeholder": {
     "message": "https://example.com"
   },
@@ -2590,6 +2611,9 @@
   },
   "webdav_error_chrome_capacity": {
     "message": "設定が Chrome 同期の容量を超えるため適用できません。既存の Chrome 同期と端末のデータは保持されます。設定を減らして再試行してください。"
+  },
+  "webdav_error_chrome_capacity__firefox": {
+    "message": "設定が Firefox Sync の容量を超えるため適用できません。既存の Firefox Sync と端末のデータは保持されます。設定を減らして再試行してください。"
   },
   "webdav_error_network": {
     "message": "接続に失敗またはタイムアウトしました。ネットワーク、サーバー URL、証明書を確認してください。端末のデータは保持しています。"

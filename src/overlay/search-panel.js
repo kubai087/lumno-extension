@@ -308,7 +308,9 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
   let overlayOpenTabsDefaultVisible = true;
   let overlayOpenTabsDefaultVisibleLoaded = !storageArea;
   let initialOverlayOpenTabsDefaultVisibleReady = Promise.resolve();
-  let documentPipEnabled = Boolean(normalizedOverlayContext.documentPipEnabled);
+  // Web clip needs Document Picture-in-Picture, which Firefox does not ship.
+  const documentPipSupported = 'documentPictureInPicture' in window;
+  let documentPipEnabled = documentPipSupported && Boolean(normalizedOverlayContext.documentPipEnabled);
   let overlayThemeListenerAttached = false;
   let numberShortcutInstantEnabled = false;
   let macosCtrlSuggestionNavigationEnabled = false;
@@ -2610,6 +2612,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       const matches = [];
       for (let i = 0; i < commandDefinitions.length; i += 1) {
         const command = commandDefinitions[i];
+        // The setting may sync from a browser that has Document PiP (Firefox has none).
         if (command.requiresDocumentPipEnabled && !documentPipEnabled) {
           continue;
         }
@@ -3899,7 +3902,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
     });
     if (storageArea) {
       storageArea.get([DOCUMENT_PIP_ENABLED_STORAGE_KEY], (result) => {
-        documentPipEnabled = result && result[DOCUMENT_PIP_ENABLED_STORAGE_KEY] === true;
+        documentPipEnabled = documentPipSupported && Boolean(result) && result[DOCUMENT_PIP_ENABLED_STORAGE_KEY] === true;
         if (latestOverlayQuery) {
           updateSearchSuggestions(lastSuggestionResponse, latestOverlayQuery);
         }
@@ -3909,7 +3912,7 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
       if (!isPrimaryStorageAreaName(areaName) || !changes[DOCUMENT_PIP_ENABLED_STORAGE_KEY]) {
         return;
       }
-      documentPipEnabled = changes[DOCUMENT_PIP_ENABLED_STORAGE_KEY].newValue === true;
+      documentPipEnabled = documentPipSupported && changes[DOCUMENT_PIP_ENABLED_STORAGE_KEY].newValue === true;
       if (latestOverlayQuery) {
         updateSearchSuggestions(lastSuggestionResponse, latestOverlayQuery);
       }

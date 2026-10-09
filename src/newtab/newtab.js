@@ -603,6 +603,12 @@
   let initialHiddenRecentSitesReadyTask = Promise.resolve([]);
   let searchBlacklistItems = [];
   let currentMessages = null;
+  // Text set once at startup may be read before the chosen language loads;
+  // controls register here to re-read it whenever the language is applied.
+  const languageChangeListeners = [];
+  function onLanguageChange(listener) {
+    languageChangeListeners.push(listener);
+  }
   let currentLanguageMode = 'system';
   let currentResolvedLocale = null;
   let defaultPlaceholderText = 'Search or enter URL…';
@@ -1013,20 +1019,12 @@
 
   const NEWTAB_URL_POLICY = globalThis.LumnoNewtabUrlPolicy;
   // Firefox: index the browser's own cached icons, which stand in for the
-  // missing _favicon endpoint (see createBrowserIconIndex). Open tabs are
-  // added last so their current icons win over top sites.
-  const firefoxBrowserIcons = window.location.protocol === 'moz-extension:' &&
-    typeof FAVICON_UTILS.createBrowserIconIndex === 'function'
+  // missing _favicon endpoint (see createBrowserIconIndex).
+  const firefoxBrowserIcons = BROWSER_PROFILE.isFirefoxExtensionRuntime()
     ? FAVICON_UTILS.createBrowserIconIndex()
     : null;
   const firefoxBrowserIconsReady = firefoxBrowserIcons
-    ? Promise.all([
-      Promise.resolve().then(() => chrome.topSites.get({ includeFavicon: true, limit: 100 })).catch(() => []),
-      Promise.resolve().then(() => chrome.tabs.query({})).catch(() => [])
-    ]).then(([sites, tabs]) => {
-      (Array.isArray(sites) ? sites : []).forEach((site) => site && firefoxBrowserIcons.add(site.url, site.favicon));
-      (Array.isArray(tabs) ? tabs : []).forEach((tab) => tab && firefoxBrowserIcons.add(tab.url, tab.favIconUrl));
-    }).catch(() => {})
+    ? firefoxBrowserIcons.load(chrome).catch(() => {})
     : Promise.resolve();
   const {
     isEnglishQuery,
@@ -1478,6 +1476,7 @@
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
     t,
+    notifyLanguageChange: () => languageChangeListeners.forEach((listener) => listener()),
     renderNewtabTopContent: (...args) => renderNewtabTopContent(...args),
     updateRecentHeading: (...args) => updateRecentHeading(...args),
     updateBookmarkHeading: (...args) => updateBookmarkHeading(...args),
@@ -4943,10 +4942,6 @@
   bookmarkPagerPrevButton = pageStructureRuntime.bookmark.previousButton;
   bookmarkPagerNextButton = pageStructureRuntime.bookmark.nextButton;
   bookmarkOpenManagerButton = pageStructureRuntime.bookmark.managerButton;
-  // Firefox gives extensions no way to open its bookmarks Library.
-  if (window.location.protocol === 'moz-extension:') {
-    bookmarkOpenManagerButton.style.display = 'none';
-  }
   bindBookmarkPagerTooltip(
     bookmarkPagerPrevButton,
     () => bookmarkPagerPrevButton.getAttribute('data-tooltip') || t('bookmarks_page_prev', '上一页')
@@ -7102,6 +7097,11 @@
       searchScopeIcon.blur();
     }
   }
+  onLanguageChange(() => {
+    if (searchScopeIcon) {
+      setSearchScopeIconEnabled(searchScopeIcon.getAttribute('aria-disabled') !== 'true');
+    }
+  });
   function activateSearchScopeIcon(event) {
     if (!searchScopeIcon || searchScopeIcon.getAttribute('aria-disabled') === 'true') {
       return;
@@ -7259,8 +7259,12 @@
       '打开设置',
       { name: 'Lumno' }
     );
-    rightIcon.setAttribute('aria-label', settingsTooltipText());
-    rightIcon.setAttribute('data-tooltip', settingsTooltipText());
+    const applySettingsTooltip = () => {
+      rightIcon.setAttribute('aria-label', settingsTooltipText());
+      rightIcon.setAttribute('data-tooltip', settingsTooltipText());
+    };
+    applySettingsTooltip();
+    onLanguageChange(applySettingsTooltip);
     bindSearchInputCursorTooltip(rightIcon, settingsTooltipText);
     rightIcon.addEventListener('click', function(event) {
       event.preventDefault();
@@ -7311,7 +7315,12 @@
   const SEARCH_CLEAR_BUTTON_INSET = 36;
   if (searchClearButton) {
     const searchClearTooltipText = () => t('search_input_clear', '清空');
-    searchClearButton.setAttribute('data-tooltip', searchClearTooltipText());
+    const applySearchClearTooltip = () => {
+      searchClearButton.setAttribute('aria-label', searchClearTooltipText());
+      searchClearButton.setAttribute('data-tooltip', searchClearTooltipText());
+    };
+    applySearchClearTooltip();
+    onLanguageChange(applySearchClearTooltip);
     bindSearchInputCursorTooltip(searchClearButton, searchClearTooltipText);
     searchClearButton.addEventListener('click', hideSearchInputCursorTooltip);
     searchInput.addEventListener('input', updateInputRightPadding);

@@ -253,6 +253,7 @@
     handleNewtabTopContentSelection
   );
   const optionsToggleControlRecords = new Map();
+  const unsupportedSettingInputIds = new Set();
   function registerOptionsToggleControl(input, kind) {
     if (!input) {
       return null;
@@ -283,6 +284,11 @@
   function setOptionsToggleState(input, checked, disabled) {
     if (!input) {
       return;
+    }
+    // Stays off without touching the synced value other browsers use.
+    if (unsupportedSettingInputIds.has(input.id)) {
+      checked = false;
+      disabled = true;
     }
     input.checked = Boolean(checked);
     if (typeof disabled === 'boolean') {
@@ -344,6 +350,40 @@
     [selectionQuickActionsToggle, 'selection-quick-actions'],
     [selectionQuickActionsGroupToggle, 'selection-quick-actions-group']
   ].forEach(([input, kind]) => registerOptionsToggleControl(input, kind));
+
+  // Settings this browser cannot honor stay visible but disabled, with the
+  // reason in a tooltip that follows the cursor: <div
+  // data-browser-unsupported="firefox" data-unsupported-reason-key="...">.
+  function markBrowserUnsupportedSettings() {
+    const family = document.documentElement.getAttribute('data-browser-family');
+    let reasonTooltip = null;
+    document.querySelectorAll('[data-browser-unsupported]').forEach((row) => {
+      if (row.getAttribute('data-browser-unsupported') !== family) {
+        return;
+      }
+      row.setAttribute('data-unsupported', 'true');
+      row.setAttribute('aria-disabled', 'true');
+      reasonTooltip = reasonTooltip || globalThis.LumnoCursorTooltip.createController({
+        documentObj: document,
+        windowObj: window,
+        id: '_x_extension_options_unsupported_cursor_tooltip_2026_unique_',
+        appendTo: document.body,
+        maxWidth: 360,
+        offsetX: 14,
+        offsetY: 16
+      });
+      const reasonKey = row.getAttribute('data-unsupported-reason-key') || '';
+      reasonTooltip.bind(row, () => getMessage(reasonKey, ''));
+      // The toggle's React view replaces its <input>; the label keeps the id.
+      row.querySelectorAll('label[for]').forEach((label) => unsupportedSettingInputIds.add(label.htmlFor));
+    });
+    optionsToggleControlRecords.forEach((record, input) => {
+      if (unsupportedSettingInputIds.has(input.id)) {
+        setOptionsToggleState(input, false, true);
+      }
+    });
+  }
+  markBrowserUnsupportedSettings();
 
   const searchResultSourceTypeItems = searchResultSourceTypeInputs.map((input) => {
     const label = input.closest('label');
@@ -1005,6 +1045,9 @@
   let editingSiteSearchKey = null;
   let siteSearchDraftCategory = 'site';
   let activePopconfirm = null;
+  // A closed popconfirm renders its aria-label once; applyI18n re-renders each
+  // after a language change so the label follows the chosen language.
+  const popconfirmLanguageRefreshers = new Set();
   let siteSearchFormExpanded = false;
   let siteSearchRefreshSuppressUntil = 0;
   let siteSearchRefreshTimer = null;
@@ -1687,7 +1730,8 @@
           ),
           labelKey: 'settings_feedback_support_contact_author_action'
         }
-      ]
+      // Firefox has no store listing to review yet (empty review URL).
+      ].filter((item) => Boolean(item.href))
     });
   }
 
@@ -2729,6 +2773,7 @@
 
   function applyI18n() {
     if (webDavSettingsController) webDavSettingsController.render();
+    popconfirmLanguageRefreshers.forEach((refresh) => refresh());
     const browserName = globalThis.LumnoBrowserProfile?.getBrowserInternalProfile(navigator).name || 'Chrome';
     document.querySelectorAll('[data-i18n]').forEach((node) => {
       const key = node.getAttribute('data-i18n');
@@ -3232,8 +3277,13 @@
         }
       }
     });
+    const refreshPopconfirmLanguage = () => {
+      popconfirmController.render(getPopconfirmRenderModel(popconfirm.getAttribute('data-open') === 'true'));
+    };
+    popconfirmLanguageRefreshers.add(refreshPopconfirmLanguage);
     popconfirm._xOptionsDestroyPopconfirm = () => {
       closePopconfirm();
+      popconfirmLanguageRefreshers.delete(refreshPopconfirmLanguage);
       popconfirmController.destroy();
       popconfirmController = null;
     };

@@ -15,17 +15,19 @@ vm.runInNewContext(fs.readFileSync('src/shared/favicon-utils.js', 'utf8'), sandb
 {
   // Firefox's cached icons (open tabs, top sites) stand in for _favicon.
   const index = sandbox.LumnoFaviconUtils.createBrowserIconIndex();
-  index.add('https://kubai087.feishu.cn/wiki/abc#section', 'https://lf-scm-cn.feishucdn.com/favicon.ico');
+  index.add('https://kubai087.feishu.cn/wiki/abc#section', 'data:image/x-icon;base64,RkVJ');
+  index.add('https://example.org/', 'https://example.org/favicon.ico');
   index.add('https://code.0http.com/', 'data:image/png;base64,QUJD');
   index.add('https://code.0http.com/custom', 'chrome://global/skin/icons/defaultFavicon.svg');
   index.add('moz-extension://uuid/newtab.html', 'data:image/png;base64,QUJD');
-  assert.strictEqual(index.get('https://kubai087.feishu.cn/wiki/abc'), 'https://lf-scm-cn.feishucdn.com/favicon.ico',
+  assert.strictEqual(index.get('https://kubai087.feishu.cn/wiki/abc'), 'data:image/x-icon;base64,RkVJ',
     'an exact page matches regardless of its fragment');
-  assert.strictEqual(index.get('https://kubai087.feishu.cn/docx/other'), 'https://lf-scm-cn.feishucdn.com/favicon.ico',
+  assert.strictEqual(index.get('https://kubai087.feishu.cn/docx/other'), 'data:image/x-icon;base64,RkVJ',
     'another page on the same host falls back to the host icon');
   assert.strictEqual(index.get('https://code.0http.com/custom'), 'data:image/png;base64,QUJD',
     'privileged browser icon URLs are ignored');
   assert.strictEqual(index.get('https://unknown.example/'), '');
+  assert.strictEqual(index.get('https://example.org/'), '', 'remote icon URLs would contact the site and are ignored');
   assert.strictEqual(index.get('moz-extension://uuid/newtab.html'), '', 'only web pages are indexed');
   index.add('https://www.code.0http.com/', 'data:image/png;base64,TkVX');
   assert.strictEqual(index.get('https://code.0http.com/elsewhere'), 'data:image/png;base64,TkVX',

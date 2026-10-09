@@ -252,5 +252,17 @@ const { readNewtabRuntimeSource } = require('./helpers/newtab-source');
     'overlay injection should load community links before engagement actions'
   );
 
+  {
+    // Firefox installs carry Gecko IDs and have no addons.mozilla.org listing yet.
+    const geckoId = 'lumno@kubai087';
+    assert.strictEqual(communityLinks.isFirefoxInstall(geckoId), true);
+    assert.strictEqual(communityLinks.isFirefoxInstall('{3f2a1b4c-0d5e-4f6a-8b7c-9d0e1f2a3b4c}'), true);
+    assert.strictEqual(communityLinks.isFirefoxInstall(chromeStoreId), false);
+    assert.strictEqual(communityLinks.getReviewUrl(communityLinks.FALLBACK_LINKS, geckoId), '',
+      'Firefox installs offer no review page until a listing exists');
+    assert.strictEqual(communityLinks.getStoreListing(geckoId).url, 'https://lumno.kubai.design/',
+      'store entry points fall back to the website on Firefox');
+  }
+
   console.log('community links tests passed');
 })();
