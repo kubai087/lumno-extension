@@ -8,10 +8,29 @@
   const WEB_ORIGIN = 'https://lumno.kubai.design';
   const COMMUNITY_LINKS_URL = `${WEB_ORIGIN}/community-links.json`;
   const FETCH_TIMEOUT_MS = 2500;
+  // Edge Add-ons assigns its own extension ID; every other install (Chrome Web
+  // Store, including Edge users who installed from it, and keyed dev builds)
+  // runs under the Chrome Web Store ID.
+  const EDGE_ADDONS_EXTENSION_ID = 'pfbklkaefmfamjpibfiapaiihlddhchc';
+  const STORE_LISTINGS = Object.freeze({
+    chrome: Object.freeze({
+      id: 'chrome',
+      name: 'Chrome Web Store',
+      host: 'chromewebstore.google.com',
+      url: 'https://chromewebstore.google.com/detail/lumno-%E8%81%9A%E7%84%A6%E6%90%9C%E7%B4%A2%E6%96%B0%E6%A0%87%E7%AD%BE%E9%A1%B5/nggfkkbmogmadfoikakkfegkoilfcfao?utm_source=item-share-cb'
+    }),
+    edge: Object.freeze({
+      id: 'edge',
+      name: 'Microsoft Edge Add-ons',
+      host: 'microsoftedge.microsoft.com',
+      url: `https://microsoftedge.microsoft.com/addons/detail/${EDGE_ADDONS_EXTENSION_ID}`
+    })
+  });
   const FALLBACK_LINKS = Object.freeze({
     x: 'https://x.com/kubai087',
     githubIssue: 'https://github.com/kubai087/lumno-extension/issues/new',
     chromeReview: 'https://chromewebstore.google.com/detail/lumno-%E8%81%9A%E7%84%A6%E6%90%9C%E7%B4%A2%E6%96%B0%E6%A0%87%E7%AD%BE%E9%A1%B5/nggfkkbmogmadfoikakkfegkoilfcfao/reviews?utm_source=item-share-cb',
+    edgeReview: STORE_LISTINGS.edge.url,
     discord: 'https://discord.gg/2u9sg7ZNkJ',
     wechatQr: `${WEB_ORIGIN}/qrcode-20260730.webp`,
     communityByLocale: Object.freeze({
@@ -72,6 +91,12 @@
         links.chromeRating ||
         links.chrome_rating
       ) || FALLBACK_LINKS.chromeReview,
+      edgeReview: normalizeHttpsUrl(
+        links.edgeReview ||
+        links.edge_review ||
+        links.edgeAddonsReview ||
+        links.edge_addons_review
+      ) || FALLBACK_LINKS.edgeReview,
       discord: normalizeHttpsUrl(links.discord) || FALLBACK_LINKS.discord,
       wechatQr: normalizeHttpsUrl(links.wechatQr || links.wechat_qr) ||
         FALLBACK_LINKS.wechatQr,
@@ -121,6 +146,27 @@
     return getCommunityChannel(source, locale) === 'wechat'
       ? (source.wechatQr || FALLBACK_LINKS.wechatQr)
       : (source.discord || FALLBACK_LINKS.discord);
+  }
+
+  function getRuntimeExtensionId() {
+    const runtime = root && root.chrome && root.chrome.runtime ? root.chrome.runtime : null;
+    return runtime && runtime.id ? String(runtime.id) : '';
+  }
+
+  function isEdgeAddonsInstall(extensionId) {
+    const id = extensionId === undefined ? getRuntimeExtensionId() : String(extensionId || '');
+    return id === EDGE_ADDONS_EXTENSION_ID;
+  }
+
+  function getReviewUrl(links, extensionId) {
+    const source = links && typeof links === 'object' ? links : FALLBACK_LINKS;
+    return isEdgeAddonsInstall(extensionId)
+      ? (source.edgeReview || FALLBACK_LINKS.edgeReview)
+      : (source.chromeReview || FALLBACK_LINKS.chromeReview);
+  }
+
+  function getStoreListing(extensionId) {
+    return isEdgeAddonsInstall(extensionId) ? STORE_LISTINGS.edge : STORE_LISTINGS.chrome;
   }
 
   function buildFreshQrUrl(value, timestamp) {
@@ -214,14 +260,19 @@
 
   return Object.freeze({
     COMMUNITY_LINKS_URL,
+    EDGE_ADDONS_EXTENSION_ID,
     FALLBACK_LINKS,
     FETCH_TIMEOUT_MS,
+    STORE_LISTINGS,
     WEB_ORIGIN,
     buildFreshQrUrl,
     createLoader,
     getCommunityChannel,
     getCommunityUrl,
     getLinks: defaultLoader.getLinks,
+    getReviewUrl,
+    getStoreListing,
+    isEdgeAddonsInstall,
     load: defaultLoader.load,
     normalizeHttpsUrl,
     normalizeLinksPayload,

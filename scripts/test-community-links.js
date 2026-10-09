@@ -86,6 +86,81 @@ const { readNewtabRuntimeSource } = require('./helpers/newtab-source');
     'Traditional Chinese should still resolve the WeChat QR URL when remote routing is stale'
   );
 
+  const chromeStoreId = 'nggfkkbmogmadfoikakkfegkoilfcfao';
+  const edgeStoreId = communityLinks.EDGE_ADDONS_EXTENSION_ID;
+  assert.strictEqual(edgeStoreId, 'pfbklkaefmfamjpibfiapaiihlddhchc');
+  assert.strictEqual(
+    communityLinks.getReviewUrl(communityLinks.FALLBACK_LINKS, chromeStoreId),
+    communityLinks.FALLBACK_LINKS.chromeReview,
+    'Chrome Web Store installs should review on the Chrome Web Store'
+  );
+  assert.strictEqual(
+    communityLinks.getReviewUrl(communityLinks.FALLBACK_LINKS, edgeStoreId),
+    'https://microsoftedge.microsoft.com/addons/detail/pfbklkaefmfamjpibfiapaiihlddhchc',
+    'Edge Add-ons installs should review on Edge Add-ons'
+  );
+  assert.strictEqual(
+    communityLinks.getReviewUrl(null, ''),
+    communityLinks.FALLBACK_LINKS.chromeReview,
+    'unknown installs should keep the Chrome Web Store review destination'
+  );
+  const remoteReviews = communityLinks.normalizeLinksPayload({
+    links: {
+      chrome_review: 'https://example.com/chrome-review',
+      edge_review: 'https://example.com/edge-review'
+    }
+  });
+  assert.strictEqual(
+    communityLinks.getReviewUrl(remoteReviews, chromeStoreId),
+    'https://example.com/chrome-review'
+  );
+  assert.strictEqual(
+    communityLinks.getReviewUrl(remoteReviews, edgeStoreId),
+    'https://example.com/edge-review',
+    'the remote configuration should be able to override the Edge review URL'
+  );
+  assert.strictEqual(
+    communityLinks.normalizeLinksPayload({ links: { edgeReview: 'http://example.com' } }).edgeReview,
+    communityLinks.FALLBACK_LINKS.edgeReview,
+    'insecure remote Edge review URLs should fall back'
+  );
+  assert.strictEqual(
+    communityLinks.getStoreListing(chromeStoreId).url,
+    'https://chromewebstore.google.com/detail/lumno-%E8%81%9A%E7%84%A6%E6%90%9C%E7%B4%A2%E6%96%B0%E6%A0%87%E7%AD%BE%E9%A1%B5/nggfkkbmogmadfoikakkfegkoilfcfao?utm_source=item-share-cb',
+    'Chrome Web Store installs should open the Chrome Web Store listing'
+  );
+  assert.deepStrictEqual(
+    communityLinks.getStoreListing(edgeStoreId),
+    {
+      id: 'edge',
+      name: 'Microsoft Edge Add-ons',
+      host: 'microsoftedge.microsoft.com',
+      url: 'https://microsoftedge.microsoft.com/addons/detail/pfbklkaefmfamjpibfiapaiihlddhchc'
+    },
+    'Edge Add-ons installs should open the Edge Add-ons listing'
+  );
+  for (const [file, pattern] of [
+    ['src/newtab/newtab.js', /openExternalNewTabUrl\(COMMUNITY_LINKS\.getStoreListing\(\)\.url, event\)/],
+    ['src/onboarding/onboarding.js', /openExternalTab\(COMMUNITY_LINKS\.getStoreListing\(\)\.url, disposition\)/]
+  ]) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.match(source, pattern, `${file} should open the listing for the install channel`);
+    assert(!source.includes('nggfkkbmogmadfoikakkfegkoilfcfao'), `${file} should not hardcode the Chrome listing`);
+  }
+
+  const previousChrome = globalThis.chrome;
+  globalThis.chrome = { runtime: { id: edgeStoreId } };
+  try {
+    assert.strictEqual(
+      communityLinks.getReviewUrl(remoteReviews),
+      'https://example.com/edge-review',
+      'the review destination should default to the running extension ID'
+    );
+    assert.strictEqual(communityLinks.getStoreListing().id, 'edge');
+  } finally {
+    globalThis.chrome = previousChrome;
+  }
+
   const requests = [];
   let qrRevision = 1;
   const loader = communityLinks.createLoader({

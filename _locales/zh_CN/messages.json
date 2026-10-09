@@ -930,10 +930,10 @@
     "message": "提交 GitHub Issue"
   },
   "newtab_feedback_chrome_review_label": {
-    "message": "Chrome 评分"
+    "message": "商店评分"
   },
   "newtab_feedback_chrome_review_tooltip": {
-    "message": "在 Chrome Web Store 评分"
+    "message": "去扩展商店为 Lumno 评分"
   },
   "newtab_feedback_mail_label": {
     "message": "邮箱"

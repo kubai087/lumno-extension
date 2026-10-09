@@ -106,12 +106,12 @@
       return {
         buttonLabel: t('newtab_feedback_button_aria', 'Send feedback'),
         channel,
-        chromeReviewLabel: t('newtab_feedback_chrome_review_label', 'Chrome rating'),
+        chromeReviewLabel: t('newtab_feedback_chrome_review_label', 'Store rating'),
         chromeReviewTooltip: t(
           'newtab_feedback_chrome_review_tooltip',
-          'Rate on Chrome Web Store'
+          'Rate Lumno in the extension store'
         ),
-        chromeReviewUrl: links.chromeReview || LUMNO_FEEDBACK_LINKS_FALLBACK.chromeReview,
+        chromeReviewUrl: COMMUNITY_LINKS.getReviewUrl(links),
         closeTooltip: t('newtab_feedback_wechat_close_tooltip', 'Close'),
         communityLabel: channel === 'wechat'
           ? t('newtab_feedback_wechat_label', 'WeChat')

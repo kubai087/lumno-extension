@@ -10,8 +10,8 @@ import {
 const baseModel: FeedbackControlModel = {
   buttonLabel: 'Send feedback',
   channel: 'discord',
-  chromeReviewLabel: 'Chrome rating',
-  chromeReviewTooltip: 'Rate on Chrome Web Store',
+  chromeReviewLabel: 'Store rating',
+  chromeReviewTooltip: 'Rate Lumno in the extension store',
   chromeReviewUrl: 'https://chromewebstore.google.com/detail/example/reviews',
   closeTooltip: 'Close',
   communityLabel: 'Discord',

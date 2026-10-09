@@ -184,7 +184,6 @@
   const NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY = '_x_extension_newtab_wallpaper_overlay_2026_unique_';
   const NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY = '_x_extension_newtab_wallpaper_effect_2026_unique_';
   const NEWTAB_FAVICON_STORAGE_KEY = '_x_extension_newtab_favicon_2026_unique_';
-  const LUMNO_CHROME_WEB_STORE_URL = 'https://chromewebstore.google.com/detail/lumno-%E8%81%9A%E7%84%A6%E6%90%9C%E7%B4%A2%E6%96%B0%E6%A0%87%E7%AD%BE%E9%A1%B5/nggfkkbmogmadfoikakkfegkoilfcfao?utm_source=item-share-cb';
   const BOOKMARK_COUNT_STORAGE_KEY = '_x_extension_bookmark_count_2024_unique_';
   const BOOKMARK_COLUMNS_STORAGE_KEY = '_x_extension_bookmark_columns_2024_unique_';
   const BOOKMARK_VIEW_MODE_STORAGE_KEY = '_x_extension_bookmark_view_mode_2026_unique_';
@@ -3614,6 +3613,7 @@
     setNewtabTimeSecondsVisible
   } = NEWTAB_TOP_CONTENT_RUNTIME.createTopContentRuntime({
     root,
+    COMMUNITY_LINKS,
     bookmarkSection,
     recentSection,
     recentCards,
@@ -7069,7 +7069,7 @@
     if (event && typeof event.stopPropagation === 'function') {
       event.stopPropagation();
     }
-    openExternalNewTabUrl(LUMNO_CHROME_WEB_STORE_URL, event);
+    openExternalNewTabUrl(COMMUNITY_LINKS.getStoreListing().url, event);
   }
   const shouldAnimateWordmarkEntry = !shouldSkipNewtabEntryMotion();
   topContentContainer = document.createElement('div');
@@ -7142,7 +7142,7 @@
       onReview(event) {
         const links = feedbackLinks || LUMNO_FEEDBACK_LINKS_FALLBACK;
         openFeedbackExternalUrl(
-          links.chromeReview || LUMNO_FEEDBACK_LINKS_FALLBACK.chromeReview,
+          COMMUNITY_LINKS.getReviewUrl(links),
           getOpenDisposition(event, 'newTab')
         );
       },

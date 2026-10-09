@@ -11,7 +11,13 @@
   const TEXT_SWAP_FALLBACK_DURATION_MS = 200;
   const SITE_SEARCH_OPTIONS_PAGE_PATH = 'src/options/options.html#shortcuts';
   const FOCUSED_NEWTAB_RELATIVE_PAGE_PATH = '../newtab/lumno-newtab.html?focus=1';
-  const LUMNO_CHROME_WEB_STORE_URL = 'https://chromewebstore.google.com/detail/lumno-%E8%81%9A%E7%84%A6%E6%90%9C%E7%B4%A2%E6%96%B0%E6%A0%87%E7%AD%BE%E9%A1%B5/nggfkkbmogmadfoikakkfegkoilfcfao?utm_source=item-share-cb';
+  const COMMUNITY_LINKS = globalThis.LumnoCommunityLinks;
+  // The demo recent-site card points at Lumno's own listing, so it follows the
+  // store this copy was installed from.
+  const STORE_ACCENT_RGB = Object.freeze({
+    chrome: Object.freeze([66, 133, 244]),
+    edge: Object.freeze([0, 120, 212])
+  });
   const ACTION_MESSAGE_BY_ID = Object.freeze({
     openShortcuts: 'openExtensionShortcutsPage',
     openExtensionDetails: 'openExtensionDetailsPage',
@@ -62,10 +68,6 @@
     ));
   }
 
-  function resolveRuntimeUrl(value) {
-    const url = String(value || '').trim();
-    return url === 'chromeWebStore' ? LUMNO_CHROME_WEB_STORE_URL : url;
-  }
 
   function getRuntimeArray(sectionName, key) {
     const section = getRuntimeSection(sectionName);
@@ -99,7 +101,17 @@
       if (!item || typeof item !== 'object') {
         return item;
       }
-      return Object.assign({}, item, { url: resolveRuntimeUrl(item.url) });
+      if (String(item.url || '').trim() !== 'chromeWebStore') {
+        return Object.assign({}, item);
+      }
+      const listing = COMMUNITY_LINKS.getStoreListing();
+      return Object.assign({}, item, {
+        title: `Lumno - ${listing.name}`,
+        siteName: listing.name,
+        url: listing.url,
+        urlText: listing.host,
+        accentRgb: STORE_ACCENT_RGB[listing.id] || item.accentRgb
+      });
     });
   }
 
@@ -1501,7 +1513,7 @@
       return;
     }
     if (id === 'openChromeWebStore') {
-      openExternalTab(LUMNO_CHROME_WEB_STORE_URL, disposition);
+      openExternalTab(COMMUNITY_LINKS.getStoreListing().url, disposition);
       return;
     }
     if (id === 'openNewtab') {

@@ -4,6 +4,7 @@
   function createTopContentRuntime(deps) {
     const {
       root,
+      COMMUNITY_LINKS,
       bookmarkSection,
       recentSection,
       recentCards,
@@ -333,7 +334,7 @@
       }
       pageState.topContentController.render({
         animateEntry: Boolean(animateEntry),
-        ariaLabel: 'Lumno Chrome Web Store',
+        ariaLabel: `Lumno ${COMMUNITY_LINKS.getStoreListing().name}`,
         fontWeight: pageState.newtabTimeFontWeight,
         imageSrc: '../../assets/images/lumno-wordmark.svg',
         locale: document.documentElement ? document.documentElement.lang : undefined,

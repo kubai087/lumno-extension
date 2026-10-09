@@ -930,10 +930,10 @@
     "message": "GitHub Issueを作成"
   },
   "newtab_feedback_chrome_review_label": {
-    "message": "Chromeで評価"
+    "message": "ストアで評価"
   },
   "newtab_feedback_chrome_review_tooltip": {
-    "message": "Chrome Web Storeで評価する"
+    "message": "拡張機能ストアで Lumno を評価する"
   },
   "newtab_feedback_mail_label": {
     "message": "メール"

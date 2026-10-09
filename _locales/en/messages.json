@@ -930,10 +930,10 @@
     "message": "Open a GitHub issue"
   },
   "newtab_feedback_chrome_review_label": {
-    "message": "Chrome rating"
+    "message": "Store rating"
   },
   "newtab_feedback_chrome_review_tooltip": {
-    "message": "Rate on Chrome Web Store"
+    "message": "Rate Lumno in the extension store"
   },
   "newtab_feedback_mail_label": {
     "message": "Email"

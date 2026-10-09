@@ -1658,7 +1658,7 @@
             : 'settings_feedback_support_discord_action'
         },
         {
-          href: links.chromeReview,
+          href: COMMUNITY_LINKS.getReviewUrl(links),
           iconClass: 'ri-star-line',
           key: 'chrome-review',
           label: getMessage(

@@ -1989,10 +1989,16 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
             !String(searchInput.value || '').trim();
         },
         onReview(event) {
-          chrome.runtime.sendMessage({
-            action: 'createTab',
-            url: ENGAGEMENT_NOTICE.REVIEW_URL,
-            disposition: getOpenDisposition(event, 'newTab')
+          const disposition = getOpenDisposition(event, 'newTab');
+          ENGAGEMENT_NOTICE.loadReviewUrl().then((url) => {
+            if (!url) {
+              return;
+            }
+            chrome.runtime.sendMessage({
+              action: 'createTab',
+              url,
+              disposition
+            });
           });
         },
         onCommunity(event) {

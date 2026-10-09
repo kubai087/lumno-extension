@@ -12,7 +12,6 @@
   const DAY_MS = 24 * 60 * 60 * 1000;
   const RETRY_COOLDOWN_MS = 14 * DAY_MS;
   const MAX_EXPOSURES = 2;
-  const REVIEW_URL = 'https://chromewebstore.google.com/detail/lumno-%E8%81%9A%E7%84%A6%E6%90%9C%E7%B4%A2%E6%96%B0%E6%A0%87%E7%AD%BE%E9%A1%B5/nggfkkbmogmadfoikakkfegkoilfcfao/reviews?utm_source=item-share-cb';
   const COMMUNITY_LINKS = root && root.LumnoCommunityLinks
     ? root.LumnoCommunityLinks
     : {};
@@ -184,6 +183,28 @@
       return COMMUNITY_LINKS.getCommunityChannel(links, locale);
     }
     return /^zh(?:[-_]|$)/i.test(String(locale || '')) ? 'wechat' : 'discord';
+  }
+
+  function getReviewUrl() {
+    const links = typeof COMMUNITY_LINKS.getLinks === 'function'
+      ? COMMUNITY_LINKS.getLinks()
+      : null;
+    return typeof COMMUNITY_LINKS.getReviewUrl === 'function'
+      ? COMMUNITY_LINKS.getReviewUrl(links)
+      : '';
+  }
+
+  function loadReviewUrl(options) {
+    if (typeof COMMUNITY_LINKS.load !== 'function') {
+      return Promise.resolve(getReviewUrl());
+    }
+    return COMMUNITY_LINKS.load(options)
+      .then((links) => (
+        typeof COMMUNITY_LINKS.getReviewUrl === 'function'
+          ? COMMUNITY_LINKS.getReviewUrl(links)
+          : getReviewUrl()
+      ))
+      .catch(() => getReviewUrl());
   }
 
   function loadCommunityUrl(options) {
@@ -463,7 +484,6 @@
     ENGAGEMENT_NOTICE_VERSION,
     MAX_EXPOSURES,
     RETRY_COOLDOWN_MS,
-    REVIEW_URL,
     SURFACE_THRESHOLDS,
     WECHAT_QR_URL,
     createEngagementNotice,
@@ -471,6 +491,8 @@
     getCommunityChannel,
     getCommunityUrl,
     loadCommunityUrl,
+    getReviewUrl,
+    loadReviewUrl,
     getDayKey,
     getStoredEngagementState,
     normalizeEngagementState,

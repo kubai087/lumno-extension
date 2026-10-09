@@ -403,46 +403,26 @@ assert.strictEqual(
   );
 });
 
-assert.strictEqual(
-  getMessage(zhCnMessages, 'newtab_feedback_chrome_review_label'),
-  'Chrome 评分',
-  'zh-CN should label the Chrome review action'
-);
-assert.strictEqual(
-  getMessage(zhTwMessages, 'newtab_feedback_chrome_review_label'),
-  'Chrome 評分',
-  'zh-TW should label the Chrome review action'
-);
-assert.strictEqual(
-  getMessage(enMessages, 'newtab_feedback_chrome_review_label'),
-  'Chrome rating',
-  'en should label the Chrome review action'
-);
-assert.strictEqual(
-  getMessage(jaMessages, 'newtab_feedback_chrome_review_label'),
-  'Chromeで評価',
-  'ja should label the Chrome review action'
-);
-
-assert.strictEqual(
-  getMessage(zhCnMessages, 'newtab_feedback_chrome_review_tooltip'),
-  '在 Chrome Web Store 评分',
-  'zh-CN should explain the Chrome review action'
-);
-assert.strictEqual(
-  getMessage(zhTwMessages, 'newtab_feedback_chrome_review_tooltip'),
-  '在 Chrome Web Store 評分',
-  'zh-TW should explain the Chrome review action'
-);
-assert.strictEqual(
-  getMessage(enMessages, 'newtab_feedback_chrome_review_tooltip'),
-  'Rate on Chrome Web Store',
-  'en should explain the Chrome review action'
-);
-assert.strictEqual(
-  getMessage(jaMessages, 'newtab_feedback_chrome_review_tooltip'),
-  'Chrome Web Storeで評価する',
-  'ja should explain the Chrome review action'
-);
+[
+  [zhCnMessages, 'zh-CN', '商店评分', '去扩展商店为 Lumno 评分'],
+  [zhTwMessages, 'zh-TW', '商店評分', '到擴充功能商店為 Lumno 評分'],
+  [enMessages, 'en', 'Store rating', 'Rate Lumno in the extension store'],
+  [jaMessages, 'ja', 'ストアで評価', '拡張機能ストアで Lumno を評価する']
+].forEach(([messages, locale, label, tooltip]) => {
+  assert.strictEqual(
+    getMessage(messages, 'newtab_feedback_chrome_review_label'),
+    label,
+    `${locale} should label the review action without naming one store`
+  );
+  assert.strictEqual(
+    getMessage(messages, 'newtab_feedback_chrome_review_tooltip'),
+    tooltip,
+    `${locale} should explain the review action without naming one store`
+  );
+  assert(
+    !/Chrome|Edge/.test(label + tooltip),
+    `${locale} review copy should stay channel-neutral`
+  );
+});
 
 console.log('newtab feedback popover tests passed');
