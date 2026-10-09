@@ -1,0 +1,127 @@
+name: Watch Store Publication
+
+# Store review finishes hours or days after a GitHub release, and the website's
+# scheduled rebuild is throttled to every few hours. This watches both stores
+# and redeploys the website as soon as each one serves the new version, so the
+# release page status chips and install-menu versions catch up within minutes.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to wait for (defaults to the latest release)"
+        required: false
+      started_at:
+        description: "Internal: Unix time the watch began, carried across runs"
+        required: false
+      live:
+        description: "Internal: stores already seen live, comma-separated"
+        required: false
+
+permissions:
+  actions: write # lets a run hand the watch on to the next one
+  contents: read
+
+concurrency:
+  # A newer release replaces the watch for an older one.
+  group: watch-store-publication
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    name: Redeploy website when stores update
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Poll Chrome Web Store and Microsoft Edge Add-ons
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEB_TOKEN: ${{ secrets.LUMNO_WEB_ACTIONS_TOKEN }}
+          VERSION: ${{ inputs.version || github.event.release.tag_name }}
+          STARTED_AT: ${{ inputs.started_at }}
+          LIVE: ${{ inputs.live }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          CHROME_EXTENSION_ID: nggfkkbmogmadfoikakkfegkoilfcfao
+          EDGE_EXTENSION_ID: pfbklkaefmfamjpibfiapaiihlddhchc
+          POLL_SECONDS: 300
+          RUN_SECONDS: 19800 # hand over before the 6-hour job limit
+          WATCH_SECONDS: 1209600 # give up after 14 days
+        run: |
+          set -uo pipefail
+
+          if [ -z "${WEB_TOKEN:-}" ]; then
+            echo "::error::Add LUMNO_WEB_ACTIONS_TOKEN to this repository's Actions secrets. Use a fine-grained token scoped to kubai087/lumno-web with Actions: write permission."
+            exit 1
+          fi
+
+          version="${VERSION:-$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)}"
+          version="${version#v}"
+          started_at="${STARTED_AT:-$(date +%s)}"
+          run_deadline=$(( $(date +%s) + RUN_SECONDS ))
+          watch_deadline=$(( started_at + WATCH_SECONDS ))
+          live=",${LIVE:-},"
+
+          chrome_version() {
+            curl -fsS --max-time 20 \
+              "https://clients2.google.com/service/update2/crx?response=updatecheck&prodversion=131.0.0.0&acceptformat=crx2,crx3&x=id%3D${CHROME_EXTENSION_ID}%26uc" \
+              | grep -oE '<updatecheck [^>]*' | grep -oE ' version="[^"]+"' | cut -d'"' -f2
+          }
+
+          edge_version() {
+            curl -fsS --max-time 20 -H "Accept: application/json" \
+              "https://microsoftedge.microsoft.com/addons/getproductdetailsbycrxid/${EDGE_EXTENSION_ID}?hl=en-US&gl=US" \
+              | jq -r '.version // empty'
+          }
+
+          is_live() {
+            case "$live" in *",$1,"*) return 0 ;; esac
+            return 1
+          }
+
+          # True when the store serves $version or newer.
+          serves_version() {
+            [ -n "$1" ] && [ "$(printf '%s\n%s\n' "$version" "$1" | sort -V | head -n1)" = "$version" ]
+          }
+
+          echo "Waiting for $version in both stores."
+          while true; do
+            newly_live=""
+            for store in chrome edge; do
+              is_live "$store" && continue
+              store_version="$("${store}_version" 2>/dev/null || true)"
+              echo "$(date -u +%H:%M:%S) $store serves ${store_version:-unknown}"
+              if serves_version "$store_version"; then
+                live="$live$store,"
+                newly_live="$newly_live $store"
+              fi
+            done
+
+            if [ -n "$newly_live" ]; then
+              echo "Now live:$newly_live. Redeploying the website."
+              GH_TOKEN="$WEB_TOKEN" gh workflow run deploy-pages.yml --repo kubai087/lumno-web --ref main \
+                || echo "::warning::Could not dispatch the website deploy."
+            fi
+
+            if is_live chrome && is_live edge; then
+              echo "Both stores serve $version."
+              exit 0
+            fi
+
+            now=$(date +%s)
+            if [ "$now" -ge "$watch_deadline" ]; then
+              echo "::warning::Stopped watching $version after 14 days; live in:${live//,/ }"
+              exit 0
+            fi
+            if [ "$now" -ge "$run_deadline" ]; then
+              live_input="$(echo "$live" | sed -E 's/^,+//; s/,+$//')"
+              echo "Handing the watch on to a new run."
+              gh workflow run watch-store-publication.yml --repo "$GITHUB_REPOSITORY" --ref "${DEFAULT_BRANCH:-main}" \
+                -f version="$version" -f started_at="$started_at" -f live="$live_input"
+              exit 0
+            fi
+
+            sleep "$POLL_SECONDS"
+          done
