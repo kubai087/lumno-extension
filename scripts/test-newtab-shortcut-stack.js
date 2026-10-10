@@ -315,5 +315,9 @@ function createTargetRuntime(sourceType) {
     'undo never duplicates a website that was added again');
   assert.ok(full.folder());
 
+  // A plain click on a folder tile ends a pointer session without dragging;
+  // it must leave the folder menu for the click to toggle.
+  assert.match(extractFunction('finishShortcutDrag'), /if \(state\.isDragging\) \{\s*closeBookmarkCascadeMenu\(\);/);
+
   console.log('Shortcut stacking passed: targets, folder creation, portable binding, undo/redo, rename and reorder, conflicts and rollback.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

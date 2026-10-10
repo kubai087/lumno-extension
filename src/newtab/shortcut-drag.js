@@ -457,7 +457,11 @@
       clearDragDropTarget(state);
       pageState.shortcutDragState = null;
       document.body.removeAttribute('data-drag-blocked');
-      closeBookmarkCascadeMenu();
+      // Only a drag can leave a drag-mode folder menu open. A plain click must
+      // keep an open folder menu, so the click itself can toggle it closed.
+      if (state.isDragging) {
+        closeBookmarkCascadeMenu();
+      }
       if (document.body) {
         document.body.removeAttribute('data-drag-source');
       }
