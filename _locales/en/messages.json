@@ -404,9 +404,6 @@
   "document_pip_picker_hint": {
     "message": "Move over the page to choose an element. Click to open PiP, scroll to switch parents, Esc to cancel."
   },
-  "document_pip_picker_idle": {
-    "message": "Hover a visible area to start selecting."
-  },
   "document_pip_picker_started": {
     "message": "Click the content to float, scroll to change scope, or press Esc to cancel."
   },
@@ -415,18 +412,6 @@
   },
   "document_pip_picker_closed": {
     "message": "Floating content window closed"
-  },
-  "document_pip_picker_guidance_default": {
-    "message": "This selection should work well for content floating."
-  },
-  "document_pip_picker_guidance_leaf": {
-    "message": "This is a small leaf node. Scroll to move to its parent if you want a more stable floating view."
-  },
-  "document_pip_picker_guidance_interactive": {
-    "message": "This looks like a fragile interactive group. If clicks fail in PiP, scroll to select a larger painted container."
-  },
-  "document_pip_picker_guidance_toolbar": {
-    "message": "This looks like a navigation or toolbar area. Complex menus may not fully interact in PiP; scroll to choose a larger container if needed."
   },
   "document_pip_picker_unsupported": {
     "message": "This page does not support Document Picture-in-Picture."
@@ -439,9 +424,6 @@
   },
   "document_pip_picker_open_failed": {
     "message": "Couldn’t open the floating content window. Try a different area."
-  },
-  "document_pip_picker_badge": {
-    "message": "Opened in PiP"
   },
   "document_pip_picker_button_reselect": {
     "message": "Reselect"

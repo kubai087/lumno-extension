@@ -1028,6 +1028,7 @@
   const FORCE_TEXT_KEYCAPS_ON_MAC = false;
   const FORCE_OVERLAY_TAB_QUICK_SWITCH_ENABLED = true;
   const OPTIONS_TARGET_SITE_SEARCH_AI = 'site-search-ai';
+  const OPTIONS_TARGET_DOCUMENT_PIP = 'document-pip';
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let mediaListenerAttached = false;
   let defaultSiteSearchProviders = [];
@@ -4122,6 +4123,9 @@
   }
 
   function getOptionsTargetElement(targetKey) {
+    if (targetKey === OPTIONS_TARGET_DOCUMENT_PIP) {
+      return document.getElementById('_x_extension_document_pip_row_2026_unique_');
+    }
     if (targetKey !== OPTIONS_TARGET_SITE_SEARCH_AI) {
       return null;
     }
@@ -4136,11 +4140,28 @@
       return false;
     }
     const behavior = options && options.behavior ? options.behavior : 'smooth';
+    const block = options && options.block ? options.block : 'start';
     window.requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior, block: 'start' });
+      target.scrollIntoView({ behavior, block });
       updateTabsStickyVisualState();
+      if (options && options.flash) {
+        flashOptionsTarget(target);
+      }
     });
     return true;
+  }
+
+  // Points the eye at the row a deep link opened, e.g. the web clip switch
+  // that the toolbar button leads to while web clip is off.
+  function flashOptionsTarget(target) {
+    target.removeAttribute('data-flash');
+    void target.offsetWidth;
+    target.setAttribute('data-flash', 'true');
+    const onFlashEnd = () => {
+      target.removeAttribute('data-flash');
+      target.removeEventListener('animationend', onFlashEnd);
+    };
+    target.addEventListener('animationend', onFlashEnd);
   }
 
   if (settingsVersion && chrome?.runtime?.getManifest) {
@@ -4375,8 +4396,12 @@
   });
 
   const initialTab = getInitialTabKey();
-  pendingOptionsScrollTarget = initialTab === 'shortcuts' ? getInitialOptionsTargetKey() : '';
+  const initialOptionsTargetKey = getInitialOptionsTargetKey();
+  pendingOptionsScrollTarget = initialTab === 'shortcuts' ? initialOptionsTargetKey : '';
   setActiveTab(initialTab);
+  if (initialTab === 'labs') {
+    scrollToOptionsTarget(initialOptionsTargetKey, { behavior: 'auto', block: 'center', flash: true });
+  }
   if (initialTab === 'shortcuts') {
     refreshSiteSearchProviders();
   }

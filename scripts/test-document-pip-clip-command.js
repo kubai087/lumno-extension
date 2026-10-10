@@ -42,7 +42,7 @@ assert.match(
 );
 assert.match(
   contentJs,
-  /previewObserver\.observe\(element,[\s\S]*characterData:\s*true[\s\S]*attributes:\s*true/,
+  /session\.contentObserver\.observe\(element,[\s\S]*characterData:\s*true[\s\S]*attributes:\s*true/,
   'web clip should observe source DOM changes so dynamic text can refresh in PiP'
 );
 assert.doesNotMatch(
@@ -113,6 +113,32 @@ assert.doesNotMatch(
   contentJs,
   /errorToastBackground|toastTimer/,
   'the web clip picker should not keep its own Toast palette or timer'
+);
+
+assert.match(
+  backgroundJs,
+  /function openDocumentPipPickerOnTab\(activeTab, source\) \{\s*return documentPipEnabledReady\.then\(/,
+  'web clip entry points should wait for the stored setting when the service worker wakes'
+);
+assert.match(
+  backgroundJs,
+  /documentPipEnabledCache = normalizedDocumentPip;\s*resolveDocumentPipEnabledReady\(\);/,
+  'the web clip setting read at startup should release waiting entry points'
+);
+assert.match(
+  backgroundJs,
+  /function openDocumentPipSettings\(\) \{\s*openExtensionOptionsPage\(\{ hash: 'labs:document-pip' \}\);/,
+  'with web clip off, its entry points should open settings at the web clip switch'
+);
+assert.match(
+  contentJs,
+  /requestWindow\([\s\S]*?\}\);[\s\S]*?await requestDocumentPipOwnership\(\);/,
+  'the PiP window should open before any background round trip spends the click activation'
+);
+assert.doesNotMatch(
+  contentJs,
+  /DOCUMENT_PIP_BOUNDS_STORAGE_KEY|moveTo\(/,
+  'the picker should not keep position code that PiP windows ignore'
 );
 
 console.log('document PiP clip command tests passed');

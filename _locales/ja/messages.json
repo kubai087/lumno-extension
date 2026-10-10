@@ -404,9 +404,6 @@
   "document_pip_picker_hint": {
     "message": "マウスを動かして要素を選択し、クリックするとWebクリップで表示します。ホイールで親要素へ切り替え、Escでキャンセルできます。"
   },
-  "document_pip_picker_idle": {
-    "message": "ページの表示領域にマウスを移動して選択を開始します。"
-  },
   "document_pip_picker_started": {
     "message": "浮かせたい内容をクリックしてください。ホイールで範囲を切り替え、Escでキャンセルできます。"
   },
@@ -415,18 +412,6 @@
   },
   "document_pip_picker_closed": {
     "message": "Webクリップを閉じました"
-  },
-  "document_pip_picker_guidance_default": {
-    "message": "この範囲はWebクリップ表示に適しています。"
-  },
-  "document_pip_picker_guidance_leaf": {
-    "message": "この範囲は小さな要素です。安定させるには、ホイールで親要素へ切り替えてください。"
-  },
-  "document_pip_picker_guidance_interactive": {
-    "message": "この範囲はボタン群のようです。Webクリップ内で押せない場合は、背景を含む大きめの範囲へ切り替えてください。"
-  },
-  "document_pip_picker_guidance_toolbar": {
-    "message": "この範囲はメニューや操作バーのようです。Webクリップでは複雑なメニューがうまく動かない場合があります。必要に応じて外側の範囲へ切り替えてください。"
   },
   "document_pip_picker_unsupported": {
     "message": "このページではWebクリップを利用できません。"
@@ -439,9 +424,6 @@
   },
   "document_pip_picker_open_failed": {
     "message": "Webクリップを開けませんでした。別の範囲でお試しください。"
-  },
-  "document_pip_picker_badge": {
-    "message": "Webクリップで開きました"
   },
   "document_pip_picker_button_reselect": {
     "message": "選び直す"

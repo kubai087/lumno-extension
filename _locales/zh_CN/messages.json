@@ -404,9 +404,6 @@
   "document_pip_picker_hint": {
     "message": "移动鼠标选择元素，点击打开悬浮窗，滚轮切换父级，Esc 取消。"
   },
-  "document_pip_picker_idle": {
-    "message": "将鼠标移动到网页可见区域开始选择。"
-  },
   "document_pip_picker_started": {
     "message": "点击要悬浮的内容，滚轮可切换范围，Esc 取消。"
   },
@@ -415,18 +412,6 @@
   },
   "document_pip_picker_closed": {
     "message": "已关闭内容悬浮窗"
-  },
-  "document_pip_picker_guidance_default": {
-    "message": "当前选择更适合内容悬浮。"
-  },
-  "document_pip_picker_guidance_leaf": {
-    "message": "当前是较小的叶子节点，如需更稳定可滚轮切到父级。"
-  },
-  "document_pip_picker_guidance_interactive": {
-    "message": "当前像交互按钮组，如在 PiP 中点击异常，建议切到更大的有背景容器。"
-  },
-  "document_pip_picker_guidance_toolbar": {
-    "message": "当前像导航或工具栏区域，复杂菜单在 PiP 中可能不完整，必要时请切到更外层容器。"
   },
   "document_pip_picker_unsupported": {
     "message": "当前页面暂不支持 Document PiP。"
@@ -439,9 +424,6 @@
   },
   "document_pip_picker_open_failed": {
     "message": "打开内容悬浮窗失败，请换一个区域再试。"
-  },
-  "document_pip_picker_badge": {
-    "message": "已在悬浮窗打开"
   },
   "document_pip_picker_button_reselect": {
     "message": "重新选择"

@@ -1570,6 +1570,19 @@ body[data-theme="dark"] ._x_extension_shortcut_ghost_2026_unique_ {
   width: 12px;
   height: 12px;
 }
+._x_extension_setting_row_2024_unique_[data-flash="true"] {
+  animation: _x_extension_setting_row_flash_2026_unique_ 1.6s ease-in-out 1;
+}
+@keyframes _x_extension_setting_row_flash_2026_unique_ {
+  0%,
+  100% {
+    background: transparent;
+  }
+  30%,
+  60% {
+    background: var(--lumno-color-hover);
+  }
+}
 ._x_extension_shortcut_item_2024_unique_[data-flash="true"] {
   animation: _x_extension_duplicate_flash_2024_unique_ 1.8s ease-in-out 1;
 }

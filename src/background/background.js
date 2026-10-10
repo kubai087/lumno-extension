@@ -1482,6 +1482,12 @@ const PINNED_TAB_RESTORE_MAX_TABS = 24;
 let restrictedActionCache = 'default';
 let restrictedActionAutoBrowserSettingDoneCache = false;
 let documentPipEnabledCache = false;
+let resolveDocumentPipEnabledReady = () => {};
+// A service worker woken by the toolbar button or a clip command handles that
+// event before its stored settings arrive, so web clip waits for the real value.
+const documentPipEnabledReady = new Promise((resolve) => {
+  resolveDocumentPipEnabledReady = resolve;
+});
 let tabSwitcherEnabledCache = true;
 let pinnedTabRecoveryEnabledCache = false;
 const hotkeyInvokeAtByTabId = new Map();
@@ -2602,6 +2608,7 @@ if (storageArea) {
       storageArea.set({ [DOCUMENT_PIP_ENABLED_STORAGE_KEY]: normalizedDocumentPip });
     }
     documentPipEnabledCache = normalizedDocumentPip;
+    resolveDocumentPipEnabledReady();
     const tabSwitcherStored = result[TAB_SWITCHER_ENABLED_STORAGE_KEY];
     const normalizedTabSwitcher = normalizeTabSwitcherEnabled(tabSwitcherStored);
     if (tabSwitcherStored !== normalizedTabSwitcher) {
@@ -2611,6 +2618,8 @@ if (storageArea) {
     const pinnedTabRecoveryStored = result[PINNED_TAB_RECOVERY_ENABLED_STORAGE_KEY];
     applyPinnedTabRecoverySetting(pinnedTabRecoveryStored);
   });
+} else {
+  resolveDocumentPipEnabledReady();
 }
 
 function migrateStorageIfNeeded(keys) {
@@ -5306,10 +5315,21 @@ function detectAnyActiveVideoPiP(callback) {
   });
 }
 
+function openDocumentPipSettings() {
+  openExtensionOptionsPage({ hash: 'labs:document-pip' });
+}
+
 function openDocumentPipPickerOnTab(activeTab, source) {
+  return documentPipEnabledReady.then(() => {
+    openDocumentPipPickerOnReadyTab(activeTab, source);
+    return documentPipEnabledCache;
+  });
+}
+
+function openDocumentPipPickerOnReadyTab(activeTab, source) {
   if (!documentPipEnabledCache) {
     logHotkeyDebug('document-pip-disabled', { source: source || '' });
-    openExtensionOptionsPage();
+    openDocumentPipSettings();
     return;
   }
   if (!activeTab || typeof activeTab.id !== 'number') {
@@ -6629,12 +6649,13 @@ function handlePipMessage(request, sender, sendResponse) {
         sendResponse({ ok: false, reason: 'no-sender-tab' });
         return;
       }
-      openDocumentPipPickerOnTab(senderTab, 'search-command');
-      sendResponse({
-        ok: documentPipEnabledCache === true,
-        enabled: documentPipEnabledCache === true
+      openDocumentPipPickerOnTab(senderTab, 'search-command').then((enabled) => {
+        sendResponse({
+          ok: enabled === true,
+          enabled: enabled === true
+        });
       });
-      return;
+      return true;
     }
     case 'siteTryEnterPiPInMainWorld': {
       sendPipMainWorldResponse('siteTryEnterPiPInMainWorld', sender, sendResponse);
@@ -9206,6 +9227,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     const next = changes[DOCUMENT_PIP_ENABLED_STORAGE_KEY].newValue;
     const normalized = next === true;
     documentPipEnabledCache = normalized;
+    resolveDocumentPipEnabledReady();
     if (typeof next !== 'undefined' && next !== normalized && storageArea) {
       storageArea.set({ [DOCUMENT_PIP_ENABLED_STORAGE_KEY]: normalized });
     }

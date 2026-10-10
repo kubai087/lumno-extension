@@ -404,9 +404,6 @@
   "document_pip_picker_hint": {
     "message": "移動滑鼠選擇元素，點按開啟浮動視窗，滾輪切換父層，Esc 取消。"
   },
-  "document_pip_picker_idle": {
-    "message": "將滑鼠移到網頁可見區域開始選擇。"
-  },
   "document_pip_picker_started": {
     "message": "點按要浮動的內容，滾輪可切換範圍，Esc 取消。"
   },
@@ -415,18 +412,6 @@
   },
   "document_pip_picker_closed": {
     "message": "已關閉內容浮動視窗"
-  },
-  "document_pip_picker_guidance_default": {
-    "message": "目前選取更適合內容浮動。"
-  },
-  "document_pip_picker_guidance_leaf": {
-    "message": "目前是較小的葉節點，如需更穩定可滾輪切到父層。"
-  },
-  "document_pip_picker_guidance_interactive": {
-    "message": "目前像互動按鈕群，如在 PiP 中點按異常，建議切到更大的有背景容器。"
-  },
-  "document_pip_picker_guidance_toolbar": {
-    "message": "目前像導覽或工具列區域，複雜選單在 PiP 中可能不完整，必要時請切到更外層容器。"
   },
   "document_pip_picker_unsupported": {
     "message": "目前頁面暫不支援 Document PiP。"
@@ -439,9 +424,6 @@
   },
   "document_pip_picker_open_failed": {
     "message": "開啟內容浮動視窗失敗，請改選其他區域再試。"
-  },
-  "document_pip_picker_badge": {
-    "message": "已在浮動視窗開啟"
   },
   "document_pip_picker_button_reselect": {
     "message": "重新選擇"
