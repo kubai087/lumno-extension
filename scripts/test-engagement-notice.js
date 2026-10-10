@@ -85,8 +85,8 @@ function createEligibleState(surface, now) {
   );
   assert.strictEqual(
     engagementNotice.getCommunityUrl('en'),
-    engagementNotice.DISCORD_URL,
-    'non-Chinese users should be guided to Discord'
+    engagementNotice.X_URL,
+    'non-Chinese users should be guided to the author on X'
   );
   assert.strictEqual(
     engagementNotice.WECHAT_QR_URL,
@@ -421,8 +421,8 @@ function createEligibleState(surface, now) {
       enMessages.engagement_notice_community.message,
       enMessages.engagement_notice_trailing.message
     ],
-    ['Like Lumno? Why not', 'leave 5 stars', 'or', 'join Discord', 'and say hi.'],
-    'English engagement copy should name Discord directly'
+    ['Like Lumno? Why not', 'leave 5 stars', 'or', 'find us on X', 'and say hi.'],
+    'English engagement copy should name X directly'
   );
   assert.deepStrictEqual(
     [
@@ -432,8 +432,8 @@ function createEligibleState(surface, now) {
       jaMessages.engagement_notice_community.message,
       jaMessages.engagement_notice_trailing.message
     ],
-    ['気に入ったら、', '★5で評価', 'するか、', 'Discord に参加', 'してみませんか。'],
-    'Japanese engagement copy should name Discord directly'
+    ['気に入ったら、', '★5で評価', 'するか、', 'X で声をかけて', 'みませんか。'],
+    'Japanese engagement copy should name X directly'
   );
   assert.deepStrictEqual(
     [

@@ -9,14 +9,13 @@ import {
 
 const baseModel: FeedbackControlModel = {
   buttonLabel: 'Send feedback',
-  channel: 'discord',
+  channel: 'x',
   chromeReviewLabel: 'Store rating',
   chromeReviewTooltip: 'Rate Lumno in the extension store',
   chromeReviewUrl: 'https://chromewebstore.google.com/detail/example/reviews',
   closeTooltip: 'Close',
-  communityLabel: 'Discord',
-  communityTooltip: 'Join Discord',
-  discordUrl: 'https://discord.gg/example',
+  communityLabel: 'X',
+  communityTooltip: 'Contact on X',
   githubIssueLabel: 'GitHub Issue',
   githubIssueTooltip: 'Open a GitHub Issue',
   githubIssueUrl: 'https://github.com/example/repo/issues/new',
@@ -83,8 +82,8 @@ describe('New Tab feedback React island', () => {
     expect(controller.isOpen()).toBe(false);
   });
 
-  it('keeps all channel links and preserves background Discord opening', () => {
-    const { controller, host, options } = createController();
+  it('keeps all channel links, with X as the community entry outside Chinese', () => {
+    const { controller, host } = createController();
     act(() => controller.setOpen(true));
 
     expect(
@@ -96,21 +95,8 @@ describe('New Tab feedback React island', () => {
     expect(
       host.querySelector<HTMLAnchorElement>('a[href*="chromewebstore"]')?.href
     ).toBe(baseModel.chromeReviewUrl);
-
-    const community = host.querySelector<HTMLButtonElement>(
-      '.x-nt-feedback-action-community'
-    );
-    act(() => {
-      community?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, ctrlKey: true })
-      );
-    });
-
-    expect(options.onOpenExternal).toHaveBeenCalledWith(
-      baseModel.discordUrl,
-      'backgroundTab'
-    );
-    expect(controller.isOpen()).toBe(false);
+    // The menu's X button already covers it, so there is no separate community button.
+    expect(host.querySelector('.x-nt-feedback-action-community')).toBeNull();
   });
 
   it('renders and refreshes the WeChat detail without rebuilding the host', async () => {
@@ -154,10 +140,10 @@ describe('New Tab feedback React island', () => {
   });
 
   it('lets an external prompt open the locale-appropriate community directly', () => {
-    const discord = createController();
-    act(() => discord.controller.openCommunity('backgroundTab'));
-    expect(discord.options.onOpenExternal).toHaveBeenCalledWith(
-      baseModel.discordUrl,
+    const x = createController();
+    act(() => x.controller.openCommunity('backgroundTab'));
+    expect(x.options.onOpenExternal).toHaveBeenCalledWith(
+      baseModel.xUrl,
       'backgroundTab'
     );
 

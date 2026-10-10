@@ -95,15 +95,15 @@ describe('Options feedback support React island', () => {
       items: model.items.map((item) => item.key === 'community'
         ? {
             ...item,
-            href: 'https://discord.gg/example',
-            label: 'Join Discord',
-            labelKey: 'settings_feedback_support_discord_action'
+            href: 'https://example.com/qr-v2.webp',
+            label: '加入反馈群（新）',
+            labelKey: 'settings_feedback_support_wechat_action'
           }
         : item)
     }));
 
     expect(host.querySelector('h2')?.textContent).toBe('Feedback & Support');
     expect(host.querySelector('[data-feedback-support="community"]')?.textContent)
-      .toContain('Join Discord');
+      .toContain('加入反馈群（新）');
   });
 });

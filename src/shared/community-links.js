@@ -39,13 +39,12 @@
     githubIssue: 'https://github.com/kubai087/lumno-extension/issues/new',
     chromeReview: 'https://chromewebstore.google.com/detail/lumno-%E8%81%9A%E7%84%A6%E6%90%9C%E7%B4%A2%E6%96%B0%E6%A0%87%E7%AD%BE%E9%A1%B5/nggfkkbmogmadfoikakkfegkoilfcfao/reviews?utm_source=item-share-cb',
     edgeReview: STORE_LISTINGS.edge.url,
-    discord: 'https://discord.gg/2u9sg7ZNkJ',
     wechatQr: `${WEB_ORIGIN}/qrcode-20260730.webp`,
     communityByLocale: Object.freeze({
       'zh-CN': 'wechat',
       'zh-TW': 'wechat',
-      ja: 'discord',
-      en: 'discord'
+      ja: 'x',
+      en: 'x'
     })
   });
 
@@ -62,8 +61,13 @@
     }
   }
 
+  // Discord is retired: the website's older payload still says "discord" for
+  // non-Chinese locales, which now means the author on X.
   function normalizeCommunityChannel(value, fallback) {
-    return value === 'wechat' || value === 'discord' ? value : fallback;
+    if (value === 'wechat') {
+      return 'wechat';
+    }
+    return value === 'x' || value === 'discord' ? 'x' : fallback;
   }
 
   function normalizeCommunityMap(value) {
@@ -105,7 +109,6 @@
         links.edgeAddonsReview ||
         links.edge_addons_review
       ) || FALLBACK_LINKS.edgeReview,
-      discord: normalizeHttpsUrl(links.discord) || FALLBACK_LINKS.discord,
       wechatQr: normalizeHttpsUrl(links.wechatQr || links.wechat_qr) ||
         FALLBACK_LINKS.wechatQr,
       communityByLocale: normalizeCommunityMap(
@@ -134,7 +137,7 @@
   function getCommunityChannel(links, locale) {
     const webLocale = normalizeWebLocale(locale);
     // Chinese community support lives in WeChat. Keep this product policy
-    // local so a stale remote map cannot send zh-CN or zh-TW users to Discord.
+    // local so a stale remote map cannot send zh-CN or zh-TW users elsewhere.
     if (webLocale === 'zh-CN' || webLocale === 'zh-TW') {
       return 'wechat';
     }
@@ -153,7 +156,7 @@
     const source = links && typeof links === 'object' ? links : FALLBACK_LINKS;
     return getCommunityChannel(source, locale) === 'wechat'
       ? (source.wechatQr || FALLBACK_LINKS.wechatQr)
-      : (source.discord || FALLBACK_LINKS.discord);
+      : (source.x || FALLBACK_LINKS.x);
   }
 
   function getRuntimeExtensionId() {

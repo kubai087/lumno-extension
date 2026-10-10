@@ -227,9 +227,6 @@
   "settings_feedback_support_wechat_action": {
     "message": "加入反馈群"
   },
-  "settings_feedback_support_discord_action": {
-    "message": "加入 Discord"
-  },
   "settings_feedback_support_review_action": {
     "message": "为 Lumno 评分"
   },
@@ -961,12 +958,6 @@
   },
   "newtab_feedback_wechat_close_tooltip": {
     "message": "关闭"
-  },
-  "newtab_feedback_discord_label": {
-    "message": "Discord"
-  },
-  "newtab_feedback_discord_tooltip": {
-    "message": "加入 Discord"
   },
   "newtab_feedback_wechat_qr_title": {
     "message": "微信群二维码"

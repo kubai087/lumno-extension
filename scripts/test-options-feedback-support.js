@@ -68,8 +68,8 @@ assert.match(
 );
 assert.match(
   communityLinksJs,
-  /'zh-CN': 'wechat',[\s\S]*?'zh-TW': 'wechat',[\s\S]*?ja: 'discord',[\s\S]*?en: 'discord'/,
-  'Options should use WeChat for both Chinese locales and Discord for other languages'
+  /'zh-CN': 'wechat',[\s\S]*?'zh-TW': 'wechat',[\s\S]*?ja: 'x',[\s\S]*?en: 'x'/,
+  'Options should use WeChat for both Chinese locales and X for other languages'
 );
 assert.match(
   optionsJs,
@@ -78,19 +78,10 @@ assert.match(
 );
 assert.match(
   optionsJs,
-  /href: communityIsWechat \? links\.wechatQr : links\.discord/,
-  'the community link should resolve directly to the WeChat QR image or Discord'
+  /\.\.\.\(communityIsWechat\s*\? \[\{\s*href: links\.wechatQr,\s*iconClass: 'ri-wechat-line',\s*key: 'community',[\s\S]*?labelKey: 'settings_feedback_support_wechat_action'\s*\}\]\s*: \[\]\)/,
+  'the WeChat group is the community entry in Chinese; elsewhere the contact-the-author X link is'
 );
-assert.match(
-  optionsJs,
-  /iconClass: communityIsWechat \? 'ri-wechat-line' : 'ri-discord-fill'/,
-  'the simplified-Chinese community entry should use the Remix outline WeChat icon'
-);
-assert.match(
-  optionsJs,
-  /label: communityIsWechat[\s\S]*?settings_feedback_support_wechat_action[\s\S]*?settings_feedback_support_discord_action[\s\S]*?labelKey: communityIsWechat[\s\S]*?settings_feedback_support_wechat_action[\s\S]*?settings_feedback_support_discord_action/,
-  'the community entry should switch both its visible copy and i18n key with the channel'
-);
+assert.doesNotMatch(optionsJs, /links\.discord|ri-discord-fill|settings_feedback_support_discord_action/);
 
 locales.forEach((locale) => {
   const messages = JSON.parse(fs.readFileSync(
@@ -104,7 +95,6 @@ locales.forEach((locale) => {
   );
   [
     'settings_feedback_support_wechat_action',
-    'settings_feedback_support_discord_action',
     'settings_feedback_support_review_action',
     'settings_feedback_support_github_issue_action',
     'settings_feedback_support_contact_author_action'
@@ -132,29 +122,9 @@ assert.deepStrictEqual(
   ],
   'Simplified Chinese feedback links should use the requested copy'
 );
-assert.deepStrictEqual(
-  {
-    zh_CN: zhCnMessages.settings_feedback_support_discord_action.message,
-    zh_TW: JSON.parse(fs.readFileSync(
-      path.join(repoRoot, '_locales/zh_TW/messages.json'),
-      'utf8'
-    )).settings_feedback_support_discord_action.message,
-    ja: JSON.parse(fs.readFileSync(
-      path.join(repoRoot, '_locales/ja/messages.json'),
-      'utf8'
-    )).settings_feedback_support_discord_action.message,
-    en: JSON.parse(fs.readFileSync(
-      path.join(repoRoot, '_locales/en/messages.json'),
-      'utf8'
-    )).settings_feedback_support_discord_action.message
-  },
-  {
-    zh_CN: '加入 Discord',
-    zh_TW: '加入 Discord',
-    ja: 'Discord に参加',
-    en: 'Join Discord'
-  },
-  'Discord feedback copy should name the actual channel in every locale'
-);
+locales.forEach((locale) => {
+  const messages = JSON.parse(fs.readFileSync(path.join(repoRoot, `_locales/${locale}/messages.json`), 'utf8'));
+  assert.ok(!messages.settings_feedback_support_discord_action, `${locale} should no longer carry Discord copy`);
+});
 
 console.log('options feedback support tests passed');

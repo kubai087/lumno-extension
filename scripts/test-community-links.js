@@ -54,8 +54,8 @@ const { readNewtabRuntimeSource } = require('./helpers/newtab-source');
   );
   assert.strictEqual(
     communityLinks.getCommunityChannel(normalized, 'en-US'),
-    'discord',
-    'all non-Chinese locales should use Discord'
+    'x',
+    'all non-Chinese locales should use X (an older "discord" value from the website maps to X)'
   );
   assert.strictEqual(
     communityLinks.getCommunityUrl(normalized, 'zh-TW'),
@@ -64,21 +64,21 @@ const { readNewtabRuntimeSource } = require('./helpers/newtab-source');
   );
   assert.strictEqual(
     communityLinks.getCommunityUrl(normalized, 'ja'),
-    communityLinks.FALLBACK_LINKS.discord,
-    'Japanese should resolve the dynamic Discord destination'
+    communityLinks.FALLBACK_LINKS.x,
+    'Japanese should resolve the author on X'
   );
   const overriddenCommunity = communityLinks.normalizeLinksPayload({
     links: {
-      discord: 'https://discord.example/invite'
+      x: 'https://x.example/someone'
     },
     community_by_locale: {
-      zh_TW: 'discord'
+      zh_TW: 'x'
     }
   });
   assert.strictEqual(
     communityLinks.getCommunityChannel(overriddenCommunity, 'zh-HK'),
     'wechat',
-    'a stale remote locale map must not route Traditional Chinese users to Discord'
+    'a stale remote locale map must not route Traditional Chinese users away from WeChat'
   );
   assert.strictEqual(
     communityLinks.getCommunityUrl(overriddenCommunity, 'zh-HK'),

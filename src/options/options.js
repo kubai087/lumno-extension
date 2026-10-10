@@ -1690,17 +1690,16 @@
       heading: getMessage('settings_feedback_support_section_title', '反馈与支持'),
       headingKey: 'settings_feedback_support_section_title',
       items: [
-        {
-          href: communityIsWechat ? links.wechatQr : links.discord,
-          iconClass: communityIsWechat ? 'ri-wechat-line' : 'ri-discord-fill',
-          key: 'community',
-          label: communityIsWechat
-            ? getMessage('settings_feedback_support_wechat_action', '加入反馈群')
-            : getMessage('settings_feedback_support_discord_action', '加入 Discord'),
-          labelKey: communityIsWechat
-            ? 'settings_feedback_support_wechat_action'
-            : 'settings_feedback_support_discord_action'
-        },
+        // Chinese readers get the WeChat group; elsewhere "contact the author" (X) below is the community entry.
+        ...(communityIsWechat
+          ? [{
+              href: links.wechatQr,
+              iconClass: 'ri-wechat-line',
+              key: 'community',
+              label: getMessage('settings_feedback_support_wechat_action', '加入反馈群'),
+              labelKey: 'settings_feedback_support_wechat_action'
+            }]
+          : []),
         {
           href: COMMUNITY_LINKS.getReviewUrl(links),
           iconClass: 'ri-star-line',

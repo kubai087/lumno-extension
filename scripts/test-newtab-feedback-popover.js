@@ -219,14 +219,14 @@ assertContains(
 
 assert.match(
   feedbackReact,
-  /const getDisposition = \(event\?[\s\S]*?'backgroundTab'[\s\S]*?onOpenExternal\(model\.discordUrl, disposition\)/,
-  'React Discord feedback activation should preserve background-opening modifiers'
+  /const getDisposition = \(event\?[\s\S]*?'backgroundTab'[\s\S]*?onOpenExternal\(model\.xUrl, disposition\)/,
+  'opening the community on X should preserve background-opening modifiers'
 );
 
 assert.match(
   feedbackReact,
-  /onAuxClick=\{\(event\) => \{[\s\S]*?event\.button === 1[\s\S]*?openCommunity\(getDisposition\(event\)\)/,
-  'the React Discord feedback action should support middle-click background opening'
+  /\{model\.channel === 'wechat' && \([\s\S]*?x-nt-feedback-action-community/,
+  'outside Chinese the menu\'s X button is the community entry, so the community button is WeChat only'
 );
 
 assert.ok(

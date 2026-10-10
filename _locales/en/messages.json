@@ -227,9 +227,6 @@
   "settings_feedback_support_wechat_action": {
     "message": "Join WeChat group"
   },
-  "settings_feedback_support_discord_action": {
-    "message": "Join Discord"
-  },
   "settings_feedback_support_review_action": {
     "message": "Rate Lumno"
   },
@@ -888,7 +885,7 @@
     "message": "leave 5 stars"
   },
   "engagement_notice_community": {
-    "message": "join Discord"
+    "message": "find us on X"
   },
   "engagement_notice_close": {
     "message": "Dismiss rating and community prompt"
@@ -961,12 +958,6 @@
   },
   "newtab_feedback_wechat_close_tooltip": {
     "message": "Close"
-  },
-  "newtab_feedback_discord_label": {
-    "message": "Discord"
-  },
-  "newtab_feedback_discord_tooltip": {
-    "message": "Join Discord"
   },
   "newtab_feedback_wechat_qr_title": {
     "message": "WeChat group QR code"

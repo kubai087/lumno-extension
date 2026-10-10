@@ -15,8 +15,8 @@
   const COMMUNITY_LINKS = root && root.LumnoCommunityLinks
     ? root.LumnoCommunityLinks
     : {};
-  const DISCORD_URL = COMMUNITY_LINKS.FALLBACK_LINKS
-    ? COMMUNITY_LINKS.FALLBACK_LINKS.discord
+  const X_URL = COMMUNITY_LINKS.FALLBACK_LINKS
+    ? COMMUNITY_LINKS.FALLBACK_LINKS.x
     : '';
   const WECHAT_QR_URL = COMMUNITY_LINKS.FALLBACK_LINKS
     ? COMMUNITY_LINKS.FALLBACK_LINKS.wechatQr
@@ -182,7 +182,7 @@
     if (typeof COMMUNITY_LINKS.getCommunityChannel === 'function') {
       return COMMUNITY_LINKS.getCommunityChannel(links, locale);
     }
-    return /^zh(?:[-_]|$)/i.test(String(locale || '')) ? 'wechat' : 'discord';
+    return /^zh(?:[-_]|$)/i.test(String(locale || '')) ? 'wechat' : 'x';
   }
 
   function getReviewUrl() {
@@ -379,11 +379,11 @@
           id: 'community',
           icon: communityChannel === 'wechat'
             ? 'ri-wechat-fill'
-            : 'ri-discord-fill',
+            : 'ri-twitter-x-line',
           labelKey: 'engagement_notice_community',
           labelFallback: communityChannel === 'wechat'
             ? 'join WeChat group'
-            : 'join Discord',
+            : 'find us on X',
           variant: 'secondary',
           onClick(event) {
             finishAction('community', event);
@@ -482,7 +482,7 @@
 
   return Object.freeze({
     DAY_MS,
-    DISCORD_URL,
+    X_URL,
     ENGAGEMENT_NOTICE_ENABLED,
     ENGAGEMENT_NOTICE_ID,
     ENGAGEMENT_NOTICE_STORAGE_KEY,

@@ -115,11 +115,10 @@
         closeTooltip: t('newtab_feedback_wechat_close_tooltip', 'Close'),
         communityLabel: channel === 'wechat'
           ? t('newtab_feedback_wechat_label', 'WeChat')
-          : t('newtab_feedback_discord_label', 'Discord'),
+          : t('newtab_feedback_x_label', 'X'),
         communityTooltip: channel === 'wechat'
           ? t('newtab_feedback_wechat_tooltip', 'Join the WeChat group')
-          : t('newtab_feedback_discord_tooltip', 'Join Discord'),
-        discordUrl: links.discord || LUMNO_FEEDBACK_LINKS_FALLBACK.discord,
+          : t('newtab_feedback_x_tooltip', 'Contact us on X'),
         githubIssueLabel: t('newtab_feedback_github_issue_label', 'GitHub Issue'),
         githubIssueTooltip: t(
           'newtab_feedback_github_issue_tooltip',
@@ -129,7 +128,7 @@
         menuAriaLabel: t('newtab_feedback_menu_aria', 'Feedback channels'),
         panelTitle: channel === 'wechat'
           ? t('newtab_feedback_wechat_panel_title', 'Bug reports & feature requests')
-          : t('newtab_feedback_discord_label', 'Discord'),
+          : t('newtab_feedback_x_label', 'X'),
         qrAlt: t('newtab_feedback_wechat_qr_alt', 'Lumno WeChat group QR code'),
         qrUrl: links.wechatQr || LUMNO_FEEDBACK_LINKS_FALLBACK.wechatQr,
         refreshTooltip: t('newtab_feedback_wechat_refresh_tooltip', 'Refresh QR code'),

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 
-export type FeedbackCommunityChannel = 'discord' | 'wechat';
+export type FeedbackCommunityChannel = 'wechat' | 'x';
 
 export interface FeedbackControlModel {
   buttonLabel: string;
@@ -13,7 +13,6 @@ export interface FeedbackControlModel {
   closeTooltip: string;
   communityLabel: string;
   communityTooltip: string;
-  discordUrl: string;
   githubIssueLabel: string;
   githubIssueTooltip: string;
   githubIssueUrl: string;
@@ -143,7 +142,7 @@ function FeedbackControl({
           return;
         }
         setOpen(false);
-        onOpenExternal(model.discordUrl, disposition);
+        onOpenExternal(model.xUrl, disposition);
       },
       setOpen(nextOpen) {
         setOpen(nextOpen);
@@ -168,7 +167,7 @@ function FeedbackControl({
       return;
     }
     close();
-    onOpenExternal(model.discordUrl, disposition);
+    onOpenExternal(model.xUrl, disposition);
   };
 
   return (
@@ -277,43 +276,34 @@ function FeedbackControl({
           >
             <i aria-hidden="true" className="ri-icon ri-size-16 ri-star-line" />
           </a>
-          <button
-            aria-expanded={detailOpen}
-            aria-haspopup={model.channel === 'wechat'}
-            aria-label={model.communityTooltip}
-            className="x-nt-feedback-action x-nt-feedback-action-community"
-            data-active={detailOpen ? 'true' : 'false'}
-            data-channel={model.channel}
-            data-tooltip={model.communityTooltip}
-            onAuxClick={(event) => {
-              if (event.button === 1 && model.channel === 'discord') {
-                event.preventDefault();
+          {/* Outside Chinese the menu's X button is the community entry, so this one is WeChat only. */}
+          {model.channel === 'wechat' && (
+            <button
+              aria-expanded={detailOpen}
+              aria-haspopup
+              aria-label={model.communityTooltip}
+              className="x-nt-feedback-action x-nt-feedback-action-community"
+              data-active={detailOpen ? 'true' : 'false'}
+              data-channel={model.channel}
+              data-tooltip={model.communityTooltip}
+              onBlur={onHideTooltip}
+              onClick={(event) => {
                 onHideTooltip();
                 openCommunity(getDisposition(event));
+              }}
+              onFocus={(event) =>
+                onShowTooltip(event.currentTarget, model.communityTooltip)
               }
-            }}
-            onBlur={onHideTooltip}
-            onClick={(event) => {
-              onHideTooltip();
-              openCommunity(getDisposition(event));
-            }}
-            onFocus={(event) =>
-              onShowTooltip(event.currentTarget, model.communityTooltip)
-            }
-            onMouseEnter={(event) =>
-              onShowTooltip(event.currentTarget, model.communityTooltip)
-            }
-            onMouseLeave={onHideTooltip}
-            role="menuitem"
-            type="button"
-          >
-            <i
-              aria-hidden="true"
-              className={`ri-icon ri-size-16 ${
-                model.channel === 'wechat' ? 'ri-wechat-fill' : 'ri-discord-fill'
-              }`}
-            />
-          </button>
+              onMouseEnter={(event) =>
+                onShowTooltip(event.currentTarget, model.communityTooltip)
+              }
+              onMouseLeave={onHideTooltip}
+              role="menuitem"
+              type="button"
+            >
+              <i aria-hidden="true" className="ri-icon ri-size-16 ri-wechat-fill" />
+            </button>
+          )}
         </div>
         <div
           className="x-nt-feedback-detail"

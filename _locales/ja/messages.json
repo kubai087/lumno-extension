@@ -227,9 +227,6 @@
   "settings_feedback_support_wechat_action": {
     "message": "WeChat グループに参加"
   },
-  "settings_feedback_support_discord_action": {
-    "message": "Discord に参加"
-  },
   "settings_feedback_support_review_action": {
     "message": "Lumno を評価"
   },
@@ -882,13 +879,13 @@
     "message": "するか、"
   },
   "engagement_notice_trailing": {
-    "message": "してみませんか。"
+    "message": "みませんか。"
   },
   "engagement_notice_review": {
     "message": "★5で評価"
   },
   "engagement_notice_community": {
-    "message": "Discord に参加"
+    "message": "X で声をかけて"
   },
   "engagement_notice_close": {
     "message": "評価とコミュニティの案内を閉じる"
@@ -961,12 +958,6 @@
   },
   "newtab_feedback_wechat_close_tooltip": {
     "message": "閉じる"
-  },
-  "newtab_feedback_discord_label": {
-    "message": "Discord"
-  },
-  "newtab_feedback_discord_tooltip": {
-    "message": "Discordに参加"
   },
   "newtab_feedback_wechat_qr_title": {
     "message": "WeChatグループQRコード"
