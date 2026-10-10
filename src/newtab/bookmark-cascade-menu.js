@@ -72,6 +72,9 @@
     const initFolderPathMorph = getFunction(config, 'initFolderPathMorph');
     const playFolderPathMorph = getFunction(config, 'playFolderPathMorph');
     const attachFaviconWithFallbacks = getFunction(config, 'attachFaviconWithFallbacks');
+    const getItemIconUrl = getFunction(config, 'getItemIconUrl', function() {
+      return '';
+    });
     const isLocalNetworkHost = getFunction(config, 'isLocalNetworkHost', function() {
       return false;
     });
@@ -1443,10 +1446,19 @@
             const host = item.host || getHostFromUrl(themeUrl) || '';
             const siteName = getSiteDisplayName(host, item.title);
             icon.alt = siteName || t('site_icon_alt', '站点');
-            attachFaviconWithFallbacks(icon, item.url, host, {
-              primaryUrl: getPrimaryFaviconCandidateForBookmark(item.url),
-              browserUrl: getBrowserFaviconCandidateForBookmark(item.url, host)
-            });
+            const chosenIconUrl = getItemIconUrl(item, bookmarkCascadeAnchor);
+            if (chosenIconUrl) {
+              icon.src = chosenIconUrl;
+              // Lumno's black glyph icons need inverting on dark menus.
+              if (/\/glyph-(?:gh|gpt|mdn|wk|zw)\.svg(?:[?#]|$)/.test(chosenIconUrl)) {
+                icon.setAttribute('data-builtin-monochrome', 'true');
+              }
+            } else {
+              attachFaviconWithFallbacks(icon, item.url, host, {
+                primaryUrl: getPrimaryFaviconCandidateForBookmark(item.url),
+                browserUrl: getBrowserFaviconCandidateForBookmark(item.url, host)
+              });
+            }
           }
         }
 
@@ -2039,6 +2051,7 @@
       getDebugButton: () => bookmarkCascadeDebugButton,
       getDebugControl: () => bookmarkCascadeDebugControl,
       getRootFolderId: getBookmarkCascadeRootFolderId,
+      getAnchor: () => bookmarkCascadeAnchor,
       isOpen: () => Boolean(bookmarkCascadeMenu),
       isDragMode: () => bookmarkCascadeDragMode,
       open,

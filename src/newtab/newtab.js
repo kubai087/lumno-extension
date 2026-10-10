@@ -1342,6 +1342,9 @@
     storageArea: localStorageArea,
     storageKey: NEWTAB_SHORTCUT_ICONS_STORAGE_KEY
   });
+  const folderItemIconStore = globalThis.LumnoNewtabFolderItemIcons.createStore({
+    storageArea: localStorageArea
+  });
   const shortcutFaviconStore = SHORTCUT_FAVICON.createShortcutFaviconStore({
     chromeApi: typeof chrome !== 'undefined' ? chrome : null,
     storageArea: localStorageArea,
@@ -3973,6 +3976,10 @@
   const NEWTAB_SHORTCUTS_CONTROLLER = globalThis.LumnoNewtabShortcutsController;
   const {
     getShortcutFolderId,
+    getFolderItemIconUrl,
+    getFolderItemIcon,
+    getFolderItemIconForShortcut,
+    updateFolderItemIcons,
     getVisibleShortcuts,
     refreshShortcutFolderReferences,
     getShortcutStoreOptions,
@@ -4007,6 +4014,7 @@
     NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES,
     NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY,
     shortcutIconStore,
+    folderItemIconStore,
     SHORTCUT_FAVICON,
     getPageFaviconUrlResolver,
     SEARCH_UTILS,
@@ -4201,6 +4209,7 @@
     getExternalBookmarkDropTarget,
     isPointOverShortcutDropSurface,
     applyBookmarkShortcutTransfer,
+    applyShortcutStack,
     clearDragDropTarget,
     isBookmarkCascadeSurfaceAtPoint,
     setDragDropTarget,
@@ -4247,6 +4256,7 @@
     t,
     refreshShortcutFolderReferences,
     shortcutFolderRuntime,
+    updateFolderItemIcons,
     persistShortcuts,
     markBookmarkTreeDirty: (...args) => markBookmarkTreeDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
@@ -4896,19 +4906,33 @@
     });
   }
 
+  function isShortcutFolderAnchor(element) {
+    return Boolean(element && element.classList && element.classList.contains('x-nt-shortcut-tile'));
+  }
+
   function openBookmarkEditor(target) {
     if (!target || !target.bookmarkId) {
       return;
     }
     const node = bookmarksRuntime.getNode(target.bookmarkId);
     const isFolder = Boolean(target.isFolder);
+    const url = isFolder ? '' : String((node && node.url) || target.url || '');
+    // Websites in a folder opened from a shortcut choose an icon like shortcuts.
+    const iconEditable = !isFolder && target.sourceKind === 'cascade' && Boolean(bookmarkCascadeRuntime) &&
+      isShortcutFolderAnchor(bookmarkCascadeRuntime.getAnchor());
+    const icon = iconEditable ? getFolderItemIcon(target.bookmarkId) : null;
     openShortcutDialog({
       mode: SHORTCUT_DIALOG_MODE_EDIT,
       itemType: isFolder ? SHORTCUT_DIALOG_ITEM_FOLDER : SHORTCUT_DIALOG_ITEM_BOOKMARK,
+      iconEditable,
+      iconPreviewUrl: iconEditable
+        ? getFolderItemIconUrl(target.bookmarkId, url) || getBrowserPageFaviconUrl(url) : '',
       shortcut: {
         id: String(target.bookmarkId),
         title: String((node && node.title) || target.title || ''),
-        url: isFolder ? '' : String((node && node.url) || target.url || '')
+        url,
+        ...(icon ? { iconSource: icon.iconSource } : {}),
+        ...(icon && icon.iconSource === 'custom' ? { iconDataUrl: icon.dataUrl } : {})
       },
       sourceElement: target.element
     });
@@ -5035,6 +5059,8 @@
     initFolderPathMorph,
     playFolderPathMorph,
     attachFaviconWithFallbacks,
+    getItemIconUrl: (item, anchor) => isShortcutFolderAnchor(anchor) && item.url
+      ? getFolderItemIconUrl(item.id, item.url) : '',
     isLocalNetworkHost,
     getChromeFaviconUrl,
     getBrowserPageFaviconUrl,
@@ -5356,8 +5382,14 @@
     getShortcutFolderId,
     queueBookmarkLayoutAnimation,
     applyBookmarkShortcutTransfer,
+    applyShortcutStack,
+    getFolderItemIconForShortcut,
+    FOLDER_REFERENCES,
     showToast,
+    hideToast,
     t,
+    formatMessage,
+    getBookmarkUndoShortcutLabel,
     refreshShortcutFolderReferences,
     isShortcutContextMenuNode,
     getShortcutTileFromNode,

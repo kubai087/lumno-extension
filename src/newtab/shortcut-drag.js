@@ -37,8 +37,14 @@
       getShortcutFolderId,
       queueBookmarkLayoutAnimation,
       applyBookmarkShortcutTransfer,
+      applyShortcutStack,
+      getFolderItemIconForShortcut,
+      FOLDER_REFERENCES,
       showToast,
+      hideToast,
       t,
+      formatMessage,
+      getBookmarkUndoShortcutLabel,
       refreshShortcutFolderReferences,
       isShortcutContextMenuNode,
       getShortcutTileFromNode,
@@ -443,6 +449,9 @@
       const bookmarkDropTarget = state.isDragging && !(options && options.cancel)
         ? state.dropTarget
         : null;
+      if (state.stackHintVisible && !(bookmarkDropTarget && bookmarkDropTarget.kind === 'shortcut-stack')) {
+        hideToast();
+      }
       clearBookmarkDragPageSwitch(state);
       clearBookmarkDragFolderSwitch(state);
       clearDragDropTarget(state);
@@ -487,7 +496,11 @@
         if (event && typeof event.preventDefault === 'function') {
           event.preventDefault();
         }
-        moveShortcutToBookmarks(state, bookmarkDropTarget);
+        if (bookmarkDropTarget.kind === 'shortcut-stack') {
+          stackShortcuts(state, bookmarkDropTarget);
+        } else {
+          moveShortcutToBookmarks(state, bookmarkDropTarget);
+        }
         return;
       }
       if (options && options.cancel && state.hasReordered) {
@@ -545,6 +558,7 @@
       if (direction) {
         clearDragDropTarget(state);
         clearBookmarkDragFolderSwitch(state);
+        setShortcutStackHint(state, false);
         scheduleBookmarkDragPageSwitch(state, direction);
         return true;
       }
@@ -552,9 +566,13 @@
       const overBookmarks = Boolean(getExternalBookmarkSurfacePoint(pointerX, pointerY));
       const overCascade = isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY);
       const dockFolder = getShortcutFolderDropTargetAt(state, pointerX, pointerY);
+      const stackTarget = overCascade || overBookmarks || dockFolder
+        ? null
+        : getShortcutStackTargetAt(state, pointerX, pointerY);
       const target = overCascade || overBookmarks || dockFolder
         ? getExternalBookmarkDropTarget(pointerX, pointerY, state) || dockFolder
-        : null;
+        : stackTarget;
+      setShortcutStackHint(state, Boolean(stackTarget));
       if (target && target.kind === 'blocked') {
         document.body.setAttribute('data-drag-blocked', 'true');
         clearDragDropTarget(state);
@@ -568,7 +586,101 @@
         clearDragDropTarget(state);
         clearBookmarkDragFolderSwitch(state);
       }
-      return overBookmarks || overCascade || Boolean(dockFolder);
+      return overBookmarks || overCascade || Boolean(dockFolder) || Boolean(stackTarget);
+    }
+
+    // While the folder backdrop shows, say what releasing does.
+    function setShortcutStackHint(state, visible) {
+      if (!state || Boolean(state.stackHintVisible) === visible) {
+        return;
+      }
+      state.stackHintVisible = visible;
+      if (visible) {
+        showToast(t('newtab_shortcuts_stack_hint', 'Release to create a folder in the bookmarks bar'), false, { duration: 0 });
+      } else {
+        hideToast();
+      }
+    }
+
+    // The middle of another website tile stacks the dragged website onto it,
+    // like folder tiles accept it; the outer quarters still reorder.
+    function getShortcutStackTargetAt(state, pointerX, pointerY) {
+      const source = state && getShortcutById(state.shortcutId);
+      if (!source || source.type === 'folder' || !isPointOverShortcutDropSurface(pointerX, pointerY)) {
+        return null;
+      }
+      const tile = getShortcutReorderTiles().find((candidate) => {
+        if (candidate === state.tile || candidate.hasAttribute('data-bookmark-drop-folder-id')) {
+          return false;
+        }
+        const rect = getShortcutTileLayoutRect(candidate);
+        return rect && pointerX >= rect.left + rect.width * 0.25 &&
+          pointerX <= rect.right - rect.width * 0.25 && pointerY >= rect.top && pointerY <= rect.bottom;
+      });
+      const target = tile ? getShortcutById(getShortcutTileId(tile)) : null;
+      return target && target.type !== 'folder' && target.id !== source.id
+        ? { kind: 'shortcut-stack', surface: 'shortcuts', element: tile, shortcutId: target.id }
+        : null;
+    }
+
+    function stackShortcuts(state, target) {
+      const source = getShortcutById(state.shortcutId);
+      const destination = getShortcutById(target.shortcutId);
+      const restoreShortcut = () => {
+        settleShortcutDragTile(state.tile);
+        if (state.hasReordered) {
+          persistShortcutOrder().then(() => {
+            renderShortcuts();
+            scheduleWallpaperAdaptiveToneUpdate();
+          });
+        }
+        return false;
+      };
+      if (!source || !destination || source.type === 'folder' || destination.type === 'folder' ||
+          pageState.bookmarkMoveHistoryBusy) {
+        hideToast();
+        return Promise.resolve(restoreShortcut());
+      }
+      // Indexes come from before the drag, so undo also reverts its reordering.
+      const originalShortcuts = state.originalShortcuts || pageState.newtabShortcuts;
+      const toSource = (shortcut) => ({
+        snapshot: shortcut,
+        index: originalShortcuts.findIndex((item) => item.id === shortcut.id),
+        iconDataUrl: pageState.newtabShortcutIcons[shortcut.id]
+      });
+      const record = NEWTAB_BOOKMARK_MOVE_HISTORY.createShortcutStackRecord({
+        snapshot: {
+          title: t('newtab_shortcuts_new_folder_title', 'New folder'),
+          children: [destination, source].map((shortcut) => ({ title: shortcut.title, url: shortcut.url }))
+        },
+        sources: [toSource(destination), toSource(source)],
+        itemIcons: [destination, source].map((shortcut) => getFolderItemIconForShortcut(
+          shortcut, pageState.newtabShortcutIcons[shortcut.id])),
+        folderShortcut: {
+          id: FOLDER_REFERENCES.createEntryId(),
+          index: pageState.newtabShortcuts.filter((item) => item.id !== source.id)
+            .findIndex((item) => item.id === destination.id)
+        }
+      });
+      if (!record) {
+        hideToast();
+        return Promise.resolve(restoreShortcut());
+      }
+      pageState.bookmarkMoveHistoryBusy = true;
+      queueBookmarkLayoutAnimation('');
+      return applyShortcutStack(record, false).then((stacked) => {
+        if (!stacked) return restoreShortcut();
+        bookmarkMoveHistory.push({ ...record, bookmarkId: record.runtime.currentBookmarkId });
+        showToast(formatMessage(
+          'newtab_shortcuts_stacked_undo',
+          'Folder created · {shortcut} to undo',
+          { shortcut: getBookmarkUndoShortcutLabel() }
+        ));
+        return true;
+      }).finally(() => {
+        pageState.bookmarkMoveHistoryBusy = false;
+        return refreshShortcutFolderReferences();
+      });
     }
 
     function moveShortcutToBookmarks(state, target) {

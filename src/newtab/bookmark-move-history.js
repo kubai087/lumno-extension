@@ -155,6 +155,9 @@
     if (record && record.kind === 'shortcut-delete') {
       return createShortcutDeleteRecord(record);
     }
+    if (record && record.kind === 'shortcut-stack') {
+      return createShortcutStackRecord(record);
+    }
     if (record && record.kind === 'delete') {
       return createDeleteRecord(record);
     }
@@ -198,6 +201,56 @@
         currentBookmarkId: String(config.runtime && config.runtime.currentBookmarkId || config.bookmarkId || '')
       }
     });
+  }
+
+  // Stacking two website shortcuts creates a bookmark folder holding both
+  // sites. `runtime` follows the folder through undo and redo: its current id,
+  // and the location and name it had when last removed.
+  function createShortcutStackRecord(options) {
+    const config = options && typeof options === 'object' ? options : {};
+    const snapshot = cloneBookmarkSnapshot(config.snapshot);
+    const sources = (Array.isArray(config.sources) ? config.sources : [])
+      .map((source) => source && createShortcutDeleteRecord(source));
+    const folderShortcutId = String(config.folderShortcut && config.folderShortcut.id || '');
+    if (!snapshot || snapshot.url || !snapshot.children.length || snapshot.children.some((child) => !child.url) ||
+        sources.length !== 2 || sources.some((source) => !source || source.snapshot.type === 'folder') ||
+        !folderShortcutId) {
+      return null;
+    }
+    const runtime = config.runtime || {};
+    return Object.freeze({
+      kind: 'shortcut-stack',
+      bookmarkId: String(config.bookmarkId || runtime.currentBookmarkId || ''),
+      snapshot,
+      sources: Object.freeze(sources),
+      folderShortcut: Object.freeze({
+        id: folderShortcutId,
+        index: Math.max(0, Math.round(Number(config.folderShortcut.index) || 0))
+      }),
+      // The icon each stacked site keeps inside the folder, in child order.
+      itemIcons: Object.freeze(snapshot.children.map((_child, index) => {
+        const icon = Array.isArray(config.itemIcons) ? config.itemIcons[index] : null;
+        return icon && typeof icon === 'object' ? Object.freeze({ ...icon }) : null;
+      })),
+      runtime: {
+        currentBookmarkId: String(runtime.currentBookmarkId || config.bookmarkId || ''),
+        location: normalizeLocation(runtime.location),
+        title: String(runtime.title || snapshot.title)
+      }
+    });
+  }
+
+  // Undo removes a stacked folder only while it still holds exactly the
+  // stacked sites, so it never deletes bookmarks added to the folder later.
+  function isShortcutStackFolderIntact(node, snapshot) {
+    const children = node && !node.url && Array.isArray(node.children) ? node.children : null;
+    const expected = snapshot && Array.isArray(snapshot.children) ? snapshot.children : [];
+    if (!children || children.length !== expected.length || children.some((child) => !child.url)) {
+      return false;
+    }
+    const urls = (items) => items.map((item) => String(item.url)).sort();
+    const actual = urls(children);
+    return urls(expected).every((url, index) => url === actual[index]);
   }
 
   function createShortcutReorderRecord(options) {
@@ -317,12 +370,14 @@
     cloneBookmarkSnapshot,
     createDeleteRecord,
     createShortcutDeleteRecord,
+    createShortcutStackRecord,
     createTransferRecord,
     createShortcutReorderRecord,
     createBookmarkMoveHistory,
     createMoveRecord,
     getMoveApiDestinationIndex,
     isFolderInsideBookmark,
+    isShortcutStackFolderIntact,
     normalizeMoveDestinationIndex,
     normalizeLocation
   });

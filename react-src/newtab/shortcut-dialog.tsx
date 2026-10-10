@@ -62,6 +62,10 @@ export interface ShortcutDialogOpenOptions {
   mode?: string;
   onConfirm?: () => boolean | Promise<boolean>;
   itemType?: string;
+  // Bookmarks inside shortcut folders can also choose an icon. The preview
+  // shows the icon they use now.
+  iconEditable?: boolean;
+  iconPreviewUrl?: string;
   shortcut?: ShortcutRecord | null;
   sourceElement?: HTMLElement | null;
 }
@@ -128,6 +132,7 @@ interface FormState {
   iconBusy: boolean;
   iconRefreshSuccess: boolean;
   sourceNeedsIcon: boolean;
+  iconEditable: boolean;
   iconMode: IconMode;
   iconAction: IconAction;
   iconDataUrl: string;
@@ -189,6 +194,7 @@ const INITIAL_FORM_STATE: FormState = {
   iconBusy: false,
   iconRefreshSuccess: false,
   sourceNeedsIcon: false,
+  iconEditable: true,
   iconMode: 'cache',
   iconAction: 'keep',
   iconDataUrl: '',
@@ -210,10 +216,11 @@ function createInitialFormState(
   const mode = normalizeMode(openOptions.mode, openOptions.shortcut);
   const shortcut = mode === MODE_EDIT ? openOptions.shortcut : null;
   const itemType = normalizeItemType(openOptions.itemType);
-  const customIcon = itemType === 'shortcut' ? String(shortcut?.iconDataUrl || '') : '';
+  const iconEditable = itemType === 'shortcut' || (itemType === 'bookmark' && openOptions.iconEditable === true);
+  const customIcon = iconEditable ? String(shortcut?.iconDataUrl || '') : '';
   const url = itemType !== 'folder' ? String(shortcut?.url || '') : '';
   let iconMode: IconMode = 'cache';
-  if (shortcut && itemType === 'shortcut') {
+  if (shortcut && iconEditable) {
     iconMode = customIcon ? 'custom'
       : isOnlineIconSource(shortcut.iconSource) || shortcut.iconSource === 'builtin'
         ? shortcut.iconSource : options.getOnlineIconSource(url);
@@ -226,10 +233,12 @@ function createInitialFormState(
     editingId: String(shortcut?.id || ''),
     name: String(shortcut?.title || ''),
     url,
+    iconEditable,
     iconMode,
     iconDataUrl: customIcon,
-    onlineIconUrl: itemType === 'shortcut' && url
-      ? iconMode === 'builtin' ? options.getBuiltinIconUrl(url) : options.getOnlineIconUrl(url) : '',
+    onlineIconUrl: iconEditable && url
+      ? iconMode === 'builtin' ? options.getBuiltinIconUrl(url)
+        : String(openOptions.iconPreviewUrl || '') || options.getOnlineIconUrl(url) : '',
     confirmation: typeof openOptions.onConfirm === 'function' ? openOptions : null
   };
 }
@@ -344,9 +353,9 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
       if (current.busy || current.iconBusy || destroyedRef.current) {
         return false;
       }
-      if (current.itemType === 'shortcut' && !current.confirmation &&
+      if (current.iconEditable && !current.confirmation &&
           current.iconMode !== 'custom' && current.sourceNeedsIcon) return false;
-      if (current.itemType === 'shortcut' && !current.confirmation &&
+      if (current.iconEditable && !current.confirmation &&
           current.iconMode === 'custom' && !current.iconDataUrl) {
         commitState({
           ...current,
@@ -370,13 +379,13 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
         itemType: current.itemType,
         itemId: current.editingId,
         shortcutId: current.editingId,
-        iconAction: current.itemType === 'shortcut' ? iconAction : 'keep',
+        iconAction: current.iconEditable ? iconAction : 'keep',
         iconDataUrl:
-          current.itemType === 'shortcut' && current.iconMode === 'custom' && iconAction === 'replace'
+          current.iconEditable && current.iconMode === 'custom' && iconAction === 'replace'
             ? current.iconDataUrl
             : '',
-        ...(current.itemType === 'shortcut' ? { iconSource: current.iconMode } : {}),
-        ...(current.itemType === 'shortcut' && current.iconMode !== 'custom' && current.iconMode !== 'builtin' && current.onlineIcon
+        ...(current.iconEditable ? { iconSource: current.iconMode } : {}),
+        ...(current.iconEditable && current.iconMode !== 'custom' && current.iconMode !== 'builtin' && current.onlineIcon
           ? { onlineIcon: Object.freeze({ ...current.onlineIcon }) }
           : {})
       });
@@ -678,7 +687,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
     const iconSourceDetail = isBuiltinIcon
       ? options.t('newtab_shortcuts_icon_builtin_network_hint', 'No network request needed.')
       : formState.iconMode === 'custom'
-      ? options.t('newtab_shortcuts_icon_custom_sync_hint', 'Sync across devices with WebDAV.')
+      ? isShortcutItem ? options.t('newtab_shortcuts_icon_custom_sync_hint', 'Sync across devices with WebDAV.') : ''
       : sourceUnavailable ? ''
       : formState.iconMode === 'service'
       ? options.t('newtab_shortcuts_icon_service_caution', 'Some websites may not be recognized.')
@@ -717,7 +726,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
       observer?.observe(glyph);
       observer?.observe(label);
       return () => observer?.disconnect();
-    }, [options.windowObj, refreshLabel, isShortcutItem, isOnlineIcon, isBuiltinIcon, isConfirmVariant]);
+    }, [options.windowObj, refreshLabel, formState.iconEditable, isOnlineIcon, isBuiltinIcon, isConfirmVariant]);
 
     return (
       <div
@@ -847,7 +856,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
             </div>
           ) : null}
 
-          {!isConfirmVariant && isShortcutItem ? (
+          {!isConfirmVariant && formState.iconEditable ? (
             <div className="x-nt-shortcut-field x-nt-shortcut-icon-field">
               <span>{iconSourceLabel}</span>
               <div
@@ -1027,9 +1036,12 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
                 {isBuiltinIcon ? options.t(
                   'newtab_shortcuts_icon_builtin_hint',
                   'Use Lumno’s built-in high-quality icons.'
-                ) : options.t(
+                ) : isShortcutItem ? options.t(
                   'newtab_shortcuts_icon_info',
                   'PNG, JPG, and WebP supported. A transparent square icon at 128 × 128 px or larger is recommended. Saved on this device by default; WebDAV sync is available.'
+                ) : options.t(
+                  'newtab_shortcuts_folder_item_icon_info',
+                  'PNG, JPG, and WebP supported. A transparent square icon at 128 × 128 px or larger is recommended. Saved on this device only.'
                 )}
               </span> : null}
               <div
@@ -1071,7 +1083,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
               ref={doneButtonRef}
               type="submit"
               className="x-lumno-action-button x-lumno-action-button--primary x-nt-shortcut-dialog-button x-nt-shortcut-dialog-button--primary"
-              disabled={disabled || (isShortcutItem && !isConfirmVariant && isOnlineIcon && formState.sourceNeedsIcon)}
+              disabled={disabled || (formState.iconEditable && !isConfirmVariant && isOnlineIcon && formState.sourceNeedsIcon)}
             >
               {isConfirmVariant
                 ? confirmation?.confirmLabel

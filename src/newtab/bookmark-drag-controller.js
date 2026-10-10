@@ -29,6 +29,7 @@
       t,
       refreshShortcutFolderReferences,
       shortcutFolderRuntime,
+      updateFolderItemIcons,
       persistShortcuts,
       markBookmarkTreeDirty,
       loadBookmarks,
@@ -805,6 +806,112 @@
         bookmarkPendingLayoutAnimation = null;
         console.warn('[Lumno] Failed to transfer bookmark and shortcut', error);
         showToast(t('bookmarks_move_failed', 'Could not move bookmark'), true);
+        return false;
+      } finally {
+        markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
+        loadBookmarks({ force: true });
+        if (keepCascadeOpen) refreshOpenBookmarkCascadeMenu();
+      }
+    }
+
+    // Shortcut folders are bookmark folders, so stacking two website shortcuts
+    // creates one holding both sites and shows it where the stack target was.
+    async function applyShortcutStack(record, isUndo) {
+      const keepCascadeOpen = Boolean(pageState.bookmarkCascadeRuntime && pageState.bookmarkCascadeRuntime.isOpen());
+      const planShortcuts = (folderSnapshot) => NEWTAB_CROSS_SURFACE_DRAG.planShortcutStack({
+        shortcuts: pageState.newtabShortcuts,
+        sources: record.sources,
+        folder: { snapshot: folderSnapshot, index: record.folderShortcut.index },
+        undo: isUndo,
+        maxShortcuts: MAX_NEWTAB_SHORTCUTS
+      });
+      const folderShortcutId = record.folderShortcut.id;
+      let rollbackBookmark = null;
+      try {
+        if (!planShortcuts({ id: folderShortcutId, type: 'folder' })) {
+          throw new Error('Shortcut stack conflicts with the current shortcuts.');
+        }
+        return await bookmarksRuntime.runControlledMutation(async () => {
+          await bookmarksRuntime.ensureReady(false);
+          if (isUndo) {
+            const folderId = bookmarkMoveHistory.resolveBookmarkId(record.bookmarkId);
+            const node = bookmarksRuntime.getNode(folderId);
+            if (!NEWTAB_BOOKMARK_MOVE_HISTORY.isShortcutStackFolderIntact(node, record.snapshot)) {
+              throw new Error('The stacked folder has changed.');
+            }
+            const nextShortcuts = planShortcuts({ id: folderShortcutId, type: 'folder' });
+            const iconChanges = record.sources.filter((source) => source.iconDataUrl).map((source) => ({
+              shortcutId: source.snapshot.id, action: 'replace', dataUrl: source.iconDataUrl
+            }));
+            const previousShortcuts = pageState.newtabShortcuts;
+            if (!nextShortcuts || !await persistShortcuts(nextShortcuts, '', iconChanges)) return false;
+            try {
+              await bookmarksRuntime.remove(folderId, { recursive: true });
+            } catch (error) {
+              await persistShortcuts(previousShortcuts, '');
+              throw error;
+            }
+            await updateFolderItemIcons(Object.fromEntries(node.children.map((child) => [child.id, null])))
+              .catch(() => {});
+            // Redo recreates the folder where, and under the name, it was left.
+            record.runtime.location = { parentId: String(node.parentId), index: Number(node.index) || 0 };
+            record.runtime.title = String(node.title || '');
+            record.runtime.currentBookmarkId = '';
+            return true;
+          }
+          // New folders go to the end of the bookmarks bar shown on this page.
+          const location = record.runtime.location;
+          const parent = location && bookmarksRuntime.getNode(location.parentId);
+          const children = parent && !parent.url && Array.isArray(parent.children) ? parent.children : null;
+          const title = record.runtime.title || record.snapshot.title;
+          const folderNode = await bookmarksRuntime.create({
+            parentId: children ? String(parent.id) : bookmarksRuntime.getRootFolderId(),
+            ...(children ? { index: Math.min(location.index, children.length) } : {}),
+            title
+          });
+          const folderId = String(folderNode && folderNode.id || '');
+          if (!folderId) throw new Error('The stacked folder id is unavailable.');
+          rollbackBookmark = () => bookmarksRuntime.remove(folderId, { recursive: true });
+          const itemIcons = {};
+          for (let index = 0; index < record.snapshot.children.length; index += 1) {
+            const child = record.snapshot.children[index];
+            const childNode = await bookmarksRuntime.create({ parentId: folderId, index, title: child.title, url: child.url });
+            if (childNode && childNode.id && record.itemIcons[index]) itemIcons[childNode.id] = record.itemIcons[index];
+          }
+          await bookmarksRuntime.ensureReady(true);
+          const folderRef = FOLDER_REFERENCES.describe(folderId, bookmarksRuntime.getNodeMap());
+          if (!folderRef) throw new Error('The stacked folder cannot be referenced.');
+          const now = Date.now();
+          const nextShortcuts = planShortcuts({
+            id: folderShortcutId, type: 'folder', folderRef, title, createdAt: now, updatedAt: now
+          });
+          if (!nextShortcuts) throw new Error('Shortcuts changed while stacking.');
+          shortcutFolderRuntime.bind(folderShortcutId, folderId);
+          await shortcutFolderRuntime.flush();
+          if (!await persistShortcuts(nextShortcuts, '', undefined, { syncOverflowShortcutId: folderShortcutId })) {
+            await rollbackBookmark();
+            rollbackBookmark = null;
+            return false;
+          }
+          rollbackBookmark = null;
+          await updateFolderItemIcons(itemIcons).catch(() => {});
+          if (record.bookmarkId) bookmarkMoveHistory.remapBookmarkId(record.bookmarkId, folderId);
+          record.runtime.currentBookmarkId = folderId;
+          return true;
+        });
+      } catch (error) {
+        if (rollbackBookmark) {
+          try {
+            await bookmarksRuntime.runControlledMutation(rollbackBookmark);
+          } catch (rollbackError) {
+            console.warn('[Lumno] Failed to roll back shortcut stack', rollbackError);
+          }
+        }
+        bookmarkPendingLayoutAnimation = null;
+        console.warn('[Lumno] Failed to stack shortcuts', error);
+        showToast(isUndo
+          ? t('toast_error', 'Operation failed. Please try again.')
+          : t('newtab_shortcuts_stack_failed', 'Could not create the folder'), true);
         return false;
       } finally {
         markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
@@ -1640,6 +1747,23 @@
         });
         return true;
       }
+      if (record.kind === 'shortcut-stack') {
+        queueBookmarkLayoutAnimation('');
+        applyShortcutStack(record, isUndo).then((saved) => {
+          if (!saved) return;
+          if (isUndo) bookmarkMoveHistory.commitUndo();
+          else bookmarkMoveHistory.commitRedo();
+          showToast(formatMessage(
+            isUndo ? 'newtab_shortcuts_stack_undone' : 'newtab_shortcuts_stack_redone',
+            isUndo ? 'Folder creation undone · {shortcut} to redo' : 'Folder created again · {shortcut} to undo',
+            { shortcut: isUndo ? getBookmarkRedoShortcutLabel() : getBookmarkUndoShortcutLabel() }
+          ));
+        }).finally(() => {
+          pageState.bookmarkMoveHistoryBusy = false;
+          if (pageState.newtabShortcuts.some((item) => item.type === 'folder')) return refreshShortcutFolderReferences();
+        });
+        return true;
+      }
       if (record.kind === 'shortcut-delete') {
         const snapshot = record.snapshot;
         const exists = pageState.newtabShortcuts.some((item) => item.id === snapshot.id ||
@@ -2132,6 +2256,7 @@
       getExternalBookmarkDropTarget,
       isPointOverShortcutDropSurface,
       applyBookmarkShortcutTransfer,
+      applyShortcutStack,
       clearDragDropTarget,
       isBookmarkCascadeSurfaceAtPoint,
       setDragDropTarget,

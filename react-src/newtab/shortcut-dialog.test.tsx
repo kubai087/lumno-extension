@@ -437,6 +437,48 @@ describe('shortcut dialog React island', () => {
     ]);
   });
 
+  it('lets websites in shortcut folders choose an icon like shortcuts', async () => {
+    const custom = 'data:image/png;base64,Y3VzdG9t';
+    const fresh = { dataUrl: 'data:image/png;base64,bmV3', pageUrl: 'https://docs.example/' };
+    const onSubmit = vi.fn(() => true);
+    const controller = createController(onSubmit, {
+      getOnlineIconUrl: () => '',
+      refreshOnlineIcon: vi.fn(async () => fresh)
+    });
+    act(() => controller.open({
+      mode: 'edit',
+      itemType: 'bookmark',
+      iconEditable: true,
+      shortcut: { id: 'bookmark-one', title: 'Docs', url: fresh.pageUrl, iconSource: 'custom', iconDataUrl: custom }
+    }));
+    expect(controller.element.querySelector('.x-nt-shortcut-dialog-title')?.textContent).toBe('Edit bookmark');
+    expect(controller.element.querySelector('.x-nt-shortcut-icon-field')).not.toBeNull();
+    expect(iconSourceSelect(controller).value).toBe('custom');
+    expect(controller.element.textContent).not.toContain('Sync across devices with WebDAV.');
+    await act(async () => { await controller.submit(); });
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({
+      itemType: 'bookmark', iconSource: 'custom', iconAction: 'keep'
+    }));
+
+    const preview = 'https://favicon.example/docs.png';
+    act(() => controller.open({
+      mode: 'edit',
+      itemType: 'bookmark',
+      iconEditable: true,
+      iconPreviewUrl: preview,
+      shortcut: { id: 'bookmark-two', title: 'Docs', url: fresh.pageUrl }
+    }));
+    expect(iconSourceSelect(controller).value).toBe('cache');
+    expect(controller.element.querySelector<HTMLImageElement>('.x-nt-shortcut-online-icon-preview img')?.src).toBe(preview);
+    await act(async () => {
+      controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-icon-refresh')?.click();
+    });
+    await act(async () => { await controller.submit(); });
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({
+      itemId: 'bookmark-two', iconSource: 'cache', onlineIcon: fresh
+    }));
+  });
+
   it('blocks close and replacement state while persistence is pending', async () => {
     let resolveSubmit: ((saved: boolean) => void) | undefined;
     const controller = createController(

@@ -2342,6 +2342,9 @@
   "newtab_shortcuts_icon_info": {
     "message": "PNG, JPG, and WebP supported. A transparent square icon at 128×128 px or larger is recommended. Saved on this device by default; WebDAV sync is available."
   },
+  "newtab_shortcuts_folder_item_icon_info": {
+    "message": "PNG, JPG, and WebP supported. A transparent square icon at 128×128 px or larger is recommended. Saved on this device only."
+  },
   "newtab_shortcuts_icon_choose": {
     "message": "Choose image"
   },
@@ -2464,6 +2467,24 @@
   },
   "newtab_shortcuts_moved_to_bookmarks": {
     "message": "Moved to bookmarks"
+  },
+  "newtab_shortcuts_new_folder_title": {
+    "message": "New folder"
+  },
+  "newtab_shortcuts_stack_hint": {
+    "message": "Release to create a folder in the bookmarks bar"
+  },
+  "newtab_shortcuts_stacked_undo": {
+    "message": "Folder created · {shortcut} to undo"
+  },
+  "newtab_shortcuts_stack_undone": {
+    "message": "Folder creation undone · {shortcut} to redo"
+  },
+  "newtab_shortcuts_stack_redone": {
+    "message": "Folder created again · {shortcut} to undo"
+  },
+  "newtab_shortcuts_stack_failed": {
+    "message": "Could not create the folder"
   },
   "newtab_shortcuts_move_to_bookmarks_failed": {
     "message": "Could not move to bookmarks"

@@ -2342,6 +2342,9 @@
   "newtab_shortcuts_icon_info": {
     "message": "PNG、JPG、WebP に対応。128×128 px 以上の透明な正方形アイコンを推奨します。標準ではこの端末に保存され、WebDAV で同期できます。"
   },
+  "newtab_shortcuts_folder_item_icon_info": {
+    "message": "PNG、JPG、WebP に対応。128×128 px 以上の透明な正方形アイコンを推奨します。この端末にのみ保存されます。"
+  },
   "newtab_shortcuts_icon_choose": {
     "message": "画像を選択"
   },
@@ -2464,6 +2467,24 @@
   },
   "newtab_shortcuts_moved_to_bookmarks": {
     "message": "ブックマークに移動しました"
+  },
+  "newtab_shortcuts_new_folder_title": {
+    "message": "新しいフォルダー"
+  },
+  "newtab_shortcuts_stack_hint": {
+    "message": "離すとブックマークバーにフォルダーを作成"
+  },
+  "newtab_shortcuts_stacked_undo": {
+    "message": "フォルダーを作成しました · {shortcut} で元に戻す"
+  },
+  "newtab_shortcuts_stack_undone": {
+    "message": "フォルダーの作成を取り消しました · {shortcut} でやり直す"
+  },
+  "newtab_shortcuts_stack_redone": {
+    "message": "フォルダーを再び作成しました · {shortcut} で元に戻す"
+  },
+  "newtab_shortcuts_stack_failed": {
+    "message": "フォルダーを作成できませんでした"
   },
   "newtab_shortcuts_move_to_bookmarks_failed": {
     "message": "ブックマークに移動できませんでした"

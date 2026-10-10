@@ -17,6 +17,7 @@
       NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES,
       NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY,
       shortcutIconStore,
+      folderItemIconStore,
       SHORTCUT_FAVICON,
       getPageFaviconUrlResolver,
       SEARCH_UTILS,
@@ -373,6 +374,52 @@
         left.dataUrl === right.dataUrl &&
         left.sourceUrl === right.sourceUrl &&
         left.updatedAt === right.updatedAt);
+    }
+
+    // Websites inside shortcut folders keep their own icon choice; '' means
+    // the automatic favicon.
+    function getFolderItemIconUrl(bookmarkId, url) {
+      const entry = folderItemIconStore.get(bookmarkId);
+      if (!entry) return '';
+      return entry.iconSource === 'builtin' ? getShortcutDialogBuiltinIconUrl(url) : entry.dataUrl;
+    }
+
+    function getFolderItemIcon(bookmarkId) {
+      return folderItemIconStore.get(bookmarkId);
+    }
+
+    // The icon a website shortcut keeps once stacked into a folder.
+    function getFolderItemIconForShortcut(shortcut, iconDataUrl) {
+      if (iconDataUrl) return { iconSource: 'custom', dataUrl: iconDataUrl };
+      const source = getShortcutIconSource(shortcut);
+      if (source === 'builtin') return { iconSource: 'builtin' };
+      const dataUrl = shortcut && shortcut.url ? getShortcutFaviconDataUrl(shortcut.url) : '';
+      return dataUrl ? { iconSource: source || 'cache', dataUrl } : null;
+    }
+
+    function updateFolderItemIcons(changes) {
+      const snapshot = bookmarksRuntime.getSnapshot();
+      return folderItemIconStore.update(changes, snapshot.ready ? (id) => snapshot.nodeMap.has(id) : undefined);
+    }
+
+    function getNextFolderItemIcon(bookmarkId, url, iconState) {
+      const current = folderItemIconStore.get(bookmarkId);
+      const source = iconState.source;
+      if (source === 'custom') {
+        return iconState.action === 'replace' && iconState.dataUrl
+          ? { iconSource: 'custom', dataUrl: iconState.dataUrl }
+          : current && current.iconSource === 'custom' ? current : null;
+      }
+      if (source === 'builtin') return { iconSource: 'builtin' };
+      const toPageUrl = (value) => SHORTCUT_FAVICON.normalizePageUrl(NEWTAB_SHORTCUTS_STORE.normalizeShortcutUrl(value));
+      const pageUrl = toPageUrl(url);
+      const onlineIcon = iconState.onlineIcon;
+      if (onlineIcon && onlineIcon.dataUrl && pageUrl && onlineIcon.pageUrl === pageUrl) {
+        return { iconSource: source, dataUrl: onlineIcon.dataUrl };
+      }
+      // An unchanged choice keeps its image until the URL changes.
+      const node = bookmarksRuntime.getNode(bookmarkId);
+      return current && current.iconSource === source && node && toPageUrl(node.url) === pageUrl ? current : null;
     }
 
     function getShortcutDialogOnlineIconUrl(url) {
@@ -800,9 +847,12 @@
           nextIcons[shortcutId] = pageState.newtabShortcutIcons[shortcutId];
         }
       });
-      const change = iconChange && typeof iconChange === 'object' ? iconChange : {};
-      const shortcutId = String(change.shortcutId || '').trim();
-      if (shortcutId && validIds.has(shortcutId)) {
+      (Array.isArray(iconChange) ? iconChange : [iconChange]).forEach((value) => {
+        const change = value && typeof value === 'object' ? value : {};
+        const shortcutId = String(change.shortcutId || '').trim();
+        if (!shortcutId || !validIds.has(shortcutId)) {
+          return;
+        }
         if (change.action === 'remove') {
           delete nextIcons[shortcutId];
         } else if (change.action === 'replace') {
@@ -811,7 +861,7 @@
             nextIcons[shortcutId] = dataUrl;
           }
         }
-      }
+      });
       return NEWTAB_SHORTCUT_ICON_STORE.normalizeIconMap(nextIcons);
     }
 
@@ -1087,6 +1137,14 @@
       if (!isFolder) {
         changes.url = nextUrl;
       }
+      const iconEntry = !isFolder && dialogState && dialogState.iconSource
+        ? getNextFolderItemIcon(itemId, nextUrl, {
+          source: dialogState.iconSource,
+          action: dialogState.iconAction,
+          dataUrl: dialogState.iconDataUrl,
+          onlineIcon: dialogState.onlineIcon
+        })
+        : undefined;
       const keepCascadeOpen = Boolean(
         pageState.bookmarkCascadeRuntime &&
         typeof pageState.bookmarkCascadeRuntime.isOpen === 'function' &&
@@ -1094,6 +1152,8 @@
       );
       return bookmarksRuntime.runControlledMutation(() => {
         return bookmarksRuntime.update(itemId, changes);
+      }).then(() => {
+        return iconEntry === undefined ? null : updateFolderItemIcons({ [itemId]: iconEntry });
       }).then(() => {
         markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
         loadBookmarks({ force: true });
@@ -1232,7 +1292,11 @@
             return saveBookmarkFromDialog(payload.title, payload.url, {
               itemType: payload.itemType,
               itemId: payload.itemId,
-              shortcutId: payload.shortcutId
+              shortcutId: payload.shortcutId,
+              iconSource: payload.iconSource,
+              iconAction: payload.iconAction,
+              iconDataUrl: payload.iconDataUrl,
+              onlineIcon: payload.onlineIcon
             });
           }
           return saveShortcutFromDialog(payload.title, payload.url, {
@@ -1258,6 +1322,10 @@
 
     return {
       getShortcutFolderId,
+      getFolderItemIconUrl,
+      getFolderItemIcon,
+      getFolderItemIconForShortcut,
+      updateFolderItemIcons,
       getVisibleShortcuts,
       refreshShortcutFolderReferences,
       getShortcutStoreOptions,

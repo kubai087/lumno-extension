@@ -2342,6 +2342,9 @@
   "newtab_shortcuts_icon_info": {
     "message": "支持 PNG、JPG、WebP；推荐使用 128×128 px 以上、透明背景的正方形图标。默认保存在本机，可通过 WebDAV 同步。"
   },
+  "newtab_shortcuts_folder_item_icon_info": {
+    "message": "支持 PNG、JPG、WebP；推荐使用 128×128 px 以上、透明背景的正方形图标。仅保存在本机。"
+  },
   "newtab_shortcuts_icon_choose": {
     "message": "选择图片"
   },
@@ -2464,6 +2467,24 @@
   },
   "newtab_shortcuts_moved_to_bookmarks": {
     "message": "已移到书签"
+  },
+  "newtab_shortcuts_new_folder_title": {
+    "message": "新建文件夹"
+  },
+  "newtab_shortcuts_stack_hint": {
+    "message": "松手创建文件夹，存入书签栏"
+  },
+  "newtab_shortcuts_stacked_undo": {
+    "message": "已创建文件夹 · 按 {shortcut} 撤回"
+  },
+  "newtab_shortcuts_stack_undone": {
+    "message": "已撤销创建文件夹 · 按 {shortcut} 重做"
+  },
+  "newtab_shortcuts_stack_redone": {
+    "message": "已重新创建文件夹 · 按 {shortcut} 撤回"
+  },
+  "newtab_shortcuts_stack_failed": {
+    "message": "无法创建文件夹"
   },
   "newtab_shortcuts_move_to_bookmarks_failed": {
     "message": "无法移到书签"

@@ -171,6 +171,45 @@
     return next;
   }
 
+  // Stacking drops the website `sources` and puts the folder entry where the
+  // stack target was. Undo removes the entry and restores each source at its
+  // recorded index. Returns null when the shortcuts no longer match.
+  function planShortcutStack(options) {
+    const config = options || {};
+    const shortcuts = Array.isArray(config.shortcuts) ? config.shortcuts.filter(Boolean) : [];
+    const sources = Array.isArray(config.sources) ? config.sources : [];
+    const folder = config.folder && config.folder.snapshot;
+    if (sources.length < 2 || !folder || !folder.id) {
+      return null;
+    }
+    const folderIndex = shortcuts.findIndex((item) => item.id === folder.id);
+    if (config.undo) {
+      if (folderIndex < 0 || shortcuts[folderIndex].type !== 'folder') {
+        return null;
+      }
+      const next = shortcuts.slice();
+      next.splice(folderIndex, 1);
+      const conflict = sources.some(({ snapshot }) => next.some((item) => item.id === snapshot.id ||
+        (item.type !== 'folder' && item.url === snapshot.url)));
+      if (conflict || next.length + sources.length > Number(config.maxShortcuts)) {
+        return null;
+      }
+      sources.slice().sort((first, second) => first.index - second.index).forEach((entry) => {
+        next.splice(Math.min(entry.index, next.length), 0, entry.snapshot);
+      });
+      return next;
+    }
+    const ids = new Set(sources.map(({ snapshot }) => snapshot.id));
+    const available = sources.every(({ snapshot }) => shortcuts.some((item) => item.id === snapshot.id &&
+      item.type !== 'folder' && item.url === snapshot.url));
+    if (folderIndex >= 0 || ids.size !== sources.length || !available) {
+      return null;
+    }
+    const next = shortcuts.filter((item) => !ids.has(item.id));
+    next.splice(Math.max(0, Math.min(Number(config.folder.index) || 0, next.length)), 0, folder);
+    return next;
+  }
+
   function planShortcutReorder(options) {
     const config = options || {};
     const shortcuts = Array.isArray(config.shortcuts) ? config.shortcuts : [];
@@ -198,6 +237,7 @@
     setInsertionGap,
     planBookmarkToShortcut,
     planTransferShortcuts,
+    planShortcutStack,
     planShortcutReorder
   });
 });

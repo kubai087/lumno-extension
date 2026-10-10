@@ -206,6 +206,7 @@ body.x-nt-bottom-layout:not(.x-nt-mobile-flow) {
   --x-nt-shortcut-user-favicon-size: 28px;
   --x-nt-shortcut-fallback-icon-bg: rgba(241, 245, 249, 0.9);
   --x-nt-shortcut-folder-icon-bg: rgb(236 237 239);
+  --x-nt-shortcut-drop-target-bg: rgb(222 224 228);
   --x-nt-shortcut-user-tile-padding: 8px;
   --x-nt-shortcut-user-column-gap: 4px;
   --x-nt-shortcut-user-row-gap: 10px;
@@ -263,6 +264,7 @@ html[data-wallpaper-active="true"] body {
 body[data-theme="dark"] {
   --x-nt-shortcut-fallback-icon-bg: rgba(255, 255, 255, 0.09);
   --x-nt-shortcut-folder-icon-bg: rgb(58 59 61);
+  --x-nt-shortcut-drop-target-bg: rgb(78 79 83);
   --x-nt-bg: #111111;
   --x-nt-text: #e5e7eb;
   --x-nt-subtext: #9ca3af;
@@ -681,6 +683,13 @@ body[data-drag-source="shortcut"] .x-nt-shortcuts-section {
   --x-nt-shortcut-dock-scale: 1;
   --x-nt-shortcut-dock-shift-x: 0px;
   --x-nt-shortcut-dock-rise: 0px;
+  /* Breakpoints shrink the icon; keep its corners at a third of its size
+     rather than inheriting a radius resolved for the larger root icon. */
+  --x-nt-shortcut-icon-radius: calc(var(--x-nt-shortcut-icon-size, 48px) / 3);
+  --x-nt-shortcut-favicon-radius: max(
+    6px,
+    calc(var(--x-nt-shortcut-icon-radius) - ((var(--x-nt-shortcut-icon-size, 48px) - var(--x-nt-shortcut-favicon-size, 28px)) / 2))
+  );
   width: var(--x-nt-shortcut-icon-size, 48px);
   height: var(--x-nt-shortcut-icon-size, 48px);
   border-radius: var(--x-nt-shortcut-icon-radius, 16px);
@@ -727,9 +736,32 @@ body[data-theme="dark"] .x-nt-shortcut-icon {
 .x-nt-shortcut-tile[data-bookmark-drop-target="true"] .x-nt-shortcut-icon {
   cursor: inherit;
   pointer-events: none;
-  outline: 2px solid rgba(96, 165, 250, 0.86);
-  outline-offset: 3px;
-  border-radius: 28.57%;
+}
+/* A drop target (a folder, or a website to stack into a new folder) grows an
+   opaque folder backdrop behind its icon, wide enough to show around the
+   lifted icon covering it. The icon's mask would clip an outline. */
+.x-nt-shortcut-tile::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: calc(var(--x-nt-shortcut-icon-size, 48px) * 1.42);
+  height: calc(var(--x-nt-shortcut-icon-size, 48px) * 1.42);
+  /* Concentric with the lifted icon above it, which is drawn at 1.2x. */
+  border-radius: calc(var(--x-nt-shortcut-icon-size, 48px) * 0.51);
+  background: var(--x-nt-shortcut-drop-target-bg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.7);
+  transition:
+    opacity var(--lumno-duration-sm) ease,
+    transform var(--lumno-duration-3xl) var(--lumno-ease-spring);
+  pointer-events: none;
+}
+.x-nt-shortcut-tile[data-bookmark-drop-target="true"]::before {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 body[data-theme="dark"] .x-nt-shortcut-icon--add {
   color: var(--x-nt-shortcut-add-color, #e5e7eb);
@@ -744,7 +776,6 @@ body[data-nt-bottom-dock-density="compact"] {
   --x-nt-shortcut-tile-size: min(var(--x-nt-shortcut-user-tile-size), 48px);
   --x-nt-shortcut-tile-padding: min(var(--x-nt-shortcut-user-tile-padding), 6px);
   --x-nt-shortcut-icon-size: min(var(--x-nt-shortcut-user-icon-size), 36px);
-  --x-nt-shortcut-icon-radius: min(var(--x-nt-shortcut-user-icon-radius), 13px);
   --x-nt-shortcut-favicon-size: min(var(--x-nt-shortcut-user-favicon-size), 22px);
   --x-nt-shortcut-hover-scale-near: 1.16;
   --x-nt-shortcut-hover-rise-near: -4px;
@@ -766,7 +797,6 @@ body[data-nt-bottom-dock-density="tiny"] {
   --x-nt-shortcut-tile-size: min(var(--x-nt-shortcut-user-tile-size), 36px);
   --x-nt-shortcut-tile-padding: min(var(--x-nt-shortcut-user-tile-padding), 4px);
   --x-nt-shortcut-icon-size: min(var(--x-nt-shortcut-user-icon-size), 28px);
-  --x-nt-shortcut-icon-radius: min(var(--x-nt-shortcut-user-icon-radius), 10px);
   --x-nt-shortcut-favicon-size: min(var(--x-nt-shortcut-user-favicon-size), 18px);
   --x-nt-shortcut-hover-scale-near: 1.08;
   --x-nt-shortcut-hover-rise-near: -2px;
@@ -942,6 +972,10 @@ body[data-theme="dark"] .x-nt-shortcut-context-menu-portal {
     transform: translate3d(0, 0, 0) scale(1);
     transition: none;
     will-change: auto;
+  }
+  .x-nt-shortcut-tile::before {
+    transform: translate(-50%, -50%);
+    transition: opacity var(--lumno-duration-sm) ease;
   }
 }
 #_x_extension_newtab_wordmark_2026_unique_ > .x-nt-wordmark-content {
@@ -2712,6 +2746,9 @@ body[data-wallpaper-active="true"][data-bookmark-view-mode="top"] .x-nt-bookmark
   border-radius: var(--lumno-radius-xs);
   object-fit: contain;
   flex: 0 0 auto;
+}
+body[data-theme="dark"] .x-nt-bookmark-cascade-icon[data-builtin-monochrome="true"] {
+  filter: invert(1);
 }
 .x-nt-bookmark-cascade-icon--folder {
   width: 22px;
@@ -6369,7 +6406,6 @@ body[data-lumno-page="newtab"] [role="button"] .ri-icon {
     --x-nt-shortcuts-reserved-height: 72px;
     --x-nt-shortcut-tile-size: min(var(--x-nt-shortcut-user-tile-size), 58px);
     --x-nt-shortcut-icon-size: min(var(--x-nt-shortcut-user-icon-size), 44px);
-    --x-nt-shortcut-icon-radius: min(var(--x-nt-shortcut-user-icon-radius), 15px);
     --x-nt-shortcut-favicon-size: min(var(--x-nt-shortcut-user-favicon-size), 26px);
     --x-nt-shortcuts-section-margin-top: 12px;
   }

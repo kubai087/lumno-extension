@@ -2342,6 +2342,9 @@
   "newtab_shortcuts_icon_info": {
     "message": "支援 PNG、JPG、WebP；建議使用 128×128 px 以上、透明背景的正方形圖示。預設儲存在本機，可透過 WebDAV 同步。"
   },
+  "newtab_shortcuts_folder_item_icon_info": {
+    "message": "支援 PNG、JPG、WebP；建議使用 128×128 px 以上、透明背景的正方形圖示。僅儲存在本機。"
+  },
   "newtab_shortcuts_icon_choose": {
     "message": "選擇圖片"
   },
@@ -2464,6 +2467,24 @@
   },
   "newtab_shortcuts_moved_to_bookmarks": {
     "message": "已移至書籤"
+  },
+  "newtab_shortcuts_new_folder_title": {
+    "message": "新增資料夾"
+  },
+  "newtab_shortcuts_stack_hint": {
+    "message": "放開即建立資料夾，存入書籤列"
+  },
+  "newtab_shortcuts_stacked_undo": {
+    "message": "已建立資料夾 · 按 {shortcut} 復原"
+  },
+  "newtab_shortcuts_stack_undone": {
+    "message": "已取消建立資料夾 · 按 {shortcut} 重做"
+  },
+  "newtab_shortcuts_stack_redone": {
+    "message": "已重新建立資料夾 · 按 {shortcut} 復原"
+  },
+  "newtab_shortcuts_stack_failed": {
+    "message": "無法建立資料夾"
   },
   "newtab_shortcuts_move_to_bookmarks_failed": {
     "message": "無法移至書籤"
