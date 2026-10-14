@@ -205,11 +205,13 @@
       refs.recentModeLabel.textContent = t('display_mode_title', 'Display mode');
       refs.recentModeTabs.setAttribute('aria-label', t('display_mode_title', 'Display mode'));
       refs.recentModeTabs.querySelectorAll('[data-recent-mode]').forEach((button) => {
-        button.textContent = button.getAttribute('data-recent-mode') === 'most'
+        button.textContent = button.getAttribute('data-recent-mode') === 'custom'
+          ? t('recent_mode_custom', 'Custom')
+          : button.getAttribute('data-recent-mode') === 'most'
           ? t('recent_mode_most', 'Most visited')
           : t('recent_mode_latest', 'Recent');
       });
-      syncTabs(refs.recentModeTabs, 'data-recent-mode', call('getRecentMode') === 'most' ? 'most' : 'latest');
+      syncTabs(refs.recentModeTabs, 'data-recent-mode', call('getRecentMode') || 'latest');
       const recentRowsLabel = t('newtab_recent_rows_title', 'Site card rows');
       refs.recentRowsLabel.textContent = recentRowsLabel;
       refs.recentRowsTabs.setAttribute('aria-label', recentRowsLabel);

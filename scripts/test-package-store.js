@@ -9,6 +9,18 @@ const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'manifest.json')
 const zipPath = path.join(repoRoot, 'dist', `lumno-store-v${manifest.version}.zip`);
 const expectedDevExtensionId = 'kkcjcneagmlhpeaafngjdlpcfjakejgb';
 
+function readArchive(entry) {
+  if (process.platform !== 'win32') return execFileSync(entry ? 'unzip' : 'zipinfo', entry ? ['-p', zipPath, entry] : ['-1', zipPath], { cwd: repoRoot, encoding: 'utf8' });
+  const quote = (value) => `'${String(value).replace(/'/g, "''")}'`;
+  const command = entry
+    ? `$reader = [System.IO.StreamReader]::new($archive.GetEntry(${quote(entry)}).Open()); try { [Console]::Write($reader.ReadToEnd()) } finally { $reader.Dispose() }`
+    : '$archive.Entries | ForEach-Object { $_.FullName }';
+  return execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+    "$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem; " +
+    `$archive = [System.IO.Compression.ZipFile]::OpenRead(${quote(zipPath)}); try { ${command} } finally { $archive.Dispose() }`
+  ], { cwd: repoRoot, encoding: 'utf8' });
+}
+
 function getExtensionIdFromManifestKey(key) {
   const publicKey = Buffer.from(String(key || ''), 'base64');
   const digestPrefix = crypto.createHash('sha256').update(publicKey).digest().subarray(0, 16);
@@ -29,18 +41,9 @@ execFileSync(process.execPath, ['scripts/package-store.js'], {
   stdio: 'pipe'
 });
 
-const entries = execFileSync('zipinfo', ['-1', zipPath], {
-  cwd: repoRoot,
-  encoding: 'utf8'
-}).split(/\r?\n/).filter(Boolean);
-const packagedManifest = JSON.parse(execFileSync('unzip', ['-p', zipPath, 'manifest.json'], {
-  cwd: repoRoot,
-  encoding: 'utf8'
-}));
-const readPackagedText = (entry) => execFileSync('unzip', ['-p', zipPath, entry], {
-  cwd: repoRoot,
-  encoding: 'utf8'
-});
+const entries = readArchive().split(/\r?\n/).filter(Boolean);
+const packagedManifest = JSON.parse(readArchive('manifest.json'));
+const readPackagedText = readArchive;
 
 assert(
   entries.every((entry) => !entry.startsWith('assets/images/readme/')),

@@ -81,10 +81,8 @@ assert.ok(
   'the New Tab search mode menu should consume the shared surface border token'
 );
 assert.ok(
-  newtabHtml.includes(
-    '.x-nt-bookmark-cascade-level {\n        position: fixed'
-  ) &&
-    newtabHtml.includes('border: 1px solid var(\n          --x-nt-surface-border,') &&
+  /\.x-nt-bookmark-cascade-level\s*\{\s*position:\s*fixed/.test(newtabHtml) &&
+    /border:\s*1px solid var\(\s*--x-nt-surface-border,/.test(newtabHtml) &&
     newtabHtml.includes('body[data-theme="dark"] .x-nt-bookmark-cascade-level') &&
     newtabHtml.includes('body[data-theme="dark"] .x-nt-feedback-popover'),
   'New Tab outer panels should consume the shared surface border token in both themes'

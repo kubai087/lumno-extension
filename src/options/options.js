@@ -2429,7 +2429,7 @@
   }
 
   function setRecentModeTabState(mode) {
-    const nextMode = mode === 'most' ? 'most' : 'latest';
+    const nextMode = mode === 'custom' ? 'custom' : mode === 'most' ? 'most' : 'latest';
     currentRecentMode = nextMode;
     renderSegmentedControlState(
       recentModeTabsController,
@@ -2446,6 +2446,11 @@
             value: 'most',
             labelKey: 'recent_mode_most',
             label: getMessage('recent_mode_most', '最常访问')
+          },
+          {
+            value: 'custom',
+            labelKey: 'recent_mode_custom',
+            label: getMessage('recent_mode_custom', '自定义')
           }
         ],
         select: {
@@ -2454,7 +2459,7 @@
       },
       recentModeTabButtons,
       'data-recent-mode',
-      (value) => value === 'most' ? 'most' : 'latest'
+      (value) => value === 'custom' ? 'custom' : value === 'most' ? 'most' : 'latest'
     );
   }
 
@@ -2720,7 +2725,7 @@
   }
 
   function handleRecentModeSelection(value) {
-    const nextMode = value === 'most' ? 'most' : 'latest';
+    const nextMode = value === 'custom' ? 'custom' : value === 'most' ? 'most' : 'latest';
     setRecentModeTabState(nextMode);
     if (recentModeSelect) {
       recentModeSelect.value = nextMode;
@@ -5573,7 +5578,7 @@
     });
     storageArea.get([RECENT_MODE_STORAGE_KEY], (result) => {
       const stored = result[RECENT_MODE_STORAGE_KEY];
-      const hasStored = stored === 'latest' || stored === 'most';
+      const hasStored = stored === 'latest' || stored === 'most' || stored === 'custom';
       const mode = hasStored ? stored : 'most';
       if (recentModeSelect) {
         recentModeSelect.value = mode;
@@ -7767,7 +7772,7 @@
     }
     if (changes[RECENT_MODE_STORAGE_KEY] && recentModeSelect) {
       const nextValue = changes[RECENT_MODE_STORAGE_KEY].newValue;
-      const mode = nextValue === 'most' ? 'most' : 'latest';
+      const mode = nextValue === 'custom' ? 'custom' : nextValue === 'most' ? 'most' : 'latest';
       recentModeSelect.value = mode;
       setRecentModeTabState(mode);
       refreshCustomSelects();

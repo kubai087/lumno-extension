@@ -94,6 +94,69 @@
         font-weight: 600;
         line-height: 1.25;
       }
+      .x-nt-shortcut-bookmark-trigger {
+        width: 100%;
+        justify-content: center;
+        gap: 8px;
+        min-height: 36px;
+      }
+      .x-nt-shortcut-bookmark-panel {
+        --input-placeholder: #475569;
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      body[data-theme="dark"] .x-nt-shortcut-bookmark-panel {
+        --input-placeholder: #b8c6d9;
+      }
+      .x-nt-shortcut-bookmark-status {
+        margin: 0;
+        font-size: var(--lumno-font-size-sm);
+        line-height: 1.5;
+        color: inherit;
+      }
+      .x-nt-shortcut-bookmark-results {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: min(220px, 30dvh);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      :root:not([data-lumno-scrollbars="overlay"]) .x-nt-shortcut-bookmark-results {
+        scrollbar-width: thin;
+        scrollbar-color: var(--input-placeholder) transparent;
+        scrollbar-gutter: stable;
+      }
+      .x-nt-shortcut-bookmark-result {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        min-height: 48px;
+        padding: 10px;
+        border: 0;
+        border-radius: var(--lumno-radius-md);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+      }
+      .x-nt-shortcut-bookmark-result:hover { background: var(--control-bg); }
+      .x-nt-shortcut-bookmark-result:disabled { opacity: 0.55; cursor: default; }
+      .x-nt-shortcut-bookmark-result:focus-visible,
+      .x-nt-shortcut-bookmark-trigger:focus-visible {
+        outline: 2px solid var(--input-focus-color);
+        outline-offset: -2px;
+      }
+      .x-nt-shortcut-bookmark-copy { display: grid; gap: 4px; min-width: 0; }
+      .x-nt-shortcut-bookmark-copy strong { font-size: var(--lumno-font-size-md); font-weight: 600; line-height: 1.4; }
+      .x-nt-shortcut-bookmark-copy span { font-size: var(--lumno-font-size-sm); line-height: 1.5; }
+      .x-nt-shortcut-bookmark-copy strong,
+      .x-nt-shortcut-bookmark-copy span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .x-nt-shortcut-bookmark-added { flex: 0 0 auto; font-size: var(--lumno-font-size-sm); }
       .x-nt-shortcut-dialog-description {
         margin: -4px 0 2px;
         color: var(--panel-subtext, #64748b);

@@ -36,7 +36,10 @@ const locales = ['zh_CN', 'zh_TW', 'en', 'ja'].map((locale) => ({
 }));
 
 function assertContains(source, needle, message) {
-  assert.ok(source.includes(needle), message);
+  // Multiline source assertions should verify declarations, not CSS indentation.
+  const matches = source.includes(needle) || (needle.includes('\n') &&
+    source.replace(/\s+/g, ' ').includes(needle.replace(/\s+/g, ' ')));
+  assert.ok(matches, message);
 }
 
 function assertNotContains(source, needle, message) {
@@ -51,12 +54,13 @@ function assertMessage(locale, messages, key) {
 }
 
 function getCssRuleBlock(source, selector) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = new RegExp(`^\\s*${escapedSelector} \\{`, 'm').exec(source);
+  const escapedSelector = selector.trim().split(/\s+/)
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
+  const match = new RegExp(`^\\s*${escapedSelector}\\s*\\{`, 'm').exec(source);
   const selectorIndex = match ? match.index : -1;
   assert.ok(selectorIndex >= 0, `${selector} rule should exist`);
   const blockStart = source.indexOf('{', selectorIndex);
-  const blockEnd = source.indexOf('\n      }', blockStart);
+  const blockEnd = source.indexOf('}', blockStart);
   assert.ok(blockStart >= 0 && blockEnd > blockStart, `${selector} rule should be readable`);
   return source.slice(blockStart + 1, blockEnd);
 }
@@ -2158,10 +2162,8 @@ assertContains(
 );
 
 assertContains(
-  newtabHtml,
-  `.x-nt-shortcuts-grid[data-shortcut-dragging="true"],
-      .x-nt-shortcuts-grid[data-shortcut-dragging="true"] .x-nt-shortcut-tile {
-        cursor: grabbing;`,
+  getCssRuleBlock(newtabHtml, '.x-nt-shortcuts-grid[data-shortcut-dragging="true"], .x-nt-shortcuts-grid[data-shortcut-dragging="true"] .x-nt-shortcut-tile'),
+  'cursor: grabbing;',
   'shortcut drag cursor should remain grabbing over grid gaps exposed by reordering'
 );
 

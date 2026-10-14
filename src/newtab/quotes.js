@@ -9,6 +9,7 @@
     const document = config.documentObj || root.document;
     const window = config.windowObj || root.window;
     const settings = root.LumnoSettings;
+    const custom = root.LumnoCustomQuotes || (typeof require === 'function' ? require('./custom-quotes.js') : null);
     const key = settings.NEWTAB_QUOTE_PREFS_STORAGE_KEY;
     const t = config.t;
     // Hitokoto only serves Chinese text, so the quote exists for Chinese UI languages only.
@@ -62,10 +63,14 @@
     let disposed = false;
     let draftFontSize = null;
     let shuffling = false;
+    let library = null;
+    let importing = false;
+    let importError = false;
+    let importMessage = '';
     // Settles once the cached quote (if any) is painted; the network refresh is never awaited.
     let cachedQuoteRead = Promise.resolve();
     let localeSupported = isLocaleSupported();
-    const isActive = () => prefs.enabled && localeSupported;
+    const isActive = () => prefs.enabled && (prefs.provider === 'custom' || localeSupported);
     const area = config.storageArea;
     function syncBottomHeight() {
       const height = !element.hidden && prefs.position === 'bottom'
@@ -137,8 +142,8 @@
     }
     function updateSettings() {
       if (!refs) return;
-      if (refs.quoteSection) refs.quoteSection.hidden = !localeSupported;
-      if (refs.quoteDivider) refs.quoteDivider.hidden = !localeSupported;
+      if (refs.quoteSection) refs.quoteSection.hidden = false;
+      if (refs.quoteDivider) refs.quoteDivider.hidden = false;
       const text = labels();
       const title = t('newtab_quote_title', 'Daily quote');
       refs.quoteTitle.textContent = title;
@@ -153,10 +158,34 @@
           prefs.enabled && settingsExpanded ? 'true' : 'false'
         );
       }
-      if (refs.quoteInfoButton) refs.quoteInfoButton.setAttribute('aria-label', t('newtab_quote_provider', 'Powered by Hitokoto'));
+      if (refs.quoteInfoButton) refs.quoteInfoButton.setAttribute('aria-label', getProviderLabel());
       refs.quoteCategory.setAttribute('aria-label', t('newtab_quote_category', 'Quote category'));
       if (refs.quotePositionLabel) refs.quotePositionLabel.textContent = t('newtab_quote_position', 'Quote position');
       if (refs.quoteCategoryLabel) refs.quoteCategoryLabel.textContent = t('newtab_quote_category', 'Quote category');
+      const customMode = prefs.provider === 'custom';
+      if (refs.quoteSourceLabel) refs.quoteSourceLabel.textContent = t('newtab_quote_source', 'Source');
+      if (refs.quoteSource) {
+        refs.quoteSource.setAttribute('aria-label', t('newtab_quote_source', 'Source'));
+        refs.quoteSource.querySelectorAll('[data-quote-provider]').forEach(item => {
+          const provider = item.dataset.quoteProvider;
+          item.textContent = provider === 'custom' ? t('newtab_quote_custom', 'Custom') : t('newtab_quote_hitokoto', 'Hitokoto');
+          item.setAttribute('aria-pressed', String(provider === prefs.provider));
+          item.setAttribute('data-active', String(provider === prefs.provider));
+          item.disabled = importing;
+        });
+      }
+      if (refs.quoteCustomBody) refs.quoteCustomBody.hidden = !customMode;
+      refs.quoteCategory.hidden = customMode;
+      if (refs.quoteCategory.parentElement?.classList.contains('x-nt-appearance-setting-row')) refs.quoteCategory.parentElement.hidden = customMode;
+      if (refs.quoteImportButton) {
+        refs.quoteImportButton.textContent = importing ? t('newtab_quote_importing', 'Importing…') : t('newtab_quote_import_md', 'Import TXT / MD file');
+        refs.quoteImportButton.disabled = importing;
+      }
+      if (refs.quoteImportHint) refs.quoteImportHint.textContent = t('newtab_quote_import_hint', 'TXT / MD: one non-empty content line per quote. Up to 1 MB, 1,000 quotes, 500 characters each; stored on this device only.');
+      if (refs.quoteImportStatus) {
+        refs.quoteImportStatus.textContent = importMessage || (library ? `${library.filename} · ${library.quotes.length} ${t('newtab_quote_entries', 'quotes')}` : t('newtab_quote_import_empty', 'Import a TXT or MD file to start.'));
+        refs.quoteImportStatus.setAttribute('role', importError ? 'alert' : 'status');
+      }
       syncFontSizeControls(false);
       refs.quoteCategory.querySelectorAll('[data-quote-category]').forEach((item) => {
         const value = item.getAttribute('data-quote-category');
@@ -208,7 +237,8 @@
         origin = [quote.author, quote.source ? `《${quote.source}》` : ''].filter(Boolean).join(' · ');
         if (!config.getTooltipController) button.title = origin;
         button.setAttribute('aria-label', [quote.text, origin].filter(Boolean).join(' — '));
-        button.href = /^https:\/\/hitokoto\.cn\//.test(quote.url || '') ? quote.url : 'https://hitokoto.cn/';
+        if (prefs.provider === 'custom') { button.removeAttribute('href'); button.tabIndex = -1; }
+        else { button.href = /^https:\/\/hitokoto\.cn\//.test(quote.url || '') ? quote.url : 'https://hitokoto.cn/'; button.removeAttribute('tabindex'); }
       }
       updateSettings();
     }
@@ -240,6 +270,13 @@
     async function refresh() {
       const current = ++revision;
       if (!isActive()) return render();
+      if (prefs.provider === 'custom') {
+        const values = await (cachedQuoteRead = readCustomValues());
+        if (current !== revision || disposed || prefs.provider !== 'custom') return;
+        library = custom.normalizeLibrary(values[custom.KEY]);
+        quote = library ? custom.select(library, new Date(), values[custom.PICK_KEY], false).quote : null;
+        render(); scheduleDaily(); return;
+      }
       const category = prefs.category;
       // Render the last successful response before making a network request.
       if (config.localStorageArea) {
@@ -258,6 +295,9 @@
       if (current !== revision || disposed || !isActive()) return;
       quote = next;
       render();
+      scheduleDaily();
+    }
+    function scheduleDaily() {
       window.clearTimeout(dayTimer);
       const tomorrow = new Date();
       tomorrow.setHours(24, 0, 1, 0);
@@ -267,8 +307,8 @@
     }
     function apply(value) {
       const next = settings.normalizeNewtabQuotePrefs(value);
-      const changedCategory = next.category !== prefs.category;
-      const activated = !isActive() && next.enabled && localeSupported;
+      const changedCategory = next.category !== prefs.category || next.provider !== prefs.provider;
+      const activated = !isActive() && next.enabled && (next.provider === 'custom' || localeSupported);
       prefs = next;
       draftFontSize = null;
       if (changedCategory) quote = null;
@@ -304,7 +344,12 @@
     function handleStorageChange(changes, areaName) {
       if (disposed) return;
       if (changes[key] && (!config.isPreferenceArea || config.isPreferenceArea(areaName))) apply(changes[key].newValue);
-      if (areaName === 'local' && changes[root.LumnoNewtabRemoteContent.QUOTE_CACHE_KEY]) {
+      if (areaName === 'local' && (changes[custom.KEY] || changes[custom.PICK_KEY])) {
+        if (changes[custom.KEY]) library = custom.normalizeLibrary(changes[custom.KEY].newValue);
+        updateSettings();
+        if (prefs.provider === 'custom') refresh().catch(() => {});
+      }
+      if (prefs.provider !== 'custom' && areaName === 'local' && changes[root.LumnoNewtabRemoteContent.QUOTE_CACHE_KEY]) {
         const cache = changes[root.LumnoNewtabRemoteContent.QUOTE_CACHE_KEY].newValue;
         if (cache && cache[prefs.category] && cache[prefs.category].quote) {
           quote = cache[prefs.category].quote;
@@ -336,7 +381,15 @@
       shuffleButton.dataset.loading = 'true';
       shuffleButton.setAttribute('aria-busy', 'true');
       try {
-        const next = await client.getQuote(category, { reroll: true });
+        let next;
+        if (prefs.provider === 'custom') {
+          const values = await readCustomValues();
+          const currentLibrary = custom.normalizeLibrary(values[custom.KEY]);
+          if (!currentLibrary) return;
+          const selected = custom.select(currentLibrary, new Date(), values[custom.PICK_KEY], true);
+          await saveCustomValues({ [custom.PICK_KEY]: selected.pick });
+          next = selected.quote;
+        } else next = await client.getQuote(category, { reroll: true });
         if (current !== revision || disposed || !isActive()) return;
         quote = next;
         render();
@@ -353,6 +406,57 @@
       }
     }
     const showShuffleLabel = () => showTooltip(shuffleButton, shuffleLabel());
+    function getProviderLabel() {
+      return prefs.provider === 'custom' ? t('newtab_quote_provider_custom', 'Custom collection · stored on this device') : t('newtab_quote_provider', 'Powered by Hitokoto');
+    }
+    function readCustomValues() {
+      return new Promise((resolve, reject) => {
+        if (!config.localStorageArea) return resolve({});
+        config.localStorageArea.get([custom.KEY, custom.PICK_KEY], values => {
+          const error = (config.chromeObj || root.chrome)?.runtime?.lastError;
+          if (error) reject(new Error(error.message)); else resolve(values || {});
+        });
+      });
+    }
+    function saveCustomValues(values) {
+      return new Promise((resolve, reject) => {
+        if (!config.localStorageArea) return reject(new Error('Local quote storage unavailable'));
+        config.localStorageArea.set(values, () => {
+          const error = (config.chromeObj || root.chrome)?.runtime?.lastError;
+          if (error) reject(new Error(error.message)); else resolve();
+        });
+      });
+    }
+    async function importQuoteFile(file) {
+      if (importing || disposed) return false;
+      importing = true; importError = false; importMessage = ''; updateSettings();
+      let saving = false;
+      try {
+        if (!/\.(txt|md|markdown)$/i.test(file.name || '')) throw new Error('type');
+        if (!file.size || file.size > custom.MAX_BYTES) throw new Error('too-large');
+        const text = typeof file.text === 'function' ? await file.text() : await new Promise((resolve, reject) => {
+          const reader = new window.FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('read')); reader.readAsText(file);
+        });
+        const quotes = custom.parseQuotes(text, /\.txt$/i.test(file.name) ? 'txt' : 'md');
+        const next = { version: 1, filename: String(file.name).slice(0, 128), revision: Date.now(), quotes };
+        saving = true;
+        await saveCustomValues({ [custom.KEY]: next, [custom.PICK_KEY]: null });
+        saving = false;
+        if (disposed) return false;
+        library = next;
+        persist({ provider: 'custom' });
+        if (prefs.provider === 'custom') await refresh();
+        return true;
+      } catch (_) {
+        if (!disposed) {
+          importError = true;
+          importMessage = saving
+            ? t('newtab_quote_collection_save_error', 'Could not save on this device. Your previous collection is retained. Try again.')
+            : t('newtab_quote_import_error', 'Import failed. Choose a valid TXT or MD file up to 1 MB with 1–1,000 non-empty content lines, each no longer than 500 characters.');
+        }
+        return false;
+      } finally { importing = false; if (!disposed) updateSettings(); }
+    }
     shuffleButton.addEventListener('click', () => { shuffle(); });
     line.addEventListener('animationend', () => line.removeAttribute('data-swap'));
     shuffleButton.addEventListener('mouseenter', showShuffleLabel);
@@ -370,6 +474,13 @@
       view = nextView || null;
       if (!refs.quoteCategory) return;
       refs.quoteEnabledToggle.addEventListener('change', () => persist({ enabled: refs.quoteEnabledToggle.checked }));
+      refs.quoteSource?.querySelectorAll('[data-quote-provider]').forEach(item => item.addEventListener('click', () => persist({ provider: item.dataset.quoteProvider })));
+      refs.quoteImportButton?.addEventListener('click', () => refs.quoteFileInput?.click());
+      refs.quoteFileInput?.addEventListener('change', () => {
+        const file = refs.quoteFileInput.files && refs.quoteFileInput.files[0];
+        refs.quoteFileInput.value = '';
+        if (file) importQuoteFile(file);
+      });
       if (refs.quoteAccordionTrigger) {
         refs.quoteAccordionTrigger.addEventListener('click', () => {
           if (!prefs.enabled) return;
@@ -428,7 +539,9 @@
         });
       });
     }
-    return Object.freeze({ element, textElement: line, mount, bindSettings, updateLanguage,
+    return Object.freeze({ element, textElement: line, mount, bindSettings, updateLanguage, getProviderLabel,
+      importQuoteFile,
+      importMarkdown: importQuoteFile,
       destroy() {
         disposed = true;
         revision += 1;

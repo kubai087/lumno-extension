@@ -2246,7 +2246,7 @@
         return;
       }
       if (event.target && typeof event.target.closest === 'function' &&
-          event.target.closest('.x-nt-bookmark-copy-action')) {
+          event.target.closest('.x-nt-bookmark-copy-action, .x-nt-bookmark-pin-action')) {
         return;
       }
       const card = getBookmarkCardFromNode(event.target);

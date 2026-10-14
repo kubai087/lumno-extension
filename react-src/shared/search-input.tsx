@@ -233,8 +233,7 @@ function noTranslateProps() {
 
 const POPCONFIRM_CLASS_NAMES: PopconfirmClassNames = Object.freeze({
   actions: 'x-lumno-search-input__popconfirm-actions',
-  // No Cancel button: the action button, Escape or a click outside closes it.
-  cancel: '',
+  cancel: 'x-lumno-search-input__popconfirm-button',
   confirm:
     'x-lumno-search-input__popconfirm-button x-lumno-search-input__popconfirm-button--primary',
   text: 'x-lumno-search-input__popconfirm-text'
@@ -250,6 +249,10 @@ function SecondaryAction({ action }: { action: SecondaryActionConfig }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popconfirmRef = useRef<HTMLDivElement>(null);
   const popconfirmId = useId();
+  const confirmedRef = useRef(false);
+  useEffect(() => {
+    if (open) popconfirmRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+  }, [open]);
 
   const close = (restoreFocus: boolean) => {
     setOpen(false);
@@ -309,6 +312,7 @@ function SecondaryAction({ action }: { action: SecondaryActionConfig }) {
       top: trigger.offsetTop + trigger.offsetHeight + POPCONFIRM_GAP
     });
     setCopy(confirm.getCopy());
+    confirmedRef.current = false;
     setOpen(true);
   };
 
@@ -334,6 +338,7 @@ function SecondaryAction({ action }: { action: SecondaryActionConfig }) {
         <div
           {...noTranslateProps()}
           aria-hidden={!open}
+          inert={!open}
           aria-label={copy?.message}
           className="x-lumno-search-input__popconfirm"
           data-open={open ? 'true' : 'false'}
@@ -347,7 +352,10 @@ function SecondaryAction({ action }: { action: SecondaryActionConfig }) {
             <PopconfirmContent
               classNames={POPCONFIRM_CLASS_NAMES}
               copy={copy}
+              onCancel={copy.cancelLabel ? () => close(true) : undefined}
               onConfirm={(event) => {
+                if (!open || confirmedRef.current) return;
+                confirmedRef.current = true;
                 close(false);
                 confirm.onConfirm(event.nativeEvent);
               }}

@@ -112,6 +112,64 @@ afterEach(() => {
 });
 
 describe('Bookmarks React island', () => {
+  it('pins without opening, copying or changing the bookmark and refreshes after removal', async () => {
+    const item = { id: 'pin', type: 'bookmark', title: 'Docs', url: 'https://example.com/docs' };
+    const original = { ...item };
+    let added = false;
+    let finish!: (value: boolean) => void;
+    const openUrl = vi.fn();
+    const copyUrl = vi.fn();
+    const addShortcut = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+    const { view } = createView({ addShortcut, hasShortcut: () => added, openUrl, copyUrl });
+    renderItems(view, [item]);
+    const pin = view.getCards()[0].querySelector<HTMLButtonElement>('.x-nt-bookmark-pin-action')!;
+    expect(pin.getAttribute('aria-label')).toBe('Add to shortcuts: Docs');
+    act(() => { pin.click(); pin.click(); });
+    expect(addShortcut).toHaveBeenCalledTimes(1);
+    expect(pin.getAttribute('aria-busy')).toBe('true');
+    expect(openUrl).not.toHaveBeenCalled();
+    expect(copyUrl).not.toHaveBeenCalled();
+    act(() => pin.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    expect(openUrl).not.toHaveBeenCalled();
+    await act(async () => { added = true; finish(true); });
+    expect(pin.dataset.added).toBe('true');
+    expect(pin.querySelector('.ri-pushpin-fill')).not.toBeNull();
+    expect(pin.getAttribute('aria-disabled')).toBe('true');
+    act(() => pin.click());
+    expect(addShortcut).toHaveBeenCalledTimes(1);
+    expect(item).toEqual(original);
+    act(() => { added = false; view.refreshShortcutStates(); });
+    expect(pin.dataset.added).toBe('false');
+    expect(pin.querySelector('.ri-pushpin-line')).not.toBeNull();
+  });
+
+  it('keeps failed pins retryable and does not claim they were added', async () => {
+    const addShortcut = vi.fn().mockResolvedValueOnce(false).mockRejectedValueOnce(new Error('Storage failed'));
+    let added = false;
+    const { view } = createView({ addShortcut, hasShortcut: () => added });
+    renderItems(view, [{ id: 'retry', type: 'bookmark', title: 'Retry', url: 'https://example.com/' }]);
+    const pin = view.getCards()[0].querySelector<HTMLButtonElement>('.x-nt-bookmark-pin-action')!;
+    await act(async () => { pin.click(); });
+    expect(pin.dataset.added).toBe('false');
+    expect(pin.getAttribute('aria-busy')).toBe('false');
+    expect(pin.title).toContain('Try again');
+    await act(async () => { pin.click(); });
+    expect(pin.getAttribute('aria-disabled')).toBe('false');
+    act(() => { added = true; view.refreshShortcutStates(); });
+    expect(pin.dataset.added).toBe('true');
+  });
+
+  it('does not pin folders, supports compact topbar items and suppresses stale context presses', () => {
+    const addShortcut = vi.fn();
+    const { view } = createView({ addShortcut, isActivationSuppressed: () => true });
+    const site = { id: 's', type: 'bookmark', title: 'Site', url: 'https://example.com/' };
+    renderItems(view, [{ id: 'f', type: 'folder', title: 'Folder' }, site]);
+    expect(view.getCards()[0].querySelector('.x-nt-bookmark-pin-action')).toBeNull();
+    act(() => view.getCards()[1].querySelector<HTMLButtonElement>('.x-nt-bookmark-pin-action')!.click());
+    expect(addShortcut).not.toHaveBeenCalled();
+    renderItems(view, [site], { viewMode: 'top' });
+    expect(view.getCards()[0].querySelector('.x-nt-bookmark-pin-action')).not.toBeNull();
+  });
   it('preserves signatures through the React API', () => {
     const item = {
       id: 'docs',

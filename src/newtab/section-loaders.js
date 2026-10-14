@@ -159,6 +159,17 @@
     }
 
     function renderRecentSites(items) {
+      if (pageState.currentRecentMode === 'custom') {
+        pageState.recentSourceItems = Array.isArray(items) ? items.slice() : [];
+        const customItems = deps.getCustomRecentPageItems(pageState.recentSourceItems, getRecentLimit());
+        const result = pageState.recentSitesView.render(customItems, { signature: pageState.recentRenderSignature });
+        pageState.recentRenderSignature = result.signature;
+        deps.syncCustomRecentSitesUi();
+        setContentSectionVisible(recentSection, getRecentLimit() > 0);
+        updateBookmarkSectionPosition();
+        return;
+      }
+      if (deps.syncCustomRecentSitesUi) deps.syncCustomRecentSitesUi();
       const sourceItems = Array.isArray(items) ? items : [];
       const resolvedHiddenUrls = new Set();
       sourceItems.forEach((item) => {
@@ -351,13 +362,17 @@
         pageState.recentRenderSignature = '';
         pageState.recentSourceItems = [];
         pageState.recentSitesView.clear();
+        if (deps.syncCustomRecentSitesUi) deps.syncCustomRecentSitesUi();
         setContentSectionVisible(recentSection, false);
         recentDataDirty = false;
         pageState.recentLoadedOnce = true;
         updateBookmarkSectionPosition();
         return Promise.resolve();
       }
-      return getRecentSites(recentSourceLimit + MAX_PINNED_RECENT_SITES, pageState.currentRecentMode).then((items) => {
+      const task = pageState.currentRecentMode === 'custom'
+        ? deps.getCustomRecentSites()
+        : getRecentSites(recentSourceLimit + MAX_PINNED_RECENT_SITES, pageState.currentRecentMode);
+      return task.then((items) => {
         if (requestToken !== recentLoadToken ||
             requestedSectionDataRevision !== pageState.sectionDataRevision) {
           return;

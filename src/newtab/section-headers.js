@@ -36,8 +36,9 @@
       if (!pageState.recentHeading) {
         return;
       }
-      const key = pageState.currentRecentMode === 'most' ? 'recent_heading_most' : 'recent_heading_latest';
-      const fallback = pageState.currentRecentMode === 'most' ? 'Most visited' : 'Recent visits';
+      const custom = pageState.currentRecentMode === 'custom';
+      const key = custom ? 'recent_mode_custom' : pageState.currentRecentMode === 'most' ? 'recent_heading_most' : 'recent_heading_latest';
+      const fallback = custom ? 'Custom' : pageState.currentRecentMode === 'most' ? 'Most visited' : 'Recent visits';
       pageState.recentHeading.textContent = t(key, fallback);
     }
 

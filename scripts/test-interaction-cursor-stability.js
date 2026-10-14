@@ -21,7 +21,8 @@ const shortcutDialogCss = read('src/newtab/shortcut-dialog.css');
 const infoButtonCss = read('src/shared/info-button.css');
 
 function getRule(source, selector) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedSelector = selector.trim().split(/\s+/)
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
   // The selector must open its rule, not end a longer selector such as
   // `.x-nt-shortcut-group-empty .x-nt-shortcut-icon`.
   const match = source.match(new RegExp(`(?:^|[\\n}])[ \\t]*${escapedSelector}\\s*\\{([^}]*)\\}`));

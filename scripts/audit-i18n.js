@@ -248,7 +248,7 @@ function scanHtmlLine(file, line, lineNumber, state) {
 function auditSources() {
   const files = SOURCE_ROOTS
     .flatMap(walk)
-    .map((file) => path.normalize(file))
+    .map((file) => path.normalize(file).replace(/\\/g, '/'))
     .sort();
   const hits = [];
   files.forEach((file) => {

@@ -12,6 +12,7 @@ import {
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { SelectMenu } from './select-menu';
+import { ShortcutBookmarkPicker, type ShortcutBookmarkChoice } from './shortcut-bookmark-picker';
 import {
   DEFAULT_CLOSE_DELAY_MS,
   DEFAULT_ID_PREFIX,
@@ -94,6 +95,7 @@ export interface ShortcutDialogOptions {
   windowObj?: Window;
   t?: Translate;
   onSubmit?: (payload: Readonly<ShortcutDialogPayload>) => boolean | Promise<boolean>;
+  loadBookmarkChoices?: () => Promise<ShortcutBookmarkChoice[]>;
   prepareIconFile?: (file: File) => PreparedIcon | Promise<PreparedIcon>;
   getOnlineIconUrl?: (url: string) => string;
   getOnlineIconSource?: (url: string) => OnlineIconSource | 'builtin';
@@ -150,6 +152,7 @@ interface NormalizedOptions {
   windowObj: Window;
   t: Translate;
   onSubmit: (payload: Readonly<ShortcutDialogPayload>) => boolean | Promise<boolean>;
+  loadBookmarkChoices?: () => Promise<ShortcutBookmarkChoice[]>;
   prepareIconFile: (file: File) => PreparedIcon | Promise<PreparedIcon>;
   getOnlineIconUrl: NonNullable<ShortcutDialogOptions['getOnlineIconUrl']>;
   getOnlineIconSource: NonNullable<ShortcutDialogOptions['getOnlineIconSource']>;
@@ -293,6 +296,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
     const destroyedRef = useRef(false);
     const dialogRef = useRef<HTMLDivElement>(null);
     const nameInputRef = useRef<HTMLInputElement>(null);
+    const bookmarkPickerHostRef = useRef<HTMLDivElement>(null);
     const urlInputRef = useRef<HTMLInputElement>(null);
     const urlInfoButtonRef = useRef<HTMLButtonElement>(null);
     const urlInfoDescriptionRef = useRef<HTMLSpanElement>(null);
@@ -445,6 +449,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
       },
       getFocusableElements() {
         const elements: Array<HTMLElement | null> = [
+          ...Array.from(bookmarkPickerHostRef.current?.querySelectorAll<HTMLElement>('button, input') || []),
           nameInputRef.current,
           urlInfoButtonRef.current,
           urlInputRef.current,
@@ -519,6 +524,18 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
     function handleSubmit(event: FormEvent<HTMLFormElement>): void {
       event.preventDefault();
       void submit();
+    }
+
+    function updateUrl(url: string, bookmarkName?: string): void {
+      cancelPendingIcon();
+      commitState((current) => {
+        const builtinUrl = options.getBuiltinIconUrl(url);
+        const iconMode = current.iconMode === 'builtin' && !builtinUrl ? 'cache' : current.iconMode;
+        return { ...current, url, iconMode, onlineIcon: null, sourceNeedsIcon: false,
+          onlineIconUrl: iconMode === 'builtin' ? builtinUrl : options.getOnlineIconUrl(url),
+          iconError: '', error: '',
+          ...(bookmarkName !== undefined ? { name: bookmarkName.slice(0, 64) } : {}) };
+      });
     }
 
     function selectIconMode(mode: IconMode): void {
@@ -768,6 +785,14 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
             </p>
           ) : null}
 
+          {!isConfirmVariant && !isEditMode && isShortcutItem && options.loadBookmarkChoices ? (
+            <div ref={bookmarkPickerHostRef}>
+              <ShortcutBookmarkPicker t={options.t} disabled={disabled}
+                load={options.loadBookmarkChoices}
+                onSelect={(bookmark) => { updateUrl(bookmark.url, bookmark.title); focusElement(nameInputRef.current); }} />
+            </div>
+          ) : null}
+
           {!isConfirmVariant ? (
           <label className="x-nt-shortcut-field">
             <span>{options.t('newtab_shortcuts_name_label', 'Name')}</span>
@@ -841,14 +866,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
                   aria-describedby={`${urlInfoId} ${errorId}`}
                   aria-invalid={formState.error ? 'true' : 'false'}
                   onChange={(event) => {
-                    const url = event.currentTarget.value;
-                    cancelPendingIcon();
-                    commitState((current) => {
-                      const builtinUrl = options.getBuiltinIconUrl(url);
-                      const iconMode = current.iconMode === 'builtin' && !builtinUrl ? 'cache' : current.iconMode;
-                      return { ...current, url, iconMode, onlineIcon: null, sourceNeedsIcon: false,
-                        onlineIconUrl: iconMode === 'builtin' ? builtinUrl : options.getOnlineIconUrl(url), iconError: '' };
-                    });
+                    updateUrl(event.currentTarget.value);
                   }}
                 />
               </div>
@@ -1122,6 +1140,7 @@ function normalizeOptions(options: ShortcutDialogOptions, root: typeof globalThi
     onSubmit: typeof options.onSubmit === 'function'
       ? options.onSubmit
       : () => Promise.resolve(false),
+    loadBookmarkChoices: options.loadBookmarkChoices,
     prepareIconFile: typeof options.prepareIconFile === 'function'
       ? options.prepareIconFile
       : () => Promise.reject(new Error('Shortcut icon processing is unavailable.')),

@@ -938,6 +938,13 @@
   box-shadow: var(--x-lumno-popconfirm-button-sheen, none);
 }
 
+@media (pointer: coarse), (max-width: 600px) {
+  .x-lumno-search-input__popconfirm-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .x-lumno-search-input__popconfirm-button:hover {
   background: var(--x-lumno-popconfirm-button-hover-bg, var(--x-lumno-popconfirm-button-bg, transparent));
   box-shadow: var(--x-lumno-popconfirm-button-hover-shadow, var(--x-lumno-popconfirm-button-shadow, none));

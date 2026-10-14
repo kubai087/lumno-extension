@@ -53,6 +53,9 @@ describe('New Tab React bookmark cascade view', () => {
     expect(level.items[0].button.dataset.bookmarkDropFolderId).toBe('2');
     expect(level.items[0].icon?.querySelector('svg')).not.toBeNull();
     expect(level.items[1].copyButton?.dataset.tooltip).toBe('Copy link');
+    expect(level.items[0].pinButton).toBeNull();
+    expect(level.items[1].pinButton?.querySelector('[data-icon="ri-pushpin-line"]')).not.toBeNull();
+    expect(level.items[1].pinButton?.getAttribute('aria-label')).toContain('Lumno');
   });
 
   it('marks the menu surface as React-owned', () => {

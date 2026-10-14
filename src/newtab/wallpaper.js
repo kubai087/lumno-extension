@@ -6661,7 +6661,7 @@
           if (REMOTE_CONTENT.isDailyWallpaperId(dailyId)) clearDailyWallpaperPick(dailyId);
         });
       });
-      bindInfoButtonTooltip(refs.quoteInfoButton, () => t('newtab_quote_provider', 'Powered by Hitokoto'));
+      bindInfoButtonTooltip(refs.quoteInfoButton, () => options.getQuoteRuntime?.()?.getProviderLabel?.() || t('newtab_quote_provider', 'Powered by Hitokoto'));
       if (refs.bingDailyToggle) refs.bingDailyToggle.addEventListener('change', () => {
         const daily = getWallpaperById(REMOTE_CONTENT.BING_DAILY_ID);
         if (refs.bingDailyToggle.checked) {

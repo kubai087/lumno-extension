@@ -30,13 +30,13 @@ const yesterdayId = 'bing-20261001-OHR.Lake_ZH-CN456';
 
 async function main() {
   assert.deepEqual(settings.normalizeNewtabQuotePrefs({ position: 'bogus', category: 'invalid' }),
-    { enabled: false, position: 'search', category: 'literature', fontSize: 15 });
+    { enabled: false, position: 'search', category: 'literature', fontSize: 15, provider: 'hitokoto' });
   assert.deepEqual(settings.normalizeNewtabQuotePrefs({ position: 'bottom', category: 'poetry', fontSize: 20 }),
-    { enabled: false, position: 'bottom', category: 'poetry', fontSize: 20 }, 'A saved position alone must not turn quotes on');
+    { enabled: false, position: 'bottom', category: 'poetry', fontSize: 20, provider: 'hitokoto' }, 'A saved position alone must not turn quotes on');
   assert.deepEqual(settings.normalizeNewtabQuotePrefs({ enabled: true, position: 'bottom', category: 'poetry', fontSize: 20 }),
-    { enabled: true, position: 'bottom', category: 'poetry', fontSize: 20 }, 'Existing enabled quotes should keep their preferences');
+    { enabled: true, position: 'bottom', category: 'poetry', fontSize: 20, provider: 'hitokoto' }, 'Existing enabled quotes should keep their preferences');
   assert.deepEqual(settings.normalizeNewtabQuotePrefs({ enabled: false, position: 'bottom', category: 'poetry', fontSize: 20 }),
-    { enabled: false, position: 'bottom', category: 'poetry', fontSize: 20 }, 'Disabling must retain the selected position');
+    { enabled: false, position: 'bottom', category: 'poetry', fontSize: 20, provider: 'hitokoto' }, 'Disabling must retain the selected position');
   assert.equal(settings.normalizeNewtabQuotePrefs({ fontSize: '' }).fontSize, 15);
   assert.equal(settings.normalizeNewtabQuotePrefs({ fontSize: null }).fontSize, 15);
   assert.equal(settings.normalizeNewtabQuotePrefs({ fontSize: 8 }).fontSize, 12);

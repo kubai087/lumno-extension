@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 export interface CascadeItemView {
   button: HTMLButtonElement;
   copyButton: HTMLButtonElement | null;
+  pinButton: HTMLButtonElement | null;
   icon: HTMLImageElement | HTMLSpanElement | null;
   row: HTMLDivElement;
 }
@@ -42,6 +43,7 @@ interface CascadeItem {
 
 function CascadeLevel({
   copyLabel,
+  pinLabel,
   emptyLabel,
   folderId,
   folderTitle,
@@ -55,6 +57,7 @@ function CascadeLevel({
   siteIconAlt
 }: {
   copyLabel: string;
+  pinLabel: string;
   emptyLabel: string;
   folderId: string;
   folderTitle: string;
@@ -83,6 +86,7 @@ function CascadeLevel({
       copyButton: row.querySelector<HTMLButtonElement>(
         '.x-nt-bookmark-cascade-copy-trigger'
       ),
+      pinButton: row.querySelector<HTMLButtonElement>('.x-nt-bookmark-cascade-pin-trigger'),
       icon: row.querySelector<HTMLImageElement | HTMLSpanElement>(
         '.x-nt-bookmark-cascade-icon'
       )
@@ -183,6 +187,11 @@ function CascadeLevel({
                 />
               ) : null}
             </button>
+            {!isFolder && item.url ? (
+              <button type="button" aria-label={`${pinLabel}: ${titleText}`}
+                className="x-nt-bookmark-cascade-pin-trigger"
+                dangerouslySetInnerHTML={{ __html: getRiSvg('ri-pushpin-line', 'ri-size-16') }} />
+            ) : null}
             {!isFolder && item.url ? (
               <button
                 aria-label={copyLabel}
@@ -342,6 +351,7 @@ export function createCascadeLevel(config: Record<string, any>): CascadeLevelVie
     root.render(
       <CascadeLevel
         copyLabel={String(config.copyLabel || 'Copy link')}
+        pinLabel={String(config.pinLabel || 'Add to shortcuts')}
         emptyLabel={String(config.emptyLabel || 'No content')}
         folderId={String(config.folderId || '')}
         folderTitle={String(config.folderTitle || '')}

@@ -104,7 +104,7 @@ async function main() {
     recentSettingsToggle: element('input', { type: 'checkbox' }),
     recentSettingsBody: element('div', { hidden: '' }),
     recentModeLabel: element('span'),
-    recentModeTabs: tabs('data-recent-mode', ['latest', 'most']),
+    recentModeTabs: tabs('data-recent-mode', ['latest', 'most', 'custom']),
     recentRowsLabel: element('span'),
     recentRowsTabs: tabs('data-recent-rows', ['1', '2'])
   };

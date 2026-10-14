@@ -1,0 +1,85 @@
+.x-nt-custom-recent-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+  padding: 2px;
+  border-radius: var(--lumno-radius-md);
+  background: var(--x-nt-bg);
+  color: var(--x-nt-text);
+}
+.x-nt-custom-recent-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--lumno-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--lumno-font-size-sm);
+  cursor: pointer;
+}
+.x-nt-custom-recent-button:hover { background: var(--lumno-color-hover); }
+.x-nt-custom-recent-button:disabled { opacity: 0.45; cursor: default; }
+.x-nt-custom-recent-button:focus-visible,
+.x-nt-custom-recent-form input:focus-visible {
+  outline: 2px solid var(--x-nt-link);
+  outline-offset: 2px;
+}
+.x-nt-custom-recent-page { font-size: var(--lumno-font-size-sm); font-variant-numeric: tabular-nums; }
+.x-nt-custom-recent-editor {
+  --x-nt-custom-error: #b91c1c;
+  max-height: min(400px, 35dvh);
+  overflow-y: auto;
+  box-sizing: border-box;
+  margin-block: 12px;
+  padding: 16px;
+  border-radius: var(--lumno-radius-xl);
+  background: var(--x-nt-bg);
+  color: var(--x-nt-text);
+  border: 1px solid var(--x-nt-surface-border);
+}
+.x-nt-custom-recent-hint,
+.x-nt-custom-recent-empty,
+.x-nt-custom-recent-error { margin: 0 0 12px; font-size: var(--lumno-font-size-md); line-height: 1.6; }
+.x-nt-custom-recent-empty { color: var(--x-nt-recent-heading-color, var(--x-nt-text)); }
+.x-nt-custom-recent-error { margin: 8px 0 0; color: var(--x-nt-custom-error); }
+body[data-theme="dark"] .x-nt-custom-recent-editor { --x-nt-custom-error: #fca5a5; }
+.x-nt-custom-recent-error:empty { display: none; }
+.x-nt-custom-recent-status { margin: 8px 0 0; font-size: var(--lumno-font-size-sm); }
+.x-nt-custom-recent-status:empty { display: none; }
+.x-nt-custom-recent-list { list-style: none; padding: 0; margin: 16px 0 0; }
+.x-nt-custom-recent-list:empty { display: none; }
+.x-nt-custom-recent-row { display: flex; align-items: center; gap: 12px; padding-block: 8px; }
+.x-nt-custom-recent-copy { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.x-nt-custom-recent-copy strong { font-weight: 600; }
+.x-nt-custom-recent-copy strong,
+.x-nt-custom-recent-copy > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--lumno-font-size-md); }
+.x-nt-custom-recent-row-actions { display: flex; flex: 0 0 auto; }
+.x-nt-custom-recent-row-actions button { min-width: 32px; padding-inline: 8px; }
+.x-nt-custom-recent-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; align-items: end; gap: 12px; }
+.x-nt-custom-recent-form label { display: grid; gap: 6px; min-width: 0; font-size: var(--lumno-font-size-sm); }
+.x-nt-custom-recent-form input {
+  width: 100%; min-width: 0; box-sizing: border-box; min-height: 36px;
+  padding: 8px 10px; border: 1px solid var(--x-nt-surface-border);
+  border-radius: var(--lumno-radius-md); background: var(--x-nt-bg); color: var(--x-nt-text);
+  font: inherit; caret-color: var(--x-nt-link);
+}
+.x-nt-custom-recent-form input::placeholder { color: var(--x-nt-subtext); }
+.x-nt-custom-recent-form-actions { display: flex; align-items: center; gap: 4px; }
+.x-nt-custom-recent-save { background: var(--lumno-color-selected); color: var(--lumno-color-selected-text); }
+.x-nt-custom-recent-save:hover { background: var(--lumno-color-selected); filter: brightness(0.92); }
+.x-nt-custom-recent-tools[hidden],
+.x-nt-custom-recent-editor[hidden],
+.x-nt-custom-recent-empty[hidden],
+.x-nt-custom-recent-tools [hidden],
+.x-nt-custom-recent-form [hidden] { display: none; }
+.x-nt-recent-pin[hidden] { display: none; }
+@media (max-width: 600px) {
+  .x-nt-custom-recent-form { grid-template-columns: minmax(0, 1fr); }
+  .x-nt-custom-recent-form-actions { justify-content: flex-end; }
+  .x-nt-custom-recent-row { flex-wrap: wrap; gap: 4px; }
+  .x-nt-custom-recent-copy { flex-basis: 100%; }
+  .x-nt-custom-recent-row-actions { margin-inline-start: auto; }
+  .x-nt-custom-recent-button { min-height: 40px; }
+}

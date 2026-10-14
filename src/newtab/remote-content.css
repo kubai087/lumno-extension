@@ -215,6 +215,20 @@ body[data-quote-position="bottom"].x-nt-mobile-flow {
   flex-direction: column;
   gap: var(--x-nt-panel-content-gap);
 }
+.x-nt-quote-custom-body { display: grid; gap: 10px; min-width: 0; }
+.x-nt-quote-custom-body[hidden] { display: none; }
+.x-nt-quote-import-hint, .x-nt-quote-import-status {
+  margin: 0;
+  color: var(--x-nt-text, #111827);
+  font-size: var(--lumno-font-size-sm);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.x-nt-quote-source-tabs .x-nt-wallpaper-tab[aria-pressed="true"] { background: var(--control-bg); font-weight: 600; }
+.x-nt-quote-custom-body button:focus-visible, .x-nt-quote-source-tabs button:focus-visible {
+  outline: 2px solid var(--input-focus-color);
+  outline-offset: 2px;
+}
 
 .x-nt-wallpaper-body:not([data-active-tab="bing"]) .x-nt-bing-panel,
 .x-nt-wallpaper-body:not([data-active-tab="curated"]) .x-nt-curated-panel,

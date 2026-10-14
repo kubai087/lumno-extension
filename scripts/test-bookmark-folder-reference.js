@@ -141,6 +141,8 @@ async function run() {
   const pageSource = readNewtabRuntimeSource();
   const render = new Function('runtime', 'map', 'store', 'initial', `
     const shortcutFolderRuntime = runtime;
+    let pinRefreshes = 0;
+    const deps = { refreshBookmarkShortcutStates() { pinRefreshes += 1; } };
     const bookmarksRuntime = { getNodeMap: () => map };
     const NEWTAB_SHORTCUTS_STORE = store;
     let newtabShortcuts = initial, visible = [];
@@ -158,9 +160,10 @@ async function run() {
     ${functionSource(pageSource, 'getVisibleShortcuts')}
     ${functionSource(pageSource, 'renderShortcuts')}
     renderShortcuts();
-    return { complete: newtabShortcuts, visible };
+    return { complete: newtabShortcuts, visible, pinRefreshes };
   `);
   const rendered = render(bRuntime, new Map(), shortcuts, complete);
+  assert.strictEqual(rendered.pinRefreshes, 1, 'shortcut rendering refreshes bookmark pin states');
   assert.deepStrictEqual(rendered.complete, complete, 'actual render keeps hidden sync records');
   assert.deepStrictEqual(rendered.visible.map((row) => row.id), ['before', 'after']);
   assert.strictEqual(render(bRuntime, bMap, shortcuts, complete).visible[1].folderId, '117');

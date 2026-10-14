@@ -155,7 +155,7 @@ async function main() {
   assert.equal(refs.quoteBody.hidden, true);
   assert.equal(refs.quoteEnabledToggle.checked, false);
   assert.equal(document.body.dataset.quotePosition, 'off');
-  assert.deepEqual(prefs, { enabled: false, position: 'bottom', category: 'poetry', fontSize: 24 },
+  assert.deepEqual(prefs, { enabled: false, position: 'bottom', category: 'poetry', fontSize: 24, provider: 'hitokoto' },
     'The switch must preserve category, position and font size');
   refs.quoteEnabledToggle.click();
   await tick();
@@ -187,8 +187,8 @@ async function main() {
   assert.equal(localeRequests, 0, 'Non-Chinese languages must not contact Hitokoto');
   assert.equal(localeRuntime.element.hidden, true);
   assert.equal(document.body.dataset.quotePosition, 'off');
-  assert.equal(localeRefs.quoteSection.hidden, true, 'Quote settings must be hidden for non-Chinese languages');
-  assert.equal(localeRefs.quoteDivider.hidden, true);
+  assert.equal(localeRefs.quoteSection.hidden, false, 'Custom quote imports are available for every UI language');
+  assert.equal(localeRefs.quoteDivider.hidden, false);
   locale = 'zh_TW';
   localeRuntime.updateLanguage();
   await tick();
@@ -202,7 +202,7 @@ async function main() {
   localeRuntime.updateLanguage();
   assert.equal(localeRuntime.element.hidden, true);
   assert.equal(document.body.dataset.quotePosition, 'off');
-  assert.equal(localeRefs.quoteSection.hidden, true);
+  assert.equal(localeRefs.quoteSection.hidden, false);
   locale = 'zh_CN';
   localeRuntime.updateLanguage();
   await tick();

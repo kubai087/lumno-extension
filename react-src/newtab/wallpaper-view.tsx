@@ -896,7 +896,7 @@ function WallpaperPanel({ model }: { model: Record<string, any> }) {
           <div className="x-nt-panel-divider" />
           <ToggleSection arrowIcon={arrowIcon} name="recentSettings">
             <SettingRow titleRef="recentModeLabel">
-              <RowTabs attribute="data-recent-mode" name="recentMode" values={['latest', 'most']} />
+              <RowTabs attribute="data-recent-mode" name="recentMode" values={['latest', 'most', 'custom']} />
             </SettingRow>
             <SettingRow titleRef="recentRowsLabel">
               <RowTabs attribute="data-recent-rows" labeled name="recentRows" values={['1', '2']} />
@@ -930,6 +930,18 @@ function WallpaperPanel({ model }: { model: Record<string, any> }) {
               hidden
               id="_x_extension_newtab_quote_section_body_2026_unique_"
             >
+              <SettingRow titleRef="quoteSourceLabel">
+                <div {...ref('quoteSource')} className="x-nt-wallpaper-tabs x-nt-quote-source-tabs" role="group">
+                  {['hitokoto', 'custom'].map(provider => <button type="button" className="x-nt-wallpaper-tab"
+                    data-quote-provider={provider} key={provider} aria-pressed="false" />)}
+                </div>
+              </SettingRow>
+              <div {...ref('quoteCustomBody')} className="x-nt-quote-custom-body" hidden>
+                <button {...ref('quoteImportButton')} type="button" className="x-lumno-action-button x-lumno-action-button--secondary" />
+                <input {...ref('quoteFileInput')} type="file" accept=".txt,.md,.markdown,text/markdown,text/plain" hidden />
+                <p {...ref('quoteImportHint')} className="x-nt-quote-import-hint" />
+                <p {...ref('quoteImportStatus')} className="x-nt-quote-import-status" role="status" />
+              </div>
               <div className="x-nt-appearance-setting-row">
                 <span {...ref('quoteCategoryLabel')} className="x-nt-appearance-setting-title" />
                 <SegmentedTabs

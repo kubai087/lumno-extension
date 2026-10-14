@@ -41,7 +41,17 @@
   </a>
 </p>
 
-<p align="center">Current version: <code>1.0.1</code></p>
+<p align="center">Current version: <code>1.0.6</code> (custom fork)</p>
+
+This fork adds a **Custom** display mode beside Recent visits and Most visited. Choose Custom, then Manage sites to add, edit, remove and reorder up to 24 websites. Extra sites use paging with the existing row settings. The list stays on this device. See [custom sites](docs/custom-recent-sites.md).
+
+The existing Add shortcut → Add site dialog now offers **Choose from bookmarks**. Search by title, URL or folder, select an entry and save through the existing shortcut group and icon controls. Original browser bookmarks are unchanged, and Custom mode remains available. See [bookmark picker](docs/shortcut-bookmark-picker.md).
+
+Bookmark cards also offer a **pin** action to add a website directly to shortcuts. Filled pins mark existing shortcuts without removing or duplicating them. See [bookmark pin](docs/bookmark-shortcut-pin.md).
+
+Version 1.0.5 extends pins to all three bookmark views and nested menus, adds a local Markdown collection for Daily quote, and adds explicit Cancel/Confirm controls before closing other tabs. See [1.0.5 interaction updates](docs/navigation-1.0.5.md).
+
+Version 1.0.6 supports TXT and MD quote files, with each non-empty content line imported as a separate quote. See [line-based quote imports](docs/quotes-import-1.0.6.md).
 
 <img width="1200" height="480" alt="Lumno command bar for Chrome: search tabs, bookmarks and history from any page" src="./assets/images/readme/banner.webp" decoding="async" />
 
@@ -218,7 +228,7 @@ npm run test:newtab-layout
 npm run test:onboarding-content
 ```
 
-`npm run package:store` reads the version from `manifest.json` and creates `dist/lumno-store-v<version>.zip`. It requires `zip` and `zipinfo` to be available on the system.
+`npm run package:store` reads the version from `manifest.json` and creates `dist/lumno-store-v<version>.zip`. Windows uses built-in .NET ZIP support; other systems require `zip` and `zipinfo`.
 
 `npm run package:firefox` builds the store package and turns it into the Firefox build in `dist/firefox`. `scripts/build-firefox.js` lists every Firefox-specific change: background scripts instead of a service worker, the Gecko add-on ID, Firefox shortcuts, no auto Picture-in-Picture scripts, and locale messages with a `__firefox` suffix that replace their base message. To try it, open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `dist/firefox/manifest.json`; run `npm run lint:firefox` to check it with `web-ext`. In shared code, ask `LumnoBrowserProfile.isFirefoxExtensionRuntime()` instead of checking the URL scheme, and mark UI for one browser family with `data-browser-only="chromium"` (hidden elsewhere) or, for settings, `data-browser-unsupported="firefox"` (shown disabled with a reason).
 

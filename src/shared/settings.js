@@ -277,6 +277,7 @@
       // 'search' predates the input-box placement and still means "below shortcuts".
       position: ['top', 'input', 'bottom'].includes(source.position) ? source.position : 'search',
       category: source.category === 'poetry' ? 'poetry' : 'literature',
+      provider: source.provider === 'custom' ? 'custom' : 'hitokoto',
       fontSize: Number.isFinite(size)
         ? Math.min(NEWTAB_QUOTE_FONT_SIZE_MAX, Math.max(NEWTAB_QUOTE_FONT_SIZE_MIN, Math.round(size)))
         : NEWTAB_QUOTE_FONT_SIZE_DEFAULT

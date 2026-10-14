@@ -167,6 +167,26 @@ describe('Shared search input React island', () => {
     expect(parts.modeBadge?.hidden).toBe(false);
   });
 
+  it('focuses Cancel and requires explicit confirmation once before a secondary action', () => {
+    const onConfirm = vi.fn();
+    const parts = create({ secondaryAction: { id: 'guarded-close', ariaLabel: 'Close other tabs',
+      confirm: { onConfirm, getCopy: () => ({ message: 'Close other tabs?', messageKey: 'close', confirmLabel: 'Confirm close', cancelLabel: 'Cancel' }) } } });
+    const trigger = parts.secondaryAction!;
+    const popup = parts.container.querySelector<HTMLElement>('.x-lumno-search-input__popconfirm')!;
+    act(() => trigger.click());
+    const [cancel, confirm] = Array.from(popup.querySelectorAll<HTMLButtonElement>('button'));
+    expect(document.activeElement).toBe(cancel);
+    expect(onConfirm).not.toHaveBeenCalled();
+    act(() => cancel.click());
+    expect(popup.dataset.open).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+    expect(onConfirm).not.toHaveBeenCalled();
+    act(() => trigger.click());
+    act(() => { confirm.click(); confirm.click(); });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(popup.hasAttribute('inert')).toBe(true);
+  });
+
   it('asks in a popconfirm before running a confirmed secondary action', () => {
     const onConfirm = vi.fn();
     const getCopy = vi.fn(() => ({

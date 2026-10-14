@@ -119,5 +119,5 @@
    "name": "__MSG_ext_name__",
    "author": "Kubai087",
    "permissions": [ "scripting", "tabs", "tabGroups", "history", "topSites", "bookmarks", "storage", "search", "favicon", "alarms", "unlimitedStorage" ],
-   "version": "1.0.1"
+   "version": "1.0.6"
 }

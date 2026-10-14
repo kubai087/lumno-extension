@@ -104,6 +104,105 @@ afterEach(() => {
 });
 
 describe('shortcut dialog React island', () => {
+  it('chooses a bookmark by title, domain or folder and saves through the existing shortcut flow', async () => {
+    const onSubmit = vi.fn(() => true);
+    const controller = createController(onSubmit, {
+      loadBookmarkChoices: async () => [
+        { id: 'a', title: 'Figma', url: 'https://figma.com/', path: '收藏夹栏 / 设计' },
+        { id: 'b', title: 'GitHub', url: 'https://github.com/', path: '其他收藏夹 / 开发', added: true }
+      ],
+      getOnlineIconUrl: (url) => url ? `https://icons.test/?url=${encodeURIComponent(url)}` : ''
+    });
+    act(() => { controller.open(); flushAnimationFrames(); });
+    await act(async () => { controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click(); });
+    const search = controller.element.querySelector<HTMLInputElement>('input[type="search"]')!;
+    expect(document.activeElement).toBe(search);
+    expect(controller.element.querySelectorAll('.x-nt-shortcut-bookmark-result')).toHaveLength(2);
+    expect(controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-result:disabled')!.textContent).toContain('Already added');
+    for (const query of ['figma', 'FIGMA.COM', '设计']) {
+      act(() => setInputValue(search, query));
+      expect(controller.element.querySelectorAll('.x-nt-shortcut-bookmark-result')).toHaveLength(1);
+      expect(controller.element.querySelector('.x-nt-shortcut-bookmark-result')!.textContent).toContain('Figma');
+    }
+    act(() => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-result')!.click());
+    const inputs = controller.element.querySelectorAll<HTMLInputElement>('input[type="text"]');
+    expect(inputs[0].value).toBe('Figma');
+    expect(inputs[1].value).toBe('https://figma.com/');
+    expect(document.activeElement).toBe(inputs[0]);
+    expect(controller.element.querySelector('.x-nt-shortcut-bookmark-panel')).toBeNull();
+    expect(controller.element.querySelector('.x-nt-shortcut-online-icon-preview img')?.getAttribute('src')).toContain(encodeURIComponent('https://figma.com/'));
+    act(() => setInputValue(inputs[0], '设计工具'));
+    await act(async () => { await controller.submit(); });
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: '设计工具', url: 'https://figma.com/', mode: 'add', itemType: 'shortcut' }));
+  });
+
+  it('supports bookmark read retry, empty and no-results states without replacing manual input', async () => {
+    const load = vi.fn().mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValueOnce([])
+      .mockResolvedValue([{ id: 'a', title: 'Example', url: 'https://example.com/', path: 'Bookmarks' }]);
+    const controller = createController(() => false, { loadBookmarkChoices: load });
+    act(() => { controller.open(); flushAnimationFrames(); });
+    const name = controller.element.querySelector<HTMLInputElement>('input[type="text"]')!;
+    act(() => setInputValue(name, 'Manual draft'));
+    await act(async () => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    expect(controller.element.querySelector('[role="alert"]')!.textContent).toContain('Could not read bookmarks');
+    await act(async () => Array.from(controller.element.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent === 'Retry')!.click());
+    expect(controller.element.textContent).toContain('No available bookmarks');
+    expect(name.value).toBe('Manual draft');
+    act(() => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    await act(async () => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    act(() => setInputValue(controller.element.querySelector<HTMLInputElement>('input[type="search"]')!, 'missing'));
+    expect(controller.element.textContent).toContain('No matching bookmarks');
+    expect(name.value).toBe('Manual draft');
+  });
+
+  it('ignores a late bookmark response after the picker closes and reopens', async () => {
+    let resolveOld!: (items: Array<{ id: string; title: string; url: string; path: string }>) => void;
+    const old = new Promise<Array<{ id: string; title: string; url: string; path: string }>>((resolve) => { resolveOld = resolve; });
+    const load = vi.fn().mockReturnValueOnce(old).mockResolvedValueOnce([{ id: 'new', title: 'New bookmark', url: 'https://new.test/', path: '' }]);
+    const controller = createController(() => false, { loadBookmarkChoices: load });
+    act(() => { controller.open(); flushAnimationFrames(); });
+    act(() => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    expect(controller.element.textContent).toContain('Loading bookmarks');
+    act(() => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    await act(async () => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    await act(async () => resolveOld([{ id: 'old', title: 'Stale bookmark', url: 'https://old.test/', path: '' }]));
+    expect(controller.element.textContent).toContain('New bookmark');
+    expect(controller.element.textContent).not.toContain('Stale bookmark');
+  });
+
+  it('keeps bookmark keyboard focus inside the dialog and does not choose during IME composition', async () => {
+    const controller = createController(() => false, { loadBookmarkChoices: async () => [{ id: 'a', title: 'Example', url: 'https://example.com/', path: '' }] });
+    act(() => { controller.open(); flushAnimationFrames(); });
+    await act(async () => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    const search = controller.element.querySelector<HTMLInputElement>('input[type="search"]')!;
+    act(() => search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })));
+    expect(controller.element.querySelector('.x-nt-shortcut-bookmark-panel')).not.toBeNull();
+    act(() => search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })));
+    expect(document.activeElement).toBe(controller.element.querySelector('.x-nt-shortcut-bookmark-result'));
+    act(() => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(controller.getState().open).toBe(true);
+    expect(controller.element.querySelector('.x-nt-shortcut-bookmark-panel')).toBeNull();
+    expect(document.activeElement).toBe(controller.element.querySelector('.x-nt-shortcut-bookmark-trigger'));
+    await act(async () => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    const reopened = controller.element.querySelector<HTMLInputElement>('input[type="search"]')!;
+    act(() => reopened.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })));
+    expect(controller.element.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe('Example');
+  });
+
+  it('bounds large bookmark lists while searching the entire collection', async () => {
+    const controller = createController(() => false, { loadBookmarkChoices: async () => Array.from({ length: 65 }, (_, index) => ({ id: String(index), title: `Site ${index}`, url: `https://site${index}.test/`, path: 'Bookmarks' })) });
+    act(() => { controller.open(); flushAnimationFrames(); });
+    await act(async () => controller.element.querySelector<HTMLButtonElement>('.x-nt-shortcut-bookmark-trigger')!.click());
+    expect(controller.element.querySelectorAll('.x-nt-shortcut-bookmark-result')).toHaveLength(30);
+    act(() => Array.from(controller.element.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent === 'Show more')!.click());
+    expect(controller.element.querySelectorAll('.x-nt-shortcut-bookmark-result')).toHaveLength(60);
+    act(() => setInputValue(controller.element.querySelector<HTMLInputElement>('input[type="search"]')!, 'site64'));
+    expect(controller.element.querySelectorAll('.x-nt-shortcut-bookmark-result')).toHaveLength(1);
+    expect(controller.element.textContent).toContain('Site 64');
+    act(() => { controller.close(); controller.open({ mode: 'edit', shortcut: { id: 'existing', title: 'Existing', url: 'https://existing.test/' } }); flushAnimationFrames(); });
+    expect(controller.element.querySelector('.x-nt-shortcut-bookmark-trigger')).toBeNull();
+  });
+
   it('keeps the legacy helper and controller contract', () => {
     const api = createShortcutDialogApi();
 

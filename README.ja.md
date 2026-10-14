@@ -41,7 +41,7 @@
   </a>
 </p>
 
-<p align="center">現在のバージョン：<code>1.0.1</code></p>
+<p align="center">現在のバージョン：<code>1.0.6</code>（カスタムフォーク）</p>
 
 <img width="1200" height="480" alt="Lumno Chrome コマンドバー拡張機能：どのページからでもタブ、ブックマーク、履歴を検索" src="./assets/images/readme/banner.webp" decoding="async" />
 
@@ -218,7 +218,7 @@ npm run test:newtab-layout
 npm run test:onboarding-content
 ```
 
-`npm run package:store` は `manifest.json` のバージョンを読み取り、`dist/lumno-store-v<version>.zip` を生成します。このコマンドにはシステム上の `zip` と `zipinfo` が必要です。
+`npm run package:store` は `manifest.json` のバージョンを読み取り、`dist/lumno-store-v<version>.zip` を生成します。Windows は標準の .NET ZIP 機能を使用し、他のシステムでは `zip` と `zipinfo` が必要です。
 
 `npm run package:firefox` はストア用パッケージを作り、`dist/firefox` の Firefox 版に変換します。Firefox 固有の変更はすべて `scripts/build-firefox.js` にまとまっています（Service Worker の代わりのバックグラウンドスクリプト、Gecko のアドオン ID、Firefox 用ショートカット、自動ピクチャーインピクチャーのスクリプトの除外、`__firefox` 接尾辞付きのロケールメッセージによる元の文言の置き換え）。試すには `about:debugging#/runtime/this-firefox` を開き、「一時的なアドオンを読み込む」で `dist/firefox/manifest.json` を選びます。`npm run lint:firefox` で `web-ext` によるチェックができます。共有コードでは URL スキームを直接調べず `LumnoBrowserProfile.isFirefoxExtensionRuntime()` を使い、特定のブラウザ系統だけの UI には `data-browser-only="chromium"`（他では非表示）、設定項目には `data-browser-unsupported="firefox"`（無効表示で理由を示す）を付けてください。
 

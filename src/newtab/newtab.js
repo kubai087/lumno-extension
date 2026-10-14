@@ -642,6 +642,7 @@
   let searchEntryLastVisibleViewportWidth = Math.max(0, window.innerWidth || 0);
   let searchEntryLastVisibleViewportHeight = Math.max(0, window.innerHeight || 0);
   let currentRecentMode = 'most';
+  let customRecentSitesController = null;
   let currentRecentCount = 4;
   let currentBookmarkCount = 8;
   let currentBookmarkColumns = 6;
@@ -1199,6 +1200,7 @@
     progressHistory: PROGRESS_HISTORY,
     progressHistoryStorageArea: localStorageArea,
     openProgressHistory: (item) => openRecentHistoryDialog(item),
+    onCustomSiteEdit: (item) => customRecentSitesController?.edit(item),
     pageState: {
       get progressTrackingEnabled() {
         return progressTrackingEnabled;
@@ -1754,10 +1756,10 @@
   }
 
   function normalizeRecentMode(value, fallback) {
-    if (value === 'latest' || value === 'most') {
+    if (value === 'latest' || value === 'most' || value === 'custom') {
       return value;
     }
-    return fallback === 'latest' || fallback === 'most' ? fallback : 'latest';
+    return ['latest', 'most', 'custom'].includes(fallback) ? fallback : 'latest';
   }
 
   const NEWTAB_PAGE_PREFERENCES = globalThis.LumnoNewtabPagePreferences;
@@ -3351,7 +3353,7 @@
     });
     storageArea.get([RECENT_MODE_STORAGE_KEY], (result) => {
       const stored = result[RECENT_MODE_STORAGE_KEY];
-      const hasStored = stored === 'latest' || stored === 'most';
+      const hasStored = stored === 'latest' || stored === 'most' || stored === 'custom';
       const mode = normalizeRecentMode(stored, 'most');
       const changed = currentRecentMode !== mode;
       currentRecentMode = mode;
@@ -4337,6 +4339,10 @@
     openShortcutDialog,
     openShortcutAddContextMenu,
     handleShortcutDragPointerDown: (...args) => handleShortcutDragPointerDown(...args),
+    refreshBookmarkShortcutStates: () => {
+      bookmarksView?.refreshShortcutStates?.();
+      bookmarkCascadeRuntime?.refreshShortcutStates?.();
+    },
     handleShortcutDockPointerOver,
     handleShortcutDockPointerMove,
     syncShortcutDockFolderMenu,
@@ -5338,6 +5344,12 @@
   bookmarkGrid.setAttribute('data-view-mode', currentBookmarkViewMode);
   bookmarkGrid.addEventListener('pointerdown', handleBookmarkDragPointerDown, true);
   applyBookmarkGridColumns();
+  let bookmarkShortcutAddTask = Promise.resolve();
+  function addBookmarkSiteToShortcuts(item) {
+    const task = bookmarkShortcutAddTask.then(() => addSiteToShortcuts(item));
+    bookmarkShortcutAddTask = task.catch(() => {});
+    return task;
+  }
   bookmarksView = NEWTAB_BOOKMARKS_VIEW.createBookmarksView({
     documentObj: document,
     windowObj: window,
@@ -5372,6 +5384,8 @@
     openFolder: openBookmarkFolder,
     openFolderMenu: openBookmarkCascadeMenu,
     copyUrl: copyBookmarkUrl,
+    hasShortcut: hasShortcutForSite,
+    addShortcut: addBookmarkSiteToShortcuts,
     onItemContextMenu: handleBookmarkItemContextMenu,
     isActivationSuppressed: isCardActivationSuppressed,
     navigateToUrl,
@@ -5415,6 +5429,8 @@
     hideCursorTooltip,
     copyUrl: copyBookmarkUrl,
     copyTooltipController: bookmarkCascadeCopyTooltipController,
+    hasShortcut: hasShortcutForSite,
+    addShortcut: addBookmarkSiteToShortcuts,
     showTopActionTooltip,
     hideTopActionTooltip,
     onItemPointerDown: handleBookmarkCascadeItemPointerDown,
@@ -5480,6 +5496,11 @@
         value: 'most',
         labelKey: 'recent_heading_most',
         fallback: 'Most visited'
+      },
+      {
+        value: 'custom',
+        labelKey: 'recent_mode_custom',
+        fallback: 'Custom'
       }
     ]
   });
@@ -5900,6 +5921,9 @@
     renderShortcuts,
     getRecentSourceLimit,
     getRecentSites,
+    getCustomRecentSites: () => customRecentSitesController ? customRecentSitesController.load() : Promise.resolve([]),
+    getCustomRecentPageItems: (items, limit) => customRecentSitesController ? customRecentSitesController.pageItems(items, limit) : [],
+    syncCustomRecentSitesUi: () => customRecentSitesController?.update(),
     MAX_PINNED_RECENT_SITES,
     beginSearchEntryRestoreLayoutLock,
     pageState: {
@@ -5999,6 +6023,23 @@
       get currentRecentMode() {
         return currentRecentMode;
       }
+    }
+  });
+
+  customRecentSitesController = globalThis.LumnoCustomRecentSites.createController({
+    documentObj: document,
+    chromeObj: chrome,
+    storage: localStorageArea,
+    header: recentHeader,
+    grid: recentGrid,
+    t,
+    getMode: () => currentRecentMode,
+    getLimit: getRecentLimit,
+    onChange: () => {
+      if (currentRecentMode !== 'custom') return;
+      recentRenderSignature = '';
+      markRecentDataDirty();
+      loadRecentSites({ force: true });
     }
   });
 
@@ -7919,7 +7960,8 @@
       message: t('overlay_close_other_tabs_confirm', '关闭此窗口中的其他标签页？置顶和分组内的标签页会保留。'),
       messageKey: 'overlay_close_other_tabs_confirm',
       confirmLabel: t('overlay_close_other_tabs_confirm_button', '关闭'),
-      confirmLabelKey: 'overlay_close_other_tabs_confirm_button'
+      confirmLabelKey: 'overlay_close_other_tabs_confirm_button',
+      cancelLabel: t('confirm_cancel', 'Cancel'), cancelLabelKey: 'confirm_cancel'
     };
   }
 

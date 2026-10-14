@@ -2911,7 +2911,8 @@ window._x_extension_toggleSearchOverlay_2026_unique_ = function(tabs, overlayCon
         message: t('overlay_close_other_tabs_confirm', '关闭此窗口中的其他标签页？置顶和分组内的标签页会保留。'),
         messageKey: 'overlay_close_other_tabs_confirm',
         confirmLabel: t('overlay_close_other_tabs_confirm_button', '关闭'),
-        confirmLabelKey: 'overlay_close_other_tabs_confirm_button'
+        confirmLabelKey: 'overlay_close_other_tabs_confirm_button',
+        cancelLabel: t('confirm_cancel', 'Cancel'), cancelLabelKey: 'confirm_cancel'
       };
     }
 

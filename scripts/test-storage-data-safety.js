@@ -151,7 +151,7 @@ sourceFiles.forEach((file) => {
   let removeCallMatch = removeCallPattern.exec(source);
   while (removeCallMatch) {
     persistedRemoveCalls.push(
-      `${path.relative(repoRoot, file)}:${removeCallMatch[1]}:${removeCallMatch[2]}`
+      `${path.relative(repoRoot, file).split(path.sep).join('/')}:${removeCallMatch[1]}:${removeCallMatch[2]}`
     );
     removeCallMatch = removeCallPattern.exec(source);
   }

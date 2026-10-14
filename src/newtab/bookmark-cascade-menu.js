@@ -1403,6 +1403,7 @@
           getRiSvg,
           getUrlDisplay,
           copyLabel: t('bookmarks_copy_url', 'Copy link'),
+          pinLabel: t('bookmarks_add_shortcut', 'Add to shortcuts'),
           emptyLabel: t('bookmarks_empty_folder', 'No content'),
           siteIconAlt: t('site_icon_alt', '站点')
         });
@@ -1421,6 +1422,42 @@
         const itemView = viewController.items[index];
         const itemRow = itemView.row;
         const itemButton = itemView.button;
+        const pinButton = itemView.pinButton;
+        if (pinButton) {
+          let busy = false;
+          let failed = false;
+          const hasShortcut = () => Boolean(config.hasShortcut && config.hasShortcut(item));
+          const syncPin = () => {
+            const added = hasShortcut();
+            pinButton.dataset.added = String(added);
+            pinButton.setAttribute('aria-disabled', String(busy || added));
+            pinButton.setAttribute('aria-busy', String(busy));
+            const label = added ? t('newtab_shortcuts_already_added', 'Already in shortcuts') : failed ? t('bookmarks_add_shortcut_failed', 'Could not add shortcut. Try again.') : t('bookmarks_add_shortcut', 'Add to shortcuts');
+            pinButton.title = label;
+            pinButton.setAttribute('aria-label', `${label}: ${titleText}`);
+            pinButton.innerHTML = getRiSvg(busy ? 'ri-loader-4-line' : added ? 'ri-pushpin-fill' : 'ri-pushpin-line', 'ri-size-16');
+          };
+          pinButton._xRefreshBookmarkPin = syncPin;
+          syncPin();
+          const activatePinRow = () => {
+            cancelBookmarkCascadeHoverIntent(); hideCursorTooltip();
+            setBookmarkCascadeLevelActiveItem(levelElement, itemButton);
+            clearBookmarkCascadeLevelsFrom(safeLevelIndex + 1);
+          };
+          pinButton.addEventListener('pointerenter', activatePinRow);
+          pinButton.addEventListener('focus', activatePinRow);
+          pinButton.addEventListener('pointerdown', event => event.stopPropagation());
+          pinButton.addEventListener('keydown', event => event.stopPropagation());
+          pinButton.addEventListener('auxclick', event => { event.preventDefault(); event.stopPropagation(); });
+          pinButton.addEventListener('click', async event => {
+            event.preventDefault(); event.stopPropagation();
+            if (busy || hasShortcut() || !config.addShortcut || isActivationSuppressed()) return;
+            busy = true; failed = false; syncPin();
+            try { failed = !await config.addShortcut(item) && !hasShortcut(); }
+            catch (_) { failed = true; }
+            finally { busy = false; syncPin(); }
+          });
+        }
         itemButton.addEventListener('dragstart', (event) => {
           event.preventDefault();
         });
@@ -2058,6 +2095,9 @@
 
     return Object.freeze({
       close,
+      refreshShortcutStates() {
+        bookmarkCascadeMenu?.querySelectorAll('.x-nt-bookmark-cascade-pin-trigger').forEach(button => button._xRefreshBookmarkPin?.());
+      },
       createDebugControls: createBookmarkCascadeDebugControls,
       getDebugButton: () => bookmarkCascadeDebugButton,
       getDebugControl: () => bookmarkCascadeDebugControl,

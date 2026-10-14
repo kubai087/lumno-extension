@@ -6,7 +6,7 @@ import messages from '../../_locales/en/messages.json';
 const copy = Object.fromEntries(Object.entries(messages).map(([key, value]) => [key, value.message]));
 const item = { id: 'a', config: { endpoint: 'https://dav.test/', directory: 'lumno', username: 'user', hasPassword: true },
   enabled: false, state: 'paused', lastSyncAt: 1790899200000 };
-const model: WebDavListModel = { copy, ready: true, outdated: false, connections: [item, { ...item, id: 'b' }] };
+const model: WebDavListModel = { copy, lang: 'en', ready: true, outdated: false, connections: [item, { ...item, id: 'b' }] };
 const controllers: ReturnType<ReturnType<typeof createWebDavListApi>['createWebDavListController']>[] = [];
 function fixture(value = model) {
   const host = document.createElement('div');

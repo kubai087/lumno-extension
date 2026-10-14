@@ -213,7 +213,14 @@ if (/codex-debug-(?:bridge|surface)\.js|LumnoCodexDebug|codexDebugBridge/.test(s
 
 let zipResult = null;
 const zipArgs = ['-r', '-D', zipPath, ...packageRoots, 'manifest.json'];
-zipResult = spawnSync('zip', zipArgs, {
+const psQuote = (value) => `'${String(value).replace(/'/g, "''")}'`;
+const powershell = (command, options = {}) => spawnSync('powershell.exe', [
+  '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+  "$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem; " + command
+], options);
+zipResult = process.platform === 'win32'
+  ? powershell(`$stage = ${psQuote(packageStageDir)}; $archive = [System.IO.Compression.ZipFile]::Open(${psQuote(zipPath)}, [System.IO.Compression.ZipArchiveMode]::Create); try { Get-ChildItem -LiteralPath $stage -Recurse -File | ForEach-Object { $name = $_.FullName.Substring($stage.Length + 1).Replace('\\', '/'); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $name, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null } } finally { $archive.Dispose() }`, { stdio: 'inherit' })
+  : spawnSync('zip', zipArgs, {
   cwd: packageStageDir,
   stdio: 'inherit'
 });
@@ -221,7 +228,9 @@ if (zipResult.status !== 0) {
   process.exit(zipResult.status || 1);
 }
 
-const listResult = spawnSync('zipinfo', ['-1', zipPath], {
+const listResult = process.platform === 'win32'
+  ? powershell(`$archive = [System.IO.Compression.ZipFile]::OpenRead(${psQuote(zipPath)}); try { $archive.Entries | ForEach-Object { $_.FullName } } finally { $archive.Dispose() }`, { encoding: 'utf8' })
+  : spawnSync('zipinfo', ['-1', zipPath], {
   cwd: process.cwd(),
   encoding: 'utf8'
 });
@@ -257,6 +266,7 @@ function checkManifestPath(value) {
   if (!value || typeof value !== 'string') {
     return;
   }
+  value = normalizePackagePath(value);
   if (/^(https?:|chrome:|__MSG_)/.test(value)) {
     return;
   }
@@ -296,7 +306,7 @@ function checkRelativeResourcePath(file, value) {
   if (resolved.startsWith('..') || path.isAbsolute(resolved)) {
     return;
   }
-  checkManifestPath(resolved);
+  checkManifestPath(normalizePackagePath(resolved));
 }
 
 function checkCssUrlReferences(file, source) {
