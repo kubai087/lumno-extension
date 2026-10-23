@@ -36,9 +36,9 @@
   },
   "dependencies": {
     "@number-flow/react": "^0.6.2",
-    "react": "^19.2.0",
+    "react": "^19.2.9",
     "react-colorful": "^5.8.1",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.9"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
