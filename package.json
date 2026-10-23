@@ -51,7 +51,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "jsdom": "^27.0.0",
-    "typescript": "^5.9.0",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.71.1",
     "vite": "^7.0.0",
     "vitest": "^3.2.0",
