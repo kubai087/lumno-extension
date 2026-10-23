@@ -4,7 +4,7 @@ const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const { bundleScript } = require('./module-script');
 const { getInjectedFiles } = require('./runtime-scripts');
-const { recordAllListeners, trackListeners } = require('./trusted-events');
+const { recordAllListeners, startSelectorEngine, trackListeners } = require('./trusted-events');
 const { trackPageTimers } = require('./page-timers');
 
 // Loads the unmodified production overlay injection bundle (the same file
@@ -55,6 +55,7 @@ function createListenerLedger(window) {
     return null;
   }
   let nextId = 1;
+  startSelectorEngine(window);
   function track(target, label) {
     const originalAdd = target.addEventListener;
     const originalRemove = target.removeEventListener;

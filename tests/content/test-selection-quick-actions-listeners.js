@@ -5,6 +5,7 @@ const assert = require('assert');
 const { JSDOM } = require('jsdom');
 const selectionIntent = require('../../src/shared/selection-intent.js');
 const { bundleScript } = require('../helpers/module-script');
+const { startSelectorEngine } = require('../helpers/trusted-events');
 
 const ENABLED_KEY = '_x_extension_selection_quick_actions_enabled_2026_unique_';
 const LANGUAGE_KEY = '_x_extension_language_2024_unique_';
@@ -114,6 +115,7 @@ function trackListeners(target, label, registry) {
     await new Promise((resolve) => window.addEventListener('load', resolve, { once: true }));
   }
   const pageListeners = new Map();
+  startSelectorEngine(window);
   trackListeners(document, 'document', pageListeners);
   trackListeners(window, 'window', pageListeners);
   trackListeners(visualViewport, 'visualViewport', pageListeners);

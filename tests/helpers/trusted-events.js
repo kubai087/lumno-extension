@@ -37,10 +37,22 @@ function createTrustedEvent(type, init) {
   return event;
 }
 
+// JSDOM's selector engine adds capture listeners for focus, key and mouse
+// events to the window the first time its document runs a selector, and keeps
+// them for the document's lifetime. Starting the engine before tracking keeps
+// those listeners out of the ones the page registers.
+function startSelectorEngine(target) {
+  const document = (target && (target.document || target.ownerDocument)) || target;
+  if (document && typeof document.querySelector === 'function') {
+    document.querySelector('*');
+  }
+}
+
 // Tracks the listeners added to `target` (a window, document or element) so
 // trusted events can be delivered to them. Listeners keep working for real
 // dispatchEvent calls too.
 function trackListeners(target) {
+  startSelectorEngine(target);
   const listeners = [];
   const nativeAdd = target.addEventListener.bind(target);
   const nativeRemove = target.removeEventListener.bind(target);
@@ -96,6 +108,7 @@ function trackListeners(target) {
 // browser does: capture listeners from the window down, then the target and
 // bubble listeners back up, stopping where propagation is stopped.
 function recordAllListeners(window) {
+  startSelectorEngine(window);
   const registry = new WeakMap();
   const proto = window.EventTarget.prototype;
   const nativeAdd = proto.addEventListener;
@@ -172,4 +185,4 @@ function recordAllListeners(window) {
   };
 }
 
-module.exports = { createTrustedEvent, recordAllListeners, trackListeners };
+module.exports = { createTrustedEvent, recordAllListeners, startSelectorEngine, trackListeners };

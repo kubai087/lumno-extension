@@ -27,10 +27,6 @@ updates:
         versions: [">=19.3.0 <19.4.0"]
       - dependency-name: "@types/react-dom"
         versions: [">=19.3.0 <19.4.0"]
-      # jsdom 28+ changes CSS serialization, computed styles and listener
-      # bookkeeping that 22 test files rely on; it moves as its own change.
-      - dependency-name: jsdom
-        update-types: ["version-update:semver-major"]
       # typescript-eslint 8 accepts TypeScript below 6.1, so npm ci fails on
       # TypeScript 7 (#97); revisit when typescript-eslint widens its range.
       - dependency-name: typescript

@@ -25,6 +25,7 @@ function listHostStyleNodes(document) {
     const hostIcon = document.createElement('i');
     hostIcon.className = 'ri-home-line';
     document.body.appendChild(hostIcon);
+    const plainIcon = document.body.appendChild(document.createElement('i'));
     const stylesBefore = listHostStyleNodes(document);
 
     await openAndSettle(page);
@@ -50,7 +51,7 @@ function listHostStyleNodes(document) {
       'host-level faces must not reuse the page-visible "Open Sans" or "remixicon" family names');
     assert.ok(/remixicon\.woff2/.test(fontFaceStyle.textContent));
     assert.ok(/OpenSans-VariableFont/.test(fontFaceStyle.textContent));
-    assert.strictEqual(window.getComputedStyle(hostIcon).fontFamily, '',
+    assert.strictEqual(window.getComputedStyle(hostIcon).fontFamily, window.getComputedStyle(plainIcon).fontFamily,
       'host-page elements with ri-* classes must keep their own styling');
 
     const panel = window.LumnoOverlayShell.findOverlayPanel(document);
