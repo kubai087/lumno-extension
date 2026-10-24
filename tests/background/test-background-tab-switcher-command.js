@@ -100,8 +100,8 @@ async function testCommandOpensTheRecentTabsOnTheActivePage() {
   const { tabId, message } = opens[0];
   const context = message.context;
   assert.strictEqual(tabId, 11);
-  assert.deepStrictEqual(context.tabs.map((tab) => tab.id), [11, 13, 12, 15],
-    'the switcher should list the recent tabs, browser pages included and incognito tabs left out');
+  assert.deepStrictEqual(context.tabs.map((tab) => tab.id), [11, 13, 12],
+    'the switcher should list only same-window recent tabs, including browser pages and excluding incognito and other spaces');
   assert.strictEqual(context.selectedIndex, 1, 'the tab before the current one should start selected');
   assert.strictEqual(context.currentTabId, 11);
   assert.strictEqual(context.shortcut, 'Ctrl+Shift+Y', 'the page should hear the shortcut the browser has configured');
@@ -128,6 +128,31 @@ async function testCommandOpensTheRecentTabsOnTheActivePage() {
   ['command-received', 'shortcut-configured', 'switcher-opened'].forEach((stage) => {
     assert.ok(debug.includes(stage), `the shortcut trace should record ${stage}`);
   });
+}
+
+async function testOtherSpaceCannotFillCandidatesOrUseRecentHistory() {
+  const tabs = webTabs();
+  const session = bootSwitcher({ tabs });
+  await wait(30);
+  // Record the other window as most recently visited, then invoke in window 1.
+  session.harness.chrome.tabs.onActivated.dispatch({ tabId: 15, windowId: 2 });
+  await wait(10);
+  await session.visit([11]);
+  // Also exercise the candidate boundary when a browser returns an overbroad list.
+  const query = session.harness.chrome.tabs.query;
+  session.harness.chrome.tabs.query = (options, callback) => {
+    if (options.windowId === 1 && !options.active) {
+      callback(tabs);
+      return;
+    }
+    query(options, callback);
+  };
+  session.press();
+  await wait(400);
+  const candidates = session.sent('openTabSwitcherFromCommand')[0].message.context.tabs;
+  assert.ok(candidates.length < 5, 'do not fill empty slots with another space');
+  assert.ok(candidates.every((tab) => tab.windowId === 1),
+    'even the most recently visited tab must be excluded when it belongs to another space');
 }
 
 async function testRepeatedCommandAdvancesTheOpenSwitcher() {
@@ -472,6 +497,7 @@ async function testShowSearchOnTheNewtabFocusesItsInput() {
 
 (async () => {
   await testCommandOpensTheRecentTabsOnTheActivePage();
+  await testOtherSpaceCannotFillCandidatesOrUseRecentHistory();
   await testRepeatedCommandAdvancesTheOpenSwitcher();
   await testSuppressedAdvanceStillOpens();
   await testFallsBackToInjectingTheSwitcher();

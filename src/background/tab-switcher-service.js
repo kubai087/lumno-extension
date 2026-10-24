@@ -1998,8 +1998,9 @@ function normalizeSwitcherTabForPayload(tab, currentTabId) {
   };
 }
 
-function getRecentTabsForSwitcher(tabList, currentTabId) {
+function getRecentTabsForSwitcher(tabList, currentTabId, windowId) {
   const normalizedTabs = (Array.isArray(tabList) ? tabList : [])
+    .filter((tab) => tab && typeof windowId === 'number' && tab.windowId === windowId)
     .map((tab) => ({
       ...tab,
       url: getResolvedTabUrl(tab)
@@ -2461,7 +2462,9 @@ export function triggerTabSwitcherForTab(tab, source, commandObservedAt, pageSho
       }
     });
     const tabQueryReady = new Promise((resolve) => {
-      chrome.tabs.query({}, (tabs) => {
+      // Use the invoking tab, not the globally focused window: spaces may change
+      // while the asynchronous shortcut setup is still running.
+      chrome.tabs.query({ windowId }, (tabs) => {
         const error = chrome.runtime && chrome.runtime.lastError
           ? chrome.runtime.lastError.message || 'unknown'
           : '';
@@ -2526,7 +2529,7 @@ export function triggerTabSwitcherForTab(tab, source, commandObservedAt, pageSho
         return;
       }
       const { tabList, activeTab, shortcut, finishOpeningAndArmShortcutRelease } = openContext;
-      const items = getRecentTabsForSwitcher(tabList, activeTab.id);
+      const items = getRecentTabsForSwitcher(tabList, activeTab.id, activeTab.windowId);
       markSwitcherThumbnailPriorityForItems(items, tabList, 'command-payload');
       if (!items.length) {
         finishOpening();
