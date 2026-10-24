@@ -179,6 +179,8 @@ const PINNED_RECENT_SITES_STORAGE_KEY = '_x_extension_newtab_pinned_recent_sites
 const HIDDEN_RECENT_SITES_STORAGE_KEY = '_x_extension_newtab_hidden_recent_sites_2026_unique_';
 const NEWTAB_SHORTCUTS_STORAGE_KEY = '_x_extension_newtab_shortcuts_2026_unique_';
 const AUTO_PIP_ENABLED_STORAGE_KEY = '_x_extension_auto_pip_enabled_2026_unique_';
+// Keep the original opt-in key for existing development installs.
+const TAB_SWITCHER_SHIFT_TAB_ENABLED_STORAGE_KEY = '_x_extension_tab_switcher_shift_tab_enabled_2026_unique_';
 const TAB_SWITCHER_ENABLED_STORAGE_KEY = '_x_extension_tab_switcher_enabled_2026_unique_';
 const DOCUMENT_PIP_ENABLED_STORAGE_KEY = '_x_extension_document_pip_enabled_2026_unique_';
 const PINNED_TAB_RECOVERY_ENABLED_STORAGE_KEY = '_x_extension_pinned_tab_recovery_enabled_2026_unique_';
@@ -381,6 +383,7 @@ const CHROME_SYNC_STORAGE_KEYS = Object.freeze([
   MACOS_CTRL_SUGGESTION_NAVIGATION_ENABLED_STORAGE_KEY,
   AUTO_PIP_ENABLED_STORAGE_KEY,
   TAB_SWITCHER_ENABLED_STORAGE_KEY,
+  TAB_SWITCHER_SHIFT_TAB_ENABLED_STORAGE_KEY,
   DOCUMENT_PIP_ENABLED_STORAGE_KEY,
   PINNED_TAB_RECOVERY_ENABLED_STORAGE_KEY,
   LINK_PREVIEW_ENABLED_STORAGE_KEY,
@@ -1702,6 +1705,7 @@ export {
   NEWTAB_SHORTCUTS_STORAGE_KEY,
   AUTO_PIP_ENABLED_STORAGE_KEY,
   TAB_SWITCHER_ENABLED_STORAGE_KEY,
+  TAB_SWITCHER_SHIFT_TAB_ENABLED_STORAGE_KEY,
   DOCUMENT_PIP_ENABLED_STORAGE_KEY,
   PINNED_TAB_RECOVERY_ENABLED_STORAGE_KEY,
   LINK_PREVIEW_ENABLED_STORAGE_KEY,

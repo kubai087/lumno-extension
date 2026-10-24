@@ -88,6 +88,7 @@ function createCopy(t) {
 // Conflict summaries name settings by the title already shown on the
 // settings page; keys without a single visible title fall back to their tab.
 const PREFERENCE_LABELS = [
+  ['tab_switcher_shift_tab', 'settings_tab_switcher_shift_tab_title'],
   ['theme_mode_2024', 'settings_theme_title'], ['newtab_theme', 'newtab_theme_scope_label'],
   ['language', 'settings_language_title'], ['recent_mode', 'settings_recent_title'],
   ['recent_count', 'settings_recent_sites_title'], ['recent_sites', 'settings_recent_sites_title'],

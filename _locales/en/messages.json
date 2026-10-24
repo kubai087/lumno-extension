@@ -2765,6 +2765,12 @@
   "settings_tab_switcher_title": {
     "message": "Tab switcher"
   },
+  "settings_tab_switcher_shift_tab_title": {
+    "message": "Enable mapped tab-switcher shortcut"
+  },
+  "settings_tab_switcher_shift_tab_desc": {
+    "message": "Accept Ctrl+Q / Ctrl+Shift+Q on web pages, including inputs. Map Ctrl+Tab / Ctrl+Shift+Tab to these keys with an OS remapper such as Pawgic. Hold Ctrl to cycle; release it to confirm. The address bar and browser internal pages are not supported."
+  },
   "settings_tab_switcher_desc": {
     "message": "Quickly switch between recent tabs; {shortcut} by default, customizable"
   },

@@ -124,7 +124,7 @@ const EXPECTED_BACKGROUND_ACTIONS = [
   'updateOverlayLoadingSession', 'getTabsForOverlay', 'trackSearchTab', 'closeOtherTabsForOverlay',
   'swapNewtabForFocus',
   'getShowSearchShortcut', 'getCopyCurrentUrlCommandShortcut', 'copyCurrentPageUrl',
-  'triggerShowSearchFromPageHotkey', 'notifyTabSwitcherShortcutModifierReleased', 'getShortcutRules',
+  'triggerShowSearchFromPageHotkey', 'triggerTabSwitcherFromCtrlTab', 'notifyTabSwitcherShortcutModifierReleased', 'getShortcutRules',
   'pipRequestOwnership', 'pipReleaseOwnership', 'openDocumentPipPicker', 'siteTryEnterPiPInMainWorld',
   'iqiyiTryEnterPiPInMainWorld', 'iqiyiSetupAutoPiPInMainWorld', 'forceExitPiPInMainWorld',
   'ytForceExitPiPInMainWorld',

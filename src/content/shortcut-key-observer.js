@@ -41,6 +41,8 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
   // Whether the background has answered; until then a replacement asks again
   // instead of inheriting a request whose answer reaches the old observer.
   let showSearchShortcutResolved = false;
+  let tabSwitcherShiftTabEnabled = false;
+  let armedPageShortcut = '';
   let armedReleaseKeys = [];
   const recentTrustedKeydownAtByKey = new Map();
   const recentTrustedReleaseAtByKey = new Map();
@@ -76,6 +78,8 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
     if (Array.isArray(state.armedReleaseKeys)) {
       armedReleaseKeys = state.armedReleaseKeys.map(normalizeReleaseKey).filter(Boolean);
     }
+    tabSwitcherShiftTabEnabled = state.tabSwitcherShiftTabEnabled === true;
+    armedPageShortcut = ['Ctrl+Tab', 'Ctrl+Shift+Tab'].includes(state.armedPageShortcut) ? state.armedPageShortcut : '';
     [
       [state.trustedKeydowns, recentTrustedKeydownAtByKey],
       [state.trustedReleases, recentTrustedReleaseAtByKey]
@@ -93,6 +97,8 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
       showSearchShortcut: showSearchShortcutRaw,
       showSearchShortcutRefreshedAt,
       showSearchShortcutResolved,
+      tabSwitcherShiftTabEnabled,
+      armedPageShortcut,
       armedReleaseKeys: armedReleaseKeys.slice(),
       trustedKeydowns: Array.from(recentTrustedKeydownAtByKey.entries()),
       trustedReleases: Array.from(recentTrustedReleaseAtByKey.entries())
@@ -117,6 +123,7 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
         if (chrome.runtime && chrome.runtime.lastError) {
           return;
         }
+        tabSwitcherShiftTabEnabled = Boolean(response && response.tabSwitcherShiftTabEnabled === true);
         const nextShortcut = response && typeof response.shortcut === 'string'
           ? response.shortcut
           : '';
@@ -162,6 +169,21 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
       return;
     }
     rememberTrustedShortcutKeydown(event);
+    if (tabSwitcherShiftTabEnabled && SHORTCUT_KEY_MATCHER.isTabSwitcherCtrlTabEvent(event) &&
+        !document.getElementById('_x_extension_tab_switcher_host_2026_unique_')) {
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        chrome.runtime.sendMessage({
+          action: 'triggerTabSwitcherFromCtrlTab',
+          reverse: event.shiftKey === true,
+          observedAt: Date.now()
+        }, () => { void (chrome.runtime && chrome.runtime.lastError); });
+      } catch (error) {
+        // A reload may invalidate this content script before the page reloads.
+      }
+      return;
+    }
     const descriptor = SHORTCUT_KEY_MATCHER.describeKeyboardEvent(event);
     if (!showSearchShortcutSpec) {
       relayUnresolvedShowSearchShortcut(event, descriptor);
@@ -304,7 +326,8 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
     try {
       chrome.runtime.sendMessage({
         action: 'notifyTabSwitcherShortcutModifierReleased',
-        key
+        key,
+        ...(armedPageShortcut ? { shortcut: armedPageShortcut } : {})
       }, () => {
         void (chrome.runtime && chrome.runtime.lastError);
       });
@@ -320,6 +343,7 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
       armedReleaseKeys = (Array.isArray(request.keys) ? request.keys : [request.key])
         .map(normalizeReleaseKey)
         .filter(Boolean);
+      armedPageShortcut = ['Ctrl+Tab', 'Ctrl+Shift+Tab'].includes(request.shortcut) ? request.shortcut : '';
       const bufferedKey = getBufferedReleasedShortcutKey(
         armedReleaseKeys,
         request.commandStartedAt
@@ -370,6 +394,17 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
     }
   };
 
+  const refreshTabSwitcherShiftTabSetting = (changes) => {
+    if (changes && (changes._x_extension_tab_switcher_enabled_2026_unique_ ||
+        changes._x_extension_tab_switcher_shift_tab_enabled_2026_unique_)) {
+      showSearchShortcutRefreshedAt = 0;
+      refreshShowSearchShortcut();
+    }
+  };
+  if (chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(refreshTabSwitcherShiftTabSetting);
+  }
+
   adoptInheritedState(inheritedState);
   // Only the observer a Document starts with reports that start; a
   // replacement, or a sweep of tabs open before an install, runs in a page
@@ -397,6 +432,9 @@ import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
       window.removeEventListener('focus', refreshShowSearchShortcutOnFocus);
       window.removeEventListener('pageshow', refreshShowSearchShortcutOnPageShow);
       document.removeEventListener('visibilitychange', refreshShowSearchShortcutOnVisibility, true);
+      if (chrome.storage && chrome.storage.onChanged && typeof chrome.storage.onChanged.removeListener === 'function') {
+        chrome.storage.onChanged.removeListener(refreshTabSwitcherShiftTabSetting);
+      }
       if (chrome && chrome.runtime && chrome.runtime.onMessage &&
           typeof chrome.runtime.onMessage.removeListener === 'function') {
         try {

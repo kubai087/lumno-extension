@@ -13,16 +13,19 @@ const runtimeMessages = [];
 let runtimeMessageListener = null;
 let cardClickEvents = 0;
 const keyupListeners = new Set();
+const keydownListeners = new Set();
 const nativeAddEventListener = window.addEventListener.bind(window);
 const nativeRemoveEventListener = window.removeEventListener.bind(window);
 
 window.addEventListener = (type, listener, options) => {
+  if (type === 'keydown') keydownListeners.add(listener);
   if (type === 'keyup') {
     keyupListeners.add(listener);
   }
   return nativeAddEventListener(type, listener, options);
 };
 window.removeEventListener = (type, listener, options) => {
+  if (type === 'keydown') keydownListeners.delete(listener);
   if (type === 'keyup') {
     keyupListeners.delete(listener);
   }
@@ -272,6 +275,21 @@ assert.deepStrictEqual(
   [{ action: 'switchToTab', tabId: 1, windowId: null }],
   'a trusted activation must preserve the normal privileged switch path'
 );
+
+runtimeMessages.length = 0;
+window._x_extension_toggleTabSwitcher_2026_unique_({
+  tabs: [{ id: 1 }, { id: 2 }, { id: 3 }], selectedIndex: 1, shortcut: 'Ctrl+Tab'
+});
+const shiftTabKeydown = Array.from(keydownListeners).at(-1);
+// Pawgic's Ctrl+Q alias preserves forward and reverse selection.
+shiftTabKeydown({ ...trustedShortcutKeyupEvent('q', 'KeyQ'), ctrlKey: true });
+shiftTabKeydown({ ...trustedShortcutKeyupEvent('q', 'KeyQ'), ctrlKey: true, shiftKey: true });
+Array.from(keyupListeners).at(-1)(trustedShortcutKeyupEvent('Tab', 'Tab'));
+assert.strictEqual(runtimeMessages.length, 0);
+Array.from(keyupListeners).at(-1)(trustedShortcutKeyupEvent('Control', 'ControlLeft'));
+assert.deepStrictEqual(runtimeMessages.map((message) => ({ ...message })),
+  [{ action: 'switchToTab', tabId: 2, windowId: null }],
+  'Ctrl+Tab forward and Ctrl+Shift+Tab backward advances once and Control release commits the highlighted recent tab');
 
 dom.window.close();
 console.log('tab switcher extension-page runtime tests passed');

@@ -1,3 +1,4 @@
+import * as SETTINGS from '../shared/settings.js';
 // Recent-tab switcher (Alt+Q by default): the in-page host and the
 // extension-page port bridge, opening/advancing/committing the switcher and
 // relaying the shortcut release, the recent-tab list with its thumbnails
@@ -18,6 +19,7 @@ import {
   SHOW_TAB_SWITCHER_COMMAND_NAME,
   TAB_SWITCHER_THUMBNAIL_STORAGE_KEY,
   backgroundSettingsLoaded,
+  storageArea,
   ignoreExpectedChromeError,
   logHotkeyDebug,
   openNewtabFallback,
@@ -724,14 +726,17 @@ function commitOpenTabSwitcherInWindow(windowId, source) {
     .catch(() => findAndCommit().catch(() => false));
 }
 
-export function handleTabSwitcherShortcutModifierReleased(senderTab, releasedKey, callback) {
+export function handleTabSwitcherShortcutModifierReleased(senderTab, releasedKey, callback, pageShortcut) {
   const finish = typeof callback === 'function' ? callback : () => {};
   if (!senderTab || typeof senderTab.windowId !== 'number') {
     finish(false);
     return;
   }
   const key = String(releasedKey || '');
-  getConfiguredTabSwitcherShortcut((shortcut) => {
+  const getShortcut = (pageShortcut === 'Ctrl+Tab' || pageShortcut === 'Ctrl+Shift+Tab')
+    ? (done) => getTabSwitcherShiftTabEnabled((enabled) => done(enabled ? 'Ctrl+Tab' : ''))
+    : getConfiguredTabSwitcherShortcut;
+  getShortcut((shortcut) => {
     const expectedKeys = RECENT_TAB_SWITCHER.getShortcutReleaseEventKeys(shortcut);
     if (!expectedKeys.includes(key)) {
       recordTabSwitcherShortcutDebug('release-rejected', {
@@ -766,6 +771,7 @@ function armTabSwitcherShortcutReleaseObservers(tabs, windowId, shortcut, comman
   const message = {
     action: 'armTabSwitcherShortcutRelease',
     keys,
+    shortcut,
     commandStartedAt: Number(commandStartedAt) || 0
   };
   (Array.isArray(tabs) ? tabs : []).forEach((item) => {
@@ -2308,7 +2314,7 @@ function injectTabSwitcherOnTab(hostTab, items, context) {
   runWebPageSwitcherScript(1);
 }
 
-function advanceExistingTabSwitcherOnTab(tab, source, callback) {
+function advanceExistingTabSwitcherOnTab(tab, source, offset, callback) {
   if (!tab || typeof tab.id !== 'number' || !canHostSwitcherSurface(tab)) {
     if (typeof callback === 'function') {
       callback(false);
@@ -2325,7 +2331,7 @@ function advanceExistingTabSwitcherOnTab(tab, source, callback) {
   if (isTabSwitcherExtensionPageMessageTarget(tab)) {
     postTabSwitcherMessageToExtensionPage(tab, {
       action: 'advanceOpenTabSwitcherFromCommand',
-      offset: 1
+      offset
     }, (ok, _reason, response) => {
       const didAdvance = Boolean(ok && response && response.advanced === true);
       if (didAdvance) {
@@ -2348,7 +2354,7 @@ function advanceExistingTabSwitcherOnTab(tab, source, callback) {
     try {
       chrome.tabs.sendMessage(tab.id, {
         action: 'advanceOpenTabSwitcherFromCommand',
-        offset: 1
+        offset
       }, (response) => {
         const didAdvance = !(chrome.runtime && chrome.runtime.lastError) &&
           response &&
@@ -2371,10 +2377,10 @@ function advanceExistingTabSwitcherOnTab(tab, source, callback) {
   runRuntimeMessageFastPath();
 }
 
-export function triggerTabSwitcherForTab(tab, source, commandObservedAt) {
+export function triggerTabSwitcherForTab(tab, source, commandObservedAt, pageShortcut) {
   if (!backgroundSettingsLoaded) {
     whenBackgroundSettingsReady(() => {
-      triggerTabSwitcherForTab(tab, source, commandObservedAt);
+      triggerTabSwitcherForTab(tab, source, commandObservedAt, pageShortcut);
     });
     return;
   }
@@ -2406,7 +2412,7 @@ export function triggerTabSwitcherForTab(tab, source, commandObservedAt) {
   // modifier release can be buffered and replayed after the panel opens.
   const shortcutObserverReady = prepareShortcutKeyObserver(tab);
   clearScheduledSwitcherThumbnailCapture(tab.id);
-  advanceExistingTabSwitcherOnTab(tab, source, (didAdvance) => {
+  advanceExistingTabSwitcherOnTab(tab, source, pageShortcut === 'Ctrl+Shift+Tab' ? -1 : 1, (didAdvance) => {
     if (didAdvance) {
       if (typeof tab.windowId === 'number') {
         tabSwitcherHostTabIdByWindowId.set(tab.windowId, tab.id);
@@ -2448,7 +2454,11 @@ export function triggerTabSwitcherForTab(tab, source, commandObservedAt) {
       loadFaviconEnhancedFetchEnabled()
     ]).catch(() => {}); // Each loader falls back to its default; open regardless.
     const shortcutReady = new Promise((resolve) => {
-      getConfiguredTabSwitcherShortcut(resolve);
+      if (pageShortcut === 'Ctrl+Tab' || pageShortcut === 'Ctrl+Shift+Tab') {
+        resolve(pageShortcut);
+      } else {
+        getConfiguredTabSwitcherShortcut(resolve);
+      }
     });
     const tabQueryReady = new Promise((resolve) => {
       chrome.tabs.query({}, (tabs) => {
@@ -2533,7 +2543,9 @@ export function triggerTabSwitcherForTab(tab, source, commandObservedAt) {
       const hostTab = canHostOnActiveTab
         ? activeTab
         : (hostItem ? tabList.find((item) => item && item.id === hostItem.id) : null);
-      const selectedIndex = getDefaultSwitcherSelectedIndex(items, activeTab.id);
+      const selectedIndex = pageShortcut === 'Ctrl+Shift+Tab'
+        ? (items.findIndex((item) => item.id === activeTab.id) - 1 + items.length) % items.length
+        : getDefaultSwitcherSelectedIndex(items, activeTab.id);
       if (!hostTab || typeof hostTab.id !== 'number') {
         openNewtabFallbackForUrl(activeUrl, { sourceTab: activeTab });
         finishOpening();
@@ -2565,6 +2577,32 @@ export function triggerTabSwitcherForTab(tab, source, commandObservedAt) {
       });
     }).catch(() => {
       finishOpening();
+    });
+  });
+}
+
+export function getTabSwitcherPageHotkeySenderTab(request, sender, callback) {
+  if (sender && sender.tab) {
+    callback(sender.tab);
+  } else if (sender && String(sender.url || '').startsWith(chrome.runtime.getURL('')) &&
+      typeof request.tabId === 'number') {
+    chrome.tabs.get(request.tabId, (tab) => {
+      callback(chrome.runtime && chrome.runtime.lastError ? null : tab);
+    });
+  } else {
+    callback(null);
+  }
+}
+
+export function getTabSwitcherShiftTabEnabled(callback) {
+  whenBackgroundSettingsReady(() => {
+    if (!storageArea || !tabSwitcherEnabledCache) {
+      callback(false);
+      return;
+    }
+    storageArea.get(SETTINGS.TAB_SWITCHER_SHIFT_TAB_ENABLED_STORAGE_KEY, (result) => {
+      callback(!(chrome.runtime && chrome.runtime.lastError) &&
+        tabSwitcherEnabledCache && Boolean(result && result[SETTINGS.TAB_SWITCHER_SHIFT_TAB_ENABLED_STORAGE_KEY] === true));
     });
   });
 }

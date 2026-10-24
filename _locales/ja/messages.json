@@ -2765,6 +2765,12 @@
   "settings_tab_switcher_title": {
     "message": "タブ切り替え"
   },
+  "settings_tab_switcher_shift_tab_title": {
+    "message": "タブ切り替えのキーマッピングを有効にする"
+  },
+  "settings_tab_switcher_shift_tab_desc": {
+    "message": "Web ページ内で Ctrl+Q / Ctrl+Shift+Q を受け付けます（入力欄を含む）。Pawgic などで Ctrl+Tab / Ctrl+Shift+Tab をこれらのキーに割り当ててください。Ctrl を押したまま選択し、離すと確定します。アドレスバーやブラウザ内部ページには対応していません。"
+  },
   "settings_tab_switcher_desc": {
     "message": "既定の {shortcut} で最近のタブをすばやく切り替えます（変更可能）"
   },

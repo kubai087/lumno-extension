@@ -1,3 +1,5 @@
+import * as SHORTCUT_KEY_MATCHER from '../shared/shortcut-key-matcher.js';
+
 (function() {
   if (window._x_extension_tab_switcher_page_bridge_2026_unique_) {
     return;
@@ -14,6 +16,8 @@
   let extensionPagePortClosed = false;
   let extensionPageTabId = null;
   let armedReleaseKeys = [];
+  let armedPageShortcut = '';
+  let tabSwitcherShiftTabEnabled = false;
   const recentTrustedKeydownAtByKey = new Map();
   const recentTrustedReleaseAtByKey = new Map();
 
@@ -138,7 +142,8 @@
     try {
       chromeApi.runtime.sendMessage({
         action: 'notifyTabSwitcherShortcutModifierReleased',
-        key
+        key,
+        ...(armedPageShortcut ? { shortcut: armedPageShortcut, tabId: extensionPageTabId } : {})
       }, () => {
         void (chromeApi.runtime && chromeApi.runtime.lastError);
       });
@@ -269,6 +274,7 @@
       armedReleaseKeys = (Array.isArray(request.keys) ? request.keys : [request.key])
         .map(normalizeTabSwitcherReleaseKey)
         .filter(Boolean);
+      armedPageShortcut = ['Ctrl+Tab', 'Ctrl+Shift+Tab'].includes(request.shortcut) ? request.shortcut : '';
       const bufferedKey = getBufferedTabSwitcherShortcutReleaseKey(
         armedReleaseKeys,
         request.commandStartedAt
@@ -414,8 +420,44 @@
     relayTabSwitcherShortcutRelease(key);
   }
 
+  function refreshShiftTabSetting() {
+    try {
+      chromeApi.runtime.sendMessage({ action: 'getShowSearchShortcut' }, (response) => {
+        if (!(chromeApi.runtime && chromeApi.runtime.lastError)) {
+          tabSwitcherShiftTabEnabled = Boolean(response && response.tabSwitcherShiftTabEnabled === true);
+        }
+      });
+    } catch (error) {
+      // The extension may be reloading while this page remains open.
+    }
+  }
+
   window.addEventListener('keydown', rememberTrustedTabSwitcherShortcutKeydown, true);
+  window.addEventListener('keydown', (event) => {
+    if (!tabSwitcherShiftTabEnabled ||
+        !SHORTCUT_KEY_MATCHER.isTabSwitcherCtrlTabEvent(event, { allowNewtabSearch: true }) ||
+        document.getElementById(TAB_SWITCHER_HOST_ID)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    chromeApi.runtime.sendMessage({
+      action: 'triggerTabSwitcherFromCtrlTab',
+      reverse: event.shiftKey === true,
+      observedAt: Date.now(),
+      tabId: extensionPageTabId
+    }, () => { void chromeApi.runtime.lastError; });
+  }, true);
   window.addEventListener('keyup', notifyTabSwitcherShortcutModifierReleased, true);
+  if (chromeApi && chromeApi.storage && chromeApi.storage.onChanged) {
+    chromeApi.storage.onChanged.addListener((changes) => {
+      if (changes && (changes._x_extension_tab_switcher_enabled_2026_unique_ ||
+          changes._x_extension_tab_switcher_shift_tab_enabled_2026_unique_)) {
+        refreshShiftTabSetting();
+      }
+    });
+  }
+  refreshShiftTabSetting();
 
   window.addEventListener('pagehide', () => {
     extensionPagePortClosed = true;

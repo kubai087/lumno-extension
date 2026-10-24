@@ -285,7 +285,9 @@ import * as TOAST from '../shared/ui/toast.js';
       normalizeTabSwitcherShortcutKey(event && event.key),
       normalizeTabSwitcherShortcutCode(event && event.code)
     ].filter(Boolean);
-    return eventKeys.includes(shortcut.triggerKey);
+    const mappedTab = shortcut.triggerKey === 'tab' && event && event.ctrlKey &&
+      !event.altKey && !event.metaKey && eventKeys.includes('q');
+    return mappedTab || eventKeys.includes(shortcut.triggerKey);
   }
 
   function isTabSwitcherCommitModifierPressed(shortcut, event) {
@@ -1252,18 +1254,18 @@ import * as TOAST from '../shared/ui/toast.js';
       if (!event || event.isTrusted !== true) {
         return;
       }
-      if (event.key === 'Tab') {
-        stopHandledKeyEvent(event);
-        selectByOffset(event.shiftKey ? -1 : 1);
-        return;
-      }
       if (isTabSwitcherShortcutTriggerEvent(shortcut, event)) {
         stopHandledKeyEvent(event);
         if (shouldSuppressInitialShortcutAdvance() && isTabSwitcherCommitModifierPressed(shortcut, event)) {
           return;
         }
         suppressInitialShortcutAdvanceUntilTriggerKeyup = false;
-        selectByOffset(1);
+        selectByOffset(shortcut.triggerKey === 'tab' && event.shiftKey ? -1 : 1);
+        return;
+      }
+      if (event.key === 'Tab') {
+        stopHandledKeyEvent(event);
+        selectByOffset(event.shiftKey ? -1 : 1);
         return;
       }
       if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {

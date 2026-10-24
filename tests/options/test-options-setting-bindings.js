@@ -133,6 +133,7 @@ function createPage(initial, options) {
     [settings.UPDATE_NOTICE_ENABLED_STORAGE_KEY, true],
     [settings.MOTION_EFFECTS_ENABLED_STORAGE_KEY, true],
     [settings.TAB_SWITCHER_ENABLED_STORAGE_KEY, true],
+    [settings.TAB_SWITCHER_SHIFT_TAB_ENABLED_STORAGE_KEY, false],
     [settings.AUTO_PIP_ENABLED_STORAGE_KEY, true],
     [settings.DOCUMENT_PIP_ENABLED_STORAGE_KEY, false],
     [settings.PINNED_TAB_RECOVERY_ENABLED_STORAGE_KEY, false],

@@ -32,6 +32,9 @@ import {
 } from './background.js';
 import {
   focusWindowAndActivateTab,
+  getTabSwitcherPageHotkeySenderTab,
+  getTabSwitcherShiftTabEnabled,
+  triggerTabSwitcherForTab,
   handleTabSwitcherShortcutModifierReleased
 } from './tab-switcher-service.js';
 import {
@@ -231,7 +234,27 @@ export const TAB_MESSAGE_HANDLERS = Object.freeze({
 export const SHORTCUT_MESSAGE_HANDLERS = Object.freeze({
   getShowSearchShortcut(request, sender, sendResponse) {
     getConfiguredFallbackShortcut((shortcut) => {
-      sendResponse({ shortcut: shortcut || '' });
+      getTabSwitcherShiftTabEnabled((tabSwitcherShiftTabEnabled) => {
+        sendResponse({ shortcut: shortcut || '', tabSwitcherShiftTabEnabled });
+      });
+    });
+    return true;
+  },
+  triggerTabSwitcherFromCtrlTab(request, sender, sendResponse) {
+    getTabSwitcherShiftTabEnabled((enabled) => {
+      if (!enabled) {
+        sendResponse({ ok: false, reason: 'page-tab-switcher-disabled' });
+        return;
+      }
+      const trigger = (tab) => {
+        if (!tab || typeof tab.id !== 'number') {
+          sendResponse({ ok: false, reason: 'no-sender-tab' });
+          return;
+        }
+        triggerTabSwitcherForTab(tab, 'page-tab-switcher', request.observedAt, request.reverse === true ? 'Ctrl+Shift+Tab' : 'Ctrl+Tab');
+        sendResponse({ ok: true });
+      };
+      getTabSwitcherPageHotkeySenderTab(request, sender, trigger);
     });
     return true;
   },
@@ -287,9 +310,10 @@ export const SHORTCUT_MESSAGE_HANDLERS = Object.freeze({
     return;
   },
   notifyTabSwitcherShortcutModifierReleased(request, sender, sendResponse) {
-    const senderTab = sender && sender.tab ? sender.tab : null;
-    handleTabSwitcherShortcutModifierReleased(senderTab, request && request.key, (didCommit) => {
-      sendResponse({ ok: true, committed: didCommit === true });
+    getTabSwitcherPageHotkeySenderTab(request, sender, (senderTab) => {
+      handleTabSwitcherShortcutModifierReleased(senderTab, request && request.key, (didCommit) => {
+        sendResponse({ ok: true, committed: didCommit === true });
+      }, request && request.shortcut);
     });
     return true;
   },
