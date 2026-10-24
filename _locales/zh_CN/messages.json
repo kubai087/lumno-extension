@@ -2765,6 +2765,12 @@
   "settings_tab_switcher_title": {
     "message": "标签切换器"
   },
+  "settings_tab_switcher_shift_tab_title": {
+    "message": "启用标签切换器按键映射"
+  },
+  "settings_tab_switcher_shift_tab_desc": {
+    "message": "在网页内接收 Ctrl+Q / Ctrl+Shift+Q，输入框内也可用。请使用 Pawgic 等系统映射工具，将 Ctrl+Tab / Ctrl+Shift+Tab 映射到这两个按键。按住 Ctrl 连续选择，松开确认；不支持地址栏和浏览器内部页面。"
+  },
   "settings_tab_switcher_desc": {
     "message": "快速切换最近标签页，默认 {shortcut}，可自定义"
   },

@@ -164,11 +164,30 @@ function canBeChromeCommandShortcut(descriptor) {
     /^F\d{1,2}$/.test(String(descriptor.key));
 }
 
+// Ctrl+Tab is a page shortcut: keep form navigation and editor shortcuts.
+// composedPath also checks controls and editor hosts in shadow DOM.
+function isTabSwitcherCtrlTabEvent(event, options) {
+  // Pawgic maps the browser-reserved Ctrl+Tab to Ctrl+Q on macOS.
+  const mappedTab = event && String(event.key).toLowerCase() === 'q';
+  if (!event || event.isTrusted !== true || event.isComposing || event.repeat ||
+      (event.key !== 'Tab' && !mappedTab) || !event.ctrlKey || event.altKey || event.metaKey) {
+    return false;
+  }
+  if (mappedTab) return true;
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+  return !path.some((element) => element &&
+    !(options && options.allowNewtabSearch === true && element.id === '_x_extension_newtab_search_input_2024_unique_') &&
+    (element.id === '_x_extension_overlay_host_2026_unique_' ||
+      element.isContentEditable || (typeof element.closest === 'function' &&
+      element.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"]'))));
+}
+
 export {
   parseShortcut,
   getKeyFromCode,
   describeKeyboardEvent,
   descriptorMatchesShortcut,
   eventMatchesShortcut,
-  canBeChromeCommandShortcut
+  canBeChromeCommandShortcut,
+  isTabSwitcherCtrlTabEvent
 };

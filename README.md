@@ -73,6 +73,20 @@ Combine 2–10 built-in or custom search sources into one scope and run the same
 
 Press `Alt+Q` to open a keyboard tab switcher and jump between recently used tabs, similar to `Alt+Tab` for your browser.
 
+### Arc-style recent-tab switching with a system remapper
+
+Chrome reserves `Ctrl+Tab`, so an extension cannot reliably intercept it. Enable **Enable mapped tab-switcher shortcut** in Lumno settings (off by default), then configure Pawgic or another OS remapper for your browser only:
+
+| Physical shortcut | Send to Lumno | Behavior |
+| --- | --- | --- |
+| `Ctrl+Tab` | `Ctrl+Q` | Open the recent-tab switcher / select the next item |
+| `Ctrl+Shift+Tab` | `Ctrl+Shift+Q` | Open in reverse / select the previous item |
+
+Keep Control held while cycling; release it to activate the selected tab. `Escape` cancels. On macOS, use **Control**, not Command. In Pawgic, add two keyboard shortcut rules scoped to the browser app (for example, ego lite), using the source/target pairs above. Preserve Control in both mappings so releasing the physical modifier can confirm the selection.
+
+The mapped shortcut works while page content has focus, including inputs and Lumno's new-tab search field. It takes over `Ctrl+Q` and `Ctrl+Shift+Q` in those pages while enabled. It cannot run from the address bar or browser internal pages; use the regular extension shortcut (`Alt+Q` by default) there. Direct `Ctrl+Tab` handling is best effort only where the browser delivers it to the page, and leaves ordinary inputs/editors alone. No additional extension permissions are required.
+
+
 ### AI actions for selected text
 
 Select text on any page to answer, translate, explain, summarize, research or calculate it with your preferred AI provider. Results open in a new tab, optionally in the background.

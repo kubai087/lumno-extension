@@ -875,7 +875,7 @@ export const backgroundMessageRouter = BACKGROUND_MESSAGE_ROUTER.createRouter(
 const WEB_PAGE_MESSAGE_ACTIONS = Object.freeze([
   'switchToTab', 'closeTabFromTabSwitcher', 'notifyOverlayClosed', 'notifyTopFrameDocumentStarted',
   'updateOverlayLoadingSession', 'getTabsForOverlay', 'closeOtherTabsForOverlay',
-  'getShowSearchShortcut', 'copyCurrentPageUrl', 'triggerShowSearchFromPageHotkey',
+  'getShowSearchShortcut', 'copyCurrentPageUrl', 'triggerShowSearchFromPageHotkey', 'triggerTabSwitcherFromCtrlTab',
   'getWebAppearance', 'setWebAppearance',
   'notifyTabSwitcherShortcutModifierReleased', 'getShortcutRules',
   'pipRequestOwnership', 'pipReleaseOwnership', 'openDocumentPipPicker', 'siteTryEnterPiPInMainWorld',

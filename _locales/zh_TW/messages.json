@@ -2765,6 +2765,12 @@
   "settings_tab_switcher_title": {
     "message": "分頁切換器"
   },
+  "settings_tab_switcher_shift_tab_title": {
+    "message": "啟用分頁切換器按鍵映射"
+  },
+  "settings_tab_switcher_shift_tab_desc": {
+    "message": "在網頁內接收 Ctrl+Q / Ctrl+Shift+Q，輸入框內也可使用。請使用 Pawgic 等系統映射工具，將 Ctrl+Tab / Ctrl+Shift+Tab 映射至這兩個按鍵。按住 Ctrl 連續選擇，放開確認；不支援網址列與瀏覽器內部頁面。"
+  },
   "settings_tab_switcher_desc": {
     "message": "快速切換最近分頁，預設 {shortcut}，可自訂"
   },

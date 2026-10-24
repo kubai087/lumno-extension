@@ -71,6 +71,8 @@ const expectedSyncKeys = [
   '_x_extension_macos_ctrl_suggestion_navigation_enabled_2026_unique_',
   '_x_extension_auto_pip_enabled_2026_unique_',
   '_x_extension_tab_switcher_enabled_2026_unique_',
+  // New opt-in preference: a missing key keeps existing focus navigation.
+  '_x_extension_tab_switcher_shift_tab_enabled_2026_unique_',
   '_x_extension_document_pip_enabled_2026_unique_',
   '_x_extension_pinned_tab_recovery_enabled_2026_unique_',
   '_x_extension_link_preview_enabled_2026_unique_',
