@@ -640,6 +640,33 @@ describe('Suggestions React island', () => {
     expect(items[2].dataset.last).toBe('true');
   });
 
+  it('binds a clipped title tooltip to the whole row', () => {
+    const bindCursorTooltip = vi.fn();
+    const { view, items } = createView({ bindCursorTooltip });
+    render(
+      view,
+      [
+        {
+          type: 'history',
+          title: 'Example result',
+          url: 'https://example.com/result'
+        }
+      ],
+      {
+        query: 'ex',
+        updateKind: 'structure'
+      }
+    );
+
+    const row = items[0];
+    const boundToRow = bindCursorTooltip.mock.calls.filter(
+      ([target]) => target === row
+    );
+    expect(boundToRow).toHaveLength(1);
+    const [, getText] = boundToRow[0];
+    expect(getText()).toBe('Example result');
+  });
+
   it('updates only the matching mark when result content is unchanged', () => {
     const bindCursorTooltip = vi.fn();
     const onSetSelectedIndex = vi.fn();

@@ -125,14 +125,23 @@ export function HighlightedText({
   );
 }
 
-function isOverflowing(target: HTMLElement): boolean {
+function isOverflowing(target: HTMLElement | null): boolean {
   return isElementTextTruncated(target);
 }
 
+type TextTooltipOptions = Pick<
+  NormalizedOptions,
+  'bindCursorTooltip' | 'sanitizeDisplayText'
+>;
+
+// The hover target can be wider than the text it stands for: a whole row, whose
+// padding and empty room are part of it, while the text's own line box is what
+// gets clipped. `measure` is the element to measure for that.
 export function bindTextTooltip(
-  options: NormalizedOptions,
+  options: TextTooltipOptions,
   target: HTMLElement | null,
-  text: unknown
+  text: unknown,
+  measure: HTMLElement | null = target
 ): void {
   const safeText = options.sanitizeDisplayText(text);
   if (!options.bindCursorTooltip || !target || !safeText) {
@@ -140,7 +149,7 @@ export function bindTextTooltip(
   }
   options.bindCursorTooltip(target, () => safeText, {
     maxWidth: 520,
-    shouldShow: isOverflowing,
+    shouldShow: () => isOverflowing(measure),
     deferHideVisibility: true,
     preserveVisibleOnTargetSwitch: true
   });

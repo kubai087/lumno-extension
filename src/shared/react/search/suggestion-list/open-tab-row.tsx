@@ -149,7 +149,8 @@ function OpenTabRowComponent({
           )}`, 'span');
     }
     options.applyThemeVariables(item, immediateTheme);
-    bindTextTooltip(options, titleRef.current, titleText);
+    // The row answers for a clipped title, not just its line box.
+    bindTextTooltip(options, item, titleText, titleRef.current);
     let active = true;
     if (!localFallback) {
       void options

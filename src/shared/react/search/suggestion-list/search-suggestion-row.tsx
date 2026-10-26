@@ -321,10 +321,13 @@ function SearchSuggestionRowComponent({
     if (!item) {
       return;
     }
+    // The row is the hover target, not the title's line box: its padding, the
+    // icon and the room after the ellipsis are part of the row too.
     bindTextTooltip(
       options,
-      titleRef.current,
-      suggestion.title || ''
+      item,
+      suggestion.title || '',
+      titleRef.current
     );
     const urlLine = queryHtmlElement(item, `.${surfaceClass(options, 'x-nt-suggestion-url-line')}`);
     // A help center page's line shows the matched passage, so its tooltip shows the passage too,
