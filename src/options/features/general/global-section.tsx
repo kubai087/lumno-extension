@@ -18,7 +18,7 @@ import {
   GeneralGlobalSection as GeneralGlobalView,
   type GeneralGlobalSectionHandlers
 } from '../../react/general-global-section';
-import { loadLocaleMessages } from '../language/locale';
+import { loadExtensionLocaleMessages } from '../../../shared/i18n/locale-messages';
 import { isHelpCenterSearchEnabled } from '../site-search/providers';
 
 const LANGUAGE_SELECT_ID = '_x_extension_language_select_2024_unique_';
@@ -49,7 +49,7 @@ export function GeneralGlobalSection() {
   const download = useCallback(() => downloadTranslationSheet({
     documentObj: document,
     getMessage: t,
-    loadLocaleMessages,
+    loadLocaleMessages: loadExtensionLocaleMessages,
     locale: pageLocale,
     uiLocales: UI_LOCALES
   }), [t, pageLocale]);

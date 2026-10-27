@@ -11,7 +11,7 @@ import { refreshSyncNowTooltip } from '../../dom/sync-now-tooltip';
 import { createSyncSection, type SyncSectionOptions } from '../../options-sync-section';
 import type { AccountTabHandlers, BrowserSyncCardModel, WebDavCardModel } from '../../react/account-tab';
 import { createController as createWebDavController, type WebDavControllerOptions } from '../../webdav-options';
-import type { OptionsLocale } from '../language/locale';
+import type { SurfaceLocale } from '../../../shared/i18n/surface-locale';
 
 interface AccountState {
   // Null until each card has reported its first model.
@@ -23,7 +23,7 @@ interface AccountDeps {
   sync: Omit<SyncSectionOptions, 'onRender' | 'refreshSyncNowTooltip'>;
   webdav: Omit<WebDavControllerOptions, 'onRender'>;
   settingsStore: Pick<SettingsStore, 'subscribe'>;
-  locale: Pick<OptionsLocale, 'store'>;
+  locale: Pick<SurfaceLocale, 'store'>;
   // Refreshes an element's floating tooltip while it shows.
   showTooltipFor(target: HTMLElement): void;
 }

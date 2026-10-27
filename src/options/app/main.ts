@@ -20,7 +20,8 @@ import { PageTheme } from '../features/appearance/page-theme';
 import { BLACKLIST_TAB_SETTINGS } from '../features/blacklist/blacklist-tab';
 import { GENERAL_TAB_SETTINGS } from '../features/general/general-tab';
 import { LABS_TAB_SETTINGS } from '../features/labs/labs-tab';
-import { OptionsLocale } from '../features/language/locale';
+import { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import { loadExtensionLocaleMessages } from '../../shared/i18n/locale-messages';
 import { OptionsNavigation } from '../features/navigation/navigation';
 import { SEARCH_SOURCES_TAB_SETTINGS } from '../features/search-sources/search-sources-tab';
 import { BrowserCommands } from '../features/shortcuts/browser-commands';
@@ -57,7 +58,7 @@ function createFeedback(): PageFeedback {
 
 function createAccount(
   settingsStore: SettingsStore,
-  locale: OptionsLocale,
+  locale: SurfaceLocale,
   feedback: PageFeedback,
   providerStorage: ReturnType<typeof ProviderStorage.getProviderStorage>
 ): Account {
@@ -69,7 +70,7 @@ function createAccount(
       documentObj: document,
       formatTemplate,
       getActivePrimaryAreaName: () => providerStorage.runtime.getActiveAreaName(),
-      getMessage: locale.getMessage,
+      getMessage: locale.t,
       localStorageArea: chrome.storage ? chrome.storage.local || null : null,
       settings: SETTINGS,
       showToast: feedback.showToast,
@@ -79,7 +80,7 @@ function createAccount(
         settings: SETTINGS
       })
     },
-    webdav: { chromeApi: chrome, getMessage: locale.getMessage },
+    webdav: { chromeApi: chrome, getMessage: locale.t },
     settingsStore,
     locale,
     showTooltipFor: feedback.showTooltipFor
@@ -89,11 +90,11 @@ function createAccount(
 // The page's owners and the context every view reads them from.
 function createPage(host: HTMLElement) {
   const settingsStore = getContextSettingsStore(chrome, window);
-  const locale = new OptionsLocale(settingsStore);
+  const locale = new SurfaceLocale(settingsStore, loadExtensionLocaleMessages);
   const feedback = createFeedback();
   const showLoadError = (what: string) => (error: unknown) => {
     console.warn(`[Lumno] Could not load ${what}.`, error);
-    feedback.showToast(locale.getMessage('toast_error', '操作失败，请重试。'), true);
+    feedback.showToast(locale.t('toast_error', '操作失败，请重试。'), true);
   };
   // The provider area holds the synced settings; the settings transfer and
   // the aggregate searches' byte budget depend on which it is.
@@ -113,7 +114,7 @@ function createPage(host: HTMLElement) {
     siteSearchProviders,
     aggregateSearches: new AggregateSearches(settingsStore, providerStorage.runtime, showLoadError('aggregate searches')),
     sourceOrder: createSearchSourceOrderController({
-      getMessage: locale.getMessage,
+      getMessage: locale.t,
       showToast: feedback.showToast,
       read: () => readStoredSetting(settingsStore, SETTINGS.searchSourceOrder),
       write: (value) => settingsStore.set(SETTINGS.searchSourceOrder, SETTINGS.searchSourceOrder.parse(value))
@@ -139,6 +140,9 @@ function follow(page: OptionsPage, navigation: OptionsNavigation, providerStorag
   navigation.start();
   page.pageTheme.start();
   page.locale.follow();
+  page.locale.store.subscribe(() => {
+    document.documentElement.lang = SETTINGS.localeToHtmlLang(page.locale.store.getSnapshot().locale);
+  });
   page.account.start(providerStorage.runtime);
   commands.follow(window, document);
   // The search shortcut falls back to another chord when the browser has none.

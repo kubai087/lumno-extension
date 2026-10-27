@@ -61,6 +61,8 @@ import { getOverlayShellApi } from './react/shell';
 import { createSearchInput } from '../shared/react/search-input';
 import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
+import { SurfaceLocale, getSystemLocale } from '../shared/i18n/surface-locale';
+import { loadExtensionLocaleMessages } from '../shared/i18n/locale-messages';
 import { themeColorCache, themeHostCache } from '../shared/favicon/theme-caches';
 import {
   searchInputHistory,
@@ -148,6 +150,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     currentOverlayTabId: initialContextTabId
   });
   // They follow storage only once the panel mounts, below.
+  const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
+  const { t, formatMessage } = locale;
   const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
   const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings.store, searchEngine, openOptions.siteSearchProviders);
 
@@ -328,8 +332,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getHostFromUrl: (...args) => getHostFromUrl(...args),
     isLocalNetworkHost: (...args) => isLocalNetworkHost(...args),
     SUGGESTION_ACTION_MODEL,
-    getSystemLocale: (...args) => getSystemLocale(...args),
-    SETTINGS,
+    locale,
     getProviderIcon: (...args) => getProviderIcon(...args),
     COMMUNITY_LINKS,
     t: (...args) => t(...args),
@@ -823,16 +826,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   const {
     applyOverlayCjkFontFace,
-    getSystemLocale,
-    t,
-    bootstrapOverlayLanguageForInitialRender,
-    formatMessage,
-    applyLanguageStrings,
-    applyLanguageMode
+    applyLanguageStrings
   } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
-    SETTINGS,
-    overlayRuntime,
-    settings: overlayState.settings,
+    locale,
     updateModeBadge,
     setSiteSearchPrefix,
     getThemeForProvider,
@@ -911,6 +907,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   // No overlay is open here (an open one has closed above, a stale one is
   // being replaced): create it.
+  addOverlaySessionCleanup(locale.follow());
   addOverlaySessionCleanup(searchEngine.follow());
   addOverlaySessionCleanup(siteSearchCatalog.follow());
   // Read the page theme while the page's layout is still settled: the font
@@ -1007,7 +1004,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     styleRoot: overlayStyleRoot
   });
 
-  const initialLanguageReady = bootstrapOverlayLanguageForInitialRender().catch(() => {});
+  // The first messages are in before the panel's copy is drawn; later
+  // changes redraw it.
+  const initialLanguageReady = locale.ready.then(() => {
+    applyOverlayCjkFontFace(locale.store.getSnapshot().locale);
+  }).catch(() => {});
 
   const inputParts = createSearchInput({
     container: overlayMount.inputContainer,
@@ -1085,8 +1086,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     COMMUNITY_LINKS,
     t,
     getOpenDisposition,
-    getSystemLocale,
-    SETTINGS,
+    locale,
     overlayState
   });
 
@@ -1180,6 +1180,15 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (overlayState.overlay && overlayState.overlay.isConnected) {
       applyLanguageStrings({ refreshResults: false });
     }
+    let shownMessages = locale.store.getSnapshot().messages;
+    locale.store.subscribe(() => {
+      const { messages, locale: shownLocale } = locale.store.getSnapshot();
+      if (messages !== shownMessages) {
+        shownMessages = messages;
+        applyOverlayCjkFontFace(shownLocale);
+        applyLanguageStrings();
+      }
+    });
   });
 
   function activateSearchScopeIcon(): void {
@@ -1281,7 +1290,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const settingsApplied = PANEL_SETTINGS_SYNC.createSettingsSync({
     updateSearchSuggestions,
     applyOverlayTheme,
-    applyLanguageMode,
     searchEngine,
     clearLocalSearchScope,
     requestOverlaySearchSuggestions,

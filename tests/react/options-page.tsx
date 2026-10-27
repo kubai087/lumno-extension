@@ -8,7 +8,8 @@ import type { StorageItems } from '../../src/domain/storage-port';
 import { OptionsPageContext, type OptionsPage } from '../../src/options/app/context';
 import { AggregateSearches } from '../../src/options/features/aggregate-search/searches';
 import { PageTheme } from '../../src/options/features/appearance/page-theme';
-import { OptionsLocale } from '../../src/options/features/language/locale';
+import { SurfaceLocale } from '../../src/shared/i18n/surface-locale';
+import { loadExtensionLocaleMessages } from '../../src/shared/i18n/locale-messages';
 import { BrowserCommands } from '../../src/options/features/shortcuts/browser-commands';
 import { SiteSearchProviders } from '../../src/options/features/site-search/providers';
 import { createSearchSourceOrderController } from '../../src/options/options-search-source-order';
@@ -54,7 +55,7 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
   const notifyNewtab = vi.fn<OptionsPage['notifyNewtab']>();
   const page: OptionsPage = {
     settingsStore: settings.store,
-    locale: new OptionsLocale(settings.store),
+    locale: new SurfaceLocale(settings.store, loadExtensionLocaleMessages),
     commands: new BrowserCommands(),
     siteSearchProviders: new SiteSearchProviders(settings.store, () => {}),
     aggregateSearches: new AggregateSearches(settings.store, { getActiveAreaName: () => 'sync' }, () => {}),

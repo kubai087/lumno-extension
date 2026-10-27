@@ -3,7 +3,6 @@ import type { LocalSearchScope } from '../../domain/search/types';
 import { simpleModeEnabled, themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import { documentPipEnabled } from '../../domain/settings/features';
-import { language } from '../../domain/settings/locale';
 import {
   overlayFontFallback,
   overlayFontFamily,
@@ -51,7 +50,6 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
   updateSearchSuggestions(rows: Row[], query: string, options?: { forceFullRerender?: boolean }): void;
   requestOverlaySearchSuggestions(query: string): void;
   applyOverlayTheme(mode: ThemeMode): void;
-  applyLanguageMode(mode: unknown): void;
   applyOverlayFontFamily(): void;
   searchEngine: DefaultSearchEngine;
   clearLocalSearchScope(): void;
@@ -75,7 +73,6 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   const {
     updateSearchSuggestions,
     applyOverlayTheme,
-    applyLanguageMode,
     searchEngine,
     clearLocalSearchScope,
     requestOverlaySearchSuggestions,
@@ -124,7 +121,6 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   }
 
   settings.follow([themeMode, overlayPageThemeAdaptationEnabled], () => applyOverlayTheme(settings.get(themeMode)));
-  settings.follow(language, () => applyLanguageMode(settings.get(language)));
 
   searchEngine.store.subscribe(refreshOverlaySuggestionsFromLastResponse);
 

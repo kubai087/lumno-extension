@@ -3,7 +3,6 @@
 import type { ShortcutRule } from '../../domain/messages';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
-import type * as Settings from '../../domain/settings';
 import { themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import { readShortcutRules } from '../../domain/shortcut-rules-reader';
@@ -36,6 +35,7 @@ import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { OverlayFaviconRuntime } from '../favicon-view';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -54,7 +54,6 @@ interface SuggestionSourcesState {
   localSearchScopeState: LocalSearchScope | null;
   localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
   inlineSearchState: InlineSearchState | null;
-  overlayLanguageMode: string;
   overlayThemeMode: ThemeMode;
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
@@ -65,14 +64,13 @@ interface SuggestionSourcesDeps {
   siteSearchCatalog: SiteSearchCatalog;
   formatMessage: FormatMessage;
   t: Translate;
-  SETTINGS: Pick<typeof Settings, 'normalizeLocale'>;
   SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel, 'getSuggestionUpdateKind' | 'getActionContextKey'>;
   COMMUNITY_LINKS: Pick<typeof CommunityLinks, 'load' | 'getLinks' | 'getCommunityChannel'>;
   getPageFaviconCandidateUrl(url: string): string;
   isLocalNetworkInput(input: string): boolean;
   getHostFromUrl(url: string): string;
   isLocalNetworkHost(host: string): boolean;
-  getSystemLocale(): string;
+  locale: Pick<SurfaceLocale, 'store'>;
   getProviderIcon(provider: SiteSearchProvider): string;
   isSlashCommandInput(input: string): boolean;
   isModeCommand(input: string): boolean;
@@ -140,8 +138,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     getHostFromUrl,
     isLocalNetworkHost,
     SUGGESTION_ACTION_MODEL,
-    getSystemLocale,
-    SETTINGS,
+    locale,
     getProviderIcon,
     COMMUNITY_LINKS,
     t,
@@ -325,7 +322,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   }
 
   function getHelpCenterLocale(): string {
-    return overlayState.overlayLanguageMode === 'system' ? getSystemLocale() : SETTINGS.normalizeLocale(overlayState.overlayLanguageMode);
+    return locale.store.getSnapshot().locale;
   }
 
   // The help pages matching the query while the help center site search is on.

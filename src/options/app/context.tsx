@@ -7,7 +7,7 @@ import { useStore } from '../../shared/react/use-store';
 import type { Account } from '../features/account/account';
 import type { AggregateSearches } from '../features/aggregate-search/searches';
 import type { PageTheme } from '../features/appearance/page-theme';
-import type { OptionsLocale } from '../features/language/locale';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { BrowserCommands } from '../features/shortcuts/browser-commands';
 import type { SiteSearchProviders } from '../features/site-search/providers';
 import type { createSearchSourceOrderController } from '../options-search-source-order';
@@ -15,7 +15,7 @@ import type { GetMessage } from '../options-types';
 
 interface OptionsPage {
   settingsStore: SettingsStore;
-  locale: OptionsLocale;
+  locale: SurfaceLocale;
   commands: BrowserCommands;
   siteSearchProviders: SiteSearchProviders;
   aggregateSearches: AggregateSearches;
@@ -53,7 +53,7 @@ function useOptionsPage(): OptionsPage {
 function useMessages(): GetMessage {
   const { locale } = useOptionsPage();
   useStore(locale.store);
-  return locale.getMessage;
+  return locale.t;
 }
 
 export { OptionsPageContext, useMessages, useOptionsPage };

@@ -2,7 +2,6 @@
 // graphics acceleration notice, the engagement notice and the community QR
 // dialog.
 import type { Disposition } from '../../domain/navigation-disposition';
-import type * as Settings from '../../domain/settings';
 import type * as CommunityLinks from '../../platform/community-links';
 import * as ENGAGEMENT_NOTICE from '../../shared/engagement-notice';
 import type { EngagementNoticeController } from '../../shared/engagement-notice';
@@ -15,11 +14,11 @@ import type { UpdateNoticeController } from '../../shared/update-notice';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
 import type { Translate } from './types';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 interface PanelNoticesState {
   overlay: HTMLElement | null;
   searchInput: HTMLInputElement | null;
-  overlayLanguageMode: string;
   overlayUpdateNoticeController: UpdateNoticeController | null;
   overlayGraphicsNoticeController: GraphicsNoticeController | null;
   overlayEngagementNoticeController: EngagementNoticeController | null;
@@ -30,8 +29,7 @@ interface PanelNoticesDeps {
   COMMUNITY_LINKS: Pick<typeof CommunityLinks, 'FALLBACK_LINKS'>;
   t: Translate;
   getOpenDisposition(event: ActivationEvent | null, fallback?: Disposition): Disposition;
-  getSystemLocale(): string;
-  SETTINGS: Pick<typeof Settings, 'normalizeLocale'>;
+  locale: Pick<SurfaceLocale, 'store'>;
   overlayState: PanelNoticesState;
 }
 
@@ -41,8 +39,7 @@ function createPanelNotices(deps: PanelNoticesDeps) {
     COMMUNITY_LINKS,
     t,
     getOpenDisposition,
-    getSystemLocale,
-    SETTINGS
+    locale
   } = deps;
 
   // The panel state object shared with search-panel.ts and the other modules.
@@ -126,9 +123,7 @@ function createPanelNotices(deps: PanelNoticesDeps) {
       featureHints: FEATURE_HINTS,
       chromeApi: chrome,
       surface: 'overlay',
-      locale: overlayState.overlayLanguageMode === 'system'
-        ? getSystemLocale()
-        : SETTINGS.normalizeLocale(overlayState.overlayLanguageMode),
+      locale: locale.store.getSnapshot().locale,
       t,
       exposureGate: Promise.all([
         overlayState.overlayUpdateNoticeController && overlayState.overlayUpdateNoticeController.ready,
@@ -167,14 +162,12 @@ function createPanelNotices(deps: PanelNoticesDeps) {
       },
       onCommunity(event) {
         const disposition = getOpenDisposition(event, 'newTab');
-        const locale = overlayState.overlayLanguageMode === 'system'
-          ? getSystemLocale()
-          : SETTINGS.normalizeLocale(overlayState.overlayLanguageMode);
-        const isWechat = ENGAGEMENT_NOTICE.getCommunityChannel(locale) === 'wechat';
+        const shownLocale = locale.store.getSnapshot().locale;
+        const isWechat = ENGAGEMENT_NOTICE.getCommunityChannel(shownLocale) === 'wechat';
         const communityUrlPromise =
           ENGAGEMENT_NOTICE.loadCommunityUrl({
             force: true,
-            locale
+            locale: shownLocale
           });
         void communityUrlPromise.then((url) => {
           if (isWechat) {

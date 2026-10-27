@@ -52,7 +52,7 @@ function useLegacyAutoGroup(): void {
 function useSearchSourcesHandlers(keysRef: { current: Record<string, string[]> }): ShortcutsTabHandlers {
   const { settingsStore, siteSearchProviders, aggregateSearches, sourceOrder, showToast, locale } = useOptionsPage();
   return useMemo<ShortcutsTabHandlers>(() => {
-    const getMessage = locale.getMessage;
+    const getMessage = locale.t;
     const conflict = (key: string, allowedKey = '', allowedAggregateId = '') => hasSearchKeyConflict(
       siteSearchProviders.store.getSnapshot(),
       aggregateSearches.store.getSnapshot().items,

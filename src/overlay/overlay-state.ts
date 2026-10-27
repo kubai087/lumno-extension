@@ -155,7 +155,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     suppressOverlayLoadingSessionNotification: false,
 
     // Settings, at their defaults until storage answers.
-    overlayLanguageMode: 'system',
     overlayThemeMode: 'system',
     defaultPlaceholderText: 'Search or enter URL…',
 
