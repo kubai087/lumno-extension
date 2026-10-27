@@ -1,8 +1,7 @@
 const assert = require('assert');
-const blacklistUtils = require('../../src/domain/blacklist-utils');
 const { createBlacklistModel } = require('../../src/options/options-blacklist');
 
-const model = createBlacklistModel({ blacklistUtils });
+const model = createBlacklistModel();
 
 assert.strictEqual(model.getMatchTone(['exact', 'suffix']), 'exact');
 assert.strictEqual(model.getMatchTone(['suffix']), 'suffix');

@@ -25,6 +25,8 @@ interface OptionsPage {
   // Asks open New Tab pages to redraw a part of themselves.
   notifyNewtab(section: string): void;
   hideTooltip(): void;
+  // Binds the floating tooltip to the hints a view has just drawn.
+  bindTooltips(): void;
   // Where menus that flip upward must stop: below the pinned tabs row.
   getViewportTopInset(): number;
   isMacPlatform: boolean;

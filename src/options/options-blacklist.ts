@@ -2,7 +2,7 @@
 // parsing itself lives in LumnoBlacklistUtils; this adds the editor's
 // presentation and how a saved rule joins the list. Results name a locale
 // message key in `error`.
-import type * as BlacklistUtils from '../domain/blacklist-utils';
+import * as BlacklistUtils from '../domain/blacklist-utils';
 import type { BlacklistRule, MatchMode } from '../domain/blacklist-utils';
 
 const DEFAULT_MATCH_MODE: MatchMode = 'prefix';
@@ -19,13 +19,8 @@ interface BlacklistInputConfig {
   prefixText: string;
 }
 
-interface BlacklistModelDeps {
-  blacklistUtils: Pick<typeof BlacklistUtils,
-    'normalizeMatchModes' | 'normalizeItems' | 'buildRuleKey' | 'normalizePattern' | 'getPatternInputValue'>;
-}
-
-function createBlacklistModel(deps: BlacklistModelDeps) {
-  const utils = deps.blacklistUtils;
+function createBlacklistModel() {
+  const utils = BlacklistUtils;
 
   function normalizeMatchModes(value: unknown, fallbackMode?: MatchMode | null): MatchMode[] {
     return utils.normalizeMatchModes(value, fallbackMode === undefined ? DEFAULT_MATCH_MODE : fallbackMode);
@@ -111,4 +106,4 @@ function createBlacklistModel(deps: BlacklistModelDeps) {
 }
 
 export { createBlacklistModel };
-export type { BlacklistInputConfig, BlacklistModelDeps, BlacklistRuleDraft };
+export type { BlacklistInputConfig, BlacklistRuleDraft };

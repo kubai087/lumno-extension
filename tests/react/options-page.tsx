@@ -68,6 +68,7 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
     showToast,
     notifyNewtab,
     hideTooltip: vi.fn(),
+    bindTooltips: vi.fn(),
     getViewportTopInset: () => 0,
     isMacPlatform: false,
     browserFamily: 'chromium',

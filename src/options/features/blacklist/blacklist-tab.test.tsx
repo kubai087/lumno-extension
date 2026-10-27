@@ -1,12 +1,9 @@
 import { act } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as BlacklistUtils from '../domain/blacklist-utils';
-import * as Settings from '../domain/settings';
-import { createBlacklistModel } from './options-blacklist';
-import { createBlacklistSection } from './options-blacklist-section';
-import { createBlacklistTabApi } from './react/blacklist-tab';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
+import { afterEach, describe, expect, it } from 'vitest';
+import * as Settings from '../../../domain/settings';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { BlacklistTab } from './blacklist-tab';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
 
 const SEARCH_KEY = Settings.searchBlacklist.key;
 const FAVICON_KEY = Settings.faviconRequestBlacklist.key;
@@ -31,33 +28,23 @@ async function settle(): Promise<void> {
 }
 
 function setUp() {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
   const toasts: Array<[string, boolean]> = [];
   const refreshed: string[] = [];
-  let language = 'zh';
-  const section = createBlacklistSection({
-    host,
-    blacklistTabApi: createBlacklistTabApi(),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    blacklistModel: createBlacklistModel({ blacklistUtils: BlacklistUtils }),
-    getMessage: (key, fallback) => (language === 'en' ? `en:${key}` : fallback),
-    showToast: (message, isError) => toasts.push([message, Boolean(isError)]),
-    notifyNewtabSectionsRefresh: (name) => refreshed.push(name),
-    initTooltips: vi.fn()
+  const view = renderOptionsView(<BlacklistTab />, {
+    page: {
+      showToast: (message, isError) => toasts.push([message, Boolean(isError)]),
+      notifyNewtab: (name) => refreshed.push(name)
+    }
   });
-  section.bindSettings(settings.binder);
   return {
-    host,
-    writes: settings.writes,
+    ...view,
     toasts,
     refreshed,
-    section,
-    settings,
-    setLanguage(next: string) {
-      language = next;
+    // The page now shows these messages in another language.
+    setLanguage(messages: string[]) {
+      act(() => view.page.locale.store.setState({
+        messages: Object.fromEntries(messages.map((key) => [key, { message: `en:${key}` }]))
+      }));
     }
   };
 }
@@ -73,15 +60,11 @@ async function confirmClear(host: HTMLElement, id: string): Promise<void> {
   await settle();
 }
 
-afterEach(() => {
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options Blacklist tab', () => {
   it('draws both rule lists empty, with enhanced fetching on', () => {
-    const { host, settings } = setUp();
-    expect(host.dataset.reactIsland).toBe('options-blacklist-tab');
-    expect(settings.boundKeys().sort()).toEqual([FAVICON_KEY, FETCH_KEY, SEARCH_KEY].sort());
+    const { host } = setUp();
     [
       '_x_extension_blacklist_list_2026_unique_',
       '_x_extension_blacklist_form_2026_unique_',
@@ -205,9 +188,8 @@ describe('Options Blacklist tab', () => {
   });
 
   it('redraws its text in a new language', () => {
-    const { host, section, setLanguage } = setUp();
-    setLanguage('en');
-    act(() => section.render());
+    const { host, setLanguage } = setUp();
+    setLanguage(['blacklist_group_custom', 'favicon_blacklist_clear']);
     expect(host.textContent).toContain('en:blacklist_group_custom');
     expect(getTag(host, `#${FAVICON_CLEAR}`, 'button').getAttribute('aria-label')).toBe('en:favicon_blacklist_clear');
   });

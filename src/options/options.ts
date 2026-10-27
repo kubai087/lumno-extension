@@ -1,4 +1,3 @@
-import * as LumnoBlacklistUtils from '../domain/blacklist-utils';
 import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 import * as SETTINGS from '../domain/settings';
 import { getContextSettingsStore, readStoredSetting } from '../platform/settings-store';
@@ -8,10 +7,7 @@ import * as OPTIONS_ACCOUNT_SECTION from './options-account-section';
 import * as OPTIONS_AGGREGATE_SEARCH_ACTIONS from './options-aggregate-search-actions';
 import * as OPTIONS_AGGREGATE_SEARCH_LIST from './options-aggregate-search-list';
 import * as AGGREGATE_SEARCH from './options-aggregate-search';
-import * as OPTIONS_BLACKLIST_SECTION from './options-blacklist-section';
-import * as LumnoOptionsBlacklist from './options-blacklist';
 import * as OPTIONS_FORMS from './options-forms';
-import * as OPTIONS_LABS_SECTION from './options-labs-section';
 import * as OPTIONS_NAVIGATION from './options-navigation';
 import * as PANEL_MOTION from './options-panel-motion';
 import * as LumnoOptionsSearchSourceOrder from './options-search-source-order';
@@ -27,11 +23,9 @@ import * as LumnoBrowserProfile from '../platform/browser-profile';
 import * as LumnoMessaging from '../platform/messaging';
 import { getHtmlElement, queryHtmlElement, queryHtmlElements } from '../shared/dom-lookup';
 import * as OPTIONS_STATE from './options-state';
-import { getBlacklistTabApi } from './react/blacklist-tab';
 import { getAccountTabApi } from './react/account-tab';
 import { getShortcutsTabApi } from './react/shortcuts-tab';
 import { createToastController } from '../shared/react/toast';
-import { getSettingsControlsApi } from './react/settings-controls';
 import { getSettingsNavigationApi } from './react/settings-navigation';
 import { newtabShortcutsLocalOverflow } from '../domain/settings/newtab-shortcuts';
 import * as ProviderStorage from '../platform/provider-storage';
@@ -46,7 +40,9 @@ import { createRoot } from 'react-dom/client';
 import { OptionsPageContext, type OptionsPage } from './app/context';
 import { APPEARANCE_TAB_SETTINGS, AppearanceTab } from './features/appearance/appearance-tab';
 import { PageTheme } from './features/appearance/page-theme';
+import { BLACKLIST_TAB_SETTINGS, BlacklistTab } from './features/blacklist/blacklist-tab';
 import { GENERAL_TAB_SETTINGS, GeneralTab } from './features/general/general-tab';
+import { LABS_TAB_SETTINGS, LabsTab } from './features/labs/labs-tab';
 import { BrowserCommands } from './features/shortcuts/browser-commands';
 import { formatShortcut } from './features/shortcuts/shortcut-copy';
 
@@ -83,13 +79,11 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     return;
   }
   // The React views, set by the options islands bundle that loads first.
-  const optionsBlacklistTabApi = getBlacklistTabApi();
   const optionsAccountTabApi = getAccountTabApi();
   const optionsShortcutsTabApi = getShortcutsTabApi();
-  const optionsSettingsControlsApi = getSettingsControlsApi();
   const optionsSettingsNavigationApi = getSettingsNavigationApi();
-  if (!optionsAccountTabApi || !optionsBlacklistTabApi || !optionsShortcutsTabApi ||
-      !optionsSettingsControlsApi || !optionsSettingsNavigationApi) {
+  if (!optionsAccountTabApi || !optionsShortcutsTabApi ||
+      !optionsSettingsNavigationApi) {
     console.warn('Lumno: options views not available.');
     return;
   }
@@ -256,6 +250,7 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     showToast,
     notifyNewtab: notifyNewtabSectionsRefresh,
     hideTooltip: () => optionsState.tooltipController.hide(),
+    bindTooltips: initTooltips,
     getViewportTopInset: getMenuViewportTopInset,
     isMacPlatform: isMacPlatform,
     browserFamily: document.documentElement.getAttribute('data-browser-family') || ''
@@ -275,27 +270,8 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
   // browser cannot honor.
   mountTab('general', createElement(GeneralTab));
   mountTab('appearance', createElement(AppearanceTab));
-  const labsSection = OPTIONS_LABS_SECTION.createLabsSection({
-    host: queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="labs"]'),
-    optionsSettingsControlsApi,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage,
-    browserFamily: document.documentElement.getAttribute('data-browser-family') || ''
-  });
-  const blacklistSection = OPTIONS_BLACKLIST_SECTION.createBlacklistSection({
-    host: queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="blacklist"]'),
-    blacklistTabApi: optionsBlacklistTabApi,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    blacklistModel: LumnoOptionsBlacklist.createBlacklistModel({
-      blacklistUtils: LumnoBlacklistUtils
-    }),
-    getMessage,
-    showToast,
-    notifyNewtabSectionsRefresh,
-    initTooltips
-  });
+  mountTab('labs', createElement(LabsTab));
+  mountTab('blacklist', createElement(BlacklistTab));
 
   OPTIONS_UNSUPPORTED_SETTINGS.markBrowserUnsupportedSettings(getMessage);
 
@@ -582,8 +558,6 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
 
   browserCommands.follow(window, document);
 
-  labsSection.bindSettings(settingBinder);
-  blacklistSection.bindSettings(settingBinder);
   shortcutsSection.bindSettings(settingBinder);
   // Everything drawn from translated copy follows the page language.
   optionsLocale.store.subscribe(() => {
@@ -596,14 +570,11 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     refreshCustomSelects();
     refreshSyncStatus();
     renderSettingsNavigation(optionsState.currentActiveSettingsTab);
-    [
-      labsSection, blacklistSection
-    ].forEach((section) => section.render());
     renderSiteSearchList();
     renderAggregateSearchList();
   });
   optionsLocale.follow();
-  void Promise.all([settingBinder.whenBound(), optionsSettingsStore.include([...GENERAL_TAB_SETTINGS, ...APPEARANCE_TAB_SETTINGS])]).then(finishOptionsStartupRead);
+  void Promise.all([settingBinder.whenBound(), optionsSettingsStore.include([...GENERAL_TAB_SETTINGS, ...APPEARANCE_TAB_SETTINGS, ...LABS_TAB_SETTINGS, ...BLACKLIST_TAB_SETTINGS])]).then(finishOptionsStartupRead);
 
   refreshCustomSelects();
 

@@ -1,43 +1,28 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import * as Settings from '../domain/settings';
-import { createLabsSection } from './options-labs-section';
-import { createSettingsControlsApi } from './react/settings-controls';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
+import * as Settings from '../../../domain/settings';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { LabsTab } from './labs-tab';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
 
 const PIP_TOGGLE = '_x_extension_document_pip_toggle_2026_unique_';
 const INSTANT_TOGGLE = '_x_extension_number_shortcut_instant_toggle_2026_unique_';
 const MAC_CTRL_TOGGLE = '_x_extension_macos_ctrl_suggestion_navigation_toggle_2026_unique_';
 
 function setUp(browserFamily = 'chrome') {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
-  let language = 'zh';
-  const section = createLabsSection({
-    host,
-    optionsSettingsControlsApi: createSettingsControlsApi(),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (key, fallback) => (language === 'en' ? `en:${key}` : fallback),
-    browserFamily
-  });
-  section.bindSettings(settings.binder);
+  const view = renderOptionsView(<LabsTab />, { page: { browserFamily } });
   return {
-    host,
-    writes: settings.writes,
-    section,
-    settings,
-    setLanguage(next: string) {
-      language = next;
+    ...view,
+    // The page now shows these messages in another language.
+    setLanguage(messages: string[]) {
+      act(() => view.page.locale.store.setState({
+        messages: Object.fromEntries(messages.map((key) => [key, { message: `en:${key}` }]))
+      }));
     }
   };
 }
 
-afterEach(() => {
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options Labs tab', () => {
   it('draws each experiment off, with dividers between the rows', () => {
@@ -48,16 +33,10 @@ describe('Options Labs tab', () => {
     [PIP_TOGGLE, INSTANT_TOGGLE, MAC_CTRL_TOGGLE].forEach((id) => {
       expect(getTag(host, `#${id}`, 'input').checked).toBe(false);
     });
-    expect(host.dataset.reactIsland).toBe('options-setting-rows');
   });
 
   it('binds every experiment and follows its stored value', async () => {
     const { host, settings } = setUp();
-    expect(settings.boundKeys().sort()).toEqual([
-      Settings.documentPipEnabled.key,
-      Settings.macosCtrlSuggestionNavigationEnabled.key,
-      Settings.numberShortcutInstantEnabled.key
-    ].sort());
     await settings.change(Settings.numberShortcutInstantEnabled, true);
     expect(getTag(host, `#${INSTANT_TOGGLE}`, 'input').checked).toBe(true);
     await settings.change(Settings.documentPipEnabled, 'yes');
@@ -95,9 +74,8 @@ describe('Options Labs tab', () => {
   });
 
   it('redraws its text in a new language', () => {
-    const { host, section, setLanguage } = setUp();
-    setLanguage('en');
-    act(() => section.render());
+    const { host, setLanguage } = setUp();
+    setLanguage(['settings_document_pip_title', 'settings_number_shortcut_instant_desc']);
     expect(host.textContent).toContain('en:settings_document_pip_title');
     expect(getElement(host, '._x_extension_info_button_2026_unique_').dataset.tooltip)
       .toBe('en:settings_number_shortcut_instant_desc');

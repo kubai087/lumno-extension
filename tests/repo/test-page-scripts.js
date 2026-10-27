@@ -116,7 +116,7 @@ async function testPages() {
 
   const options = await createOptionsPage({});
   await options.settle(300);
-  assert.ok(options.document.querySelectorAll('[data-react-island]').length > 5, 'Options should render through its React views');
+  assert.ok(options.document.querySelectorAll('._x_extension_section_title_2024_unique_').length > 5, 'Options should draw its tabs');
   options.close();
 
   const onboarding = await createOnboardingPage({});

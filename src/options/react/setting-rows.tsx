@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { InfoButton } from './info-button';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { ToggleControl, type ToggleControlRenderModel } from './toggle-control';
 
 // A setting the browser cannot honor: the row stays, disabled, and says why
@@ -129,21 +128,5 @@ export function SettingToggleRows({
         <SettingToggleRow key={row.key} model={row} onChange={(checked) => onChange(row.key, checked)} />
       ))}
     </SettingRows>
-  );
-}
-
-export type SettingToggleRowsController = ReactRootController<SettingToggleRowsModel>;
-
-export function createSettingToggleRowsController(
-  host: HTMLElement | null,
-  options: { kind: string; onChange(key: string, checked: boolean): void }
-): SettingToggleRowsController {
-  if (host) {
-    host.dataset.reactIsland = 'options-setting-rows';
-    host.dataset.settingRowsKind = options.kind;
-  }
-  return createReactRootController(
-    host,
-    (model: SettingToggleRowsModel) => <SettingToggleRows model={model} onChange={options.onChange} />
   );
 }

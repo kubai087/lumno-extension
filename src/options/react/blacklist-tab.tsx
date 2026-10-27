@@ -1,11 +1,9 @@
 import { BlacklistList, type BlacklistListRenderModel, type BlacklistSaveHandler } from './blacklist-list';
 import { InfoButton } from './info-button';
 import { GroupActionConfirm, type GroupActionConfirmModel } from './group-action-confirm';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingDivider, SettingSwitch } from './setting-rows';
 import { BlacklistForm, type BlacklistFormRenderModel, type BlacklistFormSaveHandler } from './settings-forms';
 import type { ToggleControlRenderModel } from './toggle-control';
-import { lazyInstance } from '../../shared/lazy-instance';
 
 // The clear-all button of a list and the confirmation it asks for.
 export type BlacklistClearModel = GroupActionConfirmModel;
@@ -132,28 +130,3 @@ export function BlacklistTab({
     </div>
   );
 }
-
-export type BlacklistTabController = ReactRootController<BlacklistTabModel>;
-
-export function createBlacklistTabController(
-  host: HTMLElement | null,
-  handlers: BlacklistTabHandlers
-): BlacklistTabController {
-  if (host) {
-    host.dataset.reactIsland = 'options-blacklist-tab';
-  }
-  return createReactRootController(
-    host,
-    (model: BlacklistTabModel) => <BlacklistTab handlers={handlers} model={model} />
-  );
-}
-
-export function createBlacklistTabApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createBlacklistTabController
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getBlacklistTabApi = lazyInstance(createBlacklistTabApi);
