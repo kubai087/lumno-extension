@@ -5,4 +5,4 @@
 // the page imports when it first opens it.
 import '../shared/tab-switcher/tab-switcher';
 import '../shared/tab-switcher/page-bridge';
-import './onboarding';
+import './app/main';

@@ -141,9 +141,6 @@ function isAllowlistedLine(file, line) {
       /\b(?:badgeFallback|textFallback|linkFallback|closeLabelFallback):\s*['"`]/.test(line)) {
     return true;
   }
-  if (file === 'src/onboarding/onboarding.ts' && /\b(?:error|copied):\s*['"`]/.test(line)) {
-    return true;
-  }
   if (/title === 'bookmarks bar'/.test(line) ||
       /['"`](?:书签栏|其他书签|移动设备书签|書籤列|書籤欄)['"`]/.test(line)) {
     return true;

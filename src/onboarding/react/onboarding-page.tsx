@@ -1,7 +1,5 @@
 import { CopyPanel, type CopyPanelHandlers, type CopyPanelModel } from './copy-panel';
 import { VisualPanel, type VisualPanelModel } from './visual-panel';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
-import { lazyInstance } from '../../shared/lazy-instance';
 
 // Each column is null until the page has its slides.
 export interface OnboardingPageModel {
@@ -26,22 +24,3 @@ export function OnboardingPage({ model, handlers }: { model: OnboardingPageModel
     </main>
   );
 }
-
-export type OnboardingPageController = ReactRootController<OnboardingPageModel>;
-
-export function createOnboardingPageController(host: HTMLElement | null, handlers: CopyPanelHandlers): OnboardingPageController {
-  if (host) {
-    host.dataset.reactIsland = 'onboarding-page';
-  }
-  return createReactRootController(host, (model: OnboardingPageModel) => <OnboardingPage handlers={handlers} model={model} />);
-}
-
-export function createOnboardingPageApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createOnboardingPageController
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getOnboardingPageApi = lazyInstance(createOnboardingPageApi);

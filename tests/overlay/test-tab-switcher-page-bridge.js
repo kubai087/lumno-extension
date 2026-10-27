@@ -195,7 +195,7 @@ function testPagesConnectTheBridgeBeforeTheirPageScript() {
   [
     ['newtab.html', 'src/newtab/newtab.ts'],
     ['src/options/options.html', 'src/options/app/main.ts'],
-    ['src/onboarding/onboarding.html', 'src/onboarding/onboarding.ts']
+    ['src/onboarding/onboarding.html', 'src/onboarding/app/main.ts']
   ].forEach(([page, pageScript]) => {
     const scripts = getPageScripts(page);
     assert.ok(runsBefore(scripts, 'src/shared/tab-switcher/tab-switcher.ts', 'src/shared/tab-switcher/page-bridge.ts'), `${page} should load the switcher before the bridge`);

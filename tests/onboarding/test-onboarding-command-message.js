@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const script = fs.readFileSync(
-  path.join(__dirname, '..', '..', 'src', 'onboarding', 'onboarding.ts'),
+  path.join(__dirname, '..', '..', 'src', 'onboarding', 'features', 'overlay-demo.ts'),
   'utf8'
 );
 
@@ -15,7 +15,7 @@ assert.match(
 
 assert.match(
   script,
-  /function handleOnboardingCommandMessage\([\s\S]*?ONBOARDING_SEARCH_OVERLAY_COMMAND_ACTION[\s\S]*?triggerOnboardingSearchOverlay\(\)/,
+  /function handleOnboardingCommandMessage\([\s\S]*?ONBOARDING_SEARCH_OVERLAY_COMMAND_ACTION[\s\S]*?openDemoOverlay\(\)/,
   'onboarding should open the local overlay when background forwards the browser command shortcut'
 );
 
