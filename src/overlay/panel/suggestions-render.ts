@@ -29,11 +29,15 @@ import type { ActivationEvent } from './result-activation';
 import type { OverlaySuggestion } from './types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
+import { simpleModeEnabled } from '../../domain/settings/appearance';
+import { searchResultDisplayLimit, tabRankScoreDebug } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
 
 interface SuggestionsRenderState {
+  settings: Pick<OverlaySettings, 'get'>;
   overlay: HTMLElement | null;
   overlayStyleRoot: ShadowRoot | null;
   searchInput: HTMLInputElement | null;
@@ -59,9 +63,6 @@ interface SuggestionsRenderState {
   // The open tabs have been listed at least once.
   overlayTabsCacheReady: boolean;
   currentOverlayTabId: number | null;
-  overlayTabScoreDebugEnabled: boolean;
-  simpleModeEnabled: boolean;
-  overlaySearchResultDisplayLimit: number;
   loadingSessionTrackingActive: boolean;
   defaultTheme: ThemeValue;
   urlHighlightTheme: ThemeValue;
@@ -519,7 +520,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       formatMessage,
       sanitizeDisplayText: SearchDirectNavigation.sanitizeDisplayText,
       formatTabRankDebugText,
-      isTabRankScoreDebugEnabled: () => overlayState.overlayTabScoreDebugEnabled,
+      isTabRankScoreDebugEnabled: () => overlayState.settings.get(tabRankScoreDebug),
       shouldBlockFaviconForHost: shouldBlockOverlayFaviconForHost,
       isLocalNetworkHost,
       getChromeFaviconUrl,
@@ -527,7 +528,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       getPageFaviconRenderCandidates: getReactOverlayFaviconCandidates,
       getHostFromUrl,
       getUrlDisplay,
-      isSimpleModeEnabled: () => overlayState.simpleModeEnabled,
+      isSimpleModeEnabled: () => overlayState.settings.get(simpleModeEnabled),
       getThemeHostForSuggestion: (suggestion) => (
         suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : ''
       ),
@@ -601,7 +602,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       // while the host Document is still spending its own loading budget.
       openTabInitialRenderLimit: 10,
       getOpenTabInitialRenderLimit: () =>
-        normalizeSearchResultDisplayLimit(overlayState.overlaySearchResultDisplayLimit),
+        normalizeSearchResultDisplayLimit(overlayState.settings.get(searchResultDisplayLimit)),
       openTabRenderBatchSize: 16,
       getOpenTabRenderBatchSize: () =>
         overlayState.loadingSessionTrackingActive || document.readyState === 'loading'

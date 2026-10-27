@@ -76,6 +76,8 @@ import * as FaviconHostPolicy from '../domain/favicon/host-policy';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
+import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
+import { numberShortcutInstantEnabled } from '../domain/settings/search';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -122,11 +124,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       getUpdateNotice: () => overlayState.overlayUpdateNoticeController,
       getGraphicsNotice: () => overlayState.overlayGraphicsNoticeController,
       getEngagementNotice: () => overlayState.overlayEngagementNoticeController,
-      getSizePreset: () => getOverlaySizePreset(overlayState.overlaySizeMode),
+      getSizePreset: () => getOverlaySizePreset(overlayState.settings.get(overlaySizeMode)),
       decorate: (element) => applyNoTranslateDeep(element)
     }),
     overlayViewportSizeSync: overlayLifecycle.createViewportSizeSync(window, {
-      getSizePreset: () => getOverlaySizePreset(overlayState.overlaySizeMode),
+      getSizePreset: () => getOverlaySizePreset(overlayState.settings.get(overlaySizeMode)),
       getRequestedTabZoomFactor: () => requestedTabZoomFactor,
       shouldIgnoreTabZoomCompensation: () => shouldIgnoreTabZoomCompensation
     }),
@@ -232,7 +234,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       ), false, { duration: 0 });
     },
     onHoldEnd: () => hideOverlayToast(),
-    instantActive: () => overlayState.numberShortcutInstantEnabled
+    instantActive: () => overlayState.settings.get(numberShortcutInstantEnabled)
   };
 
 
@@ -698,8 +700,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
 
   const {
-    normalizeOverlaySearchBlacklistItems,
-    normalizeOverlayFaviconRequestBlacklistItems,
     getOverlayStrictFaviconReason,
     isOverlayEnhancedFaviconFetchEnabled,
     filterOverlayBlacklistedSuggestions,
@@ -889,7 +889,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // and content scale.
   function getOverlaySizePreset(mode: unknown): OverlaySizePreset {
     const preset = SETTINGS.getOverlaySizePreset(mode);
-    const customWidth = SETTINGS.overlayWidth.parse(overlayState.overlayCustomWidth);
+    const customWidth = SETTINGS.overlayWidth.parse(overlayState.settings.get(overlayWidth));
     return customWidth ? { ...preset, width: customWidth } : preset;
   }
 
@@ -931,7 +931,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // page after them pays for a full style and layout pass.
   detectPageTheme();
   ensureOverlayFontFaces();
-  const initialOverlaySizePreset = getOverlaySizePreset(overlayState.overlaySizeMode);
+  const initialOverlaySizePreset = getOverlaySizePreset(overlayState.settings.get(overlaySizeMode));
   const overlayMount = overlayShell.createOverlayMount(document, {
     hostId: OVERLAY_HOST_ID,
     id: OVERLAY_PANEL_ID,
@@ -1333,19 +1333,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const inputModePrefixTransition = 'opacity 140ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease';
 
 
-  const {
-    initialOverlayThemeReady,
-    initialOverlayEnterAnimationReady,
-    initialMotionEffectsReady,
-    initialSimpleModeReady,
-    initialSearchResultDisplayLimitReady,
-    initialNumberShortcutInstantReady,
-    initialMacosCtrlSuggestionNavigationReady,
-    initialOverlaySizeReady,
-    initialOverlayFontFamilyReady
-  } = PANEL_SETTINGS_SYNC.createSettingsSync({
-    normalizeOverlaySearchBlacklistItems,
-    normalizeOverlayFaviconRequestBlacklistItems,
+  const settingsApplied = PANEL_SETTINGS_SYNC.createSettingsSync({
     updateSearchSuggestions,
     applyOverlayTheme,
     applyLanguageMode,
@@ -1715,11 +1703,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayState.searchInput.focus({ preventScroll: true });
   }
 
-  Promise.all([
-    overlayState.initialOverlayOpenTabsDefaultVisibleReady,
-    overlayState.initialFaviconEnhancedFetchReady,
-    initialSimpleModeReady
-  ]).then(() => initialSearchResultDisplayLimitReady).then(() => {
+  overlayState.settings.loaded.then(() => {
     const searchInput = overlayState.searchInput;
     if (!overlayState.overlay || !overlayState.overlay.isConnected || !searchInput) {
       return false;
@@ -1793,24 +1777,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     : Promise.resolve({ ok: true, reason: 'no-site-fix' });
   Promise.all([
     Promise.resolve(revealReady).catch(() => null),
-    initialOverlayThemeReady,
-    initialOverlaySizeReady,
-    initialOverlayEnterAnimationReady.catch(() => {
-      overlayState.overlayEnterAnimation = 'elastic';
-    }),
-    initialOverlayFontFamilyReady.catch(() => {}),
-    initialMotionEffectsReady.catch(() => {
-      overlayState.motionEffectsEnabled = true;
-    }),
-    initialSimpleModeReady.catch(() => {
-      overlayState.simpleModeEnabled = false;
-    }),
-    initialNumberShortcutInstantReady.catch(() => {
-      overlayState.numberShortcutInstantEnabled = false;
-    }),
-    initialMacosCtrlSuggestionNavigationReady.catch(() => {
-      overlayState.macosCtrlSuggestionNavigationEnabled = false;
-    })
+    settingsApplied.catch(() => {})
   ]).then((readyStates) => {
     if (!overlayState.overlay || !overlayState.overlay.isConnected) {
       return;

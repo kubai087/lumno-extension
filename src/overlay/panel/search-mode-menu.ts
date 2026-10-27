@@ -13,13 +13,14 @@ import { lazyInstance } from '../../shared/lazy-instance';
 import { createHistory as createSearchSourceOrderHistory } from '../../domain/search/search-source-order';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 import { searchSourceOrder } from '../../domain/settings/search';
-import type { OverlaySettings } from '../overlay-settings';
 import type { CachedIconMap } from '../../domain/favicon/shortcut-favicon/types';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
+import { searchResultSourceTypes } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface SearchModeMenuState {
-  settings: Pick<OverlaySettings, 'store' | 'loaded' | 'set'>;
+  settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
   searchInput: HTMLInputElement | null;
   inputModeController: Pick<InputModeController, 'openModeMenu'> | null;
   overlaySearchEngineState: SearchEngineState | null;
@@ -34,7 +35,6 @@ interface SearchModeMenuState {
   siteSearchState: InputModeProvider | null;
   localSearchScopeState: LocalSearchScope | null;
   openTabsSearchModeActive: boolean;
-  enabledSearchResultSourceTypes: SearchSourceType[];
   // Writes of the stored order, one after another.
   searchSourceOrderQueue: Promise<unknown>;
   latestRawInputValue: string;
@@ -232,7 +232,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
       active: overlayState.openTabsSearchModeActive
     });
     LOCAL_SOURCE_TYPES.forEach((sourceType) => {
-      if (!overlayState.enabledSearchResultSourceTypes.includes(sourceType)) {
+      if (!overlayState.settings.get(searchResultSourceTypes).includes(sourceType)) {
         return;
       }
       items.push({

@@ -4,6 +4,8 @@ import { carryOverEngineSuggestions } from '../../domain/search/utils/engine-sug
 import type { LocalSearchScope, SuggestionLike } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import { holdSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
+import { searchResultPriority } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 // Shared by the renders of one request: whether the search engine's
 // suggestions came back, and whether the list showed its final mix.
@@ -19,6 +21,7 @@ interface SuggestionUpdateOptions {
 }
 
 interface RemoteSuggestionsState {
+  settings: Pick<OverlaySettings, 'get'>;
   suggestionsContainer: HTMLElement | null;
   lastSuggestionResponse: SuggestionLike[];
   // The last answer that had the search engine's suggestions in it.
@@ -29,7 +32,6 @@ interface RemoteSuggestionsState {
   // Only whether a site search is active.
   siteSearchState: unknown;
   localSearchScopeState: LocalSearchScope | null;
-  overlaySearchResultPriorityMode: string;
   // Raised for each request, so a late answer to an older one is dropped.
   overlaySuggestionRequestSeq: number;
   overlayRemoteSuggestionDebounceTimer: number | null;
@@ -96,7 +98,7 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
     }
     const requestSeq = ++overlayState.overlaySuggestionRequestSeq;
     const requestStartedAt = Date.now();
-    const requestSearchFirst = overlayState.overlaySearchResultPriorityMode === 'search';
+    const requestSearchFirst = overlayState.settings.get(searchResultPriority) === 'search';
     const showExactSearchPendingState = requestSearchFirst &&
       !requestLocalSearchScope &&
       !getDirectUrlSuggestion(requestQuery);

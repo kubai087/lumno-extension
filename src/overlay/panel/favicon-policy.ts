@@ -9,14 +9,13 @@ import * as FaviconResolver from '../../domain/favicon/resolver';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { FaviconDecisionLogger } from '../../domain/favicon/types';
 import * as SearchBrandSuggestions from '../../domain/search/utils/brand-suggestions';
+import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, searchResultDisplayLimit } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface FaviconPolicyState {
+  settings: Pick<OverlaySettings, 'get'>;
   // Results under these addresses are left out of search.
-  overlaySearchBlacklistItems: BlacklistRule[];
   // Pages whose icons are never fetched from icon services.
-  overlayFaviconRequestBlacklistItems: BlacklistRule[];
-  faviconEnhancedFetchEnabled: boolean;
-  overlaySearchResultDisplayLimit: number;
 }
 
 interface FaviconPolicyDeps {
@@ -57,7 +56,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
     const target = getOverlayFaviconMatchUrl(url);
     return Boolean(
       target &&
-      LumnoBlacklistUtils.isUrlBlocked(target, overlayState.overlayFaviconRequestBlacklistItems)
+      LumnoBlacklistUtils.isUrlBlocked(target, normalizeOverlayFaviconRequestBlacklistItems(overlayState.settings.get(faviconRequestBlacklist)))
     );
   }
 
@@ -66,7 +65,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
     if (isUrlExcludedFromOverlayFaviconRequests(pageUrl)) {
       return 'exclusion';
     }
-    if (!overlayState.faviconEnhancedFetchEnabled) {
+    if (!overlayState.settings.get(faviconEnhancedFetchEnabled)) {
       return 'global-off';
     }
     return '';
@@ -77,7 +76,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
   }
 
   function isUrlBlockedByOverlaySearchBlacklist(url: string): boolean {
-    return LumnoBlacklistUtils.isUrlBlocked(url, overlayState.overlaySearchBlacklistItems);
+    return LumnoBlacklistUtils.isUrlBlocked(url, normalizeOverlaySearchBlacklistItems(overlayState.settings.get(searchBlacklist)));
   }
 
   // Search actions and site search rows stay; they lead to no blocked page.
@@ -117,7 +116,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
       return Array.isArray(list) ? list : [];
     }
     return SearchBrandSuggestions.limitSearchSuggestionsForDisplay(list, {
-      limit: overlayState.overlaySearchResultDisplayLimit
+      limit: overlayState.settings.get(searchResultDisplayLimit)
     });
   }
 
@@ -185,8 +184,6 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
   }
 
   return {
-    normalizeOverlaySearchBlacklistItems,
-    normalizeOverlayFaviconRequestBlacklistItems,
     getOverlayStrictFaviconReason,
     isOverlayEnhancedFaviconFetchEnabled,
     filterOverlayBlacklistedSuggestions,

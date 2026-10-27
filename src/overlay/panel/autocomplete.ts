@@ -1,5 +1,7 @@
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
+import { searchResultPriority } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 // What a row offers for completion; command rows complete to their text.
 interface AutocompleteRow extends SuggestionLike {
@@ -25,12 +27,12 @@ interface AutocompleteState {
 }
 
 interface AutocompleteOverlayState {
+  settings: Pick<OverlaySettings, 'get'>;
   autocompleteState: AutocompleteState | null;
   searchInput: HTMLInputElement | null;
   latestRawInputValue: string;
   latestOverlayQuery: string;
   // 'search' keeps the search action first, so nothing is completed.
-  overlaySearchResultPriorityMode: string;
   // When the user last deleted text; completing right after would fight it.
   lastDeletionAt: number;
   // Only whether a site search or a local scope is active.
@@ -240,7 +242,7 @@ function createAutocomplete(deps: AutocompleteDeps) {
     if (overlayState.suggestionInputPreview.isActive()) {
       return;
     }
-    if (overlayState.overlaySearchResultPriorityMode === 'search') {
+    if (overlayState.settings.get(searchResultPriority) === 'search') {
       if (overlayState.searchInput && overlayState.searchInput.value !== rawQuery) {
         overlayState.searchInput.value = rawQuery;
         overlayState.searchInput.setSelectionRange(rawQuery.length, rawQuery.length);

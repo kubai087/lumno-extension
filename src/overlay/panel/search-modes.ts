@@ -2,7 +2,7 @@
 // prefixes and labels, and the top-site and trigger candidates that suggest
 // switching.
 import type { ShortcutRule } from '../../domain/messages';
-import type { LocalSearchScope, SearchSourceType, SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
+import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { ModeTagOptions } from '../../shared/search/input-mode/tag';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
@@ -12,8 +12,11 @@ import * as SearchNavigationMatching from '../../domain/search/utils/navigation-
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
+import { searchResultSourceTypes } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface SearchModesState {
+  settings: Pick<OverlaySettings, 'get'>;
   inputModeController: Pick<InputModeController,
     'updateLayout' | 'setProviderPrefix' | 'setPrefixText' | 'clearProviderPrefix'> | null;
   searchInput: HTMLInputElement | null;
@@ -25,7 +28,6 @@ interface SearchModesState {
   localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
   // Cleared whenever the mode changes.
   inlineSearchState: unknown;
-  enabledSearchResultSourceTypes: SearchSourceType[];
   latestRawInputValue: string;
   latestOverlayQuery: string;
   overlaySuggestionRequestSeq: number;
@@ -292,7 +294,7 @@ function createSearchModes(deps: SearchModesDeps) {
 
   function getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null {
     const scope = SearchSiteSearchProviders.findLocalSearchScope(input, rules);
-    if (!scope || !overlayState.enabledSearchResultSourceTypes.includes(scope.sourceType)) {
+    if (!scope || !overlayState.settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
       return null;
     }
     return scope;
@@ -354,7 +356,7 @@ function createSearchModes(deps: SearchModesDeps) {
 
   // Narrows search to one local source; false when that source is off.
   function activateLocalSearchScope(scope: LocalSearchScope | null, activationOptions?: { preserveResults?: boolean } | null): boolean {
-    if (!scope || !overlayState.enabledSearchResultSourceTypes.includes(scope.sourceType)) {
+    if (!scope || !overlayState.settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
       return false;
     }
     const options: { preserveResults?: boolean } = activationOptions && typeof activationOptions === 'object'

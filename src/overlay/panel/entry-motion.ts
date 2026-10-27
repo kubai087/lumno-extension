@@ -1,13 +1,13 @@
 import * as SettingsStorage from '../../platform/settings-storage';
+import { motionEffectsEnabled } from '../../domain/settings/appearance';
+import { overlayEnterAnimation, overlayOpenTabsDefaultVisible } from '../../domain/settings/overlay-panel';
+import type { OverlaySettings } from '../overlay-settings';
 // The panel's entry motion: when to skip it, the start and reveal
 // transforms, and playing, tracking and cleaning up the enter animation.
 
 interface EntryMotionState {
-  motionEffectsEnabled: boolean;
+  settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
   // 'fade', or the default elastic motion.
-  overlayEnterAnimation: string;
-  overlayOpenTabsDefaultVisibleLoaded: boolean;
-  overlayOpenTabsDefaultVisible: boolean;
 }
 
 // The frame tracker from lifecycle.ts, as far as the entry motion uses it.
@@ -73,7 +73,7 @@ function createEntryMotion(deps: EntryMotionDeps) {
   const OVERLAY_ENTER_CLEANUP_BUFFER_MS = 80;
 
   function shouldSkipOverlayEntryMotion(): boolean {
-    return SettingsStorage.shouldSkipEntryMotion(window, overlayState.motionEffectsEnabled);
+    return SettingsStorage.shouldSkipEntryMotion(window, overlayState.settings.get(motionEffectsEnabled));
   }
 
   function shouldSkipOverlayEntryMotionForSlowStartup(): boolean {
@@ -85,20 +85,20 @@ function createEntryMotion(deps: EntryMotionDeps) {
   }
 
   function getOverlayElasticEntryScaleStart(): number {
-    return overlayState.overlayOpenTabsDefaultVisibleLoaded && overlayState.overlayOpenTabsDefaultVisible
+    return overlayState.settings.isLoaded() && overlayState.settings.get(overlayOpenTabsDefaultVisible)
       ? OVERLAY_ELASTIC_OPEN_TABS_ENTRY_SCALE_START
       : OVERLAY_ELASTIC_ENTRY_SCALE_START;
   }
 
   function getOverlayEnterAnimationStartTransform(): string {
-    if (overlayState.overlayEnterAnimation === 'fade') {
+    if (overlayState.settings.get(overlayEnterAnimation) === 'fade') {
       return 'translateX(-50%) translateY(16px) scale(var(--x-ov-visible-scale, 1)) scale(0.985)';
     }
     return `translateX(-50%) translateY(8px) scale(var(--x-ov-visible-scale, 1)) scale(var(--x-lumno-search-entry-scale-start, ${getOverlayElasticEntryScaleStart()}))`;
   }
 
   function getOverlayEnterAnimationDeltaTransform(): string {
-    if (overlayState.overlayEnterAnimation === 'fade') {
+    if (overlayState.settings.get(overlayEnterAnimation) === 'fade') {
       return 'translateY(16px) scale(0.985)';
     }
     return `translateY(8px) scale(${getOverlayElasticEntryScaleStart()})`;
@@ -118,7 +118,7 @@ function createEntryMotion(deps: EntryMotionDeps) {
   }
 
   function getOverlayEnterMotion(): EnterMotion {
-    const name = overlayState.overlayEnterAnimation;
+    const name = overlayState.settings.get(overlayEnterAnimation);
     const motion = name === 'fade' || name === 'elastic'
       ? OVERLAY_ENTER_MOTION[name]
       : OVERLAY_ENTER_MOTION.elastic;
@@ -218,7 +218,7 @@ function createEntryMotion(deps: EntryMotionDeps) {
     overlayElement.style.setProperty('opacity', '0', 'important');
     overlayElement.style.setProperty('transition', 'none', 'important');
     overlayElement.style.setProperty('will-change', 'transform, opacity', 'important');
-    if (overlayState.overlayEnterAnimation !== 'fade') {
+    if (overlayState.settings.get(overlayEnterAnimation) !== 'fade') {
       overlayElement.style.setProperty(
         '--x-lumno-search-entry-scale-start',
         String(getOverlayElasticEntryScaleStart())

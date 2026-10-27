@@ -13,7 +13,6 @@ import type * as CommunityLinks from '../../platform/community-links';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import type { OverlaySettings } from '../overlay-settings';
 import { releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { AutocompleteRow } from './autocomplete';
 import type { RemoteMixState } from './remote-suggestions';
@@ -31,9 +30,13 @@ import * as Search from '../../domain/search/help-center/search';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
+import { simpleModeEnabled } from '../../domain/settings/appearance';
+import { overlayTabPriority } from '../../domain/settings/overlay-panel';
+import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface SuggestionSourcesState {
-  settings: Pick<OverlaySettings, 'get'>;
+  settings: Pick<OverlaySettings, 'get' | 'get'>;
   searchInput: HTMLInputElement | null;
   suggestionsContainer: HTMLElement | null;
   latestOverlayQuery: string;
@@ -54,11 +57,6 @@ interface SuggestionSourcesState {
   aggregateSearchesCache: AggregateSearch[] | null;
   overlayLanguageMode: string;
   overlayThemeMode: ThemeMode;
-  simpleModeEnabled: boolean;
-  overlaySearchResultPriorityMode: string;
-  overlaySearchResultDisplayLimit: number;
-  overlayTabQuickSwitchEnabled: boolean;
-  overlayTabScoreDebugEnabled: boolean;
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
   // Starts loading the rows' icons before they render.
@@ -323,7 +321,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   ): ReturnType<typeof SUGGESTION_ACTION_MODEL.getSuggestionUpdateKind> {
     return SUGGESTION_ACTION_MODEL.getSuggestionUpdateKind({
       ...(options || {}),
-      includeDebugReasons: Boolean(overlayState.overlayTabScoreDebugEnabled)
+      includeDebugReasons: Boolean(overlayState.settings.get(tabRankScoreDebug))
     });
   }
 
@@ -421,7 +419,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       ? null
       : {
         type: 'newtab',
-        title: overlayState.simpleModeEnabled
+        title: overlayState.settings.get(simpleModeEnabled)
           ? query
           : formatMessage('search_query', '搜索 "{query}"', {
               query: query
@@ -547,14 +545,14 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       const hasDirectUrlSuggestion = preSuggestions.some((suggestion) => (
         suggestion && suggestion.type === 'directUrl'
       ));
-      if (overlayState.overlaySearchResultPriorityMode === 'search' &&
+      if (overlayState.settings.get(searchResultPriority) === 'search' &&
           !localSearchQueryModeActive &&
           !slashCommandModeActive &&
           !modeCommandActive &&
           !siteSearchQueryModeActive &&
           !hasDirectUrlSuggestion) {
         allSuggestions = SearchSuggestionSlate.composeSearchFirstSuggestionSlate(allSuggestions, {
-          limit: overlayState.overlaySearchResultDisplayLimit,
+          limit: overlayState.settings.get(searchResultDisplayLimit),
           query
         });
       }
@@ -573,14 +571,14 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           providers: providersForTags,
           inlineSuggestion,
           siteSearchActive: Boolean(overlayState.siteSearchState),
-          preferAutocompleteFirst: overlayState.overlaySearchResultPriorityMode !== 'search',
+          preferAutocompleteFirst: overlayState.settings.get(searchResultPriority) !== 'search',
           onlyKeywordSuggestions,
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
-          openTabMatch: overlayState.overlayTabQuickSwitchEnabled || overlayState.prioritizeCurrentPageMatch
+          openTabMatch: overlayState.settings.get(overlayTabPriority) || overlayState.prioritizeCurrentPageMatch
             ? {
                 prioritizeCurrentPageMatch: overlayState.prioritizeCurrentPageMatch,
                 currentTabId: overlayState.currentOverlayTabId === null ? undefined : overlayState.currentOverlayTabId,
-                openTabQuickSwitchEnabled: overlayState.overlayTabQuickSwitchEnabled,
+                openTabQuickSwitchEnabled: overlayState.settings.get(overlayTabPriority),
                 getDirectNavigationUrl
               }
             : null,

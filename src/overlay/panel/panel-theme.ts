@@ -8,19 +8,19 @@ import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/
 import * as LumnoOverlayPageTheme from '../page-theme';
 import type { PageTheme } from '../page-theme';
 import type { OverlayPanelModel, OverlayPanelView } from '../react/shell';
+import { overlayFontFallback, overlayFontFamily, overlayPageThemeAdaptationEnabled } from '../../domain/settings/overlay-panel';
+import type { OverlaySettings } from '../overlay-settings';
 
 type PageThemeObserver = ReturnType<typeof LumnoOverlayPageTheme.createPageThemeObserver>;
 
 interface PanelThemeState {
+  settings: Pick<OverlaySettings, 'get'>;
   overlay: HTMLElement | null;
   // Draws the panel's theme, once the panel is mounted.
   overlayPanelView: OverlayPanelView | null;
   overlayMediaQuery: MediaQueryList;
   overlayThemeMode: ThemeMode;
-  overlayPageThemeAdaptationEnabled: boolean;
   overlayPageThemeObserver: PageThemeObserver | null;
-  overlayFontFamily: string;
-  overlayFontFallback: string;
   defaultTheme: ThemeVariant;
 }
 
@@ -139,7 +139,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
     return overlayPageTheme.resolveOverlayTheme({
       mode,
       pageTheme,
-      pageThemeAdaptationEnabled: overlayState.overlayPageThemeAdaptationEnabled,
+      pageThemeAdaptationEnabled: overlayState.settings.get(overlayPageThemeAdaptationEnabled),
       systemTheme
     });
   }
@@ -170,7 +170,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
   function shouldObserveOverlayPageTheme(): boolean {
     return overlayPageTheme.shouldObservePageTheme({
       mode: overlayState.overlayThemeMode,
-      pageThemeAdaptationEnabled: overlayState.overlayPageThemeAdaptationEnabled,
+      pageThemeAdaptationEnabled: overlayState.settings.get(overlayPageThemeAdaptationEnabled),
       systemTheme: overlayState.overlayMediaQuery.matches ? 'dark' : 'light'
     });
   }
@@ -178,7 +178,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
   function syncOverlayPageThemeObservation(): boolean {
     return overlayPageTheme.syncPageThemeObservation({
       mode: overlayState.overlayThemeMode,
-      pageThemeAdaptationEnabled: overlayState.overlayPageThemeAdaptationEnabled,
+      pageThemeAdaptationEnabled: overlayState.settings.get(overlayPageThemeAdaptationEnabled),
       systemTheme: overlayState.overlayMediaQuery.matches ? 'dark' : 'light',
       start: startOverlayPageThemeObserver,
       stop: stopOverlayPageThemeObserver
@@ -214,7 +214,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
     if (!view) {
       return;
     }
-    const fontFamily = SETTINGS.getOverlayFontFamilyCssValue(overlayState.overlayFontFamily, overlayState.overlayFontFallback);
+    const fontFamily = SETTINGS.getOverlayFontFamilyCssValue(overlayState.settings.get(overlayFontFamily), overlayState.settings.get(overlayFontFallback));
     view.render({
       theme: panelTheme.theme,
       vars: fontFamily

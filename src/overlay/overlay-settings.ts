@@ -72,6 +72,8 @@ interface OverlaySettings {
   readonly store: SettingsStore;
   // Settles once every overlay setting has been read.
   readonly loaded: Promise<void>;
+  // Whether `loaded` has settled; until then get() answers the defaults.
+  isLoaded(): boolean;
   get<T>(setting: Setting<T>): T;
   set<T>(setting: Setting<T>, value: T): Promise<void>;
   // Calls `listener` on changes until the session closes.
@@ -84,11 +86,15 @@ function createOverlaySettings(chromeApi: SettingsStoreChromeApi | null | undefi
   const store = chromeApi
     ? getContextSettingsStore(chromeApi)
     : createSettingsStore({ chromeApi: null, settings: [] });
-  const loaded = store.include(OVERLAY_SETTINGS);
+  let settled = false;
+  const loaded = store.include(OVERLAY_SETTINGS).finally(() => {
+    settled = true;
+  });
   const unsubscribes: Array<() => void> = [];
   return Object.freeze({
     store,
     loaded,
+    isLoaded: () => settled,
     get: <T>(setting: Setting<T>) => store.get(setting),
     set: <T>(setting: Setting<T>, value: T) => store.set(setting, value),
     follow(settings: Setting<unknown> | readonly Setting<unknown>[], listener: SettingsListener) {

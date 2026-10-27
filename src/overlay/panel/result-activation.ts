@@ -8,6 +8,9 @@ import type * as SuggestionActionModel from '../../domain/search/suggestion-acti
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
+import { overlayOpenInCurrentTab } from '../../domain/settings/overlay-panel';
+import { numberShortcutInstantEnabled } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 // The keys and button of the click or key press that opens a result.
 interface ActivationEvent {
@@ -24,11 +27,10 @@ interface ActivatedItem {
 }
 
 interface ResultActivationState {
+  settings: Pick<OverlaySettings, 'get'>;
   overlay: HTMLElement | null;
   searchInput: HTMLInputElement | null;
   // Number keys open results at once, so Cmd and Ctrl keep their own use.
-  numberShortcutInstantEnabled: boolean;
-  overlayOpenInCurrentTab: boolean;
   currentTabPinned: boolean;
 }
 
@@ -91,7 +93,7 @@ function createResultActivation(deps: ResultActivationDeps) {
     setSuggestionActionModifiersActive(
       Boolean(event && event.altKey),
       Boolean(event && event.shiftKey),
-      Boolean(event && (event.metaKey || event.ctrlKey) && !overlayState.numberShortcutInstantEnabled)
+      Boolean(event && (event.metaKey || event.ctrlKey) && !overlayState.settings.get(numberShortcutInstantEnabled))
     );
   }
 
@@ -112,14 +114,14 @@ function createResultActivation(deps: ResultActivationDeps) {
 
   // A pinned tab is kept: results meant for it open in a new tab.
   function isCurrentTabDefault(): boolean {
-    return overlayState.overlayOpenInCurrentTab && !overlayState.currentTabPinned;
+    return overlayState.settings.get(overlayOpenInCurrentTab) && !overlayState.currentTabPinned;
   }
 
   // Where a result opens for the keys and button of `event`.
   function getSearchResultDisposition(event: ActivationEvent | null): Disposition {
     return SUGGESTION_ACTION_MODEL.getSearchResultOpenDisposition({
       openInBackgroundTab: Boolean(event && (
-        ((event.metaKey || event.ctrlKey) && !overlayState.numberShortcutInstantEnabled) ||
+        ((event.metaKey || event.ctrlKey) && !overlayState.settings.get(numberShortcutInstantEnabled)) ||
         NAVIGATION_DISPOSITION.isMiddleClick(event)
       )),
       openInCurrentTab: Boolean(event && event.altKey),
@@ -146,8 +148,8 @@ function createResultActivation(deps: ResultActivationDeps) {
   }
 
   function getOpenDisposition(event: ActivationEvent | null, fallback?: Disposition): Disposition {
-    if (overlayState.numberShortcutInstantEnabled) {
-      return (NAVIGATION_DISPOSITION.isMiddleClick(event) || Boolean(event && (event.metaKey || event.ctrlKey) && !overlayState.numberShortcutInstantEnabled))
+    if (overlayState.settings.get(numberShortcutInstantEnabled)) {
+      return (NAVIGATION_DISPOSITION.isMiddleClick(event) || Boolean(event && (event.metaKey || event.ctrlKey) && !overlayState.settings.get(numberShortcutInstantEnabled)))
         ? 'backgroundTab'
         : (fallback || 'newTab');
     }

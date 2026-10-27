@@ -20,8 +20,12 @@ import type { ActivationEvent } from './result-activation';
 import type { SlashCommand } from './slash-commands';
 import type { InlineSearchState, LocalSearchScopeTrigger, OverlaySuggestion, SiteSearchTrigger } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
+import { overlayTabPriority } from '../../domain/settings/overlay-panel';
+import { macosCtrlSuggestionNavigationEnabled } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface PanelKeysState {
+  settings: Pick<OverlaySettings, 'get'>;
   overlay: HTMLElement | null;
   searchInput: HTMLInputElement | null;
   suggestionsContainer: HTMLElement | null;
@@ -50,8 +54,6 @@ interface PanelKeysState {
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
   // Enter on the first result switches to its open tab.
-  overlayTabQuickSwitchEnabled: boolean;
-  macosCtrlSuggestionNavigationEnabled: boolean;
 }
 
 interface PanelKeysDeps {
@@ -482,7 +484,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       index === 0) {
       return true;
     }
-    if (!overlayState.overlayTabQuickSwitchEnabled) {
+    if (!overlayState.settings.get(overlayTabPriority)) {
       return false;
     }
     return index === 0;
@@ -503,7 +505,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
 
   function getSuggestionNavigationKey(event: KeyboardEvent): 'ArrowDown' | 'ArrowUp' | '' {
     return SUGGESTION_NAVIGATION.getSuggestionNavigationKey(event, {
-      macosCtrlEnabled: overlayState.macosCtrlSuggestionNavigationEnabled,
+      macosCtrlEnabled: overlayState.settings.get(macosCtrlSuggestionNavigationEnabled),
       navigatorLike: window && window.navigator ? window.navigator : null
     });
   }

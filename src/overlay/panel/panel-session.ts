@@ -11,17 +11,18 @@ import type { InputModeController } from '../../shared/search/search-input-mode'
 import type { UpdateNoticeController } from '../../shared/update-notice';
 import type * as OverlayLifecycle from '../lifecycle';
 import type { createNoticeLayer } from '../notices';
-import type { OverlaySettings } from '../overlay-settings';
 import { setOverlayOpenState } from '../../platform/content-registry';
 import { destroySearchInput } from '../../shared/react/search-input';
 import * as SettingsStorage from '../../platform/settings-storage';
+import { motionEffectsEnabled } from '../../domain/settings/appearance';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface PanelSessionState {
   overlayContextToken: string;
   overlayViewportSizeSync: Pick<ReturnType<typeof OverlayLifecycle.createViewportSizeSync>, 'stop'>;
   overlayNoticeLayer: Pick<ReturnType<typeof createNoticeLayer>, 'stop'>;
   overlaySessionCleanups: Pick<ReturnType<typeof OverlayLifecycle.createSessionCleanupRegistry>, 'run'>;
-  settings: Pick<OverlaySettings, 'release'>;
+  settings: Pick<OverlaySettings, 'get' | 'release'>;
   overlayKeyRouter: { stop(): void } | null;
   // Holds the panel back until its styles load; cancelled when it closes.
   overlayRevealGate: { cancel?(): void } | null;
@@ -37,7 +38,6 @@ interface PanelSessionState {
   overlayUpdateNoticeController: UpdateNoticeController | null;
   overlayGraphicsNoticeController: GraphicsNoticeController | null;
   overlayEngagementNoticeController: EngagementNoticeController | null;
-  motionEffectsEnabled: boolean;
   // The page under the overlay is loading and the worker keeps its input.
   loadingSessionTrackingActive: boolean;
   suppressOverlayLoadingSessionNotification: boolean;
@@ -347,7 +347,7 @@ function createPanelSession(deps: PanelSessionDeps) {
   // setting and the system's reduced-motion preference.
   function closeOverlayWithMotion(overlayElement: HTMLElement | null): void {
     if (!overlayElement || !overlayElement.isConnected ||
-        SettingsStorage.shouldSkipEntryMotion(window, overlayState.motionEffectsEnabled) ||
+        SettingsStorage.shouldSkipEntryMotion(window, overlayState.settings.get(motionEffectsEnabled)) ||
         overlayElement.getAttribute('data-lumno-overlay-entry') !== 'done') {
       removeOverlay(overlayElement);
       return;

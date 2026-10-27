@@ -7,8 +7,12 @@ import type { InputModeController } from '../../shared/search/search-input-mode'
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type * as SuggestionsHeightLayout from '../../shared/search/suggestions-height-layout';
+import { overlayOpenTabsDefaultVisible } from '../../domain/settings/overlay-panel';
+import { searchResultDisplayLimit } from '../../domain/settings/search';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface ResultsLayoutState {
+  settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
   overlay: HTMLElement | null;
   inputContainer: HTMLElement | null;
   inputParts: Pick<SearchInputParts, 'setChrome'> | null;
@@ -17,13 +21,10 @@ interface ResultsLayoutState {
   // no !important.
   inputModeController: Pick<InputModeController,
     'placeModeMenuBelowResults' | 'updateLayout' | 'setTabHintVisible'> | null;
-  overlaySearchResultDisplayLimit: number;
   // Only whether a site search or a local scope is active.
   siteSearchState: unknown;
   localSearchScopeState: unknown;
   openTabsSearchModeActive: boolean;
-  overlayOpenTabsDefaultVisibleLoaded: boolean;
-  overlayOpenTabsDefaultVisible: boolean;
   // The rows shown; this module only empties the list.
   currentSuggestions: unknown[];
   lastRenderedQuery: string;
@@ -119,7 +120,7 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
       return;
     }
     const visibleRowLimit = normalizeSearchResultDisplayLimit(
-      overlayState.overlaySearchResultDisplayLimit
+      overlayState.settings.get(searchResultDisplayLimit)
     );
     const normalizedItemCount = Math.max(0, Math.floor(Number(itemCount) || 0));
     // A complete result set should keep its natural height. Only reserve a
@@ -252,7 +253,7 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
       return false;
     }
     return overlayState.openTabsSearchModeActive ||
-      (overlayState.overlayOpenTabsDefaultVisibleLoaded && overlayState.overlayOpenTabsDefaultVisible);
+      (overlayState.settings.isLoaded() && overlayState.settings.get(overlayOpenTabsDefaultVisible));
   }
 
   function clearDefaultOpenTabsSuggestions(): void {
