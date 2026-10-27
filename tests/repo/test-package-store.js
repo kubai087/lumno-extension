@@ -89,7 +89,7 @@ builtScripts.forEach((bundlePath) => {
 });
 [
   'src/newtab/newtab.ts',
-  'src/options/options.ts',
+  'src/options/app/main.ts',
   'src/overlay/search-panel.ts',
   'src/content/selection-quick-actions.ts'
 ].forEach((file) => {

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingSelect, type SelectControlRenderModel } from './select-control';
 import { SettingTitle, type SettingRowUnsupported } from './setting-rows';
 import {
@@ -86,19 +85,4 @@ export function AppearanceOverlaySection({
     return font ? <OverlayFontRow handlers={handlers} row={font} /> : null;
   };
   return <SettingsRows handlers={{ ...handlers.rows, renderSlot }} rows={model.rows} />;
-}
-
-export type AppearanceOverlaySectionController = ReactRootController<AppearanceOverlaySectionModel>;
-
-export function createAppearanceOverlaySectionController(
-  host: HTMLElement | null,
-  handlers: AppearanceOverlaySectionHandlers
-): AppearanceOverlaySectionController {
-  if (host) {
-    host.dataset.reactIsland = 'options-appearance-overlay';
-  }
-  return createReactRootController(
-    host,
-    (model: AppearanceOverlaySectionModel) => <AppearanceOverlaySection handlers={handlers} model={model} />
-  );
 }

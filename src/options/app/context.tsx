@@ -29,6 +29,9 @@ interface OptionsPage {
   hideTooltip(): void;
   // Binds the floating tooltip to the hints a view has just drawn.
   bindTooltips(): void;
+  // Runs whenever the Search sources lists are drawn, so a link to a row
+  // in them can scroll to it once it exists.
+  onSearchSourcesDrawn(): void;
   // Where menus that flip upward must stop: below the pinned tabs row.
   getViewportTopInset(): number;
   isMacPlatform: boolean;

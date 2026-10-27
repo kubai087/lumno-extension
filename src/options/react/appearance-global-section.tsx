@@ -1,4 +1,3 @@
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingsRows, type SettingsRowModel, type SettingsRowsHandlers } from './settings-rows-view';
 import { ThemePicker, type ThemeMode, type ThemePickerRenderModel } from './theme-picker';
 
@@ -41,20 +40,5 @@ export function AppearanceGlobalSection({
       </div>
       <SettingsRows handlers={handlers.rows} rows={model.rows} />
     </>
-  );
-}
-
-export type AppearanceGlobalSectionController = ReactRootController<AppearanceGlobalSectionModel>;
-
-export function createAppearanceGlobalSectionController(
-  host: HTMLElement | null,
-  handlers: AppearanceGlobalSectionHandlers
-): AppearanceGlobalSectionController {
-  if (host) {
-    host.dataset.reactIsland = 'options-appearance-global';
-  }
-  return createReactRootController(
-    host,
-    (model: AppearanceGlobalSectionModel) => <AppearanceGlobalSection handlers={handlers} model={model} />
   );
 }

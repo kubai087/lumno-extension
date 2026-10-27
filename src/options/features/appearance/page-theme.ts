@@ -2,7 +2,7 @@
 // owner: it shows the stored mode on the document (following the system
 // while the mode says so), keeps the copy theme-preload.ts paints from on
 // the next load, and animates the panel when a mode change shows or hides
-// rows. The picker and the overlay section follow its store.
+// rows. The panel, the picker and the overlay section follow its store.
 import { flushSync } from 'react-dom';
 import { optionsThemePreload, themeMode } from '../../../domain/settings';
 import type { ThemeMode } from '../../../domain/settings/appearance';
@@ -13,19 +13,19 @@ import type { LayoutMutation } from '../../options-panel-motion';
 
 interface PageThemeState {
   mode: ThemeMode;
+  // What the mode shows as now; the settings panel draws in it.
+  resolved: 'dark' | 'light';
 }
 
 interface PageThemeDocument {
   doc: Document;
   win: Window;
-  // The settings panel, which carries the resolved theme too.
-  panel: HTMLElement;
   // Animates the panel's height across a layout change.
   animatePanel(mutateLayout: LayoutMutation): boolean;
 }
 
 class PageTheme {
-  readonly store: Store<PageThemeState> = createStore<PageThemeState>({ mode: 'system' });
+  readonly store: Store<PageThemeState>;
   private readonly settingsStore: Pick<SettingsStore, 'include' | 'get' | 'set' | 'subscribe'>;
   private readonly page: PageThemeDocument;
   private readonly darkQuery: MediaQueryList;
@@ -34,6 +34,9 @@ class PageTheme {
     this.settingsStore = settingsStore;
     this.page = page;
     this.darkQuery = page.win.matchMedia('(prefers-color-scheme: dark)');
+    // theme-preload.ts painted the cached theme before this ran.
+    const preloaded = page.doc.documentElement.getAttribute('data-options-preload-theme');
+    this.store = createStore<PageThemeState>({ mode: 'system', resolved: preloaded === 'dark' ? 'dark' : 'light' });
   }
 
   // theme-preload.ts has already painted the cached (or system) theme and
@@ -72,9 +75,9 @@ class PageTheme {
   private applyResolved(): void {
     const mode = this.store.getSnapshot().mode;
     const resolved = mode === 'system' ? (this.darkQuery.matches ? 'dark' : 'light') : mode;
-    const { doc, panel } = this.page;
+    const { doc } = this.page;
+    this.store.setState({ resolved });
     doc.body.setAttribute('data-theme', resolved);
-    panel.setAttribute('data-theme', resolved);
     doc.documentElement.style.colorScheme = resolved;
     const themeColorMeta = doc.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {

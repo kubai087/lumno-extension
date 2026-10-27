@@ -25,7 +25,7 @@ function testPackaging() {
   assert.strictEqual(settings.aggregateSearches.key, aggregateSearches.key);
   assert.ok(runsBefore(getPageScripts('newtab.html'), 'src/domain/search/aggregate-search-store.ts', 'src/newtab/newtab.ts'));
   assert.ok(runsBefore(getInjectedScripts('overlay'), 'src/domain/search/aggregate-search-store.ts', 'src/overlay/search-panel.ts'));
-  assert.ok(runsBefore(getPageScripts('src/options/options.html'), 'src/domain/search/aggregate-search-store.ts', 'src/options/options.ts'));
+  assert.ok(runsBefore(getPageScripts('src/options/options.html'), 'src/domain/search/aggregate-search-store.ts', 'src/options/app/main.ts'));
   ['en', 'ja', 'zh_CN', 'zh_TW'].forEach((locale) => {
     const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
     [

@@ -65,36 +65,16 @@ async function run() {
   console.log('Options startup performance tests passed');
 }
 
-// On the page: the startup reads go out as one batch, control refreshes
-// requested while it loads are coalesced, and the General tab is active.
+// On the page: the startup reads go out as one batch, the page marks itself
+// ready once they are in, and the General tab is active.
 async function testOptionsPageStartup() {
-  // Counts the control refreshes up to the moment the page marks itself ready,
-  // in the order the page made them. Data that arrives after that refreshes
-  // the controls again, and on a busy machine more of it arrives late, so the
-  // total after a fixed wait says nothing about startup coalescing.
-  let refreshes = 0;
-  let refreshesAtReady = null;
-  const page = await createOptionsPage({
-    setup(window) {
-      new window.MutationObserver((records) => {
-        records.forEach((record) => {
-          if (record.attributeName === 'data-lumno-options-control-refreshes') {
-            refreshes += 1;
-          } else if (refreshesAtReady === null) {
-            refreshesAtReady = refreshes;
-          }
-        });
-      }).observe(window.document.documentElement, {
-        attributes: true,
-        attributeFilter: ['data-lumno-options-control-refreshes', 'data-lumno-options-ready']
-      });
-    }
-  });
-  await page.waitFor(() => refreshesAtReady !== null, 'Options should mark itself ready');
+  const page = await createOptionsPage({});
+  await page.waitFor(
+    () => page.document.documentElement.getAttribute('data-lumno-options-ready') === 'true',
+    'Options should mark itself ready'
+  );
   const largestRead = Math.max(...page.storage.sync.reads.map((keys) => (Array.isArray(keys) ? keys.length : 1)));
   assert.ok(largestRead >= 30, `Options should batch same-task startup reads (largest read: ${largestRead} keys)`);
-  assert.ok(refreshesAtReady >= 1 && refreshesAtReady <= 3,
-    `Options should coalesce repeated startup control refreshes (${refreshesAtReady})`);
   const activeTab = page.document.querySelector('._x_extension_settings_tab_button_2024_unique_[data-active="true"]');
   assert.strictEqual(activeTab && activeTab.getAttribute('data-tab'), 'general', 'the General tab should be active after startup');
   page.close();

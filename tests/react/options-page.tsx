@@ -62,7 +62,6 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
     pageTheme: new PageTheme(settings.store, {
       doc: document,
       win: window,
-      panel: document.createElement('div'),
       animatePanel: (mutateLayout) => mutateLayout()
     }),
     // The account cards reach browser storage and the worker as they start;
@@ -74,6 +73,7 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
     notifyNewtab,
     hideTooltip: vi.fn(),
     bindTooltips: vi.fn(),
+    onSearchSourcesDrawn: vi.fn(),
     getViewportTopInset: () => 0,
     isMacPlatform: false,
     browserFamily: 'chromium',

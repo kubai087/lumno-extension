@@ -2,10 +2,10 @@
 // reason in a tooltip that follows the cursor: <div
 // data-browser-unsupported="firefox" data-unsupported-reason-key="...">.
 // The views that draw such rows disable their controls themselves.
-import { isHtmlElement } from '../shared/dom-guards';
-import * as LumnoCursorTooltip from '../shared/ui/cursor-tooltip';
-import type { CursorTooltipController } from '../shared/ui/cursor-tooltip-model';
-import type { GetMessage } from './options-types';
+import { isHtmlElement } from '../../shared/dom-guards';
+import * as LumnoCursorTooltip from '../../shared/ui/cursor-tooltip';
+import type { CursorTooltipController } from '../../shared/ui/cursor-tooltip-model';
+import type { GetMessage } from '../options-types';
 
 function markBrowserUnsupportedSettings(getMessage: GetMessage): void {
   const family = document.documentElement.getAttribute('data-browser-family');

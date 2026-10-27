@@ -4,7 +4,7 @@ import * as AppearanceSettings from '../domain/settings/appearance';
 import * as PageCacheSettings from '../domain/settings/page-cache';
 import type { ThemeMode } from '../domain/settings/appearance';
 import { getContextSettingsStore } from '../platform/settings-store';
-import { normalizeSettingsTabKey, SETTINGS_TAB_KEYS } from './options-navigation';
+import { normalizeSettingsTabKey, SETTINGS_TAB_KEYS } from './features/navigation/tabs';
 
 (function() {
   const PRELOAD_THEME_ATTRIBUTE = 'data-options-preload-theme';

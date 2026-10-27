@@ -1,15 +1,11 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  createSettingsNavigationApi,
-  createSettingsNavigationController,
-  type SettingsNavigationController,
-  type SettingsNavigationRenderModel
-} from './settings-navigation';
+import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
+import { SettingsNavigation, type SettingsNavigationRenderModel } from './settings-navigation';
 import { getElement } from '../../../tests/react/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
-let controllers: SettingsNavigationController[] = [];
+let controllers: Array<ReactRootController<SettingsNavigationRenderModel>> = [];
 
 const model: SettingsNavigationRenderModel = {
   activeKey: 'general',
@@ -33,7 +29,9 @@ function createFixture() {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const onSelect = vi.fn();
-  const controller = createSettingsNavigationController(host, { onSelect });
+  const controller = createReactRootController(host, (next: SettingsNavigationRenderModel) => (
+    <SettingsNavigation model={next} onSelect={onSelect} />
+  ));
   controllers.push(controller);
   return { controller, host, onSelect };
 }
@@ -46,13 +44,11 @@ afterEach(() => {
   document.body.textContent = '';
 });
 
-describe('Options settings navigation React island', () => {
+describe('Options settings navigation', () => {
   it('preserves the indicator, tab classes, icons, and active semantics', () => {
     const { controller, host } = createFixture();
     act(() => controller.render(model));
 
-    expect(createSettingsNavigationApi().implementation).toBe('react');
-    expect(host.dataset.reactIsland).toBe('options-settings-navigation');
     expect(host.querySelector('._x_extension_tabs_indicator_2024_unique_'))
       .not.toBeNull();
     expect(host.querySelectorAll('._x_extension_settings_tab_button_2024_unique_'))

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { RangeSliderControl, type RangeSliderControlRenderModel } from './range-slider-control';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SegmentedControl, type SegmentedControlRenderModel } from './segmented-control';
 import { SettingTitle } from './setting-rows';
 import { SettingsRows, type SettingsRowModel, type SettingsRowsHandlers } from './settings-rows-view';
@@ -61,19 +60,4 @@ export function AppearanceNewtabLayoutSection({
   const renderSlot = (key: string): ReactNode =>
     (key === 'recent' ? <RecentSitesRow handlers={handlers} model={model.recent} /> : null);
   return <SettingsRows handlers={{ ...handlers.rows, renderSlot }} rows={model.rows} />;
-}
-
-export type AppearanceNewtabLayoutSectionController = ReactRootController<AppearanceNewtabLayoutSectionModel>;
-
-export function createAppearanceNewtabLayoutSectionController(
-  host: HTMLElement | null,
-  handlers: AppearanceNewtabLayoutSectionHandlers
-): AppearanceNewtabLayoutSectionController {
-  if (host) {
-    host.dataset.reactIsland = 'options-appearance-newtab-layout';
-  }
-  return createReactRootController(
-    host,
-    (model: AppearanceNewtabLayoutSectionModel) => <AppearanceNewtabLayoutSection handlers={handlers} model={model} />
-  );
 }

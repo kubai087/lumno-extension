@@ -3,4 +3,4 @@
 // views.
 import '../shared/tab-switcher/tab-switcher';
 import '../shared/tab-switcher/page-bridge';
-import './options';
+import './app/main';

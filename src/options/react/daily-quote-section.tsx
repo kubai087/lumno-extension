@@ -1,5 +1,4 @@
 import { useRef, type ReactNode } from 'react';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingTitle } from './setting-rows';
 import { SettingsRows, type SettingsRowModel, type SettingsRowsHandlers } from './settings-rows-view';
 import { RemixIcon } from '../../shared/react/remix-icon';
@@ -107,19 +106,4 @@ export function DailyQuoteSection({ model, handlers }: { model: DailyQuoteSectio
   const renderSlot = (key: string): ReactNode =>
     (key === 'library' ? <QuoteLibraryRow handlers={handlers} model={model.library} /> : null);
   return <SettingsRows handlers={{ ...handlers.rows, renderSlot }} rows={model.rows} />;
-}
-
-export type DailyQuoteSectionController = ReactRootController<DailyQuoteSectionModel>;
-
-export function createDailyQuoteSectionController(
-  host: HTMLElement | null,
-  handlers: DailyQuoteSectionHandlers
-): DailyQuoteSectionController {
-  if (host) {
-    host.dataset.reactIsland = 'options-daily-quote';
-  }
-  return createReactRootController(
-    host,
-    (model: DailyQuoteSectionModel) => <DailyQuoteSection handlers={handlers} model={model} />
-  );
 }

@@ -194,7 +194,7 @@ async function testReconnectsAfterTheWorkerGoesAway() {
 function testPagesConnectTheBridgeBeforeTheirPageScript() {
   [
     ['newtab.html', 'src/newtab/newtab.ts'],
-    ['src/options/options.html', 'src/options/options.ts'],
+    ['src/options/options.html', 'src/options/app/main.ts'],
     ['src/onboarding/onboarding.html', 'src/onboarding/onboarding.ts']
   ].forEach(([page, pageScript]) => {
     const scripts = getPageScripts(page);

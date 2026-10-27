@@ -295,7 +295,7 @@ const { getInjectedScripts, getPageScripts, runsBefore } = require('../helpers/r
     'newtab should load community links before the engagement runtime'
   );
   assert(
-    runsBefore(getPageScripts('src/options/options.html'), 'src/domain/community-links.ts', 'src/options/options.ts'),
+    runsBefore(getPageScripts('src/options/options.html'), 'src/domain/community-links.ts', 'src/options/app/main.ts'),
     'Options should load community links before its page entry'
   );
   assert(

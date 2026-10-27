@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingDivider, SettingSwitch, SettingTitle, type SettingRowUnsupported } from './setting-rows';
 import { SegmentedControl, type SegmentedControlRenderModel } from './segmented-control';
 import { SettingSelect, type SelectControlRenderModel } from './select-control';
@@ -385,21 +384,4 @@ export function SettingsRows({ rows, handlers }: { rows: SettingsRowModel[]; han
 
 export interface SettingsSectionModel {
   rows: SettingsRowModel[];
-}
-
-export type SettingsSectionController = ReactRootController<SettingsSectionModel>;
-
-// A section of a settings tab drawn as rows. Its host takes no box of its
-// own, so the rows keep the tab's spacing.
-export function createSettingsSectionController(
-  host: HTMLElement | null,
-  handlers: SettingsRowsHandlers
-): SettingsSectionController {
-  if (host) {
-    host.dataset.reactIsland = 'options-settings-section';
-  }
-  return createReactRootController(
-    host,
-    (model: SettingsSectionModel) => <SettingsRows handlers={handlers} rows={model.rows} />
-  );
 }

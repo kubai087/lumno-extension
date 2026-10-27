@@ -1,11 +1,6 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useSegmentedIndicator } from '../../shared/react/segmented-indicator';
-import {
-  createReactRootController,
-  type ReactRootController
-} from '../../shared/react/root-controller';
 import { queryHtmlElement } from '../../shared/dom-lookup';
-import { lazyInstance } from '../../shared/lazy-instance';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
@@ -20,13 +15,6 @@ export interface SettingsNavigationRenderModel {
   activeKey: string;
   items: SettingsNavigationItemModel[];
 }
-
-export interface SettingsNavigationControllerOptions {
-  onSelect(key: string): void;
-}
-
-export type SettingsNavigationController =
-  ReactRootController<SettingsNavigationRenderModel>;
 
 /**
  * Labels never wrap. When they do not fit on one row (long translations, narrow windows)
@@ -92,7 +80,7 @@ function useTabStripOverflow(
   return compact;
 }
 
-function SettingsNavigation({
+export function SettingsNavigation({
   model,
   onSelect
 }: {
@@ -134,28 +122,3 @@ function SettingsNavigation({
     </>
   );
 }
-
-export function createSettingsNavigationController(
-  host: HTMLElement | null,
-  options: SettingsNavigationControllerOptions
-): SettingsNavigationController {
-  if (host) {
-    host.dataset.reactIsland = 'options-settings-navigation';
-  }
-  return createReactRootController(
-    host,
-    (model: SettingsNavigationRenderModel) => (
-      <SettingsNavigation model={model} onSelect={options.onSelect} />
-    )
-  );
-}
-
-export function createSettingsNavigationApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createSettingsNavigationController
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getSettingsNavigationApi = lazyInstance(createSettingsNavigationApi);

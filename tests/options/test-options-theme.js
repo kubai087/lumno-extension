@@ -48,7 +48,6 @@ function setup(stored, options) {
   }), {
     doc: document,
     win: window,
-    panel: document.getElementById('panel'),
     // Records each mode the panel is redrawn for.
     animatePanel(mutate) {
       mutate();
@@ -84,7 +83,7 @@ function setup(stored, options) {
     page.theme.start();
     await settle();
     assert.strictEqual(page.pageTheme(), 'dark');
-    assert.strictEqual(page.document.getElementById('panel').getAttribute('data-theme'), 'dark');
+    assert.strictEqual(page.theme.store.getSnapshot().resolved, 'dark', 'the panel draws in the resolved theme');
     assert.strictEqual(page.document.documentElement.style.colorScheme, 'dark');
     assert.strictEqual(page.document.querySelector('meta[name="theme-color"]').getAttribute('content'), '#111111');
     assert.strictEqual(page.document.documentElement.getAttribute('data-theme-ready'), 'true');

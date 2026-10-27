@@ -1,5 +1,4 @@
 import { FeedbackSupportView, type FeedbackSupportRenderModel } from './feedback-support';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingSelect, type SelectControlRenderModel } from './select-control';
 import { SettingDivider, SettingSwitch, SettingTitle } from './setting-rows';
 import type { ToggleControlRenderModel } from './toggle-control';
@@ -99,20 +98,5 @@ export function GeneralGlobalSection({
         <SettingSwitch model={updateNotice.toggle} onChange={handlers.onUpdateNotice} />
       </div>
     </>
-  );
-}
-
-export type GeneralGlobalSectionController = ReactRootController<GeneralGlobalSectionModel>;
-
-export function createGeneralGlobalSectionController(
-  host: HTMLElement | null,
-  handlers: GeneralGlobalSectionHandlers
-): GeneralGlobalSectionController {
-  if (host) {
-    host.dataset.reactIsland = 'options-general-global';
-  }
-  return createReactRootController(
-    host,
-    (model: GeneralGlobalSectionModel) => <GeneralGlobalSection handlers={handlers} model={model} />
   );
 }

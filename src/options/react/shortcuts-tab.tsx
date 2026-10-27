@@ -3,12 +3,10 @@ import { queryHtmlElement } from '../../shared/dom-lookup';
 import { AggregateSearchList, type AggregateSearchListOptions, type AggregateSearchListRenderModel } from './aggregate-search-list';
 import { GroupActionConfirm, type GroupActionConfirmModel } from './group-action-confirm';
 import { InfoButton } from './info-button';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingDivider, SettingSwitch } from './setting-rows';
 import { SiteSearchForm, type SiteSearchFormRenderModel, type SiteSearchFormSaveHandler } from './settings-forms';
 import { SiteSearchList, type SiteSearchListOptions, type SiteSearchListRenderModel } from './site-search-list';
 import type { ToggleControlRenderModel } from './toggle-control';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
 // The lists a reader can reorder by dragging, as the search source order names them.
@@ -267,25 +265,3 @@ export function ShortcutsTab({ model, handlers }: { model: ShortcutsTabModel; ha
     </div>
   );
 }
-
-export type ShortcutsTabController = ReactRootController<ShortcutsTabModel>;
-
-export function createShortcutsTabController(host: HTMLElement | null, handlers: ShortcutsTabHandlers): ShortcutsTabController {
-  if (host) {
-    host.dataset.reactIsland = 'options-shortcuts-tab';
-  }
-  return createReactRootController(
-    host,
-    (model: ShortcutsTabModel) => <ShortcutsTab handlers={handlers} model={model} />
-  );
-}
-
-export function createShortcutsTabApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createShortcutsTabController
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getShortcutsTabApi = lazyInstance(createShortcutsTabApi);

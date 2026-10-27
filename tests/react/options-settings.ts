@@ -1,11 +1,9 @@
-// The settings an Options section reads and saves, kept in memory: the store
-// and binder the section gets, what it wrote to each area, and a way to
-// change a stored value the way another page would.
+// The settings an Options view reads and saves, kept in memory: the store,
+// what it wrote to each area, and a way to change a stored value the way
+// another page would.
 import { act } from 'react';
 import type { Setting } from '../../src/domain/settings/define';
 import type { StorageChangeListener, StorageItems } from '../../src/domain/storage-port';
-import { createSettingBinder } from '../../src/options/options-setting-bindings';
-import type { SettingSpec } from '../../src/options/options-setting-bindings';
 import { createSettingsStore } from '../../src/platform/settings-store';
 
 type AreaName = 'sync' | 'local';
@@ -71,18 +69,6 @@ function createOptionsTestSettings(options: OptionsTestSettingsOptions = {}) {
     }
   };
   const store = createSettingsStore({ chromeApi, settings: [] });
-  const settingBinder = createSettingBinder({ store });
-  const bound: Setting<unknown>[] = [];
-  // Records which settings a section binds.
-  const binder = {
-    bindSetting<V>(spec: SettingSpec<V>): void {
-      bound.push(spec.setting);
-      settingBinder.bindSetting(spec);
-    },
-    onChange: settingBinder.onChange,
-    whenBound: settingBinder.whenBound
-  };
-
   // Lets the reads, writes and change events in flight finish.
   async function settle(): Promise<void> {
     await act(async () => {
@@ -102,8 +88,6 @@ function createOptionsTestSettings(options: OptionsTestSettingsOptions = {}) {
 
   return {
     store,
-    binder,
-    boundKeys: () => bound.map((setting) => setting.key),
     writes: writes.sync,
     localWrites: writes.local,
     removals,

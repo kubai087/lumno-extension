@@ -9,12 +9,10 @@ const { moduleScript } = require('../helpers/module-script');
 const repoRoot = path.resolve(__dirname, '..', '..');
 path.join(repoRoot, 'src/options/options.html');
 const preloadPath = path.join(repoRoot, 'src/options/theme-preload.ts');
-const optionsSourcePath = path.join(repoRoot, 'src/options/options.ts');
 const lightBackgroundPath = path.join(repoRoot, 'assets/images/settings-bg-light.webp');
 const darkBackgroundPath = path.join(repoRoot, 'assets/images/settings-bg-dark.webp');
 
 const html = readPageSource('src/options/options.html');
-fs.readFileSync(optionsSourcePath, 'utf8');
 
 assert(
   fs.existsSync(preloadPath),

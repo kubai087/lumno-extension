@@ -1,5 +1,4 @@
 import { InfoButton } from './info-button';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SegmentedControl, type SegmentedControlRenderModel } from './segmented-control';
 import { SettingSwitch } from './setting-rows';
 import { ShortcutReference, type ShortcutReferenceRenderModel } from './shortcut-reference';
@@ -114,20 +113,5 @@ export function GeneralShortcutsSection({
         <SettingSwitch model={quickSwitch.toggle} onChange={handlers.onQuickSwitch} />
       </div>
     </>
-  );
-}
-
-export type GeneralShortcutsSectionController = ReactRootController<GeneralShortcutsSectionModel>;
-
-export function createGeneralShortcutsSectionController(
-  host: HTMLElement | null,
-  handlers: GeneralShortcutsSectionHandlers
-): GeneralShortcutsSectionController {
-  if (host) {
-    host.dataset.reactIsland = 'options-general-shortcuts';
-  }
-  return createReactRootController(
-    host,
-    (model: GeneralShortcutsSectionModel) => <GeneralShortcutsSection handlers={handlers} model={model} />
   );
 }
