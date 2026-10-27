@@ -188,7 +188,7 @@ import {
   WORDMARK_ENTRY_ANIMATION_NAME,
   createSiteDisplayNameOptions
 } from './newtab-config';
-import * as SITE_SEARCH_ICON_CACHE from '../shared/search/site-search-icon-cache';
+import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
 import type { BackgroundAction, BackgroundReply, BackgroundRequest } from '../domain/messages';
 import type { Disposition } from '../domain/navigation-disposition';
 import type { OpenModifiers, SearchActionModel, SearchActionModelOptions } from '../domain/search/suggestion-action-model';
@@ -544,8 +544,13 @@ import * as SettingsStorage from '../platform/settings-storage';
     : 4;
   const NEWTAB_SHORTCUT_ICONS_STORAGE_KEY = NewtabShortcutSettings.newtabShortcutIcons.key;
   const NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY = newtabShortcutFaviconCache.key;
-  const SITE_SEARCH_ICON_CACHE_STORAGE_KEY = SearchSettings.siteSearchIconCache.key;
-  const siteSearchIconCacheOptions = ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS;
+  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
+    chromeApi: typeof chrome !== 'undefined' ? chrome : null,
+    storageArea: localStorageArea,
+    storageKey: SearchSettings.siteSearchIconCache.key,
+    ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
+  }));
+  void siteSearchIconCache.load();
   const NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES = ShortcutConstants.DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES;
   const NEWTAB_SHORTCUTS_STORAGE_KEYS = ShortcutConstants.SHORTCUT_STORAGE_KEYS;
   const pageSearchParams = new URLSearchParams(window.location.search || '');
@@ -715,7 +720,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     t,
     navigateToUrl: (...args) => navigateToUrl(...args),
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
-    siteSearchIconCacheOptions,
+    siteSearchIconCache,
     getExtensionResourceUrl,
     SITE_SEARCH_STORE,
     storageArea,
@@ -944,20 +949,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     storageKey: NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY,
     lockManager: window.navigator && window.navigator.locks
   });
-  const siteSearchIconStore = LumnoShortcutFaviconStore.createShortcutFaviconStore({
-    chromeApi: typeof chrome !== 'undefined' ? chrome : null,
-    storageArea: localStorageArea,
-    storageKey: SITE_SEARCH_ICON_CACHE_STORAGE_KEY,
-    ...siteSearchIconCacheOptions
-  });
 
-  const siteSearchIconCache = SITE_SEARCH_ICON_CACHE.createSiteSearchIconCache({
-    store: siteSearchIconStore,
-    state: pageState
-  });
-  const { loadSiteSearchIconCache } = siteSearchIconCache;
-
-  loadSiteSearchIconCache();
   pageState.shortcutContextMenuSelectController = NEWTAB_SELECT_MENU.createController({
       documentObj: document,
       windowObj: window,
@@ -2506,7 +2498,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     getProviderIcon,
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName,
-    loadSiteSearchIconCache,
+    siteSearchIconCache,
     getSiteSearchProviders,
     getAggregateSearches,
     formatMessage,
@@ -2996,7 +2988,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     hideToast,
     setSearchScopeIconEnabled,
     syncSearchModeMenuResultOffset,
-    loadSiteSearchIconCache,
+    siteSearchIconCache,
     pageState
   });
 

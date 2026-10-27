@@ -13,7 +13,7 @@ import { lazyInstance } from '../../shared/lazy-instance';
 import { createHistory as createSearchSourceOrderHistory } from '../../domain/search/search-source-order';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 import { searchSourceOrder } from '../../domain/settings/search';
-import type { CachedIconMap } from '../../domain/favicon/shortcut-favicon/types';
+import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import { searchResultSourceTypes } from '../../domain/settings/search';
@@ -30,13 +30,9 @@ interface SearchModeMenuState {
   siteSearchProvidersCache: SiteSearchProvider[] | null;
   defaultSiteSearchProviders: SiteSearchProvider[];
   aggregateSearchesCache: AggregateSearch[] | null;
-  siteSearchIconCache: CachedIconMap;
-  siteSearchIconCacheLoaded: boolean;
   siteSearchState: InputModeProvider | null;
   localSearchScopeState: LocalSearchScope | null;
   openTabsSearchModeActive: boolean;
-  // Writes of the stored order, one after another.
-  searchSourceOrderQueue: Promise<unknown>;
   latestRawInputValue: string;
   latestOverlayQuery: string;
 }
@@ -54,7 +50,7 @@ interface SearchModeMenuDeps {
   getPageRenderableProviderIcon(provider: SiteSearchProvider): string;
   getLocalSearchScopeLabel(scope: Pick<LocalSearchScope, 'sourceType'> | null): string;
   getLocalSearchScopeIconName(sourceType: string): RemixIconName;
-  loadSiteSearchIconCache(): Promise<CachedIconMap>;
+  siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
   getSiteSearchProviders(): Promise<SiteSearchProvider[]>;
   getAggregateSearches(): Promise<AggregateSearch[]>;
   cancelPendingOpenTabsPrefixEntry(): boolean;
@@ -88,7 +84,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName,
     SEARCH_SOURCE_ORDER,
-    loadSiteSearchIconCache,
+    siteSearchIconCache,
     getSiteSearchProviders,
     getAggregateSearches,
     cancelPendingOpenTabsPrefixEntry,
@@ -99,6 +95,9 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
 
   // The panel state object shared with search-panel.ts and the other modules.
   const overlayState = deps.overlayState;
+  // Moves, undos and redos of the order run one after another, so each
+  // reads what the previous one stored.
+  let searchSourceOrderQueue: Promise<unknown> = Promise.resolve();
 
   function getSearchModeProviderId(provider: Partial<SiteSearchProvider> | null): string {
     return `provider:${provider && (provider.key || provider.name) ? (provider.key || provider.name) : ''}`;
@@ -265,9 +264,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
 
   function getSearchModeMenuItems(): Promise<ModeMenuItem[]> {
     return Promise.all([
-      overlayState.siteSearchIconCacheLoaded
-        ? Promise.resolve(overlayState.siteSearchIconCache)
-        : loadSiteSearchIconCache(),
+      siteSearchIconCache.load(),
       getSiteSearchProviders(),
       getAggregateSearches(),
       loadSearchSourceOrder()
@@ -281,8 +278,8 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
       .then((value) => recordSearchSourceOrder(value, SEARCH_SOURCE_ORDER.applyScopeMenuMove(value, payload))));
   }
   function queueSearchSourceOrderTask(task: () => Promise<unknown>): Promise<unknown> {
-    overlayState.searchSourceOrderQueue = overlayState.searchSourceOrderQueue.then(task).catch(() => {});
-    return overlayState.searchSourceOrderQueue;
+    searchSourceOrderQueue = searchSourceOrderQueue.then(task).catch(() => {});
+    return searchSourceOrderQueue;
   }
 
   function writeSearchSourceOrder(value: unknown): Promise<void> {
@@ -379,7 +376,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     return Promise.all([
       overlayState.overlaySearchEngineStateReady.catch(() => overlayState.overlaySearchEngineState),
       getSiteSearchProviders().catch(() => overlayState.defaultSiteSearchProviders),
-      loadSiteSearchIconCache().catch(() => overlayState.siteSearchIconCache)
+      siteSearchIconCache.load()
     ]).then(([, providers]) => activateDefaultProvider(providers));
   }
 

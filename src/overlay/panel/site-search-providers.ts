@@ -19,8 +19,9 @@ import type { ActivationEvent } from './result-activation';
 import type { Translate } from './types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
-import type { CachedIconMap, SiteSearchIconOptions } from '../../domain/favicon/shortcut-favicon/types';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
+import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
+import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 
 interface SiteSearchProvidersState {
   settings: Pick<OverlaySettings, 'store' | 'loaded' | 'get'>;
@@ -32,8 +33,6 @@ interface SiteSearchProvidersState {
   aggregateSearchesCache: AggregateSearch[] | null;
   aggregateSearchesLoadPromise: Promise<AggregateSearch[]> | null;
   aggregateSearchesLoadVersion: number;
-  siteSearchIconCache: CachedIconMap;
-  siteSearchIconCacheLoaded: boolean;
   // A favicon as a data: URL from the worker; empty or null when there is none.
   requestFaviconData(url: string, pageUrl?: string): Promise<string | null>;
 }
@@ -47,7 +46,7 @@ interface SiteSearchProvidersDeps {
   getSearchResultNewTabDisposition(event: ActivationEvent | null): 'backgroundTab' | 'newTab';
   finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean;
   getOverlayFaviconUrlResolver(): FaviconUrlResolver | null;
-  siteSearchIconCacheOptions: SiteSearchIconOptions;
+  siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
   // Favicon images already fetched, as data: URLs by address.
   faviconDataCache: Map<string, string>;
   overlayState: SiteSearchProvidersState;
@@ -63,7 +62,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getSearchResultNewTabDisposition,
     finishOverlayResultActivation,
     getOverlayFaviconUrlResolver,
-    siteSearchIconCacheOptions,
+    siteSearchIconCache,
     faviconDataCache
   } = deps;
 
@@ -189,8 +188,8 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
       return '';
     }
     const iconUrl = BundledIcons.getSiteSearchProviderIcon(
-      overlayState.siteSearchIconCacheLoaded ? overlayState.siteSearchIconCache : {}, provider, Date.now(), {
-        ...siteSearchIconCacheOptions,
+      siteSearchIconCache.icons, provider, Date.now(), {
+        ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS,
         resolveAssetUrl: (path: string) => chrome.runtime.getURL(path)
       }
     );

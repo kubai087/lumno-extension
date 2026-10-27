@@ -18,6 +18,7 @@ import type { ActiveLocalScope, AutocompleteState, InlineSearchState } from './s
 import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
+import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -65,7 +66,7 @@ interface SearchModesDeps {
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   getLocalSearchScopeLabel: SiteSearchProviders['getLocalSearchScopeLabel'];
   getLocalSearchScopeIconName: SiteSearchProviders['getLocalSearchScopeIconName'];
-  loadSiteSearchIconCache(): Promise<unknown>;
+  siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
   getSiteSearchProviders: SiteSearchProviders['getSiteSearchProviders'];
   getAggregateSearches: SiteSearchProviders['getAggregateSearches'];
   formatMessage: FormatMessage;
@@ -108,7 +109,7 @@ function createSearchModes(deps: SearchModesDeps) {
     getProviderIcon,
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName,
-    loadSiteSearchIconCache,
+    siteSearchIconCache,
     getSiteSearchProviders,
     getAggregateSearches,
     formatMessage,
@@ -287,7 +288,7 @@ function createSearchModes(deps: SearchModesDeps) {
 
   function getSearchModeMenuItems(): Promise<ModeMenuItem[]> {
     return Promise.all([
-      loadSiteSearchIconCache(),
+      siteSearchIconCache.load(),
       getSiteSearchProviders(),
       getAggregateSearches(),
       loadSearchSourceOrder()

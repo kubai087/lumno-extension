@@ -31,7 +31,6 @@ import type { ResultsLayoutState } from './panel/results-layout';
 import type { SearchInputEventsState } from './panel/search-input-events';
 import type { SearchModeMenuState } from './panel/search-mode-menu';
 import type { SearchModesState } from './panel/search-modes';
-import type { SiteSearchIconCacheState } from '../shared/search/site-search-icon-cache';
 import type { SettingsSyncState } from './panel/settings-sync';
 import type { SiteSearchProvidersState } from './panel/site-search-providers';
 import type { SlashCommandsState } from './panel/slash-commands';
@@ -78,7 +77,6 @@ type OverlayState =
   SearchModeMenuState &
   SearchModesState &
   SettingsSyncState<OverlaySuggestion, InputModeProvider> &
-  SiteSearchIconCacheState &
   SiteSearchProvidersState &
   SlashCommandsState &
   SuggestionSourcesState &
@@ -210,18 +208,11 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayRemoteSuggestionDebounceTimer: null,
     overlayFirstResultRevealTimer: null,
 
-    // Site searches, aggregate searches and their icons, loaded on demand.
+    // Site searches and aggregate searches, loaded on demand.
     siteSearchProvidersLoadVersion: 0,
     aggregateSearchesCache: null,
     aggregateSearchesLoadPromise: null,
-    aggregateSearchesLoadVersion: 0,
-    siteSearchIconCache: {},
-    siteSearchIconCacheLoaded: false,
-    siteSearchIconCacheRevision: 0,
-    siteSearchIconCacheLoadPromise: null,
-    // Moves, undos and redos of the mode menu order run one after another,
-    // so each reads what the previous one stored.
-    searchSourceOrderQueue: Promise.resolve()
+    aggregateSearchesLoadVersion: 0
   };
 }
 

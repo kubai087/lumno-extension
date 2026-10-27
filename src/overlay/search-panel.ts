@@ -14,7 +14,7 @@ import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../shared/search/suggestions-height-layout';
 import * as SETTINGS from '../domain/settings';
 import * as LumnoCursorTooltip from '../shared/ui/cursor-tooltip';
-import * as SITE_SEARCH_ICON_CACHE from '../shared/search/site-search-icon-cache';
+import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
 import * as OVERLAY_TOAST from '../shared/ui/toast';
 import { createToastStyleGate } from '../shared/ui/toast-style-gate';
 import * as LumnoTooltip from '../shared/ui/tooltip';
@@ -107,6 +107,14 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const shouldIgnoreTabZoomCompensation = OVERLAY_CONTEXT.isLocalFileLikeUrl(openOptions.currentTabUrl);
   // Web clip needs Document Picture-in-Picture, which Firefox does not ship.
   const documentPipSupported = 'documentPictureInPicture' in window;
+  // Warm local icon lookup immediately, but never put it on the overlay reveal path.
+  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
+    chromeApi: chrome,
+    storageArea: chrome && chrome.storage ? chrome.storage.local : null,
+    storageKey: siteSearchIconCacheSetting.key,
+    ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
+  }));
+  void siteSearchIconCache.load();
   // Made once the modules it relies on exist; the state reaches it through
   // the functions below.
   let overlayFaviconRuntime: ReturnType<typeof LumnoOverlayFaviconView.createOverlayFaviconViewRuntime> | null = null;
@@ -570,7 +578,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayState
   });
 
-  const siteSearchIconCacheOptions = ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS;
 
   const {
     buildSearchUrl,
@@ -594,7 +601,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getSearchResultNewTabDisposition: (...args) => getSearchResultNewTabDisposition(...args),
     finishOverlayResultActivation: (...args) => finishOverlayResultActivation(...args),
     getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
-    siteSearchIconCacheOptions,
+    siteSearchIconCache,
     faviconDataCache,
     overlayState
   });
@@ -621,7 +628,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName,
     SEARCH_SOURCE_ORDER,
-    loadSiteSearchIconCache: () => loadSiteSearchIconCache(),
+    siteSearchIconCache,
     getSiteSearchProviders,
     getAggregateSearches,
     cancelPendingOpenTabsPrefixEntry,
@@ -1282,21 +1289,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     return overlayState.imeKeyGuard.shouldIgnoreKeydown(event);
   }
   const defaultPlaceholder = overlayState.searchInput.placeholder;
-  const siteSearchIconStore = LumnoShortcutFaviconStore.createShortcutFaviconStore({
-    chromeApi: chrome,
-    storageArea: chrome && chrome.storage ? chrome.storage.local : null,
-    storageKey: siteSearchIconCacheSetting.key,
-    ...siteSearchIconCacheOptions
-  });
-
-  const siteSearchIconCache = SITE_SEARCH_ICON_CACHE.createSiteSearchIconCache({
-    store: siteSearchIconStore,
-    state: overlayState
-  });
-  const { loadSiteSearchIconCache } = siteSearchIconCache;
-
-  // Warm local icon lookup immediately, but never put it on the overlay reveal path.
-  loadSiteSearchIconCache();
   const faviconRuntime = overlayFaviconView.createOverlayFaviconViewRuntime({
     document,
     windowObj: window,
@@ -1432,7 +1424,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       modeMenuResultResizeObserver.disconnect();
     });
   }
-  loadSiteSearchIconCache().then(() => {
+  siteSearchIconCache.load().then(() => {
     if (!overlayState.siteSearchState || !overlayState.inputModeController) {
       return;
     }
@@ -1522,7 +1514,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   overlayState.settings.follow(siteSearchIconCacheSetting, () => {
-    siteSearchIconCache.applyStoredSiteSearchIcons(overlayState.settings.store.getStored(siteSearchIconCacheSetting));
+    siteSearchIconCache.applyStored(overlayState.settings.store.getStored(siteSearchIconCacheSetting));
     if (overlayState.siteSearchState && overlayState.inputModeController) {
       const activeProvider = overlayState.siteSearchState;
       setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);

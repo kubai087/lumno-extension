@@ -14,6 +14,7 @@ import type { InputModeProvider, InputModeTheme } from '../../shared/search/inpu
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ActiveLocalScope, RenderSuggestions } from './search-types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
+import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -78,7 +79,7 @@ interface SearchModeControllerDeps {
   hideToast(): void;
   setSearchScopeIconEnabled(enabled: boolean): void;
   syncSearchModeMenuResultOffset(): void;
-  loadSiteSearchIconCache(): Promise<unknown>;
+  siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
   pageState: SearchModeControllerState;
 }
 
@@ -125,7 +126,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     hideToast,
     setSearchScopeIconEnabled,
     syncSearchModeMenuResultOffset,
-    loadSiteSearchIconCache,
+    siteSearchIconCache,
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -245,7 +246,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     );
     searchModeMenuResultResizeObserver.observe(suggestionsContainer);
   }
-  loadSiteSearchIconCache().then(() => {
+  siteSearchIconCache.load().then(() => {
     if (!pageState.siteSearchState || !pageState.inputModeController) {
       return;
     }

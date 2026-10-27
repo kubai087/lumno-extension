@@ -6,63 +6,62 @@ import type { ShortcutFaviconStore } from '../../platform/shortcut-favicon-store
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 import type { CachedIconMap } from '../../domain/favicon/shortcut-favicon/types';
 
-interface SiteSearchIconCacheState {
-  siteSearchIconCache: CachedIconMap;
-  siteSearchIconCacheLoaded: boolean;
-  siteSearchIconCacheRevision: number;
-  siteSearchIconCacheLoadPromise: Promise<CachedIconMap> | null;
-}
+type IconStore = Pick<ShortcutFaviconStore, 'readAll' | 'storageKey' | 'cacheOptions'>;
 
-interface SiteSearchIconCacheDeps {
-  store: Pick<ShortcutFaviconStore, 'readAll' | 'storageKey' | 'cacheOptions'>;
-  state: SiteSearchIconCacheState;
-  now?: () => number;
-}
+class SiteSearchIconCache {
+  readonly storageKey: string;
+  private readonly store: IconStore;
+  private readonly now: () => number;
+  private cache: CachedIconMap = {};
+  private read = false;
+  private revision = 0;
+  private loading: Promise<CachedIconMap> | null = null;
 
-function createSiteSearchIconCache(deps: SiteSearchIconCacheDeps) {
-  const { store, state } = deps;
-  const now = deps.now || Date.now;
+  constructor(store: IconStore, now: () => number = Date.now) {
+    this.store = store;
+    this.storageKey = store.storageKey;
+    this.now = now;
+  }
+
+  // The icons once read; none before.
+  get icons(): CachedIconMap {
+    return this.read ? this.cache : {};
+  }
+
+  get loaded(): boolean {
+    return this.read;
+  }
 
   // Resolves with the icons; a failed read leaves none rather than failing.
-  function loadSiteSearchIconCache(): Promise<CachedIconMap> {
-    if (state.siteSearchIconCacheLoaded) {
-      return Promise.resolve(state.siteSearchIconCache);
+  load(): Promise<CachedIconMap> {
+    if (this.read) {
+      return Promise.resolve(this.cache);
     }
-    if (state.siteSearchIconCacheLoadPromise) {
-      return state.siteSearchIconCacheLoadPromise;
+    if (this.loading) {
+      return this.loading;
     }
-    const loadRevision = state.siteSearchIconCacheRevision;
+    const loadRevision = this.revision;
     const settle = (cache: CachedIconMap): CachedIconMap => {
-      if (state.siteSearchIconCacheRevision === loadRevision) {
-        state.siteSearchIconCache = cache;
+      if (this.revision === loadRevision) {
+        this.cache = cache;
       }
-      state.siteSearchIconCacheLoaded = true;
-      return state.siteSearchIconCache;
+      this.read = true;
+      return this.cache;
     };
-    state.siteSearchIconCacheLoadPromise = store.readAll()
-      .then(settle, (): CachedIconMap => settle({}));
-    return state.siteSearchIconCacheLoadPromise;
+    this.loading = this.store.readAll().then(settle, (): CachedIconMap => settle({}));
+    return this.loading;
   }
 
   // The stored copy changed (newValue of a storage change): it replaces the
   // icons now, and outranks any read still underway.
-  function applyStoredSiteSearchIcons(value: unknown): CachedIconMap {
-    const cache = ShortcutIconCache.normalizeCacheMap(value, now(), store.cacheOptions);
-    state.siteSearchIconCache = cache;
-    state.siteSearchIconCacheLoaded = true;
-    state.siteSearchIconCacheRevision += 1;
-    state.siteSearchIconCacheLoadPromise = Promise.resolve(cache);
+  applyStored(value: unknown): CachedIconMap {
+    const cache = ShortcutIconCache.normalizeCacheMap(value, this.now(), this.store.cacheOptions);
+    this.cache = cache;
+    this.read = true;
+    this.revision += 1;
+    this.loading = Promise.resolve(cache);
     return cache;
   }
-
-  return {
-    storageKey: store.storageKey,
-    loadSiteSearchIconCache,
-    applyStoredSiteSearchIcons
-  };
 }
 
-type SiteSearchIconCache = ReturnType<typeof createSiteSearchIconCache>;
-
-export { createSiteSearchIconCache };
-export type { SiteSearchIconCache, SiteSearchIconCacheState };
+export { SiteSearchIconCache };

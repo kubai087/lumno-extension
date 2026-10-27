@@ -53,7 +53,6 @@ import type { ShortcutDragState } from './shortcuts/shortcut-drag';
 import type { ShortcutPageActionsState } from './shortcuts/shortcut-page-actions';
 import type { ShortcutsControllerState } from './shortcuts/shortcuts-controller';
 import type { StartupPreferencesState } from './startup-preferences';
-import type { SiteSearchIconCacheState } from '../shared/search/site-search-icon-cache';
 import type { SiteSearchProvidersState } from './search/site-search-providers';
 import type { SiteSearchRuntimeState } from './search/site-search-runtime';
 import type { SiteThemeResolverState } from './theme/site-theme-resolver';
@@ -124,7 +123,6 @@ type NewtabPageState =
   ShortcutPageActionsState &
   ShortcutsControllerState &
   StartupPreferencesState &
-  SiteSearchIconCacheState &
   SiteSearchProvidersState &
   SiteSearchRuntimeState &
   SiteThemeResolverState &
@@ -240,8 +238,6 @@ function createPageState(): NewtabPageState {
     // Synced colors keyed by folder path, and the colors they resolve to for
     // this device's bookmark ids.
     folderColorRefs: {},
-    siteSearchIconCacheLoadPromise: null,
-    siteSearchIconCacheRevision: 0,
     shortcutFaviconPolicyRevision: 0,
     shortcutFaviconPendingCacheEntries: {},
     currentNewtabWidthMode: 'wide',
@@ -336,8 +332,6 @@ function createPageState(): NewtabPageState {
     newtabShortcutColumns: SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
     newtabShortcutSize: SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT,
     newtabShortcutGap: SETTINGS.NEWTAB_SHORTCUT_GAP_DEFAULT,
-    siteSearchIconCache: {},
-    siteSearchIconCacheLoaded: false,
     siteSearchProvidersLoadVersion: 0,
     aggregateSearchesLoadVersion: 0,
     AGGREGATE_SEARCH_STORAGE_KEY: SETTINGS.aggregateSearches.key,

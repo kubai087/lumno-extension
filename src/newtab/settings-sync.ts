@@ -147,7 +147,7 @@ interface SettingsSyncDeps extends
   FOLDER_COLOR_REFS_STORAGE_KEY: string;
   NEWTAB_SHORTCUT_ICONS_STORAGE_KEY: string;
   NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY: string;
-  siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStoredSiteSearchIcons'>;
+  siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
   NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
   THEME_STORAGE_KEY: string;
@@ -421,7 +421,7 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     renderShortcuts();
   }, { area: 'local' });
   storageChanges.on(siteSearchIconCache.storageKey, (changes) => {
-    siteSearchIconCache.applyStoredSiteSearchIcons(changes[siteSearchIconCache.storageKey].newValue);
+    siteSearchIconCache.applyStored(changes[siteSearchIconCache.storageKey].newValue);
     if (pageState.siteSearchState && pageState.inputModeController) {
       const activeProvider = pageState.siteSearchState;
       setSiteSearchPrefix(activeProvider, defaultTheme);

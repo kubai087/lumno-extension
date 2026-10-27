@@ -23,16 +23,15 @@ import { getAggregateSearchId } from './search-types';
 import type { ActiveLocalScope } from './search-types';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
-import type { CachedIconMap, IconCacheOptions } from '../../domain/favicon/shortcut-favicon/types';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
+import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
+import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 
 interface SiteSearchProvidersState {
   // Icons saved for site search providers, by page URL.
-  siteSearchIconCache: CachedIconMap;
-  siteSearchIconCacheLoaded: boolean;
   // Bumped when the stored providers change, so an older load is dropped.
   siteSearchProvidersLoadVersion: number;
   siteSearchProvidersCache: SiteSearchProvider[] | null;
@@ -50,7 +49,7 @@ interface SiteSearchProvidersDeps {
   t: Translate;
   navigateToUrl(url: string): void;
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getProviderFaviconUrl'> | null;
-  siteSearchIconCacheOptions: Readonly<IconCacheOptions>;
+  siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
   getExtensionResourceUrl(resourcePath: string): string;
   SITE_SEARCH_STORE: Pick<typeof SiteSearchStore, 'loadSiteSearchProviders' | 'getStorageValues' | 'mergeStoredProviders'>;
   storageArea: StorageAreaLike | null;
@@ -79,7 +78,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     t,
     navigateToUrl,
     getPageFaviconUrlResolver,
-    siteSearchIconCacheOptions,
+    siteSearchIconCache,
     getExtensionResourceUrl,
     SITE_SEARCH_STORE,
     storageArea,
@@ -190,8 +189,8 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
       return '';
     }
     const iconUrl = BundledIcons.getSiteSearchProviderIcon(
-      pageState.siteSearchIconCacheLoaded ? pageState.siteSearchIconCache : {}, provider, Date.now(), {
-        ...siteSearchIconCacheOptions,
+      siteSearchIconCache.icons, provider, Date.now(), {
+        ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS,
         resolveAssetUrl: getExtensionResourceUrl
       }
     );
