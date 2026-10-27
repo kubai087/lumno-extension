@@ -25,6 +25,8 @@ interface OverlayKeyRouterHandlers {
   handleOverlayKeyup?(event: KeyboardEvent): void;
   onKeyUp?(event: KeyboardEvent): void;
   onEscapeOutside?(event: KeyboardEvent): void;
+  // An Escape keyup arrived without its keydown: a listener ahead of the router took it.
+  onEscapeTaken?(event: KeyboardEvent): void;
   onBlur?(): void;
 }
 
@@ -88,6 +90,9 @@ function isOverlayKeyEvent(event: KeyboardEvent | null, mount: OverlayKeyMount |
 // - document keydown/keyup: keys that reach the page while the overlay owns
 //   the keyboard (focus inside the overlay, or nowhere); a focused host-page
 //   control keeps its keys, except Escape, which closes the overlay;
+// - an Escape keyup whose keydown never reached the router: a listener added
+//   before the router's took the keydown (Surfingkeys leaves its insert mode
+//   on Escape and keeps the key, #127), and the overlay closes all the same;
 // - window blur: modifier tracking resets.
 // While another Lumno surface holds the keyboard (the tab switcher opened over
 // the overlay), every key passes untouched so that surface sees its arrows,
@@ -101,6 +106,24 @@ function createOverlayKeyRouter(win: Window, handlers?: OverlayKeyRouterHandlers
     ? config.isTrustedEvent
     : isTrustedKeyEvent;
   let started = false;
+  let escapeKeydownSeen = false;
+
+  // Whether this Escape keyup lost its keydown to an earlier listener.
+  function isTakenEscapeKeyup(event: KeyboardEvent): boolean {
+    if (event.key !== 'Escape') {
+      return false;
+    }
+    if (event.type === 'keydown') {
+      escapeKeydownSeen = true;
+      return false;
+    }
+    if (event.type !== 'keyup') {
+      return false;
+    }
+    const taken = !escapeKeydownSeen;
+    escapeKeydownSeen = false;
+    return taken;
+  }
 
   function handleCapturedKey(event: KeyboardEvent): void {
     if (!isTrustedEvent(event)) {
@@ -109,7 +132,14 @@ function createOverlayKeyRouter(win: Window, handlers?: OverlayKeyRouterHandlers
       }
       return;
     }
+    // Tracked before the checks below, so a keydown another Lumno surface
+    // used still counts as seen.
+    const escapeTaken = isTakenEscapeKeyup(event);
     if (!config.isOverlayConnected?.() || config.isKeyboardYielded?.()) {
+      return;
+    }
+    if (escapeTaken) {
+      config.onEscapeTaken?.(event);
       return;
     }
     if (event.type === 'keyup') {
@@ -196,6 +226,7 @@ function createOverlayKeyRouter(win: Window, handlers?: OverlayKeyRouterHandlers
       return;
     }
     started = true;
+    escapeKeydownSeen = false;
     win.addEventListener('keydown', handleCapturedKey, true);
     win.addEventListener('keypress', handleCapturedKey, true);
     win.addEventListener('keyup', handleCapturedKey, true);

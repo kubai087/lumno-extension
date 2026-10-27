@@ -200,6 +200,46 @@ async function overlaySearch({ browser, fixtures }) {
   await web.waitFor(`!document.getElementById('${OVERLAY_HOST_ID}')`, { message: 'Escape did not close the overlay' });
 }
 
+// Keyboard extensions such as Surfingkeys take single keys from a window
+// capture listener added before the overlay's, unless the keys' target is
+// editable, blur an editable that takes focus before any click, and keep the
+// Escape keydown that blurs an editable. The overlay keeps its focus and its
+// typed keys under such a listener, and one Escape still closes it (#127).
+async function overlayKeyGrabber({ browser, fixtures }) {
+  const web = await browser.openPage(fixtures.url('/page.html'));
+  await web.evaluate(`(() => {
+    window.grabbedKeys = [];
+    const isEditable = (element) => Boolean(element) && (element.isContentEditable ||
+      ['input', 'textarea', 'select'].includes(element.localName));
+    addEventListener('focus', (event) => {
+      if (isEditable(event.target)) event.target.blur();
+    }, true);
+    addEventListener('keydown', (event) => {
+      if (isEditable(event.target) && event.key === 'Escape') {
+        event.target.blur();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      } else if (!isEditable(event.target) && event.key.length === 1) {
+        window.grabbedKeys.push(event.key);
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+  })()`);
+  await focusTab(browser, web);
+  await dispatchCommand(browser, 'show-search');
+  await web.waitForShadow(OVERLAY_HOST_ID, OVERLAY_INPUT, function isFocused() {
+    return this.getRootNode().activeElement === this;
+  }, (results) => results.length === 1 && results[0] === true, { message: 'the overlay input was not focused' });
+  await web.typeKeys('jk');
+  await web.waitForShadow(OVERLAY_HOST_ID, OVERLAY_INPUT, function value() {
+    return this.value;
+  }, (values) => values[0] === 'jk', { message: 'the overlay input did not receive the typed keys' });
+  assert.deepStrictEqual(await web.evaluate('window.grabbedKeys'), [], 'the page took keys typed into the overlay');
+  await web.press('Escape');
+  await web.waitFor(`!document.getElementById('${OVERLAY_HOST_ID}')`, { message: 'Escape did not close the overlay' });
+}
+
 // After picking a search scope from the menu over a site search's results,
 // Escape closes the menu only, and the frame around the results follows
 // the list back to its full height (#121); a second Escape leaves the scope
@@ -532,6 +572,7 @@ module.exports = {
   surfaces,
   'newtab-search': newtabSearch,
   'overlay-search': overlaySearch,
+  'overlay-key-grabber': overlayKeyGrabber,
   'overlay-current-tab': overlayCurrentTab,
   'search-scope': searchScope,
   'search-scope-escape': searchScopeEscape,

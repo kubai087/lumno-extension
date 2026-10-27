@@ -93,6 +93,39 @@ describe('Overlay React shell', () => {
     act(() => api.destroyOverlayMount(mount.host));
   });
 
+  it('marks the host editable while focus is in the panel, after the page saw the focus', () => {
+    const api = createOverlayShellApi();
+    const holder: { value: ReturnType<typeof api.createOverlayMount> } = { value: null };
+    act(() => {
+      holder.value = api.createOverlayMount(document, { hostId: 'overlay-host', id: 'overlay-panel' });
+    });
+    const mount = holder.value;
+    if (!mount) {
+      throw new Error('Expected overlay mount');
+    }
+    document.body.appendChild(mount.host);
+    const input = document.createElement('input');
+    mount.inputContainer.appendChild(input);
+    const seenByPage: Array<string | null> = [];
+    const recordFocus = (event: Event) => {
+      if (event.target === mount.host) {
+        seenByPage.push(mount.host.getAttribute('contenteditable'));
+      }
+    };
+    window.addEventListener('focus', recordFocus, true);
+    try {
+      input.focus();
+      expect(seenByPage).toEqual([null]);
+      expect(mount.host.getAttribute('contenteditable')).toBe('plaintext-only');
+
+      input.blur();
+      expect(mount.host.hasAttribute('contenteditable')).toBe(false);
+    } finally {
+      window.removeEventListener('focus', recordFocus, true);
+      act(() => api.destroyOverlayMount(mount.host));
+    }
+  });
+
   it('installs isolated styles without a legacy adapter', () => {
     const api = createOverlayShellApi();
     const root = document.createElement('div');

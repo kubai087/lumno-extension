@@ -1591,6 +1591,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
   });
 
+  function closeOverlayOnEscape(): void {
+    if (overlayState.overlay) {
+      closeOverlayWithMotion(overlayState.overlay);
+    }
+  }
   const overlayKeyRouter = OVERLAY_KEYBOARD.createOverlayKeyRouter(window, {
     getMount: () => ({
       document,
@@ -1627,11 +1632,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleTab: handleTabKey,
     handleOverlayKeydown,
     handleOverlayKeyup,
-    onEscapeOutside: () => {
-      if (overlayState.overlay) {
-        closeOverlayWithMotion(overlayState.overlay);
-      }
-    },
+    onEscapeOutside: closeOverlayOnEscape,
+    onEscapeTaken: closeOverlayOnEscape,
     onBlur: () => {
       setSuggestionActionModifiersActive(false, false, false);
       SUGGESTION_NAVIGATION.cancelNumberShortcuts(overlayState.suggestionsContainer);

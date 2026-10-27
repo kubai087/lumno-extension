@@ -140,6 +140,15 @@ function createSession(cdp, sessionId) {
     await cdp.send('Input.insertText', { text }, sessionId);
   }
 
+  // Types lowercase letters as key presses, so key listeners see each one.
+  async function typeKeys(text) {
+    for (const key of text) {
+      const base = { key, code: `Key${key.toUpperCase()}`, windowsVirtualKeyCode: key.toUpperCase().charCodeAt(0) };
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, text: key }, sessionId);
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base }, sessionId);
+    }
+  }
+
   async function click(x, y, { modifiers = [] } = {}) {
     const bits = modifiers.reduce((sum, name) => sum + MODIFIERS[name], 0);
     const base = { x, y, button: 'left', clickCount: 1, modifiers: bits };
@@ -213,7 +222,7 @@ function createSession(cdp, sessionId) {
     });
   }
 
-  return { sessionId, evaluate, waitFor, goto, press, keyDown, keyUp, type, click, inShadow, waitForShadow };
+  return { sessionId, evaluate, waitFor, goto, press, keyDown, keyUp, type, typeKeys, click, inShadow, waitForShadow };
 }
 
 async function launchBrowser({ extensionPath }) {

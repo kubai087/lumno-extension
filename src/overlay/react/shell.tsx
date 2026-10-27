@@ -583,6 +583,21 @@ function createOverlayHost(
   return host;
 }
 
+// Key handlers outside the panel see the closed shadow host, not the input in
+// it, as the target of the keys typed there, and run their single-key
+// shortcuts unless that target is editable (Surfingkeys, #127). The host is
+// editable while focus is in the panel, turning so only after each focus
+// event has passed the page: Surfingkeys blurs an editable that takes focus
+// before the user clicks the page.
+function markHostEditableWhileFocused(host: HTMLElement, shadowRoot: ShadowRoot): void {
+  shadowRoot.addEventListener('focus', () => {
+    host.setAttribute('contenteditable', 'plaintext-only');
+  }, true);
+  shadowRoot.addEventListener('blur', () => {
+    host.removeAttribute('contenteditable');
+  }, true);
+}
+
 // The panel's theme: its scheme and the custom properties it draws with.
 export interface OverlayPanelModel {
   theme: string;
@@ -673,6 +688,7 @@ export function createOverlayShellApi() {
     // Every supported browser has closed shadow roots, so page styles never
     // reach the panel and its own never reach the page.
     const shadowRoot = host.attachShadow({ mode: 'closed' });
+    markHostEditableWhileFocused(host, shadowRoot);
     appendOverlayStyleNodes(doc, {
       ...options,
       root: shadowRoot

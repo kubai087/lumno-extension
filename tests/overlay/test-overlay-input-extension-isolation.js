@@ -32,6 +32,7 @@ const numberShortcutSignals = [];
 let imeKeyUpCount = 0;
 let macosCtrlNavigationEnabled = false;
 let keyboardYielded = false;
+const takenEscapes = [];
 const SUGGESTION_NAVIGATION = require('../../src/shared/search/suggestion-navigation.ts');
 const numberShortcutOptions = {
   primaryModifier: 'meta',
@@ -80,6 +81,9 @@ const keyRouter = createOverlayKeyRouter(window, {
       : '',
   onKeyUp() {
     imeKeyUpCount += 1;
+  },
+  onEscapeTaken(event) {
+    takenEscapes.push(event.type);
   }
 });
 keyRouter.start();
@@ -400,6 +404,29 @@ assert.strictEqual(handledInputKeys.length, handledInputKeyCount,
 keyboardYielded = false;
 hostPageKeys.length = 0;
 hostPageKeyups.length = 0;
+
+// An Escape keyup whose keydown never reached the router (Surfingkeys took
+// it, #127) closes the overlay; one after a keydown the router saw - even one
+// the tab switcher used - does not.
+const escapeEvent = (type) => new window.KeyboardEvent(type, {
+  bubbles: true,
+  cancelable: true,
+  composed: true,
+  key: 'Escape',
+  code: 'Escape'
+});
+searchInput.focus();
+searchInput.dispatchEvent(escapeEvent('keydown'));
+searchInput.dispatchEvent(escapeEvent('keyup'));
+assert.deepStrictEqual(takenEscapes, [], 'an Escape the router saw go down is not a taken one');
+keyboardYielded = true;
+searchInput.dispatchEvent(escapeEvent('keydown'));
+keyboardYielded = false;
+searchInput.dispatchEvent(escapeEvent('keyup'));
+assert.deepStrictEqual(takenEscapes, [], 'an Escape the tab switcher used is not a taken one');
+searchInput.dispatchEvent(escapeEvent('keyup'));
+assert.deepStrictEqual(takenEscapes, ['keyup'], 'an Escape keyup without its keydown should close the overlay');
+hostPageKeys.length = 0;
 
 keyRouter.stop();
 const afterStopKeydown = new window.KeyboardEvent('keydown', {
