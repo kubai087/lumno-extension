@@ -5,13 +5,14 @@ import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import type { AutocompleteState } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
+import { searchResultPriority } from '../../domain/settings/search';
+import type { SettingsStore } from '../../platform/settings-store';
 
 interface SearchAutocompleteState {
   inputParts: SearchInputParts | null;
   autocompleteState: AutocompleteState | null;
   latestQuery: string;
   latestRawQuery: string;
-  searchResultPriorityMode: string;
   // When the user last deleted text; autocomplete holds off right after.
   lastDeletionAt: number;
   siteSearchState: SiteSearchProvider | null;
@@ -20,6 +21,7 @@ interface SearchAutocompleteState {
 }
 
 interface SearchAutocompleteDeps {
+  settings: Pick<SettingsStore, 'get'>;
   getUrlDisplay(url: string | undefined): string;
   isEnglishQuery(query: string): boolean;
   getKeywordSearchSuggestionState: SiteSearchProviders['getKeywordSearchSuggestionState'];
@@ -38,6 +40,7 @@ type SuggestionList = readonly (Suggestion | null | undefined)[];
 
 function createSearchAutocomplete(deps: SearchAutocompleteDeps) {
   const {
+    settings,
     getUrlDisplay,
     isEnglishQuery,
     getKeywordSearchSuggestionState
@@ -232,7 +235,7 @@ function createSearchAutocomplete(deps: SearchAutocompleteDeps) {
     if (pageState.suggestionInputPreview.isActive()) {
       return;
     }
-    if (pageState.searchResultPriorityMode === 'search') {
+    if (settings.get(searchResultPriority) === 'search') {
       if (inputParts && inputParts.input.value !== rawQuery) {
         inputParts.input.value = rawQuery;
         inputParts.input.setSelectionRange(rawQuery.length, rawQuery.length);

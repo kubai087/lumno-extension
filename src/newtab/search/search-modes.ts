@@ -18,6 +18,8 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
+import { searchResultSourceTypes } from '../../domain/settings/search';
+import type { SettingsStore } from '../../platform/settings-store';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -40,7 +42,6 @@ interface SearchModesState {
   localSearchScopeTriggerState: LocalScopeTrigger | null;
   inlineSearchState: InlineSearchState | null;
   autocompleteState: AutocompleteState | null;
-  enabledSearchResultSourceTypes: SearchSourceType[];
   currentSuggestions: Suggestion[];
   selectedIndex: number;
   suggestionRequestSeq: number;
@@ -50,6 +51,7 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
+  settings: Pick<SettingsStore, 'get'>;
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
   t: Translate;
@@ -90,6 +92,7 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    settings,
     siteSearchCatalog,
     searchEngine,
     t,
@@ -198,7 +201,7 @@ function createSearchModes(deps: SearchModesDeps) {
         });
       });
     LOCAL_SCOPE_SOURCES.forEach((sourceType) => {
-      if (!pageState.enabledSearchResultSourceTypes.includes(sourceType)) {
+      if (!settings.get(searchResultSourceTypes).includes(sourceType)) {
         return;
       }
       items.push({
@@ -387,7 +390,7 @@ function createSearchModes(deps: SearchModesDeps) {
   }
 
   function activateLocalSearchScope(scope: ActiveLocalScope | null, activationOptions?: ModeActivationOptions): boolean {
-    if (!scope || !pageState.enabledSearchResultSourceTypes.includes(scope.sourceType)) {
+    if (!scope || !settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
       return false;
     }
     const options = activationOptions || {};

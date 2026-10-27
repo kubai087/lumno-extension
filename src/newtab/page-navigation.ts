@@ -2,13 +2,16 @@
 // right tab disposition.
 import type * as NavigationDisposition from '../domain/navigation-disposition';
 import type { DefaultTabOpen, Disposition, OpenEvent } from '../domain/navigation-disposition';
-import type { NewtabOpenInNewTab, NewtabOpenInNewTabSurface } from '../domain/settings';
+import type { NewtabOpenInNewTabSurface } from '../domain/settings';
 import * as LumnoMessaging from '../platform/messaging';
 import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
 import type { BookmarkNode } from './bookmarks/bookmarks-store';
 import type { ShowToast, Translate } from './newtab-types';
 import type { ShortcutItem, VisibleShortcutItem } from '../domain/shortcuts/types';
 import type { DefaultSearchEngine } from '../shared/search-panel/default-engine';
+import { newtabOpenInNewTab } from '../domain/settings/newtab-page';
+import { numberShortcutInstantEnabled } from '../domain/settings/search';
+import type { SettingsStore } from '../platform/settings-store';
 
 // A shortcut as the page opens it: a site, or a bookmark folder.
 type OpenableShortcut = ShortcutItem | VisibleShortcutItem;
@@ -26,13 +29,12 @@ interface SelectableSuggestion {
 }
 
 interface PageNavigationState {
-  numberShortcutInstantEnabled: boolean;
-  newtabOpenInNewTab: NewtabOpenInNewTab | null;
   latestRawQuery: string;
   inputParts: { input: HTMLInputElement } | null;
 }
 
 interface PageNavigationDeps {
+  settings: Pick<SettingsStore, 'get'>;
   NAVIGATION_DISPOSITION: Pick<typeof NavigationDisposition,
     'isMiddleClick' | 'isBackgroundOpenEvent' | 'getDisposition' | 'getDefaultTabDisposition'>;
   getShortcutTileById(id: string): HTMLElement | null;
@@ -49,6 +51,7 @@ interface PageNavigationDeps {
 
 function createPageNavigation(deps: PageNavigationDeps) {
   const {
+    settings,
     NAVIGATION_DISPOSITION,
     getShortcutTileById,
     bookmarksRuntime,
@@ -90,7 +93,7 @@ function createPageNavigation(deps: PageNavigationDeps) {
   }
 
   function isBackgroundOpenEvent(event: OpenEvent | null | undefined): boolean {
-    if (pageState.numberShortcutInstantEnabled) {
+    if (settings.get(numberShortcutInstantEnabled)) {
       return isMiddleClick(event);
     }
     return NAVIGATION_DISPOSITION.isBackgroundOpenEvent(event);
@@ -130,7 +133,7 @@ function createPageNavigation(deps: PageNavigationDeps) {
   // tab" setting is on; Option/Alt opens in the other one, and a
   // background-open click goes to the background.
   function getSurfaceOpenDisposition(surface: string | undefined, keys: SurfaceOpenKeys): Disposition {
-    const prefs = pageState.newtabOpenInNewTab;
+    const prefs = settings.get(newtabOpenInNewTab);
     return NAVIGATION_DISPOSITION.getDefaultTabDisposition({
       ...keys,
       currentTabByDefault: !(prefs && isOpenInNewTabSurface(surface) && prefs[surface] === true)

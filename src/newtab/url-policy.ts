@@ -1,16 +1,15 @@
 // URL classification, favicon source policy and the search/favicon blacklists
 // used by New Tab suggestions, recent sites and favicons.
-import type { BlacklistRule } from '../domain/blacklist-utils';
 import type * as BlacklistUtils from '../domain/blacklist-utils';
 import type * as ExtensionRoutes from '../domain/extension-routes';
-import type * as LumnoSettings from '../domain/settings';
-import type { StorageAreaLike } from '../domain/storage-port';
 import * as LumnoUrlGuards from '../platform/url-guards';
 import type { Translate } from './newtab-types';
 import * as FaviconCanonical from '../domain/favicon/canonical';
 import * as FaviconHostPolicy from '../domain/favicon/host-policy';
 import type { FaviconUrlResolver } from '../domain/favicon/resolver';
 import * as SearchBrandSuggestions from '../domain/search/utils/brand-suggestions';
+import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, searchResultDisplayLimit } from '../domain/settings/search';
+import type { SettingsStore } from '../platform/settings-store';
 
 // What the search blacklist reads from a suggestion.
 interface BlacklistableSuggestion {
@@ -18,44 +17,26 @@ interface BlacklistableSuggestion {
   url?: string;
 }
 
-interface UrlPolicyState {
-  searchBlacklistItems: BlacklistRule[];
-  faviconRequestBlacklistItems: BlacklistRule[];
-  faviconEnhancedFetchEnabled: boolean;
-  searchResultDisplayLimit: number;
-}
-
 interface UrlPolicyDeps {
+  settings: Pick<SettingsStore, 'get'>;
   EXTENSION_ROUTES: Pick<typeof ExtensionRoutes, 'classifyExtensionUrl'>;
   t: Translate;
   getPageFaviconUrlResolver(): FaviconUrlResolver | null;
   BLACKLIST_UTILS: Pick<typeof BlacklistUtils, 'normalizeItems' | 'isUrlBlocked'>;
-  SETTINGS: Pick<typeof LumnoSettings, 'faviconEnhancedFetchEnabled'>;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  SEARCH_BLACKLIST_STORAGE_KEY: string;
-  FAVICON_REQUEST_BLACKLIST_STORAGE_KEY: string;
-  FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY: string;
   // The browser's own icon for a page, where _favicon is missing (Firefox).
   getBrowserIconUrl?: (pageUrl: string) => string;
-  pageState: UrlPolicyState;
 }
 
 function createUrlPolicy(deps: UrlPolicyDeps) {
   const {
+    settings,
     EXTENSION_ROUTES,
     t,
     getPageFaviconUrlResolver,
     BLACKLIST_UTILS,
-    SETTINGS,
-    storageArea,
-    SEARCH_BLACKLIST_STORAGE_KEY,
-    FAVICON_REQUEST_BLACKLIST_STORAGE_KEY,
-    FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY,
     getBrowserIconUrl
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function isEnglishQuery(query: string | null | undefined): boolean {
     if (!query) {
@@ -211,38 +192,6 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
     return FaviconHostPolicy.shouldAvoidDirectFaviconForHost(hostname);
   }
 
-  function normalizeSearchBlacklistItems(items: unknown): BlacklistRule[] {
-    if (BLACKLIST_UTILS.normalizeItems) {
-      return BLACKLIST_UTILS.normalizeItems(items, 'prefix');
-    }
-    return [];
-  }
-
-  function normalizeFaviconRequestBlacklistItems(items: unknown): BlacklistRule[] {
-    if (BLACKLIST_UTILS.normalizeItems) {
-      return BLACKLIST_UTILS.normalizeItems(items, 'prefix');
-    }
-    return [];
-  }
-
-  function normalizeFaviconEnhancedFetchEnabled(value: unknown): boolean {
-    return SETTINGS.faviconEnhancedFetchEnabled.parse(value);
-  }
-
-  function loadSearchBlacklistItems(): Promise<BlacklistRule[]> {
-    return new Promise((resolve) => {
-      if (!storageArea) {
-        resolve([]);
-        return;
-      }
-      void storageArea.get([SEARCH_BLACKLIST_STORAGE_KEY], (result) => {
-        const items = normalizeSearchBlacklistItems(result && result[SEARCH_BLACKLIST_STORAGE_KEY]);
-        pageState.searchBlacklistItems = items;
-        resolve(items);
-      });
-    });
-  }
-
   function getFaviconRequestMatchUrl(url: unknown): string {
     const raw = String(url || '').trim();
     if (!raw) {
@@ -256,7 +205,7 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
     return Boolean(
       target &&
       BLACKLIST_UTILS.isUrlBlocked &&
-      BLACKLIST_UTILS.isUrlBlocked(target, pageState.faviconRequestBlacklistItems)
+      BLACKLIST_UTILS.isUrlBlocked(target, BLACKLIST_UTILS.normalizeItems(settings.get(faviconRequestBlacklist), 'prefix'))
     );
   }
 
@@ -264,7 +213,7 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
     if (isUrlBlockedByFaviconRequestBlacklist(pageUrl)) {
       return 'exclusion';
     }
-    if (!pageState.faviconEnhancedFetchEnabled) {
+    if (!settings.get(faviconEnhancedFetchEnabled)) {
       return 'global-off';
     }
     return '';
@@ -274,42 +223,9 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
     return getNewtabStrictFaviconReason(pageUrl) === '';
   }
 
-  function loadFaviconRequestBlacklistItems(): Promise<BlacklistRule[]> {
-    return new Promise((resolve) => {
-      if (!storageArea) {
-        resolve([]);
-        return;
-      }
-      void storageArea.get([FAVICON_REQUEST_BLACKLIST_STORAGE_KEY], (result) => {
-        const items = normalizeFaviconRequestBlacklistItems(result && result[FAVICON_REQUEST_BLACKLIST_STORAGE_KEY]);
-        pageState.faviconRequestBlacklistItems = items;
-        resolve(items);
-      });
-    });
-  }
-
-  function loadFaviconEnhancedFetchEnabled(): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (!storageArea) {
-        pageState.faviconEnhancedFetchEnabled = true;
-        resolve(true);
-        return;
-      }
-      void storageArea.get([FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY], (result) => {
-        const rawValue = result && result[FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY];
-        const enabled = normalizeFaviconEnhancedFetchEnabled(rawValue);
-        pageState.faviconEnhancedFetchEnabled = enabled;
-        if (rawValue !== enabled) {
-          void storageArea.set({ [FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY]: enabled });
-        }
-        resolve(enabled);
-      });
-    });
-  }
-
   function isUrlBlockedBySearchBlacklist(url: unknown): boolean {
     return BLACKLIST_UTILS.isUrlBlocked
-      ? BLACKLIST_UTILS.isUrlBlocked(url, pageState.searchBlacklistItems)
+      ? BLACKLIST_UTILS.isUrlBlocked(url, BLACKLIST_UTILS.normalizeItems(settings.get(searchBlacklist), 'prefix'))
       : false;
   }
 
@@ -347,7 +263,7 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
       return list || [];
     }
     return SearchBrandSuggestions.limitSearchSuggestionsForDisplay(list, {
-      limit: pageState.searchResultDisplayLimit
+      limit: settings.get(searchResultDisplayLimit)
     });
   }
 
@@ -384,15 +300,9 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
     isLocalNetworkHost,
     shouldBlockFaviconForHost,
     shouldAvoidDirectFaviconForHost,
-    normalizeSearchBlacklistItems,
-    normalizeFaviconRequestBlacklistItems,
-    normalizeFaviconEnhancedFetchEnabled,
-    loadSearchBlacklistItems,
     isUrlBlockedByFaviconRequestBlacklist,
     getNewtabStrictFaviconReason,
     isNewtabEnhancedFaviconFetchEnabled,
-    loadFaviconRequestBlacklistItems,
-    loadFaviconEnhancedFetchEnabled,
     filterBlacklistedSuggestions,
     limitSuggestionsForDisplay,
     shouldExcludeFromRecentSites
@@ -402,4 +312,4 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
 type UrlPolicy = ReturnType<typeof createUrlPolicy>;
 
 export { createUrlPolicy };
-export type { UrlPolicy, UrlPolicyDeps, UrlPolicyState };
+export type { UrlPolicy, UrlPolicyDeps };

@@ -25,6 +25,9 @@ interface SettingsStoreOptions {
   // are read again by the next include(). For a store shared by modules
   // that come and go, so the last one leaving releases the listener.
   listenWhileSubscribed?: boolean;
+  // A page's preload may have read some keys before the store exists: the
+  // values it holds for `keys` of `area`, or null to read storage.
+  takePreloadedRead?(area: object, keys: readonly string[]): Promise<StorageItems | null>;
 }
 
 interface SettingsStore {
@@ -92,6 +95,7 @@ class ContextSettingsStore implements SettingsStore {
   private readonly initialValues: Partial<Record<StoreArea, StorageItems>> | null;
   // Follow storage only while something subscribes (see SettingsStoreOptions).
   private readonly listenWhileSubscribed: boolean;
+  private readonly takePreloadedRead: SettingsStoreOptions['takePreloadedRead'];
   private readonly loading = new Map<string, Promise<void>>();
   private readonly pendingReads = new Map<StoreArea, PendingRead>();
   private listening = false;
@@ -101,6 +105,7 @@ class ContextSettingsStore implements SettingsStore {
     this.areas = new SettingsAreas(options.chromeApi || null, options.windowObj || null);
     this.initialValues = options.initial || null;
     this.listenWhileSubscribed = options.listenWhileSubscribed === true;
+    this.takePreloadedRead = options.takePreloadedRead;
     this.ready = this.include(options.settings);
   }
 
@@ -296,9 +301,11 @@ class ContextSettingsStore implements SettingsStore {
     const target = this.areas.areaFor(area);
     if (!target) return;
     if (area === 'preferences') await this.areas.preferences().ready;
+    const keys = list.map((setting) => setting.key);
     let items: unknown;
     try {
-      items = await callStorage(this.areas.chromeApi, (done) => target.get(list.map((setting) => setting.key), done));
+      const preloaded = this.takePreloadedRead ? await this.takePreloadedRead(target, keys) : null;
+      items = preloaded || await callStorage(this.areas.chromeApi, (done) => target.get(keys, done));
     } catch (_error) {
       // An area that cannot be read leaves its settings at their defaults.
       this.values.markUnread(list);
@@ -336,12 +343,17 @@ function createSettingsStore(options: SettingsStoreOptions): SettingsStore {
 // uses.
 const contextStores = new WeakMap<object, SettingsStore>();
 
-function getContextSettingsStore(chromeApi: SettingsStoreChromeApi, windowObj?: SettingsStoreWindow | null): SettingsStore {
+// The first caller may hand the store a page preload's reads.
+function getContextSettingsStore(
+  chromeApi: SettingsStoreChromeApi,
+  windowObj?: SettingsStoreWindow | null,
+  takePreloadedRead?: SettingsStoreOptions['takePreloadedRead']
+): SettingsStore {
   let store = contextStores.get(chromeApi);
   if (!store) {
     // Page and tab values live in the extension page's own window.
     const pageWindow = windowObj || (typeof window !== 'undefined' ? window : null);
-    store = createSettingsStore({ chromeApi, settings: [], windowObj: pageWindow, listenWhileSubscribed: true });
+    store = createSettingsStore({ chromeApi, settings: [], windowObj: pageWindow, listenWhileSubscribed: true, takePreloadedRead });
     contextStores.set(chromeApi, store);
   }
   return store;

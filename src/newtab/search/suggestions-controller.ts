@@ -36,11 +36,13 @@ import * as SearchEngineSuggestions from '../../domain/search/utils/engine-sugge
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
+import { numberShortcutInstantEnabled, searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
+import { overlayTabPriority } from '../../domain/settings/overlay-panel';
+import { simpleModeEnabled } from '../../domain/settings/appearance';
+import type { SettingsStore } from '../../platform/settings-store';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
-  numberShortcutInstantEnabled: boolean;
-  tabRankScoreDebugEnabled: boolean;
   selectedIndex: number;
   latestQuery: string;
   latestRawQuery: string;
@@ -65,14 +67,11 @@ interface SuggestionsControllerState {
   newtabThemeMode: NewtabThemeMode;
   newtabThemeScope: NewtabThemeScope;
   currentThemeMode: ThemeMode;
-  simpleModeEnabled: boolean;
-  searchResultPriorityMode: string;
-  searchResultDisplayLimit: number;
-  openTabQuickSwitchEnabled: boolean;
   currentNewtabTabId: number | null;
 }
 
 interface SuggestionsControllerDeps {
+  settings: Pick<SettingsStore, 'get'>;
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
   getPageFaviconCandidateUrl(pageUrl: string): string;
@@ -166,6 +165,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    settings,
     siteSearchCatalog,
     searchEngine,
     getPageFaviconCandidateUrl,
@@ -309,7 +309,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     setSuggestionActionModifiersActive(
       Boolean(event && event.altKey),
       Boolean(event && event.shiftKey),
-      Boolean(event && (event.metaKey || event.ctrlKey) && !pageState.numberShortcutInstantEnabled)
+      Boolean(event && (event.metaKey || event.ctrlKey) && !settings.get(numberShortcutInstantEnabled))
     );
   }
 
@@ -320,7 +320,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   function getSuggestionUpdateKind(options: Parameters<typeof SuggestionActionModel.getSuggestionUpdateKind>[0]) {
     return SUGGESTION_ACTION_MODEL.getSuggestionUpdateKind({
       ...(options || {}),
-      includeDebugReasons: Boolean(pageState.tabRankScoreDebugEnabled)
+      includeDebugReasons: Boolean(settings.get(tabRankScoreDebug))
     });
   }
 
@@ -604,7 +604,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         ? null
         : {
           type: 'newtab',
-          title: pageState.simpleModeEnabled
+          title: settings.get(simpleModeEnabled)
             ? query
             : formatMessage('search_query', '搜索 "{query}"', {
                 query: query
@@ -652,7 +652,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         ...suggestions
       ].filter((item): item is Suggestion => Boolean(item));
       let groupedDefaultSuggestions = defaultSuggestions;
-      if (pageState.searchResultPriorityMode !== 'search') {
+      if (settings.get(searchResultPriority) !== 'search') {
         groupedDefaultSuggestions = SearchEngineSuggestions.groupSearchSuggestionsByKind(defaultSuggestions, {
           searchFirst: false
         });
@@ -684,14 +684,14 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       const hasDirectUrlSuggestion = preSuggestions.some((suggestion) => (
         suggestion && suggestion.type === 'directUrl'
       ));
-      if (pageState.searchResultPriorityMode === 'search' &&
+      if (settings.get(searchResultPriority) === 'search' &&
           !localSearchQueryModeActive &&
           !slashCommandModeActive &&
           !toggleCommandActive &&
           !siteSearchQueryModeActive &&
           !hasDirectUrlSuggestion) {
         allSuggestions = SearchSuggestionSlate.composeSearchFirstSuggestionSlate(allSuggestions, {
-          limit: pageState.searchResultDisplayLimit,
+          limit: settings.get(searchResultDisplayLimit),
           query
         });
       }
@@ -711,13 +711,13 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           providers: providersForTags,
           inlineSuggestion,
           siteSearchActive: Boolean(pageState.siteSearchState),
-          preferAutocompleteFirst: pageState.searchResultPriorityMode !== 'search',
+          preferAutocompleteFirst: settings.get(searchResultPriority) !== 'search',
           onlyKeywordSuggestions,
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
-          openTabMatch: pageState.openTabQuickSwitchEnabled
+          openTabMatch: settings.get(overlayTabPriority)
             ? {
                 ...(pageState.currentNewtabTabId === null ? {} : { currentTabId: pageState.currentNewtabTabId }),
-                openTabQuickSwitchEnabled: pageState.openTabQuickSwitchEnabled,
+                openTabQuickSwitchEnabled: settings.get(overlayTabPriority),
                 getDirectNavigationUrl
               }
             : null,
@@ -916,7 +916,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     const requestStartedAt = Date.now();
     const requestQuery = pageState.latestQuery;
     const requestSeq = ++pageState.suggestionRequestSeq;
-    const requestSearchFirst = pageState.searchResultPriorityMode === 'search';
+    const requestSearchFirst = settings.get(searchResultPriority) === 'search';
     const showExactSearchPendingState = requestSearchFirst &&
       !requestLocalSearchScope &&
       !pageState.siteSearchState &&

@@ -23,6 +23,9 @@ import type { SearchAutocomplete } from './search-autocomplete';
 import type { SearchModes } from './search-modes';
 import type { ActiveLocalScope, RenderSuggestions, RequestSuggestions } from './search-types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
+import { macosCtrlSuggestionNavigationEnabled, tabRankScoreDebug } from '../../domain/settings/search';
+import { simpleModeEnabled } from '../../domain/settings/appearance';
+import type { SettingsStore } from '../../platform/settings-store';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -30,8 +33,6 @@ type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<Suggestion
 interface SearchBoxState {
   suggestionsView: SuggestionsViewController | null;
   suggestionsContainer: HTMLElement | null;
-  tabRankScoreDebugEnabled: boolean;
-  simpleModeEnabled: boolean;
   selectedIndex: number;
   currentSuggestions: Suggestion[];
   // The search suggestion the arrows show in the input.
@@ -48,7 +49,6 @@ interface SearchBoxState {
   suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
   localSearchScopeState: ActiveLocalScope | null;
   siteSearchState: SiteSearchProvider | null;
-  macosCtrlSuggestionNavigationEnabled: boolean;
   handleTabKey: ((event: KeyboardEvent) => unknown) | null;
   searchLayer: HTMLElement | null;
   modeBadge: HTMLElement | null;
@@ -56,6 +56,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  settings: Pick<SettingsStore, 'get'>;
   suggestionItems: ViewOption<'items'>;
   t: Translate;
   formatMessage: FormatMessage;
@@ -147,6 +148,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    settings,
     suggestionItems,
     t,
     formatMessage,
@@ -264,12 +266,12 @@ function createSearchBox(deps: SearchBoxDeps) {
     formatMessage,
     sanitizeDisplayText,
     formatTabRankDebugText,
-    isTabRankScoreDebugEnabled: () => pageState.tabRankScoreDebugEnabled,
+    isTabRankScoreDebugEnabled: () => settings.get(tabRankScoreDebug),
     shouldBlockFaviconForHost,
     isLocalNetworkHost,
     getHostFromUrl,
     getUrlDisplay,
-    isSimpleModeEnabled: () => pageState.simpleModeEnabled,
+    isSimpleModeEnabled: () => settings.get(simpleModeEnabled),
     getThemeHostForSuggestion,
     getImmediateThemeForSuggestion,
     getThemeForSuggestion,
@@ -476,7 +478,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       dismissAutocompletePreviewOnNonTabKey(event);
       const suggestionNavigationKey =
         SUGGESTION_NAVIGATION.getSuggestionNavigationKey(event, {
-          macosCtrlEnabled: pageState.macosCtrlSuggestionNavigationEnabled,
+          macosCtrlEnabled: settings.get(macosCtrlSuggestionNavigationEnabled),
           navigatorLike: typeof navigator === 'object' && navigator ? navigator : null
         });
       const input = inputParts.input;

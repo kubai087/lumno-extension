@@ -17,9 +17,6 @@ interface PagePreferencesState {
   newtabShortcutColumns: number;
   newtabShortcutSize: number;
   newtabShortcutGap: number;
-  numberShortcutInstantEnabled: boolean;
-  simpleModeEnabled: boolean;
-  macosCtrlSuggestionNavigationEnabled: boolean;
   currentBookmarkCount: number;
   wallpaperRuntime: Pick<WallpaperRuntime, 'updateInputAutoFocusUi' | 'updateShortcutsUi'> | null;
 }
@@ -59,9 +56,6 @@ interface PagePreferencesDeps {
   NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY: string;
   NEWTAB_SHORTCUT_SIZE_STORAGE_KEY: string;
   NEWTAB_SHORTCUT_GAP_STORAGE_KEY: string;
-  NUMBER_SHORTCUT_INSTANT_ENABLED_STORAGE_KEY: string;
-  SIMPLE_MODE_ENABLED_STORAGE_KEY: string;
-  MACOS_CTRL_SUGGESTION_NAVIGATION_ENABLED_STORAGE_KEY: string;
   pageState: PagePreferencesState;
 }
 
@@ -88,9 +82,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     applyNewtabShortcutLayoutPreferences,
     NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
     NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
-    NUMBER_SHORTCUT_INSTANT_ENABLED_STORAGE_KEY,
-    SIMPLE_MODE_ENABLED_STORAGE_KEY,
-    MACOS_CTRL_SUGGESTION_NAVIGATION_ENABLED_STORAGE_KEY,
     getBookmarkGridColumnCount
   } = deps;
 
@@ -301,84 +292,12 @@ function createPagePreferences(deps: PagePreferencesDeps) {
 
   const initialNewtabInputAutoFocusReadyTask = loadNewtabInputAutoFocusEnabled();
 
-  function loadNumberShortcutInstantEnabled(): Promise<boolean> {
-    const area = storageArea;
-    if (!area) {
-      pageState.numberShortcutInstantEnabled = false;
-      return Promise.resolve(pageState.numberShortcutInstantEnabled);
-    }
-    return new Promise((resolve) => {
-      void area.get([NUMBER_SHORTCUT_INSTANT_ENABLED_STORAGE_KEY], (result) => {
-        const rawValue = result && result[NUMBER_SHORTCUT_INSTANT_ENABLED_STORAGE_KEY];
-        pageState.numberShortcutInstantEnabled = normalizeNumberShortcutInstantEnabled(rawValue);
-        resolve(pageState.numberShortcutInstantEnabled);
-      });
-    });
-  }
-
-  void loadNumberShortcutInstantEnabled();
-
-  function normalizeSimpleModeEnabled(value: unknown) {
-    return SETTINGS.simpleModeEnabled.parse(value);
-  }
-
-  function loadSimpleModeEnabled(): Promise<boolean> {
-    const area = storageArea;
-    if (!area) {
-      pageState.simpleModeEnabled = false;
-      return Promise.resolve(pageState.simpleModeEnabled);
-    }
-    return new Promise((resolve) => {
-      void area.get([SIMPLE_MODE_ENABLED_STORAGE_KEY], (result) => {
-        const rawValue = result && result[SIMPLE_MODE_ENABLED_STORAGE_KEY];
-        pageState.simpleModeEnabled = normalizeSimpleModeEnabled(rawValue);
-        resolve(pageState.simpleModeEnabled);
-      });
-    });
-  }
-
-  void loadSimpleModeEnabled();
-
-  function normalizeMacosCtrlSuggestionNavigationEnabled(value: unknown) {
-    return SETTINGS.macosCtrlSuggestionNavigationEnabled.parse(value);
-  }
-
-  function loadMacosCtrlSuggestionNavigationEnabled(): Promise<boolean> {
-    const area = storageArea;
-    if (!area) {
-      pageState.macosCtrlSuggestionNavigationEnabled = false;
-      return Promise.resolve(pageState.macosCtrlSuggestionNavigationEnabled);
-    }
-    return new Promise((resolve) => {
-      void area.get([MACOS_CTRL_SUGGESTION_NAVIGATION_ENABLED_STORAGE_KEY], (result) => {
-        const rawValue = result && result[MACOS_CTRL_SUGGESTION_NAVIGATION_ENABLED_STORAGE_KEY];
-        pageState.macosCtrlSuggestionNavigationEnabled =
-          normalizeMacosCtrlSuggestionNavigationEnabled(rawValue);
-        resolve(pageState.macosCtrlSuggestionNavigationEnabled);
-      });
-    });
-  }
-
-  void loadMacosCtrlSuggestionNavigationEnabled();
-
-  function normalizeNumberShortcutInstantEnabled(value: unknown) {
-    return SETTINGS.numberShortcutInstantEnabled.parse(value);
-  }
-
   function normalizeBookmarkFolderIconsVisible(value: unknown) {
     return SETTINGS.bookmarkFolderIconsVisible.parse(value);
   }
 
   function normalizeZenModeEnabled(value: unknown) {
     return value === true;
-  }
-
-  function normalizeSearchResultPriority(value: unknown) {
-    return SETTINGS.searchResultPriority.parse(value);
-  }
-
-  function normalizeOverlayTabPriorityMode(value: unknown) {
-    return SETTINGS.overlayTabPriority.parse(value);
   }
 
   function normalizeBookmarkCount(value: unknown) {
@@ -398,10 +317,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
 
   function normalizeBookmarkColumns(value: unknown) {
     return SETTINGS.bookmarkColumns.parse(value);
-  }
-
-  function normalizeTabRankScoreDebugMode(value: unknown) {
-    return SETTINGS.tabRankScoreDebug.parse(value);
   }
 
   return {
@@ -431,17 +346,11 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     setNewtabShortcutSize,
     setNewtabShortcutGap,
     initialNewtabInputAutoFocusReadyTask,
-    normalizeSimpleModeEnabled,
-    normalizeMacosCtrlSuggestionNavigationEnabled,
-    normalizeNumberShortcutInstantEnabled,
     normalizeBookmarkFolderIconsVisible,
     normalizeZenModeEnabled,
-    normalizeSearchResultPriority,
-    normalizeOverlayTabPriorityMode,
     normalizeBookmarkCount,
     getBookmarkLimit,
-    normalizeBookmarkColumns,
-    normalizeTabRankScoreDebugMode
+    normalizeBookmarkColumns
   };
 }
 

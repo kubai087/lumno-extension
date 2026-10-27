@@ -42,7 +42,6 @@ interface StartupPreferencesState {
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
   currentBookmarkCount: number;
   currentBookmarkColumns: number;
-  tabRankScoreDebugEnabled: boolean;
   wallpaperRuntime: Pick<WallpaperRuntime, 'updateSearchWidthUi' | 'updateTopContentModeUi'> | null;
 }
 
@@ -51,7 +50,7 @@ interface StartupPreferencesDeps extends
     'getBookmarkLimit' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' |
     'normalizeNewtabTopContentMode' | 'normalizeNewtabTimeFontWeight' | 'normalizeNewtabTimeFont' |
     'normalizeNewtabTimeSecondsVisible' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeBookmarkCount' |
-    'normalizeBookmarkColumns' | 'normalizeTabRankScoreDebugMode'>,
+    'normalizeBookmarkColumns'>,
   Pick<TopContentRuntime,
     'loadNewtabTimeFont' | 'setNewtabTimeFontWeight' | 'setNewtabTimeFontSize' | 'setNewtabTimeOpacity' |
     'setNewtabTimeInk' | 'setNewtabTimeSecondsVisible' | 'setNewtabTime12Hour' | 'setNewtabTopContentMode'>,
@@ -91,7 +90,6 @@ interface StartupPreferencesDeps extends
   BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: string;
   BOOKMARK_COUNT_STORAGE_KEY: string;
   BOOKMARK_COLUMNS_STORAGE_KEY: string;
-  TAB_RANK_SCORE_DEBUG_STORAGE_KEY: string;
   pageState: StartupPreferencesState;
 }
 
@@ -154,9 +152,7 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     markBookmarkDataDirty,
     loadBookmarks,
     BOOKMARK_COLUMNS_STORAGE_KEY,
-    normalizeBookmarkColumns,
-    TAB_RANK_SCORE_DEBUG_STORAGE_KEY,
-    normalizeTabRankScoreDebugMode
+    normalizeBookmarkColumns
   } = deps;
   // Writes the normalized value back for a missing or invalid stored one,
   // leaving a missing one alone while this device's local copy migrates in.
@@ -364,15 +360,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
       applyBookmarkGridColumns();
       updateBookmarkGridHeightLock();
       updateBookmarkSectionPosition();
-    });
-    void storageArea.get([TAB_RANK_SCORE_DEBUG_STORAGE_KEY], (result) => {
-      if (!result) {
-        return;
-      }
-      const raw = result[TAB_RANK_SCORE_DEBUG_STORAGE_KEY];
-      const next = normalizeTabRankScoreDebugMode(raw);
-      pageState.tabRankScoreDebugEnabled = next;
-      repairStoredSetting(TAB_RANK_SCORE_DEBUG_STORAGE_KEY, raw, next);
     });
   }
 

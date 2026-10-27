@@ -17,10 +17,11 @@ import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
+import { overlayTabPriority } from '../../domain/settings/overlay-panel';
+import type { SettingsStore } from '../../platform/settings-store';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
-  openTabQuickSwitchEnabled: boolean;
   currentNewtabTabId: number | null;
   localSearchScopeState: ActiveLocalScope | null;
   selectedIndex: number;
@@ -41,6 +42,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
+  settings: Pick<SettingsStore, 'get'>;
   formatMessage: FormatMessage;
   getExtensionResourceUrl(resourcePath: string): string;
   BROWSER_PROFILE: Pick<typeof BrowserProfile, 'getBrowserInternalProfile' | 'canOpenBrowserPages'>;
@@ -80,6 +82,7 @@ type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    settings,
     formatMessage,
     getExtensionResourceUrl,
     BROWSER_PROFILE,
@@ -252,7 +255,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     if (!suggestion || typeof suggestion._xMatchedTabId !== 'number') {
       return false;
     }
-    if (!pageState.openTabQuickSwitchEnabled) {
+    if (!settings.get(overlayTabPriority)) {
       return false;
     }
     return true;

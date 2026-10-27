@@ -47,6 +47,8 @@ import type { CachedIconMap } from '../domain/favicon/shortcut-favicon/types';
 import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
 import * as ProviderStorage from '../platform/provider-storage';
 import * as SettingsStorage from '../platform/settings-storage';
+import { tabRankScoreDebug } from '../domain/settings/search';
+import type { SettingsStore } from '../platform/settings-store';
 
 interface SettingsSyncState {
   currentBookmarkCount: number;
@@ -72,7 +74,6 @@ interface SettingsSyncState {
   siteSearchState: SiteSearchProvider | null;
   inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
   latestQuery: string;
-  tabRankScoreDebugEnabled: boolean;
   wallpaperRuntime: Pick<WallpaperRuntime, 'handleStorageChange' | 'updateSearchWidthUi'> | null;
   globalThemeMode: ThemeMode;
   newtabThemeMode: NewtabThemeMode;
@@ -100,7 +101,7 @@ interface SettingsSyncDeps extends
     'normalizeNewtabAppearanceButtonVisible' | 'normalizeZenModeEnabled' | 'normalizeNewtabShortcutsVisible' |
     'updateNewtabShortcutPreferencesUi' | 'normalizeNewtabShortcutAddVisible' |
     'normalizeNewtabShortcutDockMagnificationEnabled' | 'normalizeNewtabShortcutColumns' |
-    'normalizeNewtabShortcutSize' | 'normalizeNewtabShortcutGap' | 'normalizeTabRankScoreDebugMode'>,
+    'normalizeNewtabShortcutSize' | 'normalizeNewtabShortcutGap'>,
   Pick<SectionLoaders,
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites' | 'renderRecentSites'>,
   Pick<PageLayout,
@@ -129,6 +130,7 @@ interface SettingsSyncDeps extends
     'setNewtabTimeInk' | 'setNewtabTimeFont' | 'setNewtabTimeSecondsVisible' | 'setNewtabTime12Hour'>,
   Pick<GlassSurfaces, 'applyNewtabGlassStyle' | 'applyNewtabGlassTheme'>,
   Pick<SearchBoxControls, 'applyNewtabActionButtonVisibility'> {
+  settings: Pick<SettingsStore, 'subscribe'>;
   registerBookmarkDisplayStorageChanges: BookmarkDisplaySettings['registerStorageChangeHandlers'];
   SETTINGS: Pick<typeof LumnoSettings,
     'newtabTimeFontSize' | 'newtabTimeOpacity' | 'newtabTimeInk' |
@@ -182,7 +184,6 @@ interface SettingsSyncDeps extends
   BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: string;
   BOOKMARK_COUNT_STORAGE_KEY: string;
   BOOKMARK_COLUMNS_STORAGE_KEY: string;
-  TAB_RANK_SCORE_DEBUG_STORAGE_KEY: string;
   PINNED_RECENT_SITES_STORAGE_KEY: string;
   HIDDEN_RECENT_SITES_STORAGE_KEY: string;
   pageState: SettingsSyncState;
@@ -194,6 +195,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createSettingsSync(deps: SettingsSyncDeps) {
   const {
+    settings,
     SETTINGS,
     normalizeBookmarkCount,
     markBookmarkDataDirty,
@@ -316,8 +318,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY,
     BOOKMARK_COUNT_STORAGE_KEY,
     BOOKMARK_COLUMNS_STORAGE_KEY,
-    TAB_RANK_SCORE_DEBUG_STORAGE_KEY,
-    normalizeTabRankScoreDebugMode,
     requestTabsAndRender,
     PINNED_RECENT_SITES_STORAGE_KEY,
     normalizePinnedRecentSites,
@@ -735,8 +735,7 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     }
     applyBookmarkColumnsPreference(nextColumns);
   });
-  storageChanges.on(TAB_RANK_SCORE_DEBUG_STORAGE_KEY, (changes) => {
-    pageState.tabRankScoreDebugEnabled = normalizeTabRankScoreDebugMode(changes[TAB_RANK_SCORE_DEBUG_STORAGE_KEY].newValue);
+  settings.subscribe(tabRankScoreDebug, () => {
     if (!pageState.latestQuery || !pageState.latestQuery.trim()) {
       requestTabsAndRender();
     }

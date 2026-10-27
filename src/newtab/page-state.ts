@@ -52,7 +52,6 @@ import type { ShortcutDragState } from './shortcuts/shortcut-drag';
 import type { ShortcutPageActionsState } from './shortcuts/shortcut-page-actions';
 import type { ShortcutsControllerState } from './shortcuts/shortcuts-controller';
 import type { StartupPreferencesState } from './startup-preferences';
-import type { SiteSearchProvidersState } from './search/site-search-providers';
 import type { SiteSearchRuntimeState } from './search/site-search-runtime';
 import type { SiteThemeResolverState } from './theme/site-theme-resolver';
 import type { SuggestionsControllerState } from './search/suggestions-controller';
@@ -60,7 +59,6 @@ import type { SuggestionsLayoutState } from './search/suggestions-layout';
 import type { TooltipBindingsState } from './tooltip-bindings';
 import type { QuoteRuntime } from './top-content/quotes';
 import type { TopContentState } from './top-content/top-content';
-import type { UrlPolicyState } from './url-policy';
 import type { WallpaperPageState } from './wallpaper/wallpaper-page';
 
 // The page state newtab.ts reads and writes itself, beyond what it hands
@@ -121,14 +119,12 @@ type NewtabPageState =
   ShortcutPageActionsState &
   ShortcutsControllerState &
   StartupPreferencesState &
-  SiteSearchProvidersState &
   SiteSearchRuntimeState &
   SiteThemeResolverState &
   SuggestionsControllerState &
   SuggestionsLayoutState &
   TooltipBindingsState &
   TopContentState &
-  UrlPolicyState &
   WallpaperPageState;
 
 function createPageState(): NewtabPageState {
@@ -161,7 +157,6 @@ function createPageState(): NewtabPageState {
     hiddenRecentSites: [],
     initialPinnedRecentSitesReadyTask: Promise.resolve([]),
     initialHiddenRecentSitesReadyTask: Promise.resolve([]),
-    searchBlacklistItems: [],
     defaultPlaceholderText: 'Search or enter URL…',
     layoutController: null,
     layoutMotion: null,
@@ -180,7 +175,6 @@ function createPageState(): NewtabPageState {
     currentBookmarkColumns: 6,
     currentBookmarkViewMode: 'folder',
     bookmarkFolderIconsVisible: true,
-    tabRankScoreDebugEnabled: false,
     searchLayer: null,
     topContentContainer: null,
     topContentController: null,
@@ -200,9 +194,6 @@ function createPageState(): NewtabPageState {
     newtabInputAutoFocusEnabled: false,
     newtabFeedbackButtonVisible: true,
     newtabAppearanceButtonVisible: true,
-    numberShortcutInstantEnabled: false,
-    macosCtrlSuggestionNavigationEnabled: false,
-    simpleModeEnabled: false,
     zenModeEnabled: false,
     bookmarkCurrentPage: 0,
     bookmarkAllItems: [],
@@ -252,8 +243,6 @@ function createPageState(): NewtabPageState {
     suggestionRequestSeq: 0,
     searchSuggestionsDismissed: false,
     suggestionRequestWatchdogTimer: null,
-    searchResultPriorityMode: 'autocomplete',
-    openTabQuickSwitchEnabled: true,
     handleTabKey: null,
 
     // Created once the search modes and providers below exist.
@@ -312,11 +301,6 @@ function createPageState(): NewtabPageState {
     recentRenderSignature: '',
     // Progress tracking (Labs) stays off until its stored switch is read.
     progressTrackingEnabled: false,
-    enabledSearchResultSourceTypes: ['topSite', 'bookmark', 'history'],
-    searchResultDisplayLimit: 10,
-    newtabOpenInNewTab: SETTINGS.newtabOpenInNewTab.parse(null),
-    faviconRequestBlacklistItems: [],
-    faviconEnhancedFetchEnabled: false,
     shortcutDockPendingPointerX: Number.NaN,
     newtabShortcutColumns: SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
     newtabShortcutSize: SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT,

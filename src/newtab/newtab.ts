@@ -107,11 +107,8 @@ import {
   bookmarkFolderColorPresets,
   bookmarkFolderIconsVisible,
   bookmarkViewMode,
-  faviconEnhancedFetchEnabled,
-  faviconRequestBlacklist,
   hiddenRecentSites,
   language,
-  macosCtrlSuggestionNavigationEnabled,
   newtabAppearanceButtonVisible,
   newtabFavicon,
   newtabFeedbackButtonVisible,
@@ -149,12 +146,7 @@ import {
   pinnedRecentSites,
   recentCount,
   recentMode,
-  searchBlacklist,
-  searchResultDisplayLimit,
-  searchResultPriority,
-  searchResultSourceTypes,
   simpleModeEnabled,
-  tabRankScoreDebug,
   themeMode
 } from '../domain/settings';
 import {
@@ -207,7 +199,24 @@ import { newtabShortcutGap, newtabShortcutSize } from '../domain/settings/newtab
 import { bookmarkFolderColorRefs, bookmarkFolderColorsLegacy } from '../domain/settings/bookmarks';
 import { newtabShortcutFaviconCache, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
+import { takePrefetchedRead } from '../platform/storage-read-batch';
 import * as SearchSettings from '../domain/settings/search';
+
+// The search settings the page reads as it starts.
+const NEWTAB_SEARCH_SETTINGS = [
+  SearchSettings.searchResultPriority,
+  SearchSettings.searchResultSourceTypes,
+  SearchSettings.searchResultDisplayLimit,
+  SearchSettings.numberShortcutInstantEnabled,
+  SearchSettings.macosCtrlSuggestionNavigationEnabled,
+  SearchSettings.tabRankScoreDebug,
+  SearchSettings.searchBlacklist,
+  SearchSettings.faviconRequestBlacklist,
+  SearchSettings.faviconEnhancedFetchEnabled,
+  overlayTabPriority,
+  simpleModeEnabled,
+  newtabOpenInNewTab
+];
 import * as NewtabShortcutSettings from '../domain/settings/newtab-shortcuts';
 import * as FaviconBrowserIconIndex from '../domain/favicon/browser-icon-index';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
@@ -220,6 +229,8 @@ import * as SettingsStorage from '../platform/settings-storage';
   // receives this one object as `pageState` and reads and writes the same
   // properties this file does. page-state.ts lists its initial values.
   const pageState = LumnoNewtabPageState.createPageState();
+  // The page's settings, read and followed through the one store of this context.
+  const settings = getContextSettingsStore(chrome, window, takePrefetchedRead);
   const root = document.getElementById('_x_extension_newtab_root_2024_unique_');
   if (!root) {
     return;
@@ -546,9 +557,9 @@ import * as SettingsStorage from '../platform/settings-storage';
     ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
   }));
   void siteSearchIconCache.load();
-  const searchEngine = new DefaultSearchEngine(getContextSettingsStore(chrome));
+  const searchEngine = new DefaultSearchEngine(settings);
   searchEngine.follow();
-  const siteSearchCatalog = new SiteSearchCatalog(getContextSettingsStore(chrome), searchEngine);
+  const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
   siteSearchCatalog.follow();
   const NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES = ShortcutConstants.DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES;
   const NEWTAB_SHORTCUTS_STORAGE_KEYS = ShortcutConstants.SHORTCUT_STORAGE_KEYS;
@@ -702,12 +713,11 @@ import * as SettingsStorage from '../platform/settings-storage';
     promoteTopSiteMatch,
     getProviderHost,
     getSiteSearchTriggerCandidate,
-    normalizeEnabledSearchResultSourceTypes,
-    normalizeSearchResultDisplayLimit,
     getLocalSearchScopeCandidate,
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
+    settings,
     AGGREGATE_SEARCH_STORE,
     AGGREGATE_SEARCH_SURFACE,
     showToast,
@@ -719,9 +729,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     formatMessage,
     getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args),
     getUrlDisplay: (...args) => getUrlDisplay(...args),
-    getHelpCenterLocale: (...args) => getHelpCenterLocale(...args),
-    SETTINGS,
-    pageState
+    getHelpCenterLocale: (...args) => getHelpCenterLocale(...args)
   });
 
   const defaultTheme = createDefaultTheme();
@@ -807,30 +815,19 @@ import * as SettingsStorage from '../platform/settings-storage';
     isLocalNetworkHost,
     shouldBlockFaviconForHost,
     shouldAvoidDirectFaviconForHost,
-    normalizeSearchBlacklistItems,
-    normalizeFaviconRequestBlacklistItems,
-    normalizeFaviconEnhancedFetchEnabled,
-    loadSearchBlacklistItems,
     isUrlBlockedByFaviconRequestBlacklist,
     getNewtabStrictFaviconReason,
     isNewtabEnhancedFaviconFetchEnabled,
-    loadFaviconRequestBlacklistItems,
-    loadFaviconEnhancedFetchEnabled,
     filterBlacklistedSuggestions,
     limitSuggestionsForDisplay,
     shouldExcludeFromRecentSites
   } = NEWTAB_URL_POLICY.createUrlPolicy({
+    settings,
     EXTENSION_ROUTES,
     t,
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
     BLACKLIST_UTILS,
-    SETTINGS,
-    storageArea,
-    SEARCH_BLACKLIST_STORAGE_KEY: searchBlacklist.key,
-    FAVICON_REQUEST_BLACKLIST_STORAGE_KEY: faviconRequestBlacklist.key,
-    FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY: faviconEnhancedFetchEnabled.key,
-    getBrowserIconUrl: pageState.firefoxBrowserIcons ? pageState.firefoxBrowserIcons.get : undefined,
-    pageState
+    getBrowserIconUrl: pageState.firefoxBrowserIcons ? pageState.firefoxBrowserIcons.get : undefined
   });
 
   const { isCardActivationSuppressed } = NEWTAB_CARD_ACTIVATION_GUARD.createCardActivationGuard({ documentObj: document });
@@ -1143,17 +1140,11 @@ import * as SettingsStorage from '../platform/settings-storage';
     setNewtabShortcutSize,
     setNewtabShortcutGap,
     initialNewtabInputAutoFocusReadyTask,
-    normalizeSimpleModeEnabled,
-    normalizeMacosCtrlSuggestionNavigationEnabled,
-    normalizeNumberShortcutInstantEnabled,
     normalizeBookmarkFolderIconsVisible,
     normalizeZenModeEnabled,
-    normalizeSearchResultPriority,
-    normalizeOverlayTabPriorityMode,
     normalizeBookmarkCount,
     getBookmarkLimit,
-    normalizeBookmarkColumns,
-    normalizeTabRankScoreDebugMode
+    normalizeBookmarkColumns
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
     SETTINGS,
     NEWTAB_SEARCH_WIDTH_CONFIG,
@@ -1176,9 +1167,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     applyNewtabShortcutLayoutPreferences,
     NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
     NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
-    NUMBER_SHORTCUT_INSTANT_ENABLED_STORAGE_KEY: numberShortcutInstantEnabled.key,
-    SIMPLE_MODE_ENABLED_STORAGE_KEY: simpleModeEnabled.key,
-    MACOS_CTRL_SUGGESTION_NAVIGATION_ENABLED_STORAGE_KEY: macosCtrlSuggestionNavigationEnabled.key,
     getBookmarkGridColumnCount,
     pageState
   });
@@ -1389,6 +1377,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     setSectionPreference,
     storageChanges
   } = NEWTAB_SETTINGS_SYNC.createSettingsSync({
+    settings,
     SETTINGS,
     normalizeBookmarkCount,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
@@ -1511,8 +1500,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: bookmarkFolderIconsVisible.key,
     BOOKMARK_COUNT_STORAGE_KEY: bookmarkCount.key,
     BOOKMARK_COLUMNS_STORAGE_KEY: bookmarkColumns.key,
-    TAB_RANK_SCORE_DEBUG_STORAGE_KEY: tabRankScoreDebug.key,
-    normalizeTabRankScoreDebugMode,
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
     PINNED_RECENT_SITES_STORAGE_KEY: pinnedRecentSites.key,
     normalizePinnedRecentSites,
@@ -1584,52 +1571,27 @@ import * as SettingsStorage from '../platform/settings-storage';
     loadBookmarks: (...args) => loadBookmarks(...args),
     BOOKMARK_COLUMNS_STORAGE_KEY: bookmarkColumns.key,
     normalizeBookmarkColumns,
-    TAB_RANK_SCORE_DEBUG_STORAGE_KEY: tabRankScoreDebug.key,
-    normalizeTabRankScoreDebugMode,
     pageState
   });
   const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
   const searchInputHistoryController =
     SEARCH_INPUT_HISTORY.createSearchInputHistoryController({
-      storage: createSettingPort(getContextSettingsStore(chrome), SearchSettings.searchInputHistory)
+      storage: createSettingPort(settings, SearchSettings.searchInputHistory)
     });
   function isImeCompositionEvent(event: KeyboardEvent): boolean {
     return imeKeyGuard.shouldIgnoreKeydown(event);
   }
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
+    settings,
     searchEngine,
-    storageChanges,
-    SEARCH_RESULT_PRIORITY_STORAGE_KEY: searchResultPriority.key,
-    normalizeSearchResultPriority,
-    SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY: searchResultSourceTypes.key,
-    normalizeEnabledSearchResultSourceTypes,
     clearLocalSearchScope: (...args) => clearLocalSearchScope(...args),
-    SEARCH_RESULT_DISPLAY_LIMIT_STORAGE_KEY: searchResultDisplayLimit.key,
-    normalizeSearchResultDisplayLimit,
     renderSuggestions: (...args) => renderSuggestions(...args),
-    NEWTAB_OPEN_IN_NEW_TAB_STORAGE_KEY: newtabOpenInNewTab.key,
-    SETTINGS,
-    NUMBER_SHORTCUT_INSTANT_ENABLED_STORAGE_KEY: numberShortcutInstantEnabled.key,
-    normalizeNumberShortcutInstantEnabled,
-    SUGGESTION_NAVIGATION,
-    MACOS_CTRL_SUGGESTION_NAVIGATION_ENABLED_STORAGE_KEY: macosCtrlSuggestionNavigationEnabled.key,
-    normalizeMacosCtrlSuggestionNavigationEnabled,
-    SIMPLE_MODE_ENABLED_STORAGE_KEY: simpleModeEnabled.key,
-    normalizeSimpleModeEnabled,
-    OVERLAY_TAB_PRIORITY_STORAGE_KEY: overlayTabPriority.key,
-    normalizeOverlayTabPriorityMode,
     requestSuggestions: (...args) => requestSuggestions(...args),
-    SEARCH_BLACKLIST_STORAGE_KEY: searchBlacklist.key,
-    normalizeSearchBlacklistItems,
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     scheduleRecentReloadIfVisible: (...args) => scheduleRecentReloadIfVisible(...args),
-    FAVICON_REQUEST_BLACKLIST_STORAGE_KEY: faviconRequestBlacklist.key,
-    normalizeFaviconRequestBlacklistItems,
     scheduleBookmarkReloadIfVisible: (...args) => scheduleBookmarkReloadIfVisible(...args),
     refreshThemeAwareFavicons,
-    FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY: faviconEnhancedFetchEnabled.key,
-    normalizeFaviconEnhancedFetchEnabled,
     renderShortcuts: (...args) => renderShortcuts(...args),
     setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
     getImmediateThemeForSuggestion,
@@ -1703,6 +1665,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     openBookmarkFolder,
     navigateToQuery
   } = NEWTAB_PAGE_NAVIGATION.createPageNavigation({
+    settings,
     NAVIGATION_DISPOSITION,
     getShortcutTileById,
     bookmarksRuntime,
@@ -2407,7 +2370,7 @@ import * as SettingsStorage from '../platform/settings-storage';
       ), false, { duration: 0 });
     },
     onHoldEnd: hideToast,
-    instantActive: () => pageState.numberShortcutInstantEnabled
+    instantActive: () => settings.get(numberShortcutInstantEnabled)
   };
 
   // Kick off favicon cache warmup early; theme tint work flushes when storage is ready.
@@ -2432,6 +2395,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     dismissAutocompletePreviewOnNonTabKey,
     applyAutocomplete
   } = NEWTAB_SEARCH_AUTOCOMPLETE.createSearchAutocomplete({
+    settings,
     getUrlDisplay,
     isEnglishQuery,
     getKeywordSearchSuggestionState,
@@ -2457,6 +2421,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    settings,
     siteSearchCatalog,
     searchEngine,
     t,
@@ -2509,6 +2474,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    settings,
     formatMessage,
     getExtensionResourceUrl,
     BROWSER_PROFILE,
@@ -2556,6 +2522,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    settings,
     getPageFaviconCandidateUrl,
     SUGGESTION_ACTION_MODEL,
     activateSiteSearch,
@@ -2706,7 +2673,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const isSearchOpenInNewTab = (): boolean =>
-    Boolean(pageState.newtabOpenInNewTab && pageState.newtabOpenInNewTab.search === true);
+    Boolean(settings.get(newtabOpenInNewTab) && settings.get(newtabOpenInNewTab).search === true);
   // Result labels follow where a plain click goes: 「前往」 in this tab, 「新开」 in a new one.
   const newtabSuggestionActionModel = Object.assign({}, SUGGESTION_ACTION_MODEL, {
     createSearchActionModel(input?: SearchActionModelOptions | null): SearchActionModel {
@@ -2731,6 +2698,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    settings,
     suggestionItems,
     t,
     formatMessage,
@@ -2913,17 +2881,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     setSiteSearchPrefix,
     clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
-    storageArea,
-    SEARCH_RESULT_PRIORITY_STORAGE_KEY: searchResultPriority.key,
-    SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY: searchResultSourceTypes.key,
-    SEARCH_RESULT_DISPLAY_LIMIT_STORAGE_KEY: searchResultDisplayLimit.key,
-    OVERLAY_TAB_PRIORITY_STORAGE_KEY: overlayTabPriority.key,
-    NEWTAB_OPEN_IN_NEW_TAB_STORAGE_KEY: newtabOpenInNewTab.key,
-    normalizeSearchResultPriority,
-    normalizeEnabledSearchResultSourceTypes,
-    normalizeSearchResultDisplayLimit,
-    normalizeOverlayTabPriorityMode,
-    SETTINGS,
+    settings,
     renderSuggestions,
     searchInput,
     SEARCH_CLEAR_BUTTON_INSET,
@@ -3162,11 +3120,8 @@ import * as SettingsStorage from '../platform/settings-storage';
     console.warn('[Lumno] Deferred shortcut loading failed.', error);
     return [];
   });
-  const sectionPolicyReadyPromise = Promise.all([
-    loadSearchBlacklistItems(),
-    loadFaviconRequestBlacklistItems(),
-    loadFaviconEnhancedFetchEnabled()
-  ]);
+  // The search settings join the page's first storage read.
+  const sectionPolicyReadyPromise = settings.include(NEWTAB_SEARCH_SETTINGS);
   const initialLanguageReadyTask = bootstrapInitialLanguageMode();
   const initialMotionPreferenceReadyTask = readBootValue('motionPreferenceReady');
   const initialLayoutStorageReadyTask = startupStorageReadBatch

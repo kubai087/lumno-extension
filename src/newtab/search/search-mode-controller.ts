@@ -1,10 +1,7 @@
 // The search input's mode controller: site search and local scope
 // prefixes, the tab hint for site search, the placeholder and caret color
 // per mode, and the cached provider icons the prefixes show.
-import type { SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
-import type * as Settings from '../../domain/settings';
-import type { NewtabOpenInNewTab } from '../../domain/settings';
-import type { StorageAreaLike } from '../../domain/storage-port';
+import type { SiteSearchProvider } from '../../domain/search/types';
 import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import * as SEARCH_INPUT_MODE from '../../shared/search/search-input-mode';
@@ -15,6 +12,10 @@ import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ActiveLocalScope, RenderSuggestions } from './search-types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
+import { searchResultDisplayLimit, searchResultPriority, searchResultSourceTypes } from '../../domain/settings/search';
+import { newtabOpenInNewTab } from '../../domain/settings/newtab-page';
+import { overlayTabPriority } from '../../domain/settings/overlay-panel';
+import type { SettingsStore } from '../../platform/settings-store';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -26,27 +27,12 @@ interface SearchModeControllerState {
   inputModeController: InputModeController | null;
   siteSearchState: SiteSearchProvider | null;
   localSearchScopeState: ActiveLocalScope | null;
-  searchResultPriorityMode: string;
-  enabledSearchResultSourceTypes: SearchSourceType[];
-  searchResultDisplayLimit: number;
-  openTabQuickSwitchEnabled: boolean;
-  newtabOpenInNewTab: NewtabOpenInNewTab;
   latestQuery: string;
   lastSuggestionResponse: Suggestion[];
 }
 
 interface SearchModeControllerDeps {
-  storageArea: StorageAreaLike | null;
-  SEARCH_RESULT_PRIORITY_STORAGE_KEY: string;
-  SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY: string;
-  SEARCH_RESULT_DISPLAY_LIMIT_STORAGE_KEY: string;
-  OVERLAY_TAB_PRIORITY_STORAGE_KEY: string;
-  NEWTAB_OPEN_IN_NEW_TAB_STORAGE_KEY: string;
-  normalizeSearchResultPriority(value: unknown): string;
-  normalizeEnabledSearchResultSourceTypes(value: unknown): SearchSourceType[];
-  normalizeSearchResultDisplayLimit(value: unknown): number;
-  normalizeOverlayTabPriorityMode(value: unknown): boolean;
-  SETTINGS: Pick<typeof Settings, 'newtabOpenInNewTab'>;
+  settings: Pick<SettingsStore, 'include'>;
   renderSuggestions: RenderSuggestions;
   searchInput: HTMLInputElement;
   // The room the clear button takes at the input's right.
@@ -85,17 +71,7 @@ interface SearchModeControllerDeps {
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
-    storageArea,
-    SEARCH_RESULT_PRIORITY_STORAGE_KEY,
-    SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY,
-    SEARCH_RESULT_DISPLAY_LIMIT_STORAGE_KEY,
-    OVERLAY_TAB_PRIORITY_STORAGE_KEY,
-    NEWTAB_OPEN_IN_NEW_TAB_STORAGE_KEY,
-    normalizeSearchResultPriority,
-    normalizeEnabledSearchResultSourceTypes,
-    normalizeSearchResultDisplayLimit,
-    normalizeOverlayTabPriorityMode,
-    SETTINGS,
+    settings,
     renderSuggestions,
     searchInput,
     SEARCH_CLEAR_BUTTON_INSET,
@@ -155,41 +131,12 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     }
   }
 
-  if (storageArea) {
-    // Narrowed here, for the storage callback below.
-    const area = storageArea;
-    void area.get([
-      SEARCH_RESULT_PRIORITY_STORAGE_KEY,
-      SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY,
-      SEARCH_RESULT_DISPLAY_LIMIT_STORAGE_KEY,
-      OVERLAY_TAB_PRIORITY_STORAGE_KEY,
-      NEWTAB_OPEN_IN_NEW_TAB_STORAGE_KEY
-    ], (result) => {
-      const raw = result ? result[SEARCH_RESULT_PRIORITY_STORAGE_KEY] : null;
-      const nextMode = normalizeSearchResultPriority(raw);
-      pageState.searchResultPriorityMode = nextMode;
-      pageState.enabledSearchResultSourceTypes = normalizeEnabledSearchResultSourceTypes(
-        result ? result[SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY] : null
-      );
-      const rawDisplayLimit = result ? result[SEARCH_RESULT_DISPLAY_LIMIT_STORAGE_KEY] : null;
-      pageState.searchResultDisplayLimit = normalizeSearchResultDisplayLimit(rawDisplayLimit);
-      pageState.openTabQuickSwitchEnabled = normalizeOverlayTabPriorityMode(
-        result ? result[OVERLAY_TAB_PRIORITY_STORAGE_KEY] : null
-      );
-      pageState.newtabOpenInNewTab = SETTINGS.newtabOpenInNewTab.parse(
-        result ? result[NEWTAB_OPEN_IN_NEW_TAB_STORAGE_KEY] : null
-      );
-      if (raw !== nextMode) {
-        void area.set({ [SEARCH_RESULT_PRIORITY_STORAGE_KEY]: nextMode });
-      }
-      if (rawDisplayLimit !== pageState.searchResultDisplayLimit) {
-        void area.set({ [SEARCH_RESULT_DISPLAY_LIMIT_STORAGE_KEY]: pageState.searchResultDisplayLimit });
-      }
+  void settings.include([searchResultPriority, searchResultSourceTypes, searchResultDisplayLimit, overlayTabPriority, newtabOpenInNewTab])
+    .then(() => {
       if (pageState.latestQuery) {
         renderSuggestions(pageState.lastSuggestionResponse, pageState.latestQuery);
       }
     });
-  }
   const defaultPlaceholder = searchInput.placeholder;
   const defaultCaretColor = searchInput.style.caretColor || '#7DB7FF';
   const inputModePrefixTransition = 'opacity 140ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease';

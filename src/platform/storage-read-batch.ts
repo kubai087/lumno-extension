@@ -182,24 +182,29 @@ function flush(ctx: ReadBatchContext) {
       finish({});
     }
   };
+  void takePrefetchedRead(ctx.source, keys).then((value) => {
+    if (value) finish(value);
+    else readArea();
+  });
+}
+
+// The values a preload's read of `area` holds for `keys`: null when there was
+// none, it did not cover every key, or one of them changed since. A prefetch
+// serves one read; whatever it answers, it is gone afterwards.
+function takePrefetchedRead(area: object, keys: readonly string[] | null): Promise<StorageItems | null> {
   const registry = getStorageReadPrefetches(false);
-  const prefetch = registry ? registry.get(ctx.source) : undefined;
-  if (registry) {
-    registry.delete(ctx.source);
+  const prefetch = registry ? registry.get(area) : undefined;
+  if (!registry || !prefetch) {
+    return Promise.resolve(null);
   }
-  if (!prefetch) {
-    readArea();
-    return;
-  }
+  registry.delete(area);
   if (keys === null || !keys.every((key) => prefetch.keys.has(key))) {
     prefetch.release();
-    readArea();
-    return;
+    return Promise.resolve(null);
   }
-  prefetch.result.then((value) => {
+  return prefetch.result.then((value) => {
     prefetch.release();
-    if (value && !prefetch.stale) finish(value);
-    else readArea();
+    return value && !prefetch.stale ? value : null;
   });
 }
 
@@ -276,6 +281,7 @@ function createStorageReadBatch(area: StorageAreaLike | null | undefined): Stora
 }
 
 export {
+  takePrefetchedRead,
   collectRequestKeys,
   createDeferred,
   createStorageReadBatch,

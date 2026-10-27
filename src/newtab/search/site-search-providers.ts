@@ -9,11 +9,9 @@ import type * as AggregateSearchSurface from '../../domain/search/aggregate-sear
 import type {
   LocalSearchScope,
   LocalSearchScopeRule,
-  SearchSourceType,
   SiteSearchProvider,
   SuggestionLike
 } from '../../domain/search/types';
-import type * as Settings from '../../domain/settings';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import { getAggregateSearchId } from './search-types';
@@ -26,12 +24,11 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
-
-interface SiteSearchProvidersState {
-  enabledSearchResultSourceTypes: SearchSourceType[];
-}
+import { searchResultSourceTypes } from '../../domain/settings/search';
+import type { SettingsStore } from '../../platform/settings-store';
 
 interface SiteSearchProvidersDeps {
+  settings: Pick<SettingsStore, 'get'>;
   AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore, 'isAggregateSearchProvider' | 'createScopeProvider'>;
   AGGREGATE_SEARCH_SURFACE: Pick<typeof AggregateSearchSurface, 'createAggregateSearchRequestController'>;
   showToast: ShowToast;
@@ -44,12 +41,11 @@ interface SiteSearchProvidersDeps {
   getDirectNavigationUrl: NonNullable<Parameters<typeof SearchNavigationMatching.promoteStrongNavigationMatch>[2]>['getDirectNavigationUrl'];
   getUrlDisplay(url: string): string;
   getHelpCenterLocale?(): string;
-  SETTINGS: Pick<typeof Settings, 'searchResultSourceTypes' | 'searchResultDisplayLimit'>;
-  pageState: SiteSearchProvidersState;
 }
 
 function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
+    settings,
     AGGREGATE_SEARCH_STORE,
     AGGREGATE_SEARCH_SURFACE,
     showToast,
@@ -61,12 +57,9 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     formatMessage,
     getDirectNavigationUrl,
     getUrlDisplay,
-    getHelpCenterLocale,
-    SETTINGS
+    getHelpCenterLocale
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   let aggregateSearchRequestController: ReturnType<typeof AggregateSearchSurface.createAggregateSearchRequestController> | null = null;
 
@@ -315,20 +308,12 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     });
   }
 
-  function normalizeEnabledSearchResultSourceTypes(value: unknown): SearchSourceType[] {
-    return SETTINGS.searchResultSourceTypes.parse(value);
-  }
-
-  function normalizeSearchResultDisplayLimit(value: unknown): number {
-    return SETTINGS.searchResultDisplayLimit.parse(value);
-  }
-
   function getLocalSearchScopeCandidate(
     input: unknown,
     rules: ReadonlyArray<LocalSearchScopeRule | null | undefined> | null | undefined
   ): LocalSearchScope | null {
     const scope = SearchSiteSearchProviders.findLocalSearchScope(input, rules);
-    if (!scope || !pageState.enabledSearchResultSourceTypes.includes(scope.sourceType)) {
+    if (!scope || !settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
       return null;
     }
     return scope;
@@ -377,8 +362,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     promoteTopSiteMatch,
     getProviderHost,
     getSiteSearchTriggerCandidate,
-    normalizeEnabledSearchResultSourceTypes,
-    normalizeSearchResultDisplayLimit,
     getLocalSearchScopeCandidate,
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName
@@ -388,4 +371,4 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
 type SiteSearchProviders = ReturnType<typeof createSiteSearchProviders>;
 
 export { createSiteSearchProviders };
-export type { SiteSearchProviders, SiteSearchProvidersDeps, SiteSearchProvidersState };
+export type { SiteSearchProviders, SiteSearchProvidersDeps };

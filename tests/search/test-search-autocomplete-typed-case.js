@@ -22,7 +22,6 @@ function createInput(value) {
 const input = createInput('4A');
 const pageState = {
   latestRawQuery: '4A',
-  searchResultPriorityMode: 'autocomplete',
   lastDeletionAt: 0,
   siteSearchState: null,
   inputParts: { input },
@@ -30,6 +29,7 @@ const pageState = {
   suggestionInputPreview: { isActive: () => false }
 };
 const autocomplete = LumnoNewtabSearchAutocomplete.createSearchAutocomplete({
+  settings: { get: () => 'autocomplete' },
   pageState,
   getUrlDisplay: (url) => String(url || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
   isEnglishQuery: () => true,
