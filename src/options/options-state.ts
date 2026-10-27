@@ -6,7 +6,6 @@ import type { ToastController } from '../shared/ui/toast-screen';
 import type { TooltipController } from '../shared/ui/tooltip';
 import type { AggregateSearchListState } from './options-aggregate-search-list';
 import type { FormsState } from './options-forms';
-import type { LanguageState } from './options-language';
 import type { NavigationState } from './options-navigation';
 import type { createPanelHeightAnimator } from './options-panel-motion';
 import type { createSearchSourceOrderController } from './options-search-source-order';
@@ -29,7 +28,6 @@ interface OptionsPageState {
 type OptionsState =
   AggregateSearchListState &
   FormsState &
-  LanguageState &
   NavigationState &
   ShortcutReferenceState &
   SiteSearchListState &
@@ -71,12 +69,8 @@ function createOptionsState(parts: OptionsStateParts): OptionsState {
     siteSearchBuiltinListController: null,
     siteSearchAiBuiltinListController: null,
     siteSearchFormController: null,
-    themeSection: null,
-    searchShortcutStatus: null,
-    webDavSettingsController: null,
 
     // The page.
-    currentLanguageMode: 'system',
     currentActiveSettingsTab: 'general',
     // A linked setting to scroll to once the lists have rendered.
     pendingOptionsScrollTarget: ''

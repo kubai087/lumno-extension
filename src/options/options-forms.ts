@@ -1,5 +1,4 @@
-// The site search add form's copy, and the template formatting the page's
-// messages use.
+// The site search add form's copy.
 import type { GetMessage } from './options-types';
 import type { SiteSearchFormRenderModel } from './react/settings-forms';
 
@@ -18,15 +17,6 @@ function createForms(deps: FormsDeps) {
 
   // The page state object shared with options.js and the other modules.
   const optionsState = deps.optionsState;
-
-  function formatTemplate(text: string, params: Record<string, string | number>): string {
-    return String(text || '').replace(/\{(\w+)\}/g, (match, key: string) => {
-      if (params && Object.prototype.hasOwnProperty.call(params, key)) {
-        return String(params[key]);
-      }
-      return match;
-    });
-  }
 
   function getSiteSearchFormRenderModel(): SiteSearchFormRenderModel {
     return {
@@ -74,10 +64,7 @@ function createForms(deps: FormsDeps) {
     }
   }
 
-  return {
-    formatTemplate,
-    renderSettingsForms
-  };
+  return { renderSettingsForms };
 }
 
 export { createForms };

@@ -29,7 +29,6 @@ import * as OPTIONS_GENERAL_SEARCH_SECTION from './options-general-search-sectio
 import * as OPTIONS_GENERAL_SHORTCUTS_SECTION from './options-general-shortcuts-section';
 import * as OPTIONS_GENERAL_TAB from './options-general-tab';
 import * as OPTIONS_LABS_SECTION from './options-labs-section';
-import * as OPTIONS_LANGUAGE from './options-language';
 import * as OPTIONS_NAVIGATION from './options-navigation';
 import * as PANEL_MOTION from './options-panel-motion';
 import * as LumnoOptionsSearchSourceOrder from './options-search-source-order';
@@ -60,6 +59,9 @@ import { newtabShortcutsLocalOverflow } from '../domain/settings/newtab-shortcut
 import * as ProviderStorage from '../platform/provider-storage';
 import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-search/providers';
 import { AggregateSearches } from './features/aggregate-search/searches';
+import { OptionsLocale, loadLocaleMessages } from './features/language/locale';
+import { applyStaticCopy } from './dom/static-copy';
+import { formatTemplate } from './format-template';
 
 (function() {
   const optionsRuntimeStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -118,6 +120,9 @@ import { AggregateSearches } from './features/aggregate-search/searches';
   // src/options/: each receives this one object as `optionsState` and reads
   // and writes the same properties this file does.
   const optionsSettingsStore = getContextSettingsStore(chrome, window);
+  const optionsLocale = new OptionsLocale(optionsSettingsStore);
+  const getMessage = optionsLocale.getMessage;
+  const getLocale = (): string => optionsLocale.store.getSnapshot().locale;
   const siteSearchProviders = new SiteSearchProviders(optionsSettingsStore, (error) => {
     console.warn('[Lumno] Could not load site search providers.', error);
     showToast(getMessage('toast_error', '操作失败，请重试。'), true);
@@ -136,7 +141,7 @@ import { AggregateSearches } from './features/aggregate-search/searches';
       windowObj: window
     }),
     searchSourceOrderController: LumnoOptionsSearchSourceOrder.createSearchSourceOrderController({
-      getMessage: (key, fallback) => getMessage(key, fallback),
+      getMessage,
       showToast: (message, isError) => showToast(message, isError),
       read: () => readStoredSetting(optionsSettingsStore, SETTINGS.searchSourceOrder),
       write: (value) => optionsSettingsStore.set(SETTINGS.searchSourceOrder, SETTINGS.searchSourceOrder.parse(value)),
@@ -204,7 +209,7 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     renderSiteSearchList
   } = OPTIONS_SITE_SEARCH_LIST.createSiteSearchList({
     providers: siteSearchProviders,
-    getMessage: (key, fallback) => getMessage(key, fallback),
+    getMessage,
     renderedSearchSourceKeys,
     initTooltips,
     scrollToOptionsTarget: (targetKey, options) => scrollToOptionsTarget(targetKey, options),
@@ -221,7 +226,7 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     getOptionsRouteState,
     scrollToOptionsTarget
   } = OPTIONS_NAVIGATION.createNavigation({
-    getMessage: (...args) => getMessage(...args),
+    getMessage,
     tabContents,
     siteSearchProviders,
     tabsRow,
@@ -230,61 +235,20 @@ import { AggregateSearches } from './features/aggregate-search/searches';
 
   const siteSearchActions = OPTIONS_SITE_SEARCH_ACTIONS.createSiteSearchActions({
     providers: siteSearchProviders,
-    getMessage: (key, fallback) => getMessage(key, fallback),
+    getMessage,
     showToast,
     hasKeyConflict: (key, allowedKey) => Boolean(findSiteSearchKeyConflict(key, allowedKey))
   });
   const aggregateSearchActions = OPTIONS_AGGREGATE_SEARCH_ACTIONS.createAggregateSearchActions({
     aggregates: aggregateSearches,
     providers: siteSearchProviders,
-    getMessage: (key, fallback) => getMessage(key, fallback),
+    getMessage,
     showToast,
     hasKeyConflict: (key, currentId) => Boolean(findSiteSearchKeyConflict(key, '', currentId))
   });
   const aggregateSearchModel = AGGREGATE_SEARCH.createAggregateSearchModel();
 
-  const {
-    getMessage,
-    normalizeLocale,
-    getSystemLocale,
-    applyLanguageMode,
-    loadLanguageSetting,
-    loadLocaleMessages
-  } = OPTIONS_LANGUAGE.createLanguage({
-    formatTemplate: (...args) => formatTemplate(...args),
-    formatShortcutForDisplay: (...args) => formatShortcutForDisplay(...args),
-    SETTINGS,
-    renderFeedbackSupport,
-    renderTranslationHelp,
-    refreshCustomSelects,
-    refreshSyncStatus,
-    renderShortcutReferenceList: (...args) => renderShortcutReferenceList(...args),
-    renderSettingsNavigation,
-    onLanguageApplied: (mode, locale) => generalGlobalSection.setLanguage(mode, locale),
-    renderTabSections: () => {
-      generalGlobalSection.render();
-      generalFeaturesSection.render();
-      generalSearchSection.render();
-      generalOverlaySection.render();
-      generalNewtabSection.render();
-      generalShortcutsSection.render();
-      appearanceGlobalSection.render();
-      appearanceOverlaySection.render();
-      appearanceNewtabLookSection.render();
-      dailyQuoteSection.render();
-      appearanceNewtabLayoutSection.render();
-      labsSection.render();
-      blacklistSection.render();
-    },
-    renderSiteSearchList,
-    renderAggregateSearchList: (...args) => renderAggregateSearchList(...args),
-    optionsState
-  });
-
-  const {
-    formatTemplate,
-    renderSettingsForms
-  } = OPTIONS_FORMS.createForms({
+  const { renderSettingsForms } = OPTIONS_FORMS.createForms({
     getMessage,
     optionsState
   });
@@ -300,14 +264,14 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     runtime: chrome.runtime,
     getMessage,
     showToast,
-    applyLanguage: (mode) => applyLanguageMode(mode, { persist: true }),
+    applyLanguage: (mode) => optionsLocale.choose(mode),
     getViewportTopInset: getMenuViewportTopInset
   });
   const feedbackSupportSection = LumnoOptionsFeedbackSupportSection.createFeedbackSupportSection({
     communityLinks: COMMUNITY_LINKS,
     controller: generalGlobalSection.feedback,
     licensesLink: generalGlobalSection.licensesLink,
-    getLocale: () => (optionsState.currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(optionsState.currentLanguageMode)),
+    getLocale,
     getMessage,
     helpIconUrl: chrome && chrome.runtime && typeof chrome.runtime.getURL === 'function'
       ? chrome.runtime.getURL('assets/images/site-search/glyph-lm.png')
@@ -317,9 +281,9 @@ import { AggregateSearches } from './features/aggregate-search/searches';
   const translationHelpSection = LumnoOptionsTranslationHelpSection.createTranslationHelpSection({
     controller: generalGlobalSection.translationHelp,
     documentObj: document,
-    formatTemplate: (...args) => formatTemplate(...args),
+    formatTemplate,
     getIssueUrl: () => COMMUNITY_LINKS.getLinks().githubIssue,
-    getLocale: () => (optionsState.currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(optionsState.currentLanguageMode)),
+    getLocale,
     getMessage,
     loadLocaleMessages,
     uiLocales: SETTINGS.UI_LOCALES,
@@ -388,7 +352,7 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     settingsStore: optionsState.settingsStore,
     SETTINGS,
     getMessage,
-    formatTemplate: (text, params) => formatTemplate(text, params),
+    formatTemplate,
     browserFamily: document.documentElement.getAttribute('data-browser-family') || '',
     listInstalledFonts,
     getViewportTopInset: getMenuViewportTopInset
@@ -662,7 +626,7 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     showTooltipFor
   });
   const syncSection = accountSection.syncSection;
-  optionsState.webDavSettingsController = accountSection.webDavController;
+  const webDavSettingsController = accountSection.webDavController;
   function refreshSyncStatus() {
     syncSection.refreshSyncStatus();
   }
@@ -670,9 +634,6 @@ import { AggregateSearches } from './features/aggregate-search/searches';
   settingBinder.onChange(newtabShortcutsLocalOverflow, () => syncSection.refreshShortcutSyncSummary());
   settingBinder.onChange([SETTINGS.syncMeta, ...SETTINGS.BROWSER_SYNC_SETTINGS], refreshSyncStatus);
 
-  settingBinder.onChange(SETTINGS.language, () => {
-    applyLanguageMode(optionsState.settingsStore.get(SETTINGS.language));
-  });
 
   const {
     formatShortcutForDisplay,
@@ -682,16 +643,12 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     shortcutReferenceController: generalShortcutsSection.referenceList,
     getMessage,
     formatTemplate,
-    getHelpUrl: (slug, anchor) => COMMUNITY_LINKS.getHelpUrl(
-      optionsState.currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(optionsState.currentLanguageMode),
-      slug,
-      anchor
-    ),
+    getHelpUrl: (slug, anchor) => COMMUNITY_LINKS.getHelpUrl(getLocale(), slug, anchor),
     onTabSwitcherCtrlTabLinkChange: (link) => generalFeaturesSection.setCtrlTabLink(link),
     optionsState
   });
 
-  optionsState.searchShortcutStatus = OPTIONS_SEARCH_SHORTCUT_STATUS.createSearchShortcutStatus({
+  const searchShortcutStatus = OPTIONS_SEARCH_SHORTCUT_STATUS.createSearchShortcutStatus({
     chromeApi: chrome,
     isMacPlatform: optionsState.isMacPlatform,
     formatShortcutForDisplay,
@@ -699,9 +656,7 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     onChange: (label) => generalShortcutsSection.setStatus(label)
   });
   function loadCurrentShortcut(): void {
-    if (optionsState.searchShortcutStatus) {
-      optionsState.searchShortcutStatus.load();
-    }
+    searchShortcutStatus.load();
   }
   settingBinder.onChange(SETTINGS.fallbackShortcut, () => loadCurrentShortcut());
 
@@ -744,16 +699,14 @@ import { AggregateSearches } from './features/aggregate-search/searches';
   }
 
   function setThemeMode(mode: unknown): void {
-    if (optionsState.themeSection) {
-      optionsState.themeSection.setMode(mode);
-    }
+    themeSection.setMode(mode);
   }
 
   function playThemeOptionClickEffect(button: Element | null): void {
     THEME.playThemeOptionClickEffect(button, window);
   }
 
-  optionsState.themeSection = THEME.createThemeSection({
+  const themeSection = THEME.createThemeSection({
     documentObj: document,
     getMessage,
     onModeShown: updateOverlayPageThemeAdaptationVisibility,
@@ -763,11 +716,9 @@ import { AggregateSearches } from './features/aggregate-search/searches';
     settingsStore: optionsState.settingsStore,
     windowObj: window
   });
-  optionsState.themeSection.init();
+  themeSection.init();
   settingBinder.onChange(SETTINGS.themeMode, () => {
-    if (optionsState.themeSection) {
-      optionsState.themeSection.applyStorageChange(optionsState.settingsStore.get(SETTINGS.themeMode));
-    }
+    themeSection.applyStorageChange(optionsState.settingsStore.get(SETTINGS.themeMode));
   });
 
 
@@ -836,7 +787,33 @@ import { AggregateSearches } from './features/aggregate-search/searches';
   labsSection.bindSettings(settingBinder);
   blacklistSection.bindSettings(settingBinder);
   shortcutsSection.bindSettings(settingBinder);
-  loadLanguageSetting();
+  // Everything drawn from translated copy follows the page language.
+  optionsLocale.store.subscribe(() => {
+    const { mode, locale } = optionsLocale.store.getSnapshot();
+    generalGlobalSection.setLanguage(mode, locale);
+    webDavSettingsController.render();
+    applyStaticCopy(document, getMessage, formatTemplate, {
+      name: 'Lumno',
+      browser: LumnoBrowserProfile.getBrowserInternalProfile(navigator).name || 'Chrome',
+      shortcut: formatShortcutForDisplay('Alt+Q') || (optionsState.isMacPlatform ? '⌥Q' : 'Alt+Q')
+    });
+    renderFeedbackSupport();
+    renderTranslationHelp();
+    refreshCustomSelects();
+    refreshSyncStatus();
+    searchShortcutStatus.render();
+    renderShortcutReferenceList();
+    themeSection.render();
+    renderSettingsNavigation(optionsState.currentActiveSettingsTab);
+    [
+      generalGlobalSection, generalFeaturesSection, generalSearchSection, generalOverlaySection,
+      generalNewtabSection, generalShortcutsSection, appearanceGlobalSection, appearanceOverlaySection,
+      appearanceNewtabLookSection, dailyQuoteSection, appearanceNewtabLayoutSection, labsSection, blacklistSection
+    ].forEach((section) => section.render());
+    renderSiteSearchList();
+    renderAggregateSearchList();
+  });
+  optionsLocale.follow();
   void settingBinder.whenBound().then(finishOptionsStartupRead);
 
   refreshCustomSelects();
