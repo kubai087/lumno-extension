@@ -79,10 +79,7 @@ function createOptionsState(parts: OptionsStateParts): OptionsState {
     currentLanguageMode: 'system',
     currentActiveSettingsTab: 'general',
     // A linked setting to scroll to once the lists have rendered.
-    pendingOptionsScrollTarget: '',
-
-    // Aggregate searches, empty until read.
-    aggregateSearches: []
+    pendingOptionsScrollTarget: ''
   };
 }
 

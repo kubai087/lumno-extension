@@ -2,7 +2,6 @@ import * as LumnoBlacklistUtils from '../domain/blacklist-utils';
 import * as CUSTOM_QUOTES from '../domain/custom-quotes';
 import * as COMMUNITY_LINKS from '../platform/community-links';
 import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
-import * as AGGREGATE_SEARCH_STORE from '../domain/search/aggregate-search-store';
 import * as SETTINGS from '../domain/settings';
 import { getContextSettingsStore, readStoredSetting } from '../platform/settings-store';
 import * as LumnoShortcutDisplay from '../domain/shortcut-display';
@@ -15,6 +14,7 @@ import * as OPTIONS_APPEARANCE_NEWTAB_LAYOUT_SECTION from './options-appearance-
 import * as OPTIONS_APPEARANCE_NEWTAB_LOOK_SECTION from './options-appearance-newtab-look-section';
 import * as OPTIONS_APPEARANCE_OVERLAY_SECTION from './options-appearance-overlay-section';
 import { listInstalledFonts } from './options-installed-fonts';
+import * as OPTIONS_AGGREGATE_SEARCH_ACTIONS from './options-aggregate-search-actions';
 import * as OPTIONS_AGGREGATE_SEARCH_LIST from './options-aggregate-search-list';
 import * as AGGREGATE_SEARCH from './options-aggregate-search';
 import * as OPTIONS_BLACKLIST_SECTION from './options-blacklist-section';
@@ -59,6 +59,7 @@ import { getSettingsNavigationApi } from './react/settings-navigation';
 import { newtabShortcutsLocalOverflow } from '../domain/settings/newtab-shortcuts';
 import * as ProviderStorage from '../platform/provider-storage';
 import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-search/providers';
+import { AggregateSearches } from './features/aggregate-search/searches';
 
 (function() {
   const optionsRuntimeStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -119,6 +120,10 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
   const optionsSettingsStore = getContextSettingsStore(chrome, window);
   const siteSearchProviders = new SiteSearchProviders(optionsSettingsStore, (error) => {
     console.warn('[Lumno] Could not load site search providers.', error);
+    showToast(getMessage('toast_error', '操作失败，请重试。'), true);
+  });
+  const aggregateSearches = new AggregateSearches(optionsSettingsStore, providerStorageRuntime, (error) => {
+    console.warn('[Lumno] Could not load aggregate searches.', error);
     showToast(getMessage('toast_error', '操作失败，请重试。'), true);
   });
   const optionsState = OPTIONS_STATE.createOptionsState({
@@ -184,7 +189,7 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
   function findSiteSearchKeyConflict(key: string, allowedKey?: string, allowedAggregateId?: string) {
     const { defaults, custom } = siteSearchProviders.store.getSnapshot();
     return siteSearchModel.findSiteSearchKeyConflict(key, allowedKey || '', allowedAggregateId || '', {
-      aggregateSearches: optionsState.aggregateSearches,
+      aggregateSearches: aggregateSearches.store.getSnapshot().items,
       providers: defaults.concat(custom)
     });
   }
@@ -229,6 +234,14 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
     showToast,
     hasKeyConflict: (key, allowedKey) => Boolean(findSiteSearchKeyConflict(key, allowedKey))
   });
+  const aggregateSearchActions = OPTIONS_AGGREGATE_SEARCH_ACTIONS.createAggregateSearchActions({
+    aggregates: aggregateSearches,
+    providers: siteSearchProviders,
+    getMessage: (key, fallback) => getMessage(key, fallback),
+    showToast,
+    hasKeyConflict: (key, currentId) => Boolean(findSiteSearchKeyConflict(key, '', currentId))
+  });
+  const aggregateSearchModel = AGGREGATE_SEARCH.createAggregateSearchModel();
 
   const {
     getMessage,
@@ -454,7 +467,7 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
     orderController: optionsState.searchSourceOrderController,
     settingsStore: optionsState.settingsStore,
     SETTINGS,
-    deriveLegacyAutoGroupEnabled: (value) => deriveLegacyAggregateSearchAutoGroupEnabled(value),
+    deriveLegacyAutoGroupEnabled: aggregateSearchModel.deriveLegacyAutoGroupEnabled,
     refreshCustomSelects,
     initTooltips,
     handlers: {
@@ -469,12 +482,12 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
           fromIndex,
           toIndex
         ),
-        onRemove: (id) => handleAggregateSearchRemove(id),
-        onSave: (id, draft) => handleAggregateSearchSave(id, draft)
+        onRemove: aggregateSearchActions.removeAggregateSearch,
+        onSave: aggregateSearchActions.saveAggregateSearch
       },
       onAddSiteSearch: siteSearchActions.addProvider,
       onClearCustom: siteSearchActions.clearCustomProviders,
-      onClearAggregates: () => handleAggregateSearchClear(),
+      onClearAggregates: aggregateSearchActions.clearAggregateSearches,
       onResetBuiltin: siteSearchActions.resetBuiltinProviders
     }
   });
@@ -485,9 +498,6 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
   const aggregateSearchListController = shortcutsSection.aggregateList;
   optionsState.siteSearchFormController = shortcutsSection.form;
 
-  const aggregateSearchModel = AGGREGATE_SEARCH.createAggregateSearchModel({
-    aggregateSearchStore: AGGREGATE_SEARCH_STORE
-  });
   const syncTransfer = LumnoOptionsSyncTransfer.createSyncTransfer({
     deriveLegacyAutoGroupEnabled: aggregateSearchModel.deriveLegacyAutoGroupEnabled,
     settings: SETTINGS
@@ -571,17 +581,8 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
   optionsState.searchSourceOrderController.load();
 
 
-  const {
-    deriveLegacyAggregateSearchAutoGroupEnabled,
-    renderAggregateSearchList,
-    getAggregateSearchStateCoordinator,
-    refreshAggregateSearches,
-    handleAggregateSearchSave,
-    handleAggregateSearchRemove,
-    handleAggregateSearchClear
-  } = OPTIONS_AGGREGATE_SEARCH_LIST.createAggregateSearchList({
-    AGGREGATE_SEARCH_STORE,
-    aggregateSearchModel,
+  const { renderAggregateSearchList } = OPTIONS_AGGREGATE_SEARCH_LIST.createAggregateSearchList({
+    aggregates: aggregateSearches,
     providers: siteSearchProviders,
     getMessage,
     getSiteSearchItemIconUrl,
@@ -590,12 +591,9 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
     aggregateSearchListController,
     renderedSearchSourceKeys,
     getSearchSourceReorderCopy,
-    getActivePrimaryAreaName,
-    AGGREGATE_SEARCH,
-    showToast,
-    findSiteSearchKeyConflict,
     optionsState
   });
+  aggregateSearches.store.subscribe(renderAggregateSearchList);
 
 
 
@@ -843,14 +841,8 @@ import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-
 
   refreshCustomSelects();
 
-  settingBinder.onChange(SETTINGS.aggregateSearches, () => {
-    getAggregateSearchStateCoordinator().applyStorageChange(
-      optionsState.settingsStore.getStored(SETTINGS.aggregateSearches)
-    );
-  });
-
+  aggregateSearches.followStorage();
   siteSearchProviders.followStorage();
   void siteSearchProviders.refresh();
-  // Load failures are reported through onLoadError.
-  refreshAggregateSearches().catch(() => {});
+  void aggregateSearches.refresh();
 })();

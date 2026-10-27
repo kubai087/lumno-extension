@@ -2,7 +2,7 @@ const assert = require('assert');
 const aggregateSearchStore = require('../../src/domain/search/aggregate-search-store');
 const { createAggregateSearchModel } = require('../../src/options/options-aggregate-search');
 
-const model = createAggregateSearchModel({ aggregateSearchStore });
+const model = createAggregateSearchModel();
 const { limits } = model;
 assert.deepStrictEqual(
   [limits.maxItems, limits.minSources, limits.maxSources],

@@ -1,7 +1,7 @@
 // Aggregate searches on the Options page: the state coordinator that keeps
 // edits from racing storage, and the rules for saving one aggregate search.
 // Validation results name a locale message key in `error`.
-import type * as AggregateSearchStore from '../domain/search/aggregate-search-store';
+import * as AggregateSearchStore from '../domain/search/aggregate-search-store';
 import type { AggregateSearch } from '../domain/search/aggregate-search-store';
 import type { SiteSearchProvider } from '../domain/search/types';
 
@@ -43,13 +43,6 @@ interface AggregateSearchBuildContext {
 type AggregateSearchBuildResult = { ok: false; error: string } | { ok: true; item: AggregateSearchItem };
 
 type AggregateSearchMergeResult<T> = { ok: false; error: string } | { ok: true; items: Array<T | AggregateSearchItem> };
-
-interface AggregateSearchModelDeps {
-  aggregateSearchStore: Pick<typeof AggregateSearchStore,
-    'MAX_AGGREGATE_COUNT' | 'MAX_KEY_LENGTH' | 'MAX_NAME_LENGTH' | 'MAX_SOURCE_COUNT' | 'MIN_SOURCE_COUNT' |
-    'normalizeAggregateSearches' | 'normalizeAggregateSearchKey' | 'normalizeSourceRefs' |
-    'getAggregateSearchAvailability'>;
-}
 
 // Loads, applies and mutates the aggregate search list. Mutations run one at
 // a time against freshly loaded items; a storage change or a newer load
@@ -148,8 +141,8 @@ function createAggregateSearchStateCoordinator<T extends S, S>(options: Aggregat
   };
 }
 
-function createAggregateSearchModel(deps: AggregateSearchModelDeps) {
-  const store = deps.aggregateSearchStore;
+function createAggregateSearchModel() {
+  const store = AggregateSearchStore;
   const limits = Object.freeze({
     maxItems: store.MAX_AGGREGATE_COUNT,
     maxKeyLength: store.MAX_KEY_LENGTH,
@@ -262,6 +255,5 @@ export type {
   AggregateSearchCoordinatorConfig,
   AggregateSearchDraft,
   AggregateSearchItem,
-  AggregateSearchMergeResult,
-  AggregateSearchModelDeps
+  AggregateSearchMergeResult
 };

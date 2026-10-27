@@ -1,11 +1,10 @@
 const assert = require('assert');
 const settings = require('../../src/domain/settings');
-const aggregateSearchStore = require('../../src/domain/search/aggregate-search-store');
 const { createAggregateSearchModel } = require('../../src/options/options-aggregate-search');
 const { createSyncTransfer } = require('../../src/options/options-sync-transfer');
 
 const transfer = createSyncTransfer({
-  deriveLegacyAutoGroupEnabled: createAggregateSearchModel({ aggregateSearchStore }).deriveLegacyAutoGroupEnabled,
+  deriveLegacyAutoGroupEnabled: createAggregateSearchModel().deriveLegacyAutoGroupEnabled,
   settings
 });
 const META = settings.syncMeta.key;
