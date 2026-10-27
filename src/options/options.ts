@@ -38,7 +38,6 @@ import * as OPTIONS_SHORTCUT_REFERENCE from './options-shortcut-reference';
 import * as OPTIONS_SHORTCUTS_SECTION from './options-shortcuts-section';
 import * as OPTIONS_SEARCH_SHORTCUT_STATUS from './options-search-shortcut-status';
 import * as OPTIONS_SITE_SEARCH_ACTIONS from './options-site-search-actions';
-import * as OPTIONS_SITE_SEARCH_FORM from './options-site-search-form';
 import * as OPTIONS_SITE_SEARCH_LIST from './options-site-search-list';
 import * as SITE_SEARCH from './options-site-search';
 import * as LumnoOptionsSyncTransfer from './options-sync-transfer';
@@ -58,8 +57,8 @@ import { createToastController } from '../shared/react/toast';
 import { getSettingsControlsApi } from './react/settings-controls';
 import { getSettingsNavigationApi } from './react/settings-navigation';
 import { newtabShortcutsLocalOverflow } from '../domain/settings/newtab-shortcuts';
-import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
 import * as ProviderStorage from '../platform/provider-storage';
+import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-search/providers';
 
 (function() {
   const optionsRuntimeStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -118,13 +117,13 @@ import * as ProviderStorage from '../platform/provider-storage';
   // src/options/: each receives this one object as `optionsState` and reads
   // and writes the same properties this file does.
   const optionsSettingsStore = getContextSettingsStore(chrome, window);
+  const siteSearchProviders = new SiteSearchProviders(optionsSettingsStore, (error) => {
+    console.warn('[Lumno] Could not load site search providers.', error);
+    showToast(getMessage('toast_error', '操作失败，请重试。'), true);
+  });
   const optionsState = OPTIONS_STATE.createOptionsState({
     providerStorageRuntime,
     settingsStore: optionsSettingsStore,
-    siteSearchModel: SITE_SEARCH.createSiteSearchModel({
-      aggregateSearchStore: AGGREGATE_SEARCH_STORE
-    }),
-    enqueueSiteSearchProviderStorageOperation: SITE_SEARCH.createOperationQueue(),
     panelHeightAnimator: PANEL_MOTION.createPanelHeightAnimator({
       documentObj: document,
       panel,
@@ -137,7 +136,7 @@ import * as ProviderStorage from '../platform/provider-storage';
       read: () => readStoredSetting(optionsSettingsStore, SETTINGS.searchSourceOrder),
       write: (value) => optionsSettingsStore.set(SETTINGS.searchSourceOrder, SETTINGS.searchSourceOrder.parse(value)),
       onChange() {
-        if (optionsState.siteSearchProvidersLoaded) {
+        if (siteSearchProviders.store.getSnapshot().loaded) {
           renderSiteSearchList();
         }
         renderAggregateSearchList();
@@ -155,8 +154,7 @@ import * as ProviderStorage from '../platform/provider-storage';
       windowObj: window,
       duration: 2200
     }),
-    isMacPlatform: LumnoShortcutDisplay.getNavigatorPlatform(navigator) === 'mac',
-    fallbackSiteSearchProviders: SearchSiteSearchProviders.getDefaultSiteSearchProviders()
+    isMacPlatform: LumnoShortcutDisplay.getNavigatorPlatform(navigator) === 'mac'
   });
 
 
@@ -180,16 +178,16 @@ import * as ProviderStorage from '../platform/provider-storage';
 
 
 
-  const {
-    normalizeSiteSearchTemplate,
-    isAiSiteSearchProvider,
-    isSearchEngineSiteSearchProvider,
-    normalizeSiteSearchProvider,
-    findSiteSearchKeyConflict,
-    suspendSiteSearchRefresh
-  } = OPTIONS_SITE_SEARCH_FORM.createSiteSearchForm({
-    optionsState
-  });
+  const siteSearchModel = SITE_SEARCH.createSiteSearchModel();
+  // The provider or aggregate search already using a trigger key, ignoring
+  // the provider key or aggregate id being edited.
+  function findSiteSearchKeyConflict(key: string, allowedKey?: string, allowedAggregateId?: string) {
+    const { defaults, custom } = siteSearchProviders.store.getSnapshot();
+    return siteSearchModel.findSiteSearchKeyConflict(key, allowedKey || '', allowedAggregateId || '', {
+      aggregateSearches: optionsState.aggregateSearches,
+      providers: defaults.concat(custom)
+    });
+  }
   // The keys each list shows right now, in order, for the move buttons.
   const renderedSearchSourceKeys: Record<string, string[]> = {};
 
@@ -198,34 +196,13 @@ import * as ProviderStorage from '../platform/provider-storage';
     getSiteSearchItemIconUrl,
     getSearchSourceReorderCopy,
     locateBuiltinSiteSearchProvider,
-    handleSiteSearchProviderSave,
-    renderSiteSearchList,
-    loadDefaultSiteSearchProviders,
-    loadCustomSiteSearchProviders,
-    saveDisabledSiteSearchKeys,
-    saveSiteSearchProviderState,
-    invalidateSiteSearchProviderRefresh,
-    refreshSiteSearchProviders
+    renderSiteSearchList
   } = OPTIONS_SITE_SEARCH_LIST.createSiteSearchList({
-    getMessage: (...args) => getMessage(...args),
-    normalizeSiteSearchTemplate,
-    isSearchEngineSiteSearchProvider,
-    isAiSiteSearchProvider,
+    providers: siteSearchProviders,
+    getMessage: (key, fallback) => getMessage(key, fallback),
     renderedSearchSourceKeys,
-    suspendSiteSearchRefresh,
-    createPersistentId,
-    findSiteSearchKeyConflict,
-    getSiteSearchErrorMessage: (...args) => getSiteSearchErrorMessage(...args),
-    applySavedSiteSearchProviders: (...args) => applySavedSiteSearchProviders(...args),
-    renderAggregateSearchList: (...args) => renderAggregateSearchList(...args),
-    showToast,
-    getActiveBuiltinSiteSearchProviders: (...args) => getActiveBuiltinSiteSearchProviders(...args),
-    renderFeedbackSupport,
     initTooltips,
-    scrollToOptionsTarget: (...args) => scrollToOptionsTarget(...args),
-    normalizeSiteSearchProvider,
-    getSiteSearchBuiltinKey: (...args) => getSiteSearchBuiltinKey(...args),
-    SITE_SEARCH,
+    scrollToOptionsTarget: (targetKey, options) => scrollToOptionsTarget(targetKey, options),
     optionsState
   });
 
@@ -241,23 +218,16 @@ import * as ProviderStorage from '../platform/provider-storage';
   } = OPTIONS_NAVIGATION.createNavigation({
     getMessage: (...args) => getMessage(...args),
     tabContents,
-    refreshSiteSearchProviders,
+    siteSearchProviders,
     tabsRow,
     optionsState
   });
 
   const siteSearchActions = OPTIONS_SITE_SEARCH_ACTIONS.createSiteSearchActions({
-    getMessage: (...args) => getMessage(...args),
-    getSiteSearchBuiltinKey: (...args) => getSiteSearchBuiltinKey(...args),
-    saveSiteSearchProviderState,
-    saveDisabledSiteSearchKeys,
-    refreshSiteSearchProviders,
-    renderSiteSearchList,
-    renderAggregateSearchList: () => renderAggregateSearchList(),
+    providers: siteSearchProviders,
+    getMessage: (key, fallback) => getMessage(key, fallback),
     showToast,
-    loadDefaultSiteSearchProviders,
-    loadCustomSiteSearchProviders,
-    optionsState
+    hasKeyConflict: (key, allowedKey) => Boolean(findSiteSearchKeyConflict(key, allowedKey))
   });
 
   const {
@@ -300,19 +270,9 @@ import * as ProviderStorage from '../platform/provider-storage';
 
   const {
     formatTemplate,
-    renderSettingsForms,
-    handleReactSiteSearchFormSave,
-    getSiteSearchErrorMessage,
-    applySavedSiteSearchProviders
+    renderSettingsForms
   } = OPTIONS_FORMS.createForms({
     getMessage,
-    suspendSiteSearchRefresh,
-    createPersistentId,
-    findSiteSearchKeyConflict,
-    saveSiteSearchProviderState,
-    refreshSiteSearchProviders,
-    renderSiteSearchList,
-    showToast,
     optionsState
   });
 
@@ -339,7 +299,7 @@ import * as ProviderStorage from '../platform/provider-storage';
     helpIconUrl: chrome && chrome.runtime && typeof chrome.runtime.getURL === 'function'
       ? chrome.runtime.getURL('assets/images/site-search/glyph-lm.png')
       : '../../assets/images/site-search/glyph-lm.png',
-    isHelpCenterSearchEnabled: () => optionsState.helpCenterSearchEnabled === true
+    isHelpCenterSearchEnabled: () => isHelpCenterSearchEnabled(siteSearchProviders.store.getSnapshot()) === true
   });
   const translationHelpSection = LumnoOptionsTranslationHelpSection.createTranslationHelpSection({
     controller: generalGlobalSection.translationHelp,
@@ -483,8 +443,8 @@ import * as ProviderStorage from '../platform/provider-storage';
         fromIndex,
         toIndex
       ),
-      onRemove: (key: string, isBuiltin: boolean) => siteSearchActions.removeSiteSearchItem(key, isBuiltin),
-      onSave: handleSiteSearchProviderSave
+      onRemove: siteSearchActions.removeProvider,
+      onSave: siteSearchActions.saveProvider
     };
   }
   const shortcutsSection = OPTIONS_SHORTCUTS_SECTION.createShortcutsSection({
@@ -512,10 +472,10 @@ import * as ProviderStorage from '../platform/provider-storage';
         onRemove: (id) => handleAggregateSearchRemove(id),
         onSave: (id, draft) => handleAggregateSearchSave(id, draft)
       },
-      onAddSiteSearch: handleReactSiteSearchFormSave,
-      onClearCustom: () => siteSearchActions.clearCustomSiteSearches(),
+      onAddSiteSearch: siteSearchActions.addProvider,
+      onClearCustom: siteSearchActions.clearCustomProviders,
       onClearAggregates: () => handleAggregateSearchClear(),
-      onResetBuiltin: () => siteSearchActions.resetBuiltinSiteSearches()
+      onResetBuiltin: siteSearchActions.resetBuiltinProviders
     }
   });
   optionsState.siteSearchCustomListController = shortcutsSection.customList;
@@ -525,10 +485,6 @@ import * as ProviderStorage from '../platform/provider-storage';
   const aggregateSearchListController = shortcutsSection.aggregateList;
   optionsState.siteSearchFormController = shortcutsSection.form;
 
-  const {
-    getActiveBuiltinSiteSearchProviders,
-    getSiteSearchBuiltinKey
-  } = SITE_SEARCH;
   const aggregateSearchModel = AGGREGATE_SEARCH.createAggregateSearchModel({
     aggregateSearchStore: AGGREGATE_SEARCH_STORE
   });
@@ -626,9 +582,8 @@ import * as ProviderStorage from '../platform/provider-storage';
   } = OPTIONS_AGGREGATE_SEARCH_LIST.createAggregateSearchList({
     AGGREGATE_SEARCH_STORE,
     aggregateSearchModel,
-    isAiSiteSearchProvider,
+    providers: siteSearchProviders,
     getMessage,
-    isSearchEngineSiteSearchProvider,
     getSiteSearchItemIconUrl,
     getLocalizedBuiltinProviderName,
     formatTemplate,
@@ -638,21 +593,9 @@ import * as ProviderStorage from '../platform/provider-storage';
     getActivePrimaryAreaName,
     AGGREGATE_SEARCH,
     showToast,
-    createPersistentId,
     findSiteSearchKeyConflict,
-    getSiteSearchErrorMessage,
     optionsState
   });
-
-  let siteSearchRefreshTimer: number | null = null;
-
-  function createPersistentId(prefix: string): string {
-    const safePrefix = String(prefix || 'item').replace(/[^a-z0-9_-]/gi, '').toLowerCase() || 'item';
-    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
-      return `${safePrefix}-${globalThis.crypto.randomUUID()}`;
-    }
-    return `${safePrefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
-  }
 
 
 
@@ -661,6 +604,18 @@ import * as ProviderStorage from '../platform/provider-storage';
   }
 
   renderFeedbackSupport();
+  // The lists follow the providers; the help links only when the Help
+  // Center search turns on or off.
+  let helpCenterSearchShown: boolean | null = null;
+  siteSearchProviders.store.subscribe(() => {
+    renderSiteSearchList();
+    renderAggregateSearchList();
+    const helpCenterSearch = isHelpCenterSearchEnabled(siteSearchProviders.store.getSnapshot());
+    if (helpCenterSearch !== helpCenterSearchShown) {
+      helpCenterSearchShown = helpCenterSearch;
+      renderFeedbackSupport();
+    }
+  });
   feedbackSupportSection.loadLinks();
 
   function renderTranslationHelp() {
@@ -844,7 +799,7 @@ import * as ProviderStorage from '../platform/provider-storage';
     scrollToOptionsTarget(initialOptionsTargetKey, { behavior: 'auto', block: 'center', flash: true });
   }
   if (initialTab === 'shortcuts') {
-    refreshSiteSearchProviders();
+    void siteSearchProviders.refresh();
   }
   window.addEventListener('scroll', scheduleOptionsScrollRefresh, { passive: true });
   updateTabsStickyVisualState();
@@ -894,26 +849,8 @@ import * as ProviderStorage from '../platform/provider-storage';
     );
   });
 
-  // A save on this page suspends refreshes briefly so its own write does not
-  // re-render the list mid-edit; a change during that window refreshes after.
-  settingBinder.onChange([SETTINGS.siteSearchCustom, SETTINGS.siteSearchDisabled], () => {
-    invalidateSiteSearchProviderRefresh();
-    const now = Date.now();
-    if (optionsState.siteSearchRefreshSuppressUntil && now < optionsState.siteSearchRefreshSuppressUntil) {
-      if (siteSearchRefreshTimer) {
-        window.clearTimeout(siteSearchRefreshTimer);
-      }
-      const delay = Math.max(optionsState.siteSearchRefreshSuppressUntil - now, 0) + 40;
-      siteSearchRefreshTimer = window.setTimeout(() => {
-        siteSearchRefreshTimer = null;
-        refreshSiteSearchProviders();
-      }, delay);
-      return;
-    }
-    refreshSiteSearchProviders();
-  });
-
-  refreshSiteSearchProviders();
+  siteSearchProviders.followStorage();
+  void siteSearchProviders.refresh();
   // Load failures are reported through onLoadError.
   refreshAggregateSearches().catch(() => {});
 })();

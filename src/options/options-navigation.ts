@@ -1,6 +1,7 @@
 // Settings navigation: the tab list, the active tab, the sticky header,
 // scroll and resize refreshes, and scrolling to a linked setting.
 import type { createPanelHeightAnimator } from './options-panel-motion';
+import type { SiteSearchProviders } from './features/site-search/providers';
 import type { GetMessage } from './options-types';
 import type { SettingsNavigationController, SettingsNavigationItemModel } from './react/settings-navigation';
 
@@ -32,7 +33,8 @@ interface NavigationDeps {
   getMessage: GetMessage;
   // Each tab's content, by its data-content.
   tabContents: Element[];
-  refreshSiteSearchProviders(): unknown;
+  // Read again whenever the Search sources tab opens.
+  siteSearchProviders: Pick<SiteSearchProviders, 'refresh'>;
   tabsRow: Element | null;
   optionsState: NavigationState;
 }
@@ -54,7 +56,7 @@ function createNavigation(deps: NavigationDeps) {
   const {
     getMessage,
     tabContents,
-    refreshSiteSearchProviders,
+    siteSearchProviders,
     tabsRow
   } = deps;
 
@@ -140,7 +142,7 @@ function createNavigation(deps: NavigationDeps) {
       resetPageScrollToDefault();
     }
     if (tabKey === 'shortcuts') {
-      refreshSiteSearchProviders();
+      void siteSearchProviders.refresh();
     }
   }
 

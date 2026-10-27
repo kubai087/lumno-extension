@@ -1,123 +1,65 @@
-// What the site search lists' remove, reset and clear actions do to the
-// stored providers and disabled keys.
-import type { SiteSearchProvider } from '../domain/search/types';
-import type * as SiteSearch from './options-site-search';
+// What the site search lists and the add form do: each asks the providers
+// to change, then tells the outcome in a toast or in the form.
 import type { GetMessage } from './options-types';
-
-interface SiteSearchActionsState {
-  customSiteSearchProviders: SiteSearchProvider[];
-  customSiteSearchProviderIdsReady: boolean;
-  disabledSiteSearchKeys: Set<string>;
-}
+import { getSiteSearchErrorMessage } from './features/site-search/error-copy';
+import type { EditOutcome, KeyConflictCheck, SiteSearchProviders } from './features/site-search/providers';
+import type { SiteSearchProviderDraft, SiteSearchSaveResult } from './react/site-search-list';
 
 interface SiteSearchActionsDeps {
+  providers: SiteSearchProviders;
   getMessage: GetMessage;
-  getSiteSearchBuiltinKey: typeof SiteSearch.getSiteSearchBuiltinKey;
-  saveSiteSearchProviderState(items: readonly SiteSearchProvider[], keys: Iterable<string>): Promise<unknown>;
-  saveDisabledSiteSearchKeys(keys: Iterable<string>): Promise<unknown>;
-  refreshSiteSearchProviders(): unknown;
-  renderSiteSearchList(): void;
-  renderAggregateSearchList(): void;
   showToast(message: string, isError?: boolean): void;
-  loadDefaultSiteSearchProviders(): Promise<SiteSearchProvider[]>;
-  loadCustomSiteSearchProviders(baseItems: readonly SiteSearchProvider[]): Promise<SiteSearchProvider[]>;
-  optionsState: SiteSearchActionsState;
+  // Whether a trigger key is taken by a provider or an aggregate search.
+  hasKeyConflict: KeyConflictCheck;
 }
 
 function createSiteSearchActions(deps: SiteSearchActionsDeps) {
-  const {
-    getMessage,
-    getSiteSearchBuiltinKey,
-    saveSiteSearchProviderState,
-    saveDisabledSiteSearchKeys,
-    refreshSiteSearchProviders,
-    renderSiteSearchList,
-    renderAggregateSearchList,
-    showToast,
-    loadDefaultSiteSearchProviders,
-    loadCustomSiteSearchProviders
-  } = deps;
+  const { providers, getMessage, showToast, hasKeyConflict } = deps;
+  const failureMessage = (): string => getMessage('toast_error', '操作失败，请重试。');
+  const showError = (): void => showToast(failureMessage(), true);
 
-  // The page state object shared with options.js and the other modules.
-  const optionsState = deps.optionsState;
-
-  const showError = (): void => showToast(getMessage('toast_error', '操作失败，请重试。'), true);
-
-  // A built-in provider is hidden by its disabled key; a custom one is
-  // dropped, and the built-in it replaced comes back.
-  function removeSiteSearchItem(key: string, isBuiltin: boolean): Promise<void> {
-    if (isBuiltin) {
-      const nextDisabledKeys = new Set(optionsState.disabledSiteSearchKeys);
-      nextDisabledKeys.add(key.toLowerCase());
-      return saveDisabledSiteSearchKeys(nextDisabledKeys).then(() => {
-        optionsState.disabledSiteSearchKeys = nextDisabledKeys;
-        refreshSiteSearchProviders();
-        showToast(getMessage('toast_removed', '已移除'), false);
-      }).catch(showError);
+  // A saved draft is told by a toast; a refused one by the form's error.
+  // An edit that storage refused is told by a toast as well.
+  function tellSave(outcome: EditOutcome, toastSaveFailure: boolean): SiteSearchSaveResult {
+    if (outcome.ok) {
+      showToast(getMessage('toast_saved', '已保存'), false);
+      return { ok: true };
     }
-    const removedItem = optionsState.customSiteSearchProviders.find(
-      (item) => String(item.key || '') === key
-    );
-    const nextCustom = optionsState.customSiteSearchProviders.filter(
-      (item) => String(item.key || '') !== key
-    );
-    const nextDisabledKeys = new Set(optionsState.disabledSiteSearchKeys);
-    const builtinKey = getSiteSearchBuiltinKey(removedItem);
-    if (builtinKey) {
-      nextDisabledKeys.delete(builtinKey);
-    }
-    return saveSiteSearchProviderState(nextCustom, nextDisabledKeys).then(() => {
-      optionsState.customSiteSearchProviders = nextCustom;
-      optionsState.customSiteSearchProviderIdsReady = true;
-      optionsState.disabledSiteSearchKeys = nextDisabledKeys;
-      refreshSiteSearchProviders();
-      showToast(getMessage('toast_removed', '已移除'), false);
-    }).catch(showError);
-  }
-
-  // Brings every built-in provider back and drops custom ones that copy one.
-  function resetBuiltinSiteSearches(): Promise<void> {
-    return loadDefaultSiteSearchProviders().then((defaults) => Promise.all([
-      defaults,
-      loadCustomSiteSearchProviders(defaults)
-    ])).then(([defaults, custom]) => {
-      const defaultKeys = new Set(defaults.map((item) => item.key.toLowerCase()));
-      const filteredCustom = custom.filter((item) => {
-        const key = item.key.toLowerCase();
-        const builtinKey = getSiteSearchBuiltinKey(item);
-        return Boolean(key) && !defaultKeys.has(key) && !defaultKeys.has(builtinKey);
-      });
-      return saveSiteSearchProviderState(filteredCustom, new Set<string>()).then(() => {
-        optionsState.customSiteSearchProviders = filteredCustom;
-        optionsState.customSiteSearchProviderIdsReady = true;
-        optionsState.disabledSiteSearchKeys = new Set<string>();
-        renderSiteSearchList();
-        renderAggregateSearchList();
-      });
-    }).catch(showError);
-  }
-
-  // Drops every custom provider; built-ins they replaced come back.
-  function clearCustomSiteSearches(): Promise<void> {
-    const nextDisabledKeys = new Set(optionsState.disabledSiteSearchKeys);
-    optionsState.customSiteSearchProviders.forEach((item) => {
-      const builtinKey = getSiteSearchBuiltinKey(item);
-      if (builtinKey) {
-        nextDisabledKeys.delete(builtinKey);
+    if (outcome.saveFailed) {
+      if (toastSaveFailure) {
+        showError();
       }
-    });
-    return saveSiteSearchProviderState([], nextDisabledKeys).then(() => {
-      optionsState.customSiteSearchProviders = [];
-      optionsState.customSiteSearchProviderIdsReady = true;
-      optionsState.disabledSiteSearchKeys = nextDisabledKeys;
-      renderSiteSearchList();
-      renderAggregateSearchList();
-      showToast(getMessage('toast_cleared', '已清空'), false);
-    }).catch(showError);
+      return { ok: false, error: failureMessage() };
+    }
+    return { ok: false, error: getSiteSearchErrorMessage(getMessage, outcome.error) };
   }
 
-  return { removeSiteSearchItem, resetBuiltinSiteSearches, clearCustomSiteSearches };
+  function addProvider(draft: SiteSearchProviderDraft): Promise<SiteSearchSaveResult> {
+    return providers.add(draft, hasKeyConflict).then((outcome) => tellSave(outcome, false));
+  }
+
+  function saveProvider(key: string, isBuiltin: boolean, draft: SiteSearchProviderDraft): Promise<SiteSearchSaveResult> {
+    return providers.edit(key, isBuiltin, draft, hasKeyConflict).then((outcome) => tellSave(outcome, true));
+  }
+
+  function removeProvider(key: string, isBuiltin: boolean): Promise<void> {
+    return providers.remove(key, isBuiltin)
+      .then(() => showToast(getMessage('toast_removed', '已移除'), false))
+      .catch(showError);
+  }
+
+  function resetBuiltinProviders(): Promise<void> {
+    return providers.resetBuiltins().catch(showError);
+  }
+
+  function clearCustomProviders(): Promise<void> {
+    return providers.clearCustom()
+      .then(() => showToast(getMessage('toast_cleared', '已清空'), false))
+      .catch(showError);
+  }
+
+  return { addProvider, saveProvider, removeProvider, resetBuiltinProviders, clearCustomProviders };
 }
 
 export { createSiteSearchActions };
-export type { SiteSearchActionsDeps, SiteSearchActionsState };
+export type { SiteSearchActionsDeps };

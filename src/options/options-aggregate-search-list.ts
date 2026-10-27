@@ -20,13 +20,13 @@ import type {
 } from './react/aggregate-search-list';
 import type { ReorderCopyModel } from './react/reorder-buttons';
 import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
+import { getSiteSearchErrorMessage } from './features/site-search/error-copy';
+import { getAggregateSearchProviders } from './features/site-search/providers';
+import type { SiteSearchProviders } from './features/site-search/providers';
+import { createPersistentId } from './persistent-id';
 
 interface AggregateSearchListState {
   aggregateSearches: AggregateSearch[];
-  defaultSiteSearchProviders: SiteSearchProvider[];
-  customSiteSearchProviders: SiteSearchProvider[];
-  customSiteSearchProviderIdsReady: boolean;
-  disabledSiteSearchKeys: Set<string>;
   searchSourceOrderController: Pick<ReturnType<typeof createSearchSourceOrderController>, 'sortList'>;
   settingsStore: SettingsStore;
 }
@@ -36,8 +36,7 @@ interface AggregateSearchListDeps {
     'normalizeAggregateSearches' | 'getProviderSourceRef' | 'getAggregateSearchAvailability' |
     'serializeAggregateSearches' | 'getSerializedStorageByteLength' | 'SYNC_ITEM_BYTE_BUDGET'>;
   aggregateSearchModel: ReturnType<typeof AggregateSearchModule.createAggregateSearchModel>;
-  isAiSiteSearchProvider(item: Partial<SiteSearchProvider> | null | undefined): boolean;
-  isSearchEngineSiteSearchProvider(item: Partial<SiteSearchProvider> | null | undefined): boolean;
+  providers: Pick<SiteSearchProviders, 'store'>;
   getMessage: GetMessage;
   getSiteSearchItemIconUrl(item: SiteSearchProvider | null): string;
   getLocalizedBuiltinProviderName(item: SiteSearchProvider | null): string;
@@ -49,9 +48,7 @@ interface AggregateSearchListDeps {
   getActivePrimaryAreaName(): string;
   AGGREGATE_SEARCH: Pick<typeof AggregateSearchModule, 'createAggregateSearchStateCoordinator'>;
   showToast(message: string, isError?: boolean): void;
-  createPersistentId(prefix: string): string;
   findSiteSearchKeyConflict(key: string, allowedKey?: string, allowedAggregateId?: string): unknown;
-  getSiteSearchErrorMessage(errorKey: string): string;
   optionsState: AggregateSearchListState;
 }
 
@@ -64,9 +61,8 @@ function createAggregateSearchList(deps: AggregateSearchListDeps) {
   const {
     AGGREGATE_SEARCH_STORE,
     aggregateSearchModel,
-    isAiSiteSearchProvider,
+    providers,
     getMessage,
-    isSearchEngineSiteSearchProvider,
     getSiteSearchItemIconUrl,
     getLocalizedBuiltinProviderName,
     formatTemplate,
@@ -76,10 +72,9 @@ function createAggregateSearchList(deps: AggregateSearchListDeps) {
     getActivePrimaryAreaName,
     AGGREGATE_SEARCH,
     showToast,
-    createPersistentId,
-    findSiteSearchKeyConflict,
-    getSiteSearchErrorMessage
+    findSiteSearchKeyConflict
   } = deps;
+  const { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } = SearchSiteSearchProviders;
 
   // The page state object shared with options.js and the other modules.
   const optionsState = deps.optionsState;
@@ -103,14 +98,7 @@ function createAggregateSearchList(deps: AggregateSearchListDeps) {
   }
 
   function getAggregateSearchAvailableProviders(): SiteSearchProvider[] {
-    const activeDefaults = optionsState.defaultSiteSearchProviders.filter((item) => {
-      const key = item.key.trim().toLowerCase();
-      return Boolean(key) && !optionsState.disabledSiteSearchKeys.has(key);
-    });
-    const aggregateCustomProviders = optionsState.customSiteSearchProviderIdsReady
-      ? optionsState.customSiteSearchProviders
-      : optionsState.customSiteSearchProviders.filter((item) => String(item.id || '').trim());
-    return SearchSiteSearchProviders.mergeCustomProviders(activeDefaults, aggregateCustomProviders);
+    return getAggregateSearchProviders(providers.store.getSnapshot());
   }
 
   function getAggregateSearchProviderGroup(provider: SiteSearchProvider): AggregateProviderGroup {
@@ -371,7 +359,7 @@ function createAggregateSearchList(deps: AggregateSearchListDeps) {
       case 'aggregate_search_name_duplicate_error':
         return getMessage('aggregate_search_name_duplicate_error', '已存在同名的聚合搜索。');
       default:
-        return getSiteSearchErrorMessage(errorKey);
+        return getSiteSearchErrorMessage(getMessage, errorKey);
     }
   }
 

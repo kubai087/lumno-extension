@@ -1,44 +1,20 @@
-// The site search form: its render model, saving what it submits, and its
-// error copy.
-import type { AggregateSearch } from '../domain/search/aggregate-search-store';
-import type { SiteSearchProvider } from '../domain/search/types';
-import type { createSiteSearchModel } from './options-site-search';
+// The site search add form's copy, and the template formatting the page's
+// messages use.
 import type { GetMessage } from './options-types';
-import type { SiteSearchProviderDraft, SiteSearchSaveResult } from './react/site-search-list';
 import type { SiteSearchFormRenderModel } from './react/settings-forms';
 
 interface FormsState {
   // Made once the page has mounted its React views.
   siteSearchFormController: { render(model: SiteSearchFormRenderModel): void } | null;
-  siteSearchModel: Pick<ReturnType<typeof createSiteSearchModel>, 'addCustomSiteSearchProvider'>;
-  customSiteSearchProviders: SiteSearchProvider[];
-  customSiteSearchProviderIdsReady: boolean;
-  disabledSiteSearchKeys: Set<string>;
 }
 
 interface FormsDeps {
   getMessage: GetMessage;
-  suspendSiteSearchRefresh(durationMs: number): void;
-  createPersistentId(prefix: string): string;
-  findSiteSearchKeyConflict(key: string, allowedKey?: string): SiteSearchProvider | AggregateSearch | null;
-  saveSiteSearchProviderState(items: readonly SiteSearchProvider[], keys: Iterable<string>): Promise<unknown>;
-  refreshSiteSearchProviders(): unknown;
-  renderSiteSearchList(): void;
-  showToast(message: string, isError?: boolean): void;
   optionsState: FormsState;
 }
 
 function createForms(deps: FormsDeps) {
-  const {
-    getMessage,
-    suspendSiteSearchRefresh,
-    createPersistentId,
-    findSiteSearchKeyConflict,
-    saveSiteSearchProviderState,
-    refreshSiteSearchProviders,
-    renderSiteSearchList,
-    showToast
-  } = deps;
+  const { getMessage } = deps;
 
   // The page state object shared with options.js and the other modules.
   const optionsState = deps.optionsState;
@@ -98,56 +74,9 @@ function createForms(deps: FormsDeps) {
     }
   }
 
-  async function handleReactSiteSearchFormSave(draft: SiteSearchProviderDraft): Promise<SiteSearchSaveResult> {
-    suspendSiteSearchRefresh(260);
-    const result = optionsState.siteSearchModel.addCustomSiteSearchProvider(draft, {
-      createId: () => createPersistentId('source'),
-      custom: optionsState.customSiteSearchProviders,
-      disabledKeys: optionsState.disabledSiteSearchKeys,
-      hasKeyConflict: (key, allowedKey) => Boolean(findSiteSearchKeyConflict(key, allowedKey))
-    });
-    if (result.ok === false) {
-      return { ok: false, error: getSiteSearchErrorMessage(result.error) };
-    }
-    try {
-      await saveSiteSearchProviderState(result.custom, result.disabledKeys);
-      applySavedSiteSearchProviders(result.custom, result.disabledKeys);
-      refreshSiteSearchProviders();
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, error: getMessage('toast_error', '操作失败，请重试。') };
-    }
-  }
-
-  function getSiteSearchErrorMessage(errorKey: string): string {
-    switch (errorKey) {
-      case 'shortcuts_error_key':
-        return getMessage('shortcuts_error_key', '请填写触发词。');
-      case 'shortcuts_error_key_space':
-        return getMessage('shortcuts_error_key_space', '触发词不能包含空格。');
-      case 'shortcuts_error_key_duplicate':
-        return getMessage('shortcuts_error_key_duplicate', '该触发词已存在，请更换。');
-      case 'toast_error_template':
-        return getMessage('toast_error_template', '搜索模板必须包含 {query}。');
-      default:
-        return getMessage('toast_error', '操作失败，请重试。');
-    }
-  }
-
-  function applySavedSiteSearchProviders(custom: SiteSearchProvider[], disabledKeys: Set<string>): void {
-    optionsState.customSiteSearchProviders = custom;
-    optionsState.customSiteSearchProviderIdsReady = true;
-    optionsState.disabledSiteSearchKeys = disabledKeys;
-    renderSiteSearchList();
-    showToast(getMessage('toast_saved', '已保存'), false);
-  }
-
   return {
     formatTemplate,
-    renderSettingsForms,
-    handleReactSiteSearchFormSave,
-    getSiteSearchErrorMessage,
-    applySavedSiteSearchProviders
+    renderSettingsForms
   };
 }
 

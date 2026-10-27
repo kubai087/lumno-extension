@@ -368,6 +368,47 @@ describe('Options page storage wiring', () => {
     expect(types()).toEqual(['topSite', 'bookmark', 'history']);
   });
 
+  it('removes site searches, follows ones added elsewhere and stores what changed', async () => {
+    const settings = SETTINGS;
+    const chrome = await bootOptionsPage();
+    const listKeys = (id: string) => Array.from(document.querySelectorAll(`#${id} > [data-key]`))
+      .map((row) => row.getAttribute('data-key'));
+    const builtinKeys = () => listKeys('_x_extension_site_search_builtin_list_2024_unique_');
+    const customKeys = () => listKeys('_x_extension_site_search_custom_list_2024_unique_');
+    const removeRow = async (listId: string, key: string) => {
+      const row = document.querySelector(`#${listId} > [data-key="${key}"]`);
+      const trigger = row ? queryHtmlTag(row, '._x_extension_popconfirm_wrap_2024_unique_ > button', 'button') : null;
+      await act(async () => {
+        trigger?.click();
+      });
+      const confirm = row
+        ? getTags(row, '._x_extension_popconfirm_2024_unique_[data-open="true"] button', 'button').pop()
+        : null;
+      await act(async () => {
+        confirm?.click();
+      });
+      await settle();
+    };
+
+    await vi.waitFor(() => expect(builtinKeys()).toContain('yt'));
+    await removeRow('_x_extension_site_search_builtin_list_2024_unique_', 'yt');
+    expect(chrome.storage.sync.values[settings.siteSearchDisabled.key]).toEqual(['yt']);
+    expect(builtinKeys()).not.toContain('yt');
+
+    // A provider added on another page shows once storage says so.
+    await act(async () => {
+      chrome.storage.sync.externalSet({
+        [settings.siteSearchCustom.key]: [{ id: 'source-1', key: 'mdn', name: 'MDN', template: 'https://developer.mozilla.org/search?q={query}' }]
+      });
+    });
+    await vi.waitFor(() => expect(customKeys()).toEqual(['mdn']));
+
+    await removeRow('_x_extension_site_search_custom_list_2024_unique_', 'mdn');
+    expect(chrome.storage.sync.values[settings.siteSearchCustom.key]).toEqual([]);
+    await vi.waitFor(() => expect(customKeys()).toEqual([]));
+    expect(chrome.storage.sync.values[settings.siteSearchDisabled.key]).toEqual(['yt']);
+  });
+
   it('binds the New Tab switches of the Appearance tab to their storage keys', async () => {
     const chrome = await bootOptionsPage();
     const switches: Array<[name: string, key: string, normalize: (value: unknown) => boolean]> = [

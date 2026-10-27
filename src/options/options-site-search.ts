@@ -2,7 +2,7 @@
 // editing a provider, cleaning up stored custom providers, and the refresh
 // coordinator that keeps the lists in step with storage. Validation results
 // name a locale message key in `error`; the page turns it into text.
-import type * as AggregateSearchStore from '../domain/search/aggregate-search-store';
+import * as AggregateSearchStore from '../domain/search/aggregate-search-store';
 import type { AggregateSearch } from '../domain/search/aggregate-search-store';
 import type { SiteSearchProvider } from '../domain/search/types';
 import * as SearchSiteSearchMatching from '../domain/search/utils/site-search-matching';
@@ -71,10 +71,6 @@ interface SiteSearchEditState {
   disabledKeys: Iterable<string>;
   hasKeyConflict(key: string, allowedKey: string): boolean;
   createId(): string;
-}
-
-interface SiteSearchModelDeps {
-  aggregateSearchStore: Pick<typeof AggregateSearchStore, 'ensureCustomProviderIds' | 'createDeterministicCustomProviderId'>;
 }
 
 // Serializes refreshes so the newest one wins. A refresh that loses to a
@@ -243,8 +239,7 @@ function getActiveBuiltinSiteSearchProviders<T extends Pick<SiteSearchProvider, 
   });
 }
 
-function createSiteSearchModel(deps: SiteSearchModelDeps) {
-  const aggregateSearchStore = deps.aggregateSearchStore;
+function createSiteSearchModel() {
   const normalizeTemplate = (template: string): string => SearchSiteSearchProviders.normalizeSiteSearchTemplate(template);
 
   function isDuplicateTemplate(template: string | undefined, providers: readonly SiteSearchProvider[]): boolean {
@@ -324,9 +319,9 @@ function createSiteSearchModel(deps: SiteSearchModelDeps) {
     const withoutDebug = filteredCustom.filter(
       (item) => String(item.key || '').toLowerCase() !== debugDuplicateKey
     );
-    const stableCustom = aggregateSearchStore.ensureCustomProviderIds(
+    const stableCustom = AggregateSearchStore.ensureCustomProviderIds(
       withoutDebug,
-      aggregateSearchStore.createDeterministicCustomProviderId
+      AggregateSearchStore.createDeterministicCustomProviderId
     );
     const customWithStableIds = stableCustom.items;
     const didFilter = filteredCustom.length !== custom.length;
@@ -515,6 +510,5 @@ export type {
   SiteSearchDraft,
   SiteSearchEditResult,
   SiteSearchEditState,
-  SiteSearchModelDeps,
   SiteSearchProviderSnapshot
 };
