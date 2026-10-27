@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { createPopupController, type PopupHandlers, type PopupModel } from './popup-view';
+import { createRoot } from 'react-dom/client';
+import { PopupView, type PopupHandlers, type PopupModel } from './popup-view';
 import { getTags } from '../../../tests/react/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
@@ -84,7 +85,11 @@ function mount(model: PopupModel) {
     onHideTooltip: vi.fn<PopupHandlers['onHideTooltip']>(),
     bindTruncationTooltip: vi.fn<PopupHandlers['bindTruncationTooltip']>()
   } satisfies PopupHandlers;
-  const controller = createPopupController(host, handlers);
+  const root = createRoot(host);
+  // Draws the view again with a new model, as the popup's root does.
+  const controller = {
+    render: (next: PopupModel) => root.render(<PopupView handlers={handlers} model={next} />)
+  };
   act(() => controller.render(model));
   return { host, handlers, controller };
 }

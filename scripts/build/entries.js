@@ -46,7 +46,7 @@ const ENTRIES = [
 
   // Toolbar popup
   { name: 'popup-preload', kind: 'preload', source: 'src/popup/popup-theme-preload.ts' },
-  { name: 'popup', kind: 'page', source: 'src/popup/popup-page.ts' },
+  { name: 'popup', kind: 'page', source: 'src/popup/app/main.ts' },
 
   // Shared by the pages
   { name: 'cjk-font-faces', kind: 'classic', source: 'src/shared/cjk-font-faces.ts' },

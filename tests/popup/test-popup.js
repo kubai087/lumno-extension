@@ -1,7 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const popup = require('../../src/popup/popup.ts');
+const popup = require('../../src/popup/model.ts');
 const { JSDOM } = require('jsdom');
 const { loadBackground, wait } = require('../helpers/background-harness');
 const { getBundleFiles, getPageScripts } = require('../helpers/runtime-scripts');
@@ -235,7 +235,7 @@ const rows = (model) => Object.fromEntries(model.settings.sections.flatMap((sect
 
 // Every string the popup asks for exists in every language.
 {
-  const source = read('src/popup/popup.ts');
+  const source = ['src/popup/model.ts', 'src/popup/actions.ts'].map(read).join('\n');
   const keys = [...new Set([...source.matchAll(/\bt\('([a-z0-9_]+)'/g)].map((match) => match[1]))];
   assert(keys.length > 20, 'the popup reads its strings through t()');
   locales.forEach((locale) => {

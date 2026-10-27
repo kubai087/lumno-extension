@@ -1,9 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { useSegmentedIndicator } from '../../shared/react/segmented-indicator';
 import { queryHtmlTags } from '../../shared/dom-lookup';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 
@@ -390,32 +387,3 @@ export function PopupView({ model, handlers }: { model: PopupModel; handlers: Po
     </div>
   );
 }
-
-export interface PopupController {
-  render(model: PopupModel): void;
-}
-
-export function createPopupController(
-  host: HTMLElement | null,
-  handlers: PopupHandlers
-): PopupController {
-  if (!host) {
-    return Object.freeze({ render() {} });
-  }
-  const root: Root = createRoot(host);
-  return Object.freeze({
-    // Synchronous, so the browser sizes the popup to its first full render.
-    render(model: PopupModel) {
-      flushSync(() => {
-        root.render(<PopupView handlers={handlers} model={model} />);
-      });
-    }
-  });
-}
-
-export function createPopupApi() {
-  return Object.freeze({ createPopupController });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getPopupApi = lazyInstance(createPopupApi);
