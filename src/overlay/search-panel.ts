@@ -115,9 +115,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
   }));
   void siteSearchIconCache.load();
-  // Made once the modules it relies on exist; the state reaches it through
-  // the functions below.
-  let overlayFaviconRuntime: ReturnType<typeof LumnoOverlayFaviconView.createOverlayFaviconViewRuntime> | null = null;
 
   // Panel state shared with the parts of this panel in overlay/panel/: each
   // receives this one object as `overlayState` and reads and writes the same
@@ -145,30 +142,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayMediaQuery: window.matchMedia('(prefers-color-scheme: dark)'),
     defaultTheme: createDefaultTheme(),
     urlHighlightTheme: createUrlHighlightTheme(),
-    requestFaviconData: (url, pageUrl) => (
-      overlayFaviconRuntime ? overlayFaviconRuntime.requestFaviconData(url, pageUrl || '') : Promise.resolve(null)
-    ),
-    attachResolvedFaviconWithFallbacks: (image, pageUrl, hostKey, fallbackUrl, onFailed, sourceOptions) => {
-      if (overlayFaviconRuntime) {
-        overlayFaviconRuntime.attachResolvedFaviconWithFallbacks(image, pageUrl, hostKey, fallbackUrl, onFailed, sourceOptions);
-      }
-    },
-    isBlockedLocalFaviconUrl: (url) => Boolean(overlayFaviconRuntime && overlayFaviconRuntime.isBlockedLocalFaviconUrl(url)),
-    applyFaviconOpticalAlignment: (image) => {
-      if (overlayFaviconRuntime) {
-        overlayFaviconRuntime.applyFaviconOpticalAlignment(image);
-      }
-    },
-    preloadIcon: (url, pageUrl) => {
-      if (overlayFaviconRuntime) {
-        overlayFaviconRuntime.preloadIcon(url, pageUrl);
-      }
-    },
-    warmIconCache: (rows) => {
-      if (overlayFaviconRuntime) {
-        overlayFaviconRuntime.warmIconCache(rows);
-      }
-    },
     prioritizeCurrentPageMatch: openOptions.prioritizeCurrentPageMatch,
     currentTabPinned: openOptions.currentTabPinned,
     initialContextTabUrl: openOptions.currentTabUrl,
@@ -178,6 +151,58 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     currentOverlayTabId: initialContextTabId
   });
   const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings, openOptions.siteSearchProviders);
+
+  const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
+
+  const {
+    getOverlayStrictFaviconReason,
+    isOverlayEnhancedFaviconFetchEnabled,
+    filterOverlayBlacklistedSuggestions,
+    normalizeSearchResultDisplayLimit,
+    limitOverlaySuggestionsForDisplay,
+    isLocalNetworkHost,
+    shouldBlockOverlayFaviconForHost,
+    getOverlayFaviconUrlResolver,
+    isBlockedOverlayFaviconUrl,
+    isLocalNetworkInput,
+    getExtensionFaviconUrl,
+    getGstaticFaviconUrl,
+    getChromeFaviconUrl,
+    getPageFaviconCandidateUrl,
+    getHostFromUrl,
+    isFaviconProxyUrl,
+    isChromeMonogramFaviconUrl
+  } = PANEL_FAVICON_POLICY.createFaviconPolicy({
+    SETTINGS,
+    logOverlayFaviconDecision,
+    overlayState
+  });
+
+  const faviconRuntime = LumnoOverlayFaviconView.createOverlayFaviconViewRuntime({
+    document,
+    windowObj: window,
+    chromeApi: chrome,
+    getHostFromUrl,
+    getExtensionFaviconUrl,
+    getGstaticFaviconUrl,
+    getChromeFaviconUrl,
+    shouldBlockFaviconForHost: shouldBlockOverlayFaviconForHost,
+    shouldAvoidDirectFaviconForHost: FaviconHostPolicy.shouldAvoidDirectFaviconForHost,
+    shouldBlockOverlayFaviconForHost,
+    isEnhancedFaviconFetchEnabled: isOverlayEnhancedFaviconFetchEnabled,
+    getStrictFaviconReason: getOverlayStrictFaviconReason,
+    logFaviconDecision: logOverlayFaviconDecision,
+    isBlockedLocalFaviconUrl: isBlockedOverlayFaviconUrl,
+    isFaviconProxyUrl,
+    isChromeMonogramFaviconUrl,
+    faviconDataCache,
+    faviconDataPending,
+    iconPreloadCache,
+    getOverlayPanel: () => overlayState.overlay,
+    getSuggestionRowsRoot: () => overlayState.suggestionsContainer,
+    rerenderReplacedFaviconRows,
+    hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
+  });
   function cancelPendingOverlaySuggestionRequests() {
     overlayState.overlaySuggestionRequestSeq += 1;
     if (overlayState.overlayRemoteSuggestionDebounceTimer) {
@@ -297,6 +322,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    favicons: faviconRuntime,
     formatMessage: (...args) => formatMessage(...args),
     getPageFaviconCandidateUrl: (...args) => getPageFaviconCandidateUrl(...args),
     isLocalNetworkInput: (...args) => isLocalNetworkInput(...args),
@@ -375,6 +401,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    favicons: faviconRuntime,
     updateSearchSuggestions,
     requestOverlaySearchSuggestions,
     suggestionItems,
@@ -589,6 +616,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     toPageRenderableIconUrl,
     getPageRenderableProviderIcon
   } = PANEL_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
+    favicons: faviconRuntime,
     getHelpCenterLocale,
     AGGREGATE_SEARCH_STORE,
     showOverlayToast: (...args) => showOverlayToast(...args),
@@ -598,8 +626,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     finishOverlayResultActivation: (...args) => finishOverlayResultActivation(...args),
     getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
     siteSearchIconCache,
-    faviconDataCache,
-    overlayState
+    faviconDataCache
   });
 
   const {
@@ -650,7 +677,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     recordSearchSuggestionSelectionFromSuggestion,
     overlayState
   });
-  const overlayFaviconView = LumnoOverlayFaviconView;
   const overlaySiteFixes = LumnoOverlaySiteFixes;
   const addOverlaySessionCleanup = overlayState.overlaySessionCleanups.add;
   const overlayFrameTracker = overlayLifecycle.createFrameTracker(window);
@@ -699,24 +725,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const TOAST_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/toast.css');
   const EXTERNAL_LINK_ICON_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/external-link-icon.css');
   const OVERLAY_SUGGESTIONS_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/overlay/suggestions-view.css');
-  const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
-
-  const {
-    getOverlayStrictFaviconReason,
-    isOverlayEnhancedFaviconFetchEnabled,
-    filterOverlayBlacklistedSuggestions,
-    normalizeSearchResultDisplayLimit,
-    limitOverlaySuggestionsForDisplay,
-    isLocalNetworkHost,
-    shouldBlockOverlayFaviconForHost,
-    getOverlayFaviconUrlResolver,
-    isBlockedOverlayFaviconUrl,
-    isLocalNetworkInput
-  } = PANEL_FAVICON_POLICY.createFaviconPolicy({
-    SETTINGS,
-    logOverlayFaviconDecision,
-    overlayState
-  });
 
   function stopOverlayPageThemeObserver() {
     if (overlayState.overlayPageThemeObserver) {
@@ -766,14 +774,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    getPageFaviconCandidateUrl,
     getBrandAccentForUrl,
-    getHostFromUrl,
-    isFaviconProxyUrl,
-    isChromeMonogramFaviconUrl,
     getProviderThemeHost,
     getThemeForProvider,
     getThemeForSuggestion,
@@ -782,6 +783,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyMarkVariables,
     preloadThemeFromFavicon
   } = PANEL_SUGGESTION_THEMES.createSuggestionThemes({
+    favicons: faviconRuntime,
+    getHostFromUrl,
+    isFaviconProxyUrl,
     themeColorCache,
     themeHostCache,
     getOverlayFaviconUrlResolver,
@@ -793,6 +797,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getThemeForMode,
     overlayState
   });
+  faviconRuntime.onFaviconData(preloadThemeFromFavicon);
 
   const {
     getCommandMatches,
@@ -1284,33 +1289,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     return overlayState.imeKeyGuard.shouldIgnoreKeydown(event);
   }
   const defaultPlaceholder = overlayState.searchInput.placeholder;
-  const faviconRuntime = overlayFaviconView.createOverlayFaviconViewRuntime({
-    document,
-    windowObj: window,
-    chromeApi: chrome,
-    getHostFromUrl,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    shouldBlockFaviconForHost: shouldBlockOverlayFaviconForHost,
-    shouldAvoidDirectFaviconForHost: FaviconHostPolicy.shouldAvoidDirectFaviconForHost,
-    shouldBlockOverlayFaviconForHost,
-    isEnhancedFaviconFetchEnabled: isOverlayEnhancedFaviconFetchEnabled,
-    getStrictFaviconReason: getOverlayStrictFaviconReason,
-    logFaviconDecision: logOverlayFaviconDecision,
-    isBlockedLocalFaviconUrl: isBlockedOverlayFaviconUrl,
-    isFaviconProxyUrl,
-    isChromeMonogramFaviconUrl,
-    preloadThemeFromFavicon,
-    faviconDataCache,
-    faviconDataPending,
-    iconPreloadCache,
-    getOverlayPanel: () => overlayState.overlay,
-    getSuggestionRowsRoot: () => overlayState.suggestionsContainer,
-    rerenderReplacedFaviconRows,
-    hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
-  });
-  overlayFaviconRuntime = faviconRuntime;
   const attachFaviconData = faviconRuntime.attachFaviconData;
   const attachInputModeFaviconData =
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);

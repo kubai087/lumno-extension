@@ -21,6 +21,8 @@ type OverlayFaviconImage = FaviconImage & {
 
 type OverlayFaviconWindow = FaviconViewWindow & Partial<Pick<Window, 'setTimeout' | 'clearTimeout'>>;
 
+type FaviconDataListener = (url: string, dataUrl: string, hostKey?: string) => void;
+
 interface OverlayFaviconViewOptions {
   document?: Document | null;
   windowObj?: OverlayFaviconWindow | null;
@@ -39,7 +41,6 @@ interface OverlayFaviconViewOptions {
   isFaviconProxyUrl?(url: string): boolean;
   isBlockedLocalFaviconUrl?(url: string): boolean;
   isChromeMonogramFaviconUrl?(url: string): boolean;
-  preloadThemeFromFavicon?(url: string, dataUrl: string, hostOverride?: string): void;
   hasThemeForHost?(hostKey: string): boolean;
   getOverlayPanel?(): Element | null;
   // The list's rows, which re-render with their icons on a policy change.
@@ -108,7 +109,11 @@ function createOverlayFaviconViewRuntime(options?: OverlayFaviconViewOptions | n
   const isChromeMonogramFaviconUrl = typeof config.isChromeMonogramFaviconUrl === 'function'
     ? config.isChromeMonogramFaviconUrl
     : ((url: string) => /^chrome:\/\/favicon2\//i.test(String(url || '').trim()));
-  const preloadThemeFromFavicon = typeof config.preloadThemeFromFavicon === 'function' ? config.preloadThemeFromFavicon : noop;
+  // Told of every icon's data as it arrives, so its theme can be read.
+  const faviconDataListeners = new Set<FaviconDataListener>();
+  const preloadThemeFromFavicon: FaviconDataListener = (url, dataUrl, hostKey) => {
+    faviconDataListeners.forEach((listener) => listener(url, dataUrl, hostKey));
+  };
   const hasThemeForHost = typeof config.hasThemeForHost === 'function' ? config.hasThemeForHost : (() => false);
   const getOverlayPanel: () => Element | null = typeof config.getOverlayPanel === 'function'
     ? config.getOverlayPanel
@@ -845,6 +850,10 @@ function createOverlayFaviconViewRuntime(options?: OverlayFaviconViewOptions | n
   }
 
   return Object.freeze({
+    onFaviconData(listener: FaviconDataListener): () => void {
+      faviconDataListeners.add(listener);
+      return () => faviconDataListeners.delete(listener);
+    },
     applyFaviconOpticalShift,
     applyFaviconOpticalAlignment,
     isBlockedLocalFaviconUrl: isBlockedOverlayFaviconUrl,
@@ -860,5 +869,7 @@ function createOverlayFaviconViewRuntime(options?: OverlayFaviconViewOptions | n
   });
 }
 
+type OverlayFaviconRuntime = ReturnType<typeof createOverlayFaviconViewRuntime>;
+
 export { createOverlayFaviconViewRuntime };
-export type { OverlayFaviconImage, OverlayFaviconViewOptions };
+export type { OverlayFaviconImage, OverlayFaviconRuntime, OverlayFaviconViewOptions };

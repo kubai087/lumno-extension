@@ -32,6 +32,7 @@ import * as SearchDirectNavigation from '../../domain/search/utils/direct-naviga
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import { searchResultDisplayLimit, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import type { OverlayFaviconRuntime } from '../favicon-view';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -66,19 +67,10 @@ interface SuggestionsRenderState {
   loadingSessionTrackingActive: boolean;
   defaultTheme: ThemeValue;
   urlHighlightTheme: ThemeValue;
-  attachResolvedFaviconWithFallbacks(
-    image: HTMLImageElement,
-    pageUrl: string,
-    hostKey: string,
-    fallbackUrl: string,
-    onFailed: () => void,
-    sourceOptions?: { allowRemoteImage: boolean }
-  ): void;
-  applyFaviconOpticalAlignment: ViewOption<'applyFaviconOpticalAlignment'>;
-  preloadIcon: ViewOption<'preloadIcon'>;
 }
 
 interface SuggestionsRenderDeps {
+  favicons: Pick<OverlayFaviconRuntime, 'attachResolvedFaviconWithFallbacks' | 'applyFaviconOpticalAlignment' | 'preloadIcon'>;
   updateSearchSuggestions(rows: never[], query: string): void;
   requestOverlaySearchSuggestions(query: string): void;
   // The rendered rows, filled by the view.
@@ -158,6 +150,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    favicons,
     updateSearchSuggestions,
     requestOverlaySearchSuggestions,
     suggestionItems,
@@ -469,7 +462,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     const resolvedCandidates: FaviconCandidates = candidates && typeof candidates === 'object'
       ? candidates
       : {};
-    overlayState.attachResolvedFaviconWithFallbacks(
+    favicons.attachResolvedFaviconWithFallbacks(
       image,
       pageUrl || '',
       host || '',
@@ -540,9 +533,9 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       getNeutralHoverActionColors,
       applyThemeVariables,
       applyMarkVariables,
-      applyFaviconOpticalAlignment: overlayState.applyFaviconOpticalAlignment,
+      applyFaviconOpticalAlignment: favicons.applyFaviconOpticalAlignment,
       attachFaviconWithFallbacks: attachReactOverlayFavicon,
-      preloadIcon: overlayState.preloadIcon,
+      preloadIcon: favicons.preloadIcon,
       onSetSelectedIndex: (nextIndex) => {
         overlayState.selectedIndex = nextIndex;
         if (nextIndex < 0) {

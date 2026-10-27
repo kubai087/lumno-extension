@@ -6,6 +6,8 @@ import type * as Settings from '../../domain/settings';
 import * as FaviconCanonical from '../../domain/favicon/canonical';
 import * as FaviconHostPolicy from '../../domain/favicon/host-policy';
 import * as FaviconResolver from '../../domain/favicon/resolver';
+import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
+import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { FaviconDecisionLogger } from '../../domain/favicon/types';
 import * as SearchBrandSuggestions from '../../domain/search/utils/brand-suggestions';
@@ -183,7 +185,57 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
     return isLocalNetworkHost(normalizedHost);
   }
 
+  // Where a page's icon can come from, through the resolver.
+
+  function getExtensionFaviconUrl(pageUrl: string): string {
+    const resolver = getOverlayFaviconUrlResolver();
+    return resolver ? resolver.getExtensionFaviconUrl(pageUrl) : '';
+  }
+
+  function getGstaticFaviconUrl(pageUrl: string): string {
+    const resolver = getOverlayFaviconUrlResolver();
+    return resolver
+      ? resolver.getSafeFaviconCandidateUrl(resolver.getGstaticFaviconUrl(pageUrl))
+      : '';
+  }
+
+  function getChromeFaviconUrl(pageUrl: string): string {
+    const resolver = getOverlayFaviconUrlResolver();
+    return resolver ? resolver.getChromeFaviconUrl(pageUrl) : '';
+  }
+
+  function getPageFaviconCandidateUrl(pageUrl: string): string {
+    const resolver = getOverlayFaviconUrlResolver();
+    return resolver ? resolver.getPageFaviconCandidateUrl(pageUrl) : '';
+  }
+
+  function getHostFromUrl(url: string): string {
+    if (!url) {
+      return '';
+    }
+    try {
+      return SearchDirectNavigation.normalizeHostIdentity(new URL(url).hostname);
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function isFaviconProxyUrl(url: string): boolean {
+    return FaviconUrlKinds.isFaviconProxyUrl(url);
+  }
+
+  function isChromeMonogramFaviconUrl(url: string): boolean {
+    return FaviconUrlKinds.isChromeMonogramFaviconUrl(url);
+  }
+
   return {
+    getExtensionFaviconUrl,
+    getGstaticFaviconUrl,
+    getChromeFaviconUrl,
+    getPageFaviconCandidateUrl,
+    getHostFromUrl,
+    isFaviconProxyUrl,
+    isChromeMonogramFaviconUrl,
     getOverlayStrictFaviconReason,
     isOverlayEnhancedFaviconFetchEnabled,
     filterOverlayBlacklistedSuggestions,

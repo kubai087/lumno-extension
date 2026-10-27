@@ -35,6 +35,7 @@ import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../features/site-search/catalog';
+import type { OverlayFaviconRuntime } from '../favicon-view';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -57,11 +58,10 @@ interface SuggestionSourcesState {
   overlayThemeMode: ThemeMode;
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
-  // Starts loading the rows' icons before they render.
-  warmIconCache(rows: OverlaySuggestion[]): void;
 }
 
 interface SuggestionSourcesDeps {
+  favicons: Pick<OverlayFaviconRuntime, 'warmIconCache'>;
   siteSearchCatalog: SiteSearchCatalog;
   formatMessage: FormatMessage;
   t: Translate;
@@ -134,6 +134,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    favicons,
     siteSearchCatalog,
     formatMessage,
     getPageFaviconCandidateUrl,
@@ -697,7 +698,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       overlayState.lastRenderedQuery = query;
       overlayState.lastRenderedActionContextKey = actionContextKey;
       if (updateKind !== 'highlight') {
-        overlayState.warmIconCache(allSuggestions.filter((item) => (
+        favicons.warmIconCache(allSuggestions.filter((item) => (
           item && item.type !== 'directUrl'
         )));
       }

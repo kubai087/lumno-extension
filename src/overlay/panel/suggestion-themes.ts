@@ -4,15 +4,12 @@ import type { ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme
 import * as BoundedCache from '../../domain/bounded-cache';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { ThemeRgb } from '../../domain/favicon/types';
-import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
+import type { OverlayFaviconRuntime } from '../favicon-view';
 
 interface SuggestionThemesState {
   defaultTheme: ThemeVariant;
-  isBlockedLocalFaviconUrl(url: string): boolean;
-  // A favicon service's image as a data: URL; empty or null when there is none.
-  requestFaviconData(url: string, pageUrl?: string): Promise<string | null>;
 }
 
 interface SuggestionThemesDeps {
@@ -22,6 +19,9 @@ interface SuggestionThemesDeps {
   // Favicon images already fetched, as data: URLs by address.
   faviconDataCache: Map<string, string>;
   getOverlayFaviconUrlResolver(): FaviconUrlResolver | null;
+  getHostFromUrl(url: string): string;
+  isFaviconProxyUrl(url: string): boolean;
+  favicons: Pick<OverlayFaviconRuntime, 'requestFaviconData' | 'isBlockedLocalFaviconUrl'>;
   buildTheme(rgb: unknown): ThemeVariant;
   defaultAccentColor: ThemeRgb;
   shouldBlockOverlayFaviconForHost(hostname: string): boolean;
@@ -42,6 +42,9 @@ interface ThemedSuggestion {
 // their average color, and the theme each suggestion row and mark uses.
 function createSuggestionThemes(deps: SuggestionThemesDeps) {
   const {
+    getHostFromUrl,
+    isFaviconProxyUrl,
+    favicons,
     themeColorCache,
     themeHostCache,
     getOverlayFaviconUrlResolver,
@@ -108,28 +111,6 @@ function createSuggestionThemes(deps: SuggestionThemesDeps) {
     'twitter.com': [29, 161, 242]
   };
 
-  function getExtensionFaviconUrl(pageUrl: string): string {
-    const resolver = getOverlayFaviconUrlResolver();
-    return resolver ? resolver.getExtensionFaviconUrl(pageUrl) : '';
-  }
-
-  function getGstaticFaviconUrl(pageUrl: string): string {
-    const resolver = getOverlayFaviconUrlResolver();
-    return resolver
-      ? resolver.getSafeFaviconCandidateUrl(resolver.getGstaticFaviconUrl(pageUrl))
-      : '';
-  }
-
-  function getChromeFaviconUrl(pageUrl: string): string {
-    const resolver = getOverlayFaviconUrlResolver();
-    return resolver ? resolver.getChromeFaviconUrl(pageUrl) : '';
-  }
-
-  function getPageFaviconCandidateUrl(pageUrl: string): string {
-    const resolver = getOverlayFaviconUrlResolver();
-    return resolver ? resolver.getPageFaviconCandidateUrl(pageUrl) : '';
-  }
-
   function getBrandAccentForHost(hostname: string): number[] | null {
     const host = String(hostname || '').toLowerCase();
     if (!host) {
@@ -162,17 +143,6 @@ function createSuggestionThemes(deps: SuggestionThemesDeps) {
     theme._xThemeSource = 'fallback';
     theme._xIsFallback = true;
     return theme;
-  }
-
-  function getHostFromUrl(url: string): string {
-    if (!url) {
-      return '';
-    }
-    try {
-      return SearchDirectNavigation.normalizeHostIdentity(new URL(url).hostname);
-    } catch (_error) {
-      return '';
-    }
   }
 
   // The average of an icon's opaque, not nearly white pixels.
@@ -234,14 +204,6 @@ function createSuggestionThemes(deps: SuggestionThemesDeps) {
     }
   }
 
-  function isFaviconProxyUrl(url: string): boolean {
-    return FaviconUrlKinds.isFaviconProxyUrl(url);
-  }
-
-  function isChromeMonogramFaviconUrl(url: string): boolean {
-    return FaviconUrlKinds.isChromeMonogramFaviconUrl(url);
-  }
-
   // The theme of an icon: from the caches, a brand accent, or the icon's
   // average color once it loads.
   function getThemeFromUrl(sourceUrl: string, hostOverride?: string): Promise<ThemeVariant> {
@@ -251,7 +213,7 @@ function createSuggestionThemes(deps: SuggestionThemesDeps) {
       return Promise.resolve(overlayState.defaultTheme);
     }
     const hostKey = hostOverride || getHostFromUrl(url);
-    if (overlayState.isBlockedLocalFaviconUrl(url) || (hostKey && shouldBlockOverlayFaviconForHost(hostKey))) {
+    if (favicons.isBlockedLocalFaviconUrl(url) || (hostKey && shouldBlockOverlayFaviconForHost(hostKey))) {
       const fallbackTheme = buildFallbackThemeForHost(hostKey);
       return Promise.resolve(fallbackTheme || overlayState.defaultTheme);
     }
@@ -302,7 +264,7 @@ function createSuggestionThemes(deps: SuggestionThemesDeps) {
       });
     }
     if (isProxy) {
-      return overlayState.requestFaviconData(url).then((dataUrl) => {
+      return favicons.requestFaviconData(url, '').then((dataUrl) => {
         if (!dataUrl) {
           cacheOverlayThemeColor(url, overlayState.defaultTheme);
           return overlayState.defaultTheme;
@@ -561,14 +523,7 @@ function createSuggestionThemes(deps: SuggestionThemesDeps) {
   }
 
   return {
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    getPageFaviconCandidateUrl,
     getBrandAccentForUrl,
-    getHostFromUrl,
-    isFaviconProxyUrl,
-    isChromeMonogramFaviconUrl,
     getProviderThemeHost,
     getThemeForProvider,
     getThemeForSuggestion,

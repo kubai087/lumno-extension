@@ -30,7 +30,6 @@ import type { SearchInputEventsState } from './panel/search-input-events';
 import type { SearchModeMenuState } from './panel/search-mode-menu';
 import type { SearchModesState } from './panel/search-modes';
 import type { SettingsSyncState } from './panel/settings-sync';
-import type { SiteSearchProvidersState } from './panel/site-search-providers';
 import type { SlashCommandsState } from './panel/slash-commands';
 import type { SuggestionSourcesState } from './panel/suggestion-sources';
 import type { SuggestionThemesState } from './panel/suggestion-themes';
@@ -75,7 +74,6 @@ type OverlayState =
   SearchModeMenuState &
   SearchModesState &
   SettingsSyncState<OverlaySuggestion, InputModeProvider> &
-  SiteSearchProvidersState &
   SlashCommandsState &
   SuggestionSourcesState &
   SuggestionThemesState &
@@ -95,14 +93,6 @@ interface OverlayStateParts {
   overlayMediaQuery: MediaQueryList;
   defaultTheme: ThemeVariant;
   urlHighlightTheme: ThemeVariant;
-  // The favicon runtime is made after the modules that read these, so the
-  // panel hands in functions that reach it once it exists.
-  requestFaviconData: OverlayState['requestFaviconData'];
-  attachResolvedFaviconWithFallbacks: OverlayState['attachResolvedFaviconWithFallbacks'];
-  isBlockedLocalFaviconUrl: OverlayState['isBlockedLocalFaviconUrl'];
-  applyFaviconOpticalAlignment: OverlayState['applyFaviconOpticalAlignment'];
-  preloadIcon: OverlayState['preloadIcon'];
-  warmIconCache: OverlayState['warmIconCache'];
   // From the open context.
   prioritizeCurrentPageMatch: boolean;
   currentTabPinned: boolean;
@@ -126,12 +116,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayMediaQuery: parts.overlayMediaQuery,
     defaultTheme: parts.defaultTheme,
     urlHighlightTheme: parts.urlHighlightTheme,
-    requestFaviconData: parts.requestFaviconData,
-    attachResolvedFaviconWithFallbacks: parts.attachResolvedFaviconWithFallbacks,
-    isBlockedLocalFaviconUrl: parts.isBlockedLocalFaviconUrl,
-    applyFaviconOpticalAlignment: parts.applyFaviconOpticalAlignment,
-    preloadIcon: parts.preloadIcon,
-    warmIconCache: parts.warmIconCache,
 
     // From the open context.
     prioritizeCurrentPageMatch: parts.prioritizeCurrentPageMatch,

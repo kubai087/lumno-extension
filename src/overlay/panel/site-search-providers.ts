@@ -16,13 +16,10 @@ import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
-
-interface SiteSearchProvidersState {
-  // A favicon as a data: URL from the worker; empty or null when there is none.
-  requestFaviconData(url: string, pageUrl?: string): Promise<string | null>;
-}
+import type { OverlayFaviconRuntime } from '../favicon-view';
 
 interface SiteSearchProvidersDeps {
+  favicons: Pick<OverlayFaviconRuntime, 'requestFaviconData'>;
   AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore, 'isAggregateSearchProvider'>;
   getHelpCenterLocale(): string;
   showOverlayToast(message: string, isError?: boolean): void;
@@ -34,11 +31,11 @@ interface SiteSearchProvidersDeps {
   siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
   // Favicon images already fetched, as data: URLs by address.
   faviconDataCache: Map<string, string>;
-  overlayState: SiteSearchProvidersState;
 }
 
 function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
+    favicons,
     getHelpCenterLocale,
     AGGREGATE_SEARCH_STORE,
     showOverlayToast,
@@ -51,8 +48,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     faviconDataCache
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
 
   let aggregateSearchRequestController: ReturnType<typeof AGGREGATE_SEARCH_SURFACE.createAggregateSearchRequestController> | null = null;
 
@@ -191,7 +186,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     if (cachedData) {
       return cachedData;
     }
-    overlayState.requestFaviconData(iconUrl, pageUrl).catch(() => null);
+    favicons.requestFaviconData(iconUrl, pageUrl).catch(() => null);
     return '';
   }
 
@@ -216,4 +211,4 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
 }
 
 export { createSiteSearchProviders };
-export type { SiteSearchProvidersDeps, SiteSearchProvidersState };
+export type { SiteSearchProvidersDeps };
