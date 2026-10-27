@@ -1,10 +1,10 @@
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
 const settings = require('../../src/domain/settings');
-const { createThemeSection } = require('../../src/options/options-theme');
+const { PageTheme } = require('../../src/options/features/appearance/page-theme');
 const { createSettingsStore } = require('../../src/platform/settings-store.ts');
 
-// Lets a save through the settings store finish.
+// Lets reads and saves through the settings store finish.
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function setup(stored, options) {
@@ -23,6 +23,7 @@ function setup(stored, options) {
   window.matchMedia = () => media;
   const values = Object.assign({}, stored);
   const writes = [];
+  const changeListeners = new Set();
   const syncArea = {
     get(keys, callback) {
       callback(Object.fromEntries(keys.filter((key) => key in values).map((key) => [key, values[key]])));
@@ -33,33 +34,44 @@ function setup(stored, options) {
       callback();
     }
   };
-  const pickerModels = [];
   const shown = [];
-  const section = createThemeSection({
-    documentObj: document,
-    getMessage: (key, fallback) => fallback,
-    onModeShown: (mode) => shown.push(mode),
+  const theme = new PageTheme(createSettingsStore({
+    chromeApi: {
+      runtime: { lastError: null },
+      storage: {
+        sync: syncArea,
+        local: { get: (keys, callback) => callback({}), set: (payload, callback) => callback() },
+        onChanged: { addListener: (listener) => changeListeners.add(listener), removeListener: (listener) => changeListeners.delete(listener) }
+      }
+    },
+    settings: []
+  }), {
+    doc: document,
+    win: window,
     panel: document.getElementById('panel'),
-    picker: { render: (model) => pickerModels.push(model) },
-    settings,
-    settingsStore: createSettingsStore({
-      chromeApi: {
-        runtime: { lastError: null },
-        storage: { sync: syncArea, local: { get: (keys, callback) => callback({}), set: (payload, callback) => callback() } }
-      },
-      settings: []
-    }),
-    windowObj: window
+    // Records each mode the panel is redrawn for.
+    animatePanel(mutate) {
+      mutate();
+      shown.push(theme.store.getSnapshot().mode);
+      return false;
+    }
   });
   return {
     document,
     media,
     mediaListeners,
-    pickerModels,
-    section,
+    theme,
     shown,
-    window,
     writes,
+    // Another page stores a mode.
+    storeElsewhere(mode) {
+      values[settings.themeMode.key] = mode;
+      changeListeners.forEach((listener) => listener({ [settings.themeMode.key]: { newValue: mode } }, 'sync'));
+    },
+    systemChanges(dark) {
+      media.matches = dark;
+      mediaListeners.forEach((listener) => listener());
+    },
     cached: () => window.localStorage.getItem(settings.optionsThemePreload.key),
     pageTheme: () => document.body.getAttribute('data-theme')
   };
@@ -69,56 +81,54 @@ function setup(stored, options) {
   // Startup shows the stored mode and refreshes the preloader's cache.
   {
     const page = setup({ [settings.themeMode.key]: 'dark' });
-    await page.section.init();
+    page.theme.start();
+    await settle();
     assert.strictEqual(page.pageTheme(), 'dark');
     assert.strictEqual(page.document.getElementById('panel').getAttribute('data-theme'), 'dark');
     assert.strictEqual(page.document.documentElement.style.colorScheme, 'dark');
     assert.strictEqual(page.document.querySelector('meta[name="theme-color"]').getAttribute('content'), '#111111');
     assert.strictEqual(page.document.documentElement.getAttribute('data-theme-ready'), 'true');
+    assert.strictEqual(page.document.documentElement.getAttribute('data-options-theme-mode'), 'dark');
     assert.strictEqual(page.cached(), 'dark');
-    assert.strictEqual(page.pickerModels.at(-1).activeMode, 'dark');
-    assert.deepStrictEqual(page.pickerModels.at(-1).options.map((option) => option.mode), ['system', 'light', 'dark']);
-    assert.deepStrictEqual(page.shown, ['dark'], 'dependent settings hear about the shown mode');
-    assert.strictEqual(page.mediaListeners.size, 0, 'a fixed theme ignores the OS setting');
+    assert.strictEqual(page.theme.store.getSnapshot().mode, 'dark');
+    assert.deepStrictEqual(page.shown, ['dark'], 'the panel redraws for the shown mode');
+    page.systemChanges(true);
+    assert.strictEqual(page.pageTheme(), 'dark', 'a fixed theme ignores the OS setting');
   }
 
   // "System" follows the OS, including changes while the page is open.
   {
     const page = setup({}, { systemDark: true });
-    await page.section.init();
-    assert.strictEqual(page.pickerModels.at(-1).activeMode, 'system');
+    page.theme.start();
+    await settle();
+    assert.strictEqual(page.theme.store.getSnapshot().mode, 'system');
     assert.strictEqual(page.pageTheme(), 'dark');
-    page.media.matches = false;
-    page.mediaListeners.forEach((listener) => listener());
+    page.systemChanges(false);
     assert.strictEqual(page.pageTheme(), 'light');
   }
 
-  // Choosing a theme saves the global theme mode.
+  // Choosing a theme saves the global theme mode and shows it.
   {
     const page = setup({});
-    await page.section.init();
-    page.section.setMode('light');
+    page.theme.start();
+    await settle();
+    page.theme.choose('light');
     await settle();
     assert.deepStrictEqual(page.writes, [{ [settings.themeMode.key]: 'light' }]);
     assert.strictEqual(page.cached(), 'light');
     assert.strictEqual(page.pageTheme(), 'light');
-    assert.strictEqual(page.mediaListeners.size, 0);
-    page.section.setMode('system');
-    await settle();
-    assert.strictEqual(page.mediaListeners.size, 1);
   }
 
   // A choice made on another page is shown here, and "system" follows the OS.
   {
     const page = setup({ [settings.themeMode.key]: 'light' }, { systemDark: true });
-    await page.section.init();
-    page.section.applyStorageChange('dark');
+    page.theme.start();
+    await settle();
+    page.storeElsewhere('dark');
     assert.strictEqual(page.pageTheme(), 'dark');
-    page.section.applyStorageChange(undefined);
-    assert.strictEqual(page.pickerModels.at(-1).activeMode, 'system');
-    assert.strictEqual(page.mediaListeners.size, 1);
-    page.media.matches = false;
-    page.mediaListeners.forEach((listener) => listener());
+    page.storeElsewhere(undefined);
+    assert.strictEqual(page.theme.store.getSnapshot().mode, 'system');
+    page.systemChanges(false);
     assert.strictEqual(page.pageTheme(), 'light');
   }
 

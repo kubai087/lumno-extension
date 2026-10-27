@@ -1,36 +1,18 @@
 import { act } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as Settings from '../domain/settings';
-import { createAppearanceGlobalSection } from './options-appearance-global-section';
-import { createAppearanceGlobalSectionController } from './react/appearance-global-section';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
+import { afterEach, describe, expect, it } from 'vitest';
+import * as Settings from '../../../domain/settings';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { AppearanceGlobalSection } from './global-section';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
 
-const sections: Array<{ destroy(): void }> = [];
 const MOTION = '_x_extension_motion_effects_toggle_2026_unique_';
 const SIMPLE = '_x_extension_simple_mode_toggle_2026_unique_';
 
 function setUp() {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
-  const onTheme = vi.fn();
-  const section = createAppearanceGlobalSection({
-    view: (handlers) => createAppearanceGlobalSectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (_key, fallback) => fallback,
-    onTheme
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
-  return { host, writes: settings.writes, onTheme, section, settings };
+  return renderOptionsView(<AppearanceGlobalSection />);
 }
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options Appearance global section', () => {
   it('lists the theme, then motion effects, then simple mode', () => {
@@ -43,11 +25,7 @@ describe('Options Appearance global section', () => {
   });
 
   it('keeps its copy and defaults: motion on with its guidance, simple mode off with its description', () => {
-    const { host, settings } = setUp();
-    expect(settings.boundKeys().sort()).toEqual([
-      Settings.motionEffectsEnabled.key,
-      Settings.simpleModeEnabled.key
-    ].sort());
+    const { host } = setUp();
     expect(getTag(host, `#${MOTION}`, 'input').checked).toBe(true);
     expect(getTag(host, `#${SIMPLE}`, 'input').checked).toBe(false);
     const motionRow = getTag(host, `#${MOTION}`, 'input').closest('._x_extension_setting_row_2024_unique_');
@@ -65,18 +43,13 @@ describe('Options Appearance global section', () => {
     expect(writes).toEqual([{ [Settings.simpleModeEnabled.key]: true }]);
   });
 
-  it('draws the gallery the theme section hands over and reports a choice with its button', () => {
-    const { host, section, onTheme } = setUp();
-    act(() => section.themePicker.render({
-      activeMode: 'dark',
-      options: [
-        { mode: 'system', label: '跟随系统设置', labelKey: 'settings_theme_system', previewSrc: 'system.svg' },
-        { mode: 'dark', label: '深色', labelKey: 'settings_theme_dark', previewSrc: 'dark.svg' }
-      ]
-    }));
+  it('shows the page\'s color mode in the gallery and saves a choice', async () => {
+    const { host, page, writes, settings } = setUp();
+    act(() => page.pageTheme.store.setState({ mode: 'dark' }));
     const buttons = getTags(host, '._x_extension_theme_gallery_2026_unique_ button', 'button');
-    expect(buttons.map((button) => button.dataset.active)).toEqual(['false', 'true']);
+    expect(buttons.map((button) => button.dataset.active)).toEqual(['false', 'false', 'true']);
     act(() => buttons[0]?.click());
-    expect(onTheme).toHaveBeenCalledWith('system', buttons[0]);
+    await settings.settle();
+    expect(writes).toEqual([{ [Settings.themeMode.key]: 'system' }]);
   });
 });

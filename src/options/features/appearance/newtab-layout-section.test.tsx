@@ -1,30 +1,16 @@
 import { act } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as Settings from '../domain/settings';
-import type { Setting } from '../domain/settings/define';
-import { createAppearanceNewtabLayoutSection } from './options-appearance-newtab-layout-section';
-import { createAppearanceNewtabLayoutSectionController } from './react/appearance-newtab-layout-section';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
+import { afterEach, describe, expect, it } from 'vitest';
+import * as Settings from '../../../domain/settings';
+import type { Setting } from '../../../domain/settings/define';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { NewtabLayoutSection } from './newtab-layout-section';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
 
-const sections: Array<{ destroy(): void }> = [];
 
 function setUp(stored: Record<string, unknown> = {}) {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings({ sync: stored });
-  const notifyNewtabSectionsRefresh = vi.fn();
-  const section = createAppearanceNewtabLayoutSection({
-    view: (handlers) => createAppearanceNewtabLayoutSectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (_key, fallback) => fallback,
-    notifyNewtabSectionsRefresh
-  });
-  sections.push(section);
-  act(() => section.bindSettings(settings.binder));
-  const store = (setting: Setting<unknown>, raw: unknown) => settings.change(setting, raw);
-  return { host, writes: settings.writes, settings, store, notifyNewtabSectionsRefresh };
+  const view = renderOptionsView(<NewtabLayoutSection />, { sync: stored });
+  const store = (setting: Setting<unknown>, raw: unknown) => view.settings.change(setting, raw);
+  return { ...view, store, notifyNewtabSectionsRefresh: view.notifyNewtab };
 }
 
 function slide(host: HTMLElement, id: string, value: number) {
@@ -38,35 +24,9 @@ function slide(host: HTMLElement, id: string, value: number) {
 
 const toggle = (host: HTMLElement, name: string) => getTag(host, `#_x_extension_${name}_toggle_2026_unique_`, 'input');
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options Appearance New Tab layout section', () => {
-  it('binds every setting', () => {
-    const { settings } = setUp();
-    const shortcutKeys = [
-      Settings.newtabShortcutsVisible.key,
-      Settings.newtabShortcutAddVisible.key,
-      Settings.newtabShortcutDockMagnificationEnabled.key,
-      Settings.newtabShortcutColumns.key,
-      Settings.newtabShortcutSize.key,
-      Settings.newtabShortcutGap.key
-    ];
-    expect(settings.boundKeys().sort()).toEqual([
-      ...shortcutKeys,
-      Settings.newtabInputAutoFocusEnabled.key,
-      Settings.bookmarkCount.key,
-      Settings.bookmarkColumns.key,
-      Settings.bookmarkFolderIconsVisible.key,
-      Settings.recentCount.key,
-      Settings.recentMode.key,
-      Settings.newtabFeedbackButtonVisible.key,
-      Settings.newtabAppearanceButtonVisible.key
-    ].sort());
-  });
-
   it('infers the shortcut columns from the older width without writing anything back', async () => {
     const width = Settings.NEWTAB_SHORTCUT_WIDTH_MAX;
     const { host, writes, settings } = setUp({ [Settings.newtabShortcutWidth.key]: width });

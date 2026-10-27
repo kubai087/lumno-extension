@@ -1,15 +1,20 @@
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as CustomQuotes from '../domain/custom-quotes';
-import type { QuoteLibrary } from '../domain/custom-quotes';
-import * as Settings from '../domain/settings';
-import { createDailyQuoteSection } from './options-appearance-daily-quote-section';
-import { createDailyQuoteSectionController } from './react/daily-quote-section';
-import { getElement, getTag } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
-import { customQuotePick } from '../domain/settings/newtab-quote';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as CustomQuotes from '../../../domain/custom-quotes';
+import type { QuoteLibrary } from '../../../domain/custom-quotes';
+import * as Settings from '../../../domain/settings';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { DailyQuoteSection } from './daily-quote-section';
+import { getElement, getTag } from '../../../../tests/react/dom';
+import { customQuotePick } from '../../../domain/settings/newtab-quote';
 
-const sections: Array<{ destroy(): void }> = [];
+// How the next import reads its file.
+let readFile: () => Promise<QuoteLibrary> = () => Promise.reject(new Error('unset'));
+vi.mock('../../../domain/custom-quotes', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../domain/custom-quotes')>(),
+  readLibraryFile: () => readFile()
+}));
+
 const PREFS_KEY = Settings.newtabQuotePrefs.key;
 const LIBRARY: QuoteLibrary = {
   version: 1,
@@ -18,47 +23,25 @@ const LIBRARY: QuoteLibrary = {
   quotes: [{ text: 'First', author: '' }, { text: 'Second', author: '' }]
 };
 
-async function setUp({ local = {}, readLibraryFile = vi.fn(() => Promise.resolve(LIBRARY)) }: {
+async function setUp({ local = {}, readLibraryFile = () => Promise.resolve(LIBRARY) }: {
   local?: Record<string, unknown>;
   readLibraryFile?: () => Promise<QuoteLibrary>;
 } = {}) {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings({ local });
-  const showToast = vi.fn();
-  const section = createDailyQuoteSection({
-    view: (handlers) => createDailyQuoteSectionController(host, handlers),
-    settings: Settings,
-    customQuotes: { ...CustomQuotes, readLibraryFile },
-    getMessage: (_key, fallback) => fallback,
-    showToast,
-    settingsStore: settings.store,
-    getViewportTopInset: () => 0
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
-  await settings.settle();
-  const store = (raw: unknown) => settings.change(Settings.newtabQuotePrefs, raw);
-  return { host, writes: settings.writes, localWrites: settings.localWrites, showToast, settings, store };
+  readFile = readLibraryFile;
+  const view = renderOptionsView(<DailyQuoteSection />, { local });
+  await view.settings.settle();
+  const store = (raw: unknown) => view.settings.change(Settings.newtabQuotePrefs, raw);
+  return { ...view, store };
 }
 
 const expanded = (host: HTMLElement, id: string) => getElement(host, `#_x_extension_newtab_quote_${id}_2026_unique_`).dataset.expanded;
 const prefs = (patch: Partial<Settings.NewtabQuotePrefs>) => ({ ...Settings.newtabQuotePrefs.parse(null), ...patch });
 
-beforeEach(() => {
-  vi.stubGlobal('chrome', { runtime: { lastError: undefined } });
-});
-
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-  vi.unstubAllGlobals();
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options Appearance daily quote section', () => {
   it('follows the synced preferences and this device\'s collection', async () => {
     const { host, settings } = await setUp();
-    expect(settings.boundKeys()).toEqual([PREFS_KEY, CustomQuotes.KEY]);
     expect(getElement(host, '#_x_extension_newtab_quote_count_2026_unique_').hidden).toBe(true);
     await settings.change(Settings.customQuotes, LIBRARY);
     const count = getElement(host, '#_x_extension_newtab_quote_count_2026_unique_');

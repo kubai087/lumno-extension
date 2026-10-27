@@ -1,34 +1,19 @@
 import { act } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as Settings from '../domain/settings';
-import type { Setting } from '../domain/settings/define';
-import { createAppearanceNewtabLookSection } from './options-appearance-newtab-look-section';
-import { createSettingsSectionController } from './react/settings-rows-view';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
+import { afterEach, describe, expect, it } from 'vitest';
+import * as Settings from '../../../domain/settings';
+import type { Setting } from '../../../domain/settings/define';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { NewtabLookSection } from './newtab-look-section';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
 
-const sections: Array<{ destroy(): void }> = [];
 const TIME_FONT = '_x_extension_newtab_time_font_select_2026_unique_';
 
 async function setUp() {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
-  const notifyNewtabSectionsRefresh = vi.fn();
-  const section = createAppearanceNewtabLookSection({
-    view: (handlers) => createSettingsSectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (_key, fallback) => fallback,
-    notifyNewtabSectionsRefresh,
-    getViewportTopInset: () => 0
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
+  const view = renderOptionsView(<NewtabLookSection />);
   // The selects mount their menus once their frames exist.
   await act(async () => {});
-  const store = (setting: Setting<unknown>, raw: unknown) => settings.change(setting, raw);
-  return { host, writes: settings.writes, settings, store, notifyNewtabSectionsRefresh };
+  const store = (setting: Setting<unknown>, raw: unknown) => view.settings.change(setting, raw);
+  return { ...view, store, notifyNewtabSectionsRefresh: view.notifyNewtab };
 }
 
 const expanded = (host: HTMLElement, id: string) => getElement(host, `#${id}`).dataset.expanded;
@@ -42,28 +27,9 @@ function pick(selectId: string, value: string) {
   });
 }
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options Appearance New Tab look section', () => {
-  it('binds every setting of the section', async () => {
-    const { settings } = await setUp();
-    expect(settings.boundKeys().sort()).toEqual([
-      Settings.newtabGlassStyle.key,
-      Settings.newtabGlassTheme.key,
-      Settings.newtabWidthMode.key,
-      Settings.newtabTopContentMode.key,
-      Settings.newtabTimeFont.key,
-      Settings.newtabTimeFontWeight.key,
-      Settings.newtabTimeFontSize.key,
-      Settings.newtabTimeOpacity.key,
-      Settings.newtabTimeInk.key,
-      Settings.newtabTimeSecondsVisible.key,
-      Settings.newtabTime12Hour.key
-    ].sort());
-  });
 
   it('offers the material\'s light or dark choice only with a glass material', async () => {
     const { host, writes, store, settings } = await setUp();

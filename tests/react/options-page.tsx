@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import type { StorageItems } from '../../src/domain/storage-port';
 import { OptionsPageContext, type OptionsPage } from '../../src/options/app/context';
 import { AggregateSearches } from '../../src/options/features/aggregate-search/searches';
+import { PageTheme } from '../../src/options/features/appearance/page-theme';
 import { OptionsLocale } from '../../src/options/features/language/locale';
 import { BrowserCommands } from '../../src/options/features/shortcuts/browser-commands';
 import { SiteSearchProviders } from '../../src/options/features/site-search/providers';
@@ -36,6 +37,12 @@ function stubChrome() {
     },
     i18n: { getMessage: () => '', getUILanguage: () => 'en' }
   });
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener() {},
+    removeEventListener() {}
+  }));
   return sendMessage;
 }
 
@@ -43,6 +50,8 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
   const sendMessage = stubChrome();
   const settings = createOptionsTestSettings({ sync: options.sync, local: options.local });
   const sourceOrder = createSearchSourceOrderController({ write: () => Promise.resolve() });
+  const showToast = vi.fn<OptionsPage['showToast']>();
+  const notifyNewtab = vi.fn<OptionsPage['notifyNewtab']>();
   const page: OptionsPage = {
     settingsStore: settings.store,
     locale: new OptionsLocale(settings.store),
@@ -50,7 +59,14 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
     siteSearchProviders: new SiteSearchProviders(settings.store, () => {}),
     aggregateSearches: new AggregateSearches(settings.store, { getActiveAreaName: () => 'sync' }, () => {}),
     sourceOrder,
-    showToast: vi.fn(),
+    pageTheme: new PageTheme(settings.store, {
+      doc: document,
+      win: window,
+      panel: document.createElement('div'),
+      animatePanel: (mutateLayout) => mutateLayout()
+    }),
+    showToast,
+    notifyNewtab,
     hideTooltip: vi.fn(),
     getViewportTopInset: () => 0,
     isMacPlatform: false,
@@ -67,7 +83,7 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
     act(() => root.unmount());
     sourceOrder.destroy();
   });
-  return { host, page, settings, writes: settings.writes, sendMessage };
+  return { host, page, settings, writes: settings.writes, localWrites: settings.localWrites, sendMessage, showToast, notifyNewtab };
 }
 
 // Unmounts every view and puts the globals back.

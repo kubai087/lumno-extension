@@ -5,6 +5,7 @@ import { createContext, useContext } from 'react';
 import type { SettingsStore } from '../../platform/settings-store';
 import { useStore } from '../../shared/react/use-store';
 import type { AggregateSearches } from '../features/aggregate-search/searches';
+import type { PageTheme } from '../features/appearance/page-theme';
 import type { OptionsLocale } from '../features/language/locale';
 import type { BrowserCommands } from '../features/shortcuts/browser-commands';
 import type { SiteSearchProviders } from '../features/site-search/providers';
@@ -19,7 +20,10 @@ interface OptionsPage {
   aggregateSearches: AggregateSearches;
   // The order of search groups, lists and browser content types.
   sourceOrder: ReturnType<typeof createSearchSourceOrderController>;
+  pageTheme: PageTheme;
   showToast(message: string, isError?: boolean): void;
+  // Asks open New Tab pages to redraw a part of themselves.
+  notifyNewtab(section: string): void;
   hideTooltip(): void;
   // Where menus that flip upward must stop: below the pinned tabs row.
   getViewportTopInset(): number;

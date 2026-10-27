@@ -1,13 +1,15 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as Settings from '../domain/settings';
-import type { Setting } from '../domain/settings/define';
-import { createAppearanceOverlaySection } from './options-appearance-overlay-section';
-import { createAppearanceOverlaySectionController } from './react/appearance-overlay-section';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
+import * as Settings from '../../../domain/settings';
+import type { Setting } from '../../../domain/settings/define';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { AppearanceOverlaySection } from './overlay-section';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
 
-const sections: Array<{ destroy(): void }> = [];
+// The fonts the next section reads as installed.
+let installedFonts: Promise<chrome.fontSettings.FontName[]> = Promise.resolve([]);
+vi.mock('../../options-installed-fonts', () => ({ listInstalledFonts: () => installedFonts }));
+
 const FONT = '_x_extension_overlay_font_select_2026_unique_';
 const FALLBACK = '_x_extension_overlay_font_fallback_select_2026_unique_';
 const ADAPTATION_ROW = '_x_extension_overlay_page_theme_adaptation_row_2026_unique_';
@@ -18,26 +20,16 @@ const FONTS = [
 ];
 
 async function setUp({ fonts = FONTS, browserFamily = 'chromium' } = {}) {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
-  const section = createAppearanceOverlaySection({
-    view: (handlers) => createAppearanceOverlaySectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (key, fallback) => (key === 'settings_overlay_font_missing' ? '{font} is missing' : fallback),
-    formatTemplate: (text, params) => text.replace('{font}', String(params.font)),
-    browserFamily,
-    listInstalledFonts: () => Promise.resolve(fonts),
-    getViewportTopInset: () => 0
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
+  installedFonts = Promise.resolve(fonts);
+  const view = renderOptionsView(<AppearanceOverlaySection />, { page: { browserFamily } });
+  act(() => view.page.locale.store.setState({
+    messages: { settings_overlay_font_missing: { message: '{font} is missing' } }
+  }));
   // The installed fonts arrive after the first draw.
-  await settings.settle();
-  const store = (setting: Setting<unknown>, raw: unknown) => settings.change(setting, raw);
-  const removed = () => settings.removals.sync.flat();
-  return { host, writes: settings.writes, removed, localWrites: settings.localWrites, section, settings, store };
+  await view.settings.settle();
+  const store = (setting: Setting<unknown>, raw: unknown) => view.settings.change(setting, raw);
+  const removed = () => view.settings.removals.sync.flat();
+  return { ...view, store, removed };
 }
 
 function slide(host: HTMLElement, value: number) {
@@ -63,24 +55,9 @@ function pick(selectId: string, value: string) {
   });
 }
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options Appearance webpage overlay section', () => {
-  it('binds its synced settings and this device\'s fonts', async () => {
-    const { settings } = await setUp();
-    expect(settings.boundKeys().sort()).toEqual([
-      Settings.overlayEnterAnimation.key,
-      Settings.overlayPageThemeAdaptationEnabled.key,
-      Settings.overlaySizeMode.key,
-      Settings.overlayWidth.key,
-      Settings.overlayFontFallback.key,
-      Settings.overlayFontFamily.key,
-      Settings.overlayFontLabels.key
-    ].sort());
-  });
 
   it('saves the size, and the width follows it until set apart', async () => {
     const { host, writes, removed, store, settings } = await setUp();
@@ -168,38 +145,26 @@ describe('Options Appearance webpage overlay section', () => {
   });
 
   it('shows page theme adaptation only while the color mode follows the system', async () => {
-    const { host, writes, section, settings } = await setUp();
+    const { host, writes, page, settings } = await setUp();
     const row = getElement(host, `#${ADAPTATION_ROW}`);
     expect(row.hidden).toBe(false);
-    let changed = false;
-    act(() => { changed = section.showThemeMode('dark'); });
-    expect([changed, row.hidden, row.getAttribute('aria-hidden')]).toEqual([true, true, 'true']);
-    act(() => { changed = section.showThemeMode('light'); });
-    expect([changed, row.hidden]).toEqual([false, true]);
-    act(() => { changed = section.showThemeMode('system'); });
-    expect([changed, row.hidden]).toEqual([true, false]);
+    act(() => page.pageTheme.store.setState({ mode: 'dark' }));
+    expect([row.hidden, row.getAttribute('aria-hidden')]).toEqual([true, 'true']);
+    act(() => page.pageTheme.store.setState({ mode: 'light' }));
+    expect(row.hidden).toBe(true);
+    act(() => page.pageTheme.store.setState({ mode: 'system' }));
+    expect(row.hidden).toBe(false);
     act(() => getTag(host, '#_x_extension_overlay_page_theme_adaptation_toggle_2026_unique_', 'input').click());
     await settings.settle();
     expect(writes).toEqual([{ [Settings.overlayPageThemeAdaptationEnabled.key]: false }]);
   });
 
-  it('redraws once the installed fonts arrive', async () => {
+  it('lists the installed fonts once they arrive', async () => {
     let resolveFonts: (fonts: chrome.fontSettings.FontName[]) => void = () => {};
-    const render = vi.fn();
-    const section = createAppearanceOverlaySection({
-      view: () => ({ render, destroy: vi.fn() }),
-      settingsStore: createOptionsTestSettings().store,
-      SETTINGS: Settings,
-      getMessage: (_key, fallback) => fallback,
-      formatTemplate: (text) => text,
-      browserFamily: 'chromium',
-      listInstalledFonts: () => new Promise((resolve) => { resolveFonts = resolve; }),
-      getViewportTopInset: () => 0
-    });
-    const drawn = render.mock.calls.length;
-    resolveFonts(FONTS);
-    await act(async () => {});
-    expect(render.mock.calls.length).toBe(drawn + 1);
-    section.destroy();
+    installedFonts = new Promise((resolve) => { resolveFonts = resolve; });
+    renderOptionsView(<AppearanceOverlaySection />);
+    expect(openMenu(FONT).map((option) => option.dataset.value)).toEqual(['']);
+    await act(async () => resolveFonts(FONTS));
+    expect(openMenu(FONT).map((option) => option.dataset.value)).toEqual(['', 'Inter', 'PingFangSC']);
   });
 });

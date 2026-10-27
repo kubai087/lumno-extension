@@ -1,18 +1,10 @@
 import * as LumnoBlacklistUtils from '../domain/blacklist-utils';
-import * as CUSTOM_QUOTES from '../domain/custom-quotes';
 import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 import * as SETTINGS from '../domain/settings';
 import { getContextSettingsStore, readStoredSetting } from '../platform/settings-store';
 import * as LumnoShortcutDisplay from '../domain/shortcut-display';
 import * as LumnoTooltip from '../shared/ui/tooltip';
 import * as OPTIONS_ACCOUNT_SECTION from './options-account-section';
-import * as OPTIONS_APPEARANCE_GLOBAL_SECTION from './options-appearance-global-section';
-import * as OPTIONS_APPEARANCE_TAB from './options-appearance-tab';
-import * as OPTIONS_DAILY_QUOTE_SECTION from './options-appearance-daily-quote-section';
-import * as OPTIONS_APPEARANCE_NEWTAB_LAYOUT_SECTION from './options-appearance-newtab-layout-section';
-import * as OPTIONS_APPEARANCE_NEWTAB_LOOK_SECTION from './options-appearance-newtab-look-section';
-import * as OPTIONS_APPEARANCE_OVERLAY_SECTION from './options-appearance-overlay-section';
-import { listInstalledFonts } from './options-installed-fonts';
 import * as OPTIONS_AGGREGATE_SEARCH_ACTIONS from './options-aggregate-search-actions';
 import * as OPTIONS_AGGREGATE_SEARCH_LIST from './options-aggregate-search-list';
 import * as AGGREGATE_SEARCH from './options-aggregate-search';
@@ -29,13 +21,11 @@ import * as OPTIONS_SITE_SEARCH_ACTIONS from './options-site-search-actions';
 import * as OPTIONS_SITE_SEARCH_LIST from './options-site-search-list';
 import * as SITE_SEARCH from './options-site-search';
 import * as LumnoOptionsSyncTransfer from './options-sync-transfer';
-import * as THEME from './options-theme';
 import * as OPTIONS_UNSUPPORTED_SETTINGS from './options-unsupported-settings';
 import * as OPTIONS_TOOLTIPS from './options-tooltips';
 import * as LumnoBrowserProfile from '../platform/browser-profile';
 import * as LumnoMessaging from '../platform/messaging';
 import { getHtmlElement, queryHtmlElement, queryHtmlElements } from '../shared/dom-lookup';
-import type { LayoutMutation } from './options-panel-motion';
 import * as OPTIONS_STATE from './options-state';
 import { getBlacklistTabApi } from './react/blacklist-tab';
 import { getAccountTabApi } from './react/account-tab';
@@ -54,6 +44,8 @@ import { createElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { OptionsPageContext, type OptionsPage } from './app/context';
+import { APPEARANCE_TAB_SETTINGS, AppearanceTab } from './features/appearance/appearance-tab';
+import { PageTheme } from './features/appearance/page-theme';
 import { GENERAL_TAB_SETTINGS, GeneralTab } from './features/general/general-tab';
 import { BrowserCommands } from './features/shortcuts/browser-commands';
 import { formatShortcut } from './features/shortcuts/shortcut-copy';
@@ -247,6 +239,12 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
   });
 
   const browserCommands = new BrowserCommands();
+  const pageTheme = new PageTheme(optionsSettingsStore, {
+    doc: document,
+    win: window,
+    panel,
+    animatePanel: (mutateLayout) => optionsState.panelHeightAnimator.animate(mutateLayout)
+  });
   const optionsPage: OptionsPage = {
     settingsStore: optionsSettingsStore,
     locale: optionsLocale,
@@ -254,69 +252,29 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     siteSearchProviders,
     aggregateSearches,
     sourceOrder: optionsState.searchSourceOrderController,
+    pageTheme,
     showToast,
+    notifyNewtab: notifyNewtabSectionsRefresh,
     hideTooltip: () => optionsState.tooltipController.hide(),
     getViewportTopInset: getMenuViewportTopInset,
     isMacPlatform: isMacPlatform,
     browserFamily: document.documentElement.getAttribute('data-browser-family') || ''
   };
-  // Drawn before the switches below are set up, which mark the rows this
-  // browser cannot honor.
-  const generalTabHost = queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="general"]');
-  if (generalTabHost) {
-    const generalTabRoot = createRoot(generalTabHost);
+  // Draws a tab's view into its content element.
+  function mountTab(tabKey: string, view: ReturnType<typeof createElement>): void {
+    const host = queryHtmlElement(document, `._x_extension_settings_content_2024_unique_[data-content="${tabKey}"]`);
+    if (!host) {
+      return;
+    }
+    const root = createRoot(host);
     flushSync(() => {
-      generalTabRoot.render(createElement(OptionsPageContext.Provider, { value: optionsPage }, createElement(GeneralTab)));
+      root.render(createElement(OptionsPageContext.Provider, { value: optionsPage }, view));
     });
   }
-  const appearanceTab = OPTIONS_APPEARANCE_TAB.createAppearanceTab(optionsSettingsControlsApi.createAppearanceTabController(
-    queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="appearance"]')
-  ));
-  const appearanceGlobalSection = OPTIONS_APPEARANCE_GLOBAL_SECTION.createAppearanceGlobalSection({
-    view: appearanceTab.global,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage,
-    onTheme(mode, button) {
-      playThemeOptionClickEffect(button);
-      setThemeMode(mode);
-    }
-  });
-  const appearanceOverlaySection = OPTIONS_APPEARANCE_OVERLAY_SECTION.createAppearanceOverlaySection({
-    view: appearanceTab.overlay,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage,
-    formatTemplate,
-    browserFamily: document.documentElement.getAttribute('data-browser-family') || '',
-    listInstalledFonts,
-    getViewportTopInset: getMenuViewportTopInset
-  });
-  const appearanceNewtabLookSection = OPTIONS_APPEARANCE_NEWTAB_LOOK_SECTION.createAppearanceNewtabLookSection({
-    view: appearanceTab.newtabLook,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage,
-    notifyNewtabSectionsRefresh: (section) => notifyNewtabSectionsRefresh(section),
-    getViewportTopInset: getMenuViewportTopInset
-  });
-  // The daily quote mirrors the quote section of New Tab's appearance panel.
-  const dailyQuoteSection = OPTIONS_DAILY_QUOTE_SECTION.createDailyQuoteSection({
-    view: appearanceTab.dailyQuote,
-    settings: SETTINGS,
-    customQuotes: CUSTOM_QUOTES,
-    getMessage,
-    showToast: (message, isError) => showToast(message, isError),
-    settingsStore: optionsState.settingsStore,
-    getViewportTopInset: getMenuViewportTopInset
-  });
-  const appearanceNewtabLayoutSection = OPTIONS_APPEARANCE_NEWTAB_LAYOUT_SECTION.createAppearanceNewtabLayoutSection({
-    view: appearanceTab.newtabLayout,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage,
-    notifyNewtabSectionsRefresh: (section) => notifyNewtabSectionsRefresh(section)
-  });
+  // Drawn before the switches below are set up, which mark the rows this
+  // browser cannot honor.
+  mountTab('general', createElement(GeneralTab));
+  mountTab('appearance', createElement(AppearanceTab));
   const labsSection = OPTIONS_LABS_SECTION.createLabsSection({
     host: queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="labs"]'),
     optionsSettingsControlsApi,
@@ -471,9 +429,6 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     return optionsState.providerStorageRuntime.getActiveAreaName();
   }
 
-  function animateOptionsPanelHeight(mutateLayout: LayoutMutation): boolean {
-    return optionsState.panelHeightAnimator.animate(mutateLayout);
-  }
   settingBinder.onChange(SETTINGS.searchSourceOrder, () => {
     optionsState.searchSourceOrderController.accept(optionsState.settingsStore.getStored(SETTINGS.searchSourceOrder));
   });
@@ -585,37 +540,7 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     });
   }
 
-  function updateOverlayPageThemeAdaptationVisibility(mode: unknown): void {
-    const nextMode = mode === 'dark' || mode === 'light' ? mode : 'system';
-    animateOptionsPanelHeight(() => {
-      document.documentElement.setAttribute('data-options-theme-mode', nextMode);
-      return appearanceOverlaySection.showThemeMode(nextMode);
-    });
-  }
-
-  function setThemeMode(mode: unknown): void {
-    themeSection.setMode(mode);
-  }
-
-  function playThemeOptionClickEffect(button: Element | null): void {
-    THEME.playThemeOptionClickEffect(button, window);
-  }
-
-  const themeSection = THEME.createThemeSection({
-    documentObj: document,
-    getMessage,
-    onModeShown: updateOverlayPageThemeAdaptationVisibility,
-    panel,
-    picker: appearanceGlobalSection.themePicker,
-    settings: SETTINGS,
-    settingsStore: optionsState.settingsStore,
-    windowObj: window
-  });
-  themeSection.init();
-  settingBinder.onChange(SETTINGS.themeMode, () => {
-    themeSection.applyStorageChange(optionsState.settingsStore.get(SETTINGS.themeMode));
-  });
-
+  pageTheme.start();
 
   initTooltips();
 
@@ -657,11 +582,6 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
 
   browserCommands.follow(window, document);
 
-  appearanceGlobalSection.bindSettings(settingBinder);
-  appearanceOverlaySection.bindSettings(settingBinder);
-  appearanceNewtabLookSection.bindSettings(settingBinder);
-  dailyQuoteSection.bindSettings(settingBinder);
-  appearanceNewtabLayoutSection.bindSettings(settingBinder);
   labsSection.bindSettings(settingBinder);
   blacklistSection.bindSettings(settingBinder);
   shortcutsSection.bindSettings(settingBinder);
@@ -675,17 +595,15 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     });
     refreshCustomSelects();
     refreshSyncStatus();
-    themeSection.render();
     renderSettingsNavigation(optionsState.currentActiveSettingsTab);
     [
-      appearanceGlobalSection, appearanceOverlaySection,
-      appearanceNewtabLookSection, dailyQuoteSection, appearanceNewtabLayoutSection, labsSection, blacklistSection
+      labsSection, blacklistSection
     ].forEach((section) => section.render());
     renderSiteSearchList();
     renderAggregateSearchList();
   });
   optionsLocale.follow();
-  void Promise.all([settingBinder.whenBound(), optionsSettingsStore.include(GENERAL_TAB_SETTINGS)]).then(finishOptionsStartupRead);
+  void Promise.all([settingBinder.whenBound(), optionsSettingsStore.include([...GENERAL_TAB_SETTINGS, ...APPEARANCE_TAB_SETTINGS])]).then(finishOptionsStartupRead);
 
   refreshCustomSelects();
 
