@@ -34,6 +34,7 @@ import { simpleModeEnabled } from '../../domain/settings/appearance';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import type { SiteSearchCatalog } from '../features/site-search/catalog';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -52,9 +53,6 @@ interface SuggestionSourcesState {
   localSearchScopeState: LocalSearchScope | null;
   localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
   inlineSearchState: InlineSearchState | null;
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
-  defaultSiteSearchProviders: SiteSearchProvider[];
-  aggregateSearchesCache: AggregateSearch[] | null;
   overlayLanguageMode: string;
   overlayThemeMode: ThemeMode;
   prioritizeCurrentPageMatch: boolean;
@@ -64,6 +62,7 @@ interface SuggestionSourcesState {
 }
 
 interface SuggestionSourcesDeps {
+  siteSearchCatalog: SiteSearchCatalog;
   formatMessage: FormatMessage;
   t: Translate;
   SETTINGS: Pick<typeof Settings, 'normalizeLocale'>;
@@ -85,7 +84,6 @@ interface SuggestionSourcesDeps {
   buildCommandSuggestion(command: SlashCommand): CommandSuggestion;
   isCurrentOverlayTabUrl(url: string): boolean;
   getSearchTriggerProviders(providers: SiteSearchProvider[] | null, definitions: AggregateSearch[] | null): SiteSearchProvider[];
-  getSiteSearchProviders(): Promise<SiteSearchProvider[]>;
   getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[] | null): { provider: SiteSearchProvider; query: string } | null;
   buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string;
   getSiteSearchActionTitle(provider: SiteSearchProvider | null, query: string): string;
@@ -136,6 +134,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    siteSearchCatalog,
     formatMessage,
     getPageFaviconCandidateUrl,
     isLocalNetworkInput,
@@ -157,7 +156,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     buildCommandSuggestion,
     isCurrentOverlayTabUrl,
     getSearchTriggerProviders,
-    getSiteSearchProviders,
     getInlineSiteSearchCandidate,
     buildSearchUrl,
     getSiteSearchActionTitle,
@@ -457,16 +455,14 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         preSuggestions.push(...keywordSuggestions);
       }
 
-      const siteProvidersForTags = (overlayState.siteSearchProvidersCache && overlayState.siteSearchProvidersCache.length > 0)
-        ? overlayState.siteSearchProvidersCache
-        : overlayState.defaultSiteSearchProviders;
+      const siteProvidersForTags = siteSearchCatalog.providers;
       const providersForTags = getSearchTriggerProviders(
         siteProvidersForTags,
-        overlayState.aggregateSearchesCache
+        siteSearchCatalog.aggregates
       );
-      if (!overlayState.siteSearchProvidersCache && !pendingProviderReload) {
+      if (!siteSearchCatalog.loadedProviders && !pendingProviderReload) {
         pendingProviderReload = true;
-        void getSiteSearchProviders().then(() => {
+        void siteSearchCatalog.loadProviders().then(() => {
           pendingProviderReload = false;
           if (query !== overlayState.latestOverlayQuery) {
             return;

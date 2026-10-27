@@ -1,19 +1,13 @@
 // Site search providers and aggregate searches in the overlay: their
-// URLs and icons, running an interactive provider, recording a selection,
-// and loading and reloading both lists.
+// URLs and icons, running an interactive provider and recording a
+// selection. The lists themselves are the catalog's.
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
 import type { Disposition } from '../../domain/navigation-disposition';
 import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
-import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
 import * as AGGREGATE_SEARCH_SURFACE from '../../domain/search/aggregate-search-surface';
-import { readSiteSearchProviders } from '../../domain/search/site-search-provider-reader';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
-import { siteSearchCustom, siteSearchDisabled } from '../../domain/settings/search';
-import type { OverlaySettings } from '../overlay-settings';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import * as SITE_SEARCH_STORE from '../../shared/search/site-search-store';
-import * as LumnoAggregateSearchStorage from '../../platform/aggregate-search-storage';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
 import type { Translate } from './types';
@@ -24,15 +18,6 @@ import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-c
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 
 interface SiteSearchProvidersState {
-  settings: Pick<OverlaySettings, 'store' | 'loaded' | 'get'>;
-  // The bundled providers, for when the stored list cannot load.
-  defaultSiteSearchProviders: SiteSearchProvider[];
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
-  // Raised to drop a load that a newer one replaced.
-  siteSearchProvidersLoadVersion: number;
-  aggregateSearchesCache: AggregateSearch[] | null;
-  aggregateSearchesLoadPromise: Promise<AggregateSearch[]> | null;
-  aggregateSearchesLoadVersion: number;
   // A favicon as a data: URL from the worker; empty or null when there is none.
   requestFaviconData(url: string, pageUrl?: string): Promise<string | null>;
 }
@@ -69,7 +54,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   // The panel state object shared with search-panel.ts and the other modules.
   const overlayState = deps.overlayState;
 
-  let siteSearchProvidersLoadPromise: Promise<SiteSearchProvider[]> | null = null;
   let aggregateSearchRequestController: ReturnType<typeof AGGREGATE_SEARCH_SURFACE.createAggregateSearchRequestController> | null = null;
 
   function buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string {
@@ -218,103 +202,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     return toPageRenderableIconUrl(getProviderIcon(provider), BundledIcons.getSiteSearchProviderPageUrl(provider));
   }
 
-  // Starts a load of the providers; a newer load, or an invalidating one,
-  // wins over any still running.
-  function beginSiteSearchProviderLoad(
-    loader: () => Promise<SiteSearchProvider[]>,
-    options?: { invalidate?: boolean }
-  ): { promise: Promise<SiteSearchProvider[]>; version: number } {
-    const settings: { invalidate?: boolean } = options && typeof options === 'object' ? options : {};
-    if (settings.invalidate === true) {
-      overlayState.siteSearchProvidersLoadVersion += 1;
-      siteSearchProvidersLoadPromise = null;
-    }
-    const loadVersion = overlayState.siteSearchProvidersLoadVersion;
-    const loadTask: Promise<SiteSearchProvider[]> = Promise.resolve().then(() => loader()).then((items) => {
-      const normalizedItems = Array.isArray(items) ? items : [];
-      if (loadVersion === overlayState.siteSearchProvidersLoadVersion &&
-          siteSearchProvidersLoadPromise === loadTask) {
-        overlayState.siteSearchProvidersCache = normalizedItems;
-        return normalizedItems;
-      }
-      return overlayState.siteSearchProvidersCache || [];
-    }).catch(() => {
-      if (loadVersion === overlayState.siteSearchProvidersLoadVersion &&
-          siteSearchProvidersLoadPromise === loadTask) {
-        overlayState.siteSearchProvidersCache = null;
-      }
-      return overlayState.siteSearchProvidersCache || [];
-    }).finally(() => {
-      if (siteSearchProvidersLoadPromise === loadTask) {
-        siteSearchProvidersLoadPromise = null;
-      }
-    });
-    siteSearchProvidersLoadPromise = loadTask;
-    return {
-      promise: loadTask,
-      version: loadVersion
-    };
-  }
-
-  function getSiteSearchProviders(): Promise<SiteSearchProvider[]> {
-    if (siteSearchProvidersLoadPromise) {
-      return siteSearchProvidersLoadPromise;
-    }
-    if (overlayState.siteSearchProvidersCache) {
-      return Promise.resolve(overlayState.siteSearchProvidersCache);
-    }
-    return beginSiteSearchProviderLoad(() => SITE_SEARCH_STORE.loadSiteSearchProviders({
-      chromeApi: chrome,
-      settingsStore: overlayState.settings.store,
-      defaultProviders: overlayState.defaultSiteSearchProviders,
-      mergeCustomProviders: SearchSiteSearchProviders.mergeCustomProviders
-    })).promise;
-  }
-
-  function reloadSiteSearchProvidersFromStorage(): { promise: Promise<SiteSearchProvider[]>; version: number } {
-    const settings = overlayState.settings;
-    return beginSiteSearchProviderLoad(() => settings.loaded.then(() => {
-      const customItems = readSiteSearchProviders(settings.get(siteSearchCustom));
-      const storedDisabledKeys: unknown = settings.get(siteSearchDisabled);
-      const disabledKeys = Array.isArray(storedDisabledKeys) ? storedDisabledKeys : [];
-      return SITE_SEARCH_STORE.mergeStoredProviders(
-        overlayState.defaultSiteSearchProviders,
-        customItems,
-        disabledKeys,
-        SearchSiteSearchProviders.mergeCustomProviders
-      );
-    }), { invalidate: true });
-  }
-
-  function getAggregateSearches(): Promise<AggregateSearch[]> {
-    if (overlayState.aggregateSearchesCache) {
-      return Promise.resolve(overlayState.aggregateSearchesCache);
-    }
-    if (overlayState.aggregateSearchesLoadPromise) {
-      return overlayState.aggregateSearchesLoadPromise;
-    }
-    const loadVersion = overlayState.aggregateSearchesLoadVersion;
-    const loadTask = LumnoAggregateSearchStorage.readAggregateSearches(overlayState.settings.store).then((items) => {
-      if (loadVersion === overlayState.aggregateSearchesLoadVersion) {
-        overlayState.aggregateSearchesCache = items;
-        return items;
-      }
-      return overlayState.aggregateSearchesCache || [];
-    }).catch((): AggregateSearch[] => {
-      if (loadVersion === overlayState.aggregateSearchesLoadVersion) {
-        overlayState.aggregateSearchesCache = null;
-        return [];
-      }
-      return overlayState.aggregateSearchesCache || [];
-    }).finally(() => {
-      if (overlayState.aggregateSearchesLoadPromise === loadTask) {
-        overlayState.aggregateSearchesLoadPromise = null;
-      }
-    });
-    overlayState.aggregateSearchesLoadPromise = loadTask;
-    return loadTask;
-  }
-
   return {
     buildSearchUrl,
     isAiSiteSearchProvider,
@@ -324,10 +211,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     recordSearchSuggestionSelectionFromSuggestion,
     getProviderIcon,
     toPageRenderableIconUrl,
-    getPageRenderableProviderIcon,
-    getSiteSearchProviders,
-    reloadSiteSearchProvidersFromStorage,
-    getAggregateSearches
+    getPageRenderableProviderIcon
   };
 }
 

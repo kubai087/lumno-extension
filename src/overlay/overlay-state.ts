@@ -2,11 +2,9 @@
 // overlay/panel/: each module declares the slice it reads and writes, and
 // this type is all of them together.
 import type { OverlayTab } from '../domain/messages';
-import type { AggregateSearch } from '../domain/search/aggregate-search-store';
 import type { createImeKeyGuard } from '../domain/search/ime-key-guard';
 import type { createSearchInputHistoryController } from '../domain/search/search-input-history';
 import type { SuggestionInputPreview } from '../domain/search/suggestion-input-preview';
-import type { SiteSearchProvider } from '../domain/search/types';
 import type { ThemeVariant } from '../shared/favicon/favicon-theme';
 import type { SearchInputParts } from '../shared/react/search-input';
 import type { InputModeController } from '../shared/search/search-input-mode';
@@ -73,7 +71,7 @@ type OverlayState =
   RemoteSuggestionsState &
   ResultActivationState &
   ResultsLayoutState &
-  SearchInputEventsState<SiteSearchProvider, AggregateSearch> &
+  SearchInputEventsState &
   SearchModeMenuState &
   SearchModesState &
   SettingsSyncState<OverlaySuggestion, InputModeProvider> &
@@ -97,7 +95,6 @@ interface OverlayStateParts {
   overlayMediaQuery: MediaQueryList;
   defaultTheme: ThemeVariant;
   urlHighlightTheme: ThemeVariant;
-  defaultSiteSearchProviders: SiteSearchProvider[];
   // The favicon runtime is made after the modules that read these, so the
   // panel hands in functions that reach it once it exists.
   requestFaviconData: OverlayState['requestFaviconData'];
@@ -114,7 +111,6 @@ interface OverlayStateParts {
   documentPipEnabled: boolean;
   tabs: OverlayTab[];
   currentOverlayTabId: number | null;
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
 }
 
 function createOverlayState(parts: OverlayStateParts): OverlayState {
@@ -130,7 +126,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayMediaQuery: parts.overlayMediaQuery,
     defaultTheme: parts.defaultTheme,
     urlHighlightTheme: parts.urlHighlightTheme,
-    defaultSiteSearchProviders: parts.defaultSiteSearchProviders,
     requestFaviconData: parts.requestFaviconData,
     attachResolvedFaviconWithFallbacks: parts.attachResolvedFaviconWithFallbacks,
     isBlockedLocalFaviconUrl: parts.isBlockedLocalFaviconUrl,
@@ -147,7 +142,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     tabs: parts.tabs,
     currentOverlayTabId: parts.currentOverlayTabId,
     overlayTabsCacheReady: parts.tabs.length > 0,
-    siteSearchProvidersCache: parts.siteSearchProvidersCache,
 
     // The panel's elements, made when it mounts.
     overlay: null,
@@ -206,13 +200,7 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     lastRenderedActionContextKey: '',
     overlaySuggestionRequestSeq: 0,
     overlayRemoteSuggestionDebounceTimer: null,
-    overlayFirstResultRevealTimer: null,
-
-    // Site searches and aggregate searches, loaded on demand.
-    siteSearchProvidersLoadVersion: 0,
-    aggregateSearchesCache: null,
-    aggregateSearchesLoadPromise: null,
-    aggregateSearchesLoadVersion: 0
+    overlayFirstResultRevealTimer: null
   };
 }
 

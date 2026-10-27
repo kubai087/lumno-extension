@@ -23,6 +23,7 @@ import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { macosCtrlSuggestionNavigationEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import type { SiteSearchCatalog } from '../features/site-search/catalog';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -41,9 +42,6 @@ interface PanelKeysState {
   openTabsSearchModeActive: boolean;
   inlineSearchState: InlineSearchState | null;
   autocompleteState: AutocompleteState | null;
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
-  defaultSiteSearchProviders: SiteSearchProvider[];
-  aggregateSearchesCache: AggregateSearch[] | null;
   currentSuggestions: OverlaySuggestion[];
   selectedIndex: number;
   // The search suggestion the arrows show in the input.
@@ -57,6 +55,7 @@ interface PanelKeysState {
 }
 
 interface PanelKeysDeps {
+  siteSearchCatalog: SiteSearchCatalog;
   cancelPendingOpenTabsPrefixEntry(): boolean;
   openSearchModeMenuFromDoubleTab(): Promise<boolean>;
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
@@ -70,8 +69,6 @@ interface PanelKeysDeps {
     topSiteMatch: SuggestionLike | null
   ): SiteSearchProvider | null;
   getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
-  getSiteSearchProviders(): Promise<SiteSearchProvider[]>;
-  getAggregateSearches(): Promise<AggregateSearch[]>;
   getShortcutRules(): Promise<ShortcutRule[]>;
   syncSuggestionActionModifiersFromEvent(event: ActivationEvent | null): void;
   clearSiteSearch(): void;
@@ -124,6 +121,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    siteSearchCatalog,
     cancelPendingOpenTabsPrefixEntry,
     openSearchModeMenuFromDoubleTab,
     activateOpenTabsSearchMode,
@@ -133,8 +131,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     getTopSiteMatchCandidate,
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
-    getSiteSearchProviders,
-    getAggregateSearches,
     getShortcutRules,
     syncSuggestionActionModifiersFromEvent,
     clearSiteSearch,
@@ -258,12 +254,10 @@ function createPanelKeys(deps: PanelKeysDeps) {
     }
     if (triggerInput) {
       e.preventDefault();
-      const siteProviders = (overlayState.siteSearchProvidersCache && overlayState.siteSearchProvidersCache.length > 0)
-        ? overlayState.siteSearchProvidersCache
-        : overlayState.defaultSiteSearchProviders;
+      const siteProviders = siteSearchCatalog.providers;
       const providers = getSearchTriggerProviders(
         siteProviders,
-        overlayState.aggregateSearchesCache
+        siteSearchCatalog.aggregates
       );
       const topSiteMatch = getTopSiteMatchCandidate(overlayState.currentSuggestions, triggerInput);
       const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
@@ -273,13 +267,13 @@ function createPanelKeys(deps: PanelKeysDeps) {
       }
       const cachedRules = shortcutRulesCache.rules;
       const directLocalScope = getLocalSearchScopeCandidate(triggerInput, cachedRules);
-      if (overlayState.siteSearchProvidersCache && directLocalScope) {
+      if (siteSearchCatalog.loadedProviders && directLocalScope) {
         activateLocalSearchScope(directLocalScope);
         return true;
       }
       void Promise.all([
-        getSiteSearchProviders(),
-        getAggregateSearches(),
+        siteSearchCatalog.loadProviders(),
+        siteSearchCatalog.loadAggregates(),
         getShortcutRules()
       ]).then(([items, definitions, rules]) => {
         // The input may have been replaced while the lists loaded.

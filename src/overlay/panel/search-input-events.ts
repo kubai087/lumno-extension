@@ -4,16 +4,16 @@ import type { ShortcutRule } from '../../domain/messages';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
-import type { LocalSearchScope } from '../../domain/search/types';
+import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
+import type { LocalSearchScope, SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { LocalSearchScopeTrigger, SiteSearchTrigger } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
+import type { SiteSearchCatalog } from '../features/site-search/catalog';
 
-// Provider is a site search provider, Aggregate an aggregate search; this
-// module passes both to the trigger lookups.
-interface SearchInputEventsState<Provider, Aggregate> {
+interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
   inputContainer: HTMLElement | null;
   imeKeyGuard: Pick<ReturnType<typeof createImeKeyGuard>, 'markCompositionStart' | 'markCompositionEnd' | 'isComposing'>;
@@ -23,29 +23,27 @@ interface SearchInputEventsState<Provider, Aggregate> {
   // Typing on from a suggestion the arrows show keeps it as typed text.
   suggestionInputPreview: Pick<SuggestionInputPreview, 'commit'>;
   overlayEngagementNoticeController: Pick<EngagementNoticeController, 'recordMeaningfulUse'> | null;
-  siteSearchTriggerState: SiteSearchTrigger<Provider> | null;
+  siteSearchTriggerState: SiteSearchTrigger<SiteSearchProvider> | null;
   localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
   // Only whether a site search or a local scope is active.
   siteSearchState: unknown;
   localSearchScopeState: LocalSearchScope | null;
   openTabsSearchModeActive: boolean;
-  siteSearchProvidersCache: Provider[] | null;
-  defaultSiteSearchProviders: Provider[];
-  aggregateSearchesCache: Aggregate[] | null;
   selectedIndex: number;
   latestOverlayQuery: string;
   latestRawInputValue: string;
   lastDeletionAt: number;
 }
 
-interface SearchInputEventsDeps<Provider, Aggregate> {
+interface SearchInputEventsDeps {
+  siteSearchCatalog: SiteSearchCatalog;
   applyNoTranslate(element: Element): unknown;
   clearSiteSearchTabHint(): void;
   isSlashCommandInput(input: string): boolean;
-  getSearchTriggerProviders(siteProviders: Provider[], aggregates: Aggregate[] | null): Provider[];
-  getInlineSiteSearchCandidate(input: string, providers: Provider[]): unknown;
-  getSiteSearchTriggerCandidate(input: string, providers: Provider[], options: null): Provider | null;
-  setSiteSearchTabHint(provider: Provider | InputModeProvider): void;
+  getSearchTriggerProviders(siteProviders: SiteSearchProvider[], aggregates: AggregateSearch[]): SiteSearchProvider[];
+  getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[]): unknown;
+  getSiteSearchTriggerCandidate(input: string, providers: SiteSearchProvider[], options: null): SiteSearchProvider | null;
+  setSiteSearchTabHint(provider: SiteSearchProvider | InputModeProvider): void;
   getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
   getLocalSearchScopeTabHintProvider(scope: LocalSearchScope): InputModeProvider;
   cancelPendingOverlaySuggestionRequests(): void;
@@ -60,15 +58,16 @@ interface SearchInputEventsDeps<Provider, Aggregate> {
   updatePendingSearchSuggestions(query: string): boolean;
   requestOverlaySearchSuggestions(query: string): void;
   clearSearchSuggestions(): void;
-  overlayState: SearchInputEventsState<Provider, Aggregate>;
+  overlayState: SearchInputEventsState;
 }
 
 function readInputType(event: Event | null): string {
   return event && 'inputType' in event && typeof event.inputType === 'string' ? event.inputType : '';
 }
 
-function createSearchInputEvents<Provider, Aggregate>(deps: SearchInputEventsDeps<Provider, Aggregate>) {
+function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    siteSearchCatalog,
     applyNoTranslate,
     clearSiteSearchTabHint,
     isSlashCommandInput,
@@ -156,12 +155,10 @@ function createSearchInputEvents<Provider, Aggregate>(deps: SearchInputEventsDep
       return;
     }
 
-    const siteProviders = (overlayState.siteSearchProvidersCache && overlayState.siteSearchProvidersCache.length > 0)
-      ? overlayState.siteSearchProvidersCache
-      : overlayState.defaultSiteSearchProviders;
+    const siteProviders = siteSearchCatalog.providers;
     const providers = getSearchTriggerProviders(
       siteProviders,
-      overlayState.aggregateSearchesCache
+      siteSearchCatalog.aggregates
     );
     if (getInlineSiteSearchCandidate(triggerInput, providers)) {
       clearPendingSearchTriggerHint();

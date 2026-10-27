@@ -18,6 +18,7 @@ import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import type { SiteSearchCatalog } from '../features/site-search/catalog';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
@@ -27,9 +28,6 @@ interface SearchModeMenuState {
   overlaySearchEngineStateReady: Promise<SearchEngineState | null>;
   // The page the overlay opened on, whose site search the menu offers first.
   initialContextTabUrl: string;
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
-  defaultSiteSearchProviders: SiteSearchProvider[];
-  aggregateSearchesCache: AggregateSearch[] | null;
   siteSearchState: InputModeProvider | null;
   localSearchScopeState: LocalSearchScope | null;
   openTabsSearchModeActive: boolean;
@@ -38,6 +36,7 @@ interface SearchModeMenuState {
 }
 
 interface SearchModeMenuDeps {
+  siteSearchCatalog: SiteSearchCatalog;
   AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore,
     'isAggregateSearchAvailable' | 'mergeTriggerProviders' | 'createScopeProvider'>;
   SEARCH_SOURCE_ORDER: Pick<typeof SearchSourceOrder,
@@ -51,8 +50,6 @@ interface SearchModeMenuDeps {
   getLocalSearchScopeLabel(scope: Pick<LocalSearchScope, 'sourceType'> | null): string;
   getLocalSearchScopeIconName(sourceType: string): RemixIconName;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
-  getSiteSearchProviders(): Promise<SiteSearchProvider[]>;
-  getAggregateSearches(): Promise<AggregateSearch[]>;
   cancelPendingOpenTabsPrefixEntry(): boolean;
   activateSiteSearch(provider: InputModeProvider | null, options?: { preserveResults?: boolean; animatePrefix?: boolean }): void;
   activateOpenTabsSearchMode(options?: { deferResults?: boolean }): void;
@@ -74,6 +71,7 @@ const getPageSearchSourceOrderHistory = lazyInstance(() => createSearchSourceOrd
 
 function createSearchModeMenu(deps: SearchModeMenuDeps) {
   const {
+    siteSearchCatalog,
     AGGREGATE_SEARCH_STORE,
     t,
     isAggregateSearchProvider,
@@ -85,8 +83,6 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     getLocalSearchScopeIconName,
     SEARCH_SOURCE_ORDER,
     siteSearchIconCache,
-    getSiteSearchProviders,
-    getAggregateSearches,
     cancelPendingOpenTabsPrefixEntry,
     activateSiteSearch,
     activateOpenTabsSearchMode,
@@ -120,9 +116,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
   // The stored providers, with the default search engine first when the
   // list lacks it.
   function getSearchModeProviders(): SiteSearchProvider[] {
-    const providers = (overlayState.siteSearchProvidersCache && overlayState.siteSearchProvidersCache.length > 0)
-      ? overlayState.siteSearchProvidersCache
-      : overlayState.defaultSiteSearchProviders;
+    const providers = siteSearchCatalog.providers;
     const defaultProvider = getOverlayDefaultSearchModeProvider(providers);
     if (!defaultProvider || providers.some((provider) => (
       getSearchModeProviderId(provider) === getSearchModeProviderId(defaultProvider)
@@ -165,7 +159,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     const items: ModeMenuItem[] = [];
     const providers = getSearchModeProviders();
     const activeProvider = overlayState.siteSearchState;
-    (overlayState.aggregateSearchesCache || []).forEach((definition) => {
+    siteSearchCatalog.aggregates.forEach((definition) => {
       if (!isAggregateSearchDefinitionAvailable(definition, providers)) {
         return;
       }
@@ -265,8 +259,8 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
   function getSearchModeMenuItems(): Promise<ModeMenuItem[]> {
     return Promise.all([
       siteSearchIconCache.load(),
-      getSiteSearchProviders(),
-      getAggregateSearches(),
+      siteSearchCatalog.loadProviders(),
+      siteSearchCatalog.loadAggregates(),
       loadSearchSourceOrder()
     ]).then((results) => buildSearchModeMenuItems(results[3]));
   }
@@ -375,7 +369,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     };
     return Promise.all([
       overlayState.overlaySearchEngineStateReady.catch(() => overlayState.overlaySearchEngineState),
-      getSiteSearchProviders().catch(() => overlayState.defaultSiteSearchProviders),
+      siteSearchCatalog.loadProviders(),
       siteSearchIconCache.load()
     ]).then(([, providers]) => activateDefaultProvider(providers));
   }
