@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
-const { createOverlayKeyRouter } = require('../../src/overlay/keyboard.ts');
+const { OverlayKeyRouter } = require('../../src/overlay/keyboard.ts');
 const { createOverlayPage } = require('../helpers/overlay-runtime-harness');
 const { createTabSwitcherPage, switcherTabs } = require('../helpers/tab-switcher-page');
 
@@ -70,7 +70,7 @@ function testKeyRouterSwallowsSyntheticKeys() {
     calls.push(`${name}:${event && event.key}`);
     return true;
   };
-  const router = createOverlayKeyRouter(window, {
+  const router = new OverlayKeyRouter(window, {
     getMount: () => ({ document, host, panel: input }),
     isOverlayConnected: () => true,
     isSearchInputActive: () => true,
@@ -93,7 +93,7 @@ function testKeyRouterSwallowsSyntheticKeys() {
   assert.deepStrictEqual(pageKeys, [], 'the page-facing capture should swallow synthetic keys instead of acting on them');
   router.stop();
 
-  const trustedRouter = createOverlayKeyRouter(window, {
+  const trustedRouter = new OverlayKeyRouter(window, {
     isTrustedEvent: () => true,
     getMount: () => ({ document, host, panel: input }),
     isOverlayConnected: () => true,

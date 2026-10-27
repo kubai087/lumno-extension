@@ -13,7 +13,7 @@ import type { InputModeController } from '../shared/search/search-input-mode';
 import type { InputModeProvider } from '../shared/search/input-mode/types';
 import type { CursorTooltipController } from '../shared/ui/cursor-tooltip-model';
 import type { TooltipController } from '../shared/ui/tooltip';
-import type { createOverlayKeyRouter } from './keyboard';
+import type { OverlayKeyRouter } from './keyboard';
 import type { createSessionCleanupRegistry, createViewportSizeSync } from './lifecycle';
 import type { createNoticeLayer } from './notices';
 import type { AutocompleteOverlayState } from './panel/autocomplete';
@@ -55,7 +55,7 @@ interface SearchPanelState {
   overlaySessionCleanups: ReturnType<typeof createSessionCleanupRegistry>;
   // The session's settings, and what it follows of them until it closes.
   settings: OverlaySettings;
-  overlayKeyRouter: ReturnType<typeof createOverlayKeyRouter> | null;
+  overlayKeyRouter: OverlayKeyRouter | null;
   overlayRevealGate: RevealGate | null;
   topActionTooltipController: TooltipController | null;
   overlayCursorTooltipController: CursorTooltipController | null;

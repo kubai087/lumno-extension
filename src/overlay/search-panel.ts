@@ -1596,7 +1596,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       closeOverlayWithMotion(overlayState.overlay);
     }
   }
-  const overlayKeyRouter = OVERLAY_KEYBOARD.createOverlayKeyRouter(window, {
+  const overlayKeyRouter = new OVERLAY_KEYBOARD.OverlayKeyRouter(window, {
     getMount: () => ({
       document,
       host: getOverlayMountHost(overlayState.overlay),

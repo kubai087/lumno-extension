@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
-const { createOverlayKeyRouter } = require('../../src/overlay/keyboard.ts');
+const { OverlayKeyRouter } = require('../../src/overlay/keyboard.ts');
 
 // The real overlay key router runs here. JSDOM cannot create trusted events,
 // so the router's trust predicate is swapped for one that accepts them; the
@@ -45,7 +45,7 @@ const numberShortcutOptions = {
     numberShortcutSignals.push('toast-hide');
   }
 };
-const keyRouter = createOverlayKeyRouter(window, {
+const keyRouter = new OverlayKeyRouter(window, {
   isTrustedEvent: (event) => Boolean(event),
   getMount: () => ({ document, host, panel: overlay }),
   isOverlayConnected: () => overlay.isConnected,
