@@ -225,6 +225,17 @@ async function searchScopeEscape({ browser }) {
     return Boolean(menu && !menu.hidden && menu.querySelectorAll('[role="menuitemradio"]').length > 1);
   })()`, { message: 'Tab did not open the scope menu' });
   await delay(1000);
+  // The Gemini row stays whole above the menu, and the menu fits below it
+  // (#126).
+  const stacked = await newtab.evaluate(`(() => {
+    const row = document.querySelector('.x-nt-suggestion-item').getBoundingClientRect();
+    const list = document.getElementById('${CONTAINER}').getBoundingClientRect();
+    const menu = document.querySelector('${MENU}').getBoundingClientRect();
+    return { row: Math.round(row.bottom), list: Math.round(list.bottom), menu: Math.round(menu.top),
+      menuBottom: Math.round(menu.bottom), viewport: innerHeight };
+  })()`);
+  assert.ok(stacked.row <= stacked.list && stacked.list <= stacked.menu && stacked.menuBottom <= stacked.viewport,
+    `the scope menu does not sit below the whole row: ${JSON.stringify(stacked)}`);
   // Scrolls the menu's own list, not the page, to the ChatGPT tile.
   const center = await newtab.evaluate(`(() => {
     const tile = Array.from(document.querySelectorAll('${MENU} [role="menuitemradio"]'))
@@ -265,17 +276,6 @@ async function searchScopeEscape({ browser }) {
 // typed address in the page's own tab and Option/Alt+Enter opens a new one;
 // a pinned tab is kept and Enter opens a new tab instead.
 async function overlayCurrentTab({ browser, fixtures }) {
-  // The Gemini row stays whole above the menu, and the menu fits below it
-  // (#126).
-  const stacked = await newtab.evaluate(`(() => {
-    const row = document.querySelector('.x-nt-suggestion-item').getBoundingClientRect();
-    const list = document.getElementById('${CONTAINER}').getBoundingClientRect();
-    const menu = document.querySelector('${MENU}').getBoundingClientRect();
-    return { row: Math.round(row.bottom), list: Math.round(list.bottom), menu: Math.round(menu.top),
-      menuBottom: Math.round(menu.bottom), viewport: innerHeight };
-  })()`);
-  assert.ok(stacked.row <= stacked.list && stacked.list <= stacked.menu && stacked.menuBottom <= stacked.viewport,
-    `the scope menu does not sit below the whole row: ${JSON.stringify(stacked)}`);
   // The page opens first, so the worker is running before it is asked.
   const web = await browser.openPage(fixtures.url('/page.html'));
   const key = SETTINGS.overlayOpenInCurrentTab.key;
