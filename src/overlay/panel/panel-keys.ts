@@ -2,7 +2,6 @@
 // keydown, and navigating, opening and deleting results.
 import type { ShortcutRule, WebAppearanceMode } from '../../domain/messages';
 import type { Disposition } from '../../domain/navigation-disposition';
-import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type * as SearchInputHistory from '../../domain/search/search-input-history';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
@@ -23,7 +22,7 @@ import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { macosCtrlSuggestionNavigationEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
-import type { SiteSearchCatalog } from '../features/site-search/catalog';
+import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -61,7 +60,6 @@ interface PanelKeysDeps {
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
   activateSiteSearch(provider: InputModeProvider | null): void;
   activateLocalSearchScope(scope: LocalSearchScope | null): boolean;
-  getSearchTriggerProviders(providers: SiteSearchProvider[] | null, definitions: AggregateSearch[] | null): SiteSearchProvider[];
   getTopSiteMatchCandidate(list: OverlaySuggestion[] | null, input: string): OverlaySuggestion | null;
   getSiteSearchTriggerCandidate(
     input: string,
@@ -127,7 +125,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     activateOpenTabsSearchMode,
     activateSiteSearch,
     activateLocalSearchScope,
-    getSearchTriggerProviders,
     getTopSiteMatchCandidate,
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
@@ -254,11 +251,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     }
     if (triggerInput) {
       e.preventDefault();
-      const siteProviders = siteSearchCatalog.providers;
-      const providers = getSearchTriggerProviders(
-        siteProviders,
-        siteSearchCatalog.aggregates
-      );
+      const providers = siteSearchCatalog.triggerProviders;
       const topSiteMatch = getTopSiteMatchCandidate(overlayState.currentSuggestions, triggerInput);
       const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
       if (directProvider) {
@@ -275,7 +268,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
         siteSearchCatalog.loadProviders(),
         siteSearchCatalog.loadAggregates(),
         getShortcutRules()
-      ]).then(([items, definitions, rules]) => {
+      ]).then(([, , rules]) => {
         // The input may have been replaced while the lists loaded.
         const liveInput = overlayState.searchInput;
         if (!liveInput || overlayState.siteSearchState || overlayState.localSearchScopeState ||
@@ -285,7 +278,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
         const asyncTopSiteMatch = getTopSiteMatchCandidate(overlayState.currentSuggestions, triggerInput);
         const asyncProvider = getSiteSearchTriggerCandidate(
           triggerInput,
-          getSearchTriggerProviders(items, definitions),
+          siteSearchCatalog.triggerProviders,
           asyncTopSiteMatch
         );
         if (asyncProvider) {

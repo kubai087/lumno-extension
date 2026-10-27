@@ -25,7 +25,6 @@ import * as LumnoOverlayLifecycle from './lifecycle';
 import * as OVERLAY_NOTICES from './notices';
 import * as PANEL_AUTOCOMPLETE from './panel/autocomplete';
 import * as PANEL_COPY_ACTIONS from './panel/copy-actions';
-import * as PANEL_DEFAULT_SEARCH_ENGINE from './panel/default-search-engine';
 import * as PANEL_ENTRY_MOTION from './panel/entry-motion';
 import * as PANEL_FAVICON_POLICY from './panel/favicon-policy';
 import * as PANEL_PAGE_GUARDS from './panel/page-guards';
@@ -60,14 +59,12 @@ import * as LumnoMessaging from '../platform/messaging';
 import { isOverlayOpenState, setOverlayOpenState } from '../platform/content-registry';
 import { getOverlayShellApi } from './react/shell';
 import { createSearchInput } from '../shared/react/search-input';
-import { SiteSearchCatalog } from './features/site-search/catalog';
+import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
+import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
 import { themeColorCache, themeHostCache } from '../shared/favicon/theme-caches';
 import {
-  aggregateSearches,
   searchInputHistory,
   searchSourceOrder,
-  siteSearchCustom,
-  siteSearchDisabled,
   siteSearchIconCache as siteSearchIconCacheSetting
 } from '../domain/settings/search';
 import { createSettingPort } from '../platform/settings-store';
@@ -150,7 +147,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     tabs: initialOverlayTabs,
     currentOverlayTabId: initialContextTabId
   });
-  const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings, openOptions.siteSearchProviders);
+  // They follow storage only once the panel mounts, below.
+  const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
+  const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings.store, searchEngine, openOptions.siteSearchProviders);
 
   const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
 
@@ -337,13 +336,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     isModeCommand: (...args) => isModeCommand(...args),
     applyOverlayTheme,
-    buildDefaultSearchUrlForOverlay: (...args) => buildDefaultSearchUrlForOverlay(...args),
-    getDefaultSearchEngineFaviconUrlForOverlay: (...args) => getDefaultSearchEngineFaviconUrlForOverlay(...args),
+    searchEngine,
     getCommandMatches: (...args) => getCommandMatches(...args),
     buildModeSuggestion: (...args) => buildModeSuggestion(...args),
     buildCommandSuggestion: (...args) => buildCommandSuggestion(...args),
     isCurrentOverlayTabUrl,
-    getSearchTriggerProviders: (...args) => getSearchTriggerProviders(...args),
     siteSearchCatalog,
     getInlineSiteSearchCandidate: (...args) => getInlineSiteSearchCandidate(...args),
     buildSearchUrl: (...args) => buildSearchUrl(...args),
@@ -441,10 +438,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyThemeVariables: (...args) => applyThemeVariables(...args),
     applyMarkVariables: (...args) => applyMarkVariables(...args),
     copySearchResultUrl: (...args) => copySearchResultUrl(...args),
-    getSearchActionLabel: (...args) => getSearchActionLabel(...args),
     getSiteSearchDisplayName: (...args) => getSiteSearchDisplayName(...args),
     isAiSiteSearchProvider: (...args) => isAiSiteSearchProvider(...args),
-    getDefaultSearchEngineThemeUrlForOverlay: (...args) => getDefaultSearchEngineThemeUrlForOverlay(...args),
+    searchEngine,
     getBrandAccentForUrl: (...args) => getBrandAccentForUrl(...args),
     buildTheme,
     normalizeSearchResultDisplayLimit: (...args) => normalizeSearchResultDisplayLimit(...args),
@@ -452,7 +448,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setOpenTabsResultsViewport: (...args) => setOpenTabsResultsViewport(...args),
     setOverlayResultsCollapsed: (...args) => setOverlayResultsCollapsed(...args),
     isAggregateSearchProvider: (...args) => isAggregateSearchProvider(...args),
-    getSearchModeProviderId: (...args) => getSearchModeProviderId(...args),
     filterTabsForOverlay,
     shouldShowOpenTabsForEmptyQuery: (...args) => shouldShowOpenTabsForEmptyQuery(...args),
     clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args),
@@ -473,7 +468,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
     activateSiteSearch: (...args) => activateSiteSearch(...args),
     activateLocalSearchScope: (...args) => activateLocalSearchScope(...args),
-    getSearchTriggerProviders: (...args) => getSearchTriggerProviders(...args),
     getTopSiteMatchCandidate: (...args) => getTopSiteMatchCandidate(...args),
     getSiteSearchTriggerCandidate: (...args) => getSiteSearchTriggerCandidate(...args),
     getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
@@ -528,7 +522,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyNoTranslate: (...args) => applyNoTranslate(...args),
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    getSearchTriggerProviders: (...args) => getSearchTriggerProviders(...args),
     getInlineSiteSearchCandidate: (...args) => getInlineSiteSearchCandidate(...args),
     getSiteSearchTriggerCandidate: (...args) => getSiteSearchTriggerCandidate(...args),
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
@@ -630,10 +623,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    getSearchModeProviderId,
-    getSearchModeProviders,
-    isAggregateSearchDefinitionAvailable,
-    getSearchTriggerProviders,
     getSearchModeMenuItems,
     reorderSearchModeMenu,
     stepSearchModeMenuHistory,
@@ -641,6 +630,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem
   } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
+    searchEngine,
     AGGREGATE_SEARCH_STORE,
     t: (...args) => t(...args),
     isAggregateSearchProvider,
@@ -732,18 +722,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
   }
 
-  const {
-    buildDefaultSearchUrlForOverlay,
-    getDefaultSearchEngineFaviconUrlForOverlay,
-    getDefaultSearchEngineThemeUrlForOverlay,
-    getSearchActionLabel,
-    loadOverlaySearchEngineState
-  } = PANEL_DEFAULT_SEARCH_ENGINE.createDefaultSearchEngine({
-    getOverlayFaviconUrlResolver,
-    t: (...args) => t(...args),
-    settings: overlayState.settings,
-    overlayState
-  });
   const setInputScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
     if (!element) {
       return;
@@ -933,6 +911,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   // No overlay is open here (an open one has closed above, a stale one is
   // being replaced): create it.
+  addOverlaySessionCleanup(searchEngine.follow());
+  addOverlaySessionCleanup(siteSearchCatalog.follow());
   // Read the page theme while the page's layout is still settled: the font
   // faces and the overlay host below each invalidate it, and sampling the
   // page after them pays for a full style and layout pass.
@@ -1302,7 +1282,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     applyOverlayTheme,
     applyLanguageMode,
-    loadOverlaySearchEngineState,
+    searchEngine,
     clearLocalSearchScope,
     requestOverlaySearchSuggestions,
     shouldShowOpenTabsForEmptyQuery,
@@ -1430,19 +1410,15 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       overlayState.inputModeController.refreshModeMenu();
     }
   });
-  overlayState.settings.follow(aggregateSearches, () => {
-    const aggregates = siteSearchCatalog.readStoredAggregates();
+  // A changed list may drop the aggregate search the input is in, or
+  // change its sources.
+  siteSearchCatalog.store.subscribe(() => {
     const activeProvider = overlayState.siteSearchState;
     if (activeProvider && isAggregateSearchProvider(activeProvider)) {
-      const currentId = String(activeProvider.aggregateId || '');
-      const updatedDefinition = aggregates.find(
-        (item) => String(item && item.id ? item.id : '') === currentId
-      );
-      const updatedProvider = updatedDefinition &&
-        isAggregateSearchDefinitionAvailable(updatedDefinition, getSearchModeProviders())
-        ? AGGREGATE_SEARCH_STORE.createScopeProvider(updatedDefinition)
-        : null;
-      if (updatedProvider) {
+      const activeId = String(activeProvider.aggregateId || '');
+      const definition = siteSearchCatalog.aggregates.find((item) => String(item && item.id ? item.id : '') === activeId);
+      if (definition && siteSearchCatalog.isAggregateAvailable(definition)) {
+        const updatedProvider = AGGREGATE_SEARCH_STORE.createScopeProvider(definition);
         overlayState.siteSearchState = updatedProvider;
         setSiteSearchPrefix(updatedProvider, overlayState.defaultTheme, { animate: false });
       } else {
@@ -1455,30 +1431,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (overlayState.latestOverlayQuery) {
       requestOverlaySearchSuggestions(overlayState.latestOverlayQuery);
     }
-  });
-  overlayState.settings.follow([siteSearchCustom, siteSearchDisabled], () => {
-    void siteSearchCatalog.reloadProviders().then((current) => {
-      if (!current) {
-        return;
-      }
-      const activeProvider = overlayState.siteSearchState;
-      if (activeProvider && isAggregateSearchProvider(activeProvider)) {
-        const activeId = String(activeProvider.aggregateId || '');
-        const activeDefinition = siteSearchCatalog.aggregates.find((item) => (
-          String(item && item.id ? item.id : '') === activeId
-        ));
-        if (!activeDefinition ||
-            !isAggregateSearchDefinitionAvailable(activeDefinition, siteSearchCatalog.loadedProviders)) {
-          clearSiteSearch();
-        }
-      }
-      if (overlayState.inputModeController) {
-        overlayState.inputModeController.refreshModeMenu();
-      }
-      if (overlayState.latestOverlayQuery) {
-        requestOverlaySearchSuggestions(overlayState.latestOverlayQuery);
-      }
-    });
   });
 
   overlayState.settings.follow(siteSearchIconCacheSetting, () => {

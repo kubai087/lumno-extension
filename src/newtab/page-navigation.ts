@@ -8,6 +8,7 @@ import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
 import type { BookmarkNode } from './bookmarks/bookmarks-store';
 import type { ShowToast, Translate } from './newtab-types';
 import type { ShortcutItem, VisibleShortcutItem } from '../domain/shortcuts/types';
+import type { DefaultSearchEngine } from '../shared/search-panel/default-engine';
 
 // A shortcut as the page opens it: a site, or a bookmark folder.
 type OpenableShortcut = ShortcutItem | VisibleShortcutItem;
@@ -42,7 +43,7 @@ interface PageNavigationDeps {
   openBookmarkCascadeMenu(folder: BookmarkNode & { type: 'folder' }, anchor: HTMLElement | null): void;
   navigateBookmarkFolder(id: string): void;
   getDirectNavigationUrl(query: string): string;
-  buildDefaultSearchUrl(query: string): string;
+  searchEngine: Pick<DefaultSearchEngine, 'searchUrl'>;
   pageState: PageNavigationState;
 }
 
@@ -57,7 +58,7 @@ function createPageNavigation(deps: PageNavigationDeps) {
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,
     getDirectNavigationUrl,
-    buildDefaultSearchUrl
+    searchEngine
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -267,13 +268,13 @@ function createPageNavigation(deps: PageNavigationDeps) {
     }
     markCurrentTabForSearchTracking();
     const attempted = runBrowserSearch(query, 'CURRENT_TAB', () => {
-      const fallbackUrl = buildDefaultSearchUrl(query);
+      const fallbackUrl = searchEngine.searchUrl(query);
       navigateToUrl(fallbackUrl);
     });
     if (attempted) {
       return;
     }
-    targetUrl = buildDefaultSearchUrl(query);
+    targetUrl = searchEngine.searchUrl(query);
     navigateToUrl(targetUrl);
   }
 

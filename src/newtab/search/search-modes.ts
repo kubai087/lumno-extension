@@ -1,7 +1,5 @@
 // Search mode menu and site-search / local-scope activation for the input.
 import type { ShortcutRule } from '../../domain/messages';
-import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
-import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
 import * as SEARCH_SOURCE_ORDER from '../../domain/search/search-source-order';
 import type { SearchSourceOrder } from '../../domain/search/search-source-order';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
@@ -11,7 +9,6 @@ import type { Suggestion } from '../../shared/react/search/suggestion-list/types
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider, InputModeTheme, ModeMenuItem } from '../../shared/search/input-mode/types';
 import type { FormatMessage, Translate } from '../newtab-types';
-import type { DefaultSearchEngineState } from './default-search-engine';
 import type { SearchModeController } from './search-mode-controller';
 import { getAggregateSearchId } from './search-types';
 import type { ActiveLocalScope, AutocompleteState, InlineSearchState } from './search-types';
@@ -19,6 +16,8 @@ import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
+import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
+import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -35,9 +34,6 @@ interface LocalScopeTrigger {
 interface SearchModesState {
   inputParts: SearchInputParts | null;
   inputModeController: InputModeController | null;
-  defaultSearchEngineState: DefaultSearchEngineState;
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
-  aggregateSearchesCache: AggregateSearch[] | null;
   siteSearchState: SiteSearchProvider | null;
   siteSearchTriggerState: SiteSearchTrigger | null;
   localSearchScopeState: ActiveLocalScope | null;
@@ -54,9 +50,8 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
-  defaultSiteSearchProviders: SiteSearchProvider[];
-  getSearchModeProviderId: SiteSearchProviders['getSearchModeProviderId'];
-  AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore, 'isAggregateSearchAvailable' | 'mergeTriggerProviders'>;
+  siteSearchCatalog: SiteSearchCatalog;
+  searchEngine: DefaultSearchEngine;
   t: Translate;
   createAggregateSearchScopeProvider: SiteSearchProviders['createAggregateSearchScopeProvider'];
   isAggregateSearchProvider: SiteSearchProviders['isAggregateSearchProvider'];
@@ -67,8 +62,6 @@ interface SearchModesDeps {
   getLocalSearchScopeLabel: SiteSearchProviders['getLocalSearchScopeLabel'];
   getLocalSearchScopeIconName: SiteSearchProviders['getLocalSearchScopeIconName'];
   siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
-  getSiteSearchProviders: SiteSearchProviders['getSiteSearchProviders'];
-  getAggregateSearches: SiteSearchProviders['getAggregateSearches'];
   formatMessage: FormatMessage;
   defaultTheme: InputModeTheme;
   clearAutocomplete(): void;
@@ -97,9 +90,8 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
-    defaultSiteSearchProviders,
-    getSearchModeProviderId,
-    AGGREGATE_SEARCH_STORE,
+    siteSearchCatalog,
+    searchEngine,
     t,
     createAggregateSearchScopeProvider,
     isAggregateSearchProvider,
@@ -110,8 +102,6 @@ function createSearchModes(deps: SearchModesDeps) {
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName,
     siteSearchIconCache,
-    getSiteSearchProviders,
-    getAggregateSearches,
     formatMessage,
     defaultTheme,
     clearAutocomplete,
@@ -148,52 +138,6 @@ function createSearchModes(deps: SearchModesDeps) {
     return inputParts.input;
   }
 
-  function getDefaultSearchModeProvider(providers: readonly SiteSearchProvider[]): SiteSearchProvider | null {
-    return SearchSiteSearchProviders.getSearchEngineSiteSearchProvider(
-      pageState.defaultSearchEngineState,
-      providers
-    );
-  }
-
-  function getSearchModeProviders(): SiteSearchProvider[] {
-    const providers = (pageState.siteSearchProvidersCache && pageState.siteSearchProvidersCache.length > 0)
-      ? pageState.siteSearchProvidersCache
-      : defaultSiteSearchProviders;
-    const defaultProvider = getDefaultSearchModeProvider(providers);
-    if (!defaultProvider || providers.some((provider) => (
-      getSearchModeProviderId(provider) === getSearchModeProviderId(defaultProvider)
-    ))) {
-      return providers;
-    }
-    return [defaultProvider].concat(providers);
-  }
-
-  function isAggregateSearchDefinitionAvailable(
-    definition: AggregateSearch | null | undefined,
-    providers?: readonly SiteSearchProvider[] | null
-  ): definition is AggregateSearch {
-    return AGGREGATE_SEARCH_STORE.isAggregateSearchAvailable(
-      definition,
-      providers || getSearchModeProviders()
-    );
-  }
-
-  function getSearchTriggerProviders(
-    providers: readonly SiteSearchProvider[] | null | undefined,
-    definitions: readonly AggregateSearch[] | null | undefined
-  ): SiteSearchProvider[] {
-    const sourceProviders = providers || [];
-    const availableDefinitions = (definitions || [])
-      .filter((definition) => isAggregateSearchDefinitionAvailable(
-        definition,
-        sourceProviders
-      ));
-    return AGGREGATE_SEARCH_STORE.mergeTriggerProviders(
-      sourceProviders,
-      availableDefinitions
-    );
-  }
-
   function buildSearchModeMenuItems(sourceOrder: unknown): ModeMenuItem[] {
     const engineGroup = t('search_scope_group_engines', '搜索引擎');
     const localGroup = t('search_scope_group_local', '浏览器内容');
@@ -201,9 +145,9 @@ function createSearchModes(deps: SearchModesDeps) {
     const siteGroup = t('search_scope_group_sites', '站内搜索');
     const aggregateGroup = t('search_scope_group_aggregates', '聚合搜索');
     const items: ModeMenuItem[] = [];
-    const providers = getSearchModeProviders();
-    (pageState.aggregateSearchesCache || []).forEach((definition) => {
-      if (!isAggregateSearchDefinitionAvailable(definition, providers)) {
+    const providers = siteSearchCatalog.modeProviders;
+    siteSearchCatalog.aggregates.forEach((definition) => {
+      if (!siteSearchCatalog.isAggregateAvailable(definition, providers)) {
         return;
       }
       const provider = createAggregateSearchScopeProvider(definition);
@@ -239,7 +183,7 @@ function createSearchModes(deps: SearchModesDeps) {
         const isSearchEngine = isSearchEngineSiteSearchProvider(provider);
         const groupKey = isSearchEngine ? 'engine' : (isAi ? 'ai' : 'site');
         items.push({
-          id: getSearchModeProviderId(provider),
+          id: SearchSiteSearchProviders.getSearchModeProviderId(provider),
           kind: 'provider',
           provider,
           label: getSiteSearchDisplayName(provider),
@@ -250,7 +194,7 @@ function createSearchModes(deps: SearchModesDeps) {
           iconUrl: getProviderIcon(provider),
           iconName: isAi ? 'ri-search-ai-line' : 'ri-global-line',
           isAi,
-          active: Boolean(pageState.siteSearchState && getSearchModeProviderId(pageState.siteSearchState) === getSearchModeProviderId(provider))
+          active: Boolean(pageState.siteSearchState && SearchSiteSearchProviders.getSearchModeProviderId(pageState.siteSearchState) === SearchSiteSearchProviders.getSearchModeProviderId(provider))
         });
       });
     LOCAL_SCOPE_SOURCES.forEach((sourceType) => {
@@ -289,8 +233,8 @@ function createSearchModes(deps: SearchModesDeps) {
   function getSearchModeMenuItems(): Promise<ModeMenuItem[]> {
     return Promise.all([
       siteSearchIconCache.load(),
-      getSiteSearchProviders(),
-      getAggregateSearches(),
+      siteSearchCatalog.loadProviders(),
+      siteSearchCatalog.loadAggregates(),
       loadSearchSourceOrder()
     ]).then((results) => buildSearchModeMenuItems(results[3]));
   }
@@ -354,7 +298,7 @@ function createSearchModes(deps: SearchModesDeps) {
           String(getSearchInput().value || '') !== expectedInputValue) {
         return false;
       }
-      const provider = getDefaultSearchModeProvider(providers);
+      const provider = SearchSiteSearchProviders.getSearchEngineSiteSearchProvider(searchEngine.engine, providers);
       if (!provider) {
         return false;
       }
@@ -369,13 +313,8 @@ function createSearchModes(deps: SearchModesDeps) {
       controller.openModeMenu('none');
       return true;
     };
-    if (pageState.siteSearchProvidersCache) {
-      return activateDefaultProvider(pageState.siteSearchProvidersCache);
-    }
-    return getSiteSearchProviders().then(
-      activateDefaultProvider,
-      () => activateDefaultProvider(defaultSiteSearchProviders)
-    );
+    const loaded = siteSearchCatalog.loadedProviders;
+    return loaded ? activateDefaultProvider(loaded) : siteSearchCatalog.loadProviders().then(activateDefaultProvider);
   }
 
   function restoreSearchModeQuery(rawQuery: unknown): void {
@@ -588,13 +527,7 @@ function createSearchModes(deps: SearchModesDeps) {
     }
     if (triggerInput) {
       event.preventDefault();
-      const siteProviders = (pageState.siteSearchProvidersCache && pageState.siteSearchProvidersCache.length > 0)
-        ? pageState.siteSearchProvidersCache
-        : defaultSiteSearchProviders;
-      const providers = getSearchTriggerProviders(
-        siteProviders,
-        pageState.aggregateSearchesCache
-      );
+      const providers = siteSearchCatalog.triggerProviders;
       const topSiteMatch = getTopSiteMatchCandidate(pageState.currentSuggestions, triggerInput);
       const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
       if (directProvider) {
@@ -603,15 +536,15 @@ function createSearchModes(deps: SearchModesDeps) {
       }
       const cachedRules = shortcutRulesCache.rules;
       const directLocalScope = getLocalSearchScopeCandidate(triggerInput, cachedRules);
-      if (pageState.siteSearchProvidersCache && directLocalScope) {
+      if (siteSearchCatalog.loadedProviders && directLocalScope) {
         activateLocalSearchScope(directLocalScope);
         return true;
       }
       void Promise.all([
-        getSiteSearchProviders(),
-        getAggregateSearches(),
+        siteSearchCatalog.loadProviders(),
+        siteSearchCatalog.loadAggregates(),
         getShortcutRules()
-      ]).then(([items, definitions, rules]) => {
+      ]).then(([, , rules]) => {
         if (pageState.siteSearchState || pageState.localSearchScopeState ||
             String(getSearchInput().value || '').trim() !== triggerInput) {
           return;
@@ -619,7 +552,7 @@ function createSearchModes(deps: SearchModesDeps) {
         const asyncTopSiteMatch = getTopSiteMatchCandidate(pageState.currentSuggestions, triggerInput);
         const asyncProvider = getSiteSearchTriggerCandidate(
           triggerInput,
-          getSearchTriggerProviders(items, definitions),
+          siteSearchCatalog.triggerProviders,
           asyncTopSiteMatch
         );
         if (asyncProvider) {
@@ -647,9 +580,6 @@ function createSearchModes(deps: SearchModesDeps) {
 
   return {
     handleSearchTabKey,
-    getSearchModeProviders,
-    isAggregateSearchDefinitionAvailable,
-    getSearchTriggerProviders,
     getSearchModeMenuItems,
     reorderSearchModeMenu,
     moveSearchModeMenuGroup,

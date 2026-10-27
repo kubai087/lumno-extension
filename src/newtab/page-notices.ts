@@ -18,6 +18,7 @@ import type { UpdateNoticeController } from '../shared/update-notice';
 import type { Translate } from './newtab-types';
 import { getPageNoticeApi } from './react/page-notice';
 import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
+import type { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 
 interface PageNoticesState {
   updateNoticeController: UpdateNoticeController | null;
@@ -49,7 +50,7 @@ interface PageNoticesDeps {
   activateSiteSearch(provider: SiteSearchProvider): void;
   // The search box's container.
   root: HTMLElement;
-  getSiteSearchProviders(): Promise<SiteSearchProvider[]>;
+  siteSearchCatalog: Pick<SiteSearchCatalog, 'loadProviders'>;
   pageState: PageNoticesState;
 }
 
@@ -70,7 +71,7 @@ function createPageNotices(deps: PageNoticesDeps) {
     newtabEntryAnimationReadyPromise,
     activateSiteSearch,
     root,
-    getSiteSearchProviders
+    siteSearchCatalog
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -330,7 +331,7 @@ function createPageNotices(deps: PageNoticesDeps) {
     } else {
       searchInputContainer.appendChild(helpCenterAskHint);
     }
-    const providerReady = getSiteSearchProviders()
+    const providerReady = siteSearchCatalog.loadProviders()
       .then((items) => (items || [])
         .find((item) => SearchSiteSearchProviders.isHelpCenterSiteSearchProvider(item)) || null)
       .catch(() => null);

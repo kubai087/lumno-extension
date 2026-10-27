@@ -13,7 +13,6 @@ import * as AGGREGATE_SEARCH_STORE from '../domain/search/aggregate-search-store
 import * as AGGREGATE_SEARCH_SURFACE from '../domain/search/aggregate-search-surface';
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
-import * as SITE_SEARCH_STORE from '../shared/search/site-search-store';
 import * as SUGGESTION_ACTION_MODEL from '../domain/search/suggestion-action-model';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
 import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
@@ -55,7 +54,6 @@ import * as NEWTAB_RECENT_CARD_DRAG from './recent/recent-card-drag';
 import * as NEWTAB_RECENT_SECTION from './recent/recent-section';
 import * as NEWTAB_RECENT_SITES_CONTROLLER from './recent/recent-sites-controller';
 import * as NEWTAB_RECENT_SOURCES from './recent/recent-sources';
-import * as NEWTAB_DEFAULT_SEARCH_ENGINE from './search/default-search-engine';
 import * as NEWTAB_DIRECT_NAVIGATION_SETTLE from './search/direct-navigation-settle';
 import * as NEWTAB_SEARCH_AUTOCOMPLETE from './search/search-autocomplete';
 import * as NEWTAB_SEARCH_BOX_CONTROLS from './search/search-box-controls';
@@ -104,13 +102,11 @@ import * as NEWTAB_WALLPAPER_PAGE from './wallpaper/wallpaper-page';
 import * as LumnoMessaging from '../platform/messaging';
 import { isNode } from '../shared/dom-guards';
 import {
-  aggregateSearches,
   bookmarkColumns,
   bookmarkCount,
   bookmarkFolderColorPresets,
   bookmarkFolderIconsVisible,
   bookmarkViewMode,
-  defaultSearchEngine,
   faviconEnhancedFetchEnabled,
   faviconRequestBlacklist,
   hiddenRecentSites,
@@ -158,8 +154,6 @@ import {
   searchResultPriority,
   searchResultSourceTypes,
   simpleModeEnabled,
-  siteSearchDisabled,
-  siteSearchCustom,
   tabRankScoreDebug,
   themeMode
 } from '../domain/settings';
@@ -189,6 +183,8 @@ import {
   createSiteDisplayNameOptions
 } from './newtab-config';
 import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
+import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
+import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { BackgroundAction, BackgroundReply, BackgroundRequest } from '../domain/messages';
 import type { Disposition } from '../domain/navigation-disposition';
 import type { OpenModifiers, SearchActionModel, SearchActionModelOptions } from '../domain/search/suggestion-action-model';
@@ -216,7 +212,6 @@ import * as NewtabShortcutSettings from '../domain/settings/newtab-shortcuts';
 import * as FaviconBrowserIconIndex from '../domain/favicon/browser-icon-index';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
-import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import * as SettingsStorage from '../platform/settings-storage';
 
@@ -551,6 +546,10 @@ import * as SettingsStorage from '../platform/settings-storage';
     ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
   }));
   void siteSearchIconCache.load();
+  const searchEngine = new DefaultSearchEngine(getContextSettingsStore(chrome));
+  searchEngine.follow();
+  const siteSearchCatalog = new SiteSearchCatalog(getContextSettingsStore(chrome), searchEngine);
+  siteSearchCatalog.follow();
   const NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES = ShortcutConstants.DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES;
   const NEWTAB_SHORTCUTS_STORAGE_KEYS = ShortcutConstants.SHORTCUT_STORAGE_KEYS;
   const pageSearchParams = new URLSearchParams(window.location.search || '');
@@ -682,7 +681,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const LEGACY_FOLDER_COLORS_STORAGE_KEY = bookmarkFolderColorsLegacy.key;
   const FOLDER_COLOR_REFS_STORAGE_KEY = bookmarkFolderColorRefs.key;
 
-  const defaultSiteSearchProviders = SearchSiteSearchProviders.getDefaultSiteSearchProviders();
 
 
   const {
@@ -693,9 +691,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     runSiteSearchProviderQuery,
     getProviderFaviconPageUrl,
     getProviderIcon,
-    getSiteSearchProviders,
-    reloadSiteSearchProvidersFromStorage,
-    getAggregateSearches,
     createAggregateSearchScopeProvider,
     getSiteSearchDisplayName,
     getSiteSearchActionTitle,
@@ -711,8 +706,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     normalizeSearchResultDisplayLimit,
     getLocalSearchScopeCandidate,
     getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
-    getSearchModeProviderId
+    getLocalSearchScopeIconName
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
     AGGREGATE_SEARCH_STORE,
     AGGREGATE_SEARCH_SURFACE,
@@ -722,11 +716,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
     siteSearchIconCache,
     getExtensionResourceUrl,
-    SITE_SEARCH_STORE,
-    storageArea,
-    SITE_SEARCH_STORAGE_KEY: siteSearchCustom.key,
-    SITE_SEARCH_DISABLED_STORAGE_KEY: siteSearchDisabled.key,
-    defaultSiteSearchProviders,
     formatMessage,
     getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args),
     getUrlDisplay: (...args) => getUrlDisplay(...args),
@@ -1194,19 +1183,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     pageState
   });
 
-  const {
-    buildDefaultSearchUrl,
-    getDefaultSearchEngineThemeUrl,
-    getDefaultSearchEngineFaviconUrl,
-    getSearchActionLabel,
-    loadDefaultSearchEngineState
-  } = NEWTAB_DEFAULT_SEARCH_ENGINE.createDefaultSearchEngine({
-    getPageFaviconCandidateUrl,
-    t,
-    storageArea,
-    DEFAULT_SEARCH_ENGINE_STORAGE_KEY: defaultSearchEngine.key,
-    pageState
-  });
 
   pageState.quoteRuntime = LumnoNewtabQuotes.createRuntime({
     documentObj: document, windowObj: window, chromeObj: chrome,
@@ -1622,9 +1598,8 @@ import * as SettingsStorage from '../platform/settings-storage';
   }
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
-    loadDefaultSearchEngineState,
+    searchEngine,
     storageChanges,
-    DEFAULT_SEARCH_ENGINE_STORAGE_KEY: defaultSearchEngine.key,
     SEARCH_RESULT_PRIORITY_STORAGE_KEY: searchResultPriority.key,
     normalizeSearchResultPriority,
     SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY: searchResultSourceTypes.key,
@@ -1661,7 +1636,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     pageState
   });
 
-  pageState.AGGREGATE_SEARCH_STORAGE_KEY = aggregateSearches.key;
   migrateLocalSettingsIfNeeded(SYNCED_PAGE_STORAGE_KEYS.slice());
 
   const {
@@ -1738,7 +1712,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     openBookmarkCascadeMenu,
     navigateBookmarkFolder: (...args) => navigateBookmarkFolder(...args),
     getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args),
-    buildDefaultSearchUrl,
+    searchEngine,
     pageState
   });
 
@@ -2468,9 +2442,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
 
   const {
-    getSearchModeProviders,
-    isAggregateSearchDefinitionAvailable,
-    getSearchTriggerProviders,
     getSearchModeMenuItems,
     reorderSearchModeMenu,
     moveSearchModeMenuGroup,
@@ -2486,9 +2457,8 @@ import * as SettingsStorage from '../platform/settings-storage';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
-    defaultSiteSearchProviders,
-    getSearchModeProviderId,
-    AGGREGATE_SEARCH_STORE,
+    siteSearchCatalog,
+    searchEngine,
     t,
     createAggregateSearchScopeProvider,
     isAggregateSearchProvider,
@@ -2499,8 +2469,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     getLocalSearchScopeLabel,
     getLocalSearchScopeIconName,
     siteSearchIconCache,
-    getSiteSearchProviders,
-    getAggregateSearches,
     formatMessage,
     defaultTheme,
     clearAutocomplete,
@@ -2588,6 +2556,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    getPageFaviconCandidateUrl,
     SUGGESTION_ACTION_MODEL,
     activateSiteSearch,
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
@@ -2626,16 +2595,13 @@ import * as SettingsStorage from '../platform/settings-storage';
     buildCommandSuggestion: (...args) => buildCommandSuggestion(...args),
     getDirectUrlSuggestion,
     buildKeywordSuggestions,
-    defaultSiteSearchProviders,
-    getSearchTriggerProviders,
-    getSiteSearchProviders,
+    siteSearchCatalog,
+    searchEngine,
     getInlineSiteSearchCandidate,
     buildSearchUrl,
     getSiteSearchActionTitle,
     getProviderIcon,
     formatMessage,
-    buildDefaultSearchUrl,
-    getDefaultSearchEngineFaviconUrl,
     isAggregateSearchProvider,
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
@@ -2799,10 +2765,10 @@ import * as SettingsStorage from '../platform/settings-storage';
     showTopActionTooltip,
     hideTopActionTooltip,
     bindCursorTooltip,
-    getSearchActionLabel,
+    getSearchActionLabel: () => t('action_search', '搜索'),
     getSiteSearchDisplayName,
     isAiSiteSearchProvider,
-    getDefaultSearchEngineThemeUrl,
+    getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
     getBrandAccentForUrl,
     buildThemeFromAccent,
     newtabSuggestionActionModel,
@@ -2892,7 +2858,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     newtabEntryAnimationReadyPromise,
     activateSiteSearch,
     root,
-    getSiteSearchProviders,
+    siteSearchCatalog,
     pageState
   });
 
@@ -3030,12 +2996,8 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
-    getSiteSearchProviders,
-    getAggregateSearches,
+    siteSearchCatalog,
     isAggregateSearchProvider,
-    getSearchModeProviderId,
-    getSearchModeProviders,
-    isAggregateSearchDefinitionAvailable,
     createAggregateSearchScopeProvider,
     activateSiteSearch,
     activateLocalSearchScope,
@@ -3044,15 +3006,9 @@ import * as SettingsStorage from '../platform/settings-storage';
     focusSearchInputPreservingScroll,
     requestSuggestions,
     storageChanges,
-    SETTINGS,
-    SITE_SEARCH_STORAGE_KEY: siteSearchCustom.key,
-    SITE_SEARCH_DISABLED_STORAGE_KEY: siteSearchDisabled.key,
-    AGGREGATE_SEARCH_STORE,
     setSiteSearchPrefix,
     defaultTheme,
     clearSiteSearch,
-    storageArea,
-    reloadSiteSearchProvidersFromStorage,
     pageState
   });
 

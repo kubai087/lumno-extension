@@ -15,7 +15,6 @@ import type { OverlayKeyRouter } from './keyboard';
 import type { createSessionCleanupRegistry, createViewportSizeSync } from './lifecycle';
 import type { createNoticeLayer } from './notices';
 import type { AutocompleteOverlayState } from './panel/autocomplete';
-import type { DefaultSearchEngineState } from './panel/default-search-engine';
 import type { EntryMotionState } from './panel/entry-motion';
 import type { FaviconPolicyState } from './panel/favicon-policy';
 import type { PanelKeysState } from './panel/panel-keys';
@@ -59,7 +58,6 @@ interface SearchPanelState {
 
 type OverlayState =
   AutocompleteOverlayState &
-  DefaultSearchEngineState &
   EntryMotionState &
   FaviconPolicyState &
   PanelKeysState &
@@ -104,7 +102,6 @@ interface OverlayStateParts {
 }
 
 function createOverlayState(parts: OverlayStateParts): OverlayState {
-  const overlaySearchEngineState = { id: '', name: '', host: '', searchTemplate: '' };
   return {
     // What the panel made before the state.
     settings: parts.settings,
@@ -161,8 +158,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayLanguageMode: 'system',
     overlayThemeMode: 'system',
     defaultPlaceholderText: 'Search or enter URL…',
-    overlaySearchEngineState,
-    overlaySearchEngineStateReady: Promise.resolve(overlaySearchEngineState),
 
     // The query and what it shows.
     latestOverlayQuery: '',

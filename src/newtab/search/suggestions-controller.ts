@@ -1,6 +1,5 @@
 // Requesting, rendering and activating search suggestions.
 import type { OverlayTab, ShortcutRule } from '../../domain/messages';
-import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings';
@@ -35,6 +34,8 @@ import { createSuggestionSource } from '../../domain/search/help-center/search';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
+import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
+import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -64,8 +65,6 @@ interface SuggestionsControllerState {
   newtabThemeMode: NewtabThemeMode;
   newtabThemeScope: NewtabThemeScope;
   currentThemeMode: ThemeMode;
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
-  aggregateSearchesCache: AggregateSearch[] | null;
   simpleModeEnabled: boolean;
   searchResultPriorityMode: string;
   searchResultDisplayLimit: number;
@@ -74,6 +73,9 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  siteSearchCatalog: SiteSearchCatalog;
+  searchEngine: DefaultSearchEngine;
+  getPageFaviconCandidateUrl(pageUrl: string): string;
   SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel, 'getSuggestionUpdateKind' | 'getActionContextKey'>;
   activateSiteSearch: SearchModes['activateSiteSearch'];
   focusSearchInputPreservingScroll(): boolean;
@@ -113,16 +115,11 @@ interface SuggestionsControllerDeps {
   buildCommandSuggestion(command: SlashCommand): Suggestion;
   getDirectUrlSuggestion: SearchNavigation['getDirectUrlSuggestion'];
   buildKeywordSuggestions: SearchNavigation['buildKeywordSuggestions'];
-  defaultSiteSearchProviders: SiteSearchProvider[];
-  getSearchTriggerProviders: SearchModes['getSearchTriggerProviders'];
-  getSiteSearchProviders: SiteSearchProviders['getSiteSearchProviders'];
   getInlineSiteSearchCandidate: SiteSearchProviders['getInlineSiteSearchCandidate'];
   buildSearchUrl: SiteSearchProviders['buildSearchUrl'];
   getSiteSearchActionTitle: SiteSearchProviders['getSiteSearchActionTitle'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   formatMessage: FormatMessage;
-  buildDefaultSearchUrl(query: string): string;
-  getDefaultSearchEngineFaviconUrl(): string;
   isAggregateSearchProvider: SiteSearchProviders['isAggregateSearchProvider'];
   getMatchedOpenTabIdForSuggestion: SearchNavigation['getMatchedOpenTabIdForSuggestion'];
   // The suggestions the search blacklist does not leave out.
@@ -169,6 +166,9 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    siteSearchCatalog,
+    searchEngine,
+    getPageFaviconCandidateUrl,
     SUGGESTION_ACTION_MODEL,
     activateSiteSearch,
     focusSearchInputPreservingScroll,
@@ -207,16 +207,11 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     buildCommandSuggestion,
     getDirectUrlSuggestion,
     buildKeywordSuggestions,
-    defaultSiteSearchProviders,
-    getSearchTriggerProviders,
-    getSiteSearchProviders,
     getInlineSiteSearchCandidate,
     buildSearchUrl,
     getSiteSearchActionTitle,
     getProviderIcon,
     formatMessage,
-    buildDefaultSearchUrl,
-    getDefaultSearchEngineFaviconUrl,
     isAggregateSearchProvider,
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
@@ -570,16 +565,10 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         preSuggestions.push(...keywordSuggestions);
       }
 
-      const siteProvidersForTags = (pageState.siteSearchProvidersCache && pageState.siteSearchProvidersCache.length > 0)
-        ? pageState.siteSearchProvidersCache
-        : defaultSiteSearchProviders;
-      const providersForTags = getSearchTriggerProviders(
-        siteProvidersForTags,
-        pageState.aggregateSearchesCache
-      );
-      if (!pageState.siteSearchProvidersCache && !pendingProviderReload) {
+      const providersForTags = siteSearchCatalog.triggerProviders;
+      if (!siteSearchCatalog.loadedProviders && !pendingProviderReload) {
         pendingProviderReload = true;
-        void getSiteSearchProviders().then(() => {
+        void siteSearchCatalog.loadProviders().then(() => {
           pendingProviderReload = false;
           if (query !== pageState.latestQuery) {
             return;
@@ -620,8 +609,8 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
             : formatMessage('search_query', '搜索 "{query}"', {
                 query: query
               }),
-          url: buildDefaultSearchUrl(query),
-          favicon: getDefaultSearchEngineFaviconUrl(),
+          url: searchEngine.searchUrl(query),
+          favicon: getPageFaviconCandidateUrl(searchEngine.themeUrl()),
           searchQuery: query,
           forceSearch: true
         };

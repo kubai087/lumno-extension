@@ -33,6 +33,8 @@ import { simpleModeEnabled } from '../../domain/settings/appearance';
 import { searchResultDisplayLimit, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { OverlayFaviconRuntime } from '../favicon-view';
+import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
+import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -119,10 +121,9 @@ interface SuggestionsRenderDeps {
   applyThemeVariables: ViewOption<'applyThemeVariables'>;
   applyMarkVariables: ViewOption<'applyMarkVariables'>;
   copySearchResultUrl: ViewOption<'onCopyUrl'>;
-  getSearchActionLabel: ViewOption<'getSearchActionLabel'>;
   getSiteSearchDisplayName: ViewOption<'getSiteSearchDisplayName'>;
   isAiSiteSearchProvider: ViewOption<'isAiSiteSearchProvider'>;
-  getDefaultSearchEngineThemeUrlForOverlay: ViewOption<'getDefaultSearchEngineThemeUrl'>;
+  searchEngine: DefaultSearchEngine;
   getBrandAccentForUrl: ViewOption<'getBrandAccentForUrl'>;
   buildTheme(accent: unknown): ThemeValue;
   normalizeSearchResultDisplayLimit(value: unknown): number;
@@ -130,7 +131,6 @@ interface SuggestionsRenderDeps {
   setOpenTabsResultsViewport(active: boolean, itemCount?: number): void;
   setOverlayResultsCollapsed(collapsed: boolean, options?: { deferLayoutSync?: boolean } | null): void;
   isAggregateSearchProvider(provider: Partial<SiteSearchProvider> | null): boolean;
-  getSearchModeProviderId(provider: Partial<SiteSearchProvider> | null): string;
   filterTabsForOverlay(tabs: OverlayTab[], query: string): OverlayTab[];
   shouldShowOpenTabsForEmptyQuery(): boolean;
   clearDefaultOpenTabsSuggestions(): void;
@@ -190,10 +190,9 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     applyThemeVariables,
     applyMarkVariables,
     copySearchResultUrl,
-    getSearchActionLabel,
     getSiteSearchDisplayName,
     isAiSiteSearchProvider,
-    getDefaultSearchEngineThemeUrlForOverlay,
+    searchEngine,
     getBrandAccentForUrl,
     buildTheme,
     normalizeSearchResultDisplayLimit,
@@ -201,7 +200,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     setOpenTabsResultsViewport,
     setOverlayResultsCollapsed,
     isAggregateSearchProvider,
-    getSearchModeProviderId,
     filterTabsForOverlay,
     shouldShowOpenTabsForEmptyQuery,
     clearDefaultOpenTabsSuggestions
@@ -579,10 +577,10 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       ),
       // Fixed in the overlay's shadow root, like the mode menu's tooltip, so it can sit beside the panel.
       getHelpPassageHost: () => overlayState.overlayStyleRoot || document.body,
-      getSearchActionLabel,
+      getSearchActionLabel: () => t('action_search', '搜索'),
       getSiteSearchDisplayName,
       isAiSiteSearchProvider,
-      getDefaultSearchEngineThemeUrl: getDefaultSearchEngineThemeUrlForOverlay,
+      getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
       getBrandAccentForUrl,
       buildThemeFromAccent: (accent) => buildTheme(accent),
       actionModel: overlayActionModel,
@@ -664,7 +662,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       if (isAggregateSearchProvider(provider)) {
         return `aggregate:${String(provider.aggregateId || '')}`;
       }
-      return `provider:${getSearchModeProviderId(provider)}`;
+      return `provider:${SearchSiteSearchProviders.getSearchModeProviderId(provider)}`;
     }
     return 'default';
   }

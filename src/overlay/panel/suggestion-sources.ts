@@ -1,7 +1,6 @@
 // Building suggestions: keywords, direct navigation, help center
 // answers, and the update that merges local, tab and remote results.
 import type { ShortcutRule } from '../../domain/messages';
-import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
 import type * as Settings from '../../domain/settings';
@@ -34,7 +33,8 @@ import { simpleModeEnabled } from '../../domain/settings/appearance';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
-import type { SiteSearchCatalog } from '../features/site-search/catalog';
+import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
+import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { OverlayFaviconRuntime } from '../favicon-view';
 
 interface SuggestionSourcesState {
@@ -77,13 +77,11 @@ interface SuggestionSourcesDeps {
   isSlashCommandInput(input: string): boolean;
   isModeCommand(input: string): boolean;
   applyOverlayTheme(mode: ThemeMode): void;
-  buildDefaultSearchUrlForOverlay(query: string): string;
-  getDefaultSearchEngineFaviconUrlForOverlay(): string;
+  searchEngine: DefaultSearchEngine;
   getCommandMatches(rawInput: string): SlashCommand[];
   buildModeSuggestion(): CommandSuggestion;
   buildCommandSuggestion(command: SlashCommand): CommandSuggestion;
   isCurrentOverlayTabUrl(url: string): boolean;
-  getSearchTriggerProviders(providers: SiteSearchProvider[] | null, definitions: AggregateSearch[] | null): SiteSearchProvider[];
   getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[] | null): { provider: SiteSearchProvider; query: string } | null;
   buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string;
   getSiteSearchActionTitle(provider: SiteSearchProvider | null, query: string): string;
@@ -150,13 +148,11 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     isSlashCommandInput,
     isModeCommand,
     applyOverlayTheme,
-    buildDefaultSearchUrlForOverlay,
-    getDefaultSearchEngineFaviconUrlForOverlay,
+    searchEngine,
     getCommandMatches,
     buildModeSuggestion,
     buildCommandSuggestion,
     isCurrentOverlayTabUrl,
-    getSearchTriggerProviders,
     getInlineSiteSearchCandidate,
     buildSearchUrl,
     getSiteSearchActionTitle,
@@ -423,8 +419,8 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           : formatMessage('search_query', '搜索 "{query}"', {
               query: query
             }),
-        url: buildDefaultSearchUrlForOverlay(query),
-        favicon: getDefaultSearchEngineFaviconUrlForOverlay(),
+        url: searchEngine.searchUrl(query),
+        favicon: getPageFaviconCandidateUrl(searchEngine.themeUrl()),
         searchQuery: query,
         forceSearch: true
       };
@@ -456,11 +452,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         preSuggestions.push(...keywordSuggestions);
       }
 
-      const siteProvidersForTags = siteSearchCatalog.providers;
-      const providersForTags = getSearchTriggerProviders(
-        siteProvidersForTags,
-        siteSearchCatalog.aggregates
-      );
+      const providersForTags = siteSearchCatalog.triggerProviders;
       if (!siteSearchCatalog.loadedProviders && !pendingProviderReload) {
         pendingProviderReload = true;
         void siteSearchCatalog.loadProviders().then(() => {

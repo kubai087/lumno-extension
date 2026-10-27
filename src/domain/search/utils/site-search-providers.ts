@@ -189,6 +189,11 @@ function hasOpenAndSubmitSiteSearchAction(provider: ProviderInput): boolean {
   );
 }
 
+// A provider's place in the mode menu and its stored order.
+function getSearchModeProviderId(provider: ProviderInput): string {
+  return `provider:${provider && (provider.key || provider.name) ? (provider.key || provider.name) : ''}`;
+}
+
 function isAiSiteSearchProvider(provider: ProviderInput): boolean {
   if (!provider) {
     return false;
@@ -508,6 +513,7 @@ function findSiteSearchProvider(trigger: unknown, providers: Providers): SiteSea
 }
 
 export {
+  getSearchModeProviderId,
   buildBlacklistProbeUrlFromTemplate,
   buildSearchUrlFromTemplate,
   findLocalSearchScope,

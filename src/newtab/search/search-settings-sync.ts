@@ -10,14 +10,11 @@ import type * as SuggestionNavigation from '../../shared/search/suggestion-navig
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import type { StorageChangeRegistry } from '../storage-change-registry';
-import { readStoredSearchEngineState } from './default-search-engine';
-import type { DefaultSearchEngineState } from './default-search-engine';
+import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchModeController } from './search-mode-controller';
 import type { ActiveLocalScope, RenderSuggestions, RequestSuggestions } from './search-types';
-import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 
 interface SearchSettingsSyncState {
-  defaultSearchEngineState: DefaultSearchEngineState;
   searchResultPriorityMode: string;
   enabledSearchResultSourceTypes: SearchSourceType[];
   localSearchScopeState: ActiveLocalScope | null;
@@ -41,9 +38,8 @@ interface SearchSettingsSyncState {
 }
 
 interface SearchSettingsSyncDeps {
-  loadDefaultSearchEngineState(): void;
+  searchEngine: Pick<DefaultSearchEngine, 'store'>;
   storageChanges: Pick<StorageChangeRegistry, 'on'>;
-  DEFAULT_SEARCH_ENGINE_STORAGE_KEY: string;
   SEARCH_RESULT_PRIORITY_STORAGE_KEY: string;
   normalizeSearchResultPriority(value: unknown): SearchResultPriority;
   SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY: string;
@@ -82,9 +78,8 @@ interface SearchSettingsSyncDeps {
 
 function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   const {
-    loadDefaultSearchEngineState,
+    searchEngine,
     storageChanges,
-    DEFAULT_SEARCH_ENGINE_STORAGE_KEY,
     SEARCH_RESULT_PRIORITY_STORAGE_KEY,
     normalizeSearchResultPriority,
     SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY,
@@ -123,16 +118,6 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  loadDefaultSearchEngineState();
-  storageChanges.on(DEFAULT_SEARCH_ENGINE_STORAGE_KEY, (changes) => {
-    const nextValue = readStoredSearchEngineState(
-      changes[DEFAULT_SEARCH_ENGINE_STORAGE_KEY].newValue,
-      SearchSiteSearchProviders.isRetiredSearchEngineState
-    );
-    if (nextValue) {
-      pageState.defaultSearchEngineState = nextValue;
-    }
-  });
   storageChanges.on(SEARCH_RESULT_PRIORITY_STORAGE_KEY, (changes) => {
     pageState.searchResultPriorityMode = normalizeSearchResultPriority(changes[SEARCH_RESULT_PRIORITY_STORAGE_KEY].newValue);
   });
@@ -219,18 +204,19 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     }
   });
   // These settings change which suggestions show, so they refresh at once.
+  const refreshSuggestions = () => {
+    if (pageState.latestQuery && pageState.latestQuery.trim()) {
+      requestSuggestions(pageState.latestQuery, { immediate: true });
+    }
+  };
+  searchEngine.store.subscribe(refreshSuggestions);
   storageChanges.on([
-    DEFAULT_SEARCH_ENGINE_STORAGE_KEY,
     SEARCH_RESULT_PRIORITY_STORAGE_KEY,
     SEARCH_RESULT_SOURCE_TYPES_STORAGE_KEY,
     SEARCH_BLACKLIST_STORAGE_KEY,
     FAVICON_REQUEST_BLACKLIST_STORAGE_KEY,
     FAVICON_ENHANCED_FETCH_ENABLED_STORAGE_KEY
-  ], () => {
-    if (pageState.latestQuery && pageState.latestQuery.trim()) {
-      requestSuggestions(pageState.latestQuery, { immediate: true });
-    }
-  });
+  ], refreshSuggestions);
 }
 
 export { createSearchSettingsSync };

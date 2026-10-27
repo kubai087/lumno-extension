@@ -1,11 +1,11 @@
-// Site search and aggregate search providers: loading, icons, labels and
-// the trigger/scope lookups used by the search input.
+// Site search and aggregate search providers: running them, icons, labels
+// and the trigger/scope lookups used by the search input. The lists
+// themselves are the catalog's.
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
 import type { OpenDisposition } from '../../domain/messages';
 import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
 import type { AggregateScopeProvider, AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type * as AggregateSearchSurface from '../../domain/search/aggregate-search-surface';
-import { readSiteSearchProviders } from '../../domain/search/site-search-provider-reader';
 import type {
   LocalSearchScope,
   LocalSearchScopeRule,
@@ -14,10 +14,7 @@ import type {
   SuggestionLike
 } from '../../domain/search/types';
 import type * as Settings from '../../domain/settings';
-import type { StorageAreaLike } from '../../domain/storage-port';
-import * as LumnoAggregateSearchStorage from '../../platform/aggregate-search-storage';
 import * as LumnoMessaging from '../../platform/messaging';
-import type * as SiteSearchStore from '../../shared/search/site-search-store';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import { getAggregateSearchId } from './search-types';
 import type { ActiveLocalScope } from './search-types';
@@ -31,14 +28,6 @@ import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-c
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 
 interface SiteSearchProvidersState {
-  // Icons saved for site search providers, by page URL.
-  // Bumped when the stored providers change, so an older load is dropped.
-  siteSearchProvidersLoadVersion: number;
-  siteSearchProvidersCache: SiteSearchProvider[] | null;
-  aggregateSearchesCache: AggregateSearch[] | null;
-  aggregateSearchesLoadPromise: Promise<AggregateSearch[]> | null;
-  aggregateSearchesLoadVersion: number;
-  AGGREGATE_SEARCH_STORAGE_KEY: string;
   enabledSearchResultSourceTypes: SearchSourceType[];
 }
 
@@ -51,23 +40,12 @@ interface SiteSearchProvidersDeps {
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getProviderFaviconUrl'> | null;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
   getExtensionResourceUrl(resourcePath: string): string;
-  SITE_SEARCH_STORE: Pick<typeof SiteSearchStore, 'loadSiteSearchProviders' | 'getStorageValues' | 'mergeStoredProviders'>;
-  storageArea: StorageAreaLike | null;
-  SITE_SEARCH_STORAGE_KEY: string;
-  SITE_SEARCH_DISABLED_STORAGE_KEY: string;
-  defaultSiteSearchProviders: SiteSearchProvider[];
   formatMessage: FormatMessage;
   getDirectNavigationUrl: NonNullable<Parameters<typeof SearchNavigationMatching.promoteStrongNavigationMatch>[2]>['getDirectNavigationUrl'];
   getUrlDisplay(url: string): string;
   getHelpCenterLocale?(): string;
   SETTINGS: Pick<typeof Settings, 'searchResultSourceTypes' | 'searchResultDisplayLimit'>;
   pageState: SiteSearchProvidersState;
-}
-
-// A provider load, and the load version it belongs to.
-interface SiteSearchProviderLoad {
-  promise: Promise<SiteSearchProvider[]>;
-  version: number;
 }
 
 function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
@@ -80,11 +58,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getPageFaviconUrlResolver,
     siteSearchIconCache,
     getExtensionResourceUrl,
-    SITE_SEARCH_STORE,
-    storageArea,
-    SITE_SEARCH_STORAGE_KEY,
-    SITE_SEARCH_DISABLED_STORAGE_KEY,
-    defaultSiteSearchProviders,
     formatMessage,
     getDirectNavigationUrl,
     getUrlDisplay,
@@ -95,7 +68,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  let siteSearchProvidersLoadPromise: Promise<SiteSearchProvider[]> | null = null;
   let aggregateSearchRequestController: ReturnType<typeof AggregateSearchSurface.createAggregateSearchRequestController> | null = null;
 
   function buildSearchUrl(template: string | undefined, query: string, provider?: SiteSearchProvider | null): string {
@@ -195,113 +167,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
       }
     );
     return resolver.getProviderFaviconUrl(getProviderFaviconPageUrl(provider), iconUrl);
-  }
-
-  // Starts loading the providers with `loader`; `invalidate` drops the
-  // load running now.
-  function beginSiteSearchProviderLoad(
-    loader: () => Promise<SiteSearchProvider[]>,
-    options?: { invalidate?: boolean }
-  ): SiteSearchProviderLoad {
-    const settings = options || {};
-    if (settings.invalidate === true) {
-      pageState.siteSearchProvidersLoadVersion += 1;
-      siteSearchProvidersLoadPromise = null;
-    }
-    const loadVersion = pageState.siteSearchProvidersLoadVersion;
-    const loadTask: Promise<SiteSearchProvider[]> = Promise.resolve().then(() => loader()).then((items) => {
-      if (loadVersion === pageState.siteSearchProvidersLoadVersion &&
-          siteSearchProvidersLoadPromise === loadTask) {
-        pageState.siteSearchProvidersCache = items;
-        return items;
-      }
-      return pageState.siteSearchProvidersCache || [];
-    }).catch(() => {
-      if (loadVersion === pageState.siteSearchProvidersLoadVersion &&
-          siteSearchProvidersLoadPromise === loadTask) {
-        pageState.siteSearchProvidersCache = null;
-      }
-      return pageState.siteSearchProvidersCache || [];
-    }).finally(() => {
-      if (siteSearchProvidersLoadPromise === loadTask) {
-        siteSearchProvidersLoadPromise = null;
-      }
-    });
-    siteSearchProvidersLoadPromise = loadTask;
-    return {
-      promise: loadTask,
-      version: loadVersion
-    };
-  }
-
-  function getSiteSearchProviders(): Promise<SiteSearchProvider[]> {
-    if (siteSearchProvidersLoadPromise) {
-      return siteSearchProvidersLoadPromise;
-    }
-    if (pageState.siteSearchProvidersCache) {
-      return Promise.resolve(pageState.siteSearchProvidersCache);
-    }
-    return beginSiteSearchProviderLoad(() => SITE_SEARCH_STORE.loadSiteSearchProviders({
-      chromeApi: chrome,
-      storageArea,
-      storageKeys: {
-        custom: SITE_SEARCH_STORAGE_KEY,
-        disabled: SITE_SEARCH_DISABLED_STORAGE_KEY
-      },
-      defaultProviders: defaultSiteSearchProviders,
-      mergeCustomProviders: SearchSiteSearchProviders.mergeCustomProviders,
-      getResourceUrl: getExtensionResourceUrl
-    })).promise;
-  }
-
-  function reloadSiteSearchProvidersFromStorage(): SiteSearchProviderLoad {
-    return beginSiteSearchProviderLoad(() => {
-      const keys = [SITE_SEARCH_STORAGE_KEY, SITE_SEARCH_DISABLED_STORAGE_KEY];
-      const readTask = SITE_SEARCH_STORE.getStorageValues(storageArea, keys);
-      return readTask.then((result) => {
-        const customItems = readSiteSearchProviders(result[SITE_SEARCH_STORAGE_KEY]);
-        const disabledKeys = result[SITE_SEARCH_DISABLED_STORAGE_KEY];
-        return SITE_SEARCH_STORE.mergeStoredProviders(
-          defaultSiteSearchProviders,
-          customItems,
-          disabledKeys,
-          SearchSiteSearchProviders.mergeCustomProviders
-        );
-      });
-    }, { invalidate: true });
-  }
-
-  function getAggregateSearches(): Promise<AggregateSearch[]> {
-    if (pageState.aggregateSearchesCache) {
-      return Promise.resolve(pageState.aggregateSearchesCache);
-    }
-    if (pageState.aggregateSearchesLoadPromise) {
-      return pageState.aggregateSearchesLoadPromise;
-    }
-    const loadVersion = pageState.aggregateSearchesLoadVersion;
-    const loadTask = LumnoAggregateSearchStorage.loadAggregateSearches(
-      storageArea,
-      pageState.AGGREGATE_SEARCH_STORAGE_KEY,
-      chrome
-    ).then((items) => {
-      if (loadVersion === pageState.aggregateSearchesLoadVersion) {
-        pageState.aggregateSearchesCache = items;
-        return items;
-      }
-      return pageState.aggregateSearchesCache || [];
-    }).catch(() => {
-      if (loadVersion === pageState.aggregateSearchesLoadVersion) {
-        pageState.aggregateSearchesCache = null;
-        return [];
-      }
-      return pageState.aggregateSearchesCache || [];
-    }).finally(() => {
-      if (pageState.aggregateSearchesLoadPromise === loadTask) {
-        pageState.aggregateSearchesLoadPromise = null;
-      }
-    });
-    pageState.aggregateSearchesLoadPromise = loadTask;
-    return loadTask;
   }
 
   function createAggregateSearchScopeProvider(definition: AggregateSearch | null | undefined): AggregateScopeProvider | null {
@@ -493,10 +358,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     return 'ri-star-line';
   }
 
-  function getSearchModeProviderId(provider: SiteSearchProvider | null | undefined): string {
-    return `provider:${provider && (provider.key || provider.name) ? (provider.key || provider.name) : ''}`;
-  }
-
   return {
     buildSearchUrl,
     isAiSiteSearchProvider,
@@ -505,9 +366,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     runSiteSearchProviderQuery,
     getProviderFaviconPageUrl,
     getProviderIcon,
-    getSiteSearchProviders,
-    reloadSiteSearchProvidersFromStorage,
-    getAggregateSearches,
     createAggregateSearchScopeProvider,
     getSiteSearchDisplayName,
     getSiteSearchActionTitle,
@@ -523,12 +381,11 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     normalizeSearchResultDisplayLimit,
     getLocalSearchScopeCandidate,
     getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
-    getSearchModeProviderId
+    getLocalSearchScopeIconName
   };
 }
 
 type SiteSearchProviders = ReturnType<typeof createSiteSearchProviders>;
 
 export { createSiteSearchProviders };
-export type { SiteSearchProviderLoad, SiteSearchProviders, SiteSearchProvidersDeps, SiteSearchProvidersState };
+export type { SiteSearchProviders, SiteSearchProvidersDeps, SiteSearchProvidersState };

@@ -1,6 +1,5 @@
-import { readSearchEngineState } from '../../domain/search/search-engine-state-reader';
 import type { OverlayTab } from '../../domain/messages';
-import type { LocalSearchScope, SearchEngineState } from '../../domain/search/types';
+import type { LocalSearchScope } from '../../domain/search/types';
 import { simpleModeEnabled, themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import { documentPipEnabled } from '../../domain/settings/features';
@@ -15,7 +14,6 @@ import {
   overlayWidth
 } from '../../domain/settings/overlay-panel';
 import {
-  defaultSearchEngine,
   faviconEnhancedFetchEnabled,
   faviconRequestBlacklist,
   numberShortcutInstantEnabled,
@@ -27,7 +25,7 @@ import {
 } from '../../domain/settings/search';
 import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type { OverlaySettings } from '../overlay-settings';
-import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
+import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 
 // Row is a suggestion row, Provider a site search provider and Theme a
 // suggestion theme; this module only passes them along.
@@ -45,8 +43,6 @@ interface SettingsSyncState<Row, Provider> {
   openTabsSearchModeActive: boolean;
   siteSearchState: Provider | null;
   localSearchScopeState: LocalSearchScope | null;
-  overlaySearchEngineState: SearchEngineState | null;
-  overlaySearchEngineStateReady: Promise<SearchEngineState | null>;
   documentPipEnabled: boolean;
 }
 
@@ -57,7 +53,7 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
   applyOverlayTheme(mode: ThemeMode): void;
   applyLanguageMode(mode: unknown): void;
   applyOverlayFontFamily(): void;
-  loadOverlaySearchEngineState(onReload: () => void): Promise<SearchEngineState | null>;
+  searchEngine: DefaultSearchEngine;
   clearLocalSearchScope(): void;
   shouldShowOpenTabsForEmptyQuery(): boolean;
   renderTabSuggestions(tabs: OverlayTab[]): void;
@@ -80,7 +76,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
     updateSearchSuggestions,
     applyOverlayTheme,
     applyLanguageMode,
-    loadOverlaySearchEngineState,
+    searchEngine,
     clearLocalSearchScope,
     requestOverlaySearchSuggestions,
     shouldShowOpenTabsForEmptyQuery,
@@ -130,16 +126,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   settings.follow([themeMode, overlayPageThemeAdaptationEnabled], () => applyOverlayTheme(settings.get(themeMode)));
   settings.follow(language, () => applyLanguageMode(settings.get(language)));
 
-  overlayState.overlaySearchEngineStateReady = loadOverlaySearchEngineState(
-    refreshOverlaySuggestionsFromLastResponse
-  );
-  settings.follow(defaultSearchEngine, () => {
-    const nextValue = readSearchEngineState(settings.get(defaultSearchEngine));
-    if (nextValue && nextValue.id && !SearchSiteSearchProviders.isRetiredSearchEngineState(nextValue)) {
-      overlayState.overlaySearchEngineState = nextValue;
-      refreshOverlaySuggestionsFromLastResponse();
-    }
-  });
+  searchEngine.store.subscribe(refreshOverlaySuggestionsFromLastResponse);
 
   settings.follow([searchResultPriority, searchBlacklist, overlayTabPriority], refreshOverlaySuggestionsFromLastResponse);
   settings.follow(searchResultSourceTypes, () => {

@@ -2,10 +2,9 @@
 // gives them, stepping through it, opening it with a double Tab, and
 // picking an item.
 import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
-import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type * as SearchSourceOrder from '../../domain/search/search-source-order';
 import type { ScopeMenuMove } from '../../domain/search/search-source-order';
-import type { LocalSearchScope, SearchEngineState, SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
+import type { LocalSearchScope, SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider, ModeMenuItem } from '../../shared/search/input-mode/types';
 import type { Translate } from './types';
@@ -18,14 +17,13 @@ import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
-import type { SiteSearchCatalog } from '../features/site-search/catalog';
+import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
+import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
   searchInput: HTMLInputElement | null;
   inputModeController: Pick<InputModeController, 'openModeMenu'> | null;
-  overlaySearchEngineState: SearchEngineState | null;
-  overlaySearchEngineStateReady: Promise<SearchEngineState | null>;
   // The page the overlay opened on, whose site search the menu offers first.
   initialContextTabUrl: string;
   siteSearchState: InputModeProvider | null;
@@ -36,6 +34,7 @@ interface SearchModeMenuState {
 }
 
 interface SearchModeMenuDeps {
+  searchEngine: DefaultSearchEngine;
   siteSearchCatalog: SiteSearchCatalog;
   AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore,
     'isAggregateSearchAvailable' | 'mergeTriggerProviders' | 'createScopeProvider'>;
@@ -71,6 +70,7 @@ const getPageSearchSourceOrderHistory = lazyInstance(() => createSearchSourceOrd
 
 function createSearchModeMenu(deps: SearchModeMenuDeps) {
   const {
+    searchEngine,
     siteSearchCatalog,
     AGGREGATE_SEARCH_STORE,
     t,
@@ -95,58 +95,10 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
   // reads what the previous one stored.
   let searchSourceOrderQueue: Promise<unknown> = Promise.resolve();
 
-  function getSearchModeProviderId(provider: Partial<SiteSearchProvider> | null): string {
-    return `provider:${provider && (provider.key || provider.name) ? (provider.key || provider.name) : ''}`;
-  }
-
-  function getOverlayDefaultSearchModeProvider(providers: readonly SiteSearchProvider[]): SiteSearchProvider | null {
-    return SearchSiteSearchProviders.getSearchEngineSiteSearchProvider(
-      overlayState.overlaySearchEngineState,
-      providers
-    );
-  }
-
   function getCurrentPageSiteSearchModeProvider(providers: readonly SiteSearchProvider[]): SiteSearchProvider | null {
     return SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
       overlayState.initialContextTabUrl,
       providers
-    );
-  }
-
-  // The stored providers, with the default search engine first when the
-  // list lacks it.
-  function getSearchModeProviders(): SiteSearchProvider[] {
-    const providers = siteSearchCatalog.providers;
-    const defaultProvider = getOverlayDefaultSearchModeProvider(providers);
-    if (!defaultProvider || providers.some((provider) => (
-      getSearchModeProviderId(provider) === getSearchModeProviderId(defaultProvider)
-    ))) {
-      return providers;
-    }
-    return [defaultProvider].concat(providers);
-  }
-
-  function isAggregateSearchDefinitionAvailable(definition: AggregateSearch, providers?: readonly SiteSearchProvider[] | null): boolean {
-    return AGGREGATE_SEARCH_STORE.isAggregateSearchAvailable(
-      definition,
-      Array.isArray(providers) ? providers : getSearchModeProviders()
-    );
-  }
-
-  // The site search providers plus the aggregate searches that can run.
-  function getSearchTriggerProviders(
-    providers: SiteSearchProvider[] | null,
-    definitions: AggregateSearch[] | null
-  ): SiteSearchProvider[] {
-    const sourceProviders = Array.isArray(providers) ? providers : [];
-    const availableDefinitions = (Array.isArray(definitions) ? definitions : [])
-      .filter((definition) => isAggregateSearchDefinitionAvailable(
-        definition,
-        sourceProviders
-      ));
-    return AGGREGATE_SEARCH_STORE.mergeTriggerProviders(
-      sourceProviders,
-      availableDefinitions
     );
   }
 
@@ -157,10 +109,10 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     const siteGroup = t('search_scope_group_sites', '站内搜索');
     const aggregateGroup = t('search_scope_group_aggregates', '聚合搜索');
     const items: ModeMenuItem[] = [];
-    const providers = getSearchModeProviders();
+    const providers = siteSearchCatalog.modeProviders;
     const activeProvider = overlayState.siteSearchState;
     siteSearchCatalog.aggregates.forEach((definition) => {
-      if (!isAggregateSearchDefinitionAvailable(definition, providers)) {
+      if (!siteSearchCatalog.isAggregateAvailable(definition, providers)) {
         return;
       }
       const provider = AGGREGATE_SEARCH_STORE.createScopeProvider(definition);
@@ -197,7 +149,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
         const isSearchEngine = isSearchEngineSiteSearchProvider(provider);
         const groupKey = isSearchEngine ? 'engine' : (isAi ? 'ai' : 'site');
         items.push({
-          id: getSearchModeProviderId(provider),
+          id: SearchSiteSearchProviders.getSearchModeProviderId(provider),
           kind: 'provider',
           provider,
           label: getSiteSearchDisplayName(provider),
@@ -208,7 +160,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
           iconUrl: getPageRenderableProviderIcon(provider),
           iconName: isAi ? 'ri-search-ai-line' : 'ri-global-line',
           isAi,
-          active: Boolean(activeProvider && getSearchModeProviderId(activeProvider) === getSearchModeProviderId(provider))
+          active: Boolean(activeProvider && SearchSiteSearchProviders.getSearchModeProviderId(activeProvider) === SearchSiteSearchProviders.getSearchModeProviderId(provider))
         });
       });
     items.push({
@@ -345,7 +297,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
       }
       const currentPageProvider = getCurrentPageSiteSearchModeProvider(providers);
       const provider = currentPageProvider ||
-        getOverlayDefaultSearchModeProvider(providers);
+        SearchSiteSearchProviders.getSearchEngineSiteSearchProvider(searchEngine.engine, providers);
       if (!provider) {
         return false;
       }
@@ -368,7 +320,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
       return Promise.resolve(openResult).then(Boolean);
     };
     return Promise.all([
-      overlayState.overlaySearchEngineStateReady.catch(() => overlayState.overlaySearchEngineState),
+      searchEngine.ready,
       siteSearchCatalog.loadProviders(),
       siteSearchIconCache.load()
     ]).then(([, providers]) => activateDefaultProvider(providers));
@@ -427,10 +379,6 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
   }
 
   return {
-    getSearchModeProviderId,
-    getSearchModeProviders,
-    isAggregateSearchDefinitionAvailable,
-    getSearchTriggerProviders,
     getSearchModeMenuItems,
     reorderSearchModeMenu,
     stepSearchModeMenuHistory,

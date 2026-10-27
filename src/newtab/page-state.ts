@@ -15,7 +15,6 @@ import type { BookmarkSectionState } from './bookmarks/bookmark-section';
 import type { BottomDockRuntimeState } from './shortcuts/bottom-dock-runtime';
 import type { CardThemesState } from './theme/card-themes';
 import type { ClipboardActionsState } from './clipboard-actions';
-import type { DefaultSearchEngineModuleState } from './search/default-search-engine';
 import type { EntryMotionState } from './entry-motion';
 import type { FeedbackControlState } from './feedback-control';
 import type { FocusResumeState } from './focus-resume';
@@ -85,7 +84,6 @@ type NewtabPageState =
   BottomDockRuntimeState &
   CardThemesState &
   ClipboardActionsState &
-  DefaultSearchEngineModuleState &
   EntryMotionState &
   FeedbackControlState &
   FocusResumeState &
@@ -244,12 +242,6 @@ function createPageState(): NewtabPageState {
     currentNewtabSearchWidth: null,
 
     // 使用本地打包字体，避免外链字体依赖。
-    defaultSearchEngineState: {
-      id: '',
-      name: '',
-      host: '',
-      updatedAt: 0
-    },
 
     lastDeletionAt: 0,
     autocompleteState: null,
@@ -302,9 +294,6 @@ function createPageState(): NewtabPageState {
     startupRecentSourceReads: null,
     firefoxBrowserIcons: null,
     firefoxBrowserIconsReady: Promise.resolve(null),
-    siteSearchProvidersCache: null,
-    aggregateSearchesCache: null,
-    aggregateSearchesLoadPromise: null,
     shortcutContextMenu: null,
     shortcutContextMenuSelectController: null,
     shortcutContextMenuTarget: null,
@@ -332,9 +321,6 @@ function createPageState(): NewtabPageState {
     newtabShortcutColumns: SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
     newtabShortcutSize: SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT,
     newtabShortcutGap: SETTINGS.NEWTAB_SHORTCUT_GAP_DEFAULT,
-    siteSearchProvidersLoadVersion: 0,
-    aggregateSearchesLoadVersion: 0,
-    AGGREGATE_SEARCH_STORAGE_KEY: SETTINGS.aggregateSearches.key,
     newtabTimeFont: SETTINGS.NEWTAB_TIME_FONT_DEFAULT,
     newtabTimeFontSize: SETTINGS.NEWTAB_TIME_FONT_SIZE_DEFAULT,
     newtabTimeFontWeight: SETTINGS.NEWTAB_TIME_FONT_WEIGHT_DEFAULT,

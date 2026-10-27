@@ -4,14 +4,13 @@ import type { ShortcutRule } from '../../domain/messages';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
-import type { AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type { LocalSearchScope, SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { LocalSearchScopeTrigger, SiteSearchTrigger } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
-import type { SiteSearchCatalog } from '../features/site-search/catalog';
+import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -40,7 +39,6 @@ interface SearchInputEventsDeps {
   applyNoTranslate(element: Element): unknown;
   clearSiteSearchTabHint(): void;
   isSlashCommandInput(input: string): boolean;
-  getSearchTriggerProviders(siteProviders: SiteSearchProvider[], aggregates: AggregateSearch[]): SiteSearchProvider[];
   getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[]): unknown;
   getSiteSearchTriggerCandidate(input: string, providers: SiteSearchProvider[], options: null): SiteSearchProvider | null;
   setSiteSearchTabHint(provider: SiteSearchProvider | InputModeProvider): void;
@@ -71,7 +69,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     applyNoTranslate,
     clearSiteSearchTabHint,
     isSlashCommandInput,
-    getSearchTriggerProviders,
     getInlineSiteSearchCandidate,
     getSiteSearchTriggerCandidate,
     setSiteSearchTabHint,
@@ -155,11 +152,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       return;
     }
 
-    const siteProviders = siteSearchCatalog.providers;
-    const providers = getSearchTriggerProviders(
-      siteProviders,
-      siteSearchCatalog.aggregates
-    );
+    const providers = siteSearchCatalog.triggerProviders;
     if (getInlineSiteSearchCandidate(triggerInput, providers)) {
       clearPendingSearchTriggerHint();
       return;

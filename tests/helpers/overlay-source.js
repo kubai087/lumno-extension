@@ -8,7 +8,8 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const OVERLAY_PANEL_FILES = [
   'src/overlay/panel/entry-motion.ts',
   'src/overlay/panel/panel-language.ts',
-  'src/overlay/panel/default-search-engine.ts',
+  'src/shared/search-panel/default-engine.ts',
+  'src/shared/search-panel/site-search/catalog.ts',
   'src/overlay/panel/panel-session.ts',
   'src/overlay/panel/favicon-policy.ts',
   'src/overlay/panel/page-guards.ts',
