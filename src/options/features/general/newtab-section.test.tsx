@@ -1,41 +1,24 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import * as Settings from '../domain/settings';
-import type { Setting } from '../domain/settings/define';
-import { createGeneralNewtabSection } from './options-general-newtab-section';
-import { createSettingsSectionController } from './react/settings-rows-view';
-import { getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
-
-const sections: Array<{ destroy(): void }> = [];
+import * as Settings from '../../../domain/settings';
+import type { Setting } from '../../../domain/settings/define';
+import { getTag, getTags } from '../../../../tests/react/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { GeneralNewtabSection } from './newtab-section';
 
 const OPEN_KEY = Settings.newtabOpenInNewTab.key;
 
 function setUp() {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
-  const section = createGeneralNewtabSection({
-    view: (handlers) => createSettingsSectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (_key, fallback) => fallback
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
-  const store = (setting: Setting<unknown>, raw: unknown) => settings.change(setting, raw);
-  return { host, writes: settings.writes, store, settings };
+  const view = renderOptionsView(<GeneralNewtabSection />);
+  const store = (setting: Setting<unknown>, raw: unknown) => view.settings.change(setting, raw);
+  return { ...view, store };
 }
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options General New Tab section', () => {
   it('shows both settings as stored and never rewrites them on its own', async () => {
     const { settings } = setUp();
-    expect(settings.boundKeys().sort()).toEqual([OPEN_KEY, Settings.progressTrackingEnabled.key].sort());
     await settings.settle();
     expect(settings.writes).toEqual([]);
   });

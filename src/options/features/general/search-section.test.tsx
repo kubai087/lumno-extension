@@ -1,75 +1,27 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as Settings from '../domain/settings';
-import type { Setting } from '../domain/settings/define';
-import { createGeneralSearchSection } from './options-general-search-section';
-import { createSettingsSectionController } from './react/settings-rows-view';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
-
-const sections: Array<{ destroy(): void }> = [];
+import * as Settings from '../../../domain/settings';
+import type { Setting } from '../../../domain/settings/define';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { GeneralSearchSection } from './search-section';
 
 const SOURCE_TYPES_KEY = Settings.searchResultSourceTypes.key;
 const RESET = '_x_extension_search_result_source_types_reset_2026_unique_';
 
 function setUp(stored: Record<string, unknown> = {}) {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings({ sync: stored });
-  let local = ['topSite', 'bookmark', 'history'];
-  const orderController = {
-    sortLocalSourceTypes: (types: readonly string[]) => local.filter((type) => types.includes(type)),
-    moveLocal: vi.fn((rendered: readonly string[], fromIndex: number, toIndex: number) => {
-      const next = rendered.slice();
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
-      local = next;
-      return Promise.resolve();
-    }),
-    resetLocal: vi.fn(() => {
-      local = ['topSite', 'bookmark', 'history'];
-      return Promise.resolve();
-    }),
-    isLocalDefault: () => local.join() === 'topSite,bookmark,history',
-    attachLocalDrag: vi.fn(() => () => {})
-  };
   const hideTooltip = vi.fn();
-  const section = createGeneralSearchSection({
-    view: (handlers) => createSettingsSectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    orderController,
-    getMessage: (_key, fallback) => fallback,
-    getViewportTopInset: () => 0,
-    hideTooltip
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
-  const store = (setting: Setting<unknown>, raw: unknown) => settings.change(setting, raw);
-  return { host, writes: settings.writes, section, settings, store, orderController, hideTooltip };
+  const view = renderOptionsView(<GeneralSearchSection />, { sync: stored, page: { hideTooltip } });
+  const store = (setting: Setting<unknown>, raw: unknown) => view.settings.change(setting, raw);
+  return { ...view, store, hideTooltip };
 }
 
 const sourceValues = (host: HTMLElement) => getTags(host, '#_x_extension_search_result_source_types_2026_unique_ label', 'label')
   .map((label) => label.dataset.value);
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options General search results section', () => {
-  it('binds every setting of the section and attaches the type drag', () => {
-    const { settings, orderController } = setUp();
-    expect(settings.boundKeys().sort()).toEqual([
-      Settings.searchFuzzyPinyinEnabled.key,
-      Settings.searchResultDisplayLimit.key,
-      Settings.searchResultPriority.key,
-      SOURCE_TYPES_KEY,
-      Settings.searchResultTabPosition.key
-    ].sort());
-    expect(orderController.attachLocalDrag).toHaveBeenCalledTimes(1);
-  });
-
   it('shows the stored types and never writes them back on its own', async () => {
     const { host, writes, settings } = setUp({ [SOURCE_TYPES_KEY]: ['bookmark', 'bogus'] });
     await settings.settle();
@@ -93,20 +45,17 @@ describe('Options General search results section', () => {
   });
 
   it('moves a type with Alt and the arrow keys and offers a reset until the defaults return', async () => {
-    const { host, writes, section, orderController, hideTooltip, settings } = setUp({ [SOURCE_TYPES_KEY]: ['topSite', 'bookmark', 'history'] });
+    const { host, writes, hideTooltip, settings } = setUp({ [SOURCE_TYPES_KEY]: ['topSite', 'bookmark', 'history'] });
     expect(getTag(host, `#${RESET}`, 'button').hidden).toBe(true);
     const bookmark = getTag(host, '#_x_extension_search_result_source_bookmark_2026_unique_', 'input');
     act(() => {
       bookmark.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true, bubbles: true }));
     });
-    expect(orderController.moveLocal).toHaveBeenCalledWith(['topSite', 'bookmark', 'history'], 1, 0);
-    act(() => section.render());
     expect(sourceValues(host)).toEqual(['bookmark', 'topSite', 'history']);
     const reset = getTag(host, `#${RESET}`, 'button');
     expect(reset.hidden).toBe(false);
     expect(reset.dataset.tooltip).toBe('恢复默认');
     act(() => reset.click());
-    expect(orderController.resetLocal).toHaveBeenCalledTimes(1);
     expect(hideTooltip).toHaveBeenCalledTimes(1);
     await settings.settle();
     expect(writes).toEqual([{ [SOURCE_TYPES_KEY]: ['topSite', 'bookmark', 'history'] }]);

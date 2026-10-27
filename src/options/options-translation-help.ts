@@ -34,17 +34,12 @@ interface TranslationHelpModelInput {
   onDownload?: () => Promise<void>;
 }
 
-interface TranslationHelpSectionOptions {
-  // The React controller; null when the section is not on the page.
-  controller: { render(model: TranslationHelpRenderModel): void } | null;
+interface TranslationSheetDownload {
   documentObj: Document;
   getMessage: GetMessage;
-  formatTemplate: FormatTemplate;
-  getLocale(): string;
-  getIssueUrl(): string;
+  locale: string;
   uiLocales: readonly Pick<UiLocale, 'id' | 'name'>[];
   loadLocaleMessages(locale: string): Promise<LocaleMessages>;
-  version: string;
 }
 
 // Lumno is written in Simplified Chinese, so there is nothing to improve there.
@@ -128,65 +123,39 @@ function buildTranslationHelpModel(input: TranslationHelpModelInput): Translatio
   };
 }
 
-function createTranslationHelpSection(options: TranslationHelpSectionOptions) {
-  let downloading: Promise<void> | null = null;
-
-  function download(): Promise<void> {
-    if (downloading) {
-      return downloading;
-    }
-    const locale = options.getLocale();
-    const referenceLocale = getTranslationReferenceLocale(locale);
-    downloading = Promise.all([
-      options.loadLocaleMessages(referenceLocale),
-      options.loadLocaleMessages(locale)
-    ]).then(([referenceMessages, currentMessages]) => {
-      const csv = buildTranslationSheetCsv({
-        currentMessages,
-        headers: {
-          current: getLocaleName(options.uiLocales, locale),
-          note: options.getMessage('settings_translation_help_sheet_note', '备注'),
-          reference: getLocaleName(options.uiLocales, referenceLocale),
-          suggestion: options.getMessage('settings_translation_help_sheet_suggestion', '建议译文')
-        },
-        referenceMessages
-      });
-      downloadTextFile(options.documentObj, `lumno-translation-${locale}.csv`, csv, 'text/csv;charset=utf-8');
-    }).finally(() => {
-      downloading = null;
-    });
-    return downloading;
-  }
-
-  function render(): void {
-    if (!options.controller) {
-      return;
-    }
-    options.controller.render(buildTranslationHelpModel({
-      formatTemplate: options.formatTemplate,
-      getMessage: options.getMessage,
-      issueUrl: options.getIssueUrl(),
-      locale: options.getLocale(),
-      onDownload: download,
-      uiLocales: options.uiLocales,
-      version: options.version
-    }));
-  }
-
-  return Object.freeze({ download, render });
+// Saves every UI string of the page's language beside its reference
+// language as a spreadsheet.
+async function downloadTranslationSheet(options: TranslationSheetDownload): Promise<void> {
+  const { locale } = options;
+  const referenceLocale = getTranslationReferenceLocale(locale);
+  const [referenceMessages, currentMessages] = await Promise.all([
+    options.loadLocaleMessages(referenceLocale),
+    options.loadLocaleMessages(locale)
+  ]);
+  const csv = buildTranslationSheetCsv({
+    currentMessages,
+    headers: {
+      current: getLocaleName(options.uiLocales, locale),
+      note: options.getMessage('settings_translation_help_sheet_note', '备注'),
+      reference: getLocaleName(options.uiLocales, referenceLocale),
+      suggestion: options.getMessage('settings_translation_help_sheet_suggestion', '建议译文')
+    },
+    referenceMessages
+  });
+  downloadTextFile(options.documentObj, `lumno-translation-${locale}.csv`, csv, 'text/csv;charset=utf-8');
 }
 
 export {
   buildTranslationHelpModel,
   buildTranslationIssueUrl,
   buildTranslationSheetCsv,
-  createTranslationHelpSection,
+  downloadTranslationSheet,
   getTranslationReferenceLocale
 };
 export type {
   LocaleMessages,
   TranslationHelpModelInput,
-  TranslationHelpSectionOptions,
+  TranslationSheetDownload,
   TranslationIssueInput,
   TranslationSheetInput
 };

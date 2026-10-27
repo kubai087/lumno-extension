@@ -2,12 +2,13 @@
 // groups, the per-list moves of the provider and aggregate lists, and the
 // browser content order on the result type checkboxes. All of them edit one
 // synced record (search-source-order.ts); the page re-renders its chips and
-// lists through `onChange`.
+// lists by following its store.
 
 import * as ORDER from '../domain/search/search-source-order';
 import type { SearchSourceOrder } from '../domain/search/search-source-order';
 import { isElementNode, isHtmlElement, isHtmlTag } from '../shared/dom-guards';
 import * as SORTABLE from '../shared/ui/sortable-drag';
+import { createStore } from '../shared/state/store';
 import type { GetMessage } from './options-types';
 
 interface SearchSourceOrderConfig {
@@ -27,11 +28,14 @@ type HistoryDirection = 'undo' | 'redo';
 function createSearchSourceOrderController(options: SearchSourceOrderConfig) {
   const getMessage: GetMessage = options.getMessage || ((_key, fallback) => fallback);
   let order = ORDER.normalizeOrder(null);
+  // The order as views follow it.
+  const store = createStore({ order });
   let writeQueue: Promise<unknown> = Promise.resolve();
   const detachers: Array<() => void> = [];
   const history = ORDER.createHistory();
 
   function notify(): void {
+    store.setState({ order });
     if (options.onChange) {
       options.onChange(order);
     }
@@ -212,6 +216,7 @@ function createSearchSourceOrderController(options: SearchSourceOrderConfig) {
   }
 
   return Object.freeze({
+    store,
     accept,
     attachGroupDrag,
     attachListDrag,

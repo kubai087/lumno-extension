@@ -1,13 +1,10 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import * as Settings from '../domain/settings';
-import type { Setting } from '../domain/settings/define';
-import { createGeneralFeaturesSection } from './options-general-features-section';
-import { createSettingsSectionController } from './react/settings-rows-view';
-import { getElement, getTag, getTags } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
-
-const sections: Array<{ destroy(): void }> = [];
+import * as Settings from '../../../domain/settings';
+import type { Setting } from '../../../domain/settings/define';
+import { getElement, getTag, getTags } from '../../../../tests/react/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { GeneralFeaturesSection } from './features-section';
 
 const TAB_SWITCHER_TOGGLE = '_x_extension_tab_switcher_toggle_2026_unique_';
 const SELECTION_TOGGLE = '_x_extension_selection_quick_actions_toggle_2026_unique_';
@@ -16,47 +13,16 @@ const PROVIDER_SELECT = '_x_extension_selection_quick_actions_provider_select_20
 const AUTO_PIP_TOGGLE = '_x_extension_auto_pip_toggle_2024_unique_';
 
 function setUp(browserFamily = 'chromium') {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
-  const section = createGeneralFeaturesSection({
-    view: (handlers) => createSettingsSectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (_key, fallback) => fallback,
-    browserFamily,
-    getAssetUrl: (path) => `chrome-extension://lumno-test/${path}`,
-    getViewportTopInset: () => 0,
-    getTabSwitcherShortcut: () => '⌥Q'
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
-  const store = (setting: Setting<unknown>, raw: unknown) => settings.change(setting, raw);
-  return { host, writes: settings.writes, section, settings, store };
+  const view = renderOptionsView(<GeneralFeaturesSection />, { page: { browserFamily, isMacPlatform: true } });
+  const store = (setting: Setting<unknown>, raw: unknown) => view.settings.change(setting, raw);
+  return { ...view, store };
 }
 
 const toggle = (host: HTMLElement, id: string) => getTag(host, `#${id}`, 'input');
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options General features section', () => {
-  it('binds every setting of the section', () => {
-    const { settings } = setUp();
-    expect(settings.boundKeys().sort()).toEqual([
-      Settings.autoPipEnabled.key,
-      Settings.linkPreviewEnabled.key,
-      Settings.pinnedTabRecoveryEnabled.key,
-      Settings.selectionQuickActionsEnabled.key,
-      Settings.selectionQuickActionsGroupEnabled.key,
-      Settings.selectionQuickActionsProvider.key,
-      Settings.tabSwitcherCurrentWindowOnly.key,
-      Settings.tabSwitcherEnabled.key
-    ].sort());
-  });
-
   it('starts from each setting\'s default', () => {
     const { host } = setUp();
     expect(toggle(host, TAB_SWITCHER_TOGGLE).checked).toBe(true);
@@ -89,12 +55,13 @@ describe('Options General features section', () => {
   });
 
   it('shows the Ctrl+Tab guide beside the tab switcher once the shortcut is known', () => {
-    const { host, section } = setUp();
+    const { host, page } = setUp();
     expect(host.querySelector('#_x_extension_tab_switcher_ctrl_tab_link_2026_unique_')).toBeNull();
-    act(() => section.setCtrlTabLink({ href: 'https://example.test/help', label: 'Switch with ⌃Tab', bound: false }));
+    act(() => page.commands.store.setState({ read: true, commands: [{ name: 'show-tab-switcher', shortcut: '⌥Q' }] }));
     const link = getTag(host, '#_x_extension_tab_switcher_ctrl_tab_link_2026_unique_', 'a');
-    expect(link.href).toBe('https://example.test/help');
-    expect(link.textContent).toBe('Switch with ⌃Tab');
+    expect(link.href).toContain('tab-switcher');
+    expect(link.href).toContain('#ctrl-tab');
+    expect(link.textContent).toBe('像 Arc 一样用 ⌃Tab 切换');
     expect(link.dataset.browserOnly).toBe('chromium');
     expect(link.dataset.bound).toBe('false');
   });

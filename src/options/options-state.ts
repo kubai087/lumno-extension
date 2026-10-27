@@ -9,7 +9,6 @@ import type { FormsState } from './options-forms';
 import type { NavigationState } from './options-navigation';
 import type { createPanelHeightAnimator } from './options-panel-motion';
 import type { createSearchSourceOrderController } from './options-search-source-order';
-import type { ShortcutReferenceState } from './options-shortcut-reference';
 import type { SiteSearchListState } from './options-site-search-list';
 import type { TooltipsState } from './options-tooltips';
 import type { ProviderStorageRuntime } from '../platform/settings-storage';
@@ -29,7 +28,6 @@ type OptionsState =
   AggregateSearchListState &
   FormsState &
   NavigationState &
-  ShortcutReferenceState &
   SiteSearchListState &
   TooltipsState &
   OptionsPageState;
@@ -43,7 +41,6 @@ interface OptionsStateParts {
   searchSourceOrderController: ReturnType<typeof createSearchSourceOrderController>;
   tooltipController: TooltipController;
   toastController: ToastController | null;
-  isMacPlatform: boolean;
 }
 
 function createOptionsState(parts: OptionsStateParts): OptionsState {
@@ -55,7 +52,6 @@ function createOptionsState(parts: OptionsStateParts): OptionsState {
     searchSourceOrderController: parts.searchSourceOrderController,
     tooltipController: parts.tooltipController,
     toastController: parts.toastController,
-    isMacPlatform: parts.isMacPlatform,
 
     // Startup: select refreshes wait for the settings to be read.
     optionsStartupReadPending: true,

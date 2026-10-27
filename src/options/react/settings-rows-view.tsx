@@ -244,8 +244,17 @@ function CheckboxGroupRow({
   handlers: SettingsRowsHandlers;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
+  // Set by the reset button, which hides itself: once the choices are drawn
+  // in their reset order, focus moves to the first of them.
+  const focusFirstChoice = useRef(false);
   const { attachDrag } = handlers;
   useLayoutEffect(() => (attachDrag ? attachDrag(row.key, groupRef.current) : undefined), [attachDrag, row.key]);
+  useLayoutEffect(() => {
+    if (focusFirstChoice.current) {
+      focusFirstChoice.current = false;
+      groupRef.current?.querySelector('input')?.focus({ preventScroll: true });
+    }
+  });
   const reset = row.reset ? (
     <button
       aria-label={row.reset.label}
@@ -254,9 +263,8 @@ function CheckboxGroupRow({
       hidden={row.reset.hidden}
       id={row.reset.id}
       onClick={() => {
+        focusFirstChoice.current = true;
         handlers.onReset?.(row.key);
-        // The button hides itself, so focus moves to the first choice.
-        groupRef.current?.querySelector('input')?.focus({ preventScroll: true });
       }}
       type="button"
     >

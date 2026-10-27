@@ -11,7 +11,7 @@ import type { GetMessage } from './options-types';
 import type { FeedbackSupportRenderModel } from './react/feedback-support';
 
 type FeedbackCommunityLinks = Pick<typeof CommunityLinksApi,
-  'FALLBACK_LINKS' | 'getCommunityChannel' | 'getHelpUrl' | 'getReviewUrl' | 'load'>;
+  'getCommunityChannel' | 'getHelpUrl' | 'getReviewUrl'>;
 
 interface FeedbackSupportModelInput {
   communityLinks: Pick<FeedbackCommunityLinks, 'getCommunityChannel' | 'getHelpUrl' | 'getReviewUrl'>;
@@ -19,18 +19,6 @@ interface FeedbackSupportModelInput {
   links: Readonly<CommunityLinks>;
   webLocale: string;
   helpCenterSearchEnabled: boolean;
-  helpIconUrl?: string;
-}
-
-interface FeedbackSupportSectionOptions {
-  // The section's React controller; null when the section is not on the page.
-  controller: { render(model: FeedbackSupportRenderModel): void } | null;
-  // The open-source licenses link in the Global settings header.
-  licensesLink?: Pick<HTMLAnchorElement, 'href'> | null;
-  communityLinks: FeedbackCommunityLinks;
-  getMessage: GetMessage;
-  getLocale(): string;
-  isHelpCenterSearchEnabled(): boolean;
   helpIconUrl?: string;
 }
 
@@ -124,38 +112,5 @@ function buildFeedbackSupportModel(input: FeedbackSupportModelInput): FeedbackSu
   };
 }
 
-function createFeedbackSupportSection(options: FeedbackSupportSectionOptions) {
-  const communityLinks = options.communityLinks;
-  let links: Readonly<CommunityLinks> = communityLinks.FALLBACK_LINKS;
-
-  function render(): void {
-    if (options.licensesLink && links.licenses) {
-      options.licensesLink.href = links.licenses;
-    }
-    if (!options.controller) {
-      return;
-    }
-    options.controller.render(buildFeedbackSupportModel({
-      communityLinks,
-      getMessage: options.getMessage,
-      helpCenterSearchEnabled: options.isHelpCenterSearchEnabled(),
-      helpIconUrl: options.helpIconUrl,
-      links,
-      webLocale: getFeedbackSupportWebLocale(options.getLocale())
-    }));
-  }
-
-  // Shows the bundled links at once, then the remote ones once they load.
-  function loadLinks(): Promise<Readonly<CommunityLinks>> {
-    return communityLinks.load().then((loaded) => {
-      links = loaded;
-      render();
-      return links;
-    });
-  }
-
-  return Object.freeze({ loadLinks, render });
-}
-
-export { buildFeedbackSupportModel, createFeedbackSupportSection, getFeedbackSupportWebLocale };
-export type { FeedbackSupportModelInput, FeedbackSupportSectionOptions };
+export { buildFeedbackSupportModel, getFeedbackSupportWebLocale };
+export type { FeedbackSupportModelInput };

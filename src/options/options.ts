@@ -1,6 +1,5 @@
 import * as LumnoBlacklistUtils from '../domain/blacklist-utils';
 import * as CUSTOM_QUOTES from '../domain/custom-quotes';
-import * as COMMUNITY_LINKS from '../platform/community-links';
 import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 import * as SETTINGS from '../domain/settings';
 import { getContextSettingsStore, readStoredSetting } from '../platform/settings-store';
@@ -19,23 +18,13 @@ import * as OPTIONS_AGGREGATE_SEARCH_LIST from './options-aggregate-search-list'
 import * as AGGREGATE_SEARCH from './options-aggregate-search';
 import * as OPTIONS_BLACKLIST_SECTION from './options-blacklist-section';
 import * as LumnoOptionsBlacklist from './options-blacklist';
-import * as LumnoOptionsFeedbackSupportSection from './options-feedback-support';
 import * as OPTIONS_FORMS from './options-forms';
-import * as OPTIONS_GENERAL_FEATURES_SECTION from './options-general-features-section';
-import * as OPTIONS_GENERAL_GLOBAL_SECTION from './options-general-global-section';
-import * as OPTIONS_GENERAL_NEWTAB_SECTION from './options-general-newtab-section';
-import * as OPTIONS_GENERAL_OVERLAY_SECTION from './options-general-overlay-section';
-import * as OPTIONS_GENERAL_SEARCH_SECTION from './options-general-search-section';
-import * as OPTIONS_GENERAL_SHORTCUTS_SECTION from './options-general-shortcuts-section';
-import * as OPTIONS_GENERAL_TAB from './options-general-tab';
 import * as OPTIONS_LABS_SECTION from './options-labs-section';
 import * as OPTIONS_NAVIGATION from './options-navigation';
 import * as PANEL_MOTION from './options-panel-motion';
 import * as LumnoOptionsSearchSourceOrder from './options-search-source-order';
 import * as SETTING_BINDINGS from './options-setting-bindings';
-import * as OPTIONS_SHORTCUT_REFERENCE from './options-shortcut-reference';
 import * as OPTIONS_SHORTCUTS_SECTION from './options-shortcuts-section';
-import * as OPTIONS_SEARCH_SHORTCUT_STATUS from './options-search-shortcut-status';
 import * as OPTIONS_SITE_SEARCH_ACTIONS from './options-site-search-actions';
 import * as OPTIONS_SITE_SEARCH_LIST from './options-site-search-list';
 import * as SITE_SEARCH from './options-site-search';
@@ -43,7 +32,6 @@ import * as LumnoOptionsSyncTransfer from './options-sync-transfer';
 import * as THEME from './options-theme';
 import * as OPTIONS_UNSUPPORTED_SETTINGS from './options-unsupported-settings';
 import * as OPTIONS_TOOLTIPS from './options-tooltips';
-import * as LumnoOptionsTranslationHelpSection from './options-translation-help';
 import * as LumnoBrowserProfile from '../platform/browser-profile';
 import * as LumnoMessaging from '../platform/messaging';
 import { getHtmlElement, queryHtmlElement, queryHtmlElements } from '../shared/dom-lookup';
@@ -57,11 +45,18 @@ import { getSettingsControlsApi } from './react/settings-controls';
 import { getSettingsNavigationApi } from './react/settings-navigation';
 import { newtabShortcutsLocalOverflow } from '../domain/settings/newtab-shortcuts';
 import * as ProviderStorage from '../platform/provider-storage';
-import { SiteSearchProviders, isHelpCenterSearchEnabled } from './features/site-search/providers';
+import { SiteSearchProviders } from './features/site-search/providers';
 import { AggregateSearches } from './features/aggregate-search/searches';
-import { OptionsLocale, loadLocaleMessages } from './features/language/locale';
+import { OptionsLocale } from './features/language/locale';
 import { applyStaticCopy } from './dom/static-copy';
 import { formatTemplate } from './format-template';
+import { createElement } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
+import { OptionsPageContext, type OptionsPage } from './app/context';
+import { GENERAL_TAB_SETTINGS, GeneralTab } from './features/general/general-tab';
+import { BrowserCommands } from './features/shortcuts/browser-commands';
+import { formatShortcut } from './features/shortcuts/shortcut-copy';
 
 (function() {
   const optionsRuntimeStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -120,9 +115,9 @@ import { formatTemplate } from './format-template';
   // src/options/: each receives this one object as `optionsState` and reads
   // and writes the same properties this file does.
   const optionsSettingsStore = getContextSettingsStore(chrome, window);
+  const isMacPlatform = LumnoShortcutDisplay.getNavigatorPlatform(navigator) === 'mac';
   const optionsLocale = new OptionsLocale(optionsSettingsStore);
   const getMessage = optionsLocale.getMessage;
-  const getLocale = (): string => optionsLocale.store.getSnapshot().locale;
   const siteSearchProviders = new SiteSearchProviders(optionsSettingsStore, (error) => {
     console.warn('[Lumno] Could not load site search providers.', error);
     showToast(getMessage('toast_error', '操作失败，请重试。'), true);
@@ -150,7 +145,6 @@ import { formatTemplate } from './format-template';
           renderSiteSearchList();
         }
         renderAggregateSearchList();
-        generalSearchSection.render();
       }
     }),
     tooltipController: LumnoTooltip.createController({
@@ -164,7 +158,6 @@ import { formatTemplate } from './format-template';
       windowObj: window,
       duration: 2200
     }),
-    isMacPlatform: LumnoShortcutDisplay.getNavigatorPlatform(navigator) === 'mac'
   });
 
 
@@ -253,87 +246,29 @@ import { formatTemplate } from './format-template';
     optionsState
   });
 
-  const shortcutDisplay = LumnoShortcutDisplay;
-  const generalTab = OPTIONS_GENERAL_TAB.createGeneralTab(optionsSettingsControlsApi.createGeneralTabController(
-    queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="general"]')
-  ));
-  const generalGlobalSection = OPTIONS_GENERAL_GLOBAL_SECTION.createGeneralGlobalSection({
-    view: generalTab.global,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    runtime: chrome.runtime,
-    getMessage,
+  const browserCommands = new BrowserCommands();
+  const optionsPage: OptionsPage = {
+    settingsStore: optionsSettingsStore,
+    locale: optionsLocale,
+    commands: browserCommands,
+    siteSearchProviders,
+    aggregateSearches,
+    sourceOrder: optionsState.searchSourceOrderController,
     showToast,
-    applyLanguage: (mode) => optionsLocale.choose(mode),
-    getViewportTopInset: getMenuViewportTopInset
-  });
-  const feedbackSupportSection = LumnoOptionsFeedbackSupportSection.createFeedbackSupportSection({
-    communityLinks: COMMUNITY_LINKS,
-    controller: generalGlobalSection.feedback,
-    licensesLink: generalGlobalSection.licensesLink,
-    getLocale,
-    getMessage,
-    helpIconUrl: chrome && chrome.runtime && typeof chrome.runtime.getURL === 'function'
-      ? chrome.runtime.getURL('assets/images/site-search/glyph-lm.png')
-      : '../../assets/images/site-search/glyph-lm.png',
-    isHelpCenterSearchEnabled: () => isHelpCenterSearchEnabled(siteSearchProviders.store.getSnapshot()) === true
-  });
-  const translationHelpSection = LumnoOptionsTranslationHelpSection.createTranslationHelpSection({
-    controller: generalGlobalSection.translationHelp,
-    documentObj: document,
-    formatTemplate,
-    getIssueUrl: () => COMMUNITY_LINKS.getLinks().githubIssue,
-    getLocale,
-    getMessage,
-    loadLocaleMessages,
-    uiLocales: SETTINGS.UI_LOCALES,
-    version: chrome?.runtime?.getManifest?.()?.version || ''
-  });
-
-
+    hideTooltip: () => optionsState.tooltipController.hide(),
+    getViewportTopInset: getMenuViewportTopInset,
+    isMacPlatform: isMacPlatform,
+    browserFamily: document.documentElement.getAttribute('data-browser-family') || ''
+  };
   // Drawn before the switches below are set up, which mark the rows this
   // browser cannot honor.
-  const generalFeaturesSection = OPTIONS_GENERAL_FEATURES_SECTION.createGeneralFeaturesSection({
-    view: generalTab.features,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage,
-    browserFamily: document.documentElement.getAttribute('data-browser-family') || '',
-    getAssetUrl: (path) => chrome.runtime.getURL(path),
-    getViewportTopInset: getMenuViewportTopInset,
-    getTabSwitcherShortcut: () => LumnoShortcutDisplay.formatShortcutChord('Alt+Q', {
-      platform: optionsState.isMacPlatform ? 'mac' : 'windows'
-    }) || (optionsState.isMacPlatform ? '⌥Q' : 'Alt+Q')
-  });
-  const generalShortcutsSection = OPTIONS_GENERAL_SHORTCUTS_SECTION.createGeneralShortcutsSection({
-    view: generalTab.shortcuts,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    runtime: chrome.runtime,
-    getMessage,
-    showToast
-  });
-  const generalNewtabSection = OPTIONS_GENERAL_NEWTAB_SECTION.createGeneralNewtabSection({
-    view: generalTab.newtab,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage
-  });
-  const generalOverlaySection = OPTIONS_GENERAL_OVERLAY_SECTION.createGeneralOverlaySection({
-    view: generalTab.overlay,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    getMessage
-  });
-  const generalSearchSection = OPTIONS_GENERAL_SEARCH_SECTION.createGeneralSearchSection({
-    view: generalTab.search,
-    settingsStore: optionsState.settingsStore,
-    SETTINGS,
-    orderController: optionsState.searchSourceOrderController,
-    getMessage,
-    getViewportTopInset: getMenuViewportTopInset,
-    hideTooltip: () => optionsState.tooltipController.hide()
-  });
+  const generalTabHost = queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="general"]');
+  if (generalTabHost) {
+    const generalTabRoot = createRoot(generalTabHost);
+    flushSync(() => {
+      generalTabRoot.render(createElement(OptionsPageContext.Provider, { value: optionsPage }, createElement(GeneralTab)));
+    });
+  }
   const appearanceTab = OPTIONS_APPEARANCE_TAB.createAppearanceTab(optionsSettingsControlsApi.createAppearanceTabController(
     queryHtmlElement(document, '._x_extension_settings_content_2024_unique_[data-content="appearance"]')
   ));
@@ -561,30 +496,11 @@ import { formatTemplate } from './format-template';
 
 
 
-  function renderFeedbackSupport() {
-    feedbackSupportSection.render();
-  }
-
-  renderFeedbackSupport();
-  // The lists follow the providers; the help links only when the Help
-  // Center search turns on or off.
-  let helpCenterSearchShown: boolean | null = null;
+  // The lists follow the providers.
   siteSearchProviders.store.subscribe(() => {
     renderSiteSearchList();
     renderAggregateSearchList();
-    const helpCenterSearch = isHelpCenterSearchEnabled(siteSearchProviders.store.getSnapshot());
-    if (helpCenterSearch !== helpCenterSearchShown) {
-      helpCenterSearchShown = helpCenterSearch;
-      renderFeedbackSupport();
-    }
   });
-  feedbackSupportSection.loadLinks();
-
-  function renderTranslationHelp() {
-    translationHelpSection.render();
-  }
-
-  renderTranslationHelp();
 
 
   function notifyNewtabSectionsRefresh(section: string): void {
@@ -635,30 +551,9 @@ import { formatTemplate } from './format-template';
   settingBinder.onChange([SETTINGS.syncMeta, ...SETTINGS.BROWSER_SYNC_SETTINGS], refreshSyncStatus);
 
 
-  const {
-    formatShortcutForDisplay,
-    renderShortcutReferenceList
-  } = OPTIONS_SHORTCUT_REFERENCE.createShortcutReference({
-    shortcutDisplay,
-    shortcutReferenceController: generalShortcutsSection.referenceList,
-    getMessage,
-    formatTemplate,
-    getHelpUrl: (slug, anchor) => COMMUNITY_LINKS.getHelpUrl(getLocale(), slug, anchor),
-    onTabSwitcherCtrlTabLinkChange: (link) => generalFeaturesSection.setCtrlTabLink(link),
-    optionsState
-  });
-
-  const searchShortcutStatus = OPTIONS_SEARCH_SHORTCUT_STATUS.createSearchShortcutStatus({
-    chromeApi: chrome,
-    isMacPlatform: optionsState.isMacPlatform,
-    formatShortcutForDisplay,
-    getMessage,
-    onChange: (label) => generalShortcutsSection.setStatus(label)
-  });
-  function loadCurrentShortcut(): void {
-    searchShortcutStatus.load();
-  }
-  settingBinder.onChange(SETTINGS.fallbackShortcut, () => loadCurrentShortcut());
+  // The search shortcut falls back to another chord when the browser has
+  // none; the chip names whichever applies.
+  settingBinder.onChange(SETTINGS.fallbackShortcut, () => browserCommands.load());
 
   if (settingsVersion && chrome?.runtime?.getManifest) {
     const manifest = chrome.runtime.getManifest();
@@ -760,25 +655,8 @@ import { formatTemplate } from './format-template';
 
 
 
-  loadCurrentShortcut();
-  renderShortcutReferenceList();
-  window.addEventListener('focus', () => {
-    loadCurrentShortcut();
-    renderShortcutReferenceList();
-  }, true);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      loadCurrentShortcut();
-      renderShortcutReferenceList();
-    }
-  }, true);
+  browserCommands.follow(window, document);
 
-  generalGlobalSection.bindSettings(settingBinder);
-  generalFeaturesSection.bindSettings(settingBinder);
-  generalSearchSection.bindSettings(settingBinder);
-  generalOverlaySection.bindSettings(settingBinder);
-  generalNewtabSection.bindSettings(settingBinder);
-  generalShortcutsSection.bindSettings(settingBinder);
   appearanceGlobalSection.bindSettings(settingBinder);
   appearanceOverlaySection.bindSettings(settingBinder);
   appearanceNewtabLookSection.bindSettings(settingBinder);
@@ -789,32 +667,25 @@ import { formatTemplate } from './format-template';
   shortcutsSection.bindSettings(settingBinder);
   // Everything drawn from translated copy follows the page language.
   optionsLocale.store.subscribe(() => {
-    const { mode, locale } = optionsLocale.store.getSnapshot();
-    generalGlobalSection.setLanguage(mode, locale);
     webDavSettingsController.render();
     applyStaticCopy(document, getMessage, formatTemplate, {
       name: 'Lumno',
       browser: LumnoBrowserProfile.getBrowserInternalProfile(navigator).name || 'Chrome',
-      shortcut: formatShortcutForDisplay('Alt+Q') || (optionsState.isMacPlatform ? '⌥Q' : 'Alt+Q')
+      shortcut: formatShortcut('Alt+Q', isMacPlatform) || (isMacPlatform ? '⌥Q' : 'Alt+Q')
     });
-    renderFeedbackSupport();
-    renderTranslationHelp();
     refreshCustomSelects();
     refreshSyncStatus();
-    searchShortcutStatus.render();
-    renderShortcutReferenceList();
     themeSection.render();
     renderSettingsNavigation(optionsState.currentActiveSettingsTab);
     [
-      generalGlobalSection, generalFeaturesSection, generalSearchSection, generalOverlaySection,
-      generalNewtabSection, generalShortcutsSection, appearanceGlobalSection, appearanceOverlaySection,
+      appearanceGlobalSection, appearanceOverlaySection,
       appearanceNewtabLookSection, dailyQuoteSection, appearanceNewtabLayoutSection, labsSection, blacklistSection
     ].forEach((section) => section.render());
     renderSiteSearchList();
     renderAggregateSearchList();
   });
   optionsLocale.follow();
-  void settingBinder.whenBound().then(finishOptionsStartupRead);
+  void Promise.all([settingBinder.whenBound(), optionsSettingsStore.include(GENERAL_TAB_SETTINGS)]).then(finishOptionsStartupRead);
 
   refreshCustomSelects();
 

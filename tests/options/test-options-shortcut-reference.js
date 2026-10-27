@@ -1,40 +1,24 @@
 const assert = require('assert');
-const shortcutDisplay = require('../../src/domain/shortcut-display.ts');
-const { createShortcutReference } = require('../../src/options/options-shortcut-reference.ts');
+const { buildShortcutReference, getCtrlTabLink } = require('../../src/options/features/shortcuts/shortcut-copy.ts');
 
 const MESSAGES = {
   settings_tab_switcher_ctrl_tab_link: 'Switch with {shortcut}, like Arc',
   settings_tab_switcher_ctrl_tab_guide: 'Guide: {shortcut} like Arc'
 };
 
-// Renders the shortcut list from a chrome.commands snapshot and returns the
-// rows the React island would receive plus the tab switcher row's link.
+// Builds the shortcut list from a chrome.commands snapshot and returns the
+// rows the view would receive plus the tab switcher row's link.
 function render(shortcut, isMacPlatform) {
-  let rendered = null;
-  let link = null;
-  global.chrome = {
-    commands: {
-      getAll(callback) {
-        callback([
-          { name: 'show-search', shortcut: '⇧⌘K' },
-          { name: 'show-tab-switcher', shortcut }
-        ]);
-      }
-    },
-    runtime: {}
+  const state = {
+    read: true,
+    commands: [
+      { name: 'show-search', shortcut: '⇧⌘K' },
+      { name: 'show-tab-switcher', shortcut }
+    ]
   };
-  const reference = createShortcutReference({
-    shortcutDisplay,
-    shortcutReferenceList: {},
-    shortcutReferenceController: { render(model) { rendered = model; } },
-    getMessage: (key, fallback) => MESSAGES[key] || fallback,
-    formatTemplate: (template, values) => template.replace(/\{(\w+)\}/g, (_, name) => values[name]),
-    getHelpUrl: (slug, anchor) => `https://lumno.kubai.design/en/help/${slug}/#${anchor}`,
-    onTabSwitcherCtrlTabLinkChange(next) { link = next; },
-    optionsState: { isMacPlatform }
-  });
-  reference.renderShortcutReferenceList();
-  delete global.chrome;
+  const getMessage = (key, fallback) => MESSAGES[key] || fallback;
+  const rendered = buildShortcutReference(state, isMacPlatform, getMessage);
+  const link = getCtrlTabLink(state, isMacPlatform, getMessage, 'https://lumno.kubai.design/en/help/tab-switcher/#ctrl-tab');
   const items = rendered.groups.flatMap((group) => group.items);
   const label = (id) => items.find((item) => item.id === id).shortcutLabel;
   return { link, label };

@@ -1,5 +1,4 @@
 import { createAppearanceTabController } from './appearance-tab';
-import { createGeneralTabController } from './general-tab';
 import { createSettingToggleRowsController } from './setting-rows';
 import { lazyInstance } from '../../shared/lazy-instance';
 
@@ -8,7 +7,6 @@ export function createSettingsControlsApi() {
   return Object.freeze({
     implementation: 'react',
     createAppearanceTabController,
-    createGeneralTabController,
     createSettingToggleRowsController
   });
 }

@@ -101,24 +101,26 @@ assert.ok(csv.endsWith('\r\nmissing,Only English,,,\r\n'));
       setTimeout: (callback) => callback()
     }
   };
-  const rendered = [];
-  const section = help.createTranslationHelpSection({
-    controller: { render: (value) => rendered.push(value) },
-    documentObj,
+  const model = help.buildTranslationHelpModel({
     formatTemplate,
-    getIssueUrl: () => ISSUE_URL,
-    getLocale: () => 'fr',
     getMessage,
-    loadLocaleMessages: (locale) => {
-      loaded.push(locale);
-      return Promise.resolve({ greeting: { message: locale === 'en' ? 'Hello' : 'Bonjour' } });
-    },
+    issueUrl: ISSUE_URL,
+    locale: 'fr',
+    onDownload: () => help.downloadTranslationSheet({
+      documentObj,
+      getMessage,
+      locale: 'fr',
+      loadLocaleMessages: (locale) => {
+        loaded.push(locale);
+        return Promise.resolve({ greeting: { message: locale === 'en' ? 'Hello' : 'Bonjour' } });
+      },
+      uiLocales: settings.UI_LOCALES
+    }),
     uiLocales: settings.UI_LOCALES,
     version: '1.2.3'
   });
-  section.render();
-  assert.strictEqual(rendered[0].visible, true);
-  await rendered[0].onDownload();
+  assert.strictEqual(model.visible, true);
+  await model.onDownload();
   assert.deepStrictEqual(loaded, ['en', 'fr']);
   assert.ok(saved[0].text.includes('greeting,Hello,Bonjour,,'));
   assert.strictEqual(saved[1], 'lumno-translation-fr.csv');

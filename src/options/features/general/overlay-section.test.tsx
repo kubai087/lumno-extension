@@ -1,40 +1,24 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import * as Settings from '../domain/settings';
-import { createGeneralOverlaySection } from './options-general-overlay-section';
-import { createSettingsSectionController } from './react/settings-rows-view';
-import { getTag } from '../../tests/react/dom';
-import { createOptionsTestSettings } from '../../tests/react/options-settings';
-
-const sections: Array<{ destroy(): void }> = [];
+import * as Settings from '../../../domain/settings';
+import { getTag } from '../../../../tests/react/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { GeneralOverlaySection } from './overlay-section';
 
 const OPEN_KEY = Settings.overlayOpenInCurrentTab.key;
 const OPEN_TABS_KEY = Settings.overlayOpenTabsDefaultVisible.key;
 
 function setUp() {
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-  const settings = createOptionsTestSettings();
-  const section = createGeneralOverlaySection({
-    view: (handlers) => createSettingsSectionController(host, handlers),
-    settingsStore: settings.store,
-    SETTINGS: Settings,
-    getMessage: (_key, fallback) => fallback
-  });
-  sections.push(section);
-  section.bindSettings(settings.binder);
-  return { host, writes: settings.writes, settings };
+  return renderOptionsView(<GeneralOverlaySection />);
 }
 
-afterEach(() => {
-  act(() => sections.splice(0).forEach((section) => section.destroy()));
-  document.body.textContent = '';
-});
+afterEach(cleanUpOptionsViews);
 
 describe('Options General webpage focus overlay section', () => {
-  it('binds both overlay settings', () => {
+  it('shows both overlay settings as stored and never rewrites them on its own', async () => {
     const { settings } = setUp();
-    expect(settings.boundKeys().sort()).toEqual([OPEN_KEY, OPEN_TABS_KEY].sort());
+    await settings.settle();
+    expect(settings.writes).toEqual([]);
   });
 
   it('asks whether results open in a new tab, on by default, and stores the reverse', async () => {

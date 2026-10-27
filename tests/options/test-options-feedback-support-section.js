@@ -56,35 +56,18 @@ function model(webLocale, helpCenterSearchEnabled) {
   }
 }
 
-// The section renders the bundled links at once and the remote ones once loaded,
-// and keeps the licenses link in the Global settings header on the same URL.
+// The model takes the bundled links until the remote ones load.
 (async () => {
-  const rendered = [];
-  const licensesLink = { href: '' };
-  let resolveLoad;
-  const section = feedback.createFeedbackSupportSection({
-    communityLinks: Object.assign({}, communityLinks, {
-      load: () => new Promise((resolve) => { resolveLoad = resolve; })
-    }),
-    controller: { render: (value) => rendered.push(value) },
-    getLocale: () => 'zh_CN',
+  const model = (from) => feedback.buildFeedbackSupportModel({
+    communityLinks,
     getMessage,
+    helpCenterSearchEnabled: true,
     helpIconUrl: 'icon.png',
-    isHelpCenterSearchEnabled: () => true,
-    licensesLink
+    links: from,
+    webLocale: feedback.getFeedbackSupportWebLocale('zh_CN')
   });
-  section.render();
-  assert.strictEqual(rendered[0].cards[0].href, communityLinks.FALLBACK_LINKS.wechatQr);
-  assert.strictEqual(licensesLink.href, 'https://github.com/kubai087/lumno-extension/blob/main/THIRD_PARTY_NOTICES.md',
-    'the licenses link should open the third-party notices on GitHub');
-  const loading = section.loadLinks();
-  resolveLoad(links);
-  await loading;
-  assert.strictEqual(rendered[1].cards[0].href, links.wechatQr);
-  assert.strictEqual(licensesLink.href, links.licenses);
-  feedback.createFeedbackSupportSection({
-    communityLinks, controller: null, getLocale: () => 'en', getMessage, isHelpCenterSearchEnabled: () => false
-  }).render();
+  assert.strictEqual(model(communityLinks.FALLBACK_LINKS).cards[0].href, communityLinks.FALLBACK_LINKS.wechatQr);
+  assert.strictEqual(model(links).cards[0].href, links.wechatQr);
   console.log('Options feedback support section tests passed.');
 })().catch((error) => {
   console.error(error);
