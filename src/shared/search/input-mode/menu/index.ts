@@ -17,7 +17,7 @@ import type { PinyinRuntime } from './pinyin-runtime';
 import { createModeMenuSearch } from './search';
 import type { ModeMenuSearchApi } from './search';
 import { ModeMenuSurface } from './surface';
-import type { FitModeMenuOptions, ModeMenuLayoutChange, ModeMenuSurfaceWindow } from './surface';
+import type { ModeMenuLayoutChange, ModeMenuSurfaceWindow } from './surface';
 import {
   createModeMenuEntries,
   createModeMenuState,
@@ -301,10 +301,6 @@ class ModeMenu {
       this.state.hasQuery = hasQuery;
       this.drawing.draw();
     }
-  }
-
-  fitWithinViewport(options?: FitModeMenuOptions | null): number | null {
-    return this.surface.fitWithinViewport(options);
   }
 
   // Keys while the menu has focus: arrows, Home, End, Enter, Escape, Tab,

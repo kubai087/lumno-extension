@@ -1,6 +1,6 @@
-// Where the mode menu sits and how it shows: its offset below the results,
-// its height capped to the viewport, the frame that lets the open motion
-// play, and the footer lined up with the tiles' icons.
+// Where the mode menu sits and how it shows: below the results, with the
+// results and the menu fitted into the viewport, the frame that lets the
+// open motion play, and the footer lined up with the tiles' icons.
 import { queryHtmlElement } from '../../../dom-lookup';
 import { setStyle } from '../page';
 import type { ModeMenuDrawing } from './drawing';
@@ -10,8 +10,15 @@ interface FitModeMenuOptions {
   // The viewport's bottom edge, when the surface knows it better.
   viewportBottom?: number;
   bottomInset?: number;
-  // The height the results above the menu take before the menu caps them.
-  resultHeight?: number;
+}
+
+// The results listed between the input and the menu: their element, the
+// custom property that caps their height while the menu is open, and
+// whether they show at all.
+interface ModeMenuResults {
+  element: HTMLElement;
+  capProperty: `--${string}`;
+  isShown(): boolean;
 }
 
 interface ModeMenuLayoutChange {
@@ -57,6 +64,18 @@ function readViewportBottom(parts: ModeMenuSurfaceParts, fitOptions: FitModeMenu
   );
 }
 
+// The results' layout height, or 0 while they are hidden.
+function measureResults(results: ModeMenuResults): number {
+  if (!results.isShown()) {
+    return 0;
+  }
+  const layoutHeight = Math.max(0, Number(results.element.offsetHeight) || 0);
+  if (layoutHeight > 0) {
+    return layoutHeight;
+  }
+  return Math.max(0, Number(results.element.getBoundingClientRect().height) || 0);
+}
+
 // The container's vertical scale (a transformed ancestor), with its
 // layout height and rect.
 function readContainerScale(container: HTMLElement): { rect: DOMRect; layoutHeight: number; scaleY: number } {
@@ -69,7 +88,7 @@ function readContainerScale(container: HTMLElement): { rect: DOMRect; layoutHeig
 // Fits the results and the menu below them into the viewport under the
 // input: the results keep their height and the menu takes the rest, down to
 // MIN_MENU_HEIGHT. Returns the height the results may take.
-function fitOpenMenu(parts: ModeMenuSurfaceParts, fitOptions: FitModeMenuOptions): number | null {
+function fitOpenMenu(parts: ModeMenuSurfaceParts, fitOptions: FitModeMenuOptions, resultHeight: number): number | null {
   const { menu } = parts;
   const { rect: containerRect, layoutHeight: containerLayoutHeight, scaleY } = readContainerScale(parts.container);
   if (!Number.isFinite(scaleY) || scaleY <= 0) {
@@ -85,8 +104,8 @@ function fitOpenMenu(parts: ModeMenuSurfaceParts, fitOptions: FitModeMenuOptions
     ((readViewportBottom(parts, fitOptions) - bottomInset - Number(containerRect.bottom || 0)) / scaleY) - menuGap
   );
   const resultLimit = Math.max(0, Math.floor(availableLayoutHeight - MIN_MENU_HEIGHT));
-  const resultHeight = Math.min(resultLimit, Math.max(0, Number(fitOptions.resultHeight) || 0));
-  setStyle(menu, VIEWPORT_MAX_HEIGHT_PROPERTY, `${Math.floor(availableLayoutHeight - resultHeight)}px`);
+  const keptResultHeight = Math.min(resultLimit, resultHeight);
+  setStyle(menu, VIEWPORT_MAX_HEIGHT_PROPERTY, `${Math.floor(availableLayoutHeight - keptResultHeight)}px`);
   return resultLimit;
 }
 
@@ -103,21 +122,20 @@ class ModeMenuSurface {
     this.drawing = drawing;
   }
 
-  // Moves the menu down by the height of the results shown above it.
-  setResultOffset(offset: unknown): void {
-    const numericOffset = Number(offset);
-    const nextOffset = Number.isFinite(numericOffset) ? Math.max(0, numericOffset) : 0;
-    setStyle(this.parts.menu, '--x-lumno-search-mode-menu-result-offset', `${nextOffset}px`);
-  }
-
-  // Fits the results and the menu into the viewport below the input;
-  // returns the height the results may take, or null while it is closed.
-  fitWithinViewport(options?: FitModeMenuOptions | null): number | null {
-    if (!this.isVisible()) {
-      this.parts.menu.style.removeProperty(VIEWPORT_MAX_HEIGHT_PROPERTY);
-      return null;
+  // Lays the menu out below the results: they are measured at their own
+  // height, without their cap, the menu fits under them, and their cap is
+  // set to what the viewport leaves them while the menu is open. Returns
+  // whether the cap changed, which changes the results' height.
+  placeBelow(results: ModeMenuResults, options?: FitModeMenuOptions | null): boolean {
+    const { element, capProperty } = results;
+    const previousCap = element.style.getPropertyValue(capProperty);
+    element.style.removeProperty(capProperty);
+    const resultLimit = this.fitWithinViewport(options || {}, measureResults(results));
+    if (resultLimit !== null && Number.isFinite(resultLimit)) {
+      element.style.setProperty(capProperty, `${resultLimit}px`);
     }
-    return fitOpenMenu(this.parts, options || {});
+    setStyle(this.parts.menu, '--x-lumno-search-mode-menu-result-offset', `${measureResults(results)}px`);
+    return element.style.getPropertyValue(capProperty) !== previousCap;
   }
 
   isVisible(): boolean {
@@ -181,6 +199,16 @@ class ModeMenuSurface {
     setStyle(footer, '--x-lumno-search-mode-footer-inline-start', `${Math.round(inlineStart * 100) / 100}px`);
   }
 
+  // Fits the results and the menu into the viewport below the input;
+  // returns the height the results may take, or null while it is closed.
+  private fitWithinViewport(options: FitModeMenuOptions, resultHeight: number): number | null {
+    if (!this.isVisible()) {
+      this.parts.menu.style.removeProperty(VIEWPORT_MAX_HEIGHT_PROPERTY);
+      return null;
+    }
+    return fitOpenMenu(this.parts, options, resultHeight);
+  }
+
   private requestFrame(callback: () => void): number {
     const win = this.parts.win;
     if (win && typeof win.requestAnimationFrame === 'function') {
@@ -210,5 +238,5 @@ class ModeMenuSurface {
   }
 }
 
-export type { FitModeMenuOptions, ModeMenuLayoutChange, ModeMenuSurfaceParts, ModeMenuSurfaceWindow };
+export type { FitModeMenuOptions, ModeMenuLayoutChange, ModeMenuResults, ModeMenuSurfaceParts, ModeMenuSurfaceWindow };
 export { ModeMenuSurface };

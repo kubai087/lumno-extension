@@ -13,7 +13,7 @@ import { ModeTabKeys } from './input-mode/keys';
 import type { ModeKeyEvent } from './input-mode/keys';
 import { ModeMenu } from './input-mode/menu';
 import type { ModeMenuEvents, ModeMenuFocusTarget } from './input-mode/menu';
-import type { FitModeMenuOptions } from './input-mode/menu/surface';
+import type { FitModeMenuOptions, ModeMenuResults } from './input-mode/menu/surface';
 import { readControllerOptions } from './input-mode/mode-options';
 import type { ControllerOptions, ModeMenuTooltipController } from './input-mode/mode-options';
 import { getDocument, getWindow, setStyle } from './input-mode/page';
@@ -295,8 +295,9 @@ function createInputModeApi(mode: InputMode, listeners: ModeListeners) {
       menu.redraw();
       mode.placeholder.sync();
     },
-    fitModeMenuWithinViewport: (options?: FitModeMenuOptions | null) => menu.fitWithinViewport(options),
-    setModeMenuResultOffset: (offset: unknown) => menu.surface.setResultOffset(offset),
+    placeModeMenuBelowResults: (results: ModeMenuResults, options?: FitModeMenuOptions | null) => (
+      menu.surface.placeBelow(results, options)
+    ),
     handleModeMenuTabFocusToggle: (event: ModeKeyEvent | null | undefined) => menu.toggleFocus(event),
     handleModeMenuKeyEvent: (event: KeyboardEvent) => menu.handleKeyEvent(event),
     shouldHandleModeMenuKeyEvent: (event: { target?: EventTarget | null } | null | undefined) => menu.focus.ownsKeyEvent(event),

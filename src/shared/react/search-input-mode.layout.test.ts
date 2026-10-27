@@ -67,7 +67,7 @@ describe('Search scope menu: layout, icons and reordering', () => {
     controller.destroy();
   });
 
-  it('keeps the results at their height and fits the scope menu below them (#126)', () => {
+  it('keeps the results at their height and fits the scope menu below them', () => {
     const parts = createModeParts();
     const controller = LumnoSearchInputMode.createInputModeController(
       parts,
@@ -89,49 +89,59 @@ describe('Search scope menu: layout, icons and reordering', () => {
       configurable: true,
       value: 70
     });
-    controller.openModeMenu('none');
+    const CAP = '--x-test-results-cap';
+    const resultsElement = document.createElement('div');
+    let resultsShown = false;
+    let naturalHeight = 0;
+    // The results are as tall as their rows unless their cap is shorter.
+    Object.defineProperty(resultsElement, 'offsetHeight', {
+      configurable: true,
+      get: () => Math.min(naturalHeight, Number.parseFloat(resultsElement.style.getPropertyValue(CAP)) || Infinity)
+    });
+    const results = { element: resultsElement, capProperty: CAP, isShown: () => resultsShown } as const;
+    const place = (viewportBottom: number) => controller.placeModeMenuBelowResults(results, { viewportBottom });
     const menuMaxHeight = () => controller.menuElement.style.getPropertyValue(
       '--x-lumno-search-mode-menu-viewport-max-height'
     );
+    const resultOffset = () => controller.menuElement.style.getPropertyValue(
+      '--x-lumno-search-mode-menu-result-offset'
+    );
+    controller.openModeMenu('none');
 
     // 871px under the input: no results leave it all to the menu.
-    expect(controller.fitModeMenuWithinViewport({
-      bottomInset: 24,
-      viewportBottom: 1209
-    })).toBe(671);
+    expect(place(1209)).toBe(true);
+    expect(resultsElement.style.getPropertyValue(CAP)).toBe('671px');
     expect(menuMaxHeight()).toBe('871px');
+    expect(resultOffset()).toBe('0px');
 
-    // One site search row keeps its height; the menu takes the rest.
-    expect(controller.fitModeMenuWithinViewport({
-      bottomInset: 24,
-      viewportBottom: 1209,
-      resultHeight: 72
-    })).toBe(671);
+    // One site search row keeps its height, even under a shorter cap left
+    // from before; the menu takes the rest.
+    resultsShown = true;
+    naturalHeight = 72;
+    resultsElement.style.setProperty(CAP, '20px');
+    expect(place(1209)).toBe(true);
+    expect(resultsElement.style.getPropertyValue(CAP)).toBe('671px');
     expect(menuMaxHeight()).toBe('799px');
+    expect(resultOffset()).toBe('72px');
+    expect(place(1209)).toBe(false);
 
     // 262px: the menu keeps its least height and the row gets what is left.
-    expect(controller.fitModeMenuWithinViewport({
-      bottomInset: 24,
-      viewportBottom: 600,
-      resultHeight: 72
-    })).toBe(62);
+    expect(place(600)).toBe(true);
+    expect(resultsElement.style.getPropertyValue(CAP)).toBe('62px');
     expect(menuMaxHeight()).toBe('200px');
+    expect(resultOffset()).toBe('62px');
 
     // A long list gives way to the menu's least height and scrolls.
-    expect(controller.fitModeMenuWithinViewport({
-      bottomInset: 24,
-      viewportBottom: 1209,
-      resultHeight: 900
-    })).toBe(671);
+    naturalHeight = 900;
+    place(1209);
     expect(menuMaxHeight()).toBe('200px');
+    expect(resultOffset()).toBe('671px');
 
+    // Closed, the menu leaves the results uncapped.
     controller.closeModeMenu();
-    expect(controller.fitModeMenuWithinViewport()).toBeNull();
-    expect(
-      controller.menuElement.style.getPropertyValue(
-        '--x-lumno-search-mode-menu-viewport-max-height'
-      )
-    ).toBe('');
+    expect(place(1209)).toBe(true);
+    expect(resultsElement.style.getPropertyValue(CAP)).toBe('');
+    expect(menuMaxHeight()).toBe('');
     controller.destroy();
   });
 
@@ -167,12 +177,6 @@ describe('Search scope menu: layout, icons and reordering', () => {
         '--x-lumno-search-mode-menu-lift'
       )
     ).toBe('-8px');
-    controller.setModeMenuResultOffset(72);
-    expect(
-      controller.menuElement.style.getPropertyValue(
-        '--x-lumno-search-mode-menu-result-offset'
-      )
-    ).toBe('72px');
     expect(
       controller.menuElement.style.getPropertyValue(
         '--x-extension-menu-surface-open-transform'

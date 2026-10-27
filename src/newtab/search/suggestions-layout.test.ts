@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ModeMenuResults } from '../../shared/search/input-mode/menu/surface';
 import { createSuggestionsLayout } from './suggestions-layout';
 
 const LIMIT = '--x-nt-suggestions-menu-fit-max-height';
@@ -12,8 +13,16 @@ function setUp() {
     updateSuggestionsFloatingLayout: vi.fn()
   };
   const inputModeController = {
-    setModeMenuResultOffset: vi.fn(),
-    fitModeMenuWithinViewport: vi.fn(() => limit)
+    // Stands in for the menu surface: caps the list at the limit set.
+    placeModeMenuBelowResults: vi.fn((results: ModeMenuResults) => {
+      const previous = results.element.style.getPropertyValue(results.capProperty);
+      if (limit === null) {
+        results.element.style.removeProperty(results.capProperty);
+      } else {
+        results.element.style.setProperty(results.capProperty, `${limit}px`);
+      }
+      return results.element.style.getPropertyValue(results.capProperty) !== previous;
+    })
   };
   const layout = createSuggestionsLayout({
     pageState: {
@@ -37,7 +46,7 @@ afterEach(() => {
 });
 
 describe('New Tab suggestions layout', () => {
-  it('redraws the frame whenever the scope menu changes the list height limit (#121)', () => {
+  it('redraws the frame whenever the scope menu changes the list height limit', () => {
     const { container, layout, layoutController, setLimit } = setUp();
 
     setLimit(59);
@@ -60,18 +69,14 @@ describe('New Tab suggestions layout', () => {
     expect(layoutController.updateSuggestionsFloatingLayout).toHaveBeenCalledTimes(1);
   });
 
-  it('fits the scope menu below the list at the list\'s own height (#126)', () => {
-    const { container, layout, inputModeController, setLimit } = setUp();
-    container.setAttribute('data-visible', 'true');
-    // The list is 72px tall unless the menu's cap is shorter.
-    Object.defineProperty(container, 'offsetHeight', {
-      configurable: true,
-      get: () => Math.min(72, Number.parseFloat(container.style.getPropertyValue(LIMIT)) || Infinity)
-    });
-    container.style.setProperty(LIMIT, '20px');
-    setLimit(300);
+  it('hands the menu the list, its cap and whether it shows', () => {
+    const { container, layout, inputModeController } = setUp();
     layout.syncSearchModeMenuResultOffset();
-    expect(inputModeController.fitModeMenuWithinViewport).toHaveBeenLastCalledWith({ bottomInset: 24, resultHeight: 72 });
-    expect(inputModeController.setModeMenuResultOffset).toHaveBeenLastCalledWith(72);
+    const [results] = inputModeController.placeModeMenuBelowResults.mock.calls[0];
+    expect(results.element).toBe(container);
+    expect(results.capProperty).toBe(LIMIT);
+    expect(results.isShown()).toBe(false);
+    container.setAttribute('data-visible', 'true');
+    expect(results.isShown()).toBe(true);
   });
 });

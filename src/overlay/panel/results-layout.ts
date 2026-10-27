@@ -16,7 +16,7 @@ interface ResultsLayoutState {
   // The panel's styles live in its own shadow root, so inline styles need
   // no !important.
   inputModeController: Pick<InputModeController,
-    'setModeMenuResultOffset' | 'fitModeMenuWithinViewport' | 'updateLayout' | 'setTabHintVisible'> | null;
+    'placeModeMenuBelowResults' | 'updateLayout' | 'setTabHintVisible'> | null;
   overlaySearchResultDisplayLimit: number;
   // Only whether a site search or a local scope is active.
   siteSearchState: unknown;
@@ -167,53 +167,19 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     }
   }
 
-  function getSearchModeMenuResultOffset(): number {
-    if (!overlayState.suggestionsContainer ||
-        overlayState.suggestionsContainer.getAttribute('data-collapsed') === 'true' ||
-        overlayState.suggestionsContainer.getAttribute('aria-hidden') === 'true') {
-      return 0;
-    }
-    const layoutHeight = Math.max(
-      0,
-      Number(overlayState.suggestionsContainer.offsetHeight) || 0
-    );
-    if (layoutHeight > 0) {
-      return layoutHeight;
-    }
-    const rect = overlayState.suggestionsContainer.getBoundingClientRect();
-    return Math.max(0, Number(rect && rect.height) || 0);
-  }
-
   // Keeps an open mode menu clear of the results and inside the viewport.
   function syncSearchModeMenuResultOffset(): void {
     const controller = overlayState.inputModeController;
     const container = overlayState.suggestionsContainer;
-    if (!controller || typeof controller.setModeMenuResultOffset !== 'function' || !container) {
+    if (!controller || !container) {
       return;
     }
-    const fitMaxHeightProperty =
-      '--x-ov-suggestions-menu-fit-max-height';
-    // The menu goes below the results at their own height, so they are
-    // measured without the menu's cap.
-    container.style.removeProperty(fitMaxHeightProperty);
-    const resultHeightLimit =
-      typeof controller.fitModeMenuWithinViewport === 'function'
-        ? controller.fitModeMenuWithinViewport({
-          bottomInset: 24,
-          resultHeight: getSearchModeMenuResultOffset()
-        })
-        : null;
-    if (resultHeightLimit !== null && Number.isFinite(resultHeightLimit)) {
-      container.style.setProperty(
-        fitMaxHeightProperty,
-        `${resultHeightLimit}px`
-      );
-    } else {
-      container.style.removeProperty(fitMaxHeightProperty);
-    }
-    controller.setModeMenuResultOffset(
-      getSearchModeMenuResultOffset()
-    );
+    controller.placeModeMenuBelowResults({
+      element: container,
+      capProperty: '--x-ov-suggestions-menu-fit-max-height',
+      isShown: () => container.getAttribute('data-collapsed') !== 'true' &&
+        container.getAttribute('aria-hidden') !== 'true'
+    });
   }
 
   // Collapses the results under the input, or opens them; deferLayoutSync
