@@ -1,9 +1,10 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createAccountTabApi, type AccountTabController, type AccountTabModel } from './account-tab';
+import { createRoot, type Root } from 'react-dom/client';
+import { AccountTab, type AccountTabModel } from './account-tab';
 import { getElement, getTag } from '../../../tests/react/dom';
 
-let controllers: AccountTabController[] = [];
+let roots: Root[] = [];
 
 const model: AccountTabModel = {
   browserSync: {
@@ -36,22 +37,23 @@ function setUp() {
     browserSync: { onSyncNow: vi.fn(), onExport: vi.fn(), onImport: vi.fn() },
     webdav: { onAction: vi.fn().mockResolvedValue({}) }
   };
-  const controller = createAccountTabApi().createAccountTabController(host, handlers);
-  controllers.push(controller);
+  const root = createRoot(host);
+  roots.push(root);
+  // Draws the tab again with a new model, as the page does.
+  const controller = { render: (next: AccountTabModel) => root.render(<AccountTab handlers={handlers} model={next} />) };
   act(() => controller.render(model));
   return { host, handlers, controller };
 }
 
 afterEach(() => {
-  act(() => controllers.forEach((controller) => controller.destroy()));
-  controllers = [];
+  act(() => roots.forEach((root) => root.unmount()));
+  roots = [];
   document.body.textContent = '';
 });
 
 describe('Options Account tab', () => {
   it('draws the browser sync card above the WebDAV card', () => {
     const { host } = setUp();
-    expect(host.dataset.reactIsland).toBe('options-account-tab');
     const sectionTitle = getElement(host, '._x_extension_section_header_2026_unique_');
     const syncTitle = getElement(host, '#lumno-browser-sync-title');
     const webdav = getElement(host, '#lumno-webdav-settings');

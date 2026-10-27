@@ -4,6 +4,7 @@
 import { createContext, useContext } from 'react';
 import type { SettingsStore } from '../../platform/settings-store';
 import { useStore } from '../../shared/react/use-store';
+import type { Account } from '../features/account/account';
 import type { AggregateSearches } from '../features/aggregate-search/searches';
 import type { PageTheme } from '../features/appearance/page-theme';
 import type { OptionsLocale } from '../features/language/locale';
@@ -21,6 +22,7 @@ interface OptionsPage {
   // The order of search groups, lists and browser content types.
   sourceOrder: ReturnType<typeof createSearchSourceOrderController>;
   pageTheme: PageTheme;
+  account: Account;
   showToast(message: string, isError?: boolean): void;
   // Asks open New Tab pages to redraw a part of themselves.
   notifyNewtab(section: string): void;

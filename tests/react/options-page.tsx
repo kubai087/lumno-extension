@@ -65,6 +65,11 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
       panel: document.createElement('div'),
       animatePanel: (mutateLayout) => mutateLayout()
     }),
+    // The account cards reach browser storage and the worker as they start;
+    // tests of them build their own.
+    get account(): OptionsPage['account'] {
+      throw new Error('This Options view test has no account');
+    },
     showToast,
     notifyNewtab,
     hideTooltip: vi.fn(),

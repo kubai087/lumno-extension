@@ -1,9 +1,7 @@
 import { useRef } from 'react';
 import { InfoButton } from './info-button';
-import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingDivider } from './setting-rows';
 import { WebDavList, type WebDavListModel, type WebDavListOptions } from './webdav-list';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
 export type BrowserSyncTone = 'success' | 'danger' | '';
@@ -198,25 +196,3 @@ export function AccountTab({ model, handlers }: { model: AccountTabModel; handle
     </>
   );
 }
-
-export type AccountTabController = ReactRootController<AccountTabModel>;
-
-export function createAccountTabController(host: HTMLElement | null, handlers: AccountTabHandlers): AccountTabController {
-  if (host) {
-    host.dataset.reactIsland = 'options-account-tab';
-  }
-  return createReactRootController(
-    host,
-    (model: AccountTabModel) => <AccountTab handlers={handlers} model={model} />
-  );
-}
-
-export function createAccountTabApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createAccountTabController
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getAccountTabApi = lazyInstance(createAccountTabApi);

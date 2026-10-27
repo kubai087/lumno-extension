@@ -3,7 +3,6 @@ import * as SETTINGS from '../domain/settings';
 import { getContextSettingsStore, readStoredSetting } from '../platform/settings-store';
 import * as LumnoShortcutDisplay from '../domain/shortcut-display';
 import * as LumnoTooltip from '../shared/ui/tooltip';
-import * as OPTIONS_ACCOUNT_SECTION from './options-account-section';
 import * as OPTIONS_AGGREGATE_SEARCH_ACTIONS from './options-aggregate-search-actions';
 import * as OPTIONS_AGGREGATE_SEARCH_LIST from './options-aggregate-search-list';
 import * as AGGREGATE_SEARCH from './options-aggregate-search';
@@ -23,11 +22,9 @@ import * as LumnoBrowserProfile from '../platform/browser-profile';
 import * as LumnoMessaging from '../platform/messaging';
 import { getHtmlElement, queryHtmlElement, queryHtmlElements } from '../shared/dom-lookup';
 import * as OPTIONS_STATE from './options-state';
-import { getAccountTabApi } from './react/account-tab';
 import { getShortcutsTabApi } from './react/shortcuts-tab';
 import { createToastController } from '../shared/react/toast';
 import { getSettingsNavigationApi } from './react/settings-navigation';
-import { newtabShortcutsLocalOverflow } from '../domain/settings/newtab-shortcuts';
 import * as ProviderStorage from '../platform/provider-storage';
 import { SiteSearchProviders } from './features/site-search/providers';
 import { AggregateSearches } from './features/aggregate-search/searches';
@@ -38,6 +35,8 @@ import { createElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { OptionsPageContext, type OptionsPage } from './app/context';
+import { Account } from './features/account/account';
+import { AccountTab } from './features/account/account-tab';
 import { APPEARANCE_TAB_SETTINGS, AppearanceTab } from './features/appearance/appearance-tab';
 import { PageTheme } from './features/appearance/page-theme';
 import { BLACKLIST_TAB_SETTINGS, BlacklistTab } from './features/blacklist/blacklist-tab';
@@ -79,10 +78,9 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     return;
   }
   // The React views, set by the options islands bundle that loads first.
-  const optionsAccountTabApi = getAccountTabApi();
   const optionsShortcutsTabApi = getShortcutsTabApi();
   const optionsSettingsNavigationApi = getSettingsNavigationApi();
-  if (!optionsAccountTabApi || !optionsShortcutsTabApi ||
+  if (!optionsShortcutsTabApi ||
       !optionsSettingsNavigationApi) {
     console.warn('Lumno: options views not available.');
     return;
@@ -232,6 +230,30 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     optionsState
   });
 
+  const syncTransfer = LumnoOptionsSyncTransfer.createSyncTransfer({
+    deriveLegacyAutoGroupEnabled: aggregateSearchModel.deriveLegacyAutoGroupEnabled,
+    settings: SETTINGS
+  });
+  const account = new Account({
+    sync: {
+      beginToast,
+      browserName: LumnoBrowserProfile.getBrowserInternalProfile(navigator).name || 'Chrome',
+      chromeApi: chrome,
+      documentObj: document,
+      formatTemplate,
+      getActivePrimaryAreaName,
+      getMessage,
+      localStorageArea,
+      settings: SETTINGS,
+      showToast,
+      storageArea: providerStorageArea,
+      syncTransfer
+    },
+    webdav: { chromeApi: chrome, getMessage },
+    settingsStore: optionsSettingsStore,
+    locale: optionsLocale,
+    showTooltipFor
+  });
   const browserCommands = new BrowserCommands();
   const pageTheme = new PageTheme(optionsSettingsStore, {
     doc: document,
@@ -247,6 +269,7 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     aggregateSearches,
     sourceOrder: optionsState.searchSourceOrderController,
     pageTheme,
+    account,
     showToast,
     notifyNewtab: notifyNewtabSectionsRefresh,
     hideTooltip: () => optionsState.tooltipController.hide(),
@@ -269,6 +292,7 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
   // Drawn before the switches below are set up, which mark the rows this
   // browser cannot honor.
   mountTab('general', createElement(GeneralTab));
+  mountTab('account', createElement(AccountTab));
   mountTab('appearance', createElement(AppearanceTab));
   mountTab('labs', createElement(LabsTab));
   mountTab('blacklist', createElement(BlacklistTab));
@@ -331,10 +355,6 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
   const aggregateSearchListController = shortcutsSection.aggregateList;
   optionsState.siteSearchFormController = shortcutsSection.form;
 
-  const syncTransfer = LumnoOptionsSyncTransfer.createSyncTransfer({
-    deriveLegacyAutoGroupEnabled: aggregateSearchModel.deriveLegacyAutoGroupEnabled,
-    settings: SETTINGS
-  });
   // Each section binds its settings next to the code that renders it; the
   // page's settings store follows storage for all of them.
   const settingBinder = SETTING_BINDINGS.createSettingBinder({
@@ -452,34 +472,6 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
     }
   }
 
-  const accountSection = OPTIONS_ACCOUNT_SECTION.createAccountSection({
-    host: getHtmlElement(document, '_x_extension_account_settings_content_2026_unique_'),
-    accountTabApi: optionsAccountTabApi,
-    sync: {
-      beginToast,
-      browserName: LumnoBrowserProfile.getBrowserInternalProfile(navigator).name || 'Chrome',
-      chromeApi: chrome,
-      documentObj: document,
-      formatTemplate,
-      getActivePrimaryAreaName,
-      getMessage,
-      localStorageArea,
-      settings: SETTINGS,
-      showToast,
-      storageArea: providerStorageArea,
-      syncTransfer
-    },
-    webdav: { chromeApi: chrome, getMessage },
-    showTooltipFor
-  });
-  const syncSection = accountSection.syncSection;
-  const webDavSettingsController = accountSection.webDavController;
-  function refreshSyncStatus() {
-    syncSection.refreshSyncStatus();
-  }
-  settingBinder.onChange(SETTINGS.webdavStatus, refreshSyncStatus);
-  settingBinder.onChange(newtabShortcutsLocalOverflow, () => syncSection.refreshShortcutSyncSummary());
-  settingBinder.onChange([SETTINGS.syncMeta, ...SETTINGS.BROWSER_SYNC_SETTINGS], refreshSyncStatus);
 
 
   // The search shortcut falls back to another chord when the browser has
@@ -549,10 +541,7 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
   window.addEventListener('scroll', scheduleOptionsScrollRefresh, { passive: true });
   updateTabsStickyVisualState();
   window.addEventListener('resize', scheduleOptionsViewportLayoutRefresh, { passive: true });
-  optionsState.providerStorageRuntime.ready.then(() => {
-    syncSection.migrateStorageIfNeeded(SETTINGS.BROWSER_SYNC_KEYS.slice());
-    refreshSyncStatus();
-  });
+  account.start(optionsState.providerStorageRuntime);
 
 
 
@@ -561,14 +550,12 @@ import { formatShortcut } from './features/shortcuts/shortcut-copy';
   shortcutsSection.bindSettings(settingBinder);
   // Everything drawn from translated copy follows the page language.
   optionsLocale.store.subscribe(() => {
-    webDavSettingsController.render();
     applyStaticCopy(document, getMessage, formatTemplate, {
       name: 'Lumno',
       browser: LumnoBrowserProfile.getBrowserInternalProfile(navigator).name || 'Chrome',
       shortcut: formatShortcut('Alt+Q', isMacPlatform) || (isMacPlatform ? '⌥Q' : 'Alt+Q')
     });
     refreshCustomSelects();
-    refreshSyncStatus();
     renderSettingsNavigation(optionsState.currentActiveSettingsTab);
     renderSiteSearchList();
     renderAggregateSearchList();
