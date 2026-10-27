@@ -23,7 +23,13 @@ function setUp() {
       layoutController
     }
   });
-  return { container, layout, layoutController, setLimit: (next: number | null) => { limit = next; } };
+  return {
+    container,
+    layout,
+    layoutController,
+    inputModeController,
+    setLimit: (next: number | null) => { limit = next; }
+  };
 }
 
 afterEach(() => {
@@ -52,5 +58,20 @@ describe('New Tab suggestions layout', () => {
     layout.syncSearchModeMenuResultOffset();
     layout.syncSearchModeMenuResultOffset();
     expect(layoutController.updateSuggestionsFloatingLayout).toHaveBeenCalledTimes(1);
+  });
+
+  it('fits the scope menu below the list at the list\'s own height (#126)', () => {
+    const { container, layout, inputModeController, setLimit } = setUp();
+    container.setAttribute('data-visible', 'true');
+    // The list is 72px tall unless the menu's cap is shorter.
+    Object.defineProperty(container, 'offsetHeight', {
+      configurable: true,
+      get: () => Math.min(72, Number.parseFloat(container.style.getPropertyValue(LIMIT)) || Infinity)
+    });
+    container.style.setProperty(LIMIT, '20px');
+    setLimit(300);
+    layout.syncSearchModeMenuResultOffset();
+    expect(inputModeController.fitModeMenuWithinViewport).toHaveBeenLastCalledWith({ bottomInset: 24, resultHeight: 72 });
+    expect(inputModeController.setModeMenuResultOffset).toHaveBeenLastCalledWith(72);
   });
 });

@@ -193,9 +193,15 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     }
     const fitMaxHeightProperty =
       '--x-ov-suggestions-menu-fit-max-height';
+    // The menu goes below the results at their own height, so they are
+    // measured without the menu's cap.
+    container.style.removeProperty(fitMaxHeightProperty);
     const resultHeightLimit =
       typeof controller.fitModeMenuWithinViewport === 'function'
-        ? controller.fitModeMenuWithinViewport({ bottomInset: 24 })
+        ? controller.fitModeMenuWithinViewport({
+          bottomInset: 24,
+          resultHeight: getSearchModeMenuResultOffset()
+        })
         : null;
     if (resultHeightLimit !== null && Number.isFinite(resultHeightLimit)) {
       container.style.setProperty(

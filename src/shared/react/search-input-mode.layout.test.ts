@@ -67,7 +67,7 @@ describe('Search scope menu: layout, icons and reordering', () => {
     controller.destroy();
   });
 
-  it('reserves viewport room for the full scope menu before sizing results', () => {
+  it('keeps the results at their height and fits the scope menu below them (#126)', () => {
     const parts = createModeParts();
     const controller = LumnoSearchInputMode.createInputModeController(
       parts,
@@ -89,58 +89,41 @@ describe('Search scope menu: layout, icons and reordering', () => {
       configurable: true,
       value: 70
     });
-    Object.defineProperty(controller.menuElement, 'offsetHeight', {
-      configurable: true,
-      get: () => Math.min(
-        360,
-        Number.parseFloat(
-          controller.menuElement.style.getPropertyValue(
-            '--x-lumno-search-mode-menu-viewport-max-height'
-          )
-        ) || 360
-      )
-    });
     controller.openModeMenu('none');
+    const menuMaxHeight = () => controller.menuElement.style.getPropertyValue(
+      '--x-lumno-search-mode-menu-viewport-max-height'
+    );
 
+    // 871px under the input: no results leave it all to the menu.
     expect(controller.fitModeMenuWithinViewport({
       bottomInset: 24,
       viewportBottom: 1209
-    })).toBe(511);
-    expect(
-      controller.menuElement.style.getPropertyValue(
-        '--x-lumno-search-mode-menu-viewport-max-height'
-      )
-    ).toBe('871px');
-    controller.setModeMenuResultOffset(511);
-    expect(controller.fitModeMenuWithinViewport({
-      bottomInset: 24,
-      viewportBottom: 1209
-    })).toBe(511);
+    })).toBe(671);
+    expect(menuMaxHeight()).toBe('871px');
 
+    // One site search row keeps its height; the menu takes the rest.
     expect(controller.fitModeMenuWithinViewport({
       bottomInset: 24,
-      viewportBottom: 1209
-    })).toBe(511);
+      viewportBottom: 1209,
+      resultHeight: 72
+    })).toBe(671);
+    expect(menuMaxHeight()).toBe('799px');
 
+    // 262px: the menu keeps its least height and the row gets what is left.
     expect(controller.fitModeMenuWithinViewport({
       bottomInset: 24,
-      viewportBottom: 600
-    })).toBe(0);
-    expect(
-      controller.menuElement.style.getPropertyValue(
-        '--x-lumno-search-mode-menu-viewport-max-height'
-      )
-    ).toBe('262px');
+      viewportBottom: 600,
+      resultHeight: 72
+    })).toBe(62);
+    expect(menuMaxHeight()).toBe('200px');
 
+    // A long list gives way to the menu's least height and scrolls.
     expect(controller.fitModeMenuWithinViewport({
       bottomInset: 24,
-      viewportBottom: 1209
-    })).toBe(511);
-    expect(
-      controller.menuElement.style.getPropertyValue(
-        '--x-lumno-search-mode-menu-viewport-max-height'
-      )
-    ).toBe('871px');
+      viewportBottom: 1209,
+      resultHeight: 900
+    })).toBe(671);
+    expect(menuMaxHeight()).toBe('200px');
 
     controller.closeModeMenu();
     expect(controller.fitModeMenuWithinViewport()).toBeNull();

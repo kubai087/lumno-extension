@@ -42,8 +42,14 @@ function createSuggestionsLayout(deps: SuggestionsLayoutDeps) {
     }
     const fitMaxHeightProperty =
       '--x-nt-suggestions-menu-fit-max-height';
-    const resultHeightLimit = pageState.inputModeController.fitModeMenuWithinViewport({ bottomInset: 24 });
     const previousLimit = container.style.getPropertyValue(fitMaxHeightProperty);
+    // The menu goes below the list at the list's own height, so the list
+    // is measured without the menu's cap (#126).
+    container.style.removeProperty(fitMaxHeightProperty);
+    const resultHeightLimit = pageState.inputModeController.fitModeMenuWithinViewport({
+      bottomInset: 24,
+      resultHeight: getSearchModeMenuResultOffset()
+    });
     if (resultHeightLimit !== null && Number.isFinite(resultHeightLimit)) {
       container.style.setProperty(
         fitMaxHeightProperty,

@@ -10,6 +10,8 @@ interface FitModeMenuOptions {
   // The viewport's bottom edge, when the surface knows it better.
   viewportBottom?: number;
   bottomInset?: number;
+  // The height the results above the menu take before the menu caps them.
+  resultHeight?: number;
 }
 
 interface ModeMenuLayoutChange {
@@ -34,6 +36,9 @@ interface ModeMenuSurfaceParts {
 
 const VIEWPORT_MAX_HEIGHT_PROPERTY = '--x-lumno-search-mode-menu-viewport-max-height';
 const DEFAULT_VIEWPORT_BOTTOM_INSET = 24;
+// The menu gives way to the results above it down to this height; past it
+// the results scroll instead.
+const MIN_MENU_HEIGHT = 200;
 
 // The bottom edge of the visible viewport, unless the caller names one.
 function readViewportBottom(parts: ModeMenuSurfaceParts, fitOptions: FitModeMenuOptions): number {
@@ -61,8 +66,9 @@ function readContainerScale(container: HTMLElement): { rect: DOMRect; layoutHeig
   return { rect, layoutHeight, scaleY: layoutHeight > 0 ? renderedHeight / layoutHeight : 1 };
 }
 
-// Caps the menu's height to the viewport below the input; returns the
-// space left under the menu.
+// Fits the results and the menu below them into the viewport under the
+// input: the results keep their height and the menu takes the rest, down to
+// MIN_MENU_HEIGHT. Returns the height the results may take.
 function fitOpenMenu(parts: ModeMenuSurfaceParts, fitOptions: FitModeMenuOptions): number | null {
   const { menu } = parts;
   const { rect: containerRect, layoutHeight: containerLayoutHeight, scaleY } = readContainerScale(parts.container);
@@ -78,12 +84,10 @@ function fitOpenMenu(parts: ModeMenuSurfaceParts, fitOptions: FitModeMenuOptions
     0,
     ((readViewportBottom(parts, fitOptions) - bottomInset - Number(containerRect.bottom || 0)) / scaleY) - menuGap
   );
-  setStyle(menu, VIEWPORT_MAX_HEIGHT_PROPERTY, `${Math.floor(availableLayoutHeight)}px`);
-  const menuLayoutHeight = Math.max(
-    0,
-    Number(menu.offsetHeight) || (Number(menu.getBoundingClientRect().height) || 0) / scaleY
-  );
-  return Math.max(0, Math.floor(availableLayoutHeight - menuLayoutHeight));
+  const resultLimit = Math.max(0, Math.floor(availableLayoutHeight - MIN_MENU_HEIGHT));
+  const resultHeight = Math.min(resultLimit, Math.max(0, Number(fitOptions.resultHeight) || 0));
+  setStyle(menu, VIEWPORT_MAX_HEIGHT_PROPERTY, `${Math.floor(availableLayoutHeight - resultHeight)}px`);
+  return resultLimit;
 }
 
 class ModeMenuSurface {
@@ -106,8 +110,8 @@ class ModeMenuSurface {
     setStyle(this.parts.menu, '--x-lumno-search-mode-menu-result-offset', `${nextOffset}px`);
   }
 
-  // Caps the menu's height to the viewport below the input; returns the
-  // space left under the menu, or null while it is closed.
+  // Fits the results and the menu into the viewport below the input;
+  // returns the height the results may take, or null while it is closed.
   fitWithinViewport(options?: FitModeMenuOptions | null): number | null {
     if (!this.isVisible()) {
       this.parts.menu.style.removeProperty(VIEWPORT_MAX_HEIGHT_PROPERTY);
