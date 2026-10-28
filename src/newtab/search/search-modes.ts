@@ -11,7 +11,7 @@ import type { InputModeProvider, InputModeTheme, ModeMenuItem } from '../../shar
 import type { FormatMessage, Translate } from '../newtab-types';
 import type { SearchModeController } from './search-mode-controller';
 import { getAggregateSearchId } from './search-types';
-import type { ActiveLocalScope, AutocompleteState, InlineSearchState } from './search-types';
+import type { ActiveLocalScope, InlineSearchState } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
@@ -21,6 +21,7 @@ import type { DefaultSearchEngine } from '../../shared/search-panel/default-engi
 import { searchResultSourceTypes, searchSourceOrder } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -42,7 +43,6 @@ interface SearchModesState {
   localSearchScopeState: ActiveLocalScope | null;
   localSearchScopeTriggerState: LocalScopeTrigger | null;
   inlineSearchState: InlineSearchState | null;
-  autocompleteState: AutocompleteState | null;
   currentSuggestions: Suggestion[];
   selectedIndex: number;
   suggestionRequestSeq: number;
@@ -50,6 +50,7 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'set'>;
   siteSearchCatalog: SiteSearchCatalog;
@@ -66,7 +67,6 @@ interface SearchModesDeps {
   siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
   formatMessage: FormatMessage;
   defaultTheme: InputModeTheme;
-  clearAutocomplete(): void;
   clearSearchSuggestions(): void;
   clearSiteSearchPrefix: SearchModeController['clearSiteSearchPrefix'];
   setSiteSearchPrefix: SearchModeController['setSiteSearchPrefix'];
@@ -90,6 +90,7 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     settings,
     siteSearchCatalog,
@@ -106,7 +107,6 @@ function createSearchModes(deps: SearchModesDeps) {
     siteSearchIconCache,
     formatMessage,
     defaultTheme,
-    clearAutocomplete,
     clearSearchSuggestions,
     clearSiteSearchPrefix,
     setSiteSearchPrefix,
@@ -393,7 +393,7 @@ function createSearchModes(deps: SearchModesDeps) {
     pageState.inlineSearchState = null;
     getSearchInput().value = '';
     searchQuery.clear();
-    clearAutocomplete();
+    searchAutocomplete.clear();
     setLocalSearchScopePrefix(scope);
     if (options.preserveResults !== true) {
       clearSearchSuggestions();
@@ -410,7 +410,7 @@ function createSearchModes(deps: SearchModesDeps) {
     pageState.localSearchScopeTriggerState = null;
     pageState.inlineSearchState = null;
     clearSiteSearchPrefix();
-    clearAutocomplete();
+    searchAutocomplete.clear();
     return true;
   }
 
@@ -425,7 +425,7 @@ function createSearchModes(deps: SearchModesDeps) {
     pageState.inlineSearchState = null;
     getSearchInput().value = '';
     searchQuery.clear();
-    clearAutocomplete();
+    searchAutocomplete.clear();
     setSiteSearchPrefix(provider, defaultTheme, {
       animate: options.animatePrefix !== false
     });
@@ -446,20 +446,7 @@ function createSearchModes(deps: SearchModesDeps) {
     pageState.siteSearchState = null;
     pageState.inlineSearchState = null;
     clearSiteSearchPrefix();
-    clearAutocomplete();
-  }
-
-  // Fills the input with the inline autocomplete's completion.
-  function acceptAutocompleteCompletion(): void {
-    if (!pageState.autocompleteState) {
-      return;
-    }
-    const completion = pageState.autocompleteState.completion;
-    getSearchInput().value = completion;
-    getSearchInput().setSelectionRange(completion.length, completion.length);
-    searchQuery.set(completion);
-    pageState.autocompleteState = null;
-    getSearchInput().dispatchEvent(new Event('input', { bubbles: true }));
+    searchAutocomplete.clear();
   }
 
   // Tab in the search box: toggles or opens the mode menu, turns a typed
@@ -555,15 +542,15 @@ function createSearchModes(deps: SearchModesDeps) {
           activateLocalSearchScope(asyncLocalScope);
           return;
         }
-        if (pageState.autocompleteState && pageState.autocompleteState.completion) {
-          acceptAutocompleteCompletion();
+        if (searchAutocomplete.state && searchAutocomplete.state.completion) {
+          searchAutocomplete.accept();
         }
       });
       return true;
     }
-    if (pageState.autocompleteState && pageState.autocompleteState.completion) {
+    if (searchAutocomplete.state && searchAutocomplete.state.completion) {
       event.preventDefault();
-      acceptAutocompleteCompletion();
+      searchAutocomplete.accept();
       return true;
     }
     return false;

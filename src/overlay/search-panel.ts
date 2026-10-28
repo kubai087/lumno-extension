@@ -23,7 +23,6 @@ import * as OVERLAY_KEYBOARD from './keyboard';
 import { createFullscreenEscapeLock } from '../shared/ui/fullscreen-escape-lock';
 import * as LumnoOverlayLifecycle from './lifecycle';
 import * as OVERLAY_NOTICES from './notices';
-import * as PANEL_AUTOCOMPLETE from './panel/autocomplete';
 import * as PANEL_COPY_ACTIONS from './panel/copy-actions';
 import * as PANEL_ENTRY_MOTION from './panel/entry-motion';
 import * as PANEL_FAVICON_POLICY from './panel/favicon-policy';
@@ -78,6 +77,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -154,6 +154,14 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
+  const searchAutocomplete = new SearchAutocomplete({
+    settings: overlayState.settings.store,
+    query: searchQuery,
+    getInput: () => overlayState.searchInput,
+    preview: overlayState.suggestionInputPreview,
+    isModeActive: () => Boolean(overlayState.siteSearchState || overlayState.localSearchScopeState),
+    getUrlDisplay: (url) => getUrlDisplay(url)
+  });
   const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
   const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings.store, searchEngine, openOptions.siteSearchProviders);
 
@@ -249,7 +257,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
 
   const {
-    isEnglishQuery,
     getUrlDisplay,
     filterTabsForOverlay,
     getMatchedOpenTabIdForSuggestion,
@@ -327,6 +334,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    searchAutocomplete,
     searchQuery,
     favicons: faviconRuntime,
     formatMessage: (...args) => formatMessage(...args),
@@ -358,10 +366,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     promoteStrongNavigationMatch: (...args) => promoteStrongNavigationMatch(...args),
     promoteTopSiteMatch: (...args) => promoteTopSiteMatch(...args),
     getSiteSearchTriggerCandidate: (...args) => getSiteSearchTriggerCandidate(...args),
-    getAutocompleteCandidate: (...args) => getAutocompleteCandidate(...args),
     getUrlDisplay,
-    clearAutocomplete: (...args) => clearAutocomplete(...args),
-    applyAutocomplete: (...args) => applyAutocomplete(...args),
     getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
     getLocalSearchScopeTabHintProvider: (...args) => getLocalSearchScopeTabHintProvider(...args),
@@ -471,6 +476,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    searchAutocomplete,
     searchQuery,
     cancelPendingOpenTabsPrefixEntry: (...args) => cancelPendingOpenTabsPrefixEntry(...args),
     openSearchModeMenuFromDoubleTab: (...args) => openSearchModeMenuFromDoubleTab(...args),
@@ -490,7 +496,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     clearOpenTabsSearchMode: (...args) => clearOpenTabsSearchMode(...args),
     isImeCompositionEvent,
     SEARCH_INPUT_HISTORY,
-    dismissAutocompletePreviewOnNonTabKey: (...args) => dismissAutocompletePreviewOnNonTabKey(...args),
     suggestionItems,
     SUGGESTION_NAVIGATION,
     numberShortcutOptions,
@@ -527,6 +532,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleSearchInputCompositionEnd,
     handleSearchInputEvent
   } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
     applyNoTranslate: (...args) => applyNoTranslate(...args),
@@ -538,7 +544,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
     getLocalSearchScopeTabHintProvider: (...args) => getLocalSearchScopeTabHintProvider(...args),
     cancelPendingOverlaySuggestionRequests,
-    clearAutocomplete: (...args) => clearAutocomplete(...args),
     notifyOverlayLoadingSession,
     updateModeBadge: (...args) => updateModeBadge(...args),
     updateSelection,
@@ -576,6 +581,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode,
     clearOpenTabsSearchMode
   } = PANEL_SEARCH_MODES.createSearchModes({
+    searchAutocomplete,
     searchQuery,
     t: (...args) => t(...args),
     isAggregateSearchProvider: (...args) => isAggregateSearchProvider(...args),
@@ -584,7 +590,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getDirectNavigationUrl,
     getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,
-    clearAutocomplete: (...args) => clearAutocomplete(...args),
     clearSearchSuggestions,
     getImmediateThemeForSuggestion: (...args) => getImmediateThemeForSuggestion(...args),
     getThemeForProvider: (...args) => getThemeForProvider(...args),
@@ -596,18 +601,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayState
   });
 
-  const {
-    getAutocompleteCandidate,
-    clearAutocomplete,
-    dismissAutocompletePreviewOnNonTabKey,
-    applyAutocomplete
-  } = PANEL_AUTOCOMPLETE.createAutocomplete({
-    searchQuery,
-    getUrlDisplay,
-    isEnglishQuery,
-    getKeywordSearchSuggestionState,
-    overlayState
-  });
 
 
   const {

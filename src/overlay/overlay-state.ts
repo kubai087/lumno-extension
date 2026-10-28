@@ -14,7 +14,6 @@ import type { TooltipController } from '../shared/ui/tooltip';
 import type { OverlayKeyRouter } from './keyboard';
 import type { createSessionCleanupRegistry, createViewportSizeSync } from './lifecycle';
 import type { createNoticeLayer } from './notices';
-import type { AutocompleteOverlayState } from './panel/autocomplete';
 import type { EntryMotionState } from './panel/entry-motion';
 import type { FaviconPolicyState } from './panel/favicon-policy';
 import type { PanelKeysState } from './panel/panel-keys';
@@ -57,7 +56,6 @@ interface SearchPanelState {
 }
 
 type OverlayState =
-  AutocompleteOverlayState &
   EntryMotionState &
   FaviconPolicyState &
   PanelKeysState &
@@ -158,7 +156,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayThemeMode: 'system',
     defaultPlaceholderText: 'Search or enter URL…',
 
-    autocompleteState: null,
     inlineSearchState: null,
     siteSearchState: null,
     siteSearchTriggerState: null,

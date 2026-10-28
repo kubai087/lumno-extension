@@ -5,6 +5,7 @@ import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { DirectNavigationSettleController } from './direct-navigation-settle';
 import type { RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 interface SearchInputCompositionState {
   inputParts: { input: HTMLInputElement } | null;
@@ -15,10 +16,10 @@ interface SearchInputCompositionState {
 }
 
 interface SearchInputCompositionDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   directNavigationSettleController: Pick<DirectNavigationSettleController<unknown>, 'cancel'>;
   imeKeyGuard: Pick<ReturnType<typeof createImeKeyGuard>, 'markCompositionStart' | 'markCompositionEnd' | 'markKeyUp'>;
-  clearAutocomplete(): void;
   clearSearchSuggestions(): void;
   // The address the query is, as a suggestion; null when it is not one.
   getDirectUrlSuggestion(query: string): SuggestionLike | null;
@@ -29,10 +30,10 @@ interface SearchInputCompositionDeps {
 
 function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
   const {
+    searchAutocomplete,
     searchQuery,
     directNavigationSettleController,
     imeKeyGuard,
-    clearAutocomplete,
     clearSearchSuggestions,
     getDirectUrlSuggestion,
     renderPendingSuggestions,
@@ -62,7 +63,7 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
       pageState.suggestionRequestWatchdogTimer = null;
     }
     imeKeyGuard.markCompositionStart(event);
-    clearAutocomplete();
+    searchAutocomplete.clear();
   });
 
   input.addEventListener('keyup', imeKeyGuard.markKeyUp, true);
@@ -72,7 +73,7 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
     const rawValue = input.value;
     const query = rawValue.trim();
     searchQuery.set(rawValue, query);
-    clearAutocomplete();
+    searchAutocomplete.clear();
     if (!query) {
       if (pageState.remoteSuggestionDebounceTimer) {
         clearTimeout(pageState.remoteSuggestionDebounceTimer);

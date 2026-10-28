@@ -3,7 +3,7 @@ const path = require('path');
 const { createOverlayPage } = require('../helpers/overlay-runtime-harness');
 
 path.resolve(__dirname, '..', '..');
-const LumnoNewtabSearchAutocomplete = require('../../src/newtab/search/search-autocomplete.ts');
+const { SearchAutocomplete } = require('../../src/shared/search-panel/autocomplete.ts');
 
 // Inline autocomplete appends to what was typed; it must not rewrite the
 // typed characters in the candidate's own case ("4A" stays "4A").
@@ -23,21 +23,15 @@ const input = createInput('4A');
 const { SearchQuery } = require('../../src/shared/search-panel/search-query.ts');
 const searchQuery = new SearchQuery();
 searchQuery.set('4A');
-const pageState = {
-  siteSearchState: null,
-  inputParts: { input },
-  autocompleteState: null,
-  suggestionInputPreview: { isActive: () => false }
-};
-const autocomplete = LumnoNewtabSearchAutocomplete.createSearchAutocomplete({
+const autocomplete = new SearchAutocomplete({
   settings: { get: () => 'autocomplete' },
-  searchQuery,
-  pageState,
-  getUrlDisplay: (url) => String(url || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
-  isEnglishQuery: () => true,
-  getKeywordSearchSuggestionState: (suggestions) => ({ autocompleteSuggestions: suggestions })
+  query: searchQuery,
+  getInput: () => input,
+  preview: { isActive: () => false },
+  isModeActive: () => false,
+  getUrlDisplay: (url) => String(url || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
 });
-autocomplete.applyAutocomplete([{
+autocomplete.apply([{
   type: 'bookmark',
   title: '4A广告网',
   url: 'https://www.4anet.com/'
@@ -46,7 +40,7 @@ autocomplete.applyAutocomplete([{
 assert.strictEqual(input.value, '4Anet.com', 'the typed characters should keep their case in the completion');
 assert.deepStrictEqual([input.selectionStart, input.selectionEnd], [2, 9], 'only the added text should be selected');
 assert.strictEqual(
-  pageState.autocompleteState && pageState.autocompleteState.completion,
+  autocomplete.state && autocomplete.state.completion,
   '4Anet.com',
   'accepting the completion should keep the typed case too'
 );

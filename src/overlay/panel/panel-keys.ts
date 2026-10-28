@@ -14,7 +14,6 @@ import type { InputModeController } from '../../shared/search/search-input-mode'
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type { NumberShortcutOptions } from '../../shared/search/suggestion-navigation';
-import type { AutocompleteState } from './autocomplete';
 import type { ActivationEvent } from './result-activation';
 import type { SlashCommand } from './slash-commands';
 import type { InlineSearchState, LocalSearchScopeTrigger, OverlaySuggestion, SiteSearchTrigger } from './types';
@@ -24,6 +23,7 @@ import { macosCtrlSuggestionNavigationEnabled } from '../../domain/settings/sear
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -41,7 +41,6 @@ interface PanelKeysState {
   localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
   openTabsSearchModeActive: boolean;
   inlineSearchState: InlineSearchState | null;
-  autocompleteState: AutocompleteState | null;
   currentSuggestions: OverlaySuggestion[];
   selectedIndex: number;
   // The search suggestion the arrows show in the input.
@@ -53,6 +52,7 @@ interface PanelKeysState {
 }
 
 interface PanelKeysDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   cancelPendingOpenTabsPrefixEntry(): boolean;
@@ -76,7 +76,6 @@ interface PanelKeysDeps {
   clearOpenTabsSearchMode(): void;
   isImeCompositionEvent(event: KeyboardEvent): boolean;
   SEARCH_INPUT_HISTORY: Pick<typeof SearchInputHistory, 'getShortcutDirection'>;
-  dismissAutocompletePreviewOnNonTabKey(event: KeyboardEvent | null): boolean;
   // The rendered rows, in list order.
   suggestionItems: SuggestionElement[];
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getSuggestionNavigationKey' | 'handleNumberShortcutKeyEvent'>;
@@ -119,6 +118,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
     cancelPendingOpenTabsPrefixEntry,
@@ -138,7 +138,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     clearOpenTabsSearchMode,
     isImeCompositionEvent,
     SEARCH_INPUT_HISTORY,
-    dismissAutocompletePreviewOnNonTabKey,
     suggestionItems,
     SUGGESTION_NAVIGATION,
     numberShortcutOptions,
@@ -289,29 +288,16 @@ function createPanelKeys(deps: PanelKeysDeps) {
           activateLocalSearchScope(asyncLocalScope);
           return;
         }
-        acceptAutocompletion(liveInput);
+        searchAutocomplete.accept();
       });
       return true;
     }
-    if (overlayState.autocompleteState && overlayState.autocompleteState.completion) {
+    if (searchAutocomplete.state && searchAutocomplete.state.completion) {
       e.preventDefault();
-      acceptAutocompletion(input);
+      searchAutocomplete.accept();
       return true;
     }
     return false;
-  }
-
-  // Takes the shown completion as typed text.
-  function acceptAutocompletion(input: HTMLInputElement): void {
-    const completion = overlayState.autocompleteState ? overlayState.autocompleteState.completion : '';
-    if (!completion) {
-      return;
-    }
-    input.value = completion;
-    input.setSelectionRange(completion.length, completion.length);
-    searchQuery.set(completion);
-    overlayState.autocompleteState = null;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   // Backspace in an empty input removes the mode tag, unless the tag asks
@@ -445,7 +431,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       }
       return;
     }
-    dismissAutocompletePreviewOnNonTabKey(e);
+    searchAutocomplete.dismissOnKey(e);
     if (e.key !== 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey &&
         !overlayState.suggestionInputPreview.isActive()) {
       searchQuery.set(input.value);
@@ -514,7 +500,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       return;
     }
     const suggestionNavigationKey = getSuggestionNavigationKey(e);
-    dismissAutocompletePreviewOnNonTabKey(e);
+    searchAutocomplete.dismissOnKey(e);
     if (e.key === 'Escape' && overlayState.overlay) {
       closeOverlayWithMotion(overlayState.overlay);
     } else if (suggestionNavigationKey === 'ArrowDown') {
@@ -756,15 +742,15 @@ function createPanelKeys(deps: PanelKeysDeps) {
           finishOverlayResultActivation(e, true);
           return;
         }
-        if (overlayState.autocompleteState && overlayState.autocompleteState.url) {
+        if (searchAutocomplete.state && searchAutocomplete.state.url) {
           recordSearchSuggestionSelectionFromSuggestion({
-            url: overlayState.autocompleteState.url,
-            title: overlayState.autocompleteState.title || '',
+            url: searchAutocomplete.state.url,
+            title: searchAutocomplete.state.title || '',
             type: 'autocomplete'
           }, query, 'overlay');
           LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
             action: 'createTab',
-            url: overlayState.autocompleteState.url,
+            url: searchAutocomplete.state.url,
             disposition: getSearchResultDisposition(e)
           });
           finishOverlayResultActivation(e, true);

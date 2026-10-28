@@ -12,7 +12,7 @@ import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import { releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
-import type { AutocompleteRow } from './autocomplete';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { RemoteMixState } from './remote-suggestions';
 import type { CommandSuggestion, SlashCommand } from './slash-commands';
 import type {
@@ -59,6 +59,7 @@ interface SuggestionSourcesState {
 }
 
 interface SuggestionSourcesDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   favicons: Pick<OverlayFaviconRuntime, 'warmIconCache'>;
   siteSearchCatalog: SiteSearchCatalog;
@@ -97,10 +98,7 @@ interface SuggestionSourcesDeps {
     providers: SiteSearchProvider[] | null,
     topSiteMatch: SuggestionLike | null
   ): SiteSearchProvider | null;
-  getAutocompleteCandidate(suggestions: AutocompleteRow[] | null, rawQuery: string): { completion: string; url: string } | null;
   getUrlDisplay(url: string | undefined): string;
-  clearAutocomplete(): void;
-  applyAutocomplete(all: AutocompleteRow[] | null, primary: AutocompleteRow | null, reason: string): void;
   getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
   setSiteSearchTabHint(provider: InputModeProvider): void;
   getLocalSearchScopeTabHintProvider(scope: LocalSearchScope): InputModeProvider;
@@ -130,6 +128,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     favicons,
     siteSearchCatalog,
@@ -161,10 +160,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     promoteStrongNavigationMatch,
     promoteTopSiteMatch,
     getSiteSearchTriggerCandidate,
-    getAutocompleteCandidate,
     getUrlDisplay,
-    clearAutocomplete,
-    applyAutocomplete,
     getLocalSearchScopeCandidate,
     setSiteSearchTabHint,
     getLocalSearchScopeTabHintProvider,
@@ -575,7 +571,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
             getSiteSearchTriggerCandidate: (input, providers, topSiteMatch) => (
               getSiteSearchTriggerCandidate(String(input || ''), providers || null, topSiteMatch)
             ),
-            getAutocompleteCandidate: (rows, rawQuery) => getAutocompleteCandidate(rows || null, rawQuery),
+            getAutocompleteCandidate: (rows, rawQuery) => searchAutocomplete.getCandidate(rows || null, rawQuery),
             getUrlDisplay,
             filterSuggestions: (list) => filterOverlayBlacklistedSuggestions(list)
           }
@@ -587,9 +583,9 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         mergedProvider = rankedSlate.mergedProvider;
         const siteSearchTrigger = rankedSlate.siteSearchTrigger;
         if (onlyKeywordSuggestions) {
-          clearAutocomplete();
+          searchAutocomplete.clear();
         } else {
-          applyAutocomplete(allSuggestions, primarySuggestion, primaryHighlightReason);
+          searchAutocomplete.apply(allSuggestions, primarySuggestion, primaryHighlightReason);
         }
         const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
         overlayState.inlineSearchState = inlineSuggestion
@@ -619,7 +615,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           clearSiteSearchTabHint();
         }
       } else if (localSearchQueryModeActive) {
-        clearAutocomplete();
+        searchAutocomplete.clear();
         overlayState.inlineSearchState = null;
         overlayState.siteSearchTriggerState = null;
         overlayState.localSearchScopeTriggerState = null;
@@ -630,7 +626,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           primarySuggestion = allSuggestions[0];
         }
       } else if (modeCommandActive) {
-        clearAutocomplete();
+        searchAutocomplete.clear();
         overlayState.inlineSearchState = null;
         overlayState.siteSearchTriggerState = null;
         overlayState.localSearchScopeTriggerState = null;
@@ -638,7 +634,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'modeSwitch';
       } else if (slashCommandModeActive) {
-        clearAutocomplete();
+        searchAutocomplete.clear();
         overlayState.inlineSearchState = null;
         overlayState.siteSearchTriggerState = null;
         overlayState.localSearchScopeTriggerState = null;
@@ -647,7 +643,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         primaryHighlightReason = 'command';
       }
       if (hasCommand) {
-        applyAutocomplete(allSuggestions, primarySuggestion, primaryHighlightReason);
+        searchAutocomplete.apply(allSuggestions, primarySuggestion, primaryHighlightReason);
       }
       allSuggestions = limitOverlaySuggestionsForDisplay(allSuggestions, {
         uncapped: slashCommandModeActive

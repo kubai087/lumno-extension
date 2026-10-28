@@ -12,7 +12,7 @@ import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
 import type { SurfaceOpenKeys } from '../page-navigation';
 import type { SearchModes } from './search-modes';
-import type { ActiveLocalScope, AutocompleteState, InlineSearchState, RenderSuggestions, SlashCommand } from './search-types';
+import type { ActiveLocalScope, InlineSearchState, RenderSuggestions, SlashCommand } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
@@ -22,6 +22,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { AppearanceModes } from '../appearance-modes';
 import { newtabZenMode } from '../../domain/settings/newtab-page';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -33,7 +34,6 @@ interface SearchNavigationState {
   siteSearchState: SiteSearchProvider | null;
   inputParts: SearchInputParts | null;
   inlineSearchState: InlineSearchState | null;
-  autocompleteState: AutocompleteState | null;
 }
 
 // A slash command the typed text names, and the text that completes it.
@@ -43,6 +43,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'set'>;
   formatMessage: FormatMessage;
@@ -83,6 +84,7 @@ type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     settings,
     formatMessage,
@@ -538,10 +540,10 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return;
       }
     }
-    if (pageState.autocompleteState && pageState.autocompleteState.url) {
+    if (searchAutocomplete.state && searchAutocomplete.state.url) {
       openSearchResultUrl({
-        url: pageState.autocompleteState.url,
-        title: pageState.autocompleteState.title || '',
+        url: searchAutocomplete.state.url,
+        title: searchAutocomplete.state.title || '',
         type: 'autocomplete'
       }, query, event);
       return;

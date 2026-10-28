@@ -15,6 +15,7 @@ import * as SearchEngineSuggestions from '../../domain/search/utils/engine-sugge
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 interface SearchModesState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -33,6 +34,7 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   t: Translate;
   formatMessage: FormatMessage;
@@ -41,7 +43,6 @@ interface SearchModesDeps {
   getDirectNavigationUrl(rawQuery: string): unknown;
   getUrlDisplay(url: string | undefined): string;
   cancelPendingOverlaySuggestionRequests(): void;
-  clearAutocomplete(): void;
   clearSearchSuggestions(): void;
   getImmediateThemeForSuggestion(suggestion: { provider: InputModeProvider }): InputModeTheme | null;
   getThemeForProvider(provider: InputModeProvider): Promise<InputModeTheme>;
@@ -61,6 +62,7 @@ interface OpenTabsPrefixOptions {
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     t,
     isAggregateSearchProvider,
@@ -69,7 +71,6 @@ function createSearchModes(deps: SearchModesDeps) {
     getDirectNavigationUrl,
     getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,
-    clearAutocomplete,
     clearSearchSuggestions,
     getImmediateThemeForSuggestion,
     getThemeForProvider,
@@ -374,7 +375,7 @@ function createSearchModes(deps: SearchModesDeps) {
       overlayState.searchInput.value = '';
     }
     searchQuery.clear();
-    clearAutocomplete();
+    searchAutocomplete.clear();
     setLocalSearchScopePrefix(scope);
     if (options.preserveResults !== true) {
       clearSearchSuggestions();
@@ -391,7 +392,7 @@ function createSearchModes(deps: SearchModesDeps) {
     overlayState.localSearchScopeTriggerState = null;
     overlayState.inlineSearchState = null;
     clearSiteSearchPrefix();
-    clearAutocomplete();
+    searchAutocomplete.clear();
     return true;
   }
 
@@ -418,7 +419,7 @@ function createSearchModes(deps: SearchModesDeps) {
       overlayState.searchInput.value = '';
     }
     searchQuery.clear();
-    clearAutocomplete();
+    searchAutocomplete.clear();
     const immediateTheme = getImmediateThemeForSuggestion({ provider }) || overlayState.defaultTheme;
     setSiteSearchPrefix(provider, immediateTheme, {
       animate: options.animatePrefix !== false
@@ -440,7 +441,7 @@ function createSearchModes(deps: SearchModesDeps) {
     overlayState.siteSearchState = null;
     overlayState.inlineSearchState = null;
     clearSiteSearchPrefix();
-    clearAutocomplete();
+    searchAutocomplete.clear();
   }
 
   function activateOpenTabsSearchMode(
@@ -455,7 +456,7 @@ function createSearchModes(deps: SearchModesDeps) {
     overlayState.localSearchScopeTriggerState = null;
     overlayState.inlineSearchState = null;
     overlayState.siteSearchTriggerState = null;
-    clearAutocomplete();
+    searchAutocomplete.clear();
     if (prefixOptions.deferPrefixEntry === true) {
       scheduleOpenTabsPrefixEntry(prefixOptions);
     } else {
@@ -475,7 +476,7 @@ function createSearchModes(deps: SearchModesDeps) {
     cancelPendingOpenTabsPrefixEntry();
     overlayState.openTabsSearchModeActive = false;
     clearSiteSearchPrefix();
-    clearAutocomplete();
+    searchAutocomplete.clear();
     const rawValue = overlayState.searchInput ? overlayState.searchInput.value || '' : '';
     const query = rawValue.trim();
     searchQuery.set(rawValue, query);

@@ -18,7 +18,6 @@ import type { AppearanceModes } from '../appearance-modes';
 import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage, SendRuntimeMessage, Translate } from '../newtab-types';
 import type * as DirectNavigationSettle from './direct-navigation-settle';
-import type { SearchAutocomplete } from './search-autocomplete';
 import type { SearchModeController } from './search-mode-controller';
 import type { LocalScopeTrigger, SearchModes, SiteSearchTrigger } from './search-modes';
 import type { SearchNavigation, SearchNavigationDeps } from './search-navigation';
@@ -41,6 +40,7 @@ import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
 import { newtabZenMode } from '../../domain/settings/newtab-page';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -67,6 +67,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
   siteSearchCatalog: SiteSearchCatalog;
@@ -89,7 +90,6 @@ interface SuggestionsControllerDeps {
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'scrollItemIntoView'>;
   refreshTabsForSearchContext: SearchNavigation['refreshTabsForSearchContext'];
   clearSiteSearchTabHint: SearchModeController['clearSiteSearchTabHint'];
-  restoreUserAuthoredSearchInput: SearchAutocomplete['restoreUserAuthoredSearchInput'];
   isSlashCommandInput(query: string): boolean;
   getShortcutRules(): Promise<ShortcutRule[]>;
   isModeCommand(query: string): boolean;
@@ -116,11 +116,8 @@ interface SuggestionsControllerDeps {
   promoteStrongNavigationMatch: SiteSearchProviders['promoteStrongNavigationMatch'];
   promoteTopSiteMatch: SiteSearchProviders['promoteTopSiteMatch'];
   getSiteSearchTriggerCandidate: SiteSearchProviders['getSiteSearchTriggerCandidate'];
-  getAutocompleteCandidate: SearchAutocomplete['getAutocompleteCandidate'];
   getUrlDisplay(url: string | undefined): string;
   getDirectNavigationUrl: SearchNavigation['getDirectNavigationUrl'];
-  clearAutocomplete: SearchAutocomplete['clearAutocomplete'];
-  applyAutocomplete: SearchAutocomplete['applyAutocomplete'];
   getLocalSearchScopeCandidate: SiteSearchProviders['getLocalSearchScopeCandidate'];
   setSiteSearchTabHint: SearchModeController['setSiteSearchTabHint'];
   getLocalSearchScopeTabHintProvider: SearchModes['getLocalSearchScopeTabHintProvider'];
@@ -154,6 +151,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     settings,
     siteSearchCatalog,
@@ -176,7 +174,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     SUGGESTION_NAVIGATION,
     refreshTabsForSearchContext,
     clearSiteSearchTabHint,
-    restoreUserAuthoredSearchInput,
     isSlashCommandInput,
     getShortcutRules,
     isModeCommand,
@@ -201,11 +198,8 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     promoteStrongNavigationMatch,
     promoteTopSiteMatch,
     getSiteSearchTriggerCandidate,
-    getAutocompleteCandidate,
     getUrlDisplay,
     getDirectNavigationUrl,
-    clearAutocomplete,
-    applyAutocomplete,
     getLocalSearchScopeCandidate,
     setSiteSearchTabHint,
     getLocalSearchScopeTabHintProvider,
@@ -451,7 +445,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   }
 
   function dismissSearchSuggestionsFromBackground(): void {
-    restoreUserAuthoredSearchInput();
+    searchAutocomplete.restoreTyped();
     pageState.searchSuggestionsDismissed = true;
     pageState.suggestionRequestSeq += 1;
     if (pageState.remoteSuggestionDebounceTimer) {
@@ -702,7 +696,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
             promoteStrongNavigationMatch,
             promoteTopSiteMatch,
             getSiteSearchTriggerCandidate,
-            getAutocompleteCandidate,
+            getAutocompleteCandidate: (list, rawQuery) => searchAutocomplete.getCandidate(list, rawQuery),
             getUrlDisplay,
             filterSuggestions: (list) => filterBlacklistedSuggestions(list, query)
           }
@@ -714,9 +708,9 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         mergedProvider = rankedSlate.mergedProvider;
         const siteSearchTrigger = rankedSlate.siteSearchTrigger;
         if (onlyKeywordSuggestions) {
-          clearAutocomplete();
+          searchAutocomplete.clear();
         } else {
-          applyAutocomplete(allSuggestions, primarySuggestion, primaryHighlightReason);
+          searchAutocomplete.apply(allSuggestions, primarySuggestion, primaryHighlightReason);
         }
         const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
         pageState.inlineSearchState = inlineSuggestion
@@ -746,7 +740,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           clearSiteSearchTabHint();
         }
       } else if (localSearchQueryModeActive) {
-        clearAutocomplete();
+        searchAutocomplete.clear();
         pageState.inlineSearchState = null;
         pageState.siteSearchTriggerState = null;
         pageState.localSearchScopeTriggerState = null;
@@ -757,7 +751,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           primarySuggestion = allSuggestions[0];
         }
       } else if (modeCommandActive) {
-        clearAutocomplete();
+        searchAutocomplete.clear();
         pageState.inlineSearchState = null;
         pageState.siteSearchTriggerState = null;
         pageState.localSearchScopeTriggerState = null;
@@ -765,7 +759,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'modeSwitch';
       } else if (zenCommandActive) {
-        clearAutocomplete();
+        searchAutocomplete.clear();
         pageState.inlineSearchState = null;
         pageState.siteSearchTriggerState = null;
         pageState.localSearchScopeTriggerState = null;
@@ -773,7 +767,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'zenSwitch';
       } else if (slashCommandModeActive) {
-        clearAutocomplete();
+        searchAutocomplete.clear();
         pageState.inlineSearchState = null;
         pageState.siteSearchTriggerState = null;
         pageState.localSearchScopeTriggerState = null;
@@ -782,7 +776,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         primaryHighlightReason = 'command';
       }
       if (hasCommand) {
-        applyAutocomplete(allSuggestions, primarySuggestion, primaryHighlightReason);
+        searchAutocomplete.apply(allSuggestions, primarySuggestion, primaryHighlightReason);
       }
       allSuggestions = limitSuggestionsForDisplay(allSuggestions, {
         uncapped: slashCommandModeActive

@@ -57,7 +57,6 @@ import * as NEWTAB_RECENT_SECTION from './recent/recent-section';
 import * as NEWTAB_RECENT_SITES_CONTROLLER from './recent/recent-sites-controller';
 import * as NEWTAB_RECENT_SOURCES from './recent/recent-sources';
 import * as NEWTAB_DIRECT_NAVIGATION_SETTLE from './search/direct-navigation-settle';
-import * as NEWTAB_SEARCH_AUTOCOMPLETE from './search/search-autocomplete';
 import * as NEWTAB_SEARCH_BOX_CONTROLS from './search/search-box-controls';
 import * as NEWTAB_SEARCH_BOX from './search/search-box';
 import * as NEWTAB_SEARCH_INPUT_COMPOSITION from './search/search-input-composition';
@@ -196,6 +195,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -511,6 +511,14 @@ import { SearchQuery } from '../shared/search-panel/search-query';
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();
+  const searchAutocomplete = new SearchAutocomplete({
+    settings: settings,
+    query: searchQuery,
+    getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
+    preview: pageState.suggestionInputPreview,
+    isModeActive: () => Boolean(pageState.siteSearchState),
+    getUrlDisplay: (url) => getUrlDisplay(url)
+  });
   const searchEngine = new DefaultSearchEngine(settings);
   searchEngine.follow();
   const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
@@ -733,7 +741,6 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     ? LumnoBrowserIcons.loadBrowserIcons(pageState.firefoxBrowserIcons, chrome).catch(() => {})
     : Promise.resolve();
   const {
-    isEnglishQuery,
     getUrlDisplay,
     isBrowserPageRecentUrl,
     isOwnExtensionUrl,
@@ -2016,20 +2023,6 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     );
   }
 
-  const {
-    getAutocompleteCandidate,
-    clearAutocomplete,
-    restoreUserAuthoredSearchInput,
-    dismissAutocompletePreviewOnNonTabKey,
-    applyAutocomplete
-  } = NEWTAB_SEARCH_AUTOCOMPLETE.createSearchAutocomplete({
-    searchQuery,
-    settings,
-    getUrlDisplay,
-    isEnglishQuery,
-    getKeywordSearchSuggestionState,
-    pageState
-  });
 
   const attachInputModeFaviconData =
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
@@ -2050,6 +2043,7 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    searchAutocomplete,
     searchQuery,
     settings,
     siteSearchCatalog,
@@ -2066,7 +2060,6 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     siteSearchIconCache,
     formatMessage,
     defaultTheme,
-    clearAutocomplete,
     clearSearchSuggestions: (...args) => clearSearchSuggestions(...args),
     clearSiteSearchPrefix: (...args) => clearSiteSearchPrefix(...args),
     setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
@@ -2093,6 +2086,7 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    searchAutocomplete,
     searchQuery,
     settings,
     formatMessage,
@@ -2140,6 +2134,7 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    searchAutocomplete,
     searchQuery,
     settings,
     getPageFaviconCandidateUrl,
@@ -2160,7 +2155,6 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     SUGGESTION_NAVIGATION,
     refreshTabsForSearchContext,
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
-    restoreUserAuthoredSearchInput,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     getShortcutRules,
     isModeCommand: (...args) => isModeCommand(...args),
@@ -2187,11 +2181,8 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     promoteStrongNavigationMatch,
     promoteTopSiteMatch,
     getSiteSearchTriggerCandidate,
-    getAutocompleteCandidate,
     getUrlDisplay,
     getDirectNavigationUrl,
-    clearAutocomplete,
-    applyAutocomplete,
     getLocalSearchScopeCandidate,
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
     getLocalSearchScopeTabHintProvider,
@@ -2291,6 +2282,7 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    searchAutocomplete,
     searchQuery,
     locale,
     settings,
@@ -2342,7 +2334,6 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     searchInputHistoryController,
     updateModeBadge,
     imeKeyGuard,
-    clearAutocomplete,
     clearSearchSuggestions,
     isSlashCommandInput,
     renderSuggestions,
@@ -2350,7 +2341,6 @@ import { SearchQuery } from '../shared/search-panel/search-query';
     renderPendingSuggestions,
     requestSuggestions,
     syncSuggestionActionModifiersFromEvent,
-    dismissAutocompletePreviewOnNonTabKey,
     SUGGESTION_NAVIGATION,
     clearSiteSearch,
     clearLocalSearchScope,
@@ -2556,10 +2546,10 @@ import { SearchQuery } from '../shared/search-panel/search-query';
   });
 
   NEWTAB_SEARCH_INPUT_COMPOSITION.createSearchInputComposition({
+    searchAutocomplete,
     searchQuery,
     directNavigationSettleController,
     imeKeyGuard,
-    clearAutocomplete,
     clearSearchSuggestions,
     getDirectUrlSuggestion,
     renderPendingSuggestions,

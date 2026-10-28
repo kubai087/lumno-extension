@@ -12,6 +12,7 @@ import type { LocalSearchScopeTrigger, SiteSearchTrigger } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -33,6 +34,7 @@ interface SearchInputEventsState {
 }
 
 interface SearchInputEventsDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   applyNoTranslate(element: Element): unknown;
@@ -44,7 +46,6 @@ interface SearchInputEventsDeps {
   getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
   getLocalSearchScopeTabHintProvider(scope: LocalSearchScope): InputModeProvider;
   cancelPendingOverlaySuggestionRequests(): void;
-  clearAutocomplete(): void;
   notifyOverlayLoadingSession(input: HTMLInputElement | null): void;
   updateModeBadge(rawValue: string): void;
   updateSelection(): void;
@@ -64,6 +65,7 @@ function readInputType(event: Event | null): string {
 
 function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
     applyNoTranslate,
@@ -75,7 +77,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     getLocalSearchScopeCandidate,
     getLocalSearchScopeTabHintProvider,
     cancelPendingOverlaySuggestionRequests,
-    clearAutocomplete,
     notifyOverlayLoadingSession,
     updateModeBadge,
     updateSelection,
@@ -188,7 +189,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       cancelPendingOverlaySuggestionRequests();
       syncLiveSearchInputFromEvent(event);
       overlayState.imeKeyGuard.markCompositionStart(event);
-      clearAutocomplete();
+      searchAutocomplete.clear();
       clearPendingSearchTriggerHint();
     });
   }
@@ -206,7 +207,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         updateSelection();
       }
       searchQuery.set(rawValue, query);
-      clearAutocomplete();
+      searchAutocomplete.clear();
       syncSearchTriggerHintFromInput(rawValue);
       if (query.length > 0) {
         if (!overlayState.localSearchScopeState && isSlashCommandInput(query)) {
@@ -262,12 +263,12 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       }
       if (!query && overlayState.siteSearchState) {
         searchQuery.clear();
-        clearAutocomplete();
+        searchAutocomplete.clear();
         clearSearchSuggestions();
         return;
       }
       searchQuery.set(rawValue, query);
-      clearAutocomplete();
+      searchAutocomplete.clear();
       syncSearchTriggerHintFromInput(rawValue);
       if (query.length > 0) {
         if (!overlayState.localSearchScopeState && isSlashCommandInput(query)) {

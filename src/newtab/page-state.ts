@@ -31,7 +31,6 @@ import type { RecentCardDrag, RecentCardDragState } from './recent/recent-card-d
 import type { RecentSectionState } from './recent/recent-section';
 import type { RecentSitesControllerState } from './recent/recent-sites-controller';
 import type { RecentSourcesState } from './recent/recent-sources';
-import type { SearchAutocompleteState } from './search/search-autocomplete';
 import type { SearchBoxControlsState } from './search/search-box-controls';
 import type { SearchBoxState } from './search/search-box';
 import type { SearchInputCompositionState } from './search/search-input-composition';
@@ -95,7 +94,6 @@ type NewtabPageState =
   RecentSectionState &
   RecentSitesControllerState &
   RecentSourcesState &
-  SearchAutocompleteState &
   SearchBoxControlsState &
   SearchBoxState &
   SearchInputCompositionState &
@@ -193,7 +191,6 @@ function createPageState(): NewtabPageState {
 
     // 使用本地打包字体，避免外链字体依赖。
 
-    autocompleteState: null,
     inlineSearchState: null,
     remoteSuggestionDebounceTimer: null,
     tabs: [],

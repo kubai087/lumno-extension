@@ -19,7 +19,6 @@ import type * as SuggestionNavigation from '../../shared/search/suggestion-navig
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import * as NEWTAB_BACKGROUND_SEARCH_FOCUS from './background-search-focus';
-import type { SearchAutocomplete } from './search-autocomplete';
 import type { SearchModes } from './search-modes';
 import type { ActiveLocalScope, RenderSuggestions, RequestSuggestions } from './search-types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
@@ -28,6 +27,7 @@ import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -55,6 +55,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 'store'>;
   settings: Pick<SettingsStore, 'get'>;
@@ -106,7 +107,6 @@ interface SearchBoxDeps {
   searchInputHistoryController: Pick<ReturnType<typeof createSearchInputHistoryController>, 'resetNavigation' | 'move' | 'record'>;
   updateModeBadge(rawValue: string): void;
   imeKeyGuard: Pick<ReturnType<typeof createImeKeyGuard>, 'isComposing'>;
-  clearAutocomplete(): void;
   clearSearchSuggestions(): void;
   isSlashCommandInput(query: string): boolean;
   renderSuggestions: RenderSuggestions;
@@ -115,7 +115,6 @@ interface SearchBoxDeps {
   renderPendingSuggestions(query: string): unknown;
   requestSuggestions: RequestSuggestions;
   syncSuggestionActionModifiersFromEvent(event: KeyboardEvent): void;
-  dismissAutocompletePreviewOnNonTabKey: SearchAutocomplete['dismissAutocompletePreviewOnNonTabKey'];
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getSuggestionNavigationKey'>;
   clearSiteSearch: SearchModes['clearSiteSearch'];
   clearLocalSearchScope: SearchModes['clearLocalSearchScope'];
@@ -148,6 +147,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    searchAutocomplete,
     searchQuery,
     locale,
     settings,
@@ -199,7 +199,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     searchInputHistoryController,
     updateModeBadge,
     imeKeyGuard,
-    clearAutocomplete,
     clearSearchSuggestions,
     isSlashCommandInput,
     renderSuggestions,
@@ -207,7 +206,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     renderPendingSuggestions,
     requestSuggestions,
     syncSuggestionActionModifiersFromEvent,
-    dismissAutocompletePreviewOnNonTabKey,
     SUGGESTION_NAVIGATION,
     clearSiteSearch,
     clearLocalSearchScope,
@@ -433,7 +431,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       }
       if (!query) {
         searchQuery.clear();
-        clearAutocomplete();
+        searchAutocomplete.clear();
         if (pageState.remoteSuggestionDebounceTimer) {
           clearTimeout(pageState.remoteSuggestionDebounceTimer);
           pageState.remoteSuggestionDebounceTimer = null;
@@ -446,7 +444,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         return;
       }
       searchQuery.setRaw(rawValue);
-      clearAutocomplete();
+      searchAutocomplete.clear();
       if (!pageState.localSearchScopeState && isSlashCommandInput(query)) {
         searchQuery.setText(query);
         renderSuggestions([], query);
@@ -474,7 +472,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     },
     onKeyDown: function(event) {
       syncSuggestionActionModifiersFromEvent(event);
-      dismissAutocompletePreviewOnNonTabKey(event);
+      searchAutocomplete.dismissOnKey(event);
       const suggestionNavigationKey =
         SUGGESTION_NAVIGATION.getSuggestionNavigationKey(event, {
           macosCtrlEnabled: settings.get(macosCtrlSuggestionNavigationEnabled),
