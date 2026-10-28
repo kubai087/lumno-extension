@@ -195,6 +195,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
 import { SearchMatching } from '../shared/search-panel/matching';
 import { SearchResults } from '../shared/search-panel/search-results';
 import { SearchMode } from '../shared/search-panel/search-mode';
@@ -516,6 +517,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();
+  const menuOrder = new SearchModeMenuOrder(settings);
   const searchMatching = new SearchMatching({
     settings: settings,
     getUrlDisplay: (url) => getUrlDisplay(url),
@@ -2027,9 +2029,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 
   const {
     getSearchModeMenuItems,
-    reorderSearchModeMenu,
-    moveSearchModeMenuGroup,
-    stepSearchModeMenuHistory,
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem,
     restoreSearchModeQuery,
@@ -2040,6 +2039,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    menuOrder,
     searchMatching,
     locale,
     searchResults,
@@ -2442,6 +2442,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     setSiteSearchPrefix,
     clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    menuOrder,
     locale,
     searchResults,
     searchMode,
@@ -2467,9 +2468,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     bookmarkCursorTooltipController,
     getSearchModeMenuItems,
     selectSearchModeMenuItem,
-    reorderSearchModeMenu,
-    moveSearchModeMenuGroup,
-    stepSearchModeMenuHistory,
     showToast,
     t,
     hideToast,

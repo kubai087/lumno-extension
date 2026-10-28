@@ -77,6 +77,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
 import { SearchMatching } from '../shared/search-panel/matching';
 import { SearchResults } from '../shared/search-panel/search-results';
 import { SearchMode } from '../shared/search-panel/search-mode';
@@ -94,6 +95,8 @@ const iconPreloadCache = new Map<string, HTMLImageElement>();
 
 // Opens or closes the search overlay with the window's tabs and the context
 // it was opened with, both read as untrusted.
+let pageMenuOrder: SearchModeMenuOrder | null = null;
+
 function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): void {
   const overlayLifecycle = LumnoOverlayLifecycle;
   const overlayRuntime = LumnoOverlayRuntime;
@@ -161,6 +164,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
+  // The mode menu's moves can be undone for as long as the page lives,
+  // across panel openings.
+  if (!pageMenuOrder) {
+    pageMenuOrder = new SearchModeMenuOrder(overlayState.settings.store);
+  }
+  const menuOrder = pageMenuOrder;
   const searchMatching = new SearchMatching({
     settings: overlayState.settings.store,
     getUrlDisplay: (url) => getUrlDisplay(url),
@@ -619,12 +628,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   const {
     getSearchModeMenuItems,
-    reorderSearchModeMenu,
-    stepSearchModeMenuHistory,
-    moveSearchModeMenuGroup,
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem
   } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
+    menuOrder,
     locale,
     searchMode,
     searchQuery,
@@ -1351,9 +1358,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     modeMenuCursorTooltipController: overlayModeMenuCursorTooltipController,
     getModeMenuItems: getSearchModeMenuItems,
     onModeMenuSelect: selectSearchModeMenuItem,
-    onModeMenuReorder: reorderSearchModeMenu,
-    onModeMenuGroupMove: moveSearchModeMenuGroup,
-    onModeMenuHistory: stepSearchModeMenuHistory,
+    onModeMenuReorder: menuOrder.reorder,
+    onModeMenuGroupMove: menuOrder.moveGroup,
+    onModeMenuHistory: menuOrder.step,
     onModeTagRemovalConfirmation: () => {
       showOverlayToast(t(
         'search_scope_remove_confirmation',

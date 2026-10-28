@@ -1,7 +1,6 @@
 // Search mode menu and site-search / local-scope activation for the input.
 import type { ShortcutRule } from '../../domain/messages';
 import * as SEARCH_SOURCE_ORDER from '../../domain/search/search-source-order';
-import type { SearchSourceOrder } from '../../domain/search/search-source-order';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { LocalSearchScope, SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
 import type { SearchInputParts } from '../../shared/react/search-input';
@@ -18,7 +17,7 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
-import { searchResultSourceTypes, searchSourceOrder } from '../../domain/settings/search';
+import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
@@ -29,6 +28,7 @@ import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-
 import { getLocalSearchScopeIconName, getLocalSearchScopeLabel, getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
 import type { SearchMatching } from '../../shared/search-panel/matching';
+import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -49,6 +49,7 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
+  menuOrder: SearchModeMenuOrder;
   searchMatching: SearchMatching;
   locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
@@ -83,6 +84,7 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    menuOrder,
     searchMatching,
     locale,
     searchResults,
@@ -103,15 +105,6 @@ function createSearchModes(deps: SearchModesDeps) {
     getThemeForProvider,
     getShortcutRules,
   } = deps;
-  // Undo and redo for the moves made in this page's panel.
-  const searchSourceOrderHistory = SEARCH_SOURCE_ORDER.createHistory();
-  // Moves, undos and redos run one after another, so each reads what the
-  // previous one stored.
-  let searchSourceOrderQueue: Promise<unknown> = Promise.resolve();
-  function queueSearchSourceOrderTask(task: () => unknown): Promise<unknown> {
-    searchSourceOrderQueue = searchSourceOrderQueue.then(task).catch(() => {});
-    return searchSourceOrderQueue;
-  }
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
@@ -210,65 +203,20 @@ function createSearchModes(deps: SearchModesDeps) {
     return SEARCH_SOURCE_ORDER.rankScopeItems(items, sourceOrder);
   }
 
-  function writeSearchSourceOrder(order: SearchSourceOrder): Promise<void> {
-    return settings.set(searchSourceOrder, order);
-  }
 
-  // The stored order; null when it cannot be read.
-  function loadSearchSourceOrder(): Promise<unknown> {
-    return settings.include(searchSourceOrder)
-      .then(() => settings.getStored(searchSourceOrder))
-      .catch(() => null);
-  }
 
   function getSearchModeMenuItems(): Promise<ModeMenuItem[]> {
     return Promise.all([
       siteSearchIconCache.load(),
       siteSearchCatalog.loadProviders(),
       siteSearchCatalog.loadAggregates(),
-      loadSearchSourceOrder()
+      menuOrder.load()
     ]).then((results) => buildSearchModeMenuItems(results[3]));
   }
 
-  // A tile dragged in the panel: store the new order on top of the latest
-  // stored one, so a concurrent change from Settings is not lost.
-  function reorderSearchModeMenu(payload: Parameters<typeof SEARCH_SOURCE_ORDER.applyScopeMenuMove>[1]): void {
-    void queueSearchSourceOrderTask(() => loadSearchSourceOrder()
-      .then((value) => recordSearchSourceOrder(
-        value,
-        SEARCH_SOURCE_ORDER.applyScopeMenuMove(value, payload)
-      )));
-  }
 
-  function recordSearchSourceOrder(before: unknown, after: SearchSourceOrder): unknown {
-    searchSourceOrderHistory.record(before, after);
-    return writeSearchSourceOrder(after);
-  }
 
-  // Returns whether there was a step to take, so the panel only claims
-  // Ctrl/Cmd+Z when it does something.
-  function stepSearchModeMenuHistory(direction: 'undo' | 'redo'): boolean {
-    if (!(direction === 'redo' ? searchSourceOrderHistory.canRedo() : searchSourceOrderHistory.canUndo())) {
-      return false;
-    }
-    void queueSearchSourceOrderTask(() => loadSearchSourceOrder()
-      .then((value) => {
-        const target = direction === 'redo'
-          ? searchSourceOrderHistory.redo(value)
-          : searchSourceOrderHistory.undo(value);
-        return target ? writeSearchSourceOrder(target) : null;
-      }));
-    return true;
-  }
 
-  // A group block moved from its title in the panel.
-  function moveSearchModeMenuGroup(payload: { delta: number; group: string; groups: string[] }): void {
-    void queueSearchSourceOrderTask(() => loadSearchSourceOrder()
-      .then((value) => recordSearchSourceOrder(
-        value,
-        SEARCH_SOURCE_ORDER.applyGroupMove(value, payload.groups, payload.group, payload.delta)
-      )));
-  }
 
   // With an empty or typed input, a double Tab starts the default engine's
   // mode and opens the menu; false when it did not.
@@ -523,9 +471,6 @@ function createSearchModes(deps: SearchModesDeps) {
   return {
     handleSearchTabKey,
     getSearchModeMenuItems,
-    reorderSearchModeMenu,
-    moveSearchModeMenuGroup,
-    stepSearchModeMenuHistory,
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem,
     restoreSearchModeQuery,

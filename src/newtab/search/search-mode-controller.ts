@@ -22,6 +22,7 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
+import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -61,9 +62,7 @@ interface SearchModeControllerDeps {
   bookmarkCursorTooltipController: ModeOption<'modeMenuCursorTooltipController'>;
   getSearchModeMenuItems: ModeOption<'getModeMenuItems'>;
   selectSearchModeMenuItem: ModeOption<'onModeMenuSelect'>;
-  reorderSearchModeMenu: ModeOption<'onModeMenuReorder'>;
-  moveSearchModeMenuGroup: ModeOption<'onModeMenuGroupMove'>;
-  stepSearchModeMenuHistory: ModeOption<'onModeMenuHistory'>;
+  menuOrder: SearchModeMenuOrder;
   showToast: ShowToast;
   t: Translate;
   hideToast(): void;
@@ -100,9 +99,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     bookmarkCursorTooltipController,
     getSearchModeMenuItems,
     selectSearchModeMenuItem,
-    reorderSearchModeMenu,
-    moveSearchModeMenuGroup,
-    stepSearchModeMenuHistory,
+    menuOrder,
     showToast,
     t,
     hideToast,
@@ -175,9 +172,9 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     modeMenuCursorTooltipController: bookmarkCursorTooltipController,
     getModeMenuItems: getSearchModeMenuItems,
     onModeMenuSelect: selectSearchModeMenuItem,
-    onModeMenuReorder: reorderSearchModeMenu,
-    onModeMenuGroupMove: moveSearchModeMenuGroup,
-    onModeMenuHistory: stepSearchModeMenuHistory,
+    onModeMenuReorder: menuOrder.reorder,
+    onModeMenuGroupMove: menuOrder.moveGroup,
+    onModeMenuHistory: menuOrder.step,
     onModeTagRemovalConfirmation: () => {
       showToast(t(
         'search_scope_remove_confirmation',

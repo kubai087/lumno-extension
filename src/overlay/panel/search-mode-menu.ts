@@ -3,14 +3,10 @@
 // picking an item.
 import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
 import type * as SearchSourceOrder from '../../domain/search/search-source-order';
-import type { ScopeMenuMove } from '../../domain/search/search-source-order';
 import type { LocalSearchScope, SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider, ModeMenuItem } from '../../shared/search/input-mode/types';
 import type { Translate } from './types';
-import { lazyInstance } from '../../shared/lazy-instance';
-import { createHistory as createSearchSourceOrderHistory } from '../../domain/search/search-source-order';
-import { searchSourceOrder } from '../../domain/settings/search';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
@@ -24,6 +20,7 @@ import { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } from '../../
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { getLocalSearchScopeIconName, getLocalSearchScopeLabel, getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
+import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
@@ -34,6 +31,7 @@ interface SearchModeMenuState {
 }
 
 interface SearchModeMenuDeps {
+  menuOrder: SearchModeMenuOrder;
   locale: SearchLocale;
   searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
@@ -53,20 +51,11 @@ interface SearchModeMenuDeps {
   overlayState: SearchModeMenuState;
 }
 
-// A group block dragged by its title.
-interface GroupMove {
-  groups: unknown;
-  group: unknown;
-  delta: number;
-}
-
 const LOCAL_SOURCE_TYPES: readonly SearchSourceType[] = ['topSite', 'bookmark', 'history'];
-
-// Undo and redo of the scope panel's moves in this page.
-const getPageSearchSourceOrderHistory = lazyInstance(() => createSearchSourceOrderHistory());
 
 function createSearchModeMenu(deps: SearchModeMenuDeps) {
   const {
+    menuOrder,
     locale,
     searchMode,
     searchQuery,
@@ -85,9 +74,6 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
 
   // The panel state object shared with search-panel.ts and the other modules.
   const overlayState = deps.overlayState;
-  // Moves, undos and redos of the order run one after another, so each
-  // reads what the previous one stored.
-  let searchSourceOrderQueue: Promise<unknown> = Promise.resolve();
 
   function getCurrentPageSiteSearchModeProvider(providers: readonly SiteSearchProvider[]): SiteSearchProvider | null {
     return SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
@@ -196,73 +182,21 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     return SEARCH_SOURCE_ORDER.rankScopeItems(items, sourceOrder);
   }
 
-  // The stored order, as stored; the order helpers read it as untrusted.
-  function loadSearchSourceOrder(): Promise<unknown> {
-    const settings = overlayState.settings;
-    return settings.loaded.then(() => settings.store.getStored(searchSourceOrder));
-  }
 
   function getSearchModeMenuItems(): Promise<ModeMenuItem[]> {
     return Promise.all([
       siteSearchIconCache.load(),
       siteSearchCatalog.loadProviders(),
       siteSearchCatalog.loadAggregates(),
-      loadSearchSourceOrder()
+      menuOrder.load()
     ]).then((results) => buildSearchModeMenuItems(results[3]));
   }
 
-  // A tile dragged in the panel: store the new order on top of the latest
-  // stored one, so a concurrent change from Settings is not lost.
-  function reorderSearchModeMenu(payload: ScopeMenuMove | null): Promise<unknown> {
-    return queueSearchSourceOrderTask(() => loadSearchSourceOrder()
-      .then((value) => recordSearchSourceOrder(value, SEARCH_SOURCE_ORDER.applyScopeMenuMove(value, payload))));
-  }
-  function queueSearchSourceOrderTask(task: () => Promise<unknown>): Promise<unknown> {
-    searchSourceOrderQueue = searchSourceOrderQueue.then(task).catch(() => {});
-    return searchSourceOrderQueue;
-  }
 
-  function writeSearchSourceOrder(value: unknown): Promise<void> {
-    return overlayState.settings.set(searchSourceOrder, searchSourceOrder.parse(value)).catch(() => {});
-  }
 
-  // Undo and redo for the moves made in this page's panel, kept in module
-  // scope so it outlives one opening of the command bar.
-  function getSearchSourceOrderHistory(): ReturnType<typeof SEARCH_SOURCE_ORDER.createHistory> {
-    return getPageSearchSourceOrderHistory();
-  }
 
-  function recordSearchSourceOrder(before: unknown, after: SearchSourceOrder.SearchSourceOrder): Promise<void> {
-    getSearchSourceOrderHistory().record(before, after);
-    return writeSearchSourceOrder(after);
-  }
 
-  // Returns whether there was a step to take, so the panel only claims
-  // Ctrl/Cmd+Z when it does something.
-  function stepSearchModeMenuHistory(direction: 'undo' | 'redo'): boolean {
-    const history = getSearchSourceOrderHistory();
-    if (!(direction === 'redo' ? history.canRedo() : history.canUndo())) {
-      return false;
-    }
-    queueSearchSourceOrderTask(() => loadSearchSourceOrder()
-      .then((value) => {
-        const target = direction === 'redo' ? history.redo(value) : history.undo(value);
-        return target ? writeSearchSourceOrder(target) : Promise.resolve();
-      }));
-    return true;
-  }
 
-  // A group block moved from its title in the panel.
-  function moveSearchModeMenuGroup(payload: GroupMove | null): Promise<unknown> {
-    if (!payload) {
-      return Promise.resolve();
-    }
-    return queueSearchSourceOrderTask(() => loadSearchSourceOrder()
-      .then((value) => recordSearchSourceOrder(
-        value,
-        SEARCH_SOURCE_ORDER.applyGroupMove(value, payload.groups, payload.group, payload.delta)
-      )));
-  }
 
   function readInputValue(): string {
     return overlayState.searchInput ? String(overlayState.searchInput.value || '') : '';
@@ -373,9 +307,6 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
 
   return {
     getSearchModeMenuItems,
-    reorderSearchModeMenu,
-    stepSearchModeMenuHistory,
-    moveSearchModeMenuGroup,
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem
   };
