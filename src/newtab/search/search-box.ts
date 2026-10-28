@@ -32,6 +32,7 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -55,6 +56,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  suggestionModifiers: SuggestionModifiers;
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
@@ -115,7 +117,6 @@ interface SearchBoxDeps {
   getDirectUrlSuggestion(query: string): SuggestionLike | null;
   renderPendingSuggestions(query: string): unknown;
   requestSuggestions: RequestSuggestions;
-  syncSuggestionActionModifiersFromEvent(event: KeyboardEvent): void;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getSuggestionNavigationKey'>;
   isImeCompositionEvent(event: KeyboardEvent): boolean;
   SEARCH_INPUT_HISTORY: Pick<typeof SearchInputHistory, 'getShortcutDirection'>;
@@ -146,6 +147,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    suggestionModifiers,
     modeActions,
     searchResults,
     searchMode,
@@ -205,7 +207,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     getDirectUrlSuggestion,
     renderPendingSuggestions,
     requestSuggestions,
-    syncSuggestionActionModifiersFromEvent,
     SUGGESTION_NAVIGATION,
     isImeCompositionEvent,
     SEARCH_INPUT_HISTORY,
@@ -468,7 +469,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       requestSuggestions(query);
     },
     onKeyDown: function(event) {
-      syncSuggestionActionModifiersFromEvent(event);
+      suggestionModifiers.syncFromEvent(event);
       searchAutocomplete.dismissOnKey(event);
       const suggestionNavigationKey =
         SUGGESTION_NAVIGATION.getSuggestionNavigationKey(event, {

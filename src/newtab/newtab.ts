@@ -194,6 +194,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
 import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
 import { SearchModeMenu } from '../shared/search-panel/mode-menu';
 import { SearchModeActions } from '../shared/search-panel/mode-actions';
@@ -519,6 +520,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();
+  const suggestionModifiers = new SuggestionModifiers(settings);
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
     showToast: (message, isError) => showToast(message, isError),
@@ -2120,8 +2122,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   });
 
   const {
-    setSuggestionActionModifiersActive,
-    syncSuggestionActionModifiersFromEvent,
     getAutoHighlightIndex,
     updateSelection,
     activateRenderedSuggestion,
@@ -2137,6 +2137,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    suggestionModifiers,
     siteSearchRunner,
     modeActions,
     searchMatching,
@@ -2279,6 +2280,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    suggestionModifiers,
     modeActions,
     searchResults,
     searchMode,
@@ -2338,7 +2340,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getDirectUrlSuggestion,
     renderPendingSuggestions,
     requestSuggestions,
-    syncSuggestionActionModifiersFromEvent,
     SUGGESTION_NAVIGATION,
     isImeCompositionEvent,
     SEARCH_INPUT_HISTORY,
@@ -2505,17 +2506,16 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   });
 
   NEWTAB_PAGE_KEYBOARD.createPageKeyboard({
+    suggestionModifiers,
     handleSearchTabKey,
     dismissStack,
     finishShortcutDrag,
     finishBookmarkDrag,
     isEditableElement,
     performBookmarkMoveHistoryAction,
-    syncSuggestionActionModifiersFromEvent,
     SUGGESTION_NAVIGATION,
     suggestionItems,
     numberShortcutOptions,
-    setSuggestionActionModifiersActive,
     pageState
   });
 

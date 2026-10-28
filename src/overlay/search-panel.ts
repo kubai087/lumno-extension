@@ -76,6 +76,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
 import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
 import { SearchModeMenu } from '../shared/search-panel/mode-menu';
 import { SearchModeActions } from '../shared/search-panel/mode-actions';
@@ -166,6 +167,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
+  const suggestionModifiers = new SuggestionModifiers(overlayState.settings.store);
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
     showToast: (message, isError) => showOverlayToast(message, isError),
@@ -554,6 +556,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    suggestionModifiers,
     modeActions,
     searchMatching,
     searchResults,
@@ -565,7 +568,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
     siteSearchCatalog,
     getShortcutRules,
-    syncSuggestionActionModifiersFromEvent: (...args) => syncSuggestionActionModifiersFromEvent(...args),
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode: (...args) => clearOpenTabsSearchMode(...args),
@@ -682,8 +684,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    setSuggestionActionModifiersActive,
-    syncSuggestionActionModifiersFromEvent,
     shouldOpenSearchResultInBackgroundTab,
     finishOverlayResultActivation,
     getOpenDisposition,
@@ -692,6 +692,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isCurrentTabDefault,
     openMatchedTabSuggestion
   } = PANEL_RESULT_ACTIVATION.createResultActivation({
+    suggestionModifiers,
     ensureOverlaySuggestionsView,
     SUGGESTION_ACTION_MODEL,
     removeOverlay,
@@ -1527,7 +1528,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
   });
   overlayState.searchInput.addEventListener('keyup', function(e) {
-    syncSuggestionActionModifiersFromEvent(e);
+    suggestionModifiers.syncFromEvent(e);
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
       e.stopPropagation();
     }
@@ -1562,7 +1563,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     },
     isImeComposition: isImeCompositionEvent,
     onKeyUp: () => overlayState.imeKeyGuard.markKeyUp(),
-    syncModifiers: syncSuggestionActionModifiersFromEvent,
+    syncModifiers: suggestionModifiers.syncFromEvent,
     handleNumberShortcut: (e) => SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       e,
       suggestionItems,
@@ -1577,7 +1578,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     onEscapeOutside: closeOverlayOnEscape,
     onEscapeTaken: closeOverlayOnEscape,
     onBlur: () => {
-      setSuggestionActionModifiersActive(false, false, false);
+      suggestionModifiers.set(false, false, false);
       SUGGESTION_NAVIGATION.cancelNumberShortcuts(overlayState.suggestionsContainer);
     }
   });

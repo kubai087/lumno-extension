@@ -11,6 +11,7 @@ import type { SuggestionsViewController } from '../../shared/react/search/sugges
 import { overlayOpenInCurrentTab } from '../../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 
 // The keys and button of the click or key press that opens a result.
 interface ActivationEvent {
@@ -35,6 +36,7 @@ interface ResultActivationState {
 }
 
 interface ResultActivationDeps {
+  suggestionModifiers: SuggestionModifiers;
   ensureOverlaySuggestionsView(): Pick<SuggestionsViewController,
     'setOpenInCurrentTabModifierActive' | 'setOpenSwitchInNewTabModifierActive' | 'setOpenInBackgroundTabModifierActive'>;
   SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel,
@@ -46,6 +48,7 @@ interface ResultActivationDeps {
 
 function createResultActivation(deps: ResultActivationDeps) {
   const {
+    suggestionModifiers,
     ensureOverlaySuggestionsView,
     SUGGESTION_ACTION_MODEL,
     removeOverlay,
@@ -55,47 +58,16 @@ function createResultActivation(deps: ResultActivationDeps) {
   // The panel state object shared with search-panel.ts and the other modules.
   const overlayState = deps.overlayState;
 
-  let openInCurrentTabModifierActive = false;
-  let openSwitchInNewTabModifierActive = false;
-  let openInBackgroundTabModifierActive = false;
+  // The rows show what the held modifier keys make of their action.
+  suggestionModifiers.store.subscribe(() => {
+    const view = ensureOverlaySuggestionsView();
+    const modifiers = suggestionModifiers.store.getSnapshot();
+    view.setOpenInCurrentTabModifierActive(modifiers.openInCurrentTab);
+    view.setOpenSwitchInNewTabModifierActive(modifiers.openSwitchInNewTab);
+    view.setOpenInBackgroundTabModifierActive(modifiers.openInBackgroundTab);
+  });
 
-  // Tells the list which modifier keys are held, so its buttons say what a
-  // click would do.
-  function setSuggestionActionModifiersActive(
-    openInCurrentTabActive: boolean,
-    openSwitchInNewTabActive: boolean,
-    openInBackgroundTabActive: boolean
-  ): void {
-    const nextOpenInCurrentTabActive = Boolean(openInCurrentTabActive);
-    const nextOpenSwitchInNewTabActive = Boolean(openSwitchInNewTabActive);
-    const nextOpenInBackgroundTabActive = Boolean(openInBackgroundTabActive);
-    if (openInCurrentTabModifierActive === nextOpenInCurrentTabActive &&
-        openSwitchInNewTabModifierActive === nextOpenSwitchInNewTabActive &&
-        openInBackgroundTabModifierActive === nextOpenInBackgroundTabActive) {
-      return;
-    }
-    openInCurrentTabModifierActive = nextOpenInCurrentTabActive;
-    openSwitchInNewTabModifierActive = nextOpenSwitchInNewTabActive;
-    openInBackgroundTabModifierActive = nextOpenInBackgroundTabActive;
-    const reactView = ensureOverlaySuggestionsView();
-    reactView.setOpenInCurrentTabModifierActive(
-      nextOpenInCurrentTabActive
-    );
-    reactView.setOpenSwitchInNewTabModifierActive(
-      nextOpenSwitchInNewTabActive
-    );
-    reactView.setOpenInBackgroundTabModifierActive(
-      nextOpenInBackgroundTabActive
-    );
-  }
 
-  function syncSuggestionActionModifiersFromEvent(event: ActivationEvent | null): void {
-    setSuggestionActionModifiersActive(
-      Boolean(event && event.altKey),
-      Boolean(event && event.shiftKey),
-      Boolean(event && (event.metaKey || event.ctrlKey) && !overlayState.settings.get(numberShortcutInstantEnabled))
-    );
-  }
 
   function shouldUseNewTabForSwitchAction(
     suggestion: DisplayedSuggestion,
@@ -191,8 +163,6 @@ function createResultActivation(deps: ResultActivationDeps) {
   }
 
   return {
-    setSuggestionActionModifiersActive,
-    syncSuggestionActionModifiersFromEvent,
     shouldOpenSearchResultInBackgroundTab,
     finishOverlayResultActivation,
     getOpenDisposition,

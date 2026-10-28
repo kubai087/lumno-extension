@@ -29,6 +29,7 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -49,6 +50,7 @@ interface PanelKeysState {
 }
 
 interface PanelKeysDeps {
+  suggestionModifiers: SuggestionModifiers;
   modeActions: SearchModeActions<InputModeProvider>;
   searchMatching: SearchMatching;
   searchResults: SearchResults<OverlaySuggestion>;
@@ -60,7 +62,6 @@ interface PanelKeysDeps {
   openSearchModeMenuFromDoubleTab(): Promise<boolean>;
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
   getShortcutRules(): Promise<ShortcutRule[]>;
-  syncSuggestionActionModifiersFromEvent(event: ActivationEvent | null): void;
   requestOverlaySearchSuggestions(query: string): void;
   clearSearchSuggestions(): void;
   clearOpenTabsSearchMode(): void;
@@ -107,6 +108,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    suggestionModifiers,
     modeActions,
     searchMatching,
     searchResults,
@@ -118,7 +120,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     openSearchModeMenuFromDoubleTab,
     activateOpenTabsSearchMode,
     getShortcutRules,
-    syncSuggestionActionModifiersFromEvent,
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode,
@@ -304,7 +305,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (!input) {
       return;
     }
-    syncSuggestionActionModifiersFromEvent(e);
+    suggestionModifiers.syncFromEvent(e);
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
       e.stopPropagation();
     }
@@ -472,7 +473,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (!input) {
       return;
     }
-    syncSuggestionActionModifiersFromEvent(e);
+    suggestionModifiers.syncFromEvent(e);
     if (SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       e,
       suggestionItems,
@@ -762,7 +763,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
   }
 
   function handleOverlayKeyup(e: KeyboardEvent): void {
-    syncSuggestionActionModifiersFromEvent(e);
+    suggestionModifiers.syncFromEvent(e);
     SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       e,
       suggestionItems,

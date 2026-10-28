@@ -31,7 +31,7 @@ import * as SearchEngineSuggestions from '../../domain/search/utils/engine-sugge
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
-import { numberShortcutInstantEnabled, searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
+import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
@@ -48,6 +48,7 @@ import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engin
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
+import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -62,6 +63,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  suggestionModifiers: SuggestionModifiers;
   siteSearchRunner: SiteSearchRunner;
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchMatching: SearchMatching;
@@ -140,6 +142,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    suggestionModifiers,
     siteSearchRunner,
     modeActions,
     searchMatching,
@@ -236,41 +239,18 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }
   });
   let pendingProviderReload = false;
-  let openInCurrentTabModifierActive = false;
-  let openSwitchInNewTabModifierActive = false;
-  let openInBackgroundTabModifierActive = false;
-
-  function setSuggestionActionModifiersActive(
-    openInCurrentTabActive: boolean,
-    openSwitchInNewTabActive: boolean,
-    openInBackgroundTabActive: boolean
-  ): void {
-    const nextOpenInCurrentTabActive = Boolean(openInCurrentTabActive);
-    const nextOpenSwitchInNewTabActive = Boolean(openSwitchInNewTabActive);
-    const nextOpenInBackgroundTabActive = Boolean(openInBackgroundTabActive);
-    if (openInCurrentTabModifierActive === nextOpenInCurrentTabActive &&
-        openSwitchInNewTabModifierActive === nextOpenSwitchInNewTabActive &&
-        openInBackgroundTabModifierActive === nextOpenInBackgroundTabActive) {
-      return;
-    }
-    openInCurrentTabModifierActive = nextOpenInCurrentTabActive;
-    openSwitchInNewTabModifierActive = nextOpenSwitchInNewTabActive;
-    openInBackgroundTabModifierActive = nextOpenInBackgroundTabActive;
+  // The rows show what the held modifier keys make of their action.
+  suggestionModifiers.store.subscribe(() => {
     const view = pageState.suggestionsView;
     if (view) {
-      view.setOpenInCurrentTabModifierActive(nextOpenInCurrentTabActive);
-      view.setOpenSwitchInNewTabModifierActive(nextOpenSwitchInNewTabActive);
-      view.setOpenInBackgroundTabModifierActive(nextOpenInBackgroundTabActive);
+      const modifiers = suggestionModifiers.store.getSnapshot();
+      view.setOpenInCurrentTabModifierActive(modifiers.openInCurrentTab);
+      view.setOpenSwitchInNewTabModifierActive(modifiers.openSwitchInNewTab);
+      view.setOpenInBackgroundTabModifierActive(modifiers.openInBackgroundTab);
     }
-  }
+  });
 
-  function syncSuggestionActionModifiersFromEvent(event: Pick<KeyboardEvent, 'altKey' | 'shiftKey' | 'metaKey' | 'ctrlKey'> | null): void {
-    setSuggestionActionModifiersActive(
-      Boolean(event && event.altKey),
-      Boolean(event && event.shiftKey),
-      Boolean(event && (event.metaKey || event.ctrlKey) && !settings.get(numberShortcutInstantEnabled))
-    );
-  }
+
 
   function getAutoHighlightIndex(): number {
     return pageState.suggestionsView ? pageState.suggestionsView.getAutoHighlightIndex() : -1;
@@ -979,8 +959,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   }
 
   return {
-    setSuggestionActionModifiersActive,
-    syncSuggestionActionModifiersFromEvent,
     getAutoHighlightIndex,
     updateSelection,
     activateRenderedSuggestion,

@@ -3,6 +3,7 @@
 import type * as SuggestionNavigation from '../shared/search/suggestion-navigation';
 import type { NumberShortcutContainer, NumberShortcutItem, NumberShortcutOptions } from '../shared/search/suggestion-navigation';
 import type { DismissStack } from './dismiss-stack';
+import type { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
 
 interface PageKeyboardState {
   // Moves into site search on Tab, when the search box allows it.
@@ -19,6 +20,7 @@ interface PageKeyboardState {
 }
 
 interface PageKeyboardDeps {
+  suggestionModifiers: SuggestionModifiers;
   handleSearchTabKey(event: KeyboardEvent): void;
   dismissStack: Pick<DismissStack, 'register'>;
   finishShortcutDrag(event: null, options: { cancel: boolean }): void;
@@ -26,27 +28,24 @@ interface PageKeyboardDeps {
   isEditableElement(target: EventTarget | null): boolean;
   // Undoes or redoes a bookmark move; false when there was none.
   performBookmarkMoveHistoryAction(direction: 'undo' | 'redo'): boolean;
-  syncSuggestionActionModifiersFromEvent(event: KeyboardEvent): void;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'handleNumberShortcutKeyEvent' | 'cancelNumberShortcuts'>;
   suggestionItems: ReadonlyArray<NumberShortcutItem | null | undefined>;
   numberShortcutOptions: NumberShortcutOptions;
-  setSuggestionActionModifiersActive(primary: boolean, shift: boolean, alt: boolean): void;
   pageState: PageKeyboardState;
 }
 
 function createPageKeyboard(deps: PageKeyboardDeps): void {
   const {
+    suggestionModifiers,
     handleSearchTabKey,
     dismissStack,
     finishShortcutDrag,
     finishBookmarkDrag,
     isEditableElement,
     performBookmarkMoveHistoryAction,
-    syncSuggestionActionModifiersFromEvent,
     SUGGESTION_NAVIGATION,
     suggestionItems,
     numberShortcutOptions,
-    setSuggestionActionModifiersActive
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -91,7 +90,7 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
 
   document.addEventListener('keydown', function(event) {
     if (pageState.folderColorPicker && pageState.folderColorPicker.isOpen()) return;
-    syncSuggestionActionModifiersFromEvent(event);
+    suggestionModifiers.syncFromEvent(event);
     if (SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       event,
       suggestionItems,
@@ -111,7 +110,7 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     }
   }, true);
   document.addEventListener('keyup', function(event) {
-    syncSuggestionActionModifiersFromEvent(event);
+    suggestionModifiers.syncFromEvent(event);
     SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       event,
       suggestionItems,
@@ -120,7 +119,7 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     );
   }, true);
   window.addEventListener('blur', function() {
-    setSuggestionActionModifiersActive(false, false, false);
+    suggestionModifiers.set(false, false, false);
     SUGGESTION_NAVIGATION.cancelNumberShortcuts(pageState.suggestionsContainer);
   });
 }
