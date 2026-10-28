@@ -3,7 +3,6 @@
 import type { SelectMenuOption } from '../shared/react/select-menu/menu-options';
 import type { BookmarkCascadeActions } from './bookmarks/bookmark-cascade-actions';
 import type { BookmarkCascadeRuntime } from './bookmarks/bookmark-cascade-menu';
-import type { BookmarkDisplaySettings, BookmarkViewMode } from './bookmarks/bookmark-display-settings';
 import type { BookmarkPathEntry } from './bookmarks/bookmarks-store';
 import type { Translate } from './newtab-types';
 import type { PageLayout } from './page-layout';
@@ -16,26 +15,10 @@ import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
 import { recentMode } from '../domain/settings/recent-sites';
-import { bookmarkCount } from '../domain/settings/bookmarks';
+import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
-
-interface BookmarkViewModeOptions {
-  // Applies only while the view mode is still at this revision.
-  expectedRevision?: number;
-  // Loads the bookmarks when the mode stays the same but none are loaded yet.
-  ensureLoaded?: boolean;
-  force?: boolean;
-  persist?: boolean;
-}
-
-interface BookmarkViewModeResult {
-  applied: boolean;
-  changed: boolean;
-  mode: BookmarkViewMode;
-  revision: number;
-}
 
 interface SectionHeadersState {
   recentModeMenu: { update(): void } | null;
@@ -44,8 +27,6 @@ interface SectionHeadersState {
   bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'activate' | 'deactivate' | 'setVisible' | 'isActive'> | null;
   // Which pager buttons lead anywhere from the current page.
   bookmarkPagerAvailability: { previous: boolean; next: boolean };
-  currentBookmarkViewMode: BookmarkViewMode;
-  bookmarkViewModeRevision: number;
   bookmarkCurrentFolderId: string;
   bookmarkRootFolderId: string;
   bookmarkFolderPath: BookmarkPathEntry[];
@@ -56,12 +37,11 @@ interface SectionHeadersState {
 
 interface SectionHeadersDeps extends
   Pick<PageLayout, 'updateSearchEntryLayout' | 'setContentSectionVisible'>,
-  Pick<BookmarkDisplaySettings, 'normalizeBookmarkViewMode' | 'persistBookmarkViewMode'>,
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu'>,
   Pick<TooltipBindings, 'showTopActionTooltip' | 'hideTopActionTooltip'>,
   Pick<ViewportInsets, 'getNewtabVisualViewportInsets'> {
   preview: Pick<SettingPreview, 'get'>;
-  settings: Pick<SettingsStore, 'get' | 'set'>;
+  settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   t: Translate;
   markBookmarkDataDirty: SectionLoaders['markBookmarkDataDirty'];
   loadBookmarks: SectionLoaders['loadBookmarks'];
@@ -87,11 +67,9 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     setContentSectionVisible,
     bookmarkSection,
     bookmarkCards,
-    normalizeBookmarkViewMode,
     markBookmarkDataDirty,
     loadBookmarks,
     closeBookmarkCascadeMenu,
-    persistBookmarkViewMode,
     showTopActionTooltip,
     hideTopActionTooltip,
     renderBookmarkHeader,
@@ -126,7 +104,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
   }
 
   function isBookmarkTopbarMode(): boolean {
-    return pageState.currentBookmarkViewMode === 'top';
+    return settings.get(bookmarkViewMode) === 'top';
   }
 
   function getNewtabTopOccupiedInsetPx(): number {
@@ -218,72 +196,49 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 
   function updateBookmarkModeMenu(): void {
     if (pageState.bookmarkGrid) {
-      pageState.bookmarkGrid.setAttribute('data-view-mode', pageState.currentBookmarkViewMode);
+      pageState.bookmarkGrid.setAttribute('data-view-mode', settings.get(bookmarkViewMode));
     }
     if (document.body) {
-      document.body.setAttribute('data-bookmark-view-mode', pageState.currentBookmarkViewMode);
+      document.body.setAttribute('data-bookmark-view-mode', settings.get(bookmarkViewMode));
     }
     syncBookmarkSurfaceMode();
   }
 
-  function applyBookmarkViewMode(
-    nextMode: unknown,
-    options?: BookmarkViewModeOptions | null
-  ): BookmarkViewModeResult {
-    const config: BookmarkViewModeOptions = options && typeof options === 'object' ? options : {};
-    if (Object.prototype.hasOwnProperty.call(config, 'expectedRevision') &&
-        config.expectedRevision !== pageState.bookmarkViewModeRevision) {
-      return {
-        applied: false,
-        changed: false,
-        mode: pageState.currentBookmarkViewMode,
-        revision: pageState.bookmarkViewModeRevision
-      };
-    }
-    const mode = normalizeBookmarkViewMode(nextMode);
-    const changed = pageState.currentBookmarkViewMode !== mode;
-    if (!changed) {
+  // The page draws the stored view mode: a new one starts the bookmarks
+  // over at the first page, at the root for the bar.
+  let shownBookmarkViewMode = settings.get(bookmarkViewMode);
+  function showBookmarkViewMode(first: boolean): void {
+    const mode = settings.get(bookmarkViewMode);
+    if (mode === shownBookmarkViewMode) {
       updateBookmarkModeMenu();
-      if (config.ensureLoaded === true && !pageState.bookmarkLoadedOnce) {
+      if (first && !pageState.bookmarkLoadedOnce) {
         pageState.bookmarkCurrentPage = 0;
         pageState.bookmarkRenderSignature = '';
         markBookmarkDataDirty();
-        void loadBookmarks(config.force === true ? { force: true } : undefined);
+        void loadBookmarks();
       }
-      return {
-        applied: true,
-        changed: false,
-        mode,
-        revision: pageState.bookmarkViewModeRevision
-      };
+      return;
     }
+    shownBookmarkViewMode = mode;
     closeBookmarkCascadeMenu();
-    pageState.currentBookmarkViewMode = mode;
-    pageState.bookmarkViewModeRevision += 1;
     if (mode === 'top') {
       pageState.bookmarkCurrentFolderId = pageState.bookmarkRootFolderId;
     }
     pageState.bookmarkCurrentPage = 0;
     pageState.bookmarkRenderSignature = '';
     updateBookmarkModeMenu();
-    if (config.persist === true) {
-      persistBookmarkViewMode(mode);
-    }
     markBookmarkDataDirty();
-    void loadBookmarks(config.force === true ? { force: true } : undefined);
-    return {
-      applied: true,
-      changed: true,
-      mode,
-      revision: pageState.bookmarkViewModeRevision
-    };
+    void loadBookmarks(first ? undefined : { force: true });
   }
 
-  function setBookmarkViewMode(nextMode: unknown): BookmarkViewModeResult {
-    return applyBookmarkViewMode(nextMode, {
-      persist: true,
-      force: true
-    });
+  // Settles once the stored view mode is drawn.
+  function followBookmarkViewMode(): Promise<void> {
+    settings.subscribe(bookmarkViewMode, () => showBookmarkViewMode(false));
+    return settings.include(bookmarkViewMode).then(() => showBookmarkViewMode(true));
+  }
+
+  function setBookmarkViewMode(nextMode: unknown): void {
+    void settings.set(bookmarkViewMode, bookmarkViewMode.parse(nextMode)).catch(() => {});
   }
 
   function navigateBookmarkFolder(targetId: unknown): void {
@@ -324,7 +279,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
       modeMenu: {
         id: BOOKMARK_MODE_MENU_ID,
         title: menuTitle,
-        value: pageState.currentBookmarkViewMode,
+        value: settings.get(bookmarkViewMode),
         options: getBookmarkModeMenuOptions(),
         onChange: (mode) => {
           setBookmarkViewMode(mode);
@@ -356,7 +311,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     syncBookmarkSurfaceMode,
     setBookmarkSurfaceVisible,
     updateBookmarkModeMenu,
-    applyBookmarkViewMode,
+    followBookmarkViewMode,
     setBookmarkViewMode,
     navigateBookmarkFolder
   };
@@ -365,4 +320,4 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 type SectionHeaders = ReturnType<typeof createSectionHeaders>;
 
 export { createSectionHeaders };
-export type { BookmarkViewModeOptions, BookmarkViewModeResult, SectionHeaders, SectionHeadersDeps, SectionHeadersState };
+export type { SectionHeaders, SectionHeadersDeps, SectionHeadersState };

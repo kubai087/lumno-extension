@@ -19,13 +19,13 @@ import type { BookmarksRuntime } from './bookmarks-runtime';
 import { getBookmarksViewApi } from '../react/bookmarks';
 import { getBookmarkCascadeViewApi } from '../react/bookmark-cascade-view';
 import type { SettingPreview } from '../setting-preview';
-import { bookmarkFolderIconsVisible } from '../../domain/settings/bookmarks';
+import { bookmarkFolderIconsVisible, bookmarkViewMode } from '../../domain/settings/bookmarks';
+import type { SettingsStore } from '../../platform/settings-store';
 
 type ViewOption<K extends keyof BookmarksViewOptions> = NonNullable<BookmarksViewOptions[K]>;
 
 interface BookmarkSectionState {
   bookmarkTitleWrap: HTMLElement | null;
-  currentBookmarkViewMode: string;
   bookmarkPagerPrevButton: HTMLElement | null;
   bookmarkPagerNextButton: HTMLElement | null;
   bookmarkGrid: HTMLElement | null;
@@ -39,6 +39,7 @@ interface BookmarkSectionState {
 }
 
 interface BookmarkSectionDeps {
+  settings: Pick<SettingsStore, 'get'>;
   preview: Pick<SettingPreview, 'get'>;
   setContentSectionVisible(section: HTMLElement | null, visible: boolean): void;
   bookmarkSection: HTMLElement | null;
@@ -101,6 +102,7 @@ interface BookmarkSectionDeps {
 
 function createBookmarkSection(deps: BookmarkSectionDeps) {
   const {
+    settings,
     preview,
     setContentSectionVisible,
     bookmarkSection,
@@ -172,7 +174,7 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
   pageState.bookmarkPagerNextButton = pageStructureRuntime.bookmark.nextButton;
   const bookmarkGrid = pageStructureRuntime.bookmark.grid;
   pageState.bookmarkGrid = bookmarkGrid;
-  bookmarkGrid.setAttribute('data-view-mode', pageState.currentBookmarkViewMode);
+  bookmarkGrid.setAttribute('data-view-mode', settings.get(bookmarkViewMode));
   bookmarkGrid.addEventListener('pointerdown', handleBookmarkDragPointerDown, true);
   applyBookmarkGridColumns();
   pageState.bookmarksView = NEWTAB_BOOKMARKS_VIEW.createBookmarksView({

@@ -158,7 +158,6 @@ function createPageState(): NewtabPageState {
     wallpaperShownAt: 0,
     newtabReadyViewportRevision: 0,
     resolveNewtabEntryAnimationReady: null,
-    currentBookmarkViewMode: 'folder',
     searchLayer: null,
     topContentContainer: null,
     topContentController: null,
@@ -233,7 +232,6 @@ function createPageState(): NewtabPageState {
     bookmarkCascadeRuntime: null,
     bookmarkDragState: null,
     bookmarkTopbarRuntime: null,
-    resolveInitialBookmarkViewModeReady: null,
     shortcutSection: null,
     shortcutGrid: null,
     addShortcutButton: null,
@@ -261,7 +259,6 @@ function createPageState(): NewtabPageState {
     shortcutPlateColorPick: null,
     shortcutDialogController: null,
 
-    bookmarkViewModeRevision: 0,
     bookmarkLoadedOnce: false,
     bookmarkRenderSignature: '',
     sectionDataRevision: 0,

@@ -545,11 +545,8 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
+    initialBookmarkTopbarLayoutReady,
     bookmarkTopbarStorageKeys,
-    normalizeBookmarkViewMode,
-    shouldRepairBookmarkViewModeStorageValue,
-    persistBookmarkViewMode,
-    loadInitialBookmarkViewMode,
     getEffectiveBookmarkTopbarSurfaceMode,
     getBookmarkTopbarLayout,
     syncBookmarkTopbarSurfaceAppearance,
@@ -559,11 +556,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     registerStorageChangeHandlers: registerBookmarkDisplayStorageChanges,
     handleBookmarkModeMenuAction
   } = NEWTAB_BOOKMARK_DISPLAY_SETTINGS.createBookmarkDisplaySettings({
-    storageArea,
-    BOOKMARK_VIEW_MODE_STORAGE_KEY: bookmarkViewMode.key,
-    applyBookmarkViewMode: (...args) => applyBookmarkViewMode(...args),
-    localStorageArea,
-    isPrimaryStorageAreaName,
     NEWTAB_BOOKMARKS_TOPBAR,
     bookmarkTopbarSurfaceStorageArea,
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
@@ -576,12 +568,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     BOOKMARK_TOPBAR_SURFACE_MODE_ACTION,
     BOOKMARK_TOPBAR_LAYOUT_ACTION,
     pageState
-  });
-  const initialBookmarkViewModeReadyPromise = new Promise<void>((resolve) => {
-    pageState.resolveInitialBookmarkViewModeReady = resolve;
-    if (!storageArea) {
-      resolve();
-    }
   });
   const recentCards: RecentCardElement[] = [];
   const bookmarkCards: BookmarkCardElement[] = [];
@@ -1111,7 +1097,7 @@ import * as SettingsStorage from '../platform/settings-storage';
       recentCount.key,
       ...bookmarkTopbarStorageKeys
     ],
-    getBookmarkViewMode: () => pageState.currentBookmarkViewMode,
+    getBookmarkViewMode: () => settings.get(bookmarkViewMode),
     setBookmarkViewMode: (mode) => setBookmarkViewMode(mode),
     getBookmarkCount: () => preview.get(bookmarkCount),
     setBookmarkCount: (value, options) => {
@@ -1278,11 +1264,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
-    BOOKMARK_VIEW_MODE_STORAGE_KEY: bookmarkViewMode.key,
-    normalizeBookmarkViewMode,
-    shouldRepairBookmarkViewModeStorageValue,
-    persistBookmarkViewMode,
-    applyBookmarkViewMode: (...args) => applyBookmarkViewMode(...args),
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
     PINNED_RECENT_SITES_STORAGE_KEY: pinnedRecentSites.key,
     normalizePinnedRecentSites,
@@ -1313,7 +1294,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
     updateBookmarkSectionPosition,
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
-    loadInitialBookmarkViewMode,
     loadInitialBookmarkTopbarSurfaceColors,
     loadInitialBookmarkTopbarSurfaceMode,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
@@ -1534,7 +1514,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     syncBookmarkSurfaceMode,
     setBookmarkSurfaceVisible,
     updateBookmarkModeMenu,
-    applyBookmarkViewMode,
+    followBookmarkViewMode,
     setBookmarkViewMode,
     navigateBookmarkFolder
   } = NEWTAB_SECTION_HEADERS.createSectionHeaders({
@@ -1547,11 +1527,9 @@ import * as SettingsStorage from '../platform/settings-storage';
     setContentSectionVisible,
     bookmarkSection,
     bookmarkCards,
-    normalizeBookmarkViewMode,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
     closeBookmarkCascadeMenu,
-    persistBookmarkViewMode,
     showTopActionTooltip,
     hideTopActionTooltip,
     renderBookmarkHeader: pageStructureRuntime.bookmark.renderHeader,
@@ -1738,6 +1716,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    settings,
     preview,
     isBookmarkTopbarMode,
     getBookmarkLimit,
@@ -1794,6 +1773,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   createShortcutsSection();
 
   NEWTAB_BOOKMARK_SECTION.createBookmarkSection({
+    settings,
     preview,
     setContentSectionVisible,
     bookmarkSection,
@@ -2839,7 +2819,8 @@ import * as SettingsStorage from '../platform/settings-storage';
       SearchSettings.searchResultPriority,
       SearchSettings.searchResultDisplayLimit,
       SearchSettings.faviconEnhancedFetchEnabled,
-      newtabTimeFont
+      newtabTimeFont,
+      bookmarkViewMode
     ]
   });
   const initialLanguageReadyTask = followLanguage();
@@ -2854,7 +2835,8 @@ import * as SettingsStorage from '../platform/settings-storage';
   loadWebAppearance();
   Promise.all([
     initialAppearanceReadyTask,
-    initialBookmarkViewModeReadyPromise,
+    initialBookmarkTopbarLayoutReady,
+    followBookmarkViewMode(),
     followZenMode(),
     actionButtonVisibilityReadyPromise,
     glassStyleReadyPromise,

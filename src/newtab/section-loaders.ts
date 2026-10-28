@@ -22,7 +22,7 @@ import type { UrlPolicy } from './url-policy';
 import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
 import type { SettingPreview } from './setting-preview';
 import type { SettingsStore } from '../platform/settings-store';
-import { bookmarkCount } from '../domain/settings/bookmarks';
+import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 import { recentMode } from '../domain/settings/recent-sites';
 
 interface SectionLoadOptions {
@@ -44,7 +44,6 @@ interface SectionLoadersState {
   bookmarkCurrentFolderId: string;
   bookmarkRootFolderId: string;
   bookmarkRenderSignature: string;
-  currentBookmarkViewMode: string;
   bookmarkAllItems: BookmarkItem[];
   bookmarkRootTotalCount: number;
   bookmarkRootVisibleCount: number;
@@ -215,8 +214,8 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       signature: pageState.bookmarkRenderSignature,
       folderId: pageState.bookmarkCurrentFolderId,
       rootFolderId: pageState.bookmarkRootFolderId,
-      viewMode: pageState.currentBookmarkViewMode,
-      menuMode: pageState.currentBookmarkViewMode === 'list' || isBookmarkTopbarMode()
+      viewMode: settings.get(bookmarkViewMode),
+      menuMode: settings.get(bookmarkViewMode) === 'list' || isBookmarkTopbarMode()
     });
     if (pageState.shortcutDragState && pageState.shortcutDragState.isDragging &&
         pageState.shortcutDragState.folderSwitchPendingId === String(pageState.bookmarkCurrentFolderId || '')) {

@@ -19,7 +19,6 @@ import type { RecentHistoryDialogController } from './react/recent-history-dialo
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SearchModeController } from './search/search-mode-controller';
 import type { SuggestionsController } from './search/suggestions-controller';
-import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
 import type * as ShortcutIconStore from './shortcuts/shortcut-icon-store';
 import type { ShortcutIconMap } from './shortcuts/shortcut-icon-store';
@@ -60,9 +59,6 @@ interface SettingsSyncState {
 interface SettingsSyncDeps extends
   Pick<SectionLoaders,
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites' | 'renderRecentSites'>,
-  Pick<BookmarkDisplaySettings,
-    'normalizeBookmarkViewMode' | 'shouldRepairBookmarkViewModeStorageValue' | 'persistBookmarkViewMode'>,
-  Pick<SectionHeaders, 'applyBookmarkViewMode'>,
   Pick<RecentSitesController, 'normalizePinnedRecentSites' | 'normalizeHiddenRecentSites'>,
   Pick<ShortcutsController, 'renderShortcuts' | 'isShortcutSyncStorageActive' | 'scheduleShortcutStorageReload'>,
   Pick<FolderColors, 'syncFolderColorsWithBookmarks'>,
@@ -87,7 +83,6 @@ interface SettingsSyncDeps extends
   siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
   NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
-  BOOKMARK_VIEW_MODE_STORAGE_KEY: string;
   PINNED_RECENT_SITES_STORAGE_KEY: string;
   HIDDEN_RECENT_SITES_STORAGE_KEY: string;
   pageState: SettingsSyncState;
@@ -125,11 +120,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
-    BOOKMARK_VIEW_MODE_STORAGE_KEY,
-    normalizeBookmarkViewMode,
-    shouldRepairBookmarkViewModeStorageValue,
-    persistBookmarkViewMode,
-    applyBookmarkViewMode,
     requestTabsAndRender,
     PINNED_RECENT_SITES_STORAGE_KEY,
     normalizePinnedRecentSites,
@@ -216,14 +206,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     if (pageState.wallpaperRuntime) {
     pageState.wallpaperRuntime.handleStorageChange(changes);
     }
-  });
-  storageChanges.on(BOOKMARK_VIEW_MODE_STORAGE_KEY, (changes) => {
-    const rawMode = changes[BOOKMARK_VIEW_MODE_STORAGE_KEY].newValue;
-    const nextMode = normalizeBookmarkViewMode(rawMode);
-    if (shouldRepairBookmarkViewModeStorageValue(rawMode, nextMode)) {
-      persistBookmarkViewMode(nextMode);
-    }
-    applyBookmarkViewMode(nextMode, { force: true });
   });
   settings.subscribe(tabRankScoreDebug, () => {
     if (!pageState.latestQuery || !pageState.latestQuery.trim()) {

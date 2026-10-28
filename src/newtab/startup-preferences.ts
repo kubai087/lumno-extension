@@ -46,7 +46,7 @@ interface StartupPreferencesDeps extends
     'applyNewtabWidthMode' | 'applyRecentGridColumns' |
     'applyBookmarkGridColumns' | 'keepBookmarkPageAnchorAfterLimitChange' | 'updateBookmarkSectionPosition'>,
   Pick<BookmarkDisplaySettings,
-    'loadInitialBookmarkViewMode' | 'loadInitialBookmarkTopbarSurfaceColors' |
+    'loadInitialBookmarkTopbarSurfaceColors' |
     'loadInitialBookmarkTopbarSurfaceMode'> {
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'store'>;
@@ -85,7 +85,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     updateBookmarkGridHeightLock,
     updateBookmarkSectionPosition,
     updateRecentModeMenu,
-    loadInitialBookmarkViewMode,
     loadInitialBookmarkTopbarSurfaceColors,
     loadInitialBookmarkTopbarSurfaceMode,
     markBookmarkDataDirty,
@@ -207,7 +206,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
       return pageState.hiddenRecentSites;
     });
 
-    loadInitialBookmarkViewMode();
     loadInitialBookmarkTopbarSurfaceColors();
     loadInitialBookmarkTopbarSurfaceMode();
   }

@@ -39,7 +39,8 @@ import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import type { SettingPreview } from '../setting-preview';
-import { bookmarkCount } from '../../domain/settings/bookmarks';
+import { bookmarkCount, bookmarkViewMode } from '../../domain/settings/bookmarks';
+import type { SettingsStore } from '../../platform/settings-store';
 
 interface BookmarkDragControllerState {
   bookmarkGrid: HTMLElement | null;
@@ -47,7 +48,6 @@ interface BookmarkDragControllerState {
   bookmarkCurrentPage: number;
   bookmarkCurrentFolderId: string;
   bookmarkRootFolderId: string;
-  currentBookmarkViewMode: string;
   bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
   bookmarkLoadedOnce: boolean;
   bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
@@ -66,6 +66,7 @@ interface BookmarkDragControllerState {
 }
 
 interface BookmarkDragControllerDeps {
+  settings: Pick<SettingsStore, 'get'>;
   preview: Pick<SettingPreview, 'get'>;
   isBookmarkTopbarMode(): boolean;
   getBookmarkLimit(): number;
@@ -140,6 +141,7 @@ type InsertionGapKey = [string, string, HTMLElement | null];
 
 function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   const {
+    settings,
     preview,
     isBookmarkTopbarMode,
     getBookmarkLimit,
@@ -1110,7 +1112,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       const activeDropTarget = state.dropTarget;
       clearBookmarkDragFolderSwitch(state);
       if (activeDropTarget && (activeDropTarget.kind === 'shortcut-folder' ||
-          (activeDropTarget.kind === 'card' && (isBookmarkTopbarMode() || pageState.currentBookmarkViewMode === 'list')))) {
+          (activeDropTarget.kind === 'card' && (isBookmarkTopbarMode() || settings.get(bookmarkViewMode) === 'list')))) {
         openBookmarkCascadeMenu({ id: targetFolderId, title: activeDropTarget.title },
           activeTarget.element, { dragMode: true, shouldOpen: () => isBookmarkSurfaceDragStateActive(state) });
         return;

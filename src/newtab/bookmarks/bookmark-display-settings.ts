@@ -13,21 +13,10 @@ type BookmarkTopbarSurfaceMode = ReturnType<typeof BookmarksTopbar.normalizeSurf
 type ResolvedTheme = 'light' | 'dark';
 
 interface BookmarkDisplaySettingsState {
-  // Settles the page's wait for the view mode, once.
-  resolveInitialBookmarkViewModeReady: (() => void) | null;
-  bookmarkViewModeRevision: number;
   bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
 }
 
 interface BookmarkDisplaySettingsDeps {
-  storageArea: StorageAreaLike | null;
-  BOOKMARK_VIEW_MODE_STORAGE_KEY: string;
-  applyBookmarkViewMode(
-    mode: BookmarkViewMode,
-    options: { expectedRevision?: number; ensureLoaded?: boolean }
-  ): { applied: boolean };
-  localStorageArea: StorageAreaLike | null;
-  isPrimaryStorageAreaName(areaName: string): boolean;
   NEWTAB_BOOKMARKS_TOPBAR: Pick<typeof BookmarksTopbar, 'normalizeLayout' | 'normalizeSurfaceColor' | 'normalizeSurfaceMode'>;
   // chrome.storage.local, where the bar's material and layout stay.
   bookmarkTopbarSurfaceStorageArea: StorageAreaLike | null;
@@ -56,11 +45,6 @@ interface ApplyOptions extends SurfaceAppearanceOptions {
 
 function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
   const {
-    storageArea,
-    BOOKMARK_VIEW_MODE_STORAGE_KEY,
-    applyBookmarkViewMode,
-    localStorageArea,
-    isPrimaryStorageAreaName,
     NEWTAB_BOOKMARKS_TOPBAR,
     bookmarkTopbarSurfaceStorageArea,
     updateBookmarkModeMenu,
@@ -92,24 +76,7 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
     dark: 0
   };
 
-  function normalizeBookmarkViewMode(value: unknown): BookmarkViewMode {
-    return value === 'list' || value === 'top' ? value : 'folder';
-  }
-
-  function shouldRepairBookmarkViewModeStorageValue(rawValue: unknown, normalizedValue: string): boolean {
-    return typeof rawValue !== 'undefined' && rawValue !== normalizedValue;
-  }
-
-  function persistBookmarkViewMode(value: unknown): boolean {
-    const mode = normalizeBookmarkViewMode(value);
-    if (!storageArea || typeof storageArea.set !== 'function') {
-      return false;
-    }
-    storageArea.set({ [BOOKMARK_VIEW_MODE_STORAGE_KEY]: mode });
-    return true;
-  }
-
-  // The page reveals after the view mode is ready; the bar's shape is read alongside it so the bar
+  // The page reveals after the view mode is drawn; the bar's shape is read alongside it so the bar
   // never changes shape after it first appears.
   const initialBookmarkTopbarLayoutReady = new Promise<void>((resolve) => {
     if (!bookmarkTopbarSurfaceStorageArea ||
@@ -128,75 +95,6 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
       resolve();
     }
   });
-
-  function settleInitialBookmarkViewModeReady(): void {
-    if (typeof pageState.resolveInitialBookmarkViewModeReady !== 'function') {
-      return;
-    }
-    const resolveReady = pageState.resolveInitialBookmarkViewModeReady;
-    pageState.resolveInitialBookmarkViewModeReady = null;
-    initialBookmarkTopbarLayoutReady.then(resolveReady);
-  }
-
-  function applyInitialBookmarkViewModeValue(rawValue: unknown, source: 'primary' | 'local-fallback', expectedRevision: number): void {
-    try {
-      const mode = normalizeBookmarkViewMode(rawValue);
-      const applyResult = applyBookmarkViewMode(mode, {
-        expectedRevision,
-        ensureLoaded: true
-      });
-      if (!applyResult.applied) {
-        return;
-      }
-      if (shouldRepairBookmarkViewModeStorageValue(rawValue, mode) ||
-          (source === 'local-fallback' && typeof rawValue !== 'undefined')) {
-        persistBookmarkViewMode(mode);
-      }
-    } finally {
-      settleInitialBookmarkViewModeReady();
-    }
-  }
-
-  function loadInitialBookmarkViewMode(): void {
-    if (!storageArea || typeof storageArea.get !== 'function') {
-      settleInitialBookmarkViewModeReady();
-      return;
-    }
-    const expectedRevision = pageState.bookmarkViewModeRevision;
-    const readLocalFallback = () => {
-      if (!localStorageArea || isPrimaryStorageAreaName('local') ||
-          typeof localStorageArea.get !== 'function') {
-        applyInitialBookmarkViewModeValue(undefined, 'primary', expectedRevision);
-        return;
-      }
-      try {
-        localStorageArea.get([BOOKMARK_VIEW_MODE_STORAGE_KEY], (localResult) => {
-          const localValue = localResult
-            ? localResult[BOOKMARK_VIEW_MODE_STORAGE_KEY]
-            : undefined;
-          applyInitialBookmarkViewModeValue(
-            localValue,
-            'local-fallback',
-            expectedRevision
-          );
-        });
-      } catch (_error) {
-        applyInitialBookmarkViewModeValue(undefined, 'primary', expectedRevision);
-      }
-    };
-    try {
-      storageArea.get([BOOKMARK_VIEW_MODE_STORAGE_KEY], (result) => {
-        const stored = result ? result[BOOKMARK_VIEW_MODE_STORAGE_KEY] : undefined;
-        if (typeof stored === 'undefined' && !isPrimaryStorageAreaName('local')) {
-          readLocalFallback();
-          return;
-        }
-        applyInitialBookmarkViewModeValue(stored, 'primary', expectedRevision);
-      });
-    } catch (_error) {
-      readLocalFallback();
-    }
-  }
 
   function getBookmarkTopbarLayout(): BookmarkTopbarLayout {
     return bookmarkTopbarLayout;
@@ -670,6 +568,7 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
   }
 
   return {
+    initialBookmarkTopbarLayoutReady,
     // Keys whose changes alter the bar's shape or background.
     bookmarkTopbarStorageKeys: [
       BookmarkSettings.bookmarkTopbarLayout.key,
@@ -677,10 +576,6 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
       BookmarkSettings.bookmarkTopbarSurfaceColorLight.key,
       BookmarkSettings.bookmarkTopbarSurfaceColorDark.key
     ],
-    normalizeBookmarkViewMode,
-    shouldRepairBookmarkViewModeStorageValue,
-    persistBookmarkViewMode,
-    loadInitialBookmarkViewMode,
     getEffectiveBookmarkTopbarSurfaceMode,
     getBookmarkTopbarLayout,
     applyBookmarkTopbarLayout,
