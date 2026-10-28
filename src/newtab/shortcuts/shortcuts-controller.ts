@@ -45,6 +45,8 @@ import * as ShortcutConstants from '../../domain/shortcuts/constants';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import * as ShortcutStoragePlan from '../../domain/shortcuts/storage-plan';
 import type { ProviderStorageRuntime } from '../../platform/settings-storage';
+import { NEWTAB_SHORTCUT_GRID_SETTINGS, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutWidth } from '../../domain/settings/newtab-shortcuts';
+import type { SettingsStore } from '../../platform/settings-store';
 
 interface ShortcutsControllerState {
   newtabShortcuts: ShortcutItem[];
@@ -57,12 +59,6 @@ interface ShortcutsControllerState {
   // dropped.
   shortcutFaviconPolicyRevision: number;
   shortcutPersistenceInFlightCount: number;
-  newtabShortcutsVisible: boolean;
-  newtabShortcutAddVisible: boolean;
-  newtabShortcutDockMagnificationEnabled: boolean;
-  newtabShortcutColumns: number;
-  newtabShortcutSize: number;
-  newtabShortcutGap: number;
   shortcutSection: HTMLElement | null;
   shortcutGrid: HTMLElement | null;
   addShortcutButton: HTMLElement | null;
@@ -76,6 +72,7 @@ interface ShortcutsControllerState {
 type ViewOption<K extends keyof ShortcutsViewOptions> = NonNullable<ShortcutsViewOptions[K]>;
 
 interface ShortcutsControllerDeps {
+  settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'set' | 'subscribe'>;
   shortcutFolderRuntime: Pick<FolderBindingRuntime, 'ready' | 'flush' | 'getNode' | 'reconcile' | 'visibleItems'>;
   bookmarksRuntime: Pick<BookmarksRuntime,
     'getNode' | 'getNodeMap' | 'getSnapshot' | 'ensureReady' | 'runControlledMutation' | 'update'>;
@@ -107,27 +104,11 @@ interface ShortcutsControllerDeps {
   NEWTAB_SHORTCUT_ICON_STORE: Pick<typeof ShortcutIconStoreModule, 'normalizeIconMap' | 'normalizeIconDataUrl'>;
   NEWTAB_SHORTCUT_ICON_PLATE: Pick<typeof ShortcutIconPlate, 'analyzeImage' | 'resolvePlate' | 'getPlateColorChoices'>;
   pickShortcutIconPlateColor: ShortcutPageActions['pickShortcutIconPlateColor'];
-  NEWTAB_SHORTCUT_COLUMNS_DEFAULT: number;
-  NEWTAB_SHORTCUT_SIZE_DEFAULT: number;
-  NEWTAB_SHORTCUT_GAP_DEFAULT: number;
   applyNewtabShortcutLayoutPreferences(): void;
   applyNewtabShortcutDockMagnification(): void;
   updateNewtabShortcutPreferencesUi(): void;
-  NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_WIDTH_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_SIZE_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_GAP_STORAGE_KEY: string;
-  normalizeNewtabShortcutsVisible(value: unknown): boolean;
-  normalizeNewtabShortcutAddVisible(value: unknown): boolean;
-  normalizeNewtabShortcutDockMagnificationEnabled(value: unknown): boolean;
   // The column count an older version's width setting stands for.
   inferNewtabShortcutColumnsFromWidth(value: unknown): number;
-  normalizeNewtabShortcutColumns(value: unknown): number;
-  normalizeNewtabShortcutSize(value: unknown): number;
-  normalizeNewtabShortcutGap(value: unknown): number;
   loadFolderColors(): Promise<void>;
   showToast: ShowToast;
   formatMessage: FormatMessage;
@@ -263,6 +244,7 @@ function isIconChangeList(
 
 function createShortcutsController(deps: ShortcutsControllerDeps) {
   const {
+    settings,
     shortcutFolderRuntime,
     bookmarksRuntime,
     isShortcutDragActive,
@@ -292,26 +274,10 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     NEWTAB_SHORTCUT_ICON_STORE,
     NEWTAB_SHORTCUT_ICON_PLATE,
     pickShortcutIconPlateColor,
-    NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
-    NEWTAB_SHORTCUT_SIZE_DEFAULT,
-    NEWTAB_SHORTCUT_GAP_DEFAULT,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
     updateNewtabShortcutPreferencesUi,
-    NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY,
-    NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY,
-    NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY,
-    NEWTAB_SHORTCUT_WIDTH_STORAGE_KEY,
-    NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY,
-    NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
-    NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
-    normalizeNewtabShortcutsVisible,
-    normalizeNewtabShortcutAddVisible,
-    normalizeNewtabShortcutDockMagnificationEnabled,
     inferNewtabShortcutColumnsFromWidth,
-    normalizeNewtabShortcutColumns,
-    normalizeNewtabShortcutSize,
-    normalizeNewtabShortcutGap,
     loadFolderColors,
     showToast,
     formatMessage,
@@ -1095,79 +1061,18 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     return changed;
   }
 
-  function loadNewtabShortcutPreferences(): Promise<void> {
-    if (!storageArea) {
-      pageState.newtabShortcutsVisible = true;
-      pageState.newtabShortcutAddVisible = true;
-      pageState.newtabShortcutDockMagnificationEnabled = true;
-      pageState.newtabShortcutColumns = NEWTAB_SHORTCUT_COLUMNS_DEFAULT;
-      pageState.newtabShortcutSize = NEWTAB_SHORTCUT_SIZE_DEFAULT;
-      pageState.newtabShortcutGap = NEWTAB_SHORTCUT_GAP_DEFAULT;
+  // Reads the grid settings, filling in the columns of a device that only
+  // stored the older width, then follows the add button's.
+  function followNewtabShortcutPreferences(): Promise<void> {
+    settings.subscribe(newtabShortcutAddVisible, () => renderShortcuts());
+    return settings.include(NEWTAB_SHORTCUT_GRID_SETTINGS.concat(newtabShortcutWidth)).then(() => {
+      if (settings.getStored(newtabShortcutColumns) === undefined) {
+        void settings.set(newtabShortcutColumns, inferNewtabShortcutColumnsFromWidth(settings.getStored(newtabShortcutWidth)));
+      }
       applyNewtabShortcutLayoutPreferences();
       applyNewtabShortcutsVisibility();
       applyNewtabShortcutDockMagnification();
       updateNewtabShortcutPreferencesUi();
-      return Promise.resolve();
-    }
-    // Narrowed here, for the storage callback below.
-    const area = storageArea;
-    return new Promise((resolve) => {
-      void area.get([
-        NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY,
-        NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY,
-        NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY,
-        NEWTAB_SHORTCUT_WIDTH_STORAGE_KEY,
-        NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY,
-        NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
-        NEWTAB_SHORTCUT_GAP_STORAGE_KEY
-      ], (result) => {
-        const stored = result || {};
-        const rawVisible = stored[NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY];
-        const rawAddVisible = stored[NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY];
-        const rawMagnification =
-          stored[NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY];
-        const rawWidth = stored[NEWTAB_SHORTCUT_WIDTH_STORAGE_KEY];
-        const rawColumns = stored[NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY];
-        const rawSize = stored[NEWTAB_SHORTCUT_SIZE_STORAGE_KEY];
-        const rawGap = stored[NEWTAB_SHORTCUT_GAP_STORAGE_KEY];
-        pageState.newtabShortcutsVisible = normalizeNewtabShortcutsVisible(rawVisible);
-        pageState.newtabShortcutAddVisible = normalizeNewtabShortcutAddVisible(rawAddVisible);
-        pageState.newtabShortcutDockMagnificationEnabled =
-          normalizeNewtabShortcutDockMagnificationEnabled(rawMagnification);
-        pageState.newtabShortcutColumns = rawColumns === undefined
-          ? inferNewtabShortcutColumnsFromWidth(rawWidth)
-          : normalizeNewtabShortcutColumns(rawColumns);
-        pageState.newtabShortcutSize = normalizeNewtabShortcutSize(rawSize);
-        pageState.newtabShortcutGap = normalizeNewtabShortcutGap(rawGap);
-        const repairs: StorageItems = {};
-        if (rawVisible !== pageState.newtabShortcutsVisible) {
-          repairs[NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY] = pageState.newtabShortcutsVisible;
-        }
-        if (rawAddVisible !== pageState.newtabShortcutAddVisible) {
-          repairs[NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY] = pageState.newtabShortcutAddVisible;
-        }
-        if (rawMagnification !== pageState.newtabShortcutDockMagnificationEnabled) {
-          repairs[NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY] =
-            pageState.newtabShortcutDockMagnificationEnabled;
-        }
-        if (rawColumns !== pageState.newtabShortcutColumns) {
-          repairs[NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY] = pageState.newtabShortcutColumns;
-        }
-        if (rawSize !== pageState.newtabShortcutSize) {
-          repairs[NEWTAB_SHORTCUT_SIZE_STORAGE_KEY] = pageState.newtabShortcutSize;
-        }
-        if (rawGap !== pageState.newtabShortcutGap) {
-          repairs[NEWTAB_SHORTCUT_GAP_STORAGE_KEY] = pageState.newtabShortcutGap;
-        }
-        if (Object.keys(repairs).length > 0) {
-          void area.set(repairs);
-        }
-        applyNewtabShortcutLayoutPreferences();
-        applyNewtabShortcutsVisibility();
-        applyNewtabShortcutDockMagnification();
-        updateNewtabShortcutPreferencesUi();
-        resolve();
-      });
     });
   }
 
@@ -1835,10 +1740,10 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   }
 
   function hideShortcutAddFromContextMenu(sourceElement?: HTMLElement | null): void {
-    if (!pageState.newtabShortcutAddVisible) {
+    if (!settings.get(newtabShortcutAddVisible)) {
       return;
     }
-    pageState.newtabShortcutAddVisible = false;
+    void settings.set(newtabShortcutAddVisible, false);
     const addButton = sourceElement || pageState.addShortcutButton;
     if (addButton) {
       addButton.hidden = true;
@@ -1848,9 +1753,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     applyNewtabShortcutsVisibility();
     updateBookmarkSectionPosition({ preserveSearchEntryLayout: true });
     scheduleWallpaperAdaptiveToneUpdate();
-    if (storageArea) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY]: false });
-    }
     showToast(t(
       'newtab_shortcuts_add_hidden',
       '“+” hidden. Re-enable it in Settings → Appearance → Shortcuts → Show “+”.'
@@ -1896,7 +1798,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       onContextMenu: handleShortcutContextMenu,
       onNativeDragStart: handleShortcutNativeDragStart,
       getAddLabel: () => t('newtab_shortcuts_add', 'Add shortcut'),
-      getAddVisible: () => pageState.newtabShortcutAddVisible && pageState.newtabShortcuts.length < MAX_NEWTAB_SHORTCUTS,
+      getAddVisible: () => settings.get(newtabShortcutAddVisible) && pageState.newtabShortcuts.length < MAX_NEWTAB_SHORTCUTS,
       // The add tile asks what to add, or offers to hide itself.
       onAdd: openShortcutAddContextMenu,
       onAddContextMenu: () => {},
@@ -2001,7 +1903,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     getShortcutTitle,
     renderShortcuts,
     flushDeferredShortcutRender,
-    loadNewtabShortcutPreferences,
+    followNewtabShortcutPreferences,
     loadVisibleShortcuts,
     persistShortcuts,
     removeShortcutById,

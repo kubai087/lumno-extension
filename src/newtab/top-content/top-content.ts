@@ -6,7 +6,7 @@ import { queryHtmlElement } from '../../shared/dom-lookup';
 import type { TopContentController, WordmarkAppearance } from '../react/wordmark';
 import * as SettingsStorage from '../../platform/settings-storage';
 import type { SettingsStore } from '../../platform/settings-store';
-import type { TimePreview } from './time-preview';
+import type { SettingPreview } from '../setting-preview';
 import {
   NEWTAB_TOP_CONTENT_SETTINGS,
   getFixedTimeInk,
@@ -42,7 +42,7 @@ interface TopContentDeps {
   updateSuggestionsFloatingLayout(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
-  timePreview: TimePreview;
+  preview: SettingPreview;
   pageState: TopContentState;
 }
 
@@ -55,7 +55,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     updateSuggestionsFloatingLayout,
     scheduleWallpaperAdaptiveToneUpdate,
     settings,
-    timePreview
+    preview
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -82,7 +82,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     if (shown.mode !== 'time') {
       return TOP_CONTENT_MAX_HEIGHT_PX;
     }
-    const fontSize = timePreview.fontSize;
+    const fontSize = preview.get(newtabTimeFontSize);
     return Math.max(
       TOP_CONTENT_MAX_HEIGHT_PX,
       Math.ceil((fontSize * TOP_CONTENT_MAX_HEIGHT_PX) / TOP_CONTENT_DEFAULT_TIME_FONT_SIZE)
@@ -340,12 +340,12 @@ function createTopContentRuntime(deps: TopContentDeps) {
         stretch: timeFont.stretch,
         tracking: SETTINGS.getNewtabTimeFontTracking(timeFont.id, shown.fontWeight)
       },
-      fontSize: timePreview.fontSize,
+      fontSize: preview.get(newtabTimeFontSize),
       fontWeight: SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, shown.fontWeight),
       appearance: getWordmarkAppearance(),
       locale: document.documentElement ? document.documentElement.lang : undefined,
       mode: shown.mode === 'time' ? 'time' : 'brand',
-      opacity: timePreview.opacity / 100,
+      opacity: preview.get(newtabTimeOpacity) / 100,
       showSeconds: shown.secondsVisible,
       twelveHour: shown.twelveHour
     });
@@ -378,9 +378,9 @@ function createTopContentRuntime(deps: TopContentDeps) {
   }
 
   // A dragged slider's value shows at once.
-  let previewed = { fontSize: timePreview.fontSize, opacity: timePreview.opacity };
-  function applyTimePreview(): void {
-    const next = { fontSize: timePreview.fontSize, opacity: timePreview.opacity };
+  let previewed = { fontSize: preview.get(newtabTimeFontSize), opacity: preview.get(newtabTimeOpacity) };
+  function applySettingPreview(): void {
+    const next = { fontSize: preview.get(newtabTimeFontSize), opacity: preview.get(newtabTimeOpacity) };
     const previous = previewed;
     previewed = next;
     if (shown.mode !== 'time') {
@@ -398,7 +398,6 @@ function createTopContentRuntime(deps: TopContentDeps) {
     const previous = shown;
     const next = readTopContentSettings();
     shown = next;
-    timePreview.clear();
     if (next.mode !== previous.mode) {
       if (next.mode !== 'off') {
         renderNewtabTopContent(false);
@@ -427,7 +426,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
   // Draws the stored settings once read, then follows them.
   function followTopContentSettings(): Promise<boolean> {
     settings.subscribe(NEWTAB_TOP_CONTENT_SETTINGS, applyTopContentSettings);
-    timePreview.store.subscribe(applyTimePreview);
+    preview.store.subscribe(applySettingPreview);
     return settings.include(NEWTAB_TOP_CONTENT_SETTINGS).then(() => {
       // The face loads before the first clock draws, and the startup reveal waits for it.
       const fontReady = settings.get(newtabTopContentMode) === 'time'

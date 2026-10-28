@@ -1,33 +1,26 @@
 // New Tab display preferences: normalizing, loading and applying the shortcut,
 // auto-focus, simple mode and search result settings.
 import type * as LumnoSettings from '../domain/settings';
-import type { StorageAreaLike } from '../domain/storage-port';
 import type { PageLayout } from './page-layout';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import * as SettingsStorage from '../platform/settings-storage';
 import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
+import type { Setting } from '../domain/settings/define';
+import type { SettingPreview } from './setting-preview';
+import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 
 // Whether a change is only shown or also saved.
 type PersistOptions = { persist?: boolean } | null | undefined;
 
 interface PagePreferencesState {
-  newtabShortcutsVisible: boolean;
-  newtabShortcutAddVisible: boolean;
-  newtabShortcutDockMagnificationEnabled: boolean;
-  newtabShortcutColumns: number;
-  newtabShortcutSize: number;
-  newtabShortcutGap: number;
   currentBookmarkCount: number;
   wallpaperRuntime: Pick<WallpaperRuntime, 'updateInputAutoFocusUi' | 'updateShortcutsUi'> | null;
 }
 
 interface PagePreferencesDeps {
-  settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
-  applyNewtabShortcutsVisibility: PageLayout['applyNewtabShortcutsVisibility'];
-  updateBookmarkSectionPosition: PageLayout['updateBookmarkSectionPosition'];
-  applyNewtabShortcutColumns: PageLayout['applyNewtabShortcutColumns'];
-  applyNewtabShortcutLayoutPreferences: PageLayout['applyNewtabShortcutLayoutPreferences'];
+  settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
+  preview: Pick<SettingPreview, 'show'>;
   getBookmarkGridColumnCount: PageLayout['getBookmarkGridColumnCount'];
   SETTINGS: Pick<typeof LumnoSettings,
     'inferNewtabShortcutColumnsFromWidth' | 'bookmarkColumns' | 'bookmarkCount' |
@@ -47,42 +40,19 @@ interface PagePreferencesDeps {
   NEWTAB_SHORTCUT_COLUMNS_MAX: number;
   NEWTAB_SHORTCUT_WIDTH_MIN: number;
   NEWTAB_SHORTCUT_WIDTH_MAX: number;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: string;
-  renderShortcuts(): void;
-  NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: string;
-  applyNewtabShortcutDockMagnification(): void;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
-  NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_SIZE_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_GAP_STORAGE_KEY: string;
   pageState: PagePreferencesState;
 }
 
 function createPagePreferences(deps: PagePreferencesDeps) {
   const {
     settings,
+    preview,
     SETTINGS,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     NEWTAB_SHORTCUT_COLUMNS_MIN,
     NEWTAB_SHORTCUT_COLUMNS_MAX,
     NEWTAB_SHORTCUT_WIDTH_MIN,
     NEWTAB_SHORTCUT_WIDTH_MAX,
-    storageArea,
-    applyNewtabShortcutsVisibility,
-    updateBookmarkSectionPosition,
-    NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY,
-    renderShortcuts,
-    NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY,
-    applyNewtabShortcutDockMagnification,
-    scheduleWallpaperAdaptiveToneUpdate,
-    NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY,
-    applyNewtabShortcutColumns,
-    NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY,
-    applyNewtabShortcutLayoutPreferences,
-    NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
-    NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
     getBookmarkGridColumnCount
   } = deps;
 
@@ -162,90 +132,40 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     }
   }
 
-  function setNewtabShortcutsVisible(enabled: unknown, options?: PersistOptions): boolean {
-    const config = options || {};
-    const nextValue = normalizeNewtabShortcutsVisible(enabled);
-    pageState.newtabShortcutsVisible = nextValue;
-    applyNewtabShortcutsVisibility();
-    updateNewtabShortcutPreferencesUi();
-    updateBookmarkSectionPosition({ preserveSearchEntryLayout: true });
-    if (config.persist && storageArea) {
-      void storageArea.set({ [NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY]: nextValue });
+  // The appearance panel's grid controls: a saved change goes to the
+  // settings, a dragged one only shows until it is saved.
+  function setShortcutGridSetting<T>(setting: Setting<T>, value: unknown, options?: PersistOptions): T {
+    const nextValue = setting.parse(value);
+    if (options && options.persist) {
+      void settings.set(setting, nextValue);
+    } else {
+      preview.show(setting, nextValue);
     }
     return nextValue;
+  }
+
+  function setNewtabShortcutsVisible(enabled: unknown, options?: PersistOptions): boolean {
+    return setShortcutGridSetting(newtabShortcutsVisible, enabled, options);
   }
 
   function setNewtabShortcutAddVisible(enabled: unknown, options?: PersistOptions): boolean {
-    const config = options || {};
-    const nextValue = normalizeNewtabShortcutAddVisible(enabled);
-    pageState.newtabShortcutAddVisible = nextValue;
-    renderShortcuts();
-    updateNewtabShortcutPreferencesUi();
-    if (config.persist && storageArea) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY]: nextValue });
-    }
-    return nextValue;
+    return setShortcutGridSetting(newtabShortcutAddVisible, enabled, options);
   }
 
   function setNewtabShortcutDockMagnificationEnabled(enabled: unknown, options?: PersistOptions): boolean {
-    const config = options || {};
-    const nextValue = normalizeNewtabShortcutDockMagnificationEnabled(enabled);
-    pageState.newtabShortcutDockMagnificationEnabled = nextValue;
-    applyNewtabShortcutDockMagnification();
-    updateNewtabShortcutPreferencesUi();
-    scheduleWallpaperAdaptiveToneUpdate();
-    if (config.persist && storageArea) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY]: nextValue });
-    }
-    return nextValue;
+    return setShortcutGridSetting(newtabShortcutDockMagnificationEnabled, enabled, options);
   }
 
   function setNewtabShortcutColumns(value: unknown, options?: PersistOptions): number {
-    const config = options || {};
-    const nextValue = normalizeNewtabShortcutColumns(value);
-    pageState.newtabShortcutColumns = nextValue;
-    applyNewtabShortcutColumns();
-    updateNewtabShortcutPreferencesUi();
-    updateBookmarkSectionPosition({
-      preserveSearchEntryLayout: true,
-      stabilizeDockDensity: true
-    });
-    if (config.persist && storageArea) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY]: nextValue });
-    }
-    return nextValue;
+    return setShortcutGridSetting(newtabShortcutColumns, value, options);
   }
 
   function setNewtabShortcutSize(value: unknown, options?: PersistOptions): number {
-    const config = options || {};
-    const nextValue = normalizeNewtabShortcutSize(value);
-    pageState.newtabShortcutSize = nextValue;
-    applyNewtabShortcutLayoutPreferences();
-    updateNewtabShortcutPreferencesUi();
-    updateBookmarkSectionPosition({
-      preserveSearchEntryLayout: true,
-      stabilizeDockDensity: true
-    });
-    if (config.persist && storageArea) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_SIZE_STORAGE_KEY]: nextValue });
-    }
-    return nextValue;
+    return setShortcutGridSetting(newtabShortcutSize, value, options);
   }
 
   function setNewtabShortcutGap(value: unknown, options?: PersistOptions): number {
-    const config = options || {};
-    const nextValue = normalizeNewtabShortcutGap(value);
-    pageState.newtabShortcutGap = nextValue;
-    applyNewtabShortcutLayoutPreferences();
-    updateNewtabShortcutPreferencesUi();
-    updateBookmarkSectionPosition({
-      preserveSearchEntryLayout: true,
-      stabilizeDockDensity: true
-    });
-    if (config.persist && storageArea) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_GAP_STORAGE_KEY]: nextValue });
-    }
-    return nextValue;
+    return setShortcutGridSetting(newtabShortcutGap, value, options);
   }
 
   // Keeps the page's quick copy and the panel current once the setting is

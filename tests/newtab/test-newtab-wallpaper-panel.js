@@ -75,17 +75,13 @@ function createTestSettings() {
 // the clock preview the runtime reads.
 function createRuntimeWithSettings(sandbox, options) {
   const settings = options.settings || createTestSettings();
-  const preview = {};
-  const timePreview = {
-    get fontSize() {
-      return preview.fontSize === undefined ? settings.get(REAL_WALLPAPER_DEPENDENCIES.LumnoSettings.newtabTimeFontSize) : preview.fontSize;
-    },
-    get opacity() {
-      return preview.opacity === undefined ? settings.get(REAL_WALLPAPER_DEPENDENCIES.LumnoSettings.newtabTimeOpacity) : preview.opacity;
-    },
-    show: (value) => Object.assign(preview, value)
+  const previewed = new Map();
+  const preview = {
+    get: (setting) => (previewed.has(setting.key) ? previewed.get(setting.key) : settings.get(setting)),
+    show: (setting, value) => previewed.set(setting.key, value),
+    store: { subscribe: () => () => {} }
   };
-  return sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({ ...options, settings, timePreview });
+  return sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({ ...options, settings, preview });
 }
 
 function createFakeStyle() {

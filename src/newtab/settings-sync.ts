@@ -26,7 +26,6 @@ import type { SearchModeController } from './search/search-mode-controller';
 import type { SuggestionsController } from './search/suggestions-controller';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
-import type { ShortcutDock } from './shortcuts/shortcut-dock';
 import type * as ShortcutIconStore from './shortcuts/shortcut-icon-store';
 import type { ShortcutIconMap } from './shortcuts/shortcut-icon-store';
 import type { ShortcutsController } from './shortcuts/shortcuts-controller';
@@ -69,35 +68,24 @@ interface SettingsSyncState {
   wallpaperRuntime: Pick<WallpaperRuntime, 'handleStorageChange' | 'updateSearchWidthUi'> | null;
   currentNewtabWidthMode: NewtabWidthMode;
   currentNewtabSearchWidth: number | null;
-  newtabShortcutsVisible: boolean;
-  newtabShortcutAddVisible: boolean;
-  newtabShortcutDockMagnificationEnabled: boolean;
-  newtabShortcutColumns: number;
-  newtabShortcutSize: number;
-  newtabShortcutGap: number;
 }
 
 interface SettingsSyncDeps extends
   Pick<PagePreferences,
     'normalizeBookmarkCount' | 'normalizeBookmarkColumns' | 'getBookmarkLimit' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeNewtabWidthMode' |
-    'normalizeNewtabSearchWidth' | 'normalizeNewtabShortcutsVisible' |
-    'updateNewtabShortcutPreferencesUi' | 'normalizeNewtabShortcutAddVisible' |
-    'normalizeNewtabShortcutDockMagnificationEnabled' | 'normalizeNewtabShortcutColumns' |
-    'normalizeNewtabShortcutSize' | 'normalizeNewtabShortcutGap'>,
+    'normalizeNewtabSearchWidth'>,
   Pick<SectionLoaders,
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites' | 'renderRecentSites'>,
   Pick<PageLayout,
     'keepBookmarkPageAnchorAfterLimitChange' | 'applyBookmarkGridColumns' | 'updateBookmarkSectionPosition' |
     'normalizeRecentCount' | 'normalizeRecentMode' | 'applyNewtabWidthMode' | 'applyRecentGridColumns' |
-    'updateNewtabSearchWidthLayout' | 'applyNewtabShortcutsVisibility' | 'applyNewtabShortcutColumns' |
-    'applyNewtabShortcutLayoutPreferences'>,
+    'updateNewtabSearchWidthLayout'>,
   Pick<BookmarkPager, 'renderCurrentBookmarkPage' | 'updateBookmarkGridHeightLock'>,
   Pick<BookmarkDisplaySettings,
     'normalizeBookmarkViewMode' | 'shouldRepairBookmarkViewModeStorageValue' | 'persistBookmarkViewMode'>,
   Pick<SectionHeaders, 'updateRecentModeMenu' | 'applyBookmarkViewMode'>,
   Pick<RecentSitesController, 'normalizePinnedRecentSites' | 'normalizeHiddenRecentSites'>,
   Pick<ShortcutsController, 'renderShortcuts' | 'isShortcutSyncStorageActive' | 'scheduleShortcutStorageReload'>,
-  Pick<ShortcutDock, 'applyNewtabShortcutDockMagnification'>,
   Pick<FolderColors, 'syncFolderColorsWithBookmarks'>,
   Pick<SearchModeController, 'setSiteSearchPrefix'>,
   Pick<SiteThemeResolver, 'getThemeForProvider'>,
@@ -124,12 +112,6 @@ interface SettingsSyncDeps extends
   RECENT_COUNT_STORAGE_KEY: string;
   NEWTAB_WIDTH_MODE_STORAGE_KEY: string;
   NEWTAB_SEARCH_WIDTH_STORAGE_KEY: string;
-  NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_SIZE_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_GAP_STORAGE_KEY: string;
   RECENT_MODE_STORAGE_KEY: string;
   BOOKMARK_VIEW_MODE_STORAGE_KEY: string;
   BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: string;
@@ -191,23 +173,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY,
-    normalizeNewtabShortcutsVisible,
-    applyNewtabShortcutsVisibility,
-    updateNewtabShortcutPreferencesUi,
-    NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY,
-    normalizeNewtabShortcutAddVisible,
-    NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY,
-    normalizeNewtabShortcutDockMagnificationEnabled,
-    applyNewtabShortcutDockMagnification,
-    NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY,
-    normalizeNewtabShortcutColumns,
-    applyNewtabShortcutColumns,
-    NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
-    normalizeNewtabShortcutSize,
-    applyNewtabShortcutLayoutPreferences,
-    NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
-    normalizeNewtabShortcutGap,
     RECENT_MODE_STORAGE_KEY,
     normalizeRecentMode,
     updateRecentModeMenu,
@@ -398,78 +363,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     if (pageState.wallpaperRuntime) {
       pageState.wallpaperRuntime.updateSearchWidthUi();
     }
-  });
-  storageChanges.on(NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabShortcutsVisible(raw);
-    pageState.newtabShortcutsVisible = nextValue;
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY]: nextValue });
-    }
-    applyNewtabShortcutsVisibility();
-    updateNewtabShortcutPreferencesUi();
-  });
-  storageChanges.on(NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabShortcutAddVisible(raw);
-    pageState.newtabShortcutAddVisible = nextValue;
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY]: nextValue });
-    }
-    renderShortcuts();
-    updateNewtabShortcutPreferencesUi();
-  });
-  storageChanges.on(NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabShortcutDockMagnificationEnabled(raw);
-    pageState.newtabShortcutDockMagnificationEnabled = nextValue;
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY]: nextValue });
-    }
-    applyNewtabShortcutDockMagnification();
-    updateNewtabShortcutPreferencesUi();
-  });
-  storageChanges.on(NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabShortcutColumns(raw);
-    pageState.newtabShortcutColumns = nextValue;
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY]: nextValue });
-    }
-    applyNewtabShortcutColumns();
-    updateBookmarkSectionPosition({
-      preserveSearchEntryLayout: true,
-      stabilizeDockDensity: true
-    });
-    updateNewtabShortcutPreferencesUi();
-  });
-  storageChanges.on(NEWTAB_SHORTCUT_SIZE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_SHORTCUT_SIZE_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabShortcutSize(raw);
-    pageState.newtabShortcutSize = nextValue;
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_SIZE_STORAGE_KEY]: nextValue });
-    }
-    applyNewtabShortcutLayoutPreferences();
-    updateBookmarkSectionPosition({
-      preserveSearchEntryLayout: true,
-      stabilizeDockDensity: true
-    });
-    updateNewtabShortcutPreferencesUi();
-  });
-  storageChanges.on(NEWTAB_SHORTCUT_GAP_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_SHORTCUT_GAP_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabShortcutGap(raw);
-    pageState.newtabShortcutGap = nextValue;
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_SHORTCUT_GAP_STORAGE_KEY]: nextValue });
-    }
-    applyNewtabShortcutLayoutPreferences();
-    updateBookmarkSectionPosition({
-      preserveSearchEntryLayout: true,
-      stabilizeDockDensity: true
-    });
-    updateNewtabShortcutPreferencesUi();
   });
   storageChanges.on(RECENT_MODE_STORAGE_KEY, (changes) => {
     const nextMode = normalizeRecentMode(changes[RECENT_MODE_STORAGE_KEY].newValue, 'latest');

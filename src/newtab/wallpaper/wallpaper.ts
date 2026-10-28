@@ -48,8 +48,9 @@ import { getWallpaperViewApi } from '../react/wallpaper-view';
 import { newtabFavicon, newtabWallpaperEffect, newtabWallpaperOverlay, newtabWallpaperPreload } from '../../domain/settings/newtab-wallpaper';
 import { bingDailyCache } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
-import type { TimePreview } from '../top-content/time-preview';
+import type { SettingPreview } from '../setting-preview';
 import { NEWTAB_TOP_CONTENT_SETTINGS } from '../../domain/settings/newtab-time';
+import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../domain/settings/newtab-shortcuts';
 
 const DEFAULT_STORAGE_KEYS = {
   wallpaper: SETTINGS.newtabWallpaper.key,
@@ -158,7 +159,7 @@ interface WallpaperRuntimeOptions {
   extensionRoutes?: Pick<typeof LumnoExtensionRoutes, 'buildOptionsUrl'>;
   storageArea?: StorageArea | null;
   settings: SettingsStore;
-  timePreview: TimePreview;
+  preview: SettingPreview;
   localWallpaperStorageArea?: StorageArea | null;
   view?: WallpaperViewApi | null;
   storageKeys?: Partial<typeof DEFAULT_STORAGE_KEYS>;
@@ -746,7 +747,7 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     getThemeMode,
     formatMessage,
     settings: options.settings,
-    timePreview: options.timePreview,
+    preview: options.preview,
     normalizeSearchWidthValue: (...args) => normalizeSearchWidthValue(...args),
     getSearchWidth,
     getSearchWidthMin: (...args) => getSearchWidthMin(...args),
@@ -973,7 +974,7 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   } = WALLPAPER_PANEL_SETTINGS.createPanelSettings({
     renderWallpaperPanelState,
     settings: options.settings,
-    timePreview: options.timePreview,
+    preview: options.preview,
     getWallpaperPanelRefs,
     searchWidthConfig,
     setSearchWidth,
@@ -1640,7 +1641,8 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   }
 
   // The panel shows the clock settings as they are, whoever changed them.
-  options.settings.subscribe(NEWTAB_TOP_CONTENT_SETTINGS, () => renderWallpaperPanelState());
+  options.settings.subscribe(NEWTAB_TOP_CONTENT_SETTINGS.concat(NEWTAB_SHORTCUT_GRID_SETTINGS), () => renderWallpaperPanelState());
+  options.preview.store.subscribe(() => renderWallpaperPanelState());
 
   return {
     storageKeys,

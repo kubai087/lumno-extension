@@ -221,7 +221,18 @@ function inferNewtabShortcutColumnsFromWidth(value: unknown, options?: ShortcutC
   });
 }
 
+// The settings that shape the shortcut grid.
+const NEWTAB_SHORTCUT_GRID_SETTINGS = [
+  newtabShortcutsVisible,
+  newtabShortcutAddVisible,
+  newtabShortcutDockMagnificationEnabled,
+  newtabShortcutColumns,
+  newtabShortcutSize,
+  newtabShortcutGap
+];
+
 export {
+  NEWTAB_SHORTCUT_GRID_SETTINGS,
   NEWTAB_SHORTCUT_LIST_SETTINGS,
   NEWTAB_SHORTCUTS_GROUP_KEYS,
   NEWTAB_SHORTCUTS_GROUP_SETTINGS,

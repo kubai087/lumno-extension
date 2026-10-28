@@ -4,7 +4,7 @@ import { queryHtmlElement, queryHtmlElements } from '../../../shared/dom-lookup'
 import type { WallpaperState } from './wallpaper-runtime-types';
 import { readBootValue } from '../../../platform/boot-handoff';
 import type { SettingsStore } from '../../../platform/settings-store';
-import type { TimePreview } from '../../top-content/time-preview';
+import type { SettingPreview } from '../../setting-preview';
 import {
   getNewtabTimeFont,
   newtabTime12Hour,
@@ -39,7 +39,7 @@ type SliderSaveOptions = { final?: boolean } | null | undefined;
 interface PanelSettingsDeps {
   renderWallpaperPanelState(): void;
   settings: Pick<SettingsStore, 'set' | 'setMany'>;
-  timePreview: Pick<TimePreview, 'show'>;
+  preview: Pick<SettingPreview, 'show'>;
   // The appearance panel's elements by data-wallpaper-ref name.
   getWallpaperPanelRefs(): Readonly<Partial<Record<string, HTMLElement>>>;
   searchWidthConfig: SearchWidthConfig;
@@ -58,7 +58,7 @@ function createPanelSettings(deps: PanelSettingsDeps) {
   const {
     renderWallpaperPanelState,
     settings,
-    timePreview,
+    preview,
     getWallpaperPanelRefs,
     searchWidthConfig,
     setSearchWidth,
@@ -99,14 +99,14 @@ function createPanelSettings(deps: PanelSettingsDeps) {
   // The clock follows the slider at once; the value is saved once it settles.
   function persistTimeFontSizeFromSlider(value: unknown, change?: SliderSaveOptions): void {
     const size = newtabTimeFontSize.parse(value);
-    timePreview.show({ fontSize: size });
+    preview.show(newtabTimeFontSize, size);
     renderWallpaperPanelState();
     wallpaperState.saveSliderSetting('timeFontSize', () => void settings.set(newtabTimeFontSize, size), change);
   }
 
   function persistTimeOpacityFromSlider(value: unknown, change?: SliderSaveOptions): void {
     const opacity = newtabTimeOpacity.parse(value);
-    timePreview.show({ opacity });
+    preview.show(newtabTimeOpacity, opacity);
     renderWallpaperPanelState();
     wallpaperState.saveSliderSetting('timeOpacity', () => void settings.set(newtabTimeOpacity, opacity), change);
   }

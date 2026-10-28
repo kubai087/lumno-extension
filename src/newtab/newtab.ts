@@ -114,14 +114,10 @@ import {
   newtabLocalWallpaper,
   newtabOpenInNewTab,
   newtabSearchWidth,
-  newtabShortcutsVisible,
-  newtabShortcutAddVisible,
   NEWTAB_SHORTCUT_COLUMNS_MIN,
   newtabShortcutColumns,
-  newtabShortcutDockMagnificationEnabled,
   NEWTAB_SHORTCUT_WIDTH_MAX,
   NEWTAB_SHORTCUT_WIDTH_MIN,
-  newtabShortcutWidth,
   newtabWallpaperEffect,
   newtabWallpaperOverlay,
   newtabWallpaper,
@@ -179,14 +175,14 @@ import { getTopContentApi } from './react/wordmark';
 import { getPageStructureApi } from './react/page-structure';
 import { getFolderColorPickerApi } from './react/folder-color-picker-lazy';
 import { createSearchInput } from '../shared/react/search-input';
-import { newtabShortcutGap, newtabShortcutSize } from '../domain/settings/newtab-shortcuts';
+import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import { bookmarkFolderColorRefs, bookmarkFolderColorsLegacy } from '../domain/settings/bookmarks';
 import { newtabShortcutFaviconCache, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
 import { takePrefetchedRead } from '../platform/storage-read-batch';
-import { TimePreview } from './top-content/time-preview';
+import { SettingPreview } from './setting-preview';
 import { repairStoredSettings } from './setting-repairs';
-import { newtabTimeFont, newtabTimeFontWeight, newtabTimeSecondsVisible, newtabTopContentMode } from '../domain/settings/newtab-time';
+import { newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../domain/settings/newtab-time';
 import { newtabAppearanceButtonVisible, newtabFeedbackButtonVisible } from '../domain/settings/newtab-page';
 import * as SearchSettings from '../domain/settings/search';
 
@@ -219,7 +215,9 @@ import * as SettingsStorage from '../platform/settings-storage';
   const pageState = LumnoNewtabPageState.createPageState();
   // The page's settings, read and followed through the one store of this context.
   const settings = getContextSettingsStore(chrome, window, takePrefetchedRead);
-  const timePreview = new TimePreview(settings);
+  // A dragged slider's value until it is saved.
+  const preview = new SettingPreview(settings);
+  preview.follow([newtabTimeFontSize, newtabTimeOpacity, newtabShortcutColumns, newtabShortcutSize, newtabShortcutGap]);
   const root = document.getElementById('_x_extension_newtab_root_2024_unique_');
   if (!root) {
     return;
@@ -496,8 +494,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   )
     ? Number(SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT)
     : 10;
-  const NEWTAB_SHORTCUT_SIZE_STORAGE_KEY = SETTINGS.newtabShortcutSize.key ||
-    newtabShortcutSize.key;
   const NEWTAB_SHORTCUT_SIZE_MIN = Number.isFinite(Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_MIN))
     ? Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_MIN)
     : 48;
@@ -509,8 +505,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   )
     ? Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT)
     : 64;
-  const NEWTAB_SHORTCUT_GAP_STORAGE_KEY = SETTINGS.newtabShortcutGap.key ||
-    newtabShortcutGap.key;
   const NEWTAB_SHORTCUT_GAP_MIN = Number.isFinite(Number(SETTINGS.NEWTAB_SHORTCUT_GAP_MIN))
     ? Number(SETTINGS.NEWTAB_SHORTCUT_GAP_MIN)
     : 0;
@@ -647,8 +641,11 @@ import * as SettingsStorage from '../platform/settings-storage';
     setShortcutDockHover,
     handleShortcutDockPointerOver,
     handleShortcutDockPointerMove,
-    syncShortcutDockFolderMenu
+    syncShortcutDockFolderMenu,
+    followShortcutDockMagnification
   } = NEWTAB_SHORTCUT_DOCK.createShortcutDock({
+    settings,
+    preview,
     isShortcutDragActive: (...args) => isShortcutDragActive(...args),
     isBookmarkDragActive: () => isBookmarkDragActive() ||
       Boolean(pageState.recentCardDragRuntime && pageState.recentCardDragRuntime.isRecentCardDragActive()),
@@ -1043,8 +1040,10 @@ import * as SettingsStorage from '../platform/settings-storage';
     rememberSearchEntryViewport,
     beginSearchEntryRestoreLayoutLock,
     updateBookmarkSectionPosition,
-    updateSearchEntryLayout
+    updateSearchEntryLayout,
+    followShortcutGridLayout
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
+    preview,
     settings,
     normalizeBookmarkColumns: (...args) => normalizeBookmarkColumns(...args),
     NEWTAB_LAYOUT,
@@ -1061,8 +1060,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
     closeRecentContextMenu,
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
-    normalizeNewtabShortcutSize: (...args) => normalizeNewtabShortcutSize(...args),
-    normalizeNewtabShortcutGap: (...args) => normalizeNewtabShortcutGap(...args),
     getVisibleShortcuts: (...args) => getVisibleShortcuts(...args),
     MAX_NEWTAB_SHORTCUTS,
     resetShortcutDockHover,
@@ -1074,12 +1071,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const {
     normalizeNewtabWidthMode,
     normalizeNewtabSearchWidth,
-    normalizeNewtabShortcutsVisible,
-    normalizeNewtabShortcutAddVisible,
-    normalizeNewtabShortcutDockMagnificationEnabled,
-    normalizeNewtabShortcutColumns,
-    normalizeNewtabShortcutSize,
-    normalizeNewtabShortcutGap,
     inferNewtabShortcutColumnsFromWidth,
     updateNewtabShortcutPreferencesUi,
     setNewtabShortcutsVisible,
@@ -1094,6 +1085,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     getBookmarkLimit,
     normalizeBookmarkColumns
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
+    preview,
     settings,
     SETTINGS,
     NEWTAB_SEARCH_WIDTH_CONFIG,
@@ -1101,20 +1093,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SHORTCUT_COLUMNS_MAX,
     NEWTAB_SHORTCUT_WIDTH_MIN,
     NEWTAB_SHORTCUT_WIDTH_MAX,
-    storageArea,
-    applyNewtabShortcutsVisibility,
-    updateBookmarkSectionPosition,
-    NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: newtabShortcutsVisible.key,
-    renderShortcuts: (...args) => renderShortcuts(...args),
-    NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: newtabShortcutAddVisible.key,
-    applyNewtabShortcutDockMagnification,
-    scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
-    NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY: newtabShortcutDockMagnificationEnabled.key,
-    applyNewtabShortcutColumns,
-    NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY: newtabShortcutColumns.key,
-    applyNewtabShortcutLayoutPreferences,
-    NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
-    NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
     getBookmarkGridColumnCount,
     pageState
   });
@@ -1204,7 +1182,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
     settings,
-    timePreview,
+    preview,
     shortcutTiles,
     getShortcutDockIcon,
     shortcutGroupHeaders,
@@ -1349,23 +1327,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: newtabShortcutsVisible.key,
-    normalizeNewtabShortcutsVisible,
-    applyNewtabShortcutsVisibility,
-    updateNewtabShortcutPreferencesUi,
-    NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: newtabShortcutAddVisible.key,
-    normalizeNewtabShortcutAddVisible,
-    NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY: newtabShortcutDockMagnificationEnabled.key,
-    normalizeNewtabShortcutDockMagnificationEnabled,
-    applyNewtabShortcutDockMagnification,
-    NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY: newtabShortcutColumns.key,
-    normalizeNewtabShortcutColumns,
-    applyNewtabShortcutColumns,
-    NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
-    normalizeNewtabShortcutSize,
-    applyNewtabShortcutLayoutPreferences,
-    NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
-    normalizeNewtabShortcutGap,
     RECENT_MODE_STORAGE_KEY: recentMode.key,
     normalizeRecentMode,
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
@@ -1567,7 +1528,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     updateSuggestionsFloatingLayout,
     scheduleWallpaperAdaptiveToneUpdate,
     settings,
-    timePreview,
+    preview,
     pageState
   });
   // Settles once the stored clock face has loaded, so the first reveal never
@@ -1613,6 +1574,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     bindCursorTooltip,
     hideCursorTooltip
   } = NEWTAB_TOOLTIP_BINDINGS.createTooltipBindings({
+    preview,
     topActionTooltipController,
     searchInputCursorTooltipController,
     shortcutTooltipController,
@@ -1712,7 +1674,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     getShortcutTitle,
     renderShortcuts,
     flushDeferredShortcutRender,
-    loadNewtabShortcutPreferences,
+    followNewtabShortcutPreferences,
     loadVisibleShortcuts,
     persistShortcuts,
     removeShortcutById,
@@ -1732,6 +1694,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    settings,
     shortcutFolderRuntime,
     bookmarksRuntime,
     isShortcutDragActive: (...args) => isShortcutDragActive(...args),
@@ -1761,26 +1724,10 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SHORTCUT_ICON_STORE,
     NEWTAB_SHORTCUT_ICON_PLATE,
     pickShortcutIconPlateColor,
-    NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
-    NEWTAB_SHORTCUT_SIZE_DEFAULT,
-    NEWTAB_SHORTCUT_GAP_DEFAULT,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
     updateNewtabShortcutPreferencesUi,
-    NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: newtabShortcutsVisible.key,
-    NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: newtabShortcutAddVisible.key,
-    NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY: newtabShortcutDockMagnificationEnabled.key,
-    NEWTAB_SHORTCUT_WIDTH_STORAGE_KEY: newtabShortcutWidth.key,
-    NEWTAB_SHORTCUT_COLUMNS_STORAGE_KEY: newtabShortcutColumns.key,
-    NEWTAB_SHORTCUT_SIZE_STORAGE_KEY,
-    NEWTAB_SHORTCUT_GAP_STORAGE_KEY,
-    normalizeNewtabShortcutsVisible,
-    normalizeNewtabShortcutAddVisible,
-    normalizeNewtabShortcutDockMagnificationEnabled,
     inferNewtabShortcutColumnsFromWidth,
-    normalizeNewtabShortcutColumns,
-    normalizeNewtabShortcutSize,
-    normalizeNewtabShortcutGap,
     loadFolderColors,
     showToast,
     formatMessage,
@@ -2921,7 +2868,9 @@ import * as SettingsStorage from '../platform/settings-storage';
   bottomDockRuntime.onScroll(scheduleWallpaperAdaptiveToneUpdate, { passive: true });
   const actionButtonVisibilityReadyPromise = followNewtabActionButtonVisibility();
   const glassStyleReadyPromise = followNewtabGlassStyle();
-  const shortcutPreferencesReadyPromise = loadNewtabShortcutPreferences();
+  const shortcutPreferencesReadyPromise = followNewtabShortcutPreferences();
+  followShortcutGridLayout();
+  followShortcutDockMagnification();
   const shortcutsReadyPromise = shortcutPreferencesReadyPromise.then(loadVisibleShortcuts);
   const initialShortcutsReadyTask = shortcutsReadyPromise.catch((error) => {
     console.warn('[Lumno] Deferred shortcut loading failed.', error);
@@ -2937,9 +2886,16 @@ import * as SettingsStorage from '../platform/settings-storage';
       newtabTimeFontWeight,
       newtabTimeSecondsVisible,
       newtabFeedbackButtonVisible,
-      newtabAppearanceButtonVisible
+      newtabAppearanceButtonVisible,
+      newtabShortcutsVisible,
+      newtabShortcutAddVisible,
+      newtabShortcutDockMagnificationEnabled,
+      newtabShortcutSize,
+      newtabShortcutGap
     ],
+    // A missing column count is worked out from the older width setting.
     invalidOnly: [
+      newtabShortcutColumns,
       SearchSettings.searchResultPriority,
       SearchSettings.searchResultDisplayLimit,
       SearchSettings.faviconEnhancedFetchEnabled,

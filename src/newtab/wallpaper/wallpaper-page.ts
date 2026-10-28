@@ -18,10 +18,11 @@ import type { SearchWidthConfig } from './runtime/panel-settings';
 import { readBootValue } from '../../platform/boot-handoff';
 import { getWallpaperViewApi } from '../react/wallpaper-view';
 import type { SettingsStore } from '../../platform/settings-store';
-import type { TimePreview } from '../top-content/time-preview';
+import type { SettingPreview } from '../setting-preview';
 import { getFixedTimeInk, newtabTimeInk, newtabTopContentMode } from '../../domain/settings/newtab-time';
 import { themeMode } from '../../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme, newtabInputAutoFocusEnabled } from '../../domain/settings/newtab-page';
+import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../domain/settings/newtab-shortcuts';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -30,12 +31,6 @@ type PersistOptions = { persist: boolean };
 
 // The page state parts the wallpaper reads and sets.
 interface WallpaperPageState {
-  newtabShortcutsVisible: boolean;
-  newtabShortcutAddVisible: boolean;
-  newtabShortcutDockMagnificationEnabled: boolean;
-  newtabShortcutColumns: number;
-  newtabShortcutSize: number;
-  newtabShortcutGap: number;
   bookmarkPagerPrevButton: HTMLElement | null;
   bookmarkTitleWrap: HTMLElement | null;
   bookmarkTopbarRuntime: { element: HTMLElement | null } | null;
@@ -57,7 +52,7 @@ interface WallpaperPageState {
 
 interface WallpaperPageDeps {
   settings: SettingsStore;
-  timePreview: TimePreview;
+  preview: SettingPreview;
   shortcutTiles: readonly HTMLElement[];
   // A dock tile's icon, which its tone samples.
   getShortcutDockIcon(tile: HTMLElement): HTMLElement | null;
@@ -118,7 +113,7 @@ interface WallpaperPageDeps {
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
     settings,
-    timePreview,
+    preview,
     shortcutTiles,
     getShortcutDockIcon,
     shortcutGroupHeaders,
@@ -464,7 +459,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
     applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     settings,
-    timePreview,
+    preview,
     getSearchWidth: getEffectiveNewtabSearchWidth,
     setSearchWidth: (value, options) => {
       setNewtabSearchWidth(value, options);
@@ -484,17 +479,17 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       max: NEWTAB_SHORTCUT_GAP_MAX,
       fallback: NEWTAB_SHORTCUT_GAP_DEFAULT
     },
-    getShortcutsVisible: () => pageState.newtabShortcutsVisible,
+    getShortcutsVisible: () => preview.get(newtabShortcutsVisible),
     setShortcutsVisible: setNewtabShortcutsVisible,
-    getShortcutAddVisible: () => pageState.newtabShortcutAddVisible,
+    getShortcutAddVisible: () => preview.get(newtabShortcutAddVisible),
     setShortcutAddVisible: setNewtabShortcutAddVisible,
-    getShortcutDockMagnificationEnabled: () => pageState.newtabShortcutDockMagnificationEnabled,
+    getShortcutDockMagnificationEnabled: () => preview.get(newtabShortcutDockMagnificationEnabled),
     setShortcutDockMagnificationEnabled: setNewtabShortcutDockMagnificationEnabled,
-    getShortcutColumns: () => pageState.newtabShortcutColumns,
+    getShortcutColumns: () => preview.get(newtabShortcutColumns),
     setShortcutColumns: setNewtabShortcutColumns,
-    getShortcutSize: () => pageState.newtabShortcutSize,
+    getShortcutSize: () => preview.get(newtabShortcutSize),
     setShortcutSize: setNewtabShortcutSize,
-    getShortcutGap: () => pageState.newtabShortcutGap,
+    getShortcutGap: () => preview.get(newtabShortcutGap),
     setShortcutGap: setNewtabShortcutGap,
     featureHints: FEATURE_HINTS,
     featureHintVisibilityGate: newtabEntryAnimationReadyPromise,
@@ -594,6 +589,9 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       pageState.wallpaperRuntime.scheduleAdaptiveToneUpdate(options);
     }
   }
+
+  // The dock's magnification changes what the glass behind it samples.
+  settings.subscribe(newtabShortcutDockMagnificationEnabled, () => scheduleWallpaperAdaptiveToneUpdate());
 
   // The panel's theme controls show the theme settings as they are.
   settings.subscribe(NEWTAB_THEME_SETTINGS, () => {

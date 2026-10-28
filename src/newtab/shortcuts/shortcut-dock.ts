@@ -7,6 +7,9 @@
 // stuttered); leaving hands the icons back to the CSS transition.
 import { isElementNode } from '../../shared/dom-guards';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
+import { newtabShortcutDockMagnificationEnabled } from '../../domain/settings/newtab-shortcuts';
+import type { SettingPreview } from '../setting-preview';
+import type { SettingsStore } from '../../platform/settings-store';
 const SHORTCUT_DOCK_FOLLOW_TIME_MS = 60;
 const SHORTCUT_DOCK_DEFAULT_SCALE = 1.28;
 const SHORTCUT_DOCK_DEFAULT_RISE_PX = -6;
@@ -34,13 +37,14 @@ interface DockMagnitude {
 
 interface ShortcutDockState {
   shortcutGrid: HTMLElement | null;
-  newtabShortcutDockMagnificationEnabled: boolean;
   // The pointer's x for the next dock frame; NaN when none is pending.
   shortcutDockPendingPointerX: number;
   shortcutContextMenuTarget: { tile?: HTMLElement | null } | null;
 }
 
 interface ShortcutDockDeps {
+  settings: Pick<SettingsStore, 'subscribe'>;
+  preview: Pick<SettingPreview, 'get'>;
   isShortcutDragActive(): boolean;
   isBookmarkDragActive(): boolean;
   isShortcutContextMenuOpen(): boolean;
@@ -52,6 +56,8 @@ interface ShortcutDockDeps {
 
 function createShortcutDock(deps: ShortcutDockDeps) {
   const {
+    settings,
+    preview,
     isShortcutDragActive,
     isBookmarkDragActive,
     isShortcutContextMenuOpen,
@@ -138,9 +144,9 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     }
     pageState.shortcutGrid.setAttribute(
       'data-dock-magnification',
-      pageState.newtabShortcutDockMagnificationEnabled ? 'true' : 'false'
+      preview.get(newtabShortcutDockMagnificationEnabled) ? 'true' : 'false'
     );
-    if (!pageState.newtabShortcutDockMagnificationEnabled) {
+    if (!preview.get(newtabShortcutDockMagnificationEnabled)) {
       clearShortcutDockMagnificationState();
     }
   }
@@ -363,7 +369,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     if (!grid || !activeTile) {
       return;
     }
-    if (!pageState.newtabShortcutDockMagnificationEnabled) {
+    if (!preview.get(newtabShortcutDockMagnificationEnabled)) {
       clearShortcutDockMagnificationState();
       return;
     }
@@ -460,7 +466,13 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     }
   }
 
+  // The dock follows its magnification setting.
+  function followShortcutDockMagnification(): void {
+    settings.subscribe(newtabShortcutDockMagnificationEnabled, applyNewtabShortcutDockMagnification);
+  }
+
   return {
+    followShortcutDockMagnification,
     getShortcutDockIcon,
     applyNewtabShortcutDockMagnification,
     resetShortcutDockHover,

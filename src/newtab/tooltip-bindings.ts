@@ -3,14 +3,16 @@
 import type { CursorTooltipController, CursorTooltipOptions, CursorTooltipTextSource } from '../shared/ui/cursor-tooltip-model';
 import type { TooltipBindOptions, TooltipController, TooltipShowOptions, TooltipTextSource } from '../shared/ui/tooltip';
 import type { Translate } from './newtab-types';
+import { newtabShortcutDockMagnificationEnabled } from '../domain/settings/newtab-shortcuts';
+import type { SettingPreview } from './setting-preview';
 
 interface TooltipBindingsState {
   inputParts: { container: HTMLElement | null } | null;
-  newtabShortcutDockMagnificationEnabled: boolean;
   shortcutGrid: HTMLElement | null;
 }
 
 interface TooltipBindingsDeps {
+  preview: Pick<SettingPreview, 'get'>;
   topActionTooltipController: TooltipController;
   searchInputCursorTooltipController: CursorTooltipController;
   shortcutTooltipController: TooltipController;
@@ -27,6 +29,7 @@ interface TooltipBindingsDeps {
 
 function createTooltipBindings(deps: TooltipBindingsDeps) {
   const {
+    preview,
     topActionTooltipController,
     searchInputCursorTooltipController,
     shortcutTooltipController,
@@ -114,7 +117,7 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
     }, {
       placement: 'bottom',
       maxWidth: 360,
-      spacing: () => (pageState.newtabShortcutDockMagnificationEnabled ? -6 : -2),
+      spacing: () => (preview.get(newtabShortcutDockMagnificationEnabled) ? -6 : -2),
       showOnFocus: false,
       ...tooltipOptions
     });

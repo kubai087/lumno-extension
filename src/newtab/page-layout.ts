@@ -17,6 +17,8 @@ import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import * as RecentSitesStore from '../domain/recent-sites-store';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
+import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
+import type { SettingPreview } from './setting-preview';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -43,11 +45,6 @@ interface PageLayoutState {
   shortcutGrid: HTMLElement | null;
   shortcutSection: HTMLElement | null;
   newtabShortcuts: readonly unknown[];
-  newtabShortcutColumns: number;
-  newtabShortcutSize: number;
-  newtabShortcutGap: number;
-  newtabShortcutsVisible: boolean;
-  newtabShortcutAddVisible: boolean;
   newtabResizeLayoutLocked: boolean;
   layoutController: Pick<LayoutController,
     'applyWidthMode' | 'updateBottomDockLayout' | 'updateSearchEntryLayout'> | null;
@@ -57,15 +54,15 @@ interface PageLayoutState {
 
 interface PageLayoutDeps extends
   Pick<PagePreferences,
-    'normalizeBookmarkColumns' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' | 'getBookmarkLimit' |
-    'normalizeNewtabShortcutSize' | 'normalizeNewtabShortcutGap'>,
+    'normalizeBookmarkColumns' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' | 'getBookmarkLimit'>,
   Pick<SuggestionsLayout, 'updateSuggestionsFloatingLayout'>,
   Pick<RecentSitesController, 'closeRecentContextMenu'>,
   Pick<ShortcutsController, 'getVisibleShortcuts'>,
   Pick<ShortcutDock, 'resetShortcutDockHover'>,
   Pick<ShortcutContextMenu, 'closeShortcutContextMenu'>,
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
-  settings: Pick<SettingsStore, 'get'>;
+  preview: Pick<SettingPreview, 'get' | 'store'>;
+  settings: Pick<SettingsStore, 'get' | 'subscribe'>;
   NEWTAB_LAYOUT: Pick<typeof LumnoNewtabLayout, 'getAdaptiveGridColumnCount' | 'CONTENT_MAX_WIDTH_PX'>;
   NEWTAB_MOBILE_FLOW_BREAKPOINT_PX: number;
   NEWTAB_WIDTH_MODE_CONFIGS: Record<NewtabWidthMode, NewtabWidthModeConfig>;
@@ -81,6 +78,7 @@ interface PageLayoutDeps extends
 
 function createPageLayout(deps: PageLayoutDeps) {
   const {
+    preview,
     settings,
     normalizeBookmarkColumns,
     NEWTAB_LAYOUT,
@@ -97,8 +95,6 @@ function createPageLayout(deps: PageLayoutDeps) {
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY,
     closeRecentContextMenu,
     scheduleWallpaperAdaptiveToneUpdate,
-    normalizeNewtabShortcutSize,
-    normalizeNewtabShortcutGap,
     getVisibleShortcuts,
     MAX_NEWTAB_SHORTCUTS,
     resetShortcutDockHover,
@@ -274,8 +270,8 @@ function createPageLayout(deps: PageLayoutDeps) {
       return;
     }
     const rootStyle = document.documentElement.style;
-    const size = normalizeNewtabShortcutSize(pageState.newtabShortcutSize);
-    const gap = normalizeNewtabShortcutGap(pageState.newtabShortcutGap);
+    const size = preview.get(newtabShortcutSize);
+    const gap = preview.get(newtabShortcutGap);
     // Whole pixels with matching parity leave an even margin on each side, so
     // the icon sits centered in its tile and the favicon in its icon on 1x screens.
     const iconSize = roundToParityOf(size * 0.75, size);
@@ -302,7 +298,7 @@ function createPageLayout(deps: PageLayoutDeps) {
     }
     document.documentElement.style.setProperty(
       '--x-nt-shortcut-columns',
-      String(pageState.newtabShortcutColumns)
+      String(preview.get(newtabShortcutColumns))
     );
     if (!pageState.shortcutGrid || typeof window.getComputedStyle !== 'function') {
       return;
@@ -318,8 +314,8 @@ function createPageLayout(deps: PageLayoutDeps) {
       return;
     }
     const targetWidth =
-      (tileSize * pageState.newtabShortcutColumns) +
-      (columnGap * Math.max(0, pageState.newtabShortcutColumns - 1)) +
+      (tileSize * preview.get(newtabShortcutColumns)) +
+      (columnGap * Math.max(0, preview.get(newtabShortcutColumns) - 1)) +
       paddingLeft +
       paddingRight;
     document.documentElement.style.setProperty(
@@ -333,12 +329,12 @@ function createPageLayout(deps: PageLayoutDeps) {
       return;
     }
     const hasVisibleContent = getVisibleShortcuts().length > 0 ||
-      (pageState.newtabShortcutAddVisible && pageState.newtabShortcuts.length < MAX_NEWTAB_SHORTCUTS);
+      (preview.get(newtabShortcutAddVisible) && pageState.newtabShortcuts.length < MAX_NEWTAB_SHORTCUTS);
     setContentSectionVisible(
       pageState.shortcutSection,
-      Boolean(pageState.newtabShortcutsVisible && hasVisibleContent)
+      Boolean(preview.get(newtabShortcutsVisible) && hasVisibleContent)
     );
-    if (!pageState.newtabShortcutsVisible || !hasVisibleContent || settings.get(newtabZenMode)) {
+    if (!preview.get(newtabShortcutsVisible) || !hasVisibleContent || settings.get(newtabZenMode)) {
       resetShortcutDockHover();
       closeShortcutContextMenu();
       closeShortcutDialog();
@@ -434,7 +430,19 @@ function createPageLayout(deps: PageLayoutDeps) {
     }
   }
 
+  // The grid follows its settings, and a dragged slider at once.
+  function followShortcutGridLayout(): void {
+    const applyLayout = () => {
+      applyNewtabShortcutsVisibility();
+      applyNewtabShortcutLayoutPreferences();
+      updateBookmarkSectionPosition({ preserveSearchEntryLayout: true, stabilizeDockDensity: true });
+    };
+    settings.subscribe([newtabShortcutsVisible, newtabShortcutColumns, newtabShortcutSize, newtabShortcutGap], applyLayout);
+    preview.store.subscribe(applyLayout);
+  }
+
   return {
+    followShortcutGridLayout,
     normalizeRecentCount,
     normalizeRecentMode,
     getBookmarkGridColumnCount,

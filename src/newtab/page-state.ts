@@ -2,7 +2,6 @@
 // that starts as a constant. newtab.js creates it first and hands the same
 // object to every module as `pageState`; properties whose first value
 // depends on settings or other modules are set where that value exists.
-import * as SETTINGS from '../domain/settings';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import type { AppearanceModesState } from './appearance-modes';
 import type { BookmarkActionsState } from './bookmarks/bookmark-actions';
@@ -201,9 +200,6 @@ function createPageState(): NewtabPageState {
     bookmarksView: null,
     newtabShortcutIcons: {},
     newtabShortcutFavicons: {},
-    newtabShortcutsVisible: true,
-    newtabShortcutAddVisible: true,
-    newtabShortcutDockMagnificationEnabled: true,
     shortcutPersistenceInFlightCount: 0,
     shortcutDragState: null,
 
@@ -281,10 +277,7 @@ function createPageState(): NewtabPageState {
     recentRenderSignature: '',
     // Progress tracking (Labs) stays off until its stored switch is read.
     progressTrackingEnabled: false,
-    shortcutDockPendingPointerX: Number.NaN,
-    newtabShortcutColumns: SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
-    newtabShortcutSize: SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT,
-    newtabShortcutGap: SETTINGS.NEWTAB_SHORTCUT_GAP_DEFAULT
+    shortcutDockPendingPointerX: Number.NaN
   };
 }
 

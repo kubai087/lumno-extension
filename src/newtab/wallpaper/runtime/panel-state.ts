@@ -42,8 +42,8 @@ import type {
 } from './wallpaper-runtime-types';
 import type { SvgNode } from '../../../shared/ui/svg-tree';
 import type { SettingsStore } from '../../../platform/settings-store';
-import type { TimePreview } from '../../top-content/time-preview';
-import { newtabTime12Hour, newtabTimeFont, newtabTimeFontWeight, newtabTimeInk, newtabTimeSecondsVisible, newtabTopContentMode } from '../../../domain/settings/newtab-time';
+import type { SettingPreview } from '../../setting-preview';
+import { newtabTime12Hour, newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeInk, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../../../domain/settings/newtab-time';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -93,7 +93,7 @@ interface PanelStateDeps extends
   getWallpaperAppearanceModeLabel(mode: AppearanceMode): string;
   settings: Pick<SettingsStore, 'get'>;
   // The clock's size and opacity as shown, a dragged slider's value included.
-  timePreview: Pick<TimePreview, 'fontSize' | 'opacity'>;
+  preview: Pick<SettingPreview, 'get'>;
   getSearchWidth(): unknown;
   getInputAutoFocusEnabled(): unknown;
   getShortcutsVisible(): unknown;
@@ -176,7 +176,7 @@ function createPanelState(deps: PanelStateDeps) {
     getThemeMode,
     formatMessage,
     settings,
-    timePreview,
+    preview,
     normalizeSearchWidthValue,
     getSearchWidth,
     getSearchWidthMin,
@@ -404,8 +404,8 @@ function createPanelState(deps: PanelStateDeps) {
     const timeFont = SETTINGS.getNewtabTimeFont(settings.get(newtabTimeFont));
     const timeFontWeight = SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, settings.get(newtabTimeFontWeight));
     const timeFontTitle = t('newtab_time_font_title', 'Time font');
-    const timeFontSize = timePreview.fontSize;
-    const timeOpacity = timePreview.opacity;
+    const timeFontSize = preview.get(newtabTimeFontSize);
+    const timeOpacity = preview.get(newtabTimeOpacity);
     const timeInkTitle = t('newtab_time_ink_title', 'Time color');
     const width = normalizeSearchWidthValue(getSearchWidth());
     const timeVisible = topContentMode === 'time';
