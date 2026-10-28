@@ -7,7 +7,6 @@ import * as AGGREGATE_SEARCH_STORE from '../domain/search/aggregate-search-store
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
 import * as SEARCH_INPUT_MODE from '../shared/search/search-input-mode';
-import * as SEARCH_SOURCE_ORDER from '../domain/search/search-source-order';
 import * as SUGGESTION_ACTION_MODEL from '../domain/search/suggestion-action-model';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
@@ -77,6 +76,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchModeMenu } from '../shared/search-panel/mode-menu';
 import { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
 import { SearchMatching } from '../shared/search-panel/matching';
@@ -205,6 +205,40 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
   const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
   const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings.store, searchEngine, openOptions.siteSearchProviders);
+  const modeMenu = new SearchModeMenu({
+    settings: overlayState.settings.store,
+    locale,
+    catalog: siteSearchCatalog,
+    iconCache: siteSearchIconCache,
+    order: menuOrder,
+    mode: searchMode,
+    actions: modeActions,
+    surface: {
+      getInput: () => overlayState.searchInput,
+      getProviderIcon: (provider) => getPageRenderableProviderIcon(provider),
+      // The open tabs lead the browser content and do not move.
+      getOwnItem: (localGroup) => ({
+        id: 'openTabs',
+        kind: 'openTabs',
+        label: t('search_open_tabs_only_entry', '搜索已打开标签页'),
+        searchTerms: ['open tabs', 'tabs', 'browser'],
+        group: localGroup,
+        groupKey: 'local',
+        orderList: 'pinned',
+        iconName: 'ri-window-line',
+        menuIconName: 'browser',
+        active: searchMode.openTabs
+      }),
+      selectOwnItem: (item, rawQuery) => {
+        if (item.kind !== 'openTabs') {
+          return false;
+        }
+        activateOpenTabsSearchMode({ deferResults: true });
+        modeActions.restoreSearchModeQuery(rawQuery);
+        return true;
+      }
+    }
+  });
 
   const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
 
@@ -632,23 +666,14 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    getSearchModeMenuItems,
     openSearchModeMenuFromDoubleTab,
-    selectSearchModeMenuItem
   } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
     modeActions,
-    menuOrder,
-    locale,
     searchMode,
     searchEngine,
-    AGGREGATE_SEARCH_STORE,
-    t: (...args) => t(...args),
-    getPageRenderableProviderIcon,
-    SEARCH_SOURCE_ORDER,
     siteSearchIconCache,
     siteSearchCatalog,
     cancelPendingOpenTabsPrefixEntry,
-    activateOpenTabsSearchMode,
     overlayState
   });
 
@@ -1356,8 +1381,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     formatMessage,
     modeMenuDoubleTabDuration: OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS,
     modeMenuCursorTooltipController: overlayModeMenuCursorTooltipController,
-    getModeMenuItems: getSearchModeMenuItems,
-    onModeMenuSelect: selectSearchModeMenuItem,
+    getModeMenuItems: modeMenu.getItems,
+    onModeMenuSelect: modeMenu.select,
     onModeMenuReorder: menuOrder.reorder,
     onModeMenuGroupMove: menuOrder.moveGroup,
     onModeMenuHistory: menuOrder.step,

@@ -195,6 +195,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchModeMenu } from '../shared/search-panel/mode-menu';
 import { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
 import { SearchMatching } from '../shared/search-panel/matching';
@@ -683,6 +684,19 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
       getThemeForProvider: (provider) => getThemeForProvider(provider),
       cancelRequests: () => searchResults.cancelRequests(),
       clearResults: () => clearSearchSuggestions()
+    }
+  });
+  const modeMenu = new SearchModeMenu({
+    settings,
+    locale,
+    catalog: siteSearchCatalog,
+    iconCache: siteSearchIconCache,
+    order: menuOrder,
+    mode: searchMode,
+    actions: modeActions,
+    surface: {
+      getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
+      getProviderIcon: (provider) => getProviderIcon(provider)
     }
   });
   const urlHighlightTheme = createUrlHighlightTheme();
@@ -2044,26 +2058,17 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
 
   const {
-    getSearchModeMenuItems,
     openSearchModeMenuFromDoubleTab,
-    selectSearchModeMenuItem,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
     modeActions,
-    menuOrder,
     searchMatching,
-    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
-    settings,
     siteSearchCatalog,
     searchEngine,
-    t,
-    createAggregateSearchScopeProvider,
-    getProviderIcon,
-    siteSearchIconCache,
     getShortcutRules: (...args) => getShortcutRules(...args),
     pageState
   });
@@ -2444,6 +2449,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     setSiteSearchTabHint,
     clearSiteSearchTabHint,
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    modeMenu,
     modeActions,
     menuOrder,
     locale,
@@ -2469,8 +2475,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     attachInputModeFaviconData,
     formatMessage,
     bookmarkCursorTooltipController,
-    getSearchModeMenuItems,
-    selectSearchModeMenuItem,
     showToast,
     t,
     hideToast,

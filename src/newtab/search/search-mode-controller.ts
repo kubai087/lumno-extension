@@ -24,6 +24,7 @@ import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../../shared/
 import type { SearchLocale } from '../../shared/search-panel/labels';
 import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -62,8 +63,7 @@ interface SearchModeControllerDeps {
   attachInputModeFaviconData: ModeOption<'attachFaviconData'>;
   formatMessage: FormatMessage;
   bookmarkCursorTooltipController: ModeOption<'modeMenuCursorTooltipController'>;
-  getSearchModeMenuItems: ModeOption<'getModeMenuItems'>;
-  selectSearchModeMenuItem: ModeOption<'onModeMenuSelect'>;
+  modeMenu: SearchModeMenu;
   menuOrder: SearchModeMenuOrder;
   showToast: ShowToast;
   t: Translate;
@@ -100,8 +100,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     attachInputModeFaviconData,
     formatMessage,
     bookmarkCursorTooltipController,
-    getSearchModeMenuItems,
-    selectSearchModeMenuItem,
+    modeMenu,
     menuOrder,
     showToast,
     t,
@@ -173,8 +172,8 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     attachFaviconData: attachInputModeFaviconData,
     formatMessage,
     modeMenuCursorTooltipController: bookmarkCursorTooltipController,
-    getModeMenuItems: getSearchModeMenuItems,
-    onModeMenuSelect: selectSearchModeMenuItem,
+    getModeMenuItems: modeMenu.getItems,
+    onModeMenuSelect: modeMenu.select,
     onModeMenuReorder: menuOrder.reorder,
     onModeMenuGroupMove: menuOrder.moveGroup,
     onModeMenuHistory: menuOrder.step,
