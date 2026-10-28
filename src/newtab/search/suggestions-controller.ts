@@ -49,6 +49,7 @@ import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -56,13 +57,12 @@ interface SuggestionsControllerState {
   tabs: OverlayTab[];
   // Hidden from the background; the input's focus shows them again.
   searchSuggestionsDismissed: boolean;
-  remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
-  suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
   currentThemeMode: ThemeMode;
   currentNewtabTabId: number | null;
 }
 
 interface SuggestionsControllerDeps {
+  suggestionSource: SuggestionSource;
   suggestionModifiers: SuggestionModifiers;
   siteSearchRunner: SiteSearchRunner;
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -142,6 +142,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    suggestionSource,
     suggestionModifiers,
     siteSearchRunner,
     modeActions,
@@ -408,15 +409,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   function dismissSearchSuggestionsFromBackground(): void {
     searchAutocomplete.restoreTyped();
     pageState.searchSuggestionsDismissed = true;
-    searchResults.cancelRequests();
-    if (pageState.remoteSuggestionDebounceTimer) {
-      clearTimeout(pageState.remoteSuggestionDebounceTimer);
-      pageState.remoteSuggestionDebounceTimer = null;
-    }
-    if (pageState.suggestionRequestWatchdogTimer) {
-      clearTimeout(pageState.suggestionRequestWatchdogTimer);
-      pageState.suggestionRequestWatchdogTimer = null;
-    }
+    suggestionSource.cancel();
     clearSearchSuggestions();
   }
 
@@ -796,15 +789,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   // requests made before this are dropped, so they cannot replace them.
   // Resolves once the results are rendered.
   function showSuggestionSnapshot(suggestions: Suggestion[], query: string, selectedIndex: number): Promise<void> {
-    searchResults.cancelRequests();
-    if (pageState.remoteSuggestionDebounceTimer) {
-      clearTimeout(pageState.remoteSuggestionDebounceTimer);
-      pageState.remoteSuggestionDebounceTimer = null;
-    }
-    if (pageState.suggestionRequestWatchdogTimer) {
-      clearTimeout(pageState.suggestionRequestWatchdogTimer);
-      pageState.suggestionRequestWatchdogTimer = null;
-    }
+    suggestionSource.cancel();
     directNavigationSettleController.cancel();
     searchQuery.setText(query);
     searchResults.select(selectedIndex);
@@ -837,27 +822,12 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     const retryCount = options && Number(options.retryCount) > 0 ? Number(options.retryCount) : 0;
     const requestStartedAt = Date.now();
     const requestQuery = searchQuery.text;
-    const requestSeq = searchResults.beginRequest();
     const requestSearchFirst = settings.get(searchResultPriority) === 'search';
     const showExactSearchPendingState = requestSearchFirst &&
       !requestLocalSearchScope &&
       !searchMode.site &&
       !getDirectUrlSuggestion(requestQuery);
     directNavigationSettleController.cancel();
-    if (deferInitialDirectNavigationRender) {
-      directNavigationSettleController.schedule({
-        query: requestQuery,
-        requestSeq
-      });
-    }
-    if (pageState.remoteSuggestionDebounceTimer) {
-      clearTimeout(pageState.remoteSuggestionDebounceTimer);
-      pageState.remoteSuggestionDebounceTimer = null;
-    }
-    if (pageState.suggestionRequestWatchdogTimer) {
-      clearTimeout(pageState.suggestionRequestWatchdogTimer);
-      pageState.suggestionRequestWatchdogTimer = null;
-    }
     // A list of another query's results keeps its height until this
     // query's full answer.
     if (!requestLocalSearchScope && searchResults.rows.length > 0 && suggestionsContainer &&
@@ -872,89 +842,50 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     if (showExactSearchPendingState) {
       void renderSuggestions(carriedEngineSuggestions, requestQuery, { pendingRemote: true });
     }
-    pageState.suggestionRequestWatchdogTimer = setTimeout(function() {
-      if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
-        return;
-      }
-      if (retryCount < 1) {
-        requestSuggestions(requestQuery, { immediate: true, retryCount: retryCount + 1 });
-        return;
-      }
-      renderPendingSuggestions(requestQuery);
-    }, immediate ? 1200 : 1300);
-    const localRequestSent = sendRuntimeMessage<'getSearchSuggestions'>({
-      action: 'getSearchSuggestions',
+    let localFailed = false;
+    const requestSeq = suggestionSource.request({
       query: requestQuery,
       context: 'newtab',
       sourceTypes: requestLocalSearchScope ? [requestLocalSearchScope.sourceType] : undefined,
-      includeOpenTabs: requestLocalSearchScope ? false : undefined
-    }, function(response) {
-      if (pageState.suggestionRequestWatchdogTimer) {
-        clearTimeout(pageState.suggestionRequestWatchdogTimer);
-        pageState.suggestionRequestWatchdogTimer = null;
-      }
-      if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
-        return;
-      }
-      directNavigationSettleController.cancel();
-      if (chrome.runtime && chrome.runtime.lastError) {
-        renderPendingSuggestions(requestQuery);
-        return;
-      }
-      const localSuggestions: Suggestion[] = response ? response.suggestions : [];
-      if (requestLocalSearchScope) {
-        void renderSuggestions(localSuggestions, requestQuery);
-        return;
-      }
-      if (!showExactSearchPendingState) {
-        void renderSuggestions([...localSuggestions, ...carriedEngineSuggestions], requestQuery, { pendingRemote: true });
-      }
-      refreshTabsForSearchContext(() => {});
-      const remoteDelay = (requestSearchFirst || immediate)
-        ? 0
-        : Math.max(0, 120 - (Date.now() - requestStartedAt));
-      pageState.remoteSuggestionDebounceTimer = setTimeout(function() {
-        pageState.remoteSuggestionDebounceTimer = null;
-        if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
-          return;
-        }
-        const remoteRequestSent = sendRuntimeMessage<'getSearchEngineSuggestions'>({
-          action: 'getSearchEngineSuggestions',
-          query: requestQuery,
-          context: 'newtab',
-          localSuggestions: localSuggestions,
-          searchFirst: requestSearchFirst
-        }, function(remoteResponse) {
-          if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
-            return;
-          }
-          if (chrome.runtime && chrome.runtime.lastError) {
-            void renderSuggestions(localSuggestions, requestQuery);
-            return;
-          }
-          if (!remoteResponse ||
-              remoteResponse.aborted === true ||
-              remoteResponse.hasRemoteSuggestions !== true) {
-            void renderSuggestions(localSuggestions, requestQuery);
-            return;
-          }
-          searchResults.setLastEngineResponse(remoteResponse.suggestions);
-          void renderSuggestions(remoteResponse.suggestions, requestQuery);
-        });
-        if (!remoteRequestSent) {
+      searchFirst: requestSearchFirst,
+      lateAfterMs: immediate ? 1200 : 1300
+    }, {
+      onLocal(rows) {
+        directNavigationSettleController.cancel();
+        const localSuggestions: Suggestion[] = rows;
+        if (requestLocalSearchScope) {
           void renderSuggestions(localSuggestions, requestQuery);
+          return null;
         }
-      }, remoteDelay);
-    });
-    if (!localRequestSent) {
-      if (pageState.suggestionRequestWatchdogTimer) {
-        clearTimeout(pageState.suggestionRequestWatchdogTimer);
-        pageState.suggestionRequestWatchdogTimer = null;
-      }
-      if (searchResults.isCurrentRequest(requestSeq) && requestQuery === searchQuery.text) {
+        if (!showExactSearchPendingState) {
+          void renderSuggestions([...localSuggestions, ...carriedEngineSuggestions], requestQuery, { pendingRemote: true });
+        }
+        refreshTabsForSearchContext(() => {});
+        return (requestSearchFirst || immediate) ? 0 : Math.max(0, 120 - (Date.now() - requestStartedAt));
+      },
+      onLocalFailed() {
+        localFailed = true;
         directNavigationSettleController.cancel();
         renderPendingSuggestions(requestQuery);
+      },
+      // A worker that has just woken may miss the first request.
+      onLocalLate() {
+        if (retryCount < 1) {
+          requestSuggestions(requestQuery, { immediate: true, retryCount: retryCount + 1 });
+          return;
+        }
+        renderPendingSuggestions(requestQuery);
+      },
+      onRemote(rows, localRows) {
+        const answer: Suggestion[] = rows || localRows;
+        void renderSuggestions(answer, requestQuery);
       }
+    });
+    if (deferInitialDirectNavigationRender && !localFailed) {
+      directNavigationSettleController.schedule({
+        query: requestQuery,
+        requestSeq
+      });
     }
   }
 

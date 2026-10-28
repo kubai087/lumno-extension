@@ -33,6 +33,7 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -47,8 +48,6 @@ interface SearchBoxState {
   defaultPlaceholderText: string;
   // Hidden from the background; the input's focus shows them again.
   searchSuggestionsDismissed: boolean;
-  remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
-  suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
   handleTabKey: ((event: KeyboardEvent) => unknown) | null;
   searchLayer: HTMLElement | null;
   modeBadge: HTMLElement | null;
@@ -56,6 +55,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  suggestionSource: SuggestionSource;
   suggestionModifiers: SuggestionModifiers;
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
@@ -147,6 +147,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    suggestionSource,
     suggestionModifiers,
     modeActions,
     searchResults,
@@ -430,14 +431,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       if (!query) {
         searchQuery.clear();
         searchAutocomplete.clear();
-        if (pageState.remoteSuggestionDebounceTimer) {
-          clearTimeout(pageState.remoteSuggestionDebounceTimer);
-          pageState.remoteSuggestionDebounceTimer = null;
-        }
-        if (pageState.suggestionRequestWatchdogTimer) {
-          clearTimeout(pageState.suggestionRequestWatchdogTimer);
-          pageState.suggestionRequestWatchdogTimer = null;
-        }
+        suggestionSource.cancel();
         clearSearchSuggestions();
         return;
       }

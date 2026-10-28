@@ -2,7 +2,6 @@
 // merging late responses into what is shown.
 import { carryOverEngineSuggestions } from '../../domain/search/utils/engine-suggestions';
 import type { SuggestionLike } from '../../domain/search/types';
-import * as LumnoMessaging from '../../platform/messaging';
 import { holdSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import { searchResultPriority } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
@@ -11,6 +10,7 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 
 // Shared by the renders of one request: whether the search engine's
 // suggestions came back, and whether the list showed its final mix.
@@ -30,11 +30,11 @@ interface RemoteSuggestionsState {
   suggestionsContainer: HTMLElement | null;
   // The query of the rows shown; empty for the open tabs list.
   lastRenderedQuery: string;
-  overlayRemoteSuggestionDebounceTimer: number | null;
   overlayFirstResultRevealTimer: number | null;
 }
 
 interface RemoteSuggestionsDeps {
+  suggestionSource: SuggestionSource;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
@@ -46,6 +46,7 @@ interface RemoteSuggestionsDeps {
 
 function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
   const {
+    suggestionSource,
     searchResults,
     searchMode,
     searchQuery,
@@ -95,10 +96,9 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
       updateSearchSuggestions([], requestQuery);
       return;
     }
-    if (!requestQuery || !chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
+    if (!requestQuery) {
       return;
     }
-    const requestSeq = searchResults.beginRequest();
     const requestStartedAt = Date.now();
     const requestSearchFirst = overlayState.settings.get(searchResultPriority) === 'search';
     const showExactSearchPendingState = requestSearchFirst &&
@@ -116,137 +116,72 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
       searchResults.lastEngineResponse,
       requestQuery
     );
-    if (overlayState.overlayRemoteSuggestionDebounceTimer) {
-      window.clearTimeout(overlayState.overlayRemoteSuggestionDebounceTimer);
-      overlayState.overlayRemoteSuggestionDebounceTimer = null;
-    }
-    if (overlayState.overlayFirstResultRevealTimer) {
-      window.clearTimeout(overlayState.overlayFirstResultRevealTimer);
-      overlayState.overlayFirstResultRevealTimer = null;
-    }
+    clearFirstResultRevealTimer();
     if (showExactSearchPendingState) {
       updateSearchSuggestions(carriedEngineSuggestions, requestQuery, { remoteMixState });
     }
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-      action: 'getSearchSuggestions',
+    // Search-first already shows the exact search action while remote
+    // suggestions are pending. Autocomplete-first keeps its short mix
+    // budget so a collapsed result surface still opens only once.
+    let waitForFirstResultMix = false;
+    // The first rows shown when the list opened collapsed: the engine's,
+    // or the local ones once their wait ends.
+    const settleFirstResultMix = (rows: OverlaySuggestion[]): void => {
+      clearFirstResultRevealTimer();
+      remoteMixState.visualSettled = true;
+      updateSearchSuggestions(rows, requestQuery, { remoteMixState, finalRemoteMix: true });
+    };
+    const requestSeq = suggestionSource.request({
       query: requestQuery,
       context: 'overlay',
       sourceTypes: requestLocalSearchScope ? [requestLocalSearchScope.sourceType] : undefined,
-      includeOpenTabs: requestLocalSearchScope ? false : undefined
-    }, function(response) {
-      if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
-        return;
-      }
-      if (chrome.runtime && chrome.runtime.lastError) {
-        updatePendingSearchSuggestions(requestQuery);
-        return;
-      }
-      const localSuggestions = response && Array.isArray(response.suggestions) ? response.suggestions : [];
-      if (requestLocalSearchScope) {
-        remoteMixState.settled = true;
-        updateSearchSuggestions(localSuggestions, requestQuery);
-        return;
-      }
-      // Search-first already shows the exact search action while remote
-      // suggestions are pending. Autocomplete-first keeps its short mix
-      // budget so a collapsed result surface still opens only once.
-      const container = overlayState.suggestionsContainer;
-      const waitForFirstResultMix = !requestSearchFirst &&
-        Boolean(container && container.getAttribute('data-collapsed') === 'true');
-      if (waitForFirstResultMix) {
-        overlayState.overlayFirstResultRevealTimer = window.setTimeout(() => {
-          overlayState.overlayFirstResultRevealTimer = null;
-          if (!searchResults.isCurrentRequest(requestSeq) ||
-              requestQuery !== searchQuery.text ||
-              remoteMixState.visualSettled) {
-            return;
-          }
-          remoteMixState.visualSettled = true;
-          updateSearchSuggestions(localSuggestions, requestQuery, {
-            remoteMixState,
-            finalRemoteMix: true
-          });
-        }, OVERLAY_FIRST_RESULT_REVEAL_DELAY_MS);
-      } else if (!showExactSearchPendingState) {
-        updateSearchSuggestions([...localSuggestions, ...carriedEngineSuggestions], requestQuery, {
-          remoteMixState
-        });
-      }
-      const remoteDelay = (requestSearchFirst || waitForFirstResultMix)
-        ? 0
-        : Math.max(0, 120 - (Date.now() - requestStartedAt));
-      overlayState.overlayRemoteSuggestionDebounceTimer = window.setTimeout(function() {
-        overlayState.overlayRemoteSuggestionDebounceTimer = null;
-        if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
-          return;
-        }
-        LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-          action: 'getSearchEngineSuggestions',
-          query: requestQuery,
-          context: 'overlay',
-          localSuggestions: localSuggestions,
-          searchFirst: requestSearchFirst
-        }, function(remoteResponse) {
-          if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
-            return;
-          }
-          if (chrome.runtime && chrome.runtime.lastError) {
-            remoteMixState.settled = true;
-            if (waitForFirstResultMix && !remoteMixState.visualSettled) {
-              clearFirstResultRevealTimer();
-              remoteMixState.visualSettled = true;
-              updateSearchSuggestions(localSuggestions, requestQuery, {
-                remoteMixState,
-                finalRemoteMix: true
-              });
-            } else {
-              updateSearchSuggestions(localSuggestions, requestQuery, {
-                remoteMixState,
-                finalRemoteMix: true
-              });
-            }
-            return;
-          }
-          if (!remoteResponse ||
-              remoteResponse.aborted === true ||
-              remoteResponse.hasRemoteSuggestions !== true ||
-              !Array.isArray(remoteResponse.suggestions)) {
-            remoteMixState.settled = true;
-            if (waitForFirstResultMix && !remoteMixState.visualSettled) {
-              clearFirstResultRevealTimer();
-              remoteMixState.visualSettled = true;
-              updateSearchSuggestions(localSuggestions, requestQuery, {
-                remoteMixState,
-                finalRemoteMix: true
-              });
-            } else {
-              updateSearchSuggestions(localSuggestions, requestQuery, {
-                remoteMixState,
-                finalRemoteMix: true
-              });
-            }
-            return;
-          }
+      searchFirst: requestSearchFirst
+    }, {
+      onLocal(rows) {
+        const localSuggestions: OverlaySuggestion[] = rows;
+        if (requestLocalSearchScope) {
           remoteMixState.settled = true;
-          searchResults.setLastEngineResponse(remoteResponse.suggestions);
-          if (waitForFirstResultMix) {
-            if (remoteMixState.visualSettled) {
+          updateSearchSuggestions(localSuggestions, requestQuery);
+          return null;
+        }
+        const container = overlayState.suggestionsContainer;
+        waitForFirstResultMix = !requestSearchFirst &&
+          Boolean(container && container.getAttribute('data-collapsed') === 'true');
+        if (waitForFirstResultMix) {
+          overlayState.overlayFirstResultRevealTimer = window.setTimeout(() => {
+            overlayState.overlayFirstResultRevealTimer = null;
+            if (!searchResults.isCurrentRequest(requestSeq) ||
+                requestQuery !== searchQuery.text ||
+                remoteMixState.visualSettled) {
               return;
             }
-            clearFirstResultRevealTimer();
-            remoteMixState.visualSettled = true;
-            updateSearchSuggestions(remoteResponse.suggestions, requestQuery, {
-              remoteMixState,
-              finalRemoteMix: true
-            });
-            return;
-          }
-          updateSearchSuggestions(remoteResponse.suggestions, requestQuery, {
-            remoteMixState,
-            finalRemoteMix: true
+            settleFirstResultMix(localSuggestions);
+          }, OVERLAY_FIRST_RESULT_REVEAL_DELAY_MS);
+        } else if (!showExactSearchPendingState) {
+          updateSearchSuggestions([...localSuggestions, ...carriedEngineSuggestions], requestQuery, {
+            remoteMixState
           });
-        });
-      }, remoteDelay);
+        }
+        return (requestSearchFirst || waitForFirstResultMix)
+          ? 0
+          : Math.max(0, 120 - (Date.now() - requestStartedAt));
+      },
+      onLocalFailed() {
+        updatePendingSearchSuggestions(requestQuery);
+      },
+      onRemote(rows, localRows) {
+        remoteMixState.settled = true;
+        const answer: OverlaySuggestion[] = rows || localRows;
+        if (waitForFirstResultMix) {
+          if (!remoteMixState.visualSettled) {
+            settleFirstResultMix(answer);
+          } else if (!rows) {
+            updateSearchSuggestions(answer, requestQuery, { remoteMixState, finalRemoteMix: true });
+          }
+          return;
+        }
+        updateSearchSuggestions(answer, requestQuery, { remoteMixState, finalRemoteMix: true });
+      }
     });
   }
 

@@ -194,6 +194,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SuggestionSource } from '../shared/search-panel/suggestion-source';
 import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
 import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
 import { SearchModeMenu } from '../shared/search-panel/mode-menu';
@@ -534,6 +535,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args)
   });
   const searchResults = new SearchResults<Suggestion>();
+  const suggestionSource = new SuggestionSource(searchQuery, searchResults);
   const searchMode = new SearchMode<SiteSearchProvider>();
   const searchAutocomplete = new SearchAutocomplete({
     settings: settings,
@@ -683,7 +685,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
       defaultTheme,
       getImmediateTheme: () => defaultTheme,
       getThemeForProvider: (provider) => getThemeForProvider(provider),
-      cancelRequests: () => searchResults.cancelRequests(),
+      cancelRequests: () => suggestionSource.cancel(),
       clearResults: () => clearSearchSuggestions()
     }
   });
@@ -2137,6 +2139,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    suggestionSource,
     suggestionModifiers,
     siteSearchRunner,
     modeActions,
@@ -2280,6 +2283,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    suggestionSource,
     suggestionModifiers,
     modeActions,
     searchResults,
@@ -2535,7 +2539,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   });
 
   NEWTAB_SEARCH_INPUT_COMPOSITION.createSearchInputComposition({
-    searchResults,
+    suggestionSource,
     searchAutocomplete,
     searchQuery,
     directNavigationSettleController,

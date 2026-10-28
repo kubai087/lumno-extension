@@ -185,11 +185,9 @@ function createPageState(): NewtabPageState {
 
     // 使用本地打包字体，避免外链字体依赖。
 
-    remoteSuggestionDebounceTimer: null,
     tabs: [],
     currentNewtabTabId: null,
     searchSuggestionsDismissed: false,
-    suggestionRequestWatchdogTimer: null,
     handleTabKey: null,
 
     // Created once the search modes and providers below exist.

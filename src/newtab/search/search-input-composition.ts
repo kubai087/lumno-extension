@@ -6,17 +6,14 @@ import type { DirectNavigationSettleController } from './direct-navigation-settl
 import type { RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
-import type { SearchResults } from '../../shared/search-panel/search-results';
-import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 
 interface SearchInputCompositionState {
   inputParts: { input: HTMLInputElement } | null;
-  remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
-  suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface SearchInputCompositionDeps {
-  searchResults: SearchResults<Suggestion>;
+  suggestionSource: SuggestionSource;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   directNavigationSettleController: Pick<DirectNavigationSettleController<unknown>, 'cancel'>;
@@ -31,7 +28,7 @@ interface SearchInputCompositionDeps {
 
 function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
   const {
-    searchResults,
+    suggestionSource,
     searchAutocomplete,
     searchQuery,
     directNavigationSettleController,
@@ -54,16 +51,8 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
   const input = inputParts.input;
 
   input.addEventListener('compositionstart', function(event) {
-    searchResults.cancelRequests();
+    suggestionSource.cancel();
     directNavigationSettleController.cancel();
-    if (pageState.remoteSuggestionDebounceTimer) {
-      clearTimeout(pageState.remoteSuggestionDebounceTimer);
-      pageState.remoteSuggestionDebounceTimer = null;
-    }
-    if (pageState.suggestionRequestWatchdogTimer) {
-      clearTimeout(pageState.suggestionRequestWatchdogTimer);
-      pageState.suggestionRequestWatchdogTimer = null;
-    }
     imeKeyGuard.markCompositionStart(event);
     searchAutocomplete.clear();
   });
@@ -77,10 +66,7 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
     searchQuery.set(rawValue, query);
     searchAutocomplete.clear();
     if (!query) {
-      if (pageState.remoteSuggestionDebounceTimer) {
-        clearTimeout(pageState.remoteSuggestionDebounceTimer);
-        pageState.remoteSuggestionDebounceTimer = null;
-      }
+      suggestionSource.cancel();
       clearSearchSuggestions();
       return;
     }

@@ -156,7 +156,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
 
     lastRenderedQuery: '',
     lastRenderedActionContextKey: '',
-    overlayRemoteSuggestionDebounceTimer: null,
     overlayFirstResultRevealTimer: null
   };
 }

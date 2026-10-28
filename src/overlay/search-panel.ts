@@ -76,6 +76,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SuggestionSource } from '../shared/search-panel/suggestion-source';
 import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
 import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
 import { SearchModeMenu } from '../shared/search-panel/mode-menu';
@@ -186,6 +187,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args)
   });
   const searchResults = new SearchResults<OverlaySuggestion>();
+  const suggestionSource = new SuggestionSource(searchQuery, searchResults);
   const searchMode = new SearchMode<InputModeProvider>();
   const searchAutocomplete = new SearchAutocomplete({
     settings: overlayState.settings.store,
@@ -301,11 +303,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
   });
   function cancelPendingOverlaySuggestionRequests() {
-    searchResults.cancelRequests();
-    if (overlayState.overlayRemoteSuggestionDebounceTimer) {
-      clearTimeout(overlayState.overlayRemoteSuggestionDebounceTimer);
-      overlayState.overlayRemoteSuggestionDebounceTimer = null;
-    }
+    suggestionSource.cancel();
     if (overlayState.overlayFirstResultRevealTimer) {
       clearTimeout(overlayState.overlayFirstResultRevealTimer);
       overlayState.overlayFirstResultRevealTimer = null;
@@ -469,6 +467,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updatePendingSearchSuggestions,
     requestOverlaySearchSuggestions
   } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
+    suggestionSource,
     searchResults,
     searchMode,
     searchQuery,
