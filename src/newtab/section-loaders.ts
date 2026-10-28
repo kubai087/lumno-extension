@@ -24,6 +24,7 @@ import type { SettingPreview } from './setting-preview';
 import type { SettingsStore } from '../platform/settings-store';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 import { recentMode } from '../domain/settings/recent-sites';
+import { isRecord } from '../platform/storage-call';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -502,6 +503,24 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     void loadBookmarks();
   }
 
+
+  // Settings and the worker ask an open page to load a section again.
+  if (chrome && chrome.runtime && chrome.runtime.onMessage && typeof chrome.runtime.onMessage.addListener === 'function') {
+    chrome.runtime.onMessage.addListener((message: unknown) => {
+      if (!isRecord(message) || message.action !== 'lumno:newtab-refresh-sections') {
+        return;
+      }
+      const section = message.section || 'all';
+      if (section === 'recent' || section === 'all') {
+        markRecentDataDirty();
+        void loadRecentSites({ force: true });
+      }
+      if (section === 'bookmarks' || section === 'all') {
+        markBookmarkDataDirty();
+        void loadBookmarks({ force: true });
+      }
+    });
+  }
   return {
     renderBookmarks,
     renderRecentSites,

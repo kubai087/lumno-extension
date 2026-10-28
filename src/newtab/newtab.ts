@@ -74,7 +74,6 @@ import * as NEWTAB_SECTION_LOADERS from './section-loaders';
 import * as NEWTAB_BOOKMARK_MODE_MENU from './bookmarks/bookmark-mode-menu';
 import * as LumnoNewtabSectionPanelSettings from './section-panel-settings';
 import * as NEWTAB_SECTION_RELOAD from './section-reload';
-import * as NEWTAB_SETTINGS_SYNC from './settings-sync';
 import * as NEWTAB_BOTTOM_DOCK_RUNTIME from './shortcuts/bottom-dock-runtime';
 import * as NEWTAB_SHORTCUT_CONTEXT_MENU from './shortcuts/shortcut-context-menu';
 import * as NEWTAB_SHORTCUT_DOCK from './shortcuts/shortcut-dock';
@@ -1211,18 +1210,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     console.warn('[Lumno] Initial new tab appearance setup failed.', error);
   });
 
-  const {
-    storageChanges
-  } = NEWTAB_SETTINGS_SYNC.createSettingsSync({
-    settings,
-    markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
-    loadBookmarks: (...args) => loadBookmarks(...args),
-    markRecentDataDirty: (...args) => markRecentDataDirty(...args),
-    loadRecentSites: (...args) => loadRecentSites(...args),
-    isPrimaryStorageAreaName,
-    requestTabsAndRender: (...args) => requestTabsAndRender(...args),
-    pageState
-  });
 
   NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
     preview,
@@ -2161,7 +2148,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     activateRenderedSuggestion,
     deleteRenderedHistorySuggestion,
     scrollSelectedSuggestionIntoView,
-    requestTabsAndRender,
     refreshTabsIfIdle,
     clearSearchSuggestions,
     dismissSearchSuggestionsFromBackground,
@@ -2576,7 +2562,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     showSuggestionSnapshot,
     focusSearchInputPreservingScroll,
     requestSuggestions,
-    storageChanges,
+    settings,
     setSiteSearchPrefix,
     defaultTheme,
     clearSiteSearch,

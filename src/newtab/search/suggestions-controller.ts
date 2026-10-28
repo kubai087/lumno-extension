@@ -68,7 +68,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
-  settings: Pick<SettingsStore, 'get' | 'set'>;
+  settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
   getPageFaviconCandidateUrl(pageUrl: string): string;
@@ -418,6 +418,13 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     pageState.tabs = [];
     clearSearchSuggestions();
   }
+
+  // The open tabs list shows its ranking reasons while the debug flag is on.
+  settings.subscribe(tabRankScoreDebug, () => {
+    if (!pageState.latestQuery || !pageState.latestQuery.trim()) {
+      requestTabsAndRender();
+    }
+  });
 
   function refreshTabsIfIdle(): void {
     if (!pageState.latestQuery || !pageState.latestQuery.trim()) {

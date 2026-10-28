@@ -7,7 +7,7 @@ import type { InputModeController } from '../../shared/search/search-input-mode'
 import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import * as LumnoNewtabFocusResume from '../focus-resume';
 import type { FocusResume, FocusResumeState } from '../focus-resume';
-import type { StorageChangeRegistry } from '../storage-change-registry';
+import type { SettingsStore } from '../../platform/settings-store';
 import type { SearchModeController } from './search-mode-controller';
 import type { SearchModes } from './search-modes';
 import { getAggregateSearchId } from './search-types';
@@ -35,7 +35,7 @@ interface SiteSearchRuntimeDeps {
   showSuggestionSnapshot(suggestions: Suggestion[], query: string, selectedIndex: number): Promise<void>;
   focusSearchInputPreservingScroll(): boolean;
   requestSuggestions: RequestSuggestions;
-  storageChanges: Pick<StorageChangeRegistry, 'on'>;
+  settings: Pick<SettingsStore, 'subscribe'>;
   setSiteSearchPrefix: SearchModeController['setSiteSearchPrefix'];
   defaultTheme: InputModeTheme;
   clearSiteSearch: SearchModes['clearSiteSearch'];
@@ -53,7 +53,7 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
     showSuggestionSnapshot,
     focusSearchInputPreservingScroll,
     requestSuggestions,
-    storageChanges,
+    settings,
     setSiteSearchPrefix,
     defaultTheme,
     clearSiteSearch
@@ -97,7 +97,7 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
 
   // A new order from Settings or another tab reaches an open scope panel now;
   // a closed one reads it when it opens.
-  storageChanges.on(searchSourceOrder.key, () => {
+  settings.subscribe(searchSourceOrder, () => {
     if (pageState.inputModeController) {
       pageState.inputModeController.refreshModeMenu();
     }
