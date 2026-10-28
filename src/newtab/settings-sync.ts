@@ -2,7 +2,6 @@
 // another tab, sync): one listener per storage key on the shared change
 // registry, and the runtime messages that ask the page to refresh a section.
 import type { SiteSearchProvider } from '../domain/search/types';
-import type * as LumnoSettings from '../domain/settings';
 import type { InputModeController } from '../shared/search/search-input-mode';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentHistoryDialogController } from './react/recent-history-dialog';
@@ -10,8 +9,6 @@ import type { SuggestionsController } from './search/suggestions-controller';
 import type { SectionLoaders } from './section-loaders';
 import type { ShortcutIconMap } from './shortcuts/shortcut-icon-store';
 import * as LumnoNewtabStorageChangeRegistry from './storage-change-registry';
-import type { WallpaperRuntime } from './wallpaper/wallpaper';
-import { bingDailyCache } from '../domain/settings/newtab-wallpaper';
 import type { CachedIconMap } from '../domain/favicon/shortcut-favicon/types';
 import type { RecentSite } from '../domain/recent-sites-store';
 import * as ProviderStorage from '../platform/provider-storage';
@@ -32,7 +29,6 @@ interface SettingsSyncState {
   siteSearchState: SiteSearchProvider | null;
   inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
   latestQuery: string;
-  wallpaperRuntime: Pick<WallpaperRuntime, 'handleStorageChange'> | null;
 }
 
 interface SettingsSyncDeps extends
@@ -40,11 +36,8 @@ interface SettingsSyncDeps extends
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites'>,
   Pick<SuggestionsController, 'requestTabsAndRender'> {
   settings: Pick<SettingsStore, 'subscribe'>;
-  settingsRuntimeApi: Pick<typeof LumnoSettings,
-    'assetRevision' | 'progressTrackingEnabled' | 'progressTrackingEnabled'>;
   // Whether changes in this storage area are this page's settings.
   isPrimaryStorageAreaName(areaName: string): boolean;
-  NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
   pageState: SettingsSyncState;
 }
 
@@ -60,8 +53,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     markRecentDataDirty,
     loadRecentSites,
     isPrimaryStorageAreaName,
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
-    settingsRuntimeApi,
     requestTabsAndRender
   } = deps;
 
@@ -79,21 +70,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
   });
   addStorageChangeListener(storageChanges.dispatch);
 
-  // With settings in sync, wallpaper files and caches still change in local.
-  storageChanges.on([
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
-    settingsRuntimeApi.assetRevision.key,
-    bingDailyCache.key
-  ], (changes) => {
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.handleStorageChange(changes);
-    }
-  }, { area: (areaName) => areaName === 'local' && !isPrimaryStorageAreaName(areaName) });
-  storageChanges.onAny((changes) => {
-    if (pageState.wallpaperRuntime) {
-    pageState.wallpaperRuntime.handleStorageChange(changes);
-    }
-  });
   settings.subscribe(tabRankScoreDebug, () => {
     if (!pageState.latestQuery || !pageState.latestQuery.trim()) {
       requestTabsAndRender();

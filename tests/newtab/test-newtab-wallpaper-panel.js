@@ -51,22 +51,30 @@ const LOCAL_WALLPAPER_DISABLED_VALUE = '__lumno_local_wallpaper_disabled__';
 function createTestSettings() {
   const values = new Map();
   const listeners = [];
-  const notify = () => listeners.forEach((listener) => listener());
+  const notify = (keys) => listeners
+    .filter((entry) => entry.keys.some((key) => keys.includes(key)))
+    .forEach((entry) => entry.listener());
   return {
     get: (setting) => (values.has(setting.key) ? values.get(setting.key) : setting.parse(undefined)),
+    getStored: (setting) => values.get(setting.key),
     set(setting, value) {
       values.set(setting.key, setting.parse(value));
-      notify();
+      notify([setting.key]);
       return Promise.resolve();
     },
     setMany(entries) {
       entries.forEach(([setting, value]) => values.set(setting.key, setting.parse(value)));
-      notify();
+      notify(entries.map(([setting]) => setting.key));
       return Promise.resolve();
     },
-    subscribe(_settings, listener) {
-      listeners.push(listener);
+    subscribe(settings, listener) {
+      listeners.push({ keys: (Array.isArray(settings) ? settings : [settings]).map((setting) => setting.key), listener });
       return () => {};
+    },
+    // Another page stored `value` under `key`.
+    receive(key, value) {
+      values.set(key, value);
+      notify([key]);
     }
   };
 }
@@ -1890,9 +1898,11 @@ async function testLegacySyncedCustomWallpaperMigratesToLocalOnlySelection() {
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox({
     localStoreApi
   });
+  const testSettings = createTestSettings();
   const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
+    settings: testSettings,
     storageArea: syncStorage,
     localWallpaperStorageArea: localStorageArea,
     storageKeys: {
@@ -2124,9 +2134,11 @@ async function testDisablingWallpaperModeConsistencyIgnoresStaleLocalDisabledOve
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
   testDocument.body.setAttribute('data-theme', 'dark');
+  const testSettings = createTestSettings();
   const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
+    settings: testSettings,
     storageArea: syncStorage,
     localWallpaperStorageArea: localStorageArea,
     storageKeys: {
@@ -2510,9 +2522,11 @@ async function testSplitLocalWallpaperSelectionStaysLocalOnly() {
     localStoreApi
   });
   testDocument.body.setAttribute('data-theme', 'light');
+  const testSettings = createTestSettings();
   const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
+    settings: testSettings,
     storageArea: syncStorage,
     localWallpaperStorageArea: localStorageArea,
     storageKeys: {
@@ -2587,9 +2601,11 @@ async function testDeletingLocalWallpapersKeepsTheLocalTabOpen() {
     localStoreApi
   });
   testDocument.body.setAttribute('data-theme', 'light');
+  const testSettings = createTestSettings();
   const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
+    settings: testSettings,
     storageArea: syncStorage,
     localWallpaperStorageArea: localStorageArea,
     storageKeys: {
@@ -2613,7 +2629,7 @@ async function testDeletingLocalWallpapersKeepsTheLocalTabOpen() {
     assert.ok(findTile(testRuntime, id), `${id} should be listed before it is deleted`);
     panelActions(testRuntime).deleteWallpaper(id);
     await waitForAsyncWallpaperApply();
-    testRuntime.handleStorageChange({ [ASSET_REVISION_STORAGE_KEY]: { newValue: id } });
+    testSettings.receive(ASSET_REVISION_STORAGE_KEY, id);
     await waitForAsyncWallpaperApply();
   };
 
@@ -2623,10 +2639,10 @@ async function testDeletingLocalWallpapersKeepsTheLocalTabOpen() {
   assert.strictEqual(findTile(testRuntime, firstId), null);
 
   clickTile(testRuntime, secondId);
-  testRuntime.handleStorageChange({ [LOCAL_WALLPAPER_STORAGE_KEY]: { newValue: localStorageArea.data[LOCAL_WALLPAPER_STORAGE_KEY] } });
+  testSettings.receive(LOCAL_WALLPAPER_STORAGE_KEY, localStorageArea.data[LOCAL_WALLPAPER_STORAGE_KEY]);
   await waitForAsyncWallpaperApply();
   await deleteWallpaper(secondId);
-  testRuntime.handleStorageChange({ [LOCAL_WALLPAPER_STORAGE_KEY]: { newValue: localStorageArea.data[LOCAL_WALLPAPER_STORAGE_KEY] } });
+  testSettings.receive(LOCAL_WALLPAPER_STORAGE_KEY, localStorageArea.data[LOCAL_WALLPAPER_STORAGE_KEY]);
   await waitForAsyncWallpaperApply();
   assert.strictEqual(activeTab(), 'local',
     'deleting the selected local wallpaper should keep the local tab open');

@@ -2,7 +2,7 @@
 // and appearance panel parts in runtime/ together around one shared state.
 import * as LumnoExtensionRoutes from '../../domain/extension-routes';
 import * as SETTINGS from '../../domain/settings';
-import type { StorageAreaLike, StorageChanges } from '../../domain/storage-port';
+import type { StorageAreaLike } from '../../domain/storage-port';
 import type { ToastTask } from '../../shared/ui/toast-screen';
 import type { FeatureHintChromeApi } from '../../shared/ui/feature-hint-catalog';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
@@ -1562,46 +1562,44 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     renderWallpaperPanelState();
   }
 
-  function handleStorageChange(changes: StorageChanges | null | undefined): boolean {
-    if (!changes) {
-      return false;
-    }
-    let handled = false;
-    if (changes[bingDailyCache.key] && wallpaperState.hasStoredWallpaperStateLoaded) {
+  // Another page's changes: the daily picture it fetched, custom files it
+  // added, the overlay, the chosen wallpaper and its lists, the effect and
+  // the tab icon. An invalid effect or icon is written back normalized.
+  function followStoredWallpaper(): void {
+    const { settings } = options;
+    settings.subscribe(bingDailyCache, () => {
+      if (!wallpaperState.hasStoredWallpaperStateLoaded) {
+        return;
+      }
       remoteClient.restoreWallpaper(REMOTE_CONTENT.BING_DAILY_ID).then(() => {
         if (getEffectiveWallpaperIdForMode(getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
           applyResolvedNewtabWallpaper();
         }
         renderWallpaperPanelState();
       }).catch(warnWallpaperFailure('Could not restore the daily Bing wallpaper another tab saved.'));
-      handled = true;
-    }
-    if (changes[SETTINGS.assetRevision.key]) {
+    });
+    settings.subscribe(SETTINGS.assetRevision, () => {
       void refreshCustomWallpapers().then(() => loadStoredWallpaperState());
-      handled = true;
-    }
-    if (changes[NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY]) {
-      applyWallpaperOverlayOpacity(changes[NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY].newValue);
-      handled = true;
-    }
-    const wallpaperStorageChanged = Boolean(
-      (NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY && changes[NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY]) ||
-      changes[NEWTAB_WALLPAPER_STORAGE_KEY] ||
-      (NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY && changes[NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY]) ||
-      (NEWTAB_LINK_WALLPAPERS_STORAGE_KEY && changes[NEWTAB_LINK_WALLPAPERS_STORAGE_KEY]) ||
-      (NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY && changes[NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY]) ||
-      (NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY && changes[NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY])
-    );
-    if (wallpaperStorageChanged) {
+    });
+    settings.subscribe(newtabWallpaperOverlay, () => {
+      applyWallpaperOverlayOpacity(settings.getStored(newtabWallpaperOverlay));
+    });
+    settings.subscribe([
+      SETTINGS.newtabWallpaper,
+      SETTINGS.newtabLocalWallpaper,
+      SETTINGS.newtabOnlineWallpaper,
+      SETTINGS.newtabLinkWallpapers,
+      SETTINGS.newtabDailyWallpaperPicks,
+      SETTINGS.newtabCuratedMixExcluded
+    ], () => {
       wallpaperState.bingSelectionSeq += 1;
       const changeSeq = ++wallpaperState.wallpaperStorageChangeSeq;
       void loadStoredWallpaperState({
         shouldApply: () => changeSeq === wallpaperState.wallpaperStorageChangeSeq
       });
-      handled = true;
-    }
-    if (changes[NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY]) {
-      const raw = changes[NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY].newValue;
+    });
+    settings.subscribe(newtabWallpaperEffect, () => {
+      const raw = settings.getStored(newtabWallpaperEffect);
       applyWallpaperEffectPrefs(raw);
       if (wallpaperState.hasStoredWallpaperStateLoaded) {
         writeWallpaperPreloadCache();
@@ -1610,19 +1608,17 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
       if (storageArea && raw && JSON.stringify(raw) !== JSON.stringify(storedPrefs)) {
         void storageArea.set({ [NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY]: storedPrefs });
       }
-      handled = true;
-    }
-    if (NEWTAB_FAVICON_STORAGE_KEY && changes[NEWTAB_FAVICON_STORAGE_KEY]) {
-      const raw = changes[NEWTAB_FAVICON_STORAGE_KEY].newValue;
+    });
+    settings.subscribe(newtabFavicon, () => {
+      const raw = settings.getStored(newtabFavicon);
       const nextId = normalizeNewtabFaviconId(raw);
       applyNewtabFavicon(nextId);
       if (storageArea && raw !== nextId) {
         writeStorageValue(storageArea, NEWTAB_FAVICON_STORAGE_KEY, nextId);
       }
-      handled = true;
-    }
-    return handled;
+    });
   }
+  followStoredWallpaper();
 
   function getControlElement(): HTMLDivElement | null {
     return wallpaperState.wallpaperControl;
@@ -1669,7 +1665,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     waitForInitialWallpaperEffectVisual,
     waitForInitialWallpaperTone,
     bootstrapInitialNewtabFavicon,
-    handleStorageChange,
     handleThemeModeChange,
     scheduleAdaptiveToneUpdate: scheduleWallpaperAdaptiveToneUpdate
   };

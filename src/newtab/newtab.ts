@@ -1220,8 +1220,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
     isPrimaryStorageAreaName,
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
-    settingsRuntimeApi,
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
     pageState
   });
