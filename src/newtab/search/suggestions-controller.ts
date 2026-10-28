@@ -41,6 +41,7 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -98,7 +99,6 @@ interface SuggestionsControllerDeps {
   getSiteSearchActionTitle: SiteSearchProviders['getSiteSearchActionTitle'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   formatMessage: FormatMessage;
-  isAggregateSearchProvider: SiteSearchProviders['isAggregateSearchProvider'];
   getMatchedOpenTabIdForSuggestion: SearchNavigation['getMatchedOpenTabIdForSuggestion'];
   // The suggestions the search blacklist does not leave out.
   filterBlacklistedSuggestions(list: Suggestion[], query: string): Suggestion[];
@@ -183,7 +183,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     getSiteSearchActionTitle,
     getProviderIcon,
     formatMessage,
-    isAggregateSearchProvider,
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
     getKeywordSearchSuggestionState,

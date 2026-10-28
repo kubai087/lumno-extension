@@ -21,6 +21,8 @@ import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/ca
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
@@ -40,9 +42,6 @@ interface SearchModeMenuDeps {
   SEARCH_SOURCE_ORDER: Pick<typeof SearchSourceOrder,
     'rankScopeItems' | 'applyScopeMenuMove' | 'applyGroupMove' | 'createHistory'>;
   t: Translate;
-  isAggregateSearchProvider(provider: Partial<SiteSearchProvider> | null): boolean;
-  isSearchEngineSiteSearchProvider(provider: SiteSearchProvider | null): boolean;
-  isAiSiteSearchProvider(provider: SiteSearchProvider | null): boolean;
   getSiteSearchDisplayName(provider: SiteSearchProvider | null): string;
   getPageRenderableProviderIcon(provider: SiteSearchProvider): string;
   getLocalSearchScopeLabel(scope: Pick<LocalSearchScope, 'sourceType'> | null): string;
@@ -75,9 +74,6 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     siteSearchCatalog,
     AGGREGATE_SEARCH_STORE,
     t,
-    isAggregateSearchProvider,
-    isSearchEngineSiteSearchProvider,
-    isAiSiteSearchProvider,
     getSiteSearchDisplayName,
     getPageRenderableProviderIcon,
     getLocalSearchScopeLabel,

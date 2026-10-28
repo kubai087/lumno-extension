@@ -55,7 +55,6 @@ interface SearchModeControllerDeps {
   getThemeForProvider(provider: SiteSearchProvider): Promise<InputModeTheme | null | undefined>;
   getSiteSearchPrefixText: ModeOption<'getSiteSearchPrefixText'>;
   getSiteSearchDisplayName: ModeOption<'getSiteSearchDisplayName'>;
-  isAiSiteSearchProvider: ModeOption<'isAiSiteSearchProvider'>;
   attachInputModeFaviconData: ModeOption<'attachFaviconData'>;
   formatMessage: FormatMessage;
   bookmarkCursorTooltipController: ModeOption<'modeMenuCursorTooltipController'>;
@@ -96,7 +95,6 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     getThemeForProvider,
     getSiteSearchPrefixText,
     getSiteSearchDisplayName,
-    isAiSiteSearchProvider,
     attachInputModeFaviconData,
     formatMessage,
     bookmarkCursorTooltipController,
@@ -172,7 +170,6 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     getThemeForProvider,
     getSiteSearchPrefixText,
     getSiteSearchDisplayName,
-    isAiSiteSearchProvider,
     attachFaviconData: attachInputModeFaviconData,
     formatMessage,
     modeMenuCursorTooltipController: bookmarkCursorTooltipController,

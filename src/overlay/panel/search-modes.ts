@@ -19,6 +19,8 @@ import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete'
 import type { ActiveLocalScope, SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
+import { isAiSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SearchModesState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -35,8 +37,6 @@ interface SearchModesDeps {
   searchQuery: SearchQuery;
   t: Translate;
   formatMessage: FormatMessage;
-  isAggregateSearchProvider(provider: Partial<SiteSearchProvider> | null): boolean;
-  isAiSiteSearchProvider(provider: Partial<SiteSearchProvider> | null | undefined): boolean;
   getDirectNavigationUrl(rawQuery: string): unknown;
   getUrlDisplay(url: string | undefined): string;
   cancelPendingOverlaySuggestionRequests(): void;
@@ -64,9 +64,7 @@ function createSearchModes(deps: SearchModesDeps) {
     searchAutocomplete,
     searchQuery,
     t,
-    isAggregateSearchProvider,
     formatMessage,
-    isAiSiteSearchProvider,
     getDirectNavigationUrl,
     getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,

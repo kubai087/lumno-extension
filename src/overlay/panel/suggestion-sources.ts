@@ -36,6 +36,7 @@ import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -76,7 +77,6 @@ interface SuggestionSourcesDeps {
   getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[] | null): { provider: SiteSearchProvider; query: string } | null;
   buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string;
   getSiteSearchActionTitle(provider: SiteSearchProvider | null, query: string): string;
-  isAggregateSearchProvider(provider: Partial<SiteSearchProvider> | null): boolean;
   getMatchedOpenTabIdForSuggestion(suggestion: { url?: string } | null): number | null;
   filterOverlayBlacklistedSuggestions(list: OverlaySuggestion[] | null): OverlaySuggestion[];
   getKeywordSearchSuggestionState(list: OverlaySuggestion[]): {
@@ -147,7 +147,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     getInlineSiteSearchCandidate,
     buildSearchUrl,
     getSiteSearchActionTitle,
-    isAggregateSearchProvider,
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions,
     getKeywordSearchSuggestionState,

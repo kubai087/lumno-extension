@@ -6,7 +6,6 @@ import type { Disposition } from '../../domain/navigation-disposition';
 import * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
-import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type {
   FaviconCandidates,
@@ -38,6 +37,7 @@ import type { DefaultSearchEngine } from '../../shared/search-panel/default-engi
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -121,7 +121,6 @@ interface SuggestionsRenderDeps {
   applyMarkVariables: ViewOption<'applyMarkVariables'>;
   copySearchResultUrl: ViewOption<'onCopyUrl'>;
   getSiteSearchDisplayName: ViewOption<'getSiteSearchDisplayName'>;
-  isAiSiteSearchProvider: ViewOption<'isAiSiteSearchProvider'>;
   searchEngine: DefaultSearchEngine;
   getBrandAccentForUrl: ViewOption<'getBrandAccentForUrl'>;
   buildTheme(accent: unknown): ThemeValue;
@@ -129,7 +128,6 @@ interface SuggestionsRenderDeps {
   pauseOverlayAntiTranslateObserverForMutationBurst(): void;
   setOpenTabsResultsViewport(active: boolean, itemCount?: number): void;
   setOverlayResultsCollapsed(collapsed: boolean, options?: { deferLayoutSync?: boolean } | null): void;
-  isAggregateSearchProvider(provider: Partial<SiteSearchProvider> | null): boolean;
   filterTabsForOverlay(tabs: OverlayTab[], query: string): OverlayTab[];
   shouldShowOpenTabsForEmptyQuery(): boolean;
   clearDefaultOpenTabsSuggestions(): void;
@@ -193,7 +191,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     applyMarkVariables,
     copySearchResultUrl,
     getSiteSearchDisplayName,
-    isAiSiteSearchProvider,
     searchEngine,
     getBrandAccentForUrl,
     buildTheme,
@@ -201,7 +198,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     pauseOverlayAntiTranslateObserverForMutationBurst,
     setOpenTabsResultsViewport,
     setOverlayResultsCollapsed,
-    isAggregateSearchProvider,
     filterTabsForOverlay,
     shouldShowOpenTabsForEmptyQuery,
     clearDefaultOpenTabsSuggestions
@@ -580,7 +576,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       getHelpPassageHost: () => overlayState.overlayStyleRoot || document.body,
       getSearchActionLabel: () => t('action_search', '搜索'),
       getSiteSearchDisplayName,
-      isAiSiteSearchProvider,
       getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
       getBrandAccentForUrl,
       buildThemeFromAccent: (accent) => buildTheme(accent),

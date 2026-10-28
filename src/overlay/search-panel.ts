@@ -82,6 +82,7 @@ import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 import type { InputModeProvider } from '../shared/search/input-mode/types';
 import type { OverlaySuggestion } from './panel/types';
+import { isAggregateSearchProvider } from '../domain/search/aggregate-search-store';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -367,7 +368,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getInlineSiteSearchCandidate: (...args) => getInlineSiteSearchCandidate(...args),
     buildSearchUrl: (...args) => buildSearchUrl(...args),
     getSiteSearchActionTitle: (...args) => getSiteSearchActionTitle(...args),
-    isAggregateSearchProvider: (...args) => isAggregateSearchProvider(...args),
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions: (...args) => filterOverlayBlacklistedSuggestions(...args),
     getKeywordSearchSuggestionState: (...args) => getKeywordSearchSuggestionState(...args),
@@ -464,7 +464,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyMarkVariables: (...args) => applyMarkVariables(...args),
     copySearchResultUrl: (...args) => copySearchResultUrl(...args),
     getSiteSearchDisplayName: (...args) => getSiteSearchDisplayName(...args),
-    isAiSiteSearchProvider: (...args) => isAiSiteSearchProvider(...args),
     searchEngine,
     getBrandAccentForUrl: (...args) => getBrandAccentForUrl(...args),
     buildTheme,
@@ -472,7 +471,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     pauseOverlayAntiTranslateObserverForMutationBurst: (...args) => pauseOverlayAntiTranslateObserverForMutationBurst(...args),
     setOpenTabsResultsViewport: (...args) => setOpenTabsResultsViewport(...args),
     setOverlayResultsCollapsed: (...args) => setOverlayResultsCollapsed(...args),
-    isAggregateSearchProvider: (...args) => isAggregateSearchProvider(...args),
     filterTabsForOverlay,
     shouldShowOpenTabsForEmptyQuery: (...args) => shouldShowOpenTabsForEmptyQuery(...args),
     clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args),
@@ -533,7 +531,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getSearchResultDisposition: (...args) => getSearchResultDisposition(...args),
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     updateSearchSuggestions,
-    isAggregateSearchProvider: (...args) => isAggregateSearchProvider(...args),
     resolveQuickNavigation,
     overlayState
   });
@@ -602,9 +599,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchAutocomplete,
     searchQuery,
     t: (...args) => t(...args),
-    isAggregateSearchProvider: (...args) => isAggregateSearchProvider(...args),
     formatMessage: (...args) => formatMessage(...args),
-    isAiSiteSearchProvider: (...args) => isAiSiteSearchProvider(...args),
     getDirectNavigationUrl,
     getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,
@@ -623,9 +618,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   const {
     buildSearchUrl,
-    isAiSiteSearchProvider,
-    isSearchEngineSiteSearchProvider,
-    isAggregateSearchProvider,
     openSiteSearchProviderQuery,
     recordSearchSuggestionSelectionFromSuggestion,
     getProviderIcon,
@@ -634,7 +626,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   } = PANEL_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
     favicons: faviconRuntime,
     getHelpCenterLocale,
-    AGGREGATE_SEARCH_STORE,
     showOverlayToast: (...args) => showOverlayToast(...args),
     t: (...args) => t(...args),
     getSearchResultDisposition: (...args) => getSearchResultDisposition(...args),
@@ -658,9 +649,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchEngine,
     AGGREGATE_SEARCH_STORE,
     t: (...args) => t(...args),
-    isAggregateSearchProvider,
-    isSearchEngineSiteSearchProvider,
-    isAiSiteSearchProvider,
     getSiteSearchDisplayName,
     getPageRenderableProviderIcon,
     getLocalSearchScopeLabel,
@@ -1378,7 +1366,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getThemeForProvider,
     getSiteSearchPrefixText,
     getSiteSearchDisplayName,
-    isAiSiteSearchProvider,
     attachFaviconData: attachInputModeFaviconData,
     formatMessage,
     modeMenuDoubleTabDuration: OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS,

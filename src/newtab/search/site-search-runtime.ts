@@ -19,6 +19,7 @@ import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/ca
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SiteSearchRuntimeState extends FocusResumeState {
   // Carries the search across the reload the search shortcut makes.
@@ -31,7 +32,6 @@ interface SiteSearchRuntimeDeps {
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
-  isAggregateSearchProvider: SiteSearchProviders['isAggregateSearchProvider'];
   createAggregateSearchScopeProvider: SiteSearchProviders['createAggregateSearchScopeProvider'];
   activateSiteSearch: SearchModes['activateSiteSearch'];
   activateLocalSearchScope: SearchModes['activateLocalSearchScope'];
@@ -52,7 +52,6 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
     searchMode,
     searchQuery,
     siteSearchCatalog,
-    isAggregateSearchProvider,
     createAggregateSearchScopeProvider,
     activateSiteSearch,
     activateLocalSearchScope,

@@ -3,7 +3,6 @@
 // selection. The lists themselves are the catalog's.
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
 import type { Disposition } from '../../domain/navigation-disposition';
-import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
 import * as AGGREGATE_SEARCH_SURFACE from '../../domain/search/aggregate-search-surface';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
@@ -17,10 +16,11 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 import type { OverlayFaviconRuntime } from '../favicon-view';
+import { isInteractiveSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SiteSearchProvidersDeps {
   favicons: Pick<OverlayFaviconRuntime, 'requestFaviconData'>;
-  AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore, 'isAggregateSearchProvider'>;
   getHelpCenterLocale(): string;
   showOverlayToast(message: string, isError?: boolean): void;
   t: Translate;
@@ -37,7 +37,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
     favicons,
     getHelpCenterLocale,
-    AGGREGATE_SEARCH_STORE,
     showOverlayToast,
     t,
     getSearchResultDisposition,
@@ -59,21 +58,9 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     return provider ? SearchSiteSearchProviders.withHelpCenterLocale(url, provider, getHelpCenterLocale()) : url;
   }
 
-  function isAiSiteSearchProvider(provider: Partial<SiteSearchProvider> | null | undefined): boolean {
-    return SearchSiteSearchProviders.isAiSiteSearchProvider(provider);
-  }
 
-  function isSearchEngineSiteSearchProvider(provider: Partial<SiteSearchProvider> | null | undefined): boolean {
-    return SearchSiteSearchProviders.isSearchEngineSiteSearchProvider(provider);
-  }
 
-  function isAggregateSearchProvider(provider: Partial<SiteSearchProvider> | null): boolean {
-    return AGGREGATE_SEARCH_STORE.isAggregateSearchProvider(provider);
-  }
 
-  function isInteractiveSiteSearchProvider(provider: SiteSearchProvider): boolean {
-    return SearchSiteSearchProviders.isInteractiveSiteSearchProvider(provider);
-  }
 
   function getAggregateSearchRequestController(): ReturnType<typeof AGGREGATE_SEARCH_SURFACE.createAggregateSearchRequestController> {
     if (aggregateSearchRequestController) {
@@ -199,9 +186,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
 
   return {
     buildSearchUrl,
-    isAiSiteSearchProvider,
-    isSearchEngineSiteSearchProvider,
-    isAggregateSearchProvider,
     openSiteSearchProviderQuery,
     recordSearchSuggestionSelectionFromSuggestion,
     getProviderIcon,

@@ -95,7 +95,6 @@ interface SearchBoxDeps {
   bindCursorTooltip: ViewOption<'bindCursorTooltip'>;
   getSearchActionLabel: ViewOption<'getSearchActionLabel'>;
   getSiteSearchDisplayName: ViewOption<'getSiteSearchDisplayName'>;
-  isAiSiteSearchProvider: ViewOption<'isAiSiteSearchProvider'>;
   getDefaultSearchEngineThemeUrl: ViewOption<'getDefaultSearchEngineThemeUrl'>;
   getBrandAccentForUrl: ViewOption<'getBrandAccentForUrl'>;
   buildThemeFromAccent: ViewOption<'buildThemeFromAccent'>;
@@ -189,7 +188,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     bindCursorTooltip,
     getSearchActionLabel,
     getSiteSearchDisplayName,
-    isAiSiteSearchProvider,
     getDefaultSearchEngineThemeUrl,
     getBrandAccentForUrl,
     buildThemeFromAccent,
@@ -326,7 +324,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     bindCursorTooltip,
     getSearchActionLabel,
     getSiteSearchDisplayName,
-    isAiSiteSearchProvider,
     getDefaultSearchEngineThemeUrl,
     getBrandAccentForUrl,
     buildThemeFromAccent,

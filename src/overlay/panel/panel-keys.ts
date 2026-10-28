@@ -26,6 +26,7 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -102,7 +103,6 @@ interface PanelKeysDeps {
   isSlashCommandInput(input: string): boolean;
   // Called with no rows: the list rebuilds from the typed command.
   updateSearchSuggestions(rows: never[], query: string): void;
-  isAggregateSearchProvider(provider: Partial<SiteSearchProvider> | null): boolean;
   // The address a query leads straight to, or '' to search it.
   resolveQuickNavigation(query: string): Promise<string>;
   overlayState: PanelKeysState;
@@ -159,7 +159,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     getSearchResultDisposition,
     isSlashCommandInput,
     updateSearchSuggestions,
-    isAggregateSearchProvider,
     resolveQuickNavigation
   } = deps;
 

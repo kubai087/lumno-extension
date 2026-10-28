@@ -26,6 +26,8 @@ import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-c
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
+import { isAiSiteSearchProvider, isInteractiveSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SiteSearchProvidersDeps {
   settings: Pick<SettingsStore, 'get'>;
@@ -73,21 +75,9 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
       : url;
   }
 
-  function isAiSiteSearchProvider(provider: Partial<SiteSearchProvider> | null | undefined): boolean {
-    return SearchSiteSearchProviders.isAiSiteSearchProvider(provider);
-  }
 
-  function isSearchEngineSiteSearchProvider(provider: SiteSearchProvider | null | undefined): boolean {
-    return SearchSiteSearchProviders.isSearchEngineSiteSearchProvider(provider);
-  }
 
-  function isAggregateSearchProvider(provider: SiteSearchProvider | null | undefined): boolean {
-    return AGGREGATE_SEARCH_STORE.isAggregateSearchProvider(provider);
-  }
 
-  function isInteractiveSiteSearchProvider(provider: SiteSearchProvider | null | undefined): boolean {
-    return SearchSiteSearchProviders.isInteractiveSiteSearchProvider(provider);
-  }
 
   function getAggregateSearchRequestController(): ReturnType<typeof AggregateSearchSurface.createAggregateSearchRequestController> {
     if (aggregateSearchRequestController) {
@@ -345,9 +335,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
 
   return {
     buildSearchUrl,
-    isAiSiteSearchProvider,
-    isSearchEngineSiteSearchProvider,
-    isAggregateSearchProvider,
     runSiteSearchProviderQuery,
     getProviderFaviconPageUrl,
     getProviderIcon,

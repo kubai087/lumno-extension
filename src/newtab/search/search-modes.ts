@@ -24,6 +24,8 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
+import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -53,9 +55,6 @@ interface SearchModesDeps {
   searchEngine: DefaultSearchEngine;
   t: Translate;
   createAggregateSearchScopeProvider: SiteSearchProviders['createAggregateSearchScopeProvider'];
-  isAggregateSearchProvider: SiteSearchProviders['isAggregateSearchProvider'];
-  isSearchEngineSiteSearchProvider: SiteSearchProviders['isSearchEngineSiteSearchProvider'];
-  isAiSiteSearchProvider: SiteSearchProviders['isAiSiteSearchProvider'];
   getSiteSearchDisplayName: SiteSearchProviders['getSiteSearchDisplayName'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   getLocalSearchScopeLabel: SiteSearchProviders['getLocalSearchScopeLabel'];
@@ -95,9 +94,6 @@ function createSearchModes(deps: SearchModesDeps) {
     searchEngine,
     t,
     createAggregateSearchScopeProvider,
-    isAggregateSearchProvider,
-    isSearchEngineSiteSearchProvider,
-    isAiSiteSearchProvider,
     getSiteSearchDisplayName,
     getProviderIcon,
     getLocalSearchScopeLabel,
