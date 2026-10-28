@@ -224,7 +224,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     providerStorageRuntime,
     startupStorageReadBatch,
     storageArea,
-    isPrimaryStorageAreaName,
     migrateLocalSettingsIfNeeded
   } = NEWTAB_STARTUP_STORAGE.createStartupStorage();
 
@@ -1042,13 +1041,12 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   pageState.quoteRuntime = LumnoNewtabQuotes.createRuntime({
-    documentObj: document, windowObj: window, chromeObj: chrome,
-    storageArea, localStorageArea, t, showToast,
+    documentObj: document, windowObj: window,
+    settings, localStorageArea, t, showToast,
     getLocale: () => locale.store.getSnapshot().locale,
     getSearchRoot: () => root,
     getShortcutSection: () => pageState.shortcutSection,
     getTooltipController: () => topActionTooltipController,
-    isPreferenceArea: isPrimaryStorageAreaName,
     onLayout: () => window.requestAnimationFrame(() => {
       updateBookmarkSectionPosition();
       scheduleWallpaperAdaptiveToneUpdate();

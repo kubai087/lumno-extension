@@ -5,6 +5,7 @@ const { JSDOM } = require('jsdom');
 const settings = require('../../src/domain/settings/index.ts');
 const quotes = require('../../src/newtab/top-content/quotes.ts');
 const quoteSettings = require('../../src/domain/settings/newtab-quote.ts');
+const { createMemorySettings } = require('../helpers/memory-settings');
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 // Stands in for the React line view: keeps the last model it was handed and
@@ -37,7 +38,10 @@ const settle = { dragging: false, final: true };
 async function main() {
   const dom = new JSDOM('<body><div id="search"></div><div id="shortcuts"></div><div id="recent"></div></body>', { url: 'https://lumno.test/' });
   const document = dom.window.document;
-  let prefs = { position: 'off', category: 'literature' };
+  const memory = createMemorySettings({
+    sync: { [settings.newtabQuotePrefs.key]: { position: 'off', category: 'literature' } }
+  });
+  const savedPrefs = () => memory.store.getStored(settings.newtabQuotePrefs);
   let requests = 0;
   let resolveQuote;
   let messages = {};
@@ -53,10 +57,7 @@ async function main() {
     getShortcutSection: () => document.querySelector('#shortcuts'),
     getTooltipController: () => tooltipController,
     lineView: line.api,
-    storageArea: {
-      get(_keys, callback) { callback({ [settings.newtabQuotePrefs.key]: prefs }); },
-      set(value, callback) { prefs = value[settings.newtabQuotePrefs.key]; callback(); }
-    },
+    settings: memory.store,
     client: { getQuote: () => { requests += 1; return new Promise((resolve) => { resolveQuote = resolve; }); } }
   });
   const panel = createSettingsView();
@@ -74,7 +75,7 @@ async function main() {
   assert.equal(section().enabled, false);
   assert.equal(section().fontSize.value, 15, 'Older saved preferences should use the default font size');
   act().setEnabled(true);
-  assert.equal(prefs.enabled, true);
+  assert.equal(savedPrefs().enabled, true);
   await tick();
   resolveQuote({ text: '<img src=x onerror=alert(1)>', source: 'book', author: 'author', url: 'javascript:alert(1)' });
   await tick();
@@ -94,11 +95,11 @@ async function main() {
   act().setFontSize(20, drag);
   assert.equal(runtime.element.style.getPropertyValue('--x-nt-quote-font-size'), '20px');
   assert.equal(section().fontSize.value, 20);
-  assert.equal(prefs.fontSize, 15, 'Dragging should preview before writing preferences');
+  assert.equal(savedPrefs().fontSize, 15, 'Dragging should preview before writing preferences');
   act().setFontSize(20, settle);
-  assert.equal(prefs.fontSize, 20, 'Completing the drag should save the chosen font size');
+  assert.equal(savedPrefs().fontSize, 20, 'Completing the drag should save the chosen font size');
   act().setFontSize(30, settle);
-  assert.equal(prefs.fontSize, 24, 'A typed value is saved within the supported size range');
+  assert.equal(savedPrefs().fontSize, 24, 'A typed value is saved within the supported size range');
   assert.equal(section().fontSize.value, 24);
   assert.equal(requests, 1, 'Adjusting font size should reuse the current daily quote');
   const fontSelect = () => section().fontSelect;
@@ -106,7 +107,7 @@ async function main() {
   assert.equal(fontSelect().value, 'wenkai', 'Older saved preferences keep WenKai');
   assert(runtime.element.style.getPropertyValue('--x-nt-quote-font-family').startsWith('"LXGW WenKai"'));
   fontSelect().onChange('xiaowei');
-  assert.equal(prefs.font, 'xiaowei');
+  assert.equal(savedPrefs().font, 'xiaowei');
   assert.equal(fontSelect().value, 'xiaowei');
   assert(runtime.element.style.getPropertyValue('--x-nt-quote-font-family').startsWith('"Lumno Quote XiaoWei"'));
   fontSelect().onChange('sans');
@@ -162,7 +163,7 @@ async function main() {
   assert.equal(bodyOpen(), false);
   assert.equal(section().enabled, false);
   assert.equal(document.body.dataset.quotePosition, 'off');
-  assert.deepEqual(prefs, { enabled: false, position: 'bottom', category: 'poetry', fontSize: 24, provider: 'hitokoto', font: 'sans' },
+  assert.deepEqual(savedPrefs(), { enabled: false, position: 'bottom', category: 'poetry', fontSize: 24, provider: 'hitokoto', font: 'sans' },
     'The switch must preserve category, position, font and font size');
   act().setEnabled(true);
   await tick();
@@ -183,10 +184,9 @@ async function main() {
     getSearchRoot: () => document.querySelector('#search'),
     getShortcutSection: () => document.querySelector('#shortcuts'),
     lineView: createLineView().api,
-    storageArea: {
-      get(_keys, callback) { callback({ [settings.newtabQuotePrefs.key]: { enabled: true, position: 'bottom' } }); },
-      set(_value, callback) { callback(); }
-    },
+    settings: createMemorySettings({
+      sync: { [settings.newtabQuotePrefs.key]: { enabled: true, position: 'bottom' } }
+    }).store,
     client: { getQuote: () => { localeRequests += 1; return Promise.resolve({ text: '海上生明月', author: '', source: '', url: '' }); } }
   });
   const localePanel = createSettingsView();
@@ -215,33 +215,24 @@ async function main() {
   localeRuntime.destroy();
 
   // Mounting waits for the cached quote so the page reveals with it in place, never for the network.
-  let cacheCallback = null;
-  let storageListener = null;
+  const cachedMemory = createMemorySettings({
+    sync: { [settings.newtabQuotePrefs.key]: { enabled: true, position: 'top' } },
+    local: { [quoteSettings.quoteCache.key]: { literature: { quote: { text: '缓存', author: '', source: '', url: '' } } } }
+  });
   const cachedRuntime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
     t: (_key, fallback) => fallback,
-    chromeObj: { storage: { onChanged: { addListener(fn) { storageListener = fn; }, removeListener() {} } } },
     getSearchRoot: () => document.querySelector('#search'),
     lineView: createLineView().api,
-    storageArea: {
-      get(_keys, callback) { callback({ [settings.newtabQuotePrefs.key]: { enabled: true, position: 'top' } }); },
-      set(_value, callback) { callback(); }
-    },
-    localStorageArea: { get(_keys, callback) { cacheCallback = callback; } },
+    settings: cachedMemory.store,
     client: { getQuote: () => new Promise(() => {}) }
   });
-  let mounted = false;
-  const mountTask = cachedRuntime.mount().then(() => { mounted = true; });
-  await tick();
-  assert.equal(mounted, false, 'Mount must wait for the cached quote read');
-  cacheCallback({ [quoteSettings.quoteCache.key]: { literature: { quote: { text: '缓存', author: '', source: '', url: '' } } } });
-  await mountTask;
+  await cachedRuntime.mount();
   assert.equal(cachedRuntime.element.hidden, false, 'The cached quote is painted before mount settles');
   assert.equal(cachedRuntime.element.nextElementSibling.id, 'search');
   const parent = cachedRuntime.element.parentNode;
   const observer = new dom.window.MutationObserver(() => {});
   observer.observe(parent, { childList: true });
-  storageListener({ [settings.newtabQuotePrefs.key]: {
-    newValue: { enabled: true, position: 'top', fontSize: 18 } } }, 'sync');
+  cachedMemory.receive('sync', settings.newtabQuotePrefs.key, { enabled: true, position: 'top', fontSize: 18 });
   assert.equal(cachedRuntime.element.style.getPropertyValue('--x-nt-quote-font-size'), '18px');
   assert.equal(observer.takeRecords().length, 0, 'Re-rendering in place must not re-insert the quote');
   observer.disconnect();
@@ -256,10 +247,9 @@ async function main() {
     t: (_key, fallback) => fallback, showToast: (message, isError) => toasts.push([message, isError]),
     getSearchRoot: () => document.querySelector('#search'),
     lineView: shuffleLine.api,
-    storageArea: {
-      get(_keys, callback) { callback({ [settings.newtabQuotePrefs.key]: { enabled: true, position: 'input', category: 'poetry' } }); },
-      set(_value, callback) { callback(); }
-    },
+    settings: createMemorySettings({
+      sync: { [settings.newtabQuotePrefs.key]: { enabled: true, position: 'input', category: 'poetry' } }
+    }).store,
     client: { getQuote: (category, options) => {
       rerollCalls.push([category, Boolean(options && options.reroll)]);
       if (!options || !options.reroll) return Promise.resolve({ text: '今日', author: '', source: '', url: '' });

@@ -1,3 +1,4 @@
+const { createMemorySettings } = require('../helpers/memory-settings');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const custom = require('../../src/domain/custom-quotes.ts');
@@ -35,16 +36,11 @@ async function main() {
 
   const dom = new JSDOM('<body><div id="search"></div><div id="shortcuts"></div></body>', { url: 'https://test.invalid/' });
   const document = dom.window.document;
-  let prefs = { enabled: true, position: 'search', provider: 'custom' };
-  let local = {}; let networkCalls = 0; let failSave = false;
-  const chromeObj = { runtime: { lastError: null } };
-  const localArea = {
-    get(_keys, callback) { callback({ ...local }); },
-    set(values, callback) {
-      if (failSave) chromeObj.runtime.lastError = { message: 'storage error' }; else Object.assign(local, values);
-      callback(); chromeObj.runtime.lastError = null;
-    }
-  };
+  const memory = createMemorySettings({
+    sync: { [settings.newtabQuotePrefs.key]: { enabled: true, position: 'search', provider: 'custom' } }
+  });
+  const local = memory.data.local;
+  let networkCalls = 0;
   // Stand in for the React line view and the appearance panel: each keeps the last model.
   let line = null;
   const lineView = { createQuoteLineView(_host, handlers) {
@@ -53,10 +49,9 @@ async function main() {
   } };
   let panelModel = null;
   const makeRuntime = () => quotesApi.createRuntime({ documentObj: document, windowObj: dom.window, lineView,
-    t: (key, fallback) => locale[key]?.message || fallback, getLocale: () => 'en', chromeObj,
+    t: (key, fallback) => locale[key]?.message || fallback, getLocale: () => 'en',
     getSearchRoot: () => document.querySelector('#search'), getShortcutSection: () => document.querySelector('#shortcuts'),
-    localStorageArea: localArea, storageArea: { get(_keys, callback) { callback({ [settings.newtabQuotePrefs.key]: prefs }); },
-      set(values, callback) { prefs = values[settings.newtabQuotePrefs.key]; callback(); } },
+    settings: memory.store,
     client: { getQuote() { networkCalls++; return Promise.resolve({ text: 'Remote', author: '', source: '', url: 'https://hitokoto.cn/' }); } }
   });
   const runtime = makeRuntime(); await runtime.mount(); await tick();
@@ -78,7 +73,7 @@ async function main() {
   assert.equal(JSON.stringify(local[custom.KEY]), before);
   assert.equal(await runtime.importQuoteFile({ ...file, name: 'wrong.pdf' }), false);
   assert.match(status().text, /format or size limits/);
-  failSave = true; assert.equal(await runtime.importMarkdown(file), false); failSave = false;
+  memory.state.failWrites = true; assert.equal(await runtime.importMarkdown(file), false); memory.state.failWrites = false;
   assert.equal(JSON.stringify(local[custom.KEY]), before, 'Failed save preserves the previous collection');
   assert.match(status().text, /save on this device.*previous collection is kept/);
   assert.doesNotMatch(status().text, /format or size limits/);

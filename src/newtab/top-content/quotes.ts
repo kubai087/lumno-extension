@@ -2,7 +2,8 @@
 // panel, and the custom collection it can read from.
 import * as LumnoSettings from '../../domain/settings';
 import type { NewtabQuotePosition, NewtabQuotePrefs } from '../../domain/settings';
-import type { StorageAreaLike, StorageChangeEventLike, StorageChanges, StorageItems } from '../../domain/storage-port';
+import type { StorageAreaLike, StorageItems } from '../../domain/storage-port';
+import type { SettingsStore } from '../../platform/settings-store';
 import type { TooltipController } from '../../shared/ui/tooltip';
 import type { ShowToast, Translate } from '../newtab-types';
 import type { WallpaperViewController } from '../react/wallpaper-view';
@@ -20,12 +21,6 @@ import * as NewtabQuoteSettings from '../../domain/settings/newtab-quote';
 
 type QuoteStorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
-// The extension API parts the runtime reads.
-interface QuoteChromeApi {
-  runtime?: { lastError?: { message?: string } | null };
-  storage?: { onChanged?: StorageChangeEventLike };
-}
-
 type QuoteTooltip = Pick<TooltipController, 'show' | 'hide'>;
 
 // The panel view, which draws the quote section.
@@ -39,10 +34,9 @@ interface QuoteLineViewApi {
 interface QuoteRuntimeOptions {
   documentObj?: Document;
   windowObj?: Window & typeof globalThis;
-  chromeObj?: QuoteChromeApi | null;
-  // Where the quote preferences are saved.
-  storageArea?: QuoteStorageArea | null;
-  // This device's storage: the quote cache and the custom collection.
+  // The quote preferences, this device's collection and the cached quote.
+  settings: Pick<SettingsStore, 'getStored' | 'include' | 'set' | 'setMany' | 'subscribe'>;
+  // This device's storage, where the remote client caches what it fetched.
   localStorageArea?: QuoteStorageArea | null;
   t: Translate;
   showToast?: ShowToast;
@@ -50,8 +44,6 @@ interface QuoteRuntimeOptions {
   getSearchRoot(): HTMLElement;
   getShortcutSection?: () => HTMLElement | null | undefined;
   getTooltipController?: () => QuoteTooltip | null | undefined;
-  // Whether a storage area name is the one the preferences are saved in.
-  isPreferenceArea?: (areaName: string) => boolean;
   onLayout?: () => void;
   client?: Pick<RemoteContentClient, 'getQuote'>;
   // The line's view; the New Tab's React islands one by default.
@@ -64,7 +56,6 @@ function createRuntime(options: QuoteRuntimeOptions) {
   const window = config.windowObj || globalThis.window;
   const settings = LumnoSettings;
   const custom = LumnoCustomQuotes;
-  const key = settings.newtabQuotePrefs.key;
   const t = config.t;
   // Hitokoto only serves Chinese text, so the quote exists for Chinese UI languages only.
   const isLocaleSupported = () => !config.getLocale || /^zh_(CN|TW)$/.test(config.getLocale() || '');
@@ -91,7 +82,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
   let settingsExpanded = true;
   let mounted = false;
   let dayTimer: number | undefined;
-  let unsubscribe: (() => void) | undefined;
+  let unsubscribes: Array<() => void> = [];
   let disposed = false;
   let draftFontSize: number | null = null;
   let shuffling = false;
@@ -104,7 +95,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
   let cachedQuoteRead: Promise<unknown> = Promise.resolve();
   let localeSupported = isLocaleSupported();
   const isActive = () => prefs.enabled && (prefs.provider === 'custom' || localeSupported);
-  const area = config.storageArea;
+  const store = config.settings;
   function syncBottomHeight(): void {
     const height = !element.hidden && prefs.position === 'bottom'
       ? Math.ceil(element.getBoundingClientRect().height) : 0;
@@ -343,22 +334,13 @@ function createRuntime(options: QuoteRuntimeOptions) {
     }
     const category = prefs.category;
     // Render the last successful response before making a network request.
-    const localArea = config.localStorageArea;
-    if (localArea) {
-      await (cachedQuoteRead = new Promise<void>((resolve) => {
-        void localArea.get([quoteCache.key], (values) => {
-          const cached = LumnoNewtabRemoteContent.readCachedQuoteFor(
-            values && values[quoteCache.key],
-            category
-          );
-          if (current === revision && cached) {
-            quote = cached;
-            render();
-          }
-          resolve();
-        });
-      }));
-    }
+    await (cachedQuoteRead = store.include(quoteCache).then(() => {
+      const cached = LumnoNewtabRemoteContent.readCachedQuoteFor(store.getStored(quoteCache), category);
+      if (current === revision && cached) {
+        quote = cached;
+        render();
+      }
+    }));
     const next = await client.getQuote(category);
     if (current !== revision || disposed || !isActive()) return;
     quote = next;
@@ -400,34 +382,34 @@ function createRuntime(options: QuoteRuntimeOptions) {
   // Saves a preference change; each value is normalized like a stored one.
   function persist(change: Partial<Record<keyof NewtabQuotePrefs, unknown>>): void {
     const next = settings.newtabQuotePrefs.parse({ ...prefs, ...change });
-    if (!area) return;
-    void area.set({ [key]: next }, () => {
-      const error = globalThis.chrome && globalThis.chrome.runtime && globalThis.chrome.runtime.lastError;
-      if (error) {
-        draftFontSize = null;
-        render();
-        if (config.showToast) config.showToast(t('newtab_quote_save_error', 'Failed to save quote settings'), true);
-      } else apply(next);
+    store.set(settings.newtabQuotePrefs, next).then(() => apply(next), () => {
+      draftFontSize = null;
+      render();
+      if (config.showToast) config.showToast(t('newtab_quote_save_error', 'Failed to save quote settings'), true);
     });
   }
-  function handleStorageChange(changes: StorageChanges, areaName: string): void {
-    if (disposed) return;
-    const prefsChange = changes[key];
-    if (prefsChange && (!config.isPreferenceArea || config.isPreferenceArea(areaName))) apply(prefsChange.newValue);
-    const libraryChange = changes[custom.KEY];
-    if (areaName === 'local' && (libraryChange || changes[NewtabQuoteSettings.customQuotePick.key])) {
-      if (libraryChange) library = custom.normalizeLibrary(libraryChange.newValue);
-      renderSettings();
-      if (prefs.provider === 'custom') refresh().catch(() => {});
-    }
-    const cacheChange = changes[quoteCache.key];
-    if (prefs.provider !== 'custom' && areaName === 'local' && cacheChange) {
-      const cached = LumnoNewtabRemoteContent.readCachedQuoteFor(cacheChange.newValue, prefs.category);
-      if (cached) {
-        quote = cached;
-        render();
-      }
-    }
+  // Changes other pages or Settings store: the preferences, this device's
+  // collection and pick, and a quote the remote client cached.
+  function followStoredQuotes(): void {
+    unsubscribes = [
+      store.subscribe(settings.newtabQuotePrefs, () => {
+        if (!disposed) apply(store.getStored(settings.newtabQuotePrefs));
+      }),
+      store.subscribe([NewtabQuoteSettings.customQuotes, NewtabQuoteSettings.customQuotePick], () => {
+        if (disposed) return;
+        library = custom.normalizeLibrary(store.getStored(NewtabQuoteSettings.customQuotes));
+        renderSettings();
+        if (prefs.provider === 'custom') refresh().catch(() => {});
+      }),
+      store.subscribe(quoteCache, () => {
+        if (disposed || prefs.provider === 'custom') return;
+        const cached = LumnoNewtabRemoteContent.readCachedQuoteFor(store.getStored(quoteCache), prefs.category);
+        if (cached) {
+          quote = cached;
+          render();
+        }
+      })
+    ];
   }
   const onVisibility = () => {
     if (document.visibilityState === 'visible' && isActive()) refresh().catch(() => {});
@@ -446,7 +428,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
         const currentLibrary = custom.normalizeLibrary(values[custom.KEY]);
         if (!currentLibrary) return;
         const selected = custom.select(currentLibrary, new Date(), custom.readQuotePick(values[NewtabQuoteSettings.customQuotePick.key]), true);
-        await saveCustomValues({ [NewtabQuoteSettings.customQuotePick.key]: selected.pick });
+        await store.set(NewtabQuoteSettings.customQuotePick, selected.pick);
         next = selected.quote;
       } else next = await client.getQuote(category, { reroll: true });
       if (current !== revision || disposed || !isActive()) return;
@@ -464,28 +446,12 @@ function createRuntime(options: QuoteRuntimeOptions) {
   function getProviderLabel(): string {
     return prefs.provider === 'custom' ? t('newtab_quote_provider_custom', 'Custom collection · on this device, syncs with WebDAV') : t('newtab_quote_provider', 'Powered by Hitokoto');
   }
-  function getLastError(): { message?: string } | null | undefined {
-    return (config.chromeObj || globalThis.chrome)?.runtime?.lastError;
-  }
   function readCustomValues(): Promise<StorageItems> {
-    return new Promise((resolve, reject) => {
-      const localArea = config.localStorageArea;
-      if (!localArea) return resolve({});
-      void localArea.get([custom.KEY, NewtabQuoteSettings.customQuotePick.key], values => {
-        const error = getLastError();
-        if (error) reject(new Error(error.message)); else resolve(values || {});
-      });
-    });
-  }
-  function saveCustomValues(values: StorageItems): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const localArea = config.localStorageArea;
-      if (!localArea) return reject(new Error('Local quote storage unavailable'));
-      void localArea.set(values, () => {
-        const error = getLastError();
-        if (error) reject(new Error(error.message)); else resolve();
-      });
-    });
+    const stored = [NewtabQuoteSettings.customQuotes, NewtabQuoteSettings.customQuotePick];
+    return store.include(stored).then(() => ({
+      [custom.KEY]: store.getStored(NewtabQuoteSettings.customQuotes),
+      [NewtabQuoteSettings.customQuotePick.key]: store.getStored(NewtabQuoteSettings.customQuotePick)
+    }));
   }
   async function importQuoteFile(file: QuoteFile): Promise<boolean> {
     if (importing || disposed) return false;
@@ -494,7 +460,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
     try {
       const next = await custom.readLibraryFile(file);
       saving = true;
-      await saveCustomValues({ [custom.KEY]: next, [NewtabQuoteSettings.customQuotePick.key]: null });
+      await store.setMany([[NewtabQuoteSettings.customQuotes, next], [NewtabQuoteSettings.customQuotePick, null]]);
       saving = false;
       if (disposed) return false;
       library = next;
@@ -522,20 +488,13 @@ function createRuntime(options: QuoteRuntimeOptions) {
     render();
     if (resizeObserver) resizeObserver.observe(element);
     document.addEventListener('visibilitychange', onVisibility);
-    const onChanged = config.chromeObj && config.chromeObj.storage && config.chromeObj.storage.onChanged;
-    if (onChanged) {
-      onChanged.addListener(handleStorageChange);
-      unsubscribe = () => onChanged.removeListener(handleStorageChange);
-    }
+    followStoredQuotes();
     // Resolves after the saved preference and cached quote are rendered, so the page can
     // reveal with the quote already in its slot instead of shifting the layout afterwards.
-    return new Promise((resolve, reject) => {
-      if (!area) return resolve();
-      void area.get([key], (values) => {
-        if (!disposed) apply(values && values[key]);
-        cachedQuoteRead.then(() => resolve(), reject);
-      });
-    });
+    return store.include(settings.newtabQuotePrefs).then(() => {
+      if (!disposed) apply(store.getStored(settings.newtabQuotePrefs));
+      return cachedQuoteRead;
+    }).then(() => undefined);
   }
   return Object.freeze({ element, mount, bindSettings, updateLanguage, getProviderLabel,
     getTextElement: () => (lineView ? lineView.getTextElement() : null),
@@ -546,7 +505,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
       revision += 1;
       window.clearTimeout(dayTimer);
       if (resizeObserver) resizeObserver.disconnect();
-      if (unsubscribe) unsubscribe();
+      unsubscribes.forEach((stop) => stop());
       document.removeEventListener('visibilitychange', onVisibility);
       hideTooltip();
       if (lineView) lineView.destroy();
