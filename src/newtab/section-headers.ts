@@ -1,6 +1,5 @@
 // Headings, mode menus, pager labels and breadcrumbs for the bookmark and
 // recent-site sections.
-import type { StorageAreaLike } from '../domain/storage-port';
 import type { SelectMenuOption } from '../shared/react/select-menu/menu-options';
 import type { BookmarkCascadeActions } from './bookmarks/bookmark-cascade-actions';
 import type { BookmarkCascadeRuntime } from './bookmarks/bookmark-cascade-menu';
@@ -15,6 +14,9 @@ import type { TooltipBindings } from './tooltip-bindings';
 import type { ViewportInsets } from './viewport-insets';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
+import type { SettingPreview } from './setting-preview';
+import { recentMode } from '../domain/settings/recent-sites';
+import { bookmarkCount } from '../domain/settings/bookmarks';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
@@ -37,7 +39,6 @@ interface BookmarkViewModeResult {
 
 interface SectionHeadersState {
   recentModeMenu: { update(): void } | null;
-  currentRecentMode: string;
   bookmarkGrid: HTMLElement | null;
   bookmarkCascadeRuntime: Pick<BookmarkCascadeRuntime, 'positionLevels' | 'isOpen'> | null;
   bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'activate' | 'deactivate' | 'setVisible' | 'isActive'> | null;
@@ -51,23 +52,19 @@ interface SectionHeadersState {
   bookmarkCurrentPage: number;
   bookmarkRenderSignature: string;
   bookmarkLoadedOnce: boolean;
-  currentBookmarkCount: number;
 }
 
 interface SectionHeadersDeps extends
-  Pick<PageLayout, 'normalizeRecentMode' | 'updateSearchEntryLayout' | 'setContentSectionVisible'>,
+  Pick<PageLayout, 'updateSearchEntryLayout' | 'setContentSectionVisible'>,
   Pick<BookmarkDisplaySettings, 'normalizeBookmarkViewMode' | 'persistBookmarkViewMode'>,
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu'>,
   Pick<TooltipBindings, 'showTopActionTooltip' | 'hideTopActionTooltip'>,
   Pick<ViewportInsets, 'getNewtabVisualViewportInsets'> {
-  settings: Pick<SettingsStore, 'get'>;
+  preview: Pick<SettingPreview, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'set'>;
   t: Translate;
-  markRecentDataDirty: SectionLoaders['markRecentDataDirty'];
-  loadRecentSites: SectionLoaders['loadRecentSites'];
   markBookmarkDataDirty: SectionLoaders['markBookmarkDataDirty'];
   loadBookmarks: SectionLoaders['loadBookmarks'];
-  storageArea: StorageAreaLike | null;
-  RECENT_MODE_STORAGE_KEY: string;
   BOOKMARK_TOPBAR_HEIGHT_PX: number;
   bookmarkSection: HTMLElement | null;
   bookmarkCards: readonly HTMLElement[];
@@ -81,13 +78,9 @@ interface SectionHeadersDeps extends
 
 function createSectionHeaders(deps: SectionHeadersDeps) {
   const {
+    preview,
     settings,
     t,
-    normalizeRecentMode,
-    storageArea,
-    RECENT_MODE_STORAGE_KEY,
-    markRecentDataDirty,
-    loadRecentSites,
     getNewtabVisualViewportInsets,
     BOOKMARK_TOPBAR_HEIGHT_PX,
     updateSearchEntryLayout,
@@ -122,19 +115,10 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     }
   }
 
+  // The follow in startup-preferences loads the recent sites again.
   function setRecentMode(nextMode: unknown): void {
-    const mode = normalizeRecentMode(nextMode, 'latest');
-    if (pageState.currentRecentMode === mode) {
-      updateRecentModeMenu();
-      return;
-    }
-    pageState.currentRecentMode = mode;
+    void settings.set(recentMode, recentMode.parse(nextMode)).catch(() => {});
     updateRecentModeMenu();
-    if (storageArea) {
-      void storageArea.set({ [RECENT_MODE_STORAGE_KEY]: mode });
-    }
-    markRecentDataDirty();
-    void loadRecentSites({ force: true });
   }
 
   function canDismissRecentCard(): boolean {
@@ -206,12 +190,12 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     if (topbar && isBookmarkTopbarMode()) {
       topbar.activate();
       setContentSectionVisible(bookmarkSection, false);
-      topbar.setVisible(bookmarkCards.length > 0 && pageState.currentBookmarkCount > 0);
+      topbar.setVisible(bookmarkCards.length > 0 && preview.get(bookmarkCount) > 0);
     } else if (topbar) {
       topbar.deactivate();
       setContentSectionVisible(
         bookmarkSection,
-        bookmarkCards.length > 0 && pageState.currentBookmarkCount > 0
+        bookmarkCards.length > 0 && preview.get(bookmarkCount) > 0
       );
     }
     updateBookmarkHeader();

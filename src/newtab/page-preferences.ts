@@ -6,7 +6,6 @@ import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import * as SettingsStorage from '../platform/settings-storage';
 import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
-import type { Setting } from '../domain/settings/define';
 import type { SettingPreview } from './setting-preview';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 
@@ -14,13 +13,12 @@ import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagn
 type PersistOptions = { persist?: boolean } | null | undefined;
 
 interface PagePreferencesState {
-  currentBookmarkCount: number;
   wallpaperRuntime: Pick<WallpaperRuntime, 'updateInputAutoFocusUi' | 'updateShortcutsUi'> | null;
 }
 
 interface PagePreferencesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
-  preview: Pick<SettingPreview, 'show'>;
+  preview: Pick<SettingPreview, 'get' | 'set'>;
   getBookmarkGridColumnCount: PageLayout['getBookmarkGridColumnCount'];
   SETTINGS: Pick<typeof LumnoSettings,
     'inferNewtabShortcutColumnsFromWidth' | 'bookmarkColumns' | 'bookmarkCount' |
@@ -125,47 +123,34 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     }
   }
 
-
   function updateNewtabShortcutPreferencesUi(): void {
     if (pageState.wallpaperRuntime) {
       pageState.wallpaperRuntime.updateShortcutsUi();
     }
   }
 
-  // The appearance panel's grid controls: a saved change goes to the
-  // settings, a dragged one only shows until it is saved.
-  function setShortcutGridSetting<T>(setting: Setting<T>, value: unknown, options?: PersistOptions): T {
-    const nextValue = setting.parse(value);
-    if (options && options.persist) {
-      void settings.set(setting, nextValue);
-    } else {
-      preview.show(setting, nextValue);
-    }
-    return nextValue;
-  }
-
   function setNewtabShortcutsVisible(enabled: unknown, options?: PersistOptions): boolean {
-    return setShortcutGridSetting(newtabShortcutsVisible, enabled, options);
+    return preview.set(newtabShortcutsVisible, enabled, options);
   }
 
   function setNewtabShortcutAddVisible(enabled: unknown, options?: PersistOptions): boolean {
-    return setShortcutGridSetting(newtabShortcutAddVisible, enabled, options);
+    return preview.set(newtabShortcutAddVisible, enabled, options);
   }
 
   function setNewtabShortcutDockMagnificationEnabled(enabled: unknown, options?: PersistOptions): boolean {
-    return setShortcutGridSetting(newtabShortcutDockMagnificationEnabled, enabled, options);
+    return preview.set(newtabShortcutDockMagnificationEnabled, enabled, options);
   }
 
   function setNewtabShortcutColumns(value: unknown, options?: PersistOptions): number {
-    return setShortcutGridSetting(newtabShortcutColumns, value, options);
+    return preview.set(newtabShortcutColumns, value, options);
   }
 
   function setNewtabShortcutSize(value: unknown, options?: PersistOptions): number {
-    return setShortcutGridSetting(newtabShortcutSize, value, options);
+    return preview.set(newtabShortcutSize, value, options);
   }
 
   function setNewtabShortcutGap(value: unknown, options?: PersistOptions): number {
-    return setShortcutGridSetting(newtabShortcutGap, value, options);
+    return preview.set(newtabShortcutGap, value, options);
   }
 
   // Keeps the page's quick copy and the panel current once the setting is
@@ -182,31 +167,20 @@ function createPagePreferences(deps: PagePreferencesDeps) {
 
   const initialNewtabInputAutoFocusReadyTask = followNewtabInputAutoFocus();
 
-  function normalizeBookmarkFolderIconsVisible(value: unknown) {
-    return SETTINGS.bookmarkFolderIconsVisible.parse(value);
-  }
-
   function normalizeZenModeEnabled(value: unknown) {
     return value === true;
   }
 
-  function normalizeBookmarkCount(value: unknown) {
-    return SETTINGS.bookmarkCount.parse(value);
-  }
-
-  function getBookmarkLimit(): number {
-    const normalized = normalizeBookmarkCount(pageState.currentBookmarkCount);
+  // The bookmarks one page holds; `columns` asks what it would be with
+  // another column setting.
+  function getBookmarkLimit(columns?: number): number {
+    const normalized = preview.get(SETTINGS.bookmarkCount);
     if (normalized <= 0) {
       return 8;
     }
     const rows = Math.max(1, Math.round(normalized / 4));
     // Use the actual rendered column count so "show N rows" remains accurate on responsive layouts.
-    const columns = Math.max(1, getBookmarkGridColumnCount());
-    return rows * columns;
-  }
-
-  function normalizeBookmarkColumns(value: unknown) {
-    return SETTINGS.bookmarkColumns.parse(value);
+    return rows * Math.max(1, getBookmarkGridColumnCount(columns));
   }
 
   return {
@@ -231,11 +205,8 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     setNewtabShortcutSize,
     setNewtabShortcutGap,
     initialNewtabInputAutoFocusReadyTask,
-    normalizeBookmarkFolderIconsVisible,
     normalizeZenModeEnabled,
-    normalizeBookmarkCount,
-    getBookmarkLimit,
-    normalizeBookmarkColumns
+    getBookmarkLimit
   };
 }
 

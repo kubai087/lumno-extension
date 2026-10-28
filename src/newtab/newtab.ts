@@ -217,7 +217,10 @@ import * as SettingsStorage from '../platform/settings-storage';
   const settings = getContextSettingsStore(chrome, window, takePrefetchedRead);
   // A dragged slider's value until it is saved.
   const preview = new SettingPreview(settings);
-  preview.follow([newtabTimeFontSize, newtabTimeOpacity, newtabShortcutColumns, newtabShortcutSize, newtabShortcutGap, newtabSearchWidth]);
+  preview.follow([
+    newtabTimeFontSize, newtabTimeOpacity, newtabShortcutColumns, newtabShortcutSize, newtabShortcutGap, newtabSearchWidth,
+    recentCount, bookmarkCount, bookmarkColumns, bookmarkFolderIconsVisible
+  ]);
   const root = document.getElementById('_x_extension_newtab_root_2024_unique_');
   if (!root) {
     return;
@@ -250,6 +253,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     releaseStartupRecentSourceReads,
     getRecentSites
   } = NEWTAB_RECENT_SOURCES.createRecentSources({
+    settings,
     t: (...args) => t(...args),
     getRecentContextMenuOptions: (...args) => getRecentContextMenuOptions(...args),
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
@@ -363,7 +367,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     normalizeHost
   });
 
-
   const {
     hideToast,
     showToast,
@@ -378,7 +381,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const shortcutTiles: ShortcutTileElement[] = [];
   const SHORTCUT_DIALOG_MODE_EDIT = NEWTAB_SHORTCUT_DIALOG.MODE_EDIT || 'edit';
   const folderColorApi = getFolderColorPickerApi();
-
 
   const {
     updateBookmarkContextMenuLanguageStrings,
@@ -660,8 +662,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const LEGACY_FOLDER_COLORS_STORAGE_KEY = bookmarkFolderColorsLegacy.key;
   const FOLDER_COLOR_REFS_STORAGE_KEY = bookmarkFolderColorRefs.key;
 
-
-
   const {
     buildSearchUrl,
     isAiSiteSearchProvider,
@@ -820,6 +820,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     toggleRecentProgressTracking,
     restoreProgressVersion
   } = NEWTAB_RECENT_SITES_CONTROLLER.createRecentSitesController({
+    settings,
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     t,
     showToast,
@@ -848,7 +849,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     openProgressHistory: (item) => openRecentHistoryDialog(item),
     pageState
   });
-
 
   const {
     openBookmarkCascadeMenu,
@@ -1007,8 +1007,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const toastElement = document.getElementById('_x_extension_toast_2024_unique_');
   pageState.toastController = createToastController(toastElement, { windowObj: window });
 
-
-
   const {
     syncSearchModeMenuResultOffset,
     setSuggestionsVisible,
@@ -1018,8 +1016,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
-    normalizeRecentCount,
-    normalizeRecentMode,
     getBookmarkGridColumnCount,
     getEffectiveNewtabSearchWidth,
     getRecentLimit,
@@ -1045,7 +1041,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
     preview,
     settings,
-    normalizeBookmarkColumns: (...args) => normalizeBookmarkColumns(...args),
     NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     NEWTAB_WIDTH_MODE_CONFIGS,
@@ -1076,10 +1071,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     setNewtabShortcutSize,
     setNewtabShortcutGap,
     initialNewtabInputAutoFocusReadyTask,
-    normalizeBookmarkFolderIconsVisible,
-    normalizeBookmarkCount,
-    getBookmarkLimit,
-    normalizeBookmarkColumns
+    getBookmarkLimit
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
     preview,
     settings,
@@ -1092,7 +1084,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     getBookmarkGridColumnCount,
     pageState
   });
-
 
   pageState.quoteRuntime = LumnoNewtabQuotes.createRuntime({
     documentObj: document, windowObj: window, chromeObj: chrome,
@@ -1122,27 +1113,18 @@ import * as SettingsStorage from '../platform/settings-storage';
     ],
     getBookmarkViewMode: () => pageState.currentBookmarkViewMode,
     setBookmarkViewMode: (mode) => setBookmarkViewMode(mode),
-    getBookmarkCount: () => pageState.currentBookmarkCount,
-    setBookmarkCount: (value, options) => setSectionPreference(
-      bookmarkCount.key,
-      normalizeBookmarkCount(value),
-      applyBookmarkCountPreference,
-      options
-    ),
-    getBookmarkColumns: () => pageState.currentBookmarkColumns,
-    setBookmarkColumns: (value, options) => setSectionPreference(
-      bookmarkColumns.key,
-      normalizeBookmarkColumns(value),
-      applyBookmarkColumnsPreference,
-      options
-    ),
-    getBookmarkFolderIconsVisible: () => pageState.bookmarkFolderIconsVisible,
-    setBookmarkFolderIconsVisible: (value, options) => setSectionPreference(
-      bookmarkFolderIconsVisible.key,
-      normalizeBookmarkFolderIconsVisible(value),
-      applyBookmarkFolderIconsVisiblePreference,
-      options
-    ),
+    getBookmarkCount: () => preview.get(bookmarkCount),
+    setBookmarkCount: (value, options) => {
+      preview.set(bookmarkCount, value, options);
+    },
+    getBookmarkColumns: () => preview.get(bookmarkColumns),
+    setBookmarkColumns: (value, options) => {
+      preview.set(bookmarkColumns, value, options);
+    },
+    getBookmarkFolderIconsVisible: () => preview.get(bookmarkFolderIconsVisible),
+    setBookmarkFolderIconsVisible: (value, options) => {
+      preview.set(bookmarkFolderIconsVisible, value, options);
+    },
     // The bar's shape and background go through the same actions as its own menu.
     getBookmarkTopbarLayout: () => getBookmarkTopbarLayout(),
     setBookmarkTopbarLayout: (layout) => handleBookmarkModeMenuAction(`${BOOKMARK_TOPBAR_LAYOUT_ACTION}:${layout}`),
@@ -1151,15 +1133,12 @@ import * as SettingsStorage from '../platform/settings-storage';
       `${BOOKMARK_TOPBAR_SURFACE_MODE_ACTION}:${mode}`
     ),
     pickBookmarkTopbarSurfaceColor: () => handleBookmarkModeMenuAction(BOOKMARK_TOPBAR_PICK_COLOR_ACTION),
-    getRecentMode: () => pageState.currentRecentMode,
+    getRecentMode: () => settings.get(recentMode),
     setRecentMode: (mode) => setRecentMode(mode),
-    getRecentCount: () => pageState.currentRecentCount,
-    setRecentCount: (value, options) => setSectionPreference(
-      recentCount.key,
-      normalizeRecentCount(value),
-      applyRecentCountPreference,
-      options
-    )
+    getRecentCount: () => preview.get(recentCount),
+    setRecentCount: (value, options) => {
+      preview.set(recentCount, value, options);
+    }
   });
 
   const {
@@ -1271,29 +1250,13 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
-    applyBookmarkCountPreference,
-    applyBookmarkColumnsPreference,
-    applyBookmarkFolderIconsVisiblePreference,
-    applyRecentCountPreference,
-    setSectionPreference,
     storageChanges
   } = NEWTAB_SETTINGS_SYNC.createSettingsSync({
     settings,
-    normalizeBookmarkCount,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
-    normalizeBookmarkColumns,
-    getBookmarkLimit,
-    keepBookmarkPageAnchorAfterLimitChange,
-    applyBookmarkGridColumns,
-    renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
-    updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
-    updateBookmarkSectionPosition,
-    normalizeBookmarkFolderIconsVisible,
-    normalizeRecentCount,
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
-    storageArea,
     isPrimaryStorageAreaName,
     shortcutFolderRuntime,
     renderShortcuts: (...args) => renderShortcuts(...args),
@@ -1315,18 +1278,11 @@ import * as SettingsStorage from '../platform/settings-storage';
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
-    RECENT_COUNT_STORAGE_KEY: recentCount.key,
-    RECENT_MODE_STORAGE_KEY: recentMode.key,
-    normalizeRecentMode,
-    updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
     BOOKMARK_VIEW_MODE_STORAGE_KEY: bookmarkViewMode.key,
     normalizeBookmarkViewMode,
     shouldRepairBookmarkViewModeStorageValue,
     persistBookmarkViewMode,
     applyBookmarkViewMode: (...args) => applyBookmarkViewMode(...args),
-    BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: bookmarkFolderIconsVisible.key,
-    BOOKMARK_COUNT_STORAGE_KEY: bookmarkCount.key,
-    BOOKMARK_COLUMNS_STORAGE_KEY: bookmarkColumns.key,
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
     PINNED_RECENT_SITES_STORAGE_KEY: pinnedRecentSites.key,
     normalizePinnedRecentSites,
@@ -1338,16 +1294,14 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
+    preview,
     settings,
     storageArea,
-    settingsRuntimeApi,
     renderRecentSites: (...args) => renderRecentSites(...args),
     localStorageArea,
     PROGRESS_HISTORY,
     readPinnedRecentSites,
     readHiddenRecentSites,
-    RECENT_COUNT_STORAGE_KEY: recentCount.key,
-    normalizeRecentCount,
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
     getBookmarkLimit,
@@ -1358,20 +1312,12 @@ import * as SettingsStorage from '../platform/settings-storage';
     renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
     updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
     updateBookmarkSectionPosition,
-    RECENT_MODE_STORAGE_KEY: recentMode.key,
-    normalizeRecentMode,
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
     loadInitialBookmarkViewMode,
     loadInitialBookmarkTopbarSurfaceColors,
     loadInitialBookmarkTopbarSurfaceMode,
-    BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: bookmarkFolderIconsVisible.key,
-    normalizeBookmarkFolderIconsVisible,
-    BOOKMARK_COUNT_STORAGE_KEY: bookmarkCount.key,
-    normalizeBookmarkCount,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
-    BOOKMARK_COLUMNS_STORAGE_KEY: bookmarkColumns.key,
-    normalizeBookmarkColumns,
     pageState
   });
   const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
@@ -1547,7 +1493,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     searchInputCursorTooltipController
   } = NEWTAB_TOOLTIP_CONTROLLERS.createTooltipControllers();
 
-
   const {
     showTopActionTooltip,
     hideTopActionTooltip,
@@ -1593,13 +1538,9 @@ import * as SettingsStorage from '../platform/settings-storage';
     setBookmarkViewMode,
     navigateBookmarkFolder
   } = NEWTAB_SECTION_HEADERS.createSectionHeaders({
+    preview,
     settings,
     t,
-    normalizeRecentMode,
-    storageArea,
-    RECENT_MODE_STORAGE_KEY: recentMode.key,
-    markRecentDataDirty: (...args) => markRecentDataDirty(...args),
-    loadRecentSites: (...args) => loadRecentSites(...args),
     getNewtabVisualViewportInsets,
     BOOKMARK_TOPBAR_HEIGHT_PX,
     updateSearchEntryLayout,
@@ -1797,6 +1738,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    preview,
     isBookmarkTopbarMode,
     getBookmarkLimit,
     NEWTAB_BOOKMARK_DRAG,
@@ -1852,6 +1794,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   createShortcutsSection();
 
   NEWTAB_BOOKMARK_SECTION.createBookmarkSection({
+    preview,
     setContentSectionVisible,
     bookmarkSection,
     pageStructureRuntime,
@@ -1904,6 +1847,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   NEWTAB_RECENT_SECTION.createRecentSection({
+    settings,
     setContentSectionVisible,
     hideTopActionTooltip,
     pageStructureRuntime,
@@ -2100,6 +2044,8 @@ import * as SettingsStorage from '../platform/settings-storage';
     handleRecentVisibilityChange,
     forceReloadRecentSitesForI18n
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    settings,
+    preview,
     isShortcutDragActive,
     isRecentCardDragActive: pageState.recentCardDragRuntime.isRecentCardDragActive,
     resumeRecentCardDragAfterFolderSwitch: pageState.recentCardDragRuntime.resumeRecentCardDragAfterFolderSwitch,
@@ -2397,6 +2343,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     setWebAppearanceMode,
     followZenMode
   } = NEWTAB_MODE_COMMANDS.createModeCommands({
+    preview,
     settings,
     t,
     formatMessage,
@@ -2879,7 +2826,12 @@ import * as SettingsStorage from '../platform/settings-storage';
       newtabShortcutDockMagnificationEnabled,
       newtabShortcutSize,
       newtabShortcutGap,
-      newtabWidthMode
+      newtabWidthMode,
+      recentCount,
+      recentMode,
+      bookmarkCount,
+      bookmarkColumns,
+      bookmarkFolderIconsVisible
     ],
     // A missing column count is worked out from the older width setting.
     invalidOnly: [

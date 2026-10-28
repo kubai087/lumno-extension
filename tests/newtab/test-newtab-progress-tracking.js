@@ -67,9 +67,9 @@ function createController(pinned, history, options = {}) {
     hiddenRecentSites: [],
     recentSourceItems: [],
     recentRenderSignature: 'x',
-    progressHistoryMap: progressHistory.normalizeHistoryMap(history),
-    progressTrackingEnabled: options.enabled !== false
+    progressHistoryMap: progressHistory.normalizeHistoryMap(history)
   };
+  const trackingEnabled = options.enabled !== false;
   const syncArea = createArea({ [PINNED_KEY]: pinned });
   const localArea = createArea({ [HISTORY_KEY]: history });
   const toasts = [];
@@ -77,6 +77,7 @@ function createController(pinned, history, options = {}) {
   let renders = 0;
   const controller = LumnoNewtabRecentSitesController.createRecentSitesController({
     NEWTAB_CONTEXT_MENU_OPEN_VALUE: 'open',
+    settings: { get: (setting) => (setting === recentSiteSettings.progressTrackingEnabled ? trackingEnabled : setting.parse(undefined)) },
     t: (_key, fallback) => fallback,
     showToast: (message, isError) => toasts.push({ message, isError }),
     openExternalNewTabUrl() {},

@@ -4,6 +4,8 @@ import type { BindCursorTooltip, FormatMessage, ShowToast, Translate } from '../
 import type { PageStructureRuntime } from '../react/page-structure';
 import type { RecentSitesViewController, RecentSitesViewOptions } from '../react/recent-sites';
 import { getRecentSitesViewApi } from '../react/recent-sites';
+import type { SettingsStore } from '../../platform/settings-store';
+import { recentMode } from '../../domain/settings/recent-sites';
 
 // An option the recent sites view is handed as it is.
 type ViewOption<K extends keyof RecentSitesViewOptions> = NonNullable<RecentSitesViewOptions[K]>;
@@ -16,7 +18,6 @@ interface RecentSectionState {
   recentModeMenu: { update(): void } | null;
   recentGrid: HTMLElement | null;
   recentSitesView: RecentSitesViewController | null;
-  currentRecentMode: string;
   pinnedRecentSites: readonly unknown[];
   // Starts a drag when a press on a card moves far enough.
   recentCardDragRuntime: { handleRecentCardPointerDown: ViewOption<'onCardPointerDown'> } | null;
@@ -26,6 +27,7 @@ interface RecentSectionState {
 }
 
 interface RecentSectionDeps {
+  settings: Pick<SettingsStore, 'get'>;
   setContentSectionVisible(section: HTMLElement | null, visible: boolean): void;
   hideTopActionTooltip(): void;
   pageStructureRuntime: { recent: Pick<PageStructureRuntime['recent'], 'section' | 'header' | 'grid' | 'renderHeader'> };
@@ -65,6 +67,7 @@ interface RecentSectionDeps {
 
 function createRecentSection(deps: RecentSectionDeps): void {
   const {
+    settings,
     setContentSectionVisible,
     hideTopActionTooltip,
     pageStructureRuntime,
@@ -135,10 +138,10 @@ function createRecentSection(deps: RecentSectionDeps): void {
     const latest = t('recent_heading_latest', 'Recent visits');
     const most = t('recent_heading_most', 'Most visited');
     pageStructureRuntime.recent.renderHeader({
-      heading: pageState.currentRecentMode === 'most' ? most : latest,
+      heading: settings.get(recentMode) === 'most' ? most : latest,
       modeSwitch: {
         title: t('display_mode_title', 'Display mode'),
-        value: pageState.currentRecentMode,
+        value: settings.get(recentMode),
         options: [{ value: 'latest', label: latest }, { value: 'most', label: most }],
         onChange: (nextMode) => setRecentMode(nextMode)
       }

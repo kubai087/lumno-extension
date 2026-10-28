@@ -12,12 +12,13 @@ import type { ShortcutContextMenu } from './shortcuts/shortcut-context-menu';
 import type { ShortcutDock } from './shortcuts/shortcut-dock';
 import type { ShortcutPageActions } from './shortcuts/shortcut-page-actions';
 import type { ShortcutsController } from './shortcuts/shortcuts-controller';
-import * as RecentSitesStore from '../domain/recent-sites-store';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from './setting-preview';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
+import { bookmarkColumns } from '../domain/settings/bookmarks';
+import { recentCount } from '../domain/settings/recent-sites';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -31,8 +32,6 @@ interface ViewportSnapshot {
 }
 
 interface PageLayoutState {
-  currentBookmarkColumns: number;
-  currentRecentCount: number;
   bookmarkGrid: HTMLElement | null;
   bookmarkCurrentPage: number;
   recentGrid: HTMLElement | null;
@@ -50,7 +49,7 @@ interface PageLayoutState {
 
 interface PageLayoutDeps extends
   Pick<PagePreferences,
-    'normalizeBookmarkColumns' | 'normalizeNewtabSearchWidth' | 'getBookmarkLimit'>,
+    'normalizeNewtabSearchWidth' | 'getBookmarkLimit'>,
   Pick<SuggestionsLayout, 'updateSuggestionsFloatingLayout'>,
   Pick<RecentSitesController, 'closeRecentContextMenu'>,
   Pick<ShortcutsController, 'getVisibleShortcuts'>,
@@ -74,7 +73,6 @@ function createPageLayout(deps: PageLayoutDeps) {
   const {
     preview,
     settings,
-    normalizeBookmarkColumns,
     NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     NEWTAB_WIDTH_MODE_CONFIGS,
@@ -104,20 +102,11 @@ function createPageLayout(deps: PageLayoutDeps) {
   const BOOKMARK_GRID_GAP_PX = 12;
   let currentRecentGridColumns = 4;
 
-  function normalizeRecentCount(value: unknown): number {
-    return RecentSitesStore.normalizeRecentCount(value);
-  }
-
-  function normalizeRecentMode(value: unknown, fallback?: unknown): 'latest' | 'most' {
-    if (value === 'latest' || value === 'most') {
-      return value;
-    }
-    return fallback === 'latest' || fallback === 'most' ? fallback : 'latest';
-  }
-
-  function getBookmarkGridColumnCount(): number {
+  // The columns the bookmark grid shows at this width, for the column
+  // setting or another one.
+  function getBookmarkGridColumnCount(columns: number = preview.get(bookmarkColumns)): number {
     const config = getNewtabWidthModeConfig();
-    const maxColumns = Math.max(2, normalizeBookmarkColumns(pageState.currentBookmarkColumns));
+    const maxColumns = Math.max(2, columns);
     return NEWTAB_LAYOUT.getAdaptiveGridColumnCount({
       viewportWidth: window.innerWidth,
       mobileBreakpointPx: NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
@@ -163,7 +152,7 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   function getRecentLimit(): number {
-    const normalized = normalizeRecentCount(pageState.currentRecentCount);
+    const normalized = preview.get(recentCount);
     if (normalized <= 0) {
       return 0;
     }
@@ -172,7 +161,7 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   function getRecentSourceLimit(): number {
-    const normalized = normalizeRecentCount(pageState.currentRecentCount);
+    const normalized = preview.get(recentCount);
     if (normalized <= 0) {
       return 0;
     }
@@ -447,8 +436,6 @@ function createPageLayout(deps: PageLayoutDeps) {
   return {
     followNewtabSearchWidth,
     followShortcutGridLayout,
-    normalizeRecentCount,
-    normalizeRecentMode,
     getBookmarkGridColumnCount,
     getEffectiveNewtabSearchWidth,
     getRecentLimit,

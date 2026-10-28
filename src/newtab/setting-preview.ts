@@ -9,9 +9,9 @@ import type { Store } from '../shared/state/store';
 class SettingPreview {
   // Previewed values by setting key.
   readonly store: Store<{ values: ReadonlyMap<string, unknown> }> = createStore<{ values: ReadonlyMap<string, unknown> }>({ values: new Map<string, unknown>() });
-  private readonly settings: Pick<SettingsStore, 'get' | 'subscribe'>;
+  private readonly settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
 
-  constructor(settings: Pick<SettingsStore, 'get' | 'subscribe'>) {
+  constructor(settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>) {
     this.settings = settings;
   }
 
@@ -25,6 +25,18 @@ class SettingPreview {
     const values = new Map(this.store.getSnapshot().values);
     values.set(setting.key, value);
     this.store.setState({ values });
+  }
+
+  // The panel's change: saved to the settings, or only shown while its
+  // slider is dragged.
+  set<T>(setting: Setting<T>, value: unknown, options?: { persist?: boolean } | null): T {
+    const nextValue = setting.parse(value);
+    if (options && options.persist) {
+      void this.settings.set(setting, nextValue).catch(() => {});
+    } else {
+      this.show(setting, nextValue);
+    }
+    return nextValue;
   }
 
   // A stored value replaces the preview of its setting.

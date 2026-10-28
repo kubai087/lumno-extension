@@ -7,17 +7,13 @@ import type * as ProgressHistory from '../domain/progress-history';
 import type { ProgressHistoryMap } from '../domain/progress-history';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type * as LumnoSettings from '../domain/settings';
-import type { StorageAreaLike } from '../domain/storage-port';
 import type { FolderBindingRuntime } from '../platform/bookmark-folder-bindings';
 import type { ThemeVariant } from '../shared/favicon/favicon-theme';
 import type { InputModeController } from '../shared/search/search-input-mode';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type * as BookmarkFolderIcon from './bookmarks/bookmark-folder-icon';
 import type { FolderColorRefs } from './bookmarks/bookmark-folder-icon';
-import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { FolderColors } from './bookmarks/folder-colors';
-import type { PageLayout } from './page-layout';
-import type { PagePreferences } from './page-preferences';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentHistoryDialogController } from './react/recent-history-dialog';
 import type { RecentSitesController } from './recent/recent-sites-controller';
@@ -41,19 +37,13 @@ import { tabRankScoreDebug } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
 
 interface SettingsSyncState {
-  currentBookmarkCount: number;
-  currentBookmarkColumns: number;
   bookmarkCurrentPage: number;
-  bookmarkFolderIconsVisible: boolean;
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
   folderColorRefs: FolderColorRefs;
-  currentRecentCount: number;
-  currentRecentMode: string;
   pinnedRecentSites: RecentSite[];
   hiddenRecentSites: HiddenRecentSite[];
   recentSourceItems: RecentSite[];
   recentRenderSignature: string;
-  progressTrackingEnabled: boolean;
   progressHistoryMap: ProgressHistoryMap;
   recentHistoryDialogController: Pick<RecentHistoryDialogController, 'close'> | null;
   newtabShortcutIcons: ShortcutIconMap;
@@ -68,17 +58,11 @@ interface SettingsSyncState {
 }
 
 interface SettingsSyncDeps extends
-  Pick<PagePreferences,
-    'normalizeBookmarkCount' | 'normalizeBookmarkColumns' | 'getBookmarkLimit' | 'normalizeBookmarkFolderIconsVisible'>,
   Pick<SectionLoaders,
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites' | 'renderRecentSites'>,
-  Pick<PageLayout,
-    'keepBookmarkPageAnchorAfterLimitChange' | 'applyBookmarkGridColumns' | 'updateBookmarkSectionPosition' |
-    'normalizeRecentCount' | 'normalizeRecentMode'>,
-  Pick<BookmarkPager, 'renderCurrentBookmarkPage' | 'updateBookmarkGridHeightLock'>,
   Pick<BookmarkDisplaySettings,
     'normalizeBookmarkViewMode' | 'shouldRepairBookmarkViewModeStorageValue' | 'persistBookmarkViewMode'>,
-  Pick<SectionHeaders, 'updateRecentModeMenu' | 'applyBookmarkViewMode'>,
+  Pick<SectionHeaders, 'applyBookmarkViewMode'>,
   Pick<RecentSitesController, 'normalizePinnedRecentSites' | 'normalizeHiddenRecentSites'>,
   Pick<ShortcutsController, 'renderShortcuts' | 'isShortcutSyncStorageActive' | 'scheduleShortcutStorageReload'>,
   Pick<FolderColors, 'syncFolderColorsWithBookmarks'>,
@@ -89,7 +73,6 @@ interface SettingsSyncDeps extends
   registerBookmarkDisplayStorageChanges: BookmarkDisplaySettings['registerStorageChangeHandlers'];
   settingsRuntimeApi: Pick<typeof LumnoSettings,
     'assetRevision' | 'progressTrackingEnabled' | 'progressTrackingEnabled'>;
-  storageArea: StorageAreaLike | null;
   // Whether changes in this storage area are this page's settings.
   isPrimaryStorageAreaName(areaName: string): boolean;
   shortcutFolderRuntime: Pick<FolderBindingRuntime, 'accept'>;
@@ -104,12 +87,7 @@ interface SettingsSyncDeps extends
   siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
   NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
-  RECENT_COUNT_STORAGE_KEY: string;
-  RECENT_MODE_STORAGE_KEY: string;
   BOOKMARK_VIEW_MODE_STORAGE_KEY: string;
-  BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: string;
-  BOOKMARK_COUNT_STORAGE_KEY: string;
-  BOOKMARK_COLUMNS_STORAGE_KEY: string;
   PINNED_RECENT_SITES_STORAGE_KEY: string;
   HIDDEN_RECENT_SITES_STORAGE_KEY: string;
   pageState: SettingsSyncState;
@@ -122,21 +100,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function createSettingsSync(deps: SettingsSyncDeps) {
   const {
     settings,
-    normalizeBookmarkCount,
     markBookmarkDataDirty,
     loadBookmarks,
-    normalizeBookmarkColumns,
-    getBookmarkLimit,
-    keepBookmarkPageAnchorAfterLimitChange,
-    applyBookmarkGridColumns,
-    renderCurrentBookmarkPage,
-    updateBookmarkGridHeightLock,
-    updateBookmarkSectionPosition,
-    normalizeBookmarkFolderIconsVisible,
-    normalizeRecentCount,
     markRecentDataDirty,
     loadRecentSites,
-    storageArea,
     isPrimaryStorageAreaName,
     shortcutFolderRuntime,
     renderShortcuts,
@@ -158,18 +125,11 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
-    RECENT_COUNT_STORAGE_KEY,
-    RECENT_MODE_STORAGE_KEY,
-    normalizeRecentMode,
-    updateRecentModeMenu,
     BOOKMARK_VIEW_MODE_STORAGE_KEY,
     normalizeBookmarkViewMode,
     shouldRepairBookmarkViewModeStorageValue,
     persistBookmarkViewMode,
     applyBookmarkViewMode,
-    BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY,
-    BOOKMARK_COUNT_STORAGE_KEY,
-    BOOKMARK_COLUMNS_STORAGE_KEY,
     requestTabsAndRender,
     PINNED_RECENT_SITES_STORAGE_KEY,
     normalizePinnedRecentSites,
@@ -184,63 +144,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
 
   function addStorageChangeListener(listener: Parameters<typeof ProviderStorage.addStorageChangeListener>[1]) {
     return ProviderStorage.addStorageChangeListener(chrome, listener);
-  }
-
-  // Bookmark and site-card preferences arrive from storage (Options page, other tabs) and from
-  // the appearance panel, which previews a value here before saving it; an unchanged value
-  // leaves the section alone.
-  function applyBookmarkCountPreference(value: unknown): void {
-    const nextCount = normalizeBookmarkCount(value);
-    if (nextCount === pageState.currentBookmarkCount) {
-      return;
-    }
-    pageState.currentBookmarkCount = nextCount;
-    pageState.bookmarkCurrentPage = 0;
-    markBookmarkDataDirty();
-    void loadBookmarks({ force: true });
-  }
-
-  function applyBookmarkColumnsPreference(value: unknown): void {
-    const nextColumns = normalizeBookmarkColumns(value);
-    if (nextColumns === pageState.currentBookmarkColumns) {
-      return;
-    }
-    const previousLimit = getBookmarkLimit();
-    pageState.currentBookmarkColumns = nextColumns;
-    keepBookmarkPageAnchorAfterLimitChange(previousLimit);
-    applyBookmarkGridColumns();
-    renderCurrentBookmarkPage();
-    updateBookmarkGridHeightLock();
-    updateBookmarkSectionPosition();
-  }
-
-  function applyBookmarkFolderIconsVisiblePreference(value: unknown): void {
-    pageState.bookmarkFolderIconsVisible = normalizeBookmarkFolderIconsVisible(value);
-    if (pageState.bookmarksView) {
-      pageState.bookmarksView.setFolderIconsVisible(pageState.bookmarkFolderIconsVisible);
-    }
-  }
-
-  function applyRecentCountPreference(value: unknown): void {
-    const nextCount = normalizeRecentCount(value);
-    if (nextCount === pageState.currentRecentCount) {
-      return;
-    }
-    pageState.currentRecentCount = nextCount;
-    markRecentDataDirty();
-    void loadRecentSites({ force: true });
-  }
-
-  function setSectionPreference<T>(
-    storageKey: string,
-    value: T,
-    apply: (value: T) => void,
-    options?: { persist?: boolean } | null
-  ): void {
-    apply(value);
-    if (options && options.persist === true && storageArea) {
-      void storageArea.set({ [storageKey]: value });
-    }
   }
 
   // Every storage change the page reacts to goes through this registry;
@@ -314,20 +217,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     pageState.wallpaperRuntime.handleStorageChange(changes);
     }
   });
-  storageChanges.on(RECENT_COUNT_STORAGE_KEY, (changes) => {
-    applyRecentCountPreference(changes[RECENT_COUNT_STORAGE_KEY].newValue);
-  });
-  storageChanges.on(RECENT_MODE_STORAGE_KEY, (changes) => {
-    const nextMode = normalizeRecentMode(changes[RECENT_MODE_STORAGE_KEY].newValue, 'latest');
-    if (pageState.currentRecentMode === nextMode) {
-      updateRecentModeMenu();
-    } else {
-      pageState.currentRecentMode = nextMode;
-      updateRecentModeMenu();
-      markRecentDataDirty();
-      void loadRecentSites({ force: true });
-    }
-  });
   storageChanges.on(BOOKMARK_VIEW_MODE_STORAGE_KEY, (changes) => {
     const rawMode = changes[BOOKMARK_VIEW_MODE_STORAGE_KEY].newValue;
     const nextMode = normalizeBookmarkViewMode(rawMode);
@@ -336,30 +225,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     }
     applyBookmarkViewMode(nextMode, { force: true });
   });
-  storageChanges.on(BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY, (changes) => {
-    const raw = changes[BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY].newValue;
-    const nextValue = normalizeBookmarkFolderIconsVisible(raw);
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY]: nextValue });
-    }
-    applyBookmarkFolderIconsVisiblePreference(nextValue);
-  });
-  storageChanges.on(BOOKMARK_COUNT_STORAGE_KEY, (changes) => {
-    const raw = changes[BOOKMARK_COUNT_STORAGE_KEY].newValue;
-    const nextCount = normalizeBookmarkCount(raw);
-    if (storageArea && raw !== nextCount) {
-      void storageArea.set({ [BOOKMARK_COUNT_STORAGE_KEY]: nextCount });
-    }
-    applyBookmarkCountPreference(nextCount);
-  });
-  storageChanges.on(BOOKMARK_COLUMNS_STORAGE_KEY, (changes) => {
-    const raw = changes[BOOKMARK_COLUMNS_STORAGE_KEY].newValue;
-    const nextColumns = normalizeBookmarkColumns(raw);
-    if (storageArea && raw !== nextColumns) {
-      void storageArea.set({ [BOOKMARK_COLUMNS_STORAGE_KEY]: nextColumns });
-    }
-    applyBookmarkColumnsPreference(nextColumns);
-  });
   settings.subscribe(tabRankScoreDebug, () => {
     if (!pageState.latestQuery || !pageState.latestQuery.trim()) {
       requestTabsAndRender();
@@ -367,16 +232,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
   });
   storageChanges.on(PINNED_RECENT_SITES_STORAGE_KEY, (changes) => {
     pageState.pinnedRecentSites = normalizePinnedRecentSites(changes[PINNED_RECENT_SITES_STORAGE_KEY].newValue);
-    pageState.recentRenderSignature = '';
-    renderRecentSites(pageState.recentSourceItems);
-  });
-  storageChanges.on(settingsRuntimeApi.progressTrackingEnabled.key, (changes) => {
-    pageState.progressTrackingEnabled = settingsRuntimeApi.progressTrackingEnabled.parse(
-      changes[settingsRuntimeApi.progressTrackingEnabled.key].newValue
-    );
-    if (!pageState.progressTrackingEnabled && pageState.recentHistoryDialogController) {
-      pageState.recentHistoryDialogController.close({ restoreFocus: false });
-    }
     pageState.recentRenderSignature = '';
     renderRecentSites(pageState.recentSourceItems);
   });
@@ -410,11 +265,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
   }
 
   return {
-    applyBookmarkCountPreference,
-    applyBookmarkColumnsPreference,
-    applyBookmarkFolderIconsVisiblePreference,
-    applyRecentCountPreference,
-    setSectionPreference,
     storageChanges
   };
 }

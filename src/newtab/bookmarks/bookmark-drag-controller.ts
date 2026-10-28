@@ -38,6 +38,8 @@ import type { FolderItemIcon, FolderItemIconMap } from './folder-item-icons';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
+import type { SettingPreview } from '../setting-preview';
+import { bookmarkCount } from '../../domain/settings/bookmarks';
 
 interface BookmarkDragControllerState {
   bookmarkGrid: HTMLElement | null;
@@ -45,7 +47,6 @@ interface BookmarkDragControllerState {
   bookmarkCurrentPage: number;
   bookmarkCurrentFolderId: string;
   bookmarkRootFolderId: string;
-  currentBookmarkCount: number;
   currentBookmarkViewMode: string;
   bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
   bookmarkLoadedOnce: boolean;
@@ -65,6 +66,7 @@ interface BookmarkDragControllerState {
 }
 
 interface BookmarkDragControllerDeps {
+  preview: Pick<SettingPreview, 'get'>;
   isBookmarkTopbarMode(): boolean;
   getBookmarkLimit(): number;
   NEWTAB_BOOKMARK_DRAG: typeof BookmarkDrag;
@@ -138,6 +140,7 @@ type InsertionGapKey = [string, string, HTMLElement | null];
 
 function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   const {
+    preview,
     isBookmarkTopbarMode,
     getBookmarkLimit,
     NEWTAB_BOOKMARK_DRAG,
@@ -492,7 +495,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   }
 
   function getBookmarkDropSurfaceElement(): HTMLElement | null {
-    if (!pageState.bookmarkGrid || pageState.currentBookmarkCount <= 0) {
+    if (!pageState.bookmarkGrid || preview.get(bookmarkCount) <= 0) {
       return null;
     }
     if (isBookmarkTopbarMode()) {
@@ -505,7 +508,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
 
   function isEmptyBookmarkRootHidden(): boolean {
     return Boolean(
-      pageState.currentBookmarkCount > 0 &&
+      preview.get(bookmarkCount) > 0 &&
       pageState.bookmarkLoadedOnce &&
       !getBookmarkDropSurfaceElement() &&
       String(pageState.bookmarkCurrentFolderId || '') === String(pageState.bookmarkRootFolderId || '1') &&

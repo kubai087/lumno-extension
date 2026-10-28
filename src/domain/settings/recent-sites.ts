@@ -5,11 +5,12 @@ import { custom, flag, opaque } from './schema';
 
 type RecentMode = 'latest' | 'most';
 
+// Most visited unless the person picked the latest.
 const recentMode = defineSetting({
   key: '_x_extension_recent_mode_2024_unique_',
   area: 'preferences',
   sync: 'browser',
-  schema: custom((value): RecentMode => (value === 'most' ? 'most' : 'latest'))
+  schema: custom((value): RecentMode => (value === 'latest' ? 'latest' : 'most'))
 });
 
 // The cards come in rows of four, up to two rows; 0 hides them.

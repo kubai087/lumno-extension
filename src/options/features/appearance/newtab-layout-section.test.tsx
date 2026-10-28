@@ -6,7 +6,6 @@ import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/
 import { NewtabLayoutSection } from './newtab-layout-section';
 import { getElement, getTag, getTags } from '../../../../tests/react/dom';
 
-
 function setUp(stored: Record<string, unknown> = {}) {
   const view = renderOptionsView(<NewtabLayoutSection />, { sync: stored });
   const store = (setting: Setting<unknown>, raw: unknown) => view.settings.change(setting, raw);
@@ -73,11 +72,12 @@ describe('Options Appearance New Tab layout section', () => {
     const { host, writes, notifyNewtabSectionsRefresh, store, settings } = setUp();
     await store(Settings.recentCount, 4);
     const modes = () => getTags(host, '#_x_extension_recent_mode_tabs_wrap_2024_unique_ button', 'button');
-    // Anything but "most" shows "latest".
+    // Anything but "latest" shows "most".
     await store(Settings.recentMode, 'bogus');
+    expect(modes().map((button) => button.dataset.active)).toEqual(['false', 'true']);
+    await store(Settings.recentMode, 'latest');
     expect(modes().map((button) => button.dataset.active)).toEqual(['true', 'false']);
     await store(Settings.recentMode, 'most');
-    expect(modes().map((button) => button.dataset.active)).toEqual(['false', 'true']);
     act(() => modes()[0]?.click());
     await settings.settle();
     expect(writes.at(-1)).toEqual({ [Settings.recentMode.key]: 'latest' });

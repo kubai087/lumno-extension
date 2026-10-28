@@ -10,15 +10,17 @@ import type { RenderSuggestions, SlashCommand } from './search/search-types';
 import type { SettingsStore } from '../platform/settings-store';
 import { NEWTAB_THEME_SETTINGS } from '../domain/settings/newtab-page';
 import { newtabZenMode } from '../domain/settings/newtab-page';
+import type { SettingPreview } from './setting-preview';
+import { bookmarkCount } from '../domain/settings/bookmarks';
 
 interface ModeCommandsState {
   currentThemeMode: ThemeMode;
   inputParts: Pick<SearchInputParts, 'input' | 'setChrome'> | null;
   bookmarkTopbarRuntime: { setVisible(visible: boolean): void } | null;
-  currentBookmarkCount: number;
 }
 
 interface ModeCommandsDeps {
+  preview: Pick<SettingPreview, 'get'>;
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   t: Translate;
   formatMessage: FormatMessage;
@@ -51,6 +53,7 @@ const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'da
 
 function createModeCommands(deps: ModeCommandsDeps) {
   const {
+    preview,
     settings,
     t,
     formatMessage,
@@ -403,7 +406,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     syncSectionZenVisibility(recentSection);
     if (pageState.bookmarkTopbarRuntime && isBookmarkTopbarMode()) {
       pageState.bookmarkTopbarRuntime.setVisible(
-        !settings.get(newtabZenMode) && bookmarkCards.length > 0 && pageState.currentBookmarkCount > 0
+        !settings.get(newtabZenMode) && bookmarkCards.length > 0 && preview.get(bookmarkCount) > 0
       );
     }
     if (settings.get(newtabZenMode)) {
@@ -422,7 +425,6 @@ function createModeCommands(deps: ModeCommandsDeps) {
     scheduleWallpaperAdaptiveToneUpdate();
     updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
   }
-
 
   // Puts the page in or out of zen once the setting is read, and on every change.
   function followZenMode(): Promise<void> {

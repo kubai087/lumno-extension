@@ -20,6 +20,10 @@ import type { ShortcutsController } from './shortcuts/shortcuts-controller';
 import type { PageFavicons } from './theme/page-favicons';
 import type { UrlPolicy } from './url-policy';
 import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
+import type { SettingPreview } from './setting-preview';
+import type { SettingsStore } from '../platform/settings-store';
+import { bookmarkCount } from '../domain/settings/bookmarks';
+import { recentMode } from '../domain/settings/recent-sites';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -41,7 +45,6 @@ interface SectionLoadersState {
   bookmarkRootFolderId: string;
   bookmarkRenderSignature: string;
   currentBookmarkViewMode: string;
-  currentBookmarkCount: number;
   bookmarkAllItems: BookmarkItem[];
   bookmarkRootTotalCount: number;
   bookmarkRootVisibleCount: number;
@@ -52,7 +55,6 @@ interface SectionLoadersState {
   hiddenRecentSites: HiddenRecentSite[];
   recentSourceItems: RecentSite[];
   recentRenderSignature: string;
-  currentRecentMode: string;
   recentLoadedOnce: boolean;
 }
 
@@ -76,6 +78,8 @@ interface SectionLoadersDeps extends
   Pick<PagePreferences, 'getBookmarkLimit'>,
   Pick<ShortcutsController, 'renderShortcuts'>,
   Pick<RecentSources, 'getRecentSites'> {
+  settings: Pick<SettingsStore, 'get'>;
+  preview: Pick<SettingPreview, 'get'>;
   isRecentCardDragActive: RecentCardDrag['isRecentCardDragActive'];
   resumeRecentCardDragAfterFolderSwitch: RecentCardDrag['resumeRecentCardDragAfterFolderSwitch'];
   isBookmarkTopbarMode: SectionHeaders['isBookmarkTopbarMode'];
@@ -90,6 +94,8 @@ interface SectionLoadersDeps extends
 
 function createSectionLoaders(deps: SectionLoadersDeps) {
   const {
+    settings,
+    preview,
     isShortcutDragActive,
     isRecentCardDragActive,
     resumeRecentCardDragAfterFolderSwitch,
@@ -362,7 +368,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       return Promise.resolve();
     }
     const requestToken = ++bookmarkLoadToken;
-    if (!pageState.currentBookmarkCount || pageState.currentBookmarkCount <= 0) {
+    if (!preview.get(bookmarkCount) || preview.get(bookmarkCount) <= 0) {
       closeBookmarkCascadeMenu();
       pageState.bookmarkAllItems = [];
       pageState.bookmarkRootTotalCount = 0;
@@ -381,7 +387,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
           requestedSectionDataRevision !== pageState.sectionDataRevision) {
         return;
       }
-      if (!pageState.currentBookmarkCount || pageState.currentBookmarkCount <= 0) {
+      if (!preview.get(bookmarkCount) || preview.get(bookmarkCount) <= 0) {
         closeBookmarkCascadeMenu();
         pageState.bookmarkAllItems = [];
         pageState.bookmarkRootTotalCount = 0;
@@ -459,7 +465,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       updateBookmarkSectionPosition();
       return Promise.resolve();
     }
-    return getRecentSites(recentSourceLimit + MAX_PINNED_RECENT_SITES, pageState.currentRecentMode).then((items) => {
+    return getRecentSites(recentSourceLimit + MAX_PINNED_RECENT_SITES, settings.get(recentMode)).then((items) => {
       if (requestToken !== recentLoadToken ||
           requestedSectionDataRevision !== pageState.sectionDataRevision) {
         return;

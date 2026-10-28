@@ -18,6 +18,8 @@ import type * as FolderIcon from './bookmark-folder-icon';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import { getBookmarksViewApi } from '../react/bookmarks';
 import { getBookmarkCascadeViewApi } from '../react/bookmark-cascade-view';
+import type { SettingPreview } from '../setting-preview';
+import { bookmarkFolderIconsVisible } from '../../domain/settings/bookmarks';
 
 type ViewOption<K extends keyof BookmarksViewOptions> = NonNullable<BookmarksViewOptions[K]>;
 
@@ -27,7 +29,6 @@ interface BookmarkSectionState {
   bookmarkPagerPrevButton: HTMLElement | null;
   bookmarkPagerNextButton: HTMLElement | null;
   bookmarkGrid: HTMLElement | null;
-  bookmarkFolderIconsVisible: boolean;
   bookmarksView: BookmarksViewController | null;
   bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
   bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
@@ -38,6 +39,7 @@ interface BookmarkSectionState {
 }
 
 interface BookmarkSectionDeps {
+  preview: Pick<SettingPreview, 'get'>;
   setContentSectionVisible(section: HTMLElement | null, visible: boolean): void;
   bookmarkSection: HTMLElement | null;
   pageStructureRuntime: PageStructureRuntime;
@@ -99,6 +101,7 @@ interface BookmarkSectionDeps {
 
 function createBookmarkSection(deps: BookmarkSectionDeps) {
   const {
+    preview,
     setContentSectionVisible,
     bookmarkSection,
     pageStructureRuntime,
@@ -178,7 +181,7 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     grid: bookmarkGrid,
     cards: bookmarkCards,
     cardElementCache: bookmarkCardElementCache,
-    folderIconsVisible: pageState.bookmarkFolderIconsVisible,
+    folderIconsVisible: preview.get(bookmarkFolderIconsVisible),
     t,
     formatMessage,
     sanitizeDisplayText,

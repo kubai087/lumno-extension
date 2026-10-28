@@ -20,6 +20,8 @@ import * as RecentSiteSettings from '../../domain/settings/recent-sites';
 import type { HiddenRecentSite, RecentSite, RecentSiteOptions } from '../../domain/recent-sites-store';
 import * as RecentSitesMerge from '../../domain/recent-sites-merge';
 import * as RecentSitesStore from '../../domain/recent-sites-store';
+import type { SettingsStore } from '../../platform/settings-store';
+import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
 
 interface RecentSitesControllerState {
   recentContextMenu: ContextMenuParts | null;
@@ -31,12 +33,12 @@ interface RecentSitesControllerState {
   // The items the grid shows, to skip renders that change nothing.
   recentRenderSignature: string;
   recentSourceItems: RecentSite[];
-  progressTrackingEnabled: boolean;
   // Versions a tracked card left, by history id.
   progressHistoryMap: ProgressHistoryMap;
 }
 
 interface RecentSitesControllerDeps {
+  settings: Pick<SettingsStore, 'get'>;
   NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
   t: Translate;
   showToast: ShowToast;
@@ -86,6 +88,7 @@ type CardContextMenuPayload = Parameters<NonNullable<RecentSitesViewOptions['onI
 
 function createRecentSitesController(deps: RecentSitesControllerDeps) {
   const {
+    settings,
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     t,
     showToast,
@@ -535,7 +538,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   // title and URL usually tell; otherwise an open tab with the page is read
   // for episode navigation or metadata, briefly.
   function shouldAutoTrackOnPin(item: RecentSite): Promise<boolean> {
-    if (!pageState.progressTrackingEnabled) return Promise.resolve(false);
+    if (!settings.get(progressTrackingEnabled)) return Promise.resolve(false);
     if (progressMatch.looksLikeSeriesPage(item)) return Promise.resolve(true);
     if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
       return Promise.resolve(false);
@@ -603,7 +606,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function getTrackedPinnedItem(item: RecentSite | null | undefined): RecentSite | null {
-    if (!pageState.progressTrackingEnabled || !item) return null;
+    if (!settings.get(progressTrackingEnabled) || !item) return null;
     const index = findPinnedIndex(item);
     const pinnedItem = index >= 0 ? pageState.pinnedRecentSites[index] : null;
     return pinnedItem && pinnedItem.progressTracking === true ? pinnedItem : null;
@@ -622,7 +625,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   // 'tracking' or 'available' for pinned cards, so the card can offer the
   // switch; '' where tracking does not apply.
   function getRecentProgressState(item: RecentSite | null | undefined): RecentProgressState {
-    if (!pageState.progressTrackingEnabled || !item) return '';
+    if (!settings.get(progressTrackingEnabled) || !item) return '';
     const index = findPinnedIndex(item);
     if (index < 0) return '';
     return pageState.pinnedRecentSites[index].progressTracking === true ? 'tracking' : 'available';
@@ -637,7 +640,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   // Recent pages of a tracked work fold into its card instead of filling
   // the list with earlier or later episodes.
   function belongsToTrackedWork(item: RecentSite): boolean {
-    if (!pageState.progressTrackingEnabled || !item) return false;
+    if (!settings.get(progressTrackingEnabled) || !item) return false;
     return pageState.pinnedRecentSites.some((pinnedItem) => (
       pinnedItem && pinnedItem.progressTracking === true &&
       progressMatch.compareProgressPages(
@@ -648,7 +651,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function getProgressContextMenuOptions(item: RecentSite | null | undefined): SelectMenuOption[] {
-    if (!pageState.progressTrackingEnabled || !item) return [];
+    if (!settings.get(progressTrackingEnabled) || !item) return [];
     const tracked = Boolean(getTrackedPinnedItem(item));
     const options: SelectMenuOption[] = [{
       action: tracked ? RECENT_CONTEXT_MENU_STOP_PROGRESS_VALUE : RECENT_CONTEXT_MENU_TRACK_PROGRESS_VALUE,

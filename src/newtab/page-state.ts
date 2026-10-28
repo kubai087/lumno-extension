@@ -158,12 +158,7 @@ function createPageState(): NewtabPageState {
     wallpaperShownAt: 0,
     newtabReadyViewportRevision: 0,
     resolveNewtabEntryAnimationReady: null,
-    currentRecentMode: 'most',
-    currentRecentCount: 4,
-    currentBookmarkCount: 8,
-    currentBookmarkColumns: 6,
     currentBookmarkViewMode: 'folder',
-    bookmarkFolderIconsVisible: true,
     searchLayer: null,
     topContentContainer: null,
     topContentController: null,
@@ -273,8 +268,6 @@ function createPageState(): NewtabPageState {
     newtabShortcuts: [],
     recentLoadedOnce: false,
     recentRenderSignature: '',
-    // Progress tracking (Labs) stays off until its stored switch is read.
-    progressTrackingEnabled: false,
     shortcutDockPendingPointerX: Number.NaN
   };
 }

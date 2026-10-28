@@ -13,13 +13,14 @@ import { getRecentHistoryDialogApi } from '../react/recent-history-dialog-lazy';
 import type { BrowserIconIndex } from '../../domain/favicon/types';
 import type { RecentSite, RecentSiteOptions, RecentSiteSources } from '../../domain/recent-sites-store';
 import * as RecentSitesMerge from '../../domain/recent-sites-merge';
+import type { SettingsStore } from '../../platform/settings-store';
+import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
 
 interface RecentSourcesState {
   recentContextMenu: ContextMenuParts | null;
   recentContextMenuSelectController: SelectMenuController | null;
   recentContextMenuTarget: RecentContextTarget | null;
   recentHistoryDialogController: RecentHistoryDialogController | null;
-  progressTrackingEnabled: boolean;
   startupRecentSourceReads: StartupRecentSourceReads | null;
   // Firefox's own cached icons, which recent cards wait for there.
   firefoxBrowserIcons: Readonly<BrowserIconIndex> | null;
@@ -27,6 +28,7 @@ interface RecentSourcesState {
 }
 
 interface RecentSourcesDeps {
+  settings: Pick<SettingsStore, 'get'>;
   t: Translate;
   getRecentContextMenuOptions(target?: RecentContextTarget | null): SelectMenuOption[];
   NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
@@ -45,6 +47,7 @@ type RecentSourceReads = Pick<RecentSiteSources, 'tabs' | 'topSites' | 'historyI
 
 function createRecentSources(deps: RecentSourcesDeps) {
   const {
+    settings,
     t,
     getRecentContextMenuOptions,
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
@@ -110,7 +113,7 @@ function createRecentSources(deps: RecentSourcesDeps) {
       });
     }
     return recentHistoryDialogLoadPromise.then((controller) => {
-      if (pageState.progressTrackingEnabled) controller.open({ item });
+      if (settings.get(progressTrackingEnabled)) controller.open({ item });
     }).catch(() => {
       showToast(t('toast_error', '操作失败，请重试。'), true);
     });
