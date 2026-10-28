@@ -2,7 +2,6 @@
 // and search width, shortcut grid sizing, which content sections show, and
 // the search entry's vertical position as the viewport changes.
 import type { NewtabWidthMode } from '../domain/settings';
-import type { StorageAreaLike } from '../domain/storage-port';
 import type * as LumnoNewtabLayout from './layout';
 import type { LayoutController, SearchEntryLayoutOptions, WidthModeConfig } from './layout';
 import type { LayoutMotion } from './layout-motion';
@@ -13,12 +12,12 @@ import type { ShortcutContextMenu } from './shortcuts/shortcut-context-menu';
 import type { ShortcutDock } from './shortcuts/shortcut-dock';
 import type { ShortcutPageActions } from './shortcuts/shortcut-page-actions';
 import type { ShortcutsController } from './shortcuts/shortcuts-controller';
-import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import * as RecentSitesStore from '../domain/recent-sites-store';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from './setting-preview';
+import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -32,8 +31,6 @@ interface ViewportSnapshot {
 }
 
 interface PageLayoutState {
-  currentNewtabWidthMode: NewtabWidthMode;
-  currentNewtabSearchWidth: number | null;
   currentBookmarkColumns: number;
   currentRecentCount: number;
   bookmarkGrid: HTMLElement | null;
@@ -49,20 +46,19 @@ interface PageLayoutState {
   layoutController: Pick<LayoutController,
     'applyWidthMode' | 'updateBottomDockLayout' | 'updateSearchEntryLayout'> | null;
   layoutMotion: Pick<LayoutMotion, 'commit'> | null;
-  wallpaperRuntime: Pick<WallpaperRuntime, 'updateSearchWidthUi'> | null;
 }
 
 interface PageLayoutDeps extends
   Pick<PagePreferences,
-    'normalizeBookmarkColumns' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' | 'getBookmarkLimit'>,
+    'normalizeBookmarkColumns' | 'normalizeNewtabSearchWidth' | 'getBookmarkLimit'>,
   Pick<SuggestionsLayout, 'updateSuggestionsFloatingLayout'>,
   Pick<RecentSitesController, 'closeRecentContextMenu'>,
   Pick<ShortcutsController, 'getVisibleShortcuts'>,
   Pick<ShortcutDock, 'resetShortcutDockHover'>,
   Pick<ShortcutContextMenu, 'closeShortcutContextMenu'>,
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
-  preview: Pick<SettingPreview, 'get' | 'store'>;
-  settings: Pick<SettingsStore, 'get' | 'subscribe'>;
+  preview: Pick<SettingPreview, 'get' | 'show' | 'store'>;
+  settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
   NEWTAB_LAYOUT: Pick<typeof LumnoNewtabLayout, 'getAdaptiveGridColumnCount' | 'CONTENT_MAX_WIDTH_PX'>;
   NEWTAB_MOBILE_FLOW_BREAKPOINT_PX: number;
   NEWTAB_WIDTH_MODE_CONFIGS: Record<NewtabWidthMode, NewtabWidthModeConfig>;
@@ -70,8 +66,6 @@ interface PageLayoutDeps extends
   RECENT_CARD_TARGET_WIDTH_PX: number;
   RECENT_GRID_GAP_PX: number;
   MAX_NEWTAB_SHORTCUTS: number;
-  storageArea: StorageAreaLike | null;
-  NEWTAB_SEARCH_WIDTH_STORAGE_KEY: string;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   pageState: PageLayoutState;
 }
@@ -84,15 +78,12 @@ function createPageLayout(deps: PageLayoutDeps) {
     NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     NEWTAB_WIDTH_MODE_CONFIGS,
-    normalizeNewtabWidthMode,
     normalizeNewtabSearchWidth,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     RECENT_CARD_TARGET_WIDTH_PX,
     RECENT_GRID_GAP_PX,
     getBookmarkLimit,
     updateSuggestionsFloatingLayout,
-    storageArea,
-    NEWTAB_SEARCH_WIDTH_STORAGE_KEY,
     closeRecentContextMenu,
     scheduleWallpaperAdaptiveToneUpdate,
     getVisibleShortcuts,
@@ -142,11 +133,11 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   function getNewtabWidthModeBaseConfig(): NewtabWidthModeConfig {
-    return NEWTAB_WIDTH_MODE_CONFIGS[normalizeNewtabWidthMode(pageState.currentNewtabWidthMode)] || NEWTAB_WIDTH_MODE_CONFIGS.wide;
+    return NEWTAB_WIDTH_MODE_CONFIGS[settings.get(newtabWidthMode)] || NEWTAB_WIDTH_MODE_CONFIGS.wide;
   }
 
   function getEffectiveNewtabSearchWidth(): number {
-    const customWidth = normalizeNewtabSearchWidth(pageState.currentNewtabSearchWidth, { allowNull: true });
+    const customWidth = normalizeNewtabSearchWidth(preview.get(newtabSearchWidth), { allowNull: true });
     return customWidth || getNewtabWidthModeBaseConfig().searchMaxWidth || NEWTAB_SEARCH_WIDTH_CONFIG.fallback;
   }
 
@@ -233,18 +224,16 @@ function createPageLayout(deps: PageLayoutDeps) {
     updateBookmarkSectionPosition();
   }
 
-  // Reports whether the width changed.
+  // Reports whether the width changed. A saved width goes to the settings;
+  // a dragged one only shows until it is saved.
   function setNewtabSearchWidth(value: unknown, options?: { allowNull?: boolean; persist?: boolean }): boolean {
     const config = options || {};
     const nextWidth = normalizeNewtabSearchWidth(value, { allowNull: Boolean(config.allowNull) });
-    const changed = pageState.currentNewtabSearchWidth !== nextWidth;
-    pageState.currentNewtabSearchWidth = nextWidth;
-    updateNewtabSearchWidthLayout();
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.updateSearchWidthUi();
-    }
-    if (config.persist && storageArea && nextWidth !== null) {
-      void storageArea.set({ [NEWTAB_SEARCH_WIDTH_STORAGE_KEY]: nextWidth });
+    const changed = preview.get(newtabSearchWidth) !== nextWidth;
+    if (config.persist && nextWidth !== null) {
+      void settings.set(newtabSearchWidth, nextWidth);
+    } else {
+      preview.show(newtabSearchWidth, nextWidth);
     }
     return changed;
   }
@@ -430,6 +419,20 @@ function createPageLayout(deps: PageLayoutDeps) {
     }
   }
 
+  // The search box follows its width, and a dragged slider at once.
+  function followNewtabSearchWidth(): void {
+    let shownWidth = getEffectiveNewtabSearchWidth();
+    const apply = () => {
+      const width = getEffectiveNewtabSearchWidth();
+      if (width !== shownWidth) {
+        shownWidth = width;
+        updateNewtabSearchWidthLayout();
+      }
+    };
+    settings.subscribe(newtabSearchWidth, apply);
+    preview.store.subscribe(apply);
+  }
+
   // The grid follows its settings, and a dragged slider at once.
   function followShortcutGridLayout(): void {
     const applyLayout = () => {
@@ -442,6 +445,7 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   return {
+    followNewtabSearchWidth,
     followShortcutGridLayout,
     normalizeRecentCount,
     normalizeRecentMode,

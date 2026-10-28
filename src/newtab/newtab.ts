@@ -217,7 +217,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   const settings = getContextSettingsStore(chrome, window, takePrefetchedRead);
   // A dragged slider's value until it is saved.
   const preview = new SettingPreview(settings);
-  preview.follow([newtabTimeFontSize, newtabTimeOpacity, newtabShortcutColumns, newtabShortcutSize, newtabShortcutGap]);
+  preview.follow([newtabTimeFontSize, newtabTimeOpacity, newtabShortcutColumns, newtabShortcutSize, newtabShortcutGap, newtabSearchWidth]);
   const root = document.getElementById('_x_extension_newtab_root_2024_unique_');
   if (!root) {
     return;
@@ -1028,7 +1028,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     keepBookmarkPageAnchorAfterLimitChange,
     applyRecentGridColumns,
     applyNewtabWidthMode,
-    updateNewtabSearchWidthLayout,
     setNewtabSearchWidth,
     setContentSectionVisible,
     isContentSectionVisible,
@@ -1041,7 +1040,8 @@ import * as SettingsStorage from '../platform/settings-storage';
     beginSearchEntryRestoreLayoutLock,
     updateBookmarkSectionPosition,
     updateSearchEntryLayout,
-    followShortcutGridLayout
+    followShortcutGridLayout,
+    followNewtabSearchWidth
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
     preview,
     settings,
@@ -1049,15 +1049,12 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     NEWTAB_WIDTH_MODE_CONFIGS,
-    normalizeNewtabWidthMode: (...args) => normalizeNewtabWidthMode(...args),
     normalizeNewtabSearchWidth: (...args) => normalizeNewtabSearchWidth(...args),
     NEWTAB_SEARCH_WIDTH_CONFIG,
     RECENT_CARD_TARGET_WIDTH_PX,
     RECENT_GRID_GAP_PX,
     getBookmarkLimit: (...args) => getBookmarkLimit(...args),
     updateSuggestionsFloatingLayout,
-    storageArea,
-    NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
     closeRecentContextMenu,
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
     getVisibleShortcuts: (...args) => getVisibleShortcuts(...args),
@@ -1069,7 +1066,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
-    normalizeNewtabWidthMode,
     normalizeNewtabSearchWidth,
     inferNewtabShortcutColumnsFromWidth,
     updateNewtabShortcutPreferencesUi,
@@ -1320,13 +1316,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
     RECENT_COUNT_STORAGE_KEY: recentCount.key,
-    NEWTAB_WIDTH_MODE_STORAGE_KEY: newtabWidthMode.key,
-    normalizeNewtabWidthMode,
-    applyNewtabWidthMode,
-    applyRecentGridColumns,
-    NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
-    normalizeNewtabSearchWidth,
-    updateNewtabSearchWidthLayout,
     RECENT_MODE_STORAGE_KEY: recentMode.key,
     normalizeRecentMode,
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
@@ -1349,6 +1338,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
+    settings,
     storageArea,
     settingsRuntimeApi,
     renderRecentSites: (...args) => renderRecentSites(...args),
@@ -1360,11 +1350,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     normalizeRecentCount,
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
-    NEWTAB_WIDTH_MODE_STORAGE_KEY: newtabWidthMode.key,
-    NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
     getBookmarkLimit,
-    normalizeNewtabWidthMode,
-    normalizeNewtabSearchWidth,
     applyNewtabWidthMode,
     applyRecentGridColumns,
     applyBookmarkGridColumns,
@@ -2870,6 +2856,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   const glassStyleReadyPromise = followNewtabGlassStyle();
   const shortcutPreferencesReadyPromise = followNewtabShortcutPreferences();
   followShortcutGridLayout();
+  followNewtabSearchWidth();
   followShortcutDockMagnification();
   const shortcutsReadyPromise = shortcutPreferencesReadyPromise.then(loadVisibleShortcuts);
   const initialShortcutsReadyTask = shortcutsReadyPromise.catch((error) => {
@@ -2891,7 +2878,8 @@ import * as SettingsStorage from '../platform/settings-storage';
       newtabShortcutAddVisible,
       newtabShortcutDockMagnificationEnabled,
       newtabShortcutSize,
-      newtabShortcutGap
+      newtabShortcutGap,
+      newtabWidthMode
     ],
     // A missing column count is worked out from the older width setting.
     invalidOnly: [

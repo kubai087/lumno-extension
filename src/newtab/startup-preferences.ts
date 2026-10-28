@@ -4,7 +4,6 @@
 import type * as ProgressHistory from '../domain/progress-history';
 import type { ProgressHistoryMap } from '../domain/progress-history';
 import type * as LumnoSettings from '../domain/settings';
-import type { NewtabWidthMode } from '../domain/settings';
 import type { StorageAreaLike } from '../domain/storage-port';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
@@ -14,10 +13,11 @@ import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
-import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import { progressHistory } from '../domain/settings/recent-sites';
 import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
 import * as SettingsStorage from '../platform/settings-storage';
+import type { SettingsStore } from '../platform/settings-store';
+import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
 
 interface StartupPreferencesState {
   progressTrackingEnabled: boolean;
@@ -32,19 +32,16 @@ interface StartupPreferencesState {
   initialHiddenRecentSitesReadyTask: Promise<HiddenRecentSite[]>;
   currentRecentCount: number;
   currentRecentMode: string;
-  currentNewtabWidthMode: NewtabWidthMode;
-  currentNewtabSearchWidth: number | null;
   bookmarkLoadedOnce: boolean;
   bookmarkFolderIconsVisible: boolean;
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
   currentBookmarkCount: number;
   currentBookmarkColumns: number;
-  wallpaperRuntime: Pick<WallpaperRuntime, 'updateSearchWidthUi'> | null;
 }
 
 interface StartupPreferencesDeps extends
   Pick<PagePreferences,
-    'getBookmarkLimit' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeBookmarkCount' |
+    'getBookmarkLimit' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeBookmarkCount' |
     'normalizeBookmarkColumns'>,
   Pick<RecentSitesController, 'readPinnedRecentSites' | 'readHiddenRecentSites'>,
   Pick<PageLayout,
@@ -53,6 +50,7 @@ interface StartupPreferencesDeps extends
   Pick<BookmarkDisplaySettings,
     'loadInitialBookmarkViewMode' | 'loadInitialBookmarkTopbarSurfaceColors' |
     'loadInitialBookmarkTopbarSurfaceMode'> {
+  settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   storageArea: StorageAreaLike | null;
   localStorageArea: StorageAreaLike | null;
   settingsRuntimeApi: Pick<typeof LumnoSettings,
@@ -68,8 +66,6 @@ interface StartupPreferencesDeps extends
   loadBookmarks: SectionLoaders['loadBookmarks'];
   RECENT_COUNT_STORAGE_KEY: string;
   RECENT_MODE_STORAGE_KEY: string;
-  NEWTAB_WIDTH_MODE_STORAGE_KEY: string;
-  NEWTAB_SEARCH_WIDTH_STORAGE_KEY: string;
   BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: string;
   BOOKMARK_COUNT_STORAGE_KEY: string;
   BOOKMARK_COLUMNS_STORAGE_KEY: string;
@@ -78,6 +74,7 @@ interface StartupPreferencesDeps extends
 
 function createStartupPreferences(deps: StartupPreferencesDeps) {
   const {
+    settings,
     storageArea,
     settingsRuntimeApi,
     renderRecentSites,
@@ -89,11 +86,7 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     normalizeRecentCount,
     markRecentDataDirty,
     loadRecentSites,
-    NEWTAB_WIDTH_MODE_STORAGE_KEY,
-    NEWTAB_SEARCH_WIDTH_STORAGE_KEY,
     getBookmarkLimit,
-    normalizeNewtabWidthMode,
-    normalizeNewtabSearchWidth,
     applyNewtabWidthMode,
     applyRecentGridColumns,
     applyBookmarkGridColumns,
@@ -126,6 +119,30 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
+
+  // A new width moves the recent and bookmark grids: the recent sites load
+  // again for the new column count, and the bookmarks keep their page.
+  let shownWidthMode = settings.get(newtabWidthMode);
+  function applyWidthMode(first: boolean): void {
+    const previousBookmarkLimit = getBookmarkLimit();
+    const changed = settings.get(newtabWidthMode) !== shownWidthMode;
+    shownWidthMode = settings.get(newtabWidthMode);
+    applyNewtabWidthMode();
+    const recentColumnsChanged = applyRecentGridColumns();
+    const bookmarkColumnsChanged = applyBookmarkGridColumns();
+    if ((first && changed) || recentColumnsChanged) {
+      markRecentDataDirty();
+      loadRecentSites({ force: true });
+    }
+    if (bookmarkColumnsChanged && (!first || pageState.bookmarkLoadedOnce)) {
+      keepBookmarkPageAnchorAfterLimitChange(previousBookmarkLimit);
+      renderCurrentBookmarkPage();
+    }
+    updateBookmarkGridHeightLock();
+    updateBookmarkSectionPosition();
+  }
+  settings.subscribe(newtabWidthMode, () => applyWidthMode(false));
+  void settings.include([newtabWidthMode, newtabSearchWidth]).then(() => applyWidthMode(true));
 
   if (storageArea) {
     void storageArea.get([settingsRuntimeApi.progressTrackingEnabled.key], (result) => {
@@ -178,36 +195,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
         markRecentDataDirty();
         loadRecentSites();
       }
-    });
-    void storageArea.get([NEWTAB_WIDTH_MODE_STORAGE_KEY, NEWTAB_SEARCH_WIDTH_STORAGE_KEY], (result) => {
-      if (!result) {
-        return;
-      }
-      const previousBookmarkLimit = getBookmarkLimit();
-      const stored = result[NEWTAB_WIDTH_MODE_STORAGE_KEY];
-      const mode = normalizeNewtabWidthMode(stored);
-      const changed = pageState.currentNewtabWidthMode !== mode;
-      pageState.currentNewtabWidthMode = mode;
-      pageState.currentNewtabSearchWidth = normalizeNewtabSearchWidth(result[NEWTAB_SEARCH_WIDTH_STORAGE_KEY], {
-        allowNull: true
-      });
-      repairStoredSetting(NEWTAB_WIDTH_MODE_STORAGE_KEY, stored, mode);
-      applyNewtabWidthMode();
-      if (pageState.wallpaperRuntime) {
-        pageState.wallpaperRuntime.updateSearchWidthUi();
-      }
-      const recentColumnsChanged = applyRecentGridColumns();
-      const bookmarkColumnsChanged = applyBookmarkGridColumns();
-      if (changed || recentColumnsChanged) {
-        markRecentDataDirty();
-        loadRecentSites({ force: true });
-      }
-      if (bookmarkColumnsChanged && pageState.bookmarkLoadedOnce) {
-        keepBookmarkPageAnchorAfterLimitChange(previousBookmarkLimit);
-        renderCurrentBookmarkPage();
-      }
-      updateBookmarkGridHeightLock();
-      updateBookmarkSectionPosition();
     });
     void storageArea.get([RECENT_MODE_STORAGE_KEY], (result) => {
       if (!result) {

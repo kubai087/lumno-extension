@@ -51,6 +51,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { SettingPreview } from '../setting-preview';
 import { NEWTAB_TOP_CONTENT_SETTINGS } from '../../domain/settings/newtab-time';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../domain/settings/newtab-shortcuts';
+import { newtabSearchWidth, newtabWidthMode } from '../../domain/settings/newtab-page';
 
 const DEFAULT_STORAGE_KEYS = {
   wallpaper: SETTINGS.newtabWallpaper.key,
@@ -1641,7 +1642,10 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   }
 
   // The panel shows the clock settings as they are, whoever changed them.
-  options.settings.subscribe(NEWTAB_TOP_CONTENT_SETTINGS.concat(NEWTAB_SHORTCUT_GRID_SETTINGS), () => renderWallpaperPanelState());
+  options.settings.subscribe(
+    [...NEWTAB_TOP_CONTENT_SETTINGS, ...NEWTAB_SHORTCUT_GRID_SETTINGS, newtabWidthMode, newtabSearchWidth],
+    () => renderWallpaperPanelState()
+  );
   options.preview.store.subscribe(() => renderWallpaperPanelState());
 
   return {
@@ -1656,7 +1660,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     updateLanguageStrings: updateWallpaperLanguageStrings,
     // The page calls these after changing a setting the panel shows.
     updateAppearanceSelectionUi: renderWallpaperPanelState,
-    updateSearchWidthUi: renderWallpaperPanelState,
     updateShortcutsUi: renderWallpaperPanelState,
     updateInputAutoFocusUi: renderWallpaperPanelState,
     refreshCustomWallpapers,

@@ -208,8 +208,6 @@ function createPageState(): NewtabPageState {
     folderColorRefs: {},
     shortcutFaviconPolicyRevision: 0,
     shortcutFaviconPendingCacheEntries: {},
-    currentNewtabWidthMode: 'wide',
-    currentNewtabSearchWidth: null,
 
     // 使用本地打包字体，避免外链字体依赖。
 
