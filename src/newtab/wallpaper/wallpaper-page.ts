@@ -64,13 +64,7 @@ interface WallpaperPageDeps {
   // The glass plates that sample the wallpaper behind them.
   NEWTAB_GLASS_ADAPTIVE_SELECTOR: string;
   EXTENSION_ROUTES: Pick<typeof LumnoExtensionRoutes, 'buildOptionsUrl'>;
-  storageArea: StorageArea | null;
   localStorageArea: StorageArea | null;
-  NEWTAB_WALLPAPER_STORAGE_KEY: string;
-  NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
-  NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY: string;
-  NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY: string;
-  NEWTAB_FAVICON_STORAGE_KEY: string;
   NEWTAB_SEARCH_WIDTH_CONFIG: SearchWidthConfig;
   t: Translate;
   formatMessage: FormatMessage;
@@ -122,13 +116,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     root,
     NEWTAB_GLASS_ADAPTIVE_SELECTOR,
     EXTENSION_ROUTES,
-    storageArea,
     localStorageArea,
-    NEWTAB_WALLPAPER_STORAGE_KEY,
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
-    NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY,
-    NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
-    NEWTAB_FAVICON_STORAGE_KEY,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
     formatMessage,
@@ -433,17 +421,9 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     windowObj: window,
     chromeObj: chrome,
     extensionRoutes: EXTENSION_ROUTES,
-    storageArea,
     localWallpaperStorageArea: localStorageArea,
     getQuoteRuntime: () => pageState.quoteRuntime,
     getSectionPanelSettings: () => pageState.sectionPanelSettings,
-    storageKeys: {
-      wallpaper: NEWTAB_WALLPAPER_STORAGE_KEY,
-      localWallpaper: NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
-      overlay: NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY,
-      effect: NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
-      favicon: NEWTAB_FAVICON_STORAGE_KEY
-    },
     searchWidthConfig: NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
     formatMessage,

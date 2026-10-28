@@ -1,13 +1,14 @@
 // Wallpaper effects: their prefs per mode, which controls each effect
 // shows, their labels, applying and saving them, and the first effect shown
 // at startup.
-import type { StorageAreaLike } from '../../../domain/storage-port';
 import type { Translate } from '../../newtab-types';
 import type * as WallpaperEffects from '../wallpaper-effects';
 import type { EffectType, WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from '../wallpaper-effects';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
+import { newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
+import type { SettingsStore } from '../../../platform/settings-store';
 
 // A message and its fallback text.
 interface EffectLabel {
@@ -30,9 +31,7 @@ interface WallpaperEffectPrefsDeps extends Pick<WallpaperSources, 'normalizeWall
   document: Document;
   renderWallpaperPanelState(): void;
   NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY: string;
-  NEWTAB_WALLPAPER_EFFECT_DEFAULTS: WallpaperEffectPrefs;
+  settings: Pick<SettingsStore, 'getStored' | 'include' | 'set'>;
   window: Window;
   wallpaperState: Pick<WallpaperState,
     'currentWallpaperEffectPrefsByMode' | 'currentWallpaperPrefs' | 'hasStoredWallpaperStateLoaded' |
@@ -42,6 +41,7 @@ interface WallpaperEffectPrefsDeps extends Pick<WallpaperSources, 'normalizeWall
 
 function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
   const {
+    settings,
     normalizeSingleWallpaperEffectPrefs,
     normalizeWallpaperMode,
     getWallpaperEditMode,
@@ -58,9 +58,6 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     renderWallpaperPanelState,
     NEWTAB_WALLPAPER_MODES,
     writeWallpaperPreloadCache,
-    storageArea,
-    NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
-    NEWTAB_WALLPAPER_EFFECT_DEFAULTS,
     window
   } = deps;
 
@@ -247,15 +244,8 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     if (wallpaperState.hasStoredWallpaperStateLoaded) {
       writeWallpaperPreloadCache();
     }
-    // Narrowed here, for the save below.
-    const area = storageArea;
-    if (!area) {
-      return;
-    }
     wallpaperState.saveWallpaperStyleSetting('effect', () => {
-      void area.set({
-        [NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY]: getWallpaperEffectStorageValue()
-      });
+      void settings.set(newtabWallpaperEffect, getWallpaperEffectStorageValue());
     });
   }
 
@@ -263,32 +253,18 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     if (initialWallpaperEffectReadyPromise) {
       return initialWallpaperEffectReadyPromise;
     }
-    const area = storageArea;
-    if (!area) {
-      initialWallpaperEffectReadyPromise = Promise.resolve().then(() => {
-        hasStoredWallpaperEffectLoaded = true;
-        applyWallpaperEffectPrefs(NEWTAB_WALLPAPER_EFFECT_DEFAULTS);
-        if (wallpaperState.hasStoredWallpaperStateLoaded) {
-          writeWallpaperPreloadCache();
-        }
-      });
-      return initialWallpaperEffectReadyPromise;
-    }
-    initialWallpaperEffectReadyPromise = new Promise<void>((resolve) => {
-      void area.get([NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY], (result) => {
-        const raw = result ? result[NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY] : null;
-        const prefs = normalizeWallpaperEffectStoragePrefs(raw);
-        hasStoredWallpaperEffectLoaded = true;
-        applyWallpaperEffectPrefs(prefs);
-        if (wallpaperState.hasStoredWallpaperStateLoaded) {
-          writeWallpaperPreloadCache();
-        }
-        const storedPrefs = getWallpaperEffectStorageValue();
-        if (raw && JSON.stringify(raw) !== JSON.stringify(storedPrefs)) {
-          void area.set({ [NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY]: storedPrefs });
-        }
-        resolve();
-      });
+    // An invalid stored value is written back normalized.
+    initialWallpaperEffectReadyPromise = settings.include(newtabWallpaperEffect).then(() => {
+      const raw = settings.getStored(newtabWallpaperEffect);
+      hasStoredWallpaperEffectLoaded = true;
+      applyWallpaperEffectPrefs(normalizeWallpaperEffectStoragePrefs(raw));
+      if (wallpaperState.hasStoredWallpaperStateLoaded) {
+        writeWallpaperPreloadCache();
+      }
+      const storedPrefs = getWallpaperEffectStorageValue();
+      if (raw && JSON.stringify(raw) !== JSON.stringify(storedPrefs)) {
+        void settings.set(newtabWallpaperEffect, storedPrefs);
+      }
     });
     return initialWallpaperEffectReadyPromise;
   }

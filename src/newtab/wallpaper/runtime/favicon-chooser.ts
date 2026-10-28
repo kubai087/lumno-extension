@@ -1,13 +1,13 @@
 // The New Tab favicon the appearance panel picks: the built-in icons, the
 // theme-aware SVG link kept in step with the browser theme across tabs, and
 // the cached choice the next page load starts from.
-import type { StorageAreaLike } from '../../../domain/storage-port';
 import { serializeSvgDocument } from '../../../shared/ui/svg-tree';
 import type { FormatMessage, ShowToast, Translate } from '../../newtab-types';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperVisual } from './wallpaper-visual';
 import type { WallpaperState } from './wallpaper-runtime-types';
 import { newtabFaviconPreload } from '../../../domain/settings/newtab-wallpaper';
+import { newtabFavicon } from '../../../domain/settings/newtab-wallpaper';
 
 // A favicon the panel offers.
 interface NewtabFaviconOption {
@@ -26,7 +26,7 @@ interface NewtabFaviconOption {
 type FaviconTheme = 'light' | 'dark';
 
 interface FaviconChooserDeps extends Pick<WallpaperVisual, 'getRuntimeAssetUrl'>,
-  Pick<WallpaperStorage, 'writeStorageValue' | 'readStorageValue'> {
+  Pick<WallpaperStorage, 'writeSetting' | 'readStoredSetting'> {
   NEWTAB_FAVICON_OPTIONS: readonly NewtabFaviconOption[];
   NEWTAB_FAVICON_DEFAULT_ID: string;
   t: Translate;
@@ -36,8 +36,6 @@ interface FaviconChooserDeps extends Pick<WallpaperVisual, 'getRuntimeAssetUrl'>
   BroadcastChannelCtor: typeof BroadcastChannel | null;
   document: Document;
   renderWallpaperPanelState(): void;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_FAVICON_STORAGE_KEY: string;
   showToast: ShowToast;
   formatMessage: FormatMessage;
   wallpaperState: Pick<WallpaperState, 'currentNewtabFaviconId'>;
@@ -59,11 +57,9 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
     BroadcastChannelCtor,
     document,
     renderWallpaperPanelState,
-    writeStorageValue,
-    storageArea,
-    NEWTAB_FAVICON_STORAGE_KEY,
+    writeSetting,
     showToast,
-    readStorageValue,
+    readStoredSetting,
     formatMessage
   } = deps;
 
@@ -336,7 +332,7 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
   function persistNewtabFavicon(value: unknown): void {
     const nextId = normalizeNewtabFaviconId(value);
     applyNewtabFavicon(nextId);
-    writeStorageValue(storageArea, NEWTAB_FAVICON_STORAGE_KEY, nextId, () => {
+    writeSetting(newtabFavicon, nextId, () => {
       showToast(t('newtab_favicon_save_error', 'Failed to save favicon'), true);
     });
   }
@@ -346,11 +342,11 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
       return initialNewtabFaviconReadyPromise || Promise.resolve();
     }
     hasNewtabFaviconBootstrapStarted = true;
-    initialNewtabFaviconReadyPromise = readStorageValue(storageArea, NEWTAB_FAVICON_STORAGE_KEY).then((storedValue) => {
+    initialNewtabFaviconReadyPromise = readStoredSetting(newtabFavicon).then((storedValue) => {
       const nextId = normalizeNewtabFaviconId(storedValue.value);
       applyNewtabFavicon(nextId);
       if (storedValue.hasValue && storedValue.value !== nextId) {
-        writeStorageValue(storageArea, NEWTAB_FAVICON_STORAGE_KEY, nextId);
+        writeSetting(newtabFavicon, nextId);
       }
     });
     return initialNewtabFaviconReadyPromise;

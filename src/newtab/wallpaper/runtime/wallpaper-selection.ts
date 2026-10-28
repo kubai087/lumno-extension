@@ -1,7 +1,6 @@
 // Choosing a wallpaper: loading custom wallpapers, applying the stored
 // or picked wallpaper once it is ready, and saving the choice and whether
 // wallpapers are on, per mode.
-import type { StorageAreaLike } from '../../../domain/storage-port';
 import type { WallpaperRecord } from '../../../shared/wallpaper-records';
 import type * as RemoteContent from '../../remote-content';
 import type { RemoteContentClient } from '../../remote-content';
@@ -9,6 +8,8 @@ import type { WallpaperEffectPrefsRuntime } from './wallpaper-effect-prefs';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { StoredValue, WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperVisual } from './wallpaper-visual';
+import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks, newtabLinkWallpapers, newtabLocalWallpaper, newtabOnlineWallpaper, newtabWallpaper, newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
+import type { SettingsStore } from '../../../platform/settings-store';
 import type {
   CachedWallpaperImage,
   DailyWallpaperPicks,
@@ -26,7 +27,7 @@ interface WallpaperSelectionDeps extends
     'writeWallpaperPreloadCache' | 'getEffectiveWallpaperIdForMode' | 'resolveSyncedWallpaperValue' |
     'resolveLocalWallpaperOverride' | 'applyLocalWallpaperMigrations' | 'setWallpaperPrefs' |
     'writeSyncedWallpaperValue' | 'getWallpaperStorageRawIds' | 'isOnlineWallpaperId' | 'writeLocalWallpaperValue' |
-    'buildLocalWallpaperStorageValue' | 'readStorageValue' | 'mergeOnlineWallpaperValue' |
+    'buildLocalWallpaperStorageValue' | 'readStoredSetting' | 'mergeOnlineWallpaperValue' |
     'getStoredCustomWallpaperIds' | 'hasLoadedStoredCustomWallpaper' | 'readCustomWallpaperRecordsByIds' |
     'getWritableWallpaperPrefs' | 'getWritableLocalWallpaperOverrides' | 'writeCurrentWallpaperPrefs' |
     'getWallpaperModePreferenceOrder' | 'hasAnyWallpaperEnabled' | 'getFirstEnabledWallpaperIdForModes' |
@@ -52,15 +53,7 @@ interface WallpaperSelectionDeps extends
   bindWallpaperPageShownListeners(): void;
   // Shows the source tab of the wallpaper the edited mode uses.
   syncWallpaperSourceTabToEditMode(): void;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY: string;
-  NEWTAB_WALLPAPER_STORAGE_KEY: string;
-  localWallpaperStorageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
-  NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY: string;
-  NEWTAB_LINK_WALLPAPERS_STORAGE_KEY: string;
-  NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY: string;
-  NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY: string;
+  settings: Pick<SettingsStore, 'getStored' | 'include' | 'set'>;
   normalizeDailyWallpaperPicks(value: unknown): DailyWallpaperPicks;
   REMOTE_CONTENT: Pick<typeof RemoteContent,
     'setRandomMixExcluded' | 'wallpaperFromId' | 'BING_DAILY_ID' | 'localDay' | 'isDailyWallpaperId'>;
@@ -91,6 +84,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createWallpaperSelection(deps: WallpaperSelectionDeps) {
   const {
+    settings,
     getWallpaperById,
     waitForWallpaperImageReady,
     getWallpaperImageUrl,
@@ -126,17 +120,8 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     isOnlineWallpaperId,
     writeLocalWallpaperValue,
     buildLocalWallpaperStorageValue,
-    storageArea,
-    NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
     getWallpaperEffectStorageValue,
-    readStorageValue,
-    NEWTAB_WALLPAPER_STORAGE_KEY,
-    localWallpaperStorageArea,
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
-    NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY,
-    NEWTAB_LINK_WALLPAPERS_STORAGE_KEY,
-    NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY,
-    NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY,
+    readStoredSetting,
     normalizeDailyWallpaperPicks,
     REMOTE_CONTENT,
     mergeOnlineWallpaperValue,
@@ -330,10 +315,8 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
         syncedResolution.prefs.sameForModes
       ));
     }
-    if (didSyncWallpaperEffects && storageArea) {
-      void storageArea.set({
-        [NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY]: getWallpaperEffectStorageValue()
-      });
+    if (didSyncWallpaperEffects) {
+      void settings.set(newtabWallpaperEffect, getWallpaperEffectStorageValue());
     }
   }
 
@@ -341,12 +324,12 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     const config = options || {};
     const changeSeq = wallpaperState.wallpaperStorageChangeSeq;
     return Promise.all([
-      readStorageValue(storageArea, NEWTAB_WALLPAPER_STORAGE_KEY),
-      readStorageValue(localWallpaperStorageArea, NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY),
-      readStorageValue(storageArea, NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY),
-      readStorageValue(storageArea, NEWTAB_LINK_WALLPAPERS_STORAGE_KEY),
-      readStorageValue(storageArea, NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY),
-      readStorageValue(storageArea, NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY)
+      readStoredSetting(newtabWallpaper),
+      readStoredSetting(newtabLocalWallpaper),
+      readStoredSetting(newtabOnlineWallpaper),
+      readStoredSetting(newtabLinkWallpapers),
+      readStoredSetting(newtabDailyWallpaperPicks),
+      readStoredSetting(newtabCuratedMixExcluded)
     ]).then((stored) => {
       wallpaperState.dailyWallpaperPicks = normalizeDailyWallpaperPicks(stored[4].value);
       // Before any photo resolves: the random daily photo and the mix's pages follow it.
@@ -543,11 +526,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     syncWallpaperSourceTabToEditMode();
     renderWallpaperPanelState();
     writeCurrentWallpaperPrefs({ showError: true });
-    if (storageArea) {
-      void storageArea.set({
-        [NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY]: getWallpaperEffectStorageValue()
-      });
-    }
+    void settings.set(newtabWallpaperEffect, getWallpaperEffectStorageValue());
   }
 
   function persistNewtabWallpaper(id: unknown): void {

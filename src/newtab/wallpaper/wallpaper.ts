@@ -53,17 +53,6 @@ import { NEWTAB_TOP_CONTENT_SETTINGS } from '../../domain/settings/newtab-time';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../domain/settings/newtab-shortcuts';
 import { newtabSearchWidth, newtabWidthMode } from '../../domain/settings/newtab-page';
 
-const DEFAULT_STORAGE_KEYS = {
-  wallpaper: SETTINGS.newtabWallpaper.key,
-  localWallpaper: SETTINGS.newtabLocalWallpaper.key,
-  onlineWallpaper: SETTINGS.newtabOnlineWallpaper.key,
-  linkWallpapers: SETTINGS.newtabLinkWallpapers.key,
-  dailyWallpaperPicks: SETTINGS.newtabDailyWallpaperPicks.key,
-  curatedMixExcluded: SETTINGS.newtabCuratedMixExcluded.key,
-  overlay: newtabWallpaperOverlay.key,
-  effect: newtabWallpaperEffect.key,
-  favicon: newtabFavicon.key
-};
 const PRELOAD_STORAGE_VERSION = 4;
 const WALLPAPER_EFFECT_MODE_STORAGE_VERSION = 11;
 const CRT_PARAMETER_PHYSICAL_MAX: Readonly<Record<CrtParameterKey, number>> = Object.freeze({
@@ -158,12 +147,10 @@ interface WallpaperRuntimeOptions {
   windowObj?: Window & typeof globalThis;
   chromeObj?: WallpaperChromeApi;
   extensionRoutes?: Pick<typeof LumnoExtensionRoutes, 'buildOptionsUrl'>;
-  storageArea?: StorageArea | null;
   settings: SettingsStore;
   preview: SettingPreview;
   localWallpaperStorageArea?: StorageArea | null;
   view?: WallpaperViewApi | null;
-  storageKeys?: Partial<typeof DEFAULT_STORAGE_KEYS>;
   t?: Translate;
   formatMessage?: FormatMessage;
   getThemeMode?: () => string;
@@ -221,19 +208,8 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   const window = windowObj;
   const chrome: WallpaperChromeApi = options.chromeObj || globalThis.chrome || {};
   const extensionRoutes = options.extensionRoutes || LumnoExtensionRoutes;
-  const storageArea = options.storageArea || null;
   const localWallpaperStorageArea = options.localWallpaperStorageArea || null;
   const wallpaperView = options.view || getWallpaperViewApi() || null;
-  const storageKeys = { ...DEFAULT_STORAGE_KEYS, ...options.storageKeys };
-  const NEWTAB_WALLPAPER_STORAGE_KEY = storageKeys.wallpaper;
-  const NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY = storageKeys.localWallpaper;
-  const NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY = storageKeys.onlineWallpaper;
-  const NEWTAB_LINK_WALLPAPERS_STORAGE_KEY = storageKeys.linkWallpapers;
-  const NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY = storageKeys.dailyWallpaperPicks;
-  const NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY = storageKeys.curatedMixExcluded;
-  const NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY = storageKeys.overlay;
-  const NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY = storageKeys.effect;
-  const NEWTAB_FAVICON_STORAGE_KEY = storageKeys.favicon;
   const t: Translate = typeof options.t === 'function'
     ? options.t
     : function(_key, fallback) { return fallback || ''; };
@@ -696,16 +672,13 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     document,
     window,
     getWallpaperSelectionIdForUi: (...args) => getWallpaperSelectionIdForUi(...args),
-    writeStorageValue: (...args) => writeStorageValue(...args),
-    storageArea,
-    NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY,
+    writeSetting: (...args) => writeSetting(...args),
     showToast,
     t,
     getWallpaperTileSelectionId: (...args) => getWallpaperTileSelectionId(...args),
     formatMessage,
     playWallpaperEnterMotion: (...args) => playWallpaperEnterMotion(...args),
     getWallpaperPanelRefs: (...args) => getWallpaperPanelRefs(...args),
-    NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY,
     persistNewtabWallpaper: (...args) => persistNewtabWallpaper(...args),
     getWallpaperById: (...args) => getWallpaperById(...args),
     NEWTAB_WALLPAPER_DEFAULT_ID,
@@ -870,9 +843,7 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     waitForDocumentLoad: (...args) => waitForDocumentLoad(...args),
     getShownWallpaperCopy: (...args) => getShownWallpaperCopy(...args),
     dailyWallpaperStandIns,
-    writeStorageValue: (...args) => writeStorageValue(...args),
-    storageArea,
-    NEWTAB_LINK_WALLPAPERS_STORAGE_KEY,
+    writeSetting: (...args) => writeSetting(...args),
     hideTopActionTooltip,
     getWritableWallpaperPrefs: (...args) => getWritableWallpaperPrefs(...args),
     NEWTAB_WALLPAPER_DEFAULT_ID,
@@ -1035,17 +1006,9 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     isOnlineWallpaperId: (...args) => isOnlineWallpaperId(...args),
     writeLocalWallpaperValue: (...args) => writeLocalWallpaperValue(...args),
     buildLocalWallpaperStorageValue: (...args) => buildLocalWallpaperStorageValue(...args),
-    storageArea,
-    NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
+    settings: options.settings,
     getWallpaperEffectStorageValue: (...args) => getWallpaperEffectStorageValue(...args),
-    readStorageValue: (...args) => readStorageValue(...args),
-    NEWTAB_WALLPAPER_STORAGE_KEY,
-    localWallpaperStorageArea,
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
-    NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY,
-    NEWTAB_LINK_WALLPAPERS_STORAGE_KEY,
-    NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY,
-    NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY,
+    readStoredSetting: (...args) => readStoredSetting(...args),
     normalizeDailyWallpaperPicks,
     REMOTE_CONTENT,
     mergeOnlineWallpaperValue: (...args) => mergeOnlineWallpaperValue(...args),
@@ -1153,9 +1116,7 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     renderWallpaperPanelState,
     NEWTAB_WALLPAPER_MODES,
     writeWallpaperPreloadCache: (...args) => writeWallpaperPreloadCache(...args),
-    storageArea,
-    NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
-    NEWTAB_WALLPAPER_EFFECT_DEFAULTS,
+    settings: options.settings,
     window,
     wallpaperState
   });
@@ -1177,8 +1138,7 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     renderWallpaperPanelState,
     scheduleWallpaperAdaptiveToneUpdate,
     writeWallpaperPreloadCache: (...args) => writeWallpaperPreloadCache(...args),
-    storageArea,
-    NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY,
+    settings: options.settings,
     wallpaperState
   });
 
@@ -1216,8 +1176,8 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   });
 
   const {
-    readStorageValue,
-    writeStorageValue,
+    readStoredSetting,
+    writeSetting,
     isOnlineWallpaperId,
     mergeOnlineWallpaperValue,
     writeSyncedWallpaperValue,
@@ -1256,18 +1216,13 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     deleteCustomWallpaperRecord,
     buildCustomWallpaperRecordFromFile
   } = WALLPAPER_WALLPAPER_STORAGE.createWallpaperStorage({
-    chrome,
     REMOTE_CONTENT,
     isLinkWallpaperId,
     NEWTAB_WALLPAPER_DEFAULT_ID,
     NEWTAB_WALLPAPER_MODES,
-    storageArea,
-    NEWTAB_WALLPAPER_STORAGE_KEY,
-    NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY,
+    settings: options.settings,
     showToast,
     t,
-    localWallpaperStorageArea,
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     normalizeWallpaperMode,
     NEWTAB_WALLPAPER_MODE_DARK,
     NEWTAB_WALLPAPER_MODE_LIGHT,
@@ -1323,11 +1278,9 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     BroadcastChannelCtor,
     document,
     renderWallpaperPanelState,
-    writeStorageValue,
-    storageArea,
-    NEWTAB_FAVICON_STORAGE_KEY,
+    writeSetting,
     showToast,
-    readStorageValue,
+    readStoredSetting,
     formatMessage,
     wallpaperState
   });
@@ -1605,16 +1558,16 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
         writeWallpaperPreloadCache();
       }
       const storedPrefs = getWallpaperEffectStorageValue();
-      if (storageArea && raw && JSON.stringify(raw) !== JSON.stringify(storedPrefs)) {
-        void storageArea.set({ [NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY]: storedPrefs });
+      if (raw && JSON.stringify(raw) !== JSON.stringify(storedPrefs)) {
+        void settings.set(newtabWallpaperEffect, storedPrefs);
       }
     });
     settings.subscribe(newtabFavicon, () => {
       const raw = settings.getStored(newtabFavicon);
       const nextId = normalizeNewtabFaviconId(raw);
       applyNewtabFavicon(nextId);
-      if (storageArea && raw !== nextId) {
-        writeStorageValue(storageArea, NEWTAB_FAVICON_STORAGE_KEY, nextId);
+      if (raw !== nextId) {
+        writeSetting(newtabFavicon, nextId);
       }
     });
   }
@@ -1645,7 +1598,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   options.preview.store.subscribe(() => renderWallpaperPanelState());
 
   return {
-    storageKeys,
     createControls: createWallpaperControls,
     getControlElement,
     containsTarget,
@@ -1673,7 +1625,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
 type WallpaperRuntime = ReturnType<typeof createWallpaperRuntime>;
 
 export {
-  DEFAULT_STORAGE_KEYS as STORAGE_KEYS,
   WALLPAPER_EFFECT_MODE_STORAGE_VERSION,
   normalizeWallpaperEffectStoragePrefs,
   createWallpaperRuntime

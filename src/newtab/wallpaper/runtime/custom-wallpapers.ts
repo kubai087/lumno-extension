@@ -1,7 +1,6 @@
 // Wallpapers the user adds: imported files and URLs, link wallpapers,
 // saving an online wallpaper locally, caching wallpaper images (including
 // tomorrow's daily ones), the online wallpaper menu, and deleting.
-import type { StorageAreaLike } from '../../../domain/storage-port';
 import { isNode } from '../../../shared/dom-guards';
 import type { ToastTask } from '../../../shared/ui/toast-screen';
 import type { SelectMenuOption } from '../../../shared/react/select-menu/menu-options';
@@ -26,6 +25,7 @@ import type {
 } from './wallpaper-runtime-types';
 import { readBootValue } from '../../../platform/boot-handoff';
 import { getSelectMenuApi } from '../../react/select-menu';
+import { newtabLinkWallpapers } from '../../../domain/settings/newtab-wallpaper';
 
 type SelectMenuController = ReturnType<typeof createSelectMenuController>;
 
@@ -44,7 +44,7 @@ type FetchRemoteContent = (url: string, init: RequestInit) => Promise<Response>;
 interface CustomWallpapersDeps extends
   Pick<WallpaperStorage,
     'buildCustomWallpaperRecordFromFile' | 'writeCustomWallpaperRecord' | 'normalizeCustomWallpaperRecord' |
-    'writeWallpaperPreloadCache' | 'writeStorageValue' | 'getWritableWallpaperPrefs' | 'setWallpaperPrefs' |
+    'writeWallpaperPreloadCache' | 'writeSetting' | 'getWritableWallpaperPrefs' | 'setWallpaperPrefs' |
     'getWritableLocalWallpaperOverrides' | 'writeCurrentWallpaperPrefs' | 'deleteCustomWallpaperRecord' |
     'writeLocalWallpaperValue' | 'buildLocalWallpaperStorageValue' | 'getEffectiveWallpaperIdForMode'>,
   Pick<WallpaperSelection,
@@ -67,8 +67,6 @@ interface CustomWallpapersDeps extends
     'wallpaperFromId' | 'isDailyWallpaperId' | 'BING_DAILY_ID' | 'getCuratedDailyWallpaper'>;
   window: Window & typeof globalThis;
   dailyWallpaperStandIns: Map<string, CachedWallpaperImage>;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_LINK_WALLPAPERS_STORAGE_KEY: string;
   hideTopActionTooltip(): void;
   NEWTAB_WALLPAPER_DEFAULT_ID: string;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'>;
@@ -145,9 +143,7 @@ function createCustomWallpapers(deps: CustomWallpapersDeps) {
     waitForDocumentLoad,
     getShownWallpaperCopy,
     dailyWallpaperStandIns,
-    writeStorageValue,
-    storageArea,
-    NEWTAB_LINK_WALLPAPERS_STORAGE_KEY,
+    writeSetting,
     hideTopActionTooltip,
     getWritableWallpaperPrefs,
     NEWTAB_WALLPAPER_DEFAULT_ID,
@@ -534,7 +530,7 @@ function createCustomWallpapers(deps: CustomWallpapersDeps) {
 
   function writeLinkWallpapers(list: LinkWallpaperEntry[]): void {
     wallpaperState.linkWallpapers = list;
-    writeStorageValue(storageArea, NEWTAB_LINK_WALLPAPERS_STORAGE_KEY, list, () => {
+    writeSetting(newtabLinkWallpapers, list, () => {
       showToast(t('newtab_wallpaper_save_error', 'Failed to save wallpaper'), true);
     });
   }

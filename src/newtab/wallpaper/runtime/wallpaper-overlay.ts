@@ -1,7 +1,8 @@
 // The darkening overlay over the wallpaper: its opacity per mode, the
 // slider snapping, the gradient stops, and saving and restoring it.
-import type { StorageAreaLike } from '../../../domain/storage-port';
 import type { WallpaperMode, WallpaperOverlayStops, WallpaperState } from './wallpaper-runtime-types';
+import { newtabWallpaperOverlay } from '../../../domain/settings/newtab-wallpaper';
+import type { SettingsStore } from '../../../platform/settings-store';
 
 // The saved overlay: a slider value (0-100) per mode.
 interface WallpaperOverlayPrefs {
@@ -18,8 +19,7 @@ interface WallpaperOverlayDeps {
   renderWallpaperPanelState(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   writeWallpaperPreloadCache(): void;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY: string;
+  settings: Pick<SettingsStore, 'getStored' | 'include' | 'set'>;
   wallpaperState: Pick<WallpaperState,
     'currentWallpaperOverlayOpacity' | 'hasStoredWallpaperStateLoaded' | 'saveWallpaperStyleSetting'>;
 }
@@ -32,15 +32,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createWallpaperOverlay(deps: WallpaperOverlayDeps) {
   const {
+    settings,
     NEWTAB_WALLPAPER_OVERLAY_DEFAULTS,
     document,
     clampNumber,
     NEWTAB_WALLPAPER_OVERLAY_STOPS,
     renderWallpaperPanelState,
     scheduleWallpaperAdaptiveToneUpdate,
-    writeWallpaperPreloadCache,
-    storageArea,
-    NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY
+    writeWallpaperPreloadCache
   } = deps;
 
   // The runtime state object shared with wallpaper.ts and the other modules.
@@ -157,39 +156,22 @@ function createWallpaperOverlay(deps: WallpaperOverlayDeps) {
       [nextMode]: nextValue
     };
     applyWallpaperOverlayOpacity(nextPrefs);
-    // Narrowed here, for the save below.
-    const area = storageArea;
-    if (!area) {
-      return;
-    }
     wallpaperState.saveWallpaperStyleSetting('overlay', () => {
-      void area.set({ [NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY]: nextPrefs });
+      void settings.set(newtabWallpaperOverlay, nextPrefs);
     });
   }
   function bootstrapInitialWallpaperOverlay(): Promise<void> {
     if (initialWallpaperOverlayReadyPromise) {
       return initialWallpaperOverlayReadyPromise;
     }
-    const area = storageArea;
-    initialWallpaperOverlayReadyPromise = new Promise<void>((resolve) => {
-      if (!area) {
-        applyWallpaperOverlayOpacity({
-          version: NEWTAB_WALLPAPER_OVERLAY_STORAGE_VERSION,
-          light: NEWTAB_WALLPAPER_OVERLAY_DEFAULTS.light,
-          dark: NEWTAB_WALLPAPER_OVERLAY_DEFAULTS.dark
-        });
-        resolve();
-        return;
+    // An invalid stored value is written back normalized.
+    initialWallpaperOverlayReadyPromise = settings.include(newtabWallpaperOverlay).then(() => {
+      const raw = settings.getStored(newtabWallpaperOverlay);
+      const prefs = normalizeWallpaperOverlayPrefs(raw);
+      applyWallpaperOverlayOpacity(prefs);
+      if (raw && JSON.stringify(raw) !== JSON.stringify(prefs)) {
+        void settings.set(newtabWallpaperOverlay, prefs);
       }
-      void area.get([NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY], (result) => {
-        const raw = result ? result[NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY] : null;
-        const prefs = normalizeWallpaperOverlayPrefs(raw);
-        applyWallpaperOverlayOpacity(prefs);
-        if (raw && JSON.stringify(raw) !== JSON.stringify(prefs)) {
-          void area.set({ [NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY]: prefs });
-        }
-        resolve();
-      });
     });
     return initialWallpaperOverlayReadyPromise;
   }

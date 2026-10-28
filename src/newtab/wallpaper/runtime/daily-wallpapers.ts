@@ -1,7 +1,6 @@
 // Daily wallpapers: the Bing catalog and curated categories, the picks
 // kept per day, refreshing them when a day has passed, and picking a Bing
 // or curated photo.
-import type { StorageAreaLike } from '../../../domain/storage-port';
 import type { ToastTask } from '../../../shared/ui/toast-screen';
 import type { FormatMessage, ShowToast, Translate } from '../../newtab-types';
 import type * as RemoteContent from '../../remote-content';
@@ -11,11 +10,12 @@ import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { DailyWallpaperPicks, WallpaperItem, WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
+import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks } from '../../../domain/settings/newtab-wallpaper';
 
 interface DailyWallpapersDeps extends
   Pick<WallpaperStorage,
     'getEffectiveWallpaperIdForMode' | 'getResolvedWallpaperMode' | 'getWallpaperSelectionIdForUi' |
-    'writeStorageValue' | 'getWallpaperTileSelectionId' | 'getWallpaperEditMode'>,
+    'writeSetting' | 'getWallpaperTileSelectionId' | 'getWallpaperEditMode'>,
   Pick<WallpaperSelection, 'applyResolvedNewtabWallpaper' | 'persistNewtabWallpaper'>,
   Pick<WallpaperSources, 'getWallpaperById'> {
   renderWallpaperPanelState(): void;
@@ -27,8 +27,6 @@ interface DailyWallpapersDeps extends
     'setRandomMixExcluded' | 'curatedDailyId'>;
   document: Document;
   window: Window;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY: string;
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
@@ -36,7 +34,6 @@ interface DailyWallpapersDeps extends
   playWallpaperEnterMotion(element: HTMLElement | null | undefined, state: string): void;
   // The appearance panel's elements by data-wallpaper-ref name.
   getWallpaperPanelRefs(): Readonly<Partial<Record<string, HTMLElement>>>;
-  NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY: string;
   NEWTAB_WALLPAPER_DEFAULT_ID: string;
   // Shows a toast that follows a task to its end.
   beginToast(message: string): ToastTask;
@@ -72,16 +69,13 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     document,
     window,
     getWallpaperSelectionIdForUi,
-    writeStorageValue,
-    storageArea,
-    NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY,
+    writeSetting,
     showToast,
     t,
     getWallpaperTileSelectionId,
     formatMessage,
     playWallpaperEnterMotion,
     getWallpaperPanelRefs,
-    NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY,
     persistNewtabWallpaper,
     getWallpaperById,
     NEWTAB_WALLPAPER_DEFAULT_ID,
@@ -236,7 +230,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     if (!pickId || scheduled && scheduled.dailyId === pickId) delete picks[dailyId];
     else picks[dailyId] = pickId;
     wallpaperState.dailyWallpaperPicks = { day: today, picks };
-    writeStorageValue(storageArea, NEWTAB_DAILY_WALLPAPER_PICKS_STORAGE_KEY,
+    writeSetting(newtabDailyWallpaperPicks,
       Object.keys(picks).length ? wallpaperState.dailyWallpaperPicks : '', () => {
         showToast(t('newtab_wallpaper_save_error', 'Failed to save wallpaper'), true);
       });
@@ -305,7 +299,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     const normalized = REMOTE_CONTENT.normalizeRandomMixExcluded(next);
     if (normalized.length !== next.length || normalized.join() === excluded.join()) return;
     REMOTE_CONTENT.setRandomMixExcluded(normalized);
-    writeStorageValue(storageArea, NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY, normalized.length ? normalized : '', () => {
+    writeSetting(newtabCuratedMixExcluded, normalized.length ? normalized : '', () => {
       showToast(t('newtab_wallpaper_save_error', 'Failed to save wallpaper'), true);
     });
     showCuratedPageOfSelection();

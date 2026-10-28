@@ -1,7 +1,9 @@
 // Wallpaper prefs in storage: synced and local values per mode, the
 // overrides kept on one device, the preload cache the next page reads before
 // the runtime starts, and the custom wallpaper records.
-import type { StorageAreaLike, StorageItems } from '../../../domain/storage-port';
+import type { Setting } from '../../../domain/settings/define';
+import { newtabLocalWallpaper, newtabOnlineWallpaper, newtabWallpaper } from '../../../domain/settings/newtab-wallpaper';
+import type { SettingsStore } from '../../../platform/settings-store';
 import type { WallpaperLocalStore } from '../../../shared/wallpaper-records';
 import type { ShowToast, Translate } from '../../newtab-types';
 import type { WallpaperSourceTab } from '../../react/wallpaper-panel/panel-model';
@@ -20,8 +22,6 @@ import type {
   WallpaperPrefs,
   WallpaperState
 } from './wallpaper-runtime-types';
-
-type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
 // A value read from storage, and whether the key held one.
 interface StoredValue {
@@ -79,19 +79,14 @@ interface WallpaperStorageDeps extends Pick<WallpaperSources,
   'cloneLocalWallpaperOverrides' | 'normalizeNewtabWallpaperId' | 'getDefaultLocalWallpaperOverrides' |
   'getDefaultWallpaperPrefs' | 'getWallpaperById' | 'getCachedWallpaperImage' | 'getShownWallpaperCopy' |
   'getWallpaperRuntimePath' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperImageUrl' | 'getWallpaperSample'> {
-  chrome: { runtime?: { lastError?: unknown } } | null | undefined;
   REMOTE_CONTENT: Pick<typeof RemoteContent,
     'wallpaperFromId' | 'isDailyWallpaperId' | 'getWallpaperProvider' | 'localDay'>;
   isLinkWallpaperId(id: unknown): boolean;
   NEWTAB_WALLPAPER_DEFAULT_ID: string;
   NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
-  storageArea: StorageArea | null;
-  NEWTAB_WALLPAPER_STORAGE_KEY: string;
-  NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY: string;
+  settings: Pick<SettingsStore, 'getStored' | 'include' | 'set' | 'setMany'>;
   showToast: ShowToast;
   t: Translate;
-  localWallpaperStorageArea: StorageArea | null;
-  NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
   NEWTAB_WALLPAPER_MODE_DARK: 'dark';
   NEWTAB_WALLPAPER_MODE_LIGHT: 'light';
   // The ID older versions stored for their single upload.
@@ -125,18 +120,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createWallpaperStorage(deps: WallpaperStorageDeps) {
   const {
-    chrome,
     REMOTE_CONTENT,
     isLinkWallpaperId,
     NEWTAB_WALLPAPER_DEFAULT_ID,
     NEWTAB_WALLPAPER_MODES,
-    storageArea,
-    NEWTAB_WALLPAPER_STORAGE_KEY,
-    NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY,
+    settings,
     showToast,
     t,
-    localWallpaperStorageArea,
-    NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     normalizeWallpaperMode,
     NEWTAB_WALLPAPER_MODE_DARK,
     NEWTAB_WALLPAPER_MODE_LIGHT,
@@ -181,36 +171,18 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
     return isRecord(value) && value.id ? value.id : value;
   }
 
-  function hasStorageValue(result: StorageItems | undefined, key: string): boolean {
-    return Boolean(result && Object.prototype.hasOwnProperty.call(result, key));
+  // A setting's stored value once read, and whether one is stored; a
+  // failed read stores none.
+  function readStoredSetting(setting: Setting<unknown>): Promise<StoredValue> {
+    return settings.include(setting).then(() => {
+      const value = settings.getStored(setting);
+      return { hasValue: typeof value !== 'undefined', value };
+    }, (): StoredValue => ({ hasValue: false, value: undefined }));
   }
 
-  function readStorageValue(area: StorageArea | null | undefined, key: string): Promise<StoredValue> {
-    return new Promise((resolve) => {
-      if (!area || !key || typeof area.get !== 'function') {
-        resolve({ hasValue: false, value: undefined });
-        return;
-      }
-      void area.get([key], (result) => {
-        resolve({
-          hasValue: hasStorageValue(result, key),
-          value: result ? result[key] : undefined
-        });
-      });
-    });
-  }
-
-  function writeStorageValue(
-    area: StorageArea | null | undefined,
-    key: string,
-    value: unknown,
-    onError?: () => void
-  ): void {
-    if (!area || !key || typeof area.set !== 'function') {
-      return;
-    }
-    void area.set({ [key]: value }, () => {
-      if (chrome && chrome.runtime && chrome.runtime.lastError && typeof onError === 'function') {
+  function writeSetting(setting: Setting<unknown>, value: unknown, onError?: () => void): void {
+    void settings.set(setting, value).catch(() => {
+      if (typeof onError === 'function') {
         onError();
       }
     });
@@ -250,23 +222,20 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
   }
 
   function writeSyncedWallpaperValue(value: unknown, options?: { showError?: boolean } | null): void {
-    if (!storageArea || typeof storageArea.set !== 'function') {
-      return;
-    }
     const hasOnlineWallpaper = getWallpaperStorageRawIds(value).some(isOnlineWallpaperId);
     const shared = hasOnlineWallpaper ? buildSharedSyncedWallpaperValue(value) : value;
-    void storageArea.set({
-      [NEWTAB_WALLPAPER_STORAGE_KEY]: shared,
-      [NEWTAB_ONLINE_WALLPAPER_STORAGE_KEY]: hasOnlineWallpaper ? { value, shared } : ''
-    }, () => {
-      if (chrome && chrome.runtime && chrome.runtime.lastError && options && options.showError) {
+    void settings.setMany([
+      [newtabWallpaper, shared],
+      [newtabOnlineWallpaper, hasOnlineWallpaper ? { value, shared } : '']
+    ]).catch(() => {
+      if (options && options.showError) {
         showToast(t('newtab_wallpaper_save_error', 'Failed to save wallpaper'), true);
       }
     });
   }
 
   function writeLocalWallpaperValue(value: unknown, options?: { showError?: boolean } | null): void {
-    writeStorageValue(localWallpaperStorageArea, NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY, value, () => {
+    writeSetting(newtabLocalWallpaper, value, () => {
       if (options && options.showError) {
         showToast(t('newtab_wallpaper_save_error', 'Failed to save wallpaper'), true);
       }
@@ -851,8 +820,8 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
   }
 
   return {
-    readStorageValue,
-    writeStorageValue,
+    readStoredSetting,
+    writeSetting,
     isOnlineWallpaperId,
     mergeOnlineWallpaperValue,
     writeSyncedWallpaperValue,
