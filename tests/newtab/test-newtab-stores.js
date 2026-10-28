@@ -4,31 +4,9 @@ const recentStore = {
   ...require('../../src/domain/recent-sites-store.ts'),
   ...require('../../src/domain/recent-sites-merge.ts')
 };
-const recentSitesStorage = require('../../src/platform/recent-sites-storage.ts');
 const bookmarkStore = require('../../src/newtab/bookmarks/bookmarks-store.ts');
-const { pinnedRecentSites } = require('../../src/domain/settings/recent-sites.ts');
 
 path.resolve(__dirname, '..', '..');
-
-function createMemoryStorage(initialData) {
-  const data = { ...(initialData || {}) };
-  return {
-    get(keys, callback) {
-      const result = {};
-      (Array.isArray(keys) ? keys : [keys]).forEach((key) => {
-        result[key] = data[key];
-      });
-      callback(result);
-    },
-    set(value, callback) {
-      Object.assign(data, value || {});
-      if (callback) {
-        callback();
-      }
-    },
-    data
-  };
-}
 
 async function testRecentStore() {
   assert.strictEqual(recentStore.normalizeRecentCount(8), 8);
@@ -148,20 +126,17 @@ async function testRecentStore() {
     'without topSites, most-visited should rank by summed visit counts rather than recency'
   );
 
-  const storage = createMemoryStorage({
-    [pinnedRecentSites.key]: [
-      { title: 'A', url: 'https://a.example/' },
-      { title: 'A duplicate', url: 'https://a.example/' },
-      { title: 'B', url: 'https://b.example/' },
-      { title: 'C', url: 'https://c.example/' },
-      { title: 'D', url: 'https://d.example/' }
-    ]
-  });
-  const loadedPinned = await recentSitesStorage.loadPinnedRecentSites(storage, options);
+  const loadedPinned = recentStore.normalizePinnedRecentSites([
+    { title: 'A', url: 'https://a.example/' },
+    { title: 'A duplicate', url: 'https://a.example/' },
+    { title: 'B', url: 'https://b.example/' },
+    { title: 'C', url: 'https://c.example/' },
+    { title: 'D', url: 'https://d.example/' }
+  ], options);
   assert.strictEqual(loadedPinned.length, 3);
   assert.deepStrictEqual(loadedPinned.map((item) => item.host), ['a.example', 'b.example', 'c.example']);
 
-  const savedHidden = await recentSitesStorage.saveHiddenRecentSites(storage, [
+  const savedHidden = recentStore.normalizeHiddenRecentSites([
     'https://hidden.example/a',
     { url: 'https://hidden.example/a', lastVisitTime: 12 }
   ], options);

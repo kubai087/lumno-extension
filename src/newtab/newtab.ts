@@ -109,7 +109,6 @@ import {
   bookmarkFolderColorPresets,
   bookmarkFolderIconsVisible,
   bookmarkViewMode,
-  hiddenRecentSites,
   newtabFavicon,
   newtabLocalWallpaper,
   newtabOpenInNewTab,
@@ -124,7 +123,6 @@ import {
   newtabWidthMode,
   numberShortcutInstantEnabled,
   overlayTabPriority,
-  pinnedRecentSites,
   recentCount,
   recentMode,
   simpleModeEnabled
@@ -279,7 +277,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     (chrome && chrome.storage && chrome.storage.local)
       ? chrome.storage.local
       : null;
-  const recentSitesStorageArea = storageArea || localStorageArea;
   function getExtensionResourceUrl(resourcePath: unknown): string {
     const normalizedPath = String(resourcePath || '').replace(/^\/+/, '');
     if (chrome && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
@@ -787,18 +784,17 @@ import * as SettingsStorage from '../platform/settings-storage';
   const { isCardActivationSuppressed } = NEWTAB_CARD_ACTIVATION_GUARD.createCardActivationGuard({ documentObj: document });
 
   const {
+    followStoredSites,
+    getPinnedRecentSites,
+    getHiddenRecentSites,
     getRecentContextMenuOptions,
     closeRecentContextMenu,
     handleRecentCardContextMenu,
     getRecentStoreOptions,
     getRecentSiteUrlKey,
-    normalizeHiddenRecentSites,
-    readHiddenRecentSites,
     writeHiddenRecentSites,
     isRecentSiteHidden,
     normalizeRecentSiteRecord,
-    normalizePinnedRecentSites,
-    readPinnedRecentSites,
     isRecentSitePinned,
     mergeRecentSitesWithPinned,
     togglePinnedRecentSite,
@@ -825,16 +821,13 @@ import * as SettingsStorage from '../platform/settings-storage';
     shouldExcludeFromRecentSites,
     isBrowserPageRecentUrl,
     MAX_PINNED_RECENT_SITES,
-    recentSitesStorageArea,
-    HIDDEN_RECENT_SITES_STORAGE_KEY: hiddenRecentSites.key,
     renderRecentSites: (...args) => renderRecentSites(...args),
-    PINNED_RECENT_SITES_STORAGE_KEY: pinnedRecentSites.key,
     progressMatch: PROGRESS_MATCH,
     progressHistory: PROGRESS_HISTORY,
-    progressHistoryStorageArea: localStorageArea,
     openProgressHistory: (item) => openRecentHistoryDialog(item),
     pageState
   });
+  const recentSitesReadyTask = followStoredSites();
 
   const {
     openBookmarkCascadeMenu,
@@ -1261,15 +1254,9 @@ import * as SettingsStorage from '../platform/settings-storage';
     isShortcutSyncStorageActive: (...args) => isShortcutSyncStorageActive(...args),
     scheduleShortcutStorageReload: (...args) => scheduleShortcutStorageReload(...args),
     registerBookmarkDisplayStorageChanges,
-    PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
-    PINNED_RECENT_SITES_STORAGE_KEY: pinnedRecentSites.key,
-    normalizePinnedRecentSites,
-    renderRecentSites: (...args) => renderRecentSites(...args),
-    HIDDEN_RECENT_SITES_STORAGE_KEY: hiddenRecentSites.key,
-    normalizeHiddenRecentSites,
     NEWTAB_SHORTCUTS_STORAGE_KEYS,
     pageState
   });
@@ -1279,10 +1266,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     settings,
     storageArea,
     renderRecentSites: (...args) => renderRecentSites(...args),
-    localStorageArea,
-    PROGRESS_HISTORY,
-    readPinnedRecentSites,
-    readHiddenRecentSites,
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
     getBookmarkLimit,
@@ -1827,6 +1810,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   NEWTAB_RECENT_SECTION.createRecentSection({
+    getPinnedRecentSites,
     settings,
     setContentSectionVisible,
     hideTopActionTooltip,
@@ -2024,6 +2008,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     handleRecentVisibilityChange,
     forceReloadRecentSitesForI18n
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    getHiddenRecentSites,
     settings,
     preview,
     isShortcutDragActive,
@@ -2844,8 +2829,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     initialLanguageReadyTask,
     sectionPolicyReadyPromise,
     initialShortcutsReadyTask,
-    pageState.initialPinnedRecentSitesReadyTask,
-    pageState.initialHiddenRecentSitesReadyTask,
+    recentSitesReadyTask,
     initialLayoutStorageReadyTask,
     initialFontsReadyTask,
     initialTimeFontReadyTask,

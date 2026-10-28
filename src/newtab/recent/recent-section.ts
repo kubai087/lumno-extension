@@ -6,6 +6,7 @@ import type { RecentSitesViewController, RecentSitesViewOptions } from '../react
 import { getRecentSitesViewApi } from '../react/recent-sites';
 import type { SettingsStore } from '../../platform/settings-store';
 import { recentMode } from '../../domain/settings/recent-sites';
+import type { RecentSitesController } from './recent-sites-controller';
 
 // An option the recent sites view is handed as it is.
 type ViewOption<K extends keyof RecentSitesViewOptions> = NonNullable<RecentSitesViewOptions[K]>;
@@ -18,7 +19,6 @@ interface RecentSectionState {
   recentModeMenu: { update(): void } | null;
   recentGrid: HTMLElement | null;
   recentSitesView: RecentSitesViewController | null;
-  pinnedRecentSites: readonly unknown[];
   // Starts a drag when a press on a card moves far enough.
   recentCardDragRuntime: { handleRecentCardPointerDown: ViewOption<'onCardPointerDown'> } | null;
   // The items the grid shows, to skip renders that change nothing.
@@ -27,6 +27,7 @@ interface RecentSectionState {
 }
 
 interface RecentSectionDeps {
+  getPinnedRecentSites: RecentSitesController['getPinnedRecentSites'];
   settings: Pick<SettingsStore, 'get'>;
   setContentSectionVisible(section: HTMLElement | null, visible: boolean): void;
   hideTopActionTooltip(): void;
@@ -67,6 +68,7 @@ interface RecentSectionDeps {
 
 function createRecentSection(deps: RecentSectionDeps): void {
   const {
+    getPinnedRecentSites,
     settings,
     setContentSectionVisible,
     hideTopActionTooltip,
@@ -171,7 +173,7 @@ function createRecentSection(deps: RecentSectionDeps): void {
     applyCardTheme: applyRecentCardTheme,
     getCurrentRecentCount: () => getRecentLimit(),
     isPinned: isRecentSitePinned,
-    getPinnedCount: () => pageState.pinnedRecentSites.length,
+    getPinnedCount: () => getPinnedRecentSites().length,
     getMaxPinnedCount: () => MAX_PINNED_RECENT_SITES,
     showToast,
     showTopActionTooltip,

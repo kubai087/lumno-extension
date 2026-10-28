@@ -19,7 +19,7 @@ import type { ShortcutDrag, ShortcutDragSession } from './shortcuts/shortcut-dra
 import type { ShortcutsController } from './shortcuts/shortcuts-controller';
 import type { PageFavicons } from './theme/page-favicons';
 import type { UrlPolicy } from './url-policy';
-import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
+import type { RecentSite } from '../domain/recent-sites-store';
 import type { SettingPreview } from './setting-preview';
 import type { SettingsStore } from '../platform/settings-store';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
@@ -51,7 +51,6 @@ interface SectionLoadersState {
   bookmarkLoadedOnce: boolean;
   newtabShortcuts: ReadonlyArray<{ type?: string }>;
   recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'> | null;
-  hiddenRecentSites: HiddenRecentSite[];
   recentSourceItems: RecentSite[];
   recentRenderSignature: string;
   recentLoadedOnce: boolean;
@@ -68,7 +67,7 @@ interface SectionLoadersDeps extends
     'updateBookmarkSectionPosition' | 'getRecentLimit' | 'getRecentSourceLimit' | 'setContentSectionVisible' |
     'beginSearchEntryRestoreLayoutLock'>,
   Pick<RecentSitesController,
-    'normalizeRecentSiteRecord' | 'getRecentSiteUrlKey' | 'writeHiddenRecentSites' | 'isRecentSiteHidden' |
+    'normalizeRecentSiteRecord' | 'getRecentSiteUrlKey' | 'getHiddenRecentSites' | 'writeHiddenRecentSites' | 'isRecentSiteHidden' |
     'mergeRecentSitesWithPinned'>,
   Pick<UrlPolicy, 'shouldExcludeFromRecentSites'>,
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu' | 'getTopBookmarks'>,
@@ -110,6 +109,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     updateBookmarkPagerState,
     normalizeRecentSiteRecord,
     getRecentSiteUrlKey,
+    getHiddenRecentSites,
     writeHiddenRecentSites,
     shouldExcludeFromRecentSites,
     isRecentSiteHidden,
@@ -277,7 +277,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       if (!key) {
         return;
       }
-      const hiddenEntry = pageState.hiddenRecentSites.find((entry) => entry && entry.url === key);
+      const hiddenEntry = getHiddenRecentSites().find((entry) => entry && entry.url === key);
       if (!hiddenEntry) {
         return;
       }
@@ -287,7 +287,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     });
     if (resolvedHiddenUrls.size > 0) {
       void writeHiddenRecentSites(
-        pageState.hiddenRecentSites.filter((entry) => entry && !resolvedHiddenUrls.has(entry.url))
+        getHiddenRecentSites().filter((entry) => entry && !resolvedHiddenUrls.has(entry.url))
       );
     }
     const normalizedSourceItems = sourceItems

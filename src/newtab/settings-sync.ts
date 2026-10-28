@@ -3,8 +3,6 @@
 // registry, and the runtime messages that ask the page to refresh a section.
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import type { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
-import type * as ProgressHistory from '../domain/progress-history';
-import type { ProgressHistoryMap } from '../domain/progress-history';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type * as LumnoSettings from '../domain/settings';
 import type { FolderBindingRuntime } from '../platform/bookmark-folder-bindings';
@@ -16,7 +14,6 @@ import type { FolderColorRefs } from './bookmarks/bookmark-folder-icon';
 import type { FolderColors } from './bookmarks/folder-colors';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentHistoryDialogController } from './react/recent-history-dialog';
-import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SearchModeController } from './search/search-mode-controller';
 import type { SuggestionsController } from './search/suggestions-controller';
 import type { SectionLoaders } from './section-loaders';
@@ -28,9 +25,8 @@ import type { SiteThemeResolver } from './theme/site-theme-resolver';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import { shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { bingDailyCache } from '../domain/settings/newtab-wallpaper';
-import { progressHistory } from '../domain/settings/recent-sites';
 import type { CachedIconMap } from '../domain/favicon/shortcut-favicon/types';
-import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
+import type { RecentSite } from '../domain/recent-sites-store';
 import * as ProviderStorage from '../platform/provider-storage';
 import { tabRankScoreDebug } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
@@ -39,11 +35,8 @@ interface SettingsSyncState {
   bookmarkCurrentPage: number;
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
   folderColorRefs: FolderColorRefs;
-  pinnedRecentSites: RecentSite[];
-  hiddenRecentSites: HiddenRecentSite[];
   recentSourceItems: RecentSite[];
   recentRenderSignature: string;
-  progressHistoryMap: ProgressHistoryMap;
   recentHistoryDialogController: Pick<RecentHistoryDialogController, 'close'> | null;
   newtabShortcutIcons: ShortcutIconMap;
   newtabShortcutFavicons: CachedIconMap;
@@ -58,8 +51,7 @@ interface SettingsSyncState {
 
 interface SettingsSyncDeps extends
   Pick<SectionLoaders,
-    'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites' | 'renderRecentSites'>,
-  Pick<RecentSitesController, 'normalizePinnedRecentSites' | 'normalizeHiddenRecentSites'>,
+    'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites'>,
   Pick<ShortcutsController, 'renderShortcuts' | 'isShortcutSyncStorageActive' | 'scheduleShortcutStorageReload'>,
   Pick<FolderColors, 'syncFolderColorsWithBookmarks'>,
   Pick<SearchModeController, 'setSiteSearchPrefix'>,
@@ -75,7 +67,6 @@ interface SettingsSyncDeps extends
   NEWTAB_BOOKMARK_FOLDER_ICON: Pick<typeof BookmarkFolderIcon, 'normalizeFolderColorRefs'>;
   NEWTAB_SHORTCUT_ICON_STORE: Pick<typeof ShortcutIconStore, 'normalizeIconMap'>;
   defaultTheme: ThemeVariant;
-  PROGRESS_HISTORY: Pick<typeof ProgressHistory, 'normalizeHistoryMap'>;
   NEWTAB_SHORTCUTS_STORAGE_KEYS: readonly string[];
   FOLDER_COLOR_REFS_STORAGE_KEY: string;
   NEWTAB_SHORTCUT_ICONS_STORAGE_KEY: string;
@@ -83,8 +74,6 @@ interface SettingsSyncDeps extends
   siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
   NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
-  PINNED_RECENT_SITES_STORAGE_KEY: string;
-  HIDDEN_RECENT_SITES_STORAGE_KEY: string;
   pageState: SettingsSyncState;
 }
 
@@ -117,15 +106,9 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     isShortcutSyncStorageActive,
     scheduleShortcutStorageReload,
     registerBookmarkDisplayStorageChanges,
-    PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
     requestTabsAndRender,
-    PINNED_RECENT_SITES_STORAGE_KEY,
-    normalizePinnedRecentSites,
-    renderRecentSites,
-    HIDDEN_RECENT_SITES_STORAGE_KEY,
-    normalizeHiddenRecentSites,
     NEWTAB_SHORTCUTS_STORAGE_KEYS
   } = deps;
 
@@ -189,9 +172,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     }
   }, { area: 'local' });
   registerBookmarkDisplayStorageChanges(storageChanges);
-  storageChanges.on(progressHistory.key, (changes) => {
-    pageState.progressHistoryMap = PROGRESS_HISTORY.normalizeHistoryMap(changes[progressHistory.key].newValue);
-  }, { area: 'local' });
   // With settings in sync, wallpaper files and caches still change in local.
   storageChanges.on([
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
@@ -211,16 +191,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     if (!pageState.latestQuery || !pageState.latestQuery.trim()) {
       requestTabsAndRender();
     }
-  });
-  storageChanges.on(PINNED_RECENT_SITES_STORAGE_KEY, (changes) => {
-    pageState.pinnedRecentSites = normalizePinnedRecentSites(changes[PINNED_RECENT_SITES_STORAGE_KEY].newValue);
-    pageState.recentRenderSignature = '';
-    renderRecentSites(pageState.recentSourceItems);
-  });
-  storageChanges.on(HIDDEN_RECENT_SITES_STORAGE_KEY, (changes) => {
-    pageState.hiddenRecentSites = normalizeHiddenRecentSites(changes[HIDDEN_RECENT_SITES_STORAGE_KEY].newValue);
-    pageState.recentRenderSignature = '';
-    renderRecentSites(pageState.recentSourceItems);
   });
   storageChanges.on(NEWTAB_SHORTCUTS_STORAGE_KEYS, () => {
     if (pageState.shortcutPersistenceInFlightCount === 0) {

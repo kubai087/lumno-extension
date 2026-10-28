@@ -1,8 +1,6 @@
 // Reads the stored New Tab preferences once at startup (language, clock,
 // sections, shortcuts, pinned and hidden recent sites, appearance) and
 // applies them before the first reveal.
-import type * as ProgressHistory from '../domain/progress-history';
-import type { ProgressHistoryMap } from '../domain/progress-history';
 import type { StorageAreaLike } from '../domain/storage-port';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
@@ -10,14 +8,13 @@ import type { PageLayout } from './page-layout';
 import type { PagePreferences } from './page-preferences';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentHistoryDialogController } from './react/recent-history-dialog';
-import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
-import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
+import type { RecentSite } from '../domain/recent-sites-store';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
 import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible } from '../domain/settings/bookmarks';
-import { progressHistory, progressTrackingEnabled, recentCount, recentMode } from '../domain/settings/recent-sites';
+import { progressTrackingEnabled, recentCount, recentMode } from '../domain/settings/recent-sites';
 import type { SettingPreview } from './setting-preview';
 
 const SECTION_SETTINGS = [recentCount, recentMode, bookmarkCount, bookmarkColumns, bookmarkFolderIconsVisible, progressTrackingEnabled];
@@ -25,15 +22,9 @@ const SECTION_SETTINGS = [recentCount, recentMode, bookmarkCount, bookmarkColumn
 interface StartupPreferencesState {
   recentHistoryDialogController: Pick<RecentHistoryDialogController, 'close'> | null;
   bookmarkCurrentPage: number;
-  progressHistoryMap: ProgressHistoryMap;
   recentSourceItems: RecentSite[];
   recentRenderSignature: string;
   recentLoadedOnce: boolean;
-  pinnedRecentSites: RecentSite[];
-  hiddenRecentSites: HiddenRecentSite[];
-  // Settle once the stored pinned and hidden recent sites are read.
-  initialPinnedRecentSitesReadyTask: Promise<RecentSite[]>;
-  initialHiddenRecentSitesReadyTask: Promise<HiddenRecentSite[]>;
   bookmarkLoadedOnce: boolean;
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
 }
@@ -41,7 +32,6 @@ interface StartupPreferencesState {
 interface StartupPreferencesDeps extends
   Pick<PagePreferences,
     'getBookmarkLimit'>,
-  Pick<RecentSitesController, 'readPinnedRecentSites' | 'readHiddenRecentSites'>,
   Pick<PageLayout,
     'applyNewtabWidthMode' | 'applyRecentGridColumns' |
     'applyBookmarkGridColumns' | 'keepBookmarkPageAnchorAfterLimitChange' | 'updateBookmarkSectionPosition'>,
@@ -51,8 +41,6 @@ interface StartupPreferencesDeps extends
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'store'>;
   storageArea: StorageAreaLike | null;
-  localStorageArea: StorageAreaLike | null;
-  PROGRESS_HISTORY: Pick<typeof ProgressHistory, 'normalizeHistoryMap'>;
   renderRecentSites: SectionLoaders['renderRecentSites'];
   markRecentDataDirty: SectionLoaders['markRecentDataDirty'];
   loadRecentSites: SectionLoaders['loadRecentSites'];
@@ -70,10 +58,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     preview,
     storageArea,
     renderRecentSites,
-    localStorageArea,
-    PROGRESS_HISTORY,
-    readPinnedRecentSites,
-    readHiddenRecentSites,
     markRecentDataDirty,
     loadRecentSites,
     getBookmarkLimit,
@@ -178,34 +162,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
   void settings.include(SECTION_SETTINGS).then(() => applySectionPreferences(true));
 
   if (storageArea) {
-    if (localStorageArea) {
-      void localStorageArea.get([progressHistory.key], (result) => {
-        pageState.progressHistoryMap = PROGRESS_HISTORY.normalizeHistoryMap(result && result[progressHistory.key]);
-      });
-    }
-    pageState.initialPinnedRecentSitesReadyTask = readPinnedRecentSites().then((items) => {
-      pageState.pinnedRecentSites = items;
-      if (pageState.recentSourceItems.length > 0) {
-        pageState.recentRenderSignature = '';
-        renderRecentSites(pageState.recentSourceItems);
-      }
-      return items;
-    }).catch(() => {
-      pageState.pinnedRecentSites = [];
-      return pageState.pinnedRecentSites;
-    });
-    pageState.initialHiddenRecentSitesReadyTask = readHiddenRecentSites().then((items) => {
-      pageState.hiddenRecentSites = items;
-      if (pageState.recentSourceItems.length > 0) {
-        pageState.recentRenderSignature = '';
-        renderRecentSites(pageState.recentSourceItems);
-      }
-      return items;
-    }).catch(() => {
-      pageState.hiddenRecentSites = [];
-      return pageState.hiddenRecentSites;
-    });
-
     loadInitialBookmarkTopbarSurfaceColors();
     loadInitialBookmarkTopbarSurfaceMode();
   }

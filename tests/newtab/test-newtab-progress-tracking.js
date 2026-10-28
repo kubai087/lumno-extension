@@ -45,6 +45,29 @@ const HISTORY_KEY = recentSiteSettings.progressHistory.key;
   ], 'tracked works coexist with one ordinary card for the site');
 }
 
+// The settings the controller reads: the pinned and hidden sites in the
+// sync area, the progress history in the local one.
+function createSettings(syncArea, localArea, trackingEnabled) {
+  const listeners = [];
+  const areaOf = (setting) => (setting === recentSiteSettings.progressHistory ? localArea : syncArea);
+  return {
+    include: () => Promise.resolve(),
+    get(setting) {
+      if (setting === recentSiteSettings.progressTrackingEnabled) return trackingEnabled;
+      return setting.parse(areaOf(setting).data[setting.key]);
+    },
+    set(setting, value) {
+      areaOf(setting).set({ [setting.key]: value });
+      listeners.filter((entry) => entry.settings.includes(setting)).forEach((entry) => entry.listener());
+      return Promise.resolve();
+    },
+    subscribe(settings, listener) {
+      listeners.push({ settings: Array.isArray(settings) ? settings : [settings], listener });
+      return () => {};
+    }
+  };
+}
+
 function createArea(initial) {
   const data = { ...initial };
   return {
@@ -61,23 +84,22 @@ function createArea(initial) {
   };
 }
 
-function createController(pinned, history, options = {}) {
+async function createController(pinned, history, options = {}) {
   const state = {
     pinnedRecentSites: store.normalizePinnedRecentSites(pinned),
     hiddenRecentSites: [],
     recentSourceItems: [],
-    recentRenderSignature: 'x',
-    progressHistoryMap: progressHistory.normalizeHistoryMap(history)
+    recentRenderSignature: 'x'
   };
-  const trackingEnabled = options.enabled !== false;
   const syncArea = createArea({ [PINNED_KEY]: pinned });
   const localArea = createArea({ [HISTORY_KEY]: history });
+  const settings = createSettings(syncArea, localArea, options.enabled !== false);
   const toasts = [];
   const opened = [];
   let renders = 0;
   const controller = LumnoNewtabRecentSitesController.createRecentSitesController({
     NEWTAB_CONTEXT_MENU_OPEN_VALUE: 'open',
-    settings: { get: (setting) => (setting === recentSiteSettings.progressTrackingEnabled ? trackingEnabled : setting.parse(undefined)) },
+    settings,
     t: (_key, fallback) => fallback,
     showToast: (message, isError) => toasts.push({ message, isError }),
     openExternalNewTabUrl() {},
@@ -97,16 +119,13 @@ function createController(pinned, history, options = {}) {
     isBrowserPageRecentUrl: () => false,
     MAX_PINNED_RECENT_SITES: 3,
     NEWTAB_RECENT_STORE: store,
-    recentSitesStorageArea: syncArea,
-    HIDDEN_RECENT_SITES_STORAGE_KEY: '_hidden',
     renderRecentSites: () => { renders += 1; },
-    PINNED_RECENT_SITES_STORAGE_KEY: PINNED_KEY,
     progressMatch,
     progressHistory,
-    progressHistoryStorageArea: localArea,
     openProgressHistory: (item) => opened.push(item),
     pageState: state
   });
+  await controller.followStoredSites();
   return { controller, state, syncArea, localArea, toasts, opened, getRenders: () => renders };
 }
 
@@ -127,14 +146,14 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
 (async () => {
   // Badge state and menu items follow the Labs switch.
   {
-    const { controller } = createController([tracked], history);
+    const { controller } = await createController([tracked], history);
     assert.strictEqual(controller.getRecentProgressState(tracked), 'tracking');
     assert.deepStrictEqual(menuValues(controller, tracked), ['open', 'add-shortcut', 'stop-progress', 'progress-history', 'remove']);
     assert.deepStrictEqual(menuValues(controller, { url: 'https://example.com/', title: 'Example' }),
       ['open', 'add-shortcut', 'track-progress', 'remove']);
   }
   {
-    const { controller } = createController([tracked], history, { enabled: false });
+    const { controller } = await createController([tracked], history, { enabled: false });
     assert.strictEqual(controller.getRecentProgressState(tracked), '');
     assert.deepStrictEqual(menuValues(controller, tracked), ['open', 'add-shortcut', 'remove']);
   }
@@ -142,7 +161,7 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
   // Pinned cards offer the switch on the card; it turns tracking on and off.
   {
     const docs = { url: 'https://example.com/docs/getting-started', title: 'Getting started' };
-    const harness = createController([docs], {});
+    const harness = await createController([docs], {});
     assert.strictEqual(harness.controller.getRecentProgressState(docs), 'available');
     assert.strictEqual(harness.controller.getRecentProgressState({ url: 'https://other.com/', title: 'Other' }), '',
       'unpinned cards have no switch');
@@ -153,7 +172,7 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
     assert.strictEqual(await harness.controller.toggleRecentProgressTracking({ url: 'https://other.com/' }), false);
   }
   {
-    const harness = createController([tracked], history, { enabled: false });
+    const harness = await createController([tracked], history, { enabled: false });
     assert.strictEqual(harness.controller.getRecentProgressState(tracked), '', 'no switch while the setting is off');
   }
 
@@ -166,7 +185,7 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
       progressTracking: true,
       progressId: 'pa'
     };
-    const harness = createController([trackedBili], {});
+    const harness = await createController([trackedBili], {});
     const merged = harness.controller.mergeRecentSitesWithPinned([
       { url: 'https://www.bilibili.com/video/BV1xx411c7mD', title: '饼干童子军_哔哩哔哩_bilibili', lastVisitTime: 30 },
       { url: 'https://www.bilibili.com/video/BV11LEA6eEuj?p=2', title: '合集名 第2集_哔哩哔哩_bilibili', lastVisitTime: 20 },
@@ -187,7 +206,7 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
 
   // Tracking an unpinned card pins it; stopping keeps it pinned without the fields.
   {
-    const harness = createController([], {});
+    const harness = await createController([], {});
     const item = { url: 'https://www.bilibili.com/video/BV11LEA6eEuj?p=2', title: '合集 P2' };
     assert.strictEqual(await harness.controller.setProgressTracking(item, true), true);
     let [card] = harness.syncArea.data[PINNED_KEY];
@@ -204,14 +223,14 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
   }
   {
     const full = [1, 2, 3].map((n) => ({ url: `https://site${n}.com/`, title: `${n}` }));
-    const harness = createController(full, {});
+    const harness = await createController(full, {});
     assert.strictEqual(await harness.controller.setProgressTracking({ url: 'https://new.com/', title: 'New' }, true), false);
     assert.strictEqual(harness.toasts.pop().isError, true, 'the pin limit is explained');
   }
 
   // Pinning an episode or chapter starts tracking it; other pages just pin.
   {
-    const harness = createController([], {});
+    const harness = await createController([], {});
     const episode = { url: 'https://vidhub3.top/vodplay/55357-1-1.html', title: '某剧 第1集' };
     const result = await harness.controller.togglePinnedRecentSite(episode);
     assert.strictEqual(result.pinned, true);
@@ -226,13 +245,13 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
     assert.strictEqual(harness.toasts.length, 0, 'plain pins stay quiet');
   }
   {
-    const harness = createController([], {}, { enabled: false });
+    const harness = await createController([], {}, { enabled: false });
     await harness.controller.togglePinnedRecentSite({ url: 'https://vidhub3.top/vodplay/55357-1-1.html', title: '某剧 第1集' });
     assert.strictEqual('progressTracking' in harness.syncArea.data[PINNED_KEY][0], false, 'the switch turns auto-tracking off');
   }
   {
     const home = { url: 'https://www.bilibili.com/', title: '哔哩哔哩' };
-    const harness = createController([home], {});
+    const harness = await createController([home], {});
     const series = { url: 'https://www.bilibili.com/video/BV11LEA6eEuj?p=2', title: '合集 P2' };
     const result = await harness.controller.togglePinnedRecentSite(series);
     assert.strictEqual(result.pinned, true);
@@ -254,7 +273,7 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
       }
     };
     try {
-      const harness = createController([], {});
+      const harness = await createController([], {});
       await harness.controller.togglePinnedRecentSite({ url: 'https://example.com/v/abc', title: '某视频' });
       assert.strictEqual(harness.syncArea.data[PINNED_KEY][0].progressTracking, true, 'episode navigation on the open page');
       assert.deepStrictEqual(sent, [{ action: 'probeProgressSeries', url: 'https://example.com/v/abc' }]);
@@ -276,7 +295,7 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
 
   // Restoring a version swaps it with the current one, in both stores.
   {
-    const harness = createController([{ ...tracked, siteName: '某剧 第3集' }], history);
+    const harness = await createController([{ ...tracked, siteName: '某剧 第3集' }], history);
     const ok = await harness.controller.restoreProgressVersion(
       { cardId: 'p1', url: tracked.url, title: tracked.title, updateHistory: history.p1 },
       history.p1[1],
