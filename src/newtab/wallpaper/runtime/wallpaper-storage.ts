@@ -14,14 +14,16 @@ import type { WallpaperEffectStoragePrefs } from '../wallpaper-effects';
 import type { WallpaperSources } from './wallpaper-sources';
 import * as REMOTE_CONTENT from '../../remote-content';
 import * as WALLPAPER_EFFECTS from '../wallpaper-effects';
+import { NEWTAB_CUSTOM_WALLPAPER_ID, NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE, NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_MODES, NEWTAB_WALLPAPER_MODE_DARK, NEWTAB_WALLPAPER_MODE_LIGHT, NEWTAB_WALLPAPER_OVERLAY_STOPS, NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION, WALLPAPER_SOURCE_TABS } from '../wallpaper-options';
 import type {
   LocalWallpaperOverrides,
   WallpaperItem,
   WallpaperMode,
-  WallpaperOverlayStops,
   WallpaperPrefs,
   WallpaperState
 } from './wallpaper-runtime-types';
+import { PRELOAD_STORAGE_VERSION } from '../wallpaper-preload-types';
+import { newtabWallpaperPreload } from '../../../domain/settings/newtab-wallpaper';
 
 // A value read from storage, and whether the key held one.
 interface StoredValue {
@@ -80,28 +82,17 @@ interface WallpaperStorageDeps extends Pick<WallpaperSources,
   'getDefaultWallpaperPrefs' | 'getWallpaperById' | 'getCachedWallpaperImage' | 'getShownWallpaperCopy' |
   'getWallpaperRuntimePath' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperImageUrl' | 'getWallpaperSample'> {
   isLinkWallpaperId(id: unknown): boolean;
-  NEWTAB_WALLPAPER_DEFAULT_ID: string;
-  NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'set' | 'setMany'>;
   showToast: ShowToast;
   t: Translate;
-  NEWTAB_WALLPAPER_MODE_DARK: 'dark';
-  NEWTAB_WALLPAPER_MODE_LIGHT: 'light';
   // The ID older versions stored for their single upload.
-  NEWTAB_CUSTOM_WALLPAPER_ID: string;
-  NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION: number;
   // The override that turns wallpaper off on this device.
-  NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE: string;
   document: Document;
-  WALLPAPER_SOURCE_TABS: readonly WallpaperSourceTab[];
   getUpcomingDailyWallpaper(id: string): RemoteWallpaper | null;
   getNextLocalDayTimestamp(timestamp: number): number;
   remoteClient: RemoteContentClient | null;
   window: Window;
-  PRELOAD_STORAGE_KEY: string;
-  NEWTAB_WALLPAPER_OVERLAY_STOPS: WallpaperOverlayStops;
   getWallpaperOverlayStopPercent(base: number, opacity: number): number;
-  PRELOAD_STORAGE_VERSION: number;
   getEffectiveThemeMode(): string;
   getWallpaperEffectStorageValue(): WallpaperEffectStoragePrefs;
   localWallpaperStore: Pick<WallpaperLocalStore,
@@ -118,27 +109,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function createWallpaperStorage(deps: WallpaperStorageDeps) {
   const {
     isLinkWallpaperId,
-    NEWTAB_WALLPAPER_DEFAULT_ID,
-    NEWTAB_WALLPAPER_MODES,
     settings,
     showToast,
     t,
     normalizeWallpaperMode,
-    NEWTAB_WALLPAPER_MODE_DARK,
-    NEWTAB_WALLPAPER_MODE_LIGHT,
-    NEWTAB_CUSTOM_WALLPAPER_ID,
     isCustomWallpaperId,
     getCustomWallpaperById,
     cloneWallpaperPrefs,
-    NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION,
     cloneLocalWallpaperOverrides,
     normalizeNewtabWallpaperId,
     getDefaultLocalWallpaperOverrides,
-    NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE,
     getDefaultWallpaperPrefs,
     document,
     getWallpaperById,
-    WALLPAPER_SOURCE_TABS,
     getCachedWallpaperImage,
     getShownWallpaperCopy,
     getUpcomingDailyWallpaper,
@@ -146,13 +129,10 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
     getWallpaperRuntimePath,
     remoteClient,
     window,
-    PRELOAD_STORAGE_KEY,
     getDisplayedWallpaperImageUrl,
     getWallpaperImageUrl,
     getWallpaperSample,
-    NEWTAB_WALLPAPER_OVERLAY_STOPS,
     getWallpaperOverlayStopPercent,
-    PRELOAD_STORAGE_VERSION,
     getEffectiveThemeMode,
     getWallpaperEffectStorageValue,
     localWallpaperStore
@@ -705,7 +685,7 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
   function readWallpaperPreloadLuminances(): Map<string, number> {
     const luminances = new Map<string, number>();
     try {
-      const data: unknown = JSON.parse(window.localStorage.getItem(PRELOAD_STORAGE_KEY) || 'null');
+      const data: unknown = JSON.parse(window.localStorage.getItem(newtabWallpaperPreload.key) || 'null');
       const wallpapers = isRecord(data) && isRecord(data.wallpapers) ? data.wallpapers : {};
       NEWTAB_WALLPAPER_MODES.forEach((mode) => {
         const entry = wallpapers[mode];
@@ -776,7 +756,7 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
         light: getWallpaperPreloadEntryForMode(NEWTAB_WALLPAPER_MODE_LIGHT),
         dark: getWallpaperPreloadEntryForMode(NEWTAB_WALLPAPER_MODE_DARK)
       };
-      window.localStorage.setItem(PRELOAD_STORAGE_KEY, JSON.stringify({
+      window.localStorage.setItem(newtabWallpaperPreload.key, JSON.stringify({
         version: PRELOAD_STORAGE_VERSION,
         mode: getResolvedWallpaperMode(),
         themeMode: getEffectiveThemeMode(),

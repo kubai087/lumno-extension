@@ -9,6 +9,7 @@ import type { WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
 import { newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../../platform/settings-store';
 import * as WALLPAPER_EFFECTS from '../wallpaper-effects';
+import { NEWTAB_WALLPAPER_EFFECT_INK_TONES, NEWTAB_WALLPAPER_EFFECT_TYPES, NEWTAB_WALLPAPER_MODES, WALLPAPER_EFFECT_MODE_STORAGE_VERSION } from '../wallpaper-options';
 
 // A message and its fallback text.
 interface EffectLabel {
@@ -20,16 +21,12 @@ interface WallpaperEffectPrefsDeps extends Pick<WallpaperSources, 'normalizeWall
   Pick<WallpaperStorage, 'getWallpaperEditMode' | 'getResolvedWallpaperMode' | 'writeWallpaperPreloadCache'> {
   normalizeSingleWallpaperEffectPrefs(value: unknown, inheritedVersion?: unknown): WallpaperEffectPrefs;
   normalizeWallpaperEffectStoragePrefs(value: unknown): WallpaperEffectStoragePrefs;
-  WALLPAPER_EFFECT_MODE_STORAGE_VERSION: number;
-  NEWTAB_WALLPAPER_EFFECT_INK_TONES: ReadonlyArray<EffectLabel & { tone: 'dark' | 'light' }>;
   t: Translate;
-  NEWTAB_WALLPAPER_EFFECT_TYPES: ReadonlyArray<EffectLabel & { type: EffectType }>;
   // A copy of the shown wallpaper that fades out over the change, or null.
   createWallpaperTransitionLayer(): HTMLElement | null;
   releaseWallpaperTransitionLayer(layer: HTMLElement | null): void;
   document: Document;
   renderWallpaperPanelState(): void;
-  NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'set'>;
   window: Window;
   wallpaperState: Pick<WallpaperState,
@@ -46,15 +43,11 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     getWallpaperEditMode,
     getResolvedWallpaperMode,
     normalizeWallpaperEffectStoragePrefs,
-    WALLPAPER_EFFECT_MODE_STORAGE_VERSION,
-    NEWTAB_WALLPAPER_EFFECT_INK_TONES,
     t,
-    NEWTAB_WALLPAPER_EFFECT_TYPES,
     createWallpaperTransitionLayer,
     document,
     releaseWallpaperTransitionLayer,
     renderWallpaperPanelState,
-    NEWTAB_WALLPAPER_MODES,
     writeWallpaperPreloadCache,
     window
   } = deps;

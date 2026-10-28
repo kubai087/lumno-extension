@@ -1,8 +1,9 @@
 // The darkening overlay over the wallpaper: its opacity per mode, the
 // slider snapping, the gradient stops, and saving and restoring it.
-import type { WallpaperMode, WallpaperOverlayStops, WallpaperState } from './wallpaper-runtime-types';
+import type { WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
 import { newtabWallpaperOverlay } from '../../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../../platform/settings-store';
+import { NEWTAB_WALLPAPER_OVERLAY_DEFAULTS, NEWTAB_WALLPAPER_OVERLAY_STOPS } from '../wallpaper-options';
 
 // The saved overlay: a slider value (0-100) per mode.
 interface WallpaperOverlayPrefs {
@@ -12,10 +13,8 @@ interface WallpaperOverlayPrefs {
 }
 
 interface WallpaperOverlayDeps {
-  NEWTAB_WALLPAPER_OVERLAY_DEFAULTS: Readonly<Record<WallpaperMode, number>>;
   document: Document;
   clampNumber(value: unknown, min: number, max: number): number;
-  NEWTAB_WALLPAPER_OVERLAY_STOPS: WallpaperOverlayStops;
   renderWallpaperPanelState(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   writeWallpaperPreloadCache(): void;
@@ -33,10 +32,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function createWallpaperOverlay(deps: WallpaperOverlayDeps) {
   const {
     settings,
-    NEWTAB_WALLPAPER_OVERLAY_DEFAULTS,
     document,
     clampNumber,
-    NEWTAB_WALLPAPER_OVERLAY_STOPS,
     renderWallpaperPanelState,
     scheduleWallpaperAdaptiveToneUpdate,
     writeWallpaperPreloadCache

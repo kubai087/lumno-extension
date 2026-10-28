@@ -8,9 +8,10 @@ import type { RemoteWallpaper } from '../../remote-content-types';
 import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
-import type { DailyWallpaperPicks, WallpaperItem, WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
+import type { DailyWallpaperPicks, WallpaperItem, WallpaperState } from './wallpaper-runtime-types';
 import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks } from '../../../domain/settings/newtab-wallpaper';
 import * as REMOTE_CONTENT from '../../remote-content';
+import { NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_MODES } from '../wallpaper-options';
 
 interface DailyWallpapersDeps extends
   Pick<WallpaperStorage,
@@ -20,7 +21,6 @@ interface DailyWallpapersDeps extends
   Pick<WallpaperSources, 'getWallpaperById'> {
   renderWallpaperPanelState(): void;
   remoteClient: Pick<RemoteContentClient, 'getCatalog' | 'ensureWallpaper' | 'getWallpaper'>;
-  NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
   document: Document;
   window: Window;
   showToast: ShowToast;
@@ -30,7 +30,6 @@ interface DailyWallpapersDeps extends
   playWallpaperEnterMotion(element: HTMLElement | null | undefined, state: string): void;
   // The appearance panel's elements by data-wallpaper-ref name.
   getWallpaperPanelRefs(): Readonly<Partial<Record<string, HTMLElement>>>;
-  NEWTAB_WALLPAPER_DEFAULT_ID: string;
   // Shows a toast that follows a task to its end.
   beginToast(message: string): ToastTask;
   wallpaperState: Pick<WallpaperState,
@@ -57,7 +56,6 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   const {
     renderWallpaperPanelState,
     remoteClient,
-    NEWTAB_WALLPAPER_MODES,
     getEffectiveWallpaperIdForMode,
     getResolvedWallpaperMode,
     applyResolvedNewtabWallpaper,
@@ -73,7 +71,6 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     getWallpaperPanelRefs,
     persistNewtabWallpaper,
     getWallpaperById,
-    NEWTAB_WALLPAPER_DEFAULT_ID,
     getWallpaperEditMode,
     beginToast
   } = deps;

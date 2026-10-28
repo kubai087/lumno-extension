@@ -6,8 +6,8 @@ import type { Translate } from '../../newtab-types';
 import type { RemoteContentClient } from '../../remote-content';
 import type { WallpaperSample } from '../wallpaper-effects';
 import * as REMOTE_CONTENT from '../../remote-content';
+import { NEWTAB_CUSTOM_WALLPAPER_ID, NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_EXTENSION_DIRECTORY, NEWTAB_WALLPAPER_MODE_DARK, NEWTAB_WALLPAPER_MODE_LIGHT, NEWTAB_WALLPAPER_OPTIONS, NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION, NEWTAB_WALLPAPER_SAMPLE_SUFFIX, NEWTAB_WALLPAPER_SOURCE_SIZE, NEWTAB_WALLPAPER_THUMBNAIL_SUFFIX } from '../wallpaper-options';
 import type {
-  BuiltInWallpaper,
   CachedWallpaperImage,
   LocalWallpaperOverrides,
   WallpaperItem,
@@ -22,24 +22,14 @@ interface RuntimeUrlApi {
 }
 
 interface WallpaperSourcesDeps {
-  NEWTAB_WALLPAPER_MODE_DARK: 'dark';
-  NEWTAB_WALLPAPER_MODE_LIGHT: 'light';
-  NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION: number;
-  NEWTAB_WALLPAPER_DEFAULT_ID: string;
   localWallpaperStore: Pick<WallpaperLocalStore, 'isCustomWallpaperId'>;
   isLinkWallpaperId(id: unknown): boolean;
   getLinkWallpaperById(id: string): WallpaperItem | null;
   // The photo picked for a daily slot today, or ''.
   getDailyWallpaperPick(dailyId: string): string;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'> | null;
-  NEWTAB_WALLPAPER_OPTIONS: readonly BuiltInWallpaper[];
   // The ID older versions stored for their single upload.
-  NEWTAB_CUSTOM_WALLPAPER_ID: string;
-  NEWTAB_WALLPAPER_THUMBNAIL_SUFFIX: string;
-  NEWTAB_WALLPAPER_SAMPLE_SUFFIX: string;
   // Every bundled wallpaper's full size.
-  NEWTAB_WALLPAPER_SOURCE_SIZE: Readonly<{ width: number; height: number }>;
-  NEWTAB_WALLPAPER_EXTENSION_DIRECTORY: string;
   cachedWallpaperImages: ReadonlyMap<string, CachedWallpaperImage>;
   // Per daily slot, the cached copy it last showed.
   dailyWallpaperStandIns: Map<string, CachedWallpaperImage>;
@@ -56,21 +46,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createWallpaperSources(deps: WallpaperSourcesDeps) {
   const {
-    NEWTAB_WALLPAPER_MODE_DARK,
-    NEWTAB_WALLPAPER_MODE_LIGHT,
-    NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION,
-    NEWTAB_WALLPAPER_DEFAULT_ID,
     localWallpaperStore,
     isLinkWallpaperId,
     getLinkWallpaperById,
     getDailyWallpaperPick,
     remoteClient,
-    NEWTAB_WALLPAPER_OPTIONS,
-    NEWTAB_CUSTOM_WALLPAPER_ID,
-    NEWTAB_WALLPAPER_THUMBNAIL_SUFFIX,
-    NEWTAB_WALLPAPER_SAMPLE_SUFFIX,
-    NEWTAB_WALLPAPER_SOURCE_SIZE,
-    NEWTAB_WALLPAPER_EXTENSION_DIRECTORY,
     cachedWallpaperImages,
     dailyWallpaperStandIns,
     chrome,

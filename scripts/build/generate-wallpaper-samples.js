@@ -24,11 +24,11 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const AVIFENC_ARGS = ['-q', '95', '-y', '444', '-s', '0'];
 
 function readWallpaperFiles() {
-  const source = fs.readFileSync(path.join(repoRoot, 'src/newtab/wallpaper/wallpaper.ts'), 'utf8');
+  const source = fs.readFileSync(path.join(repoRoot, 'src/newtab/wallpaper/wallpaper-options.ts'), 'utf8');
   const directory = (source.match(/NEWTAB_WALLPAPER_EXTENSION_DIRECTORY\s*=\s*['"]([^'"]+)['"]/) || [])[1];
   const suffix = (source.match(/NEWTAB_WALLPAPER_SAMPLE_SUFFIX\s*=\s*['"]([^'"]+)['"]/) || [])[1];
   if (!directory || !suffix) {
-    throw new Error('wallpaper.ts no longer names the wallpaper directory or sample suffix.');
+    throw new Error('wallpaper-options.ts no longer names the wallpaper directory or sample suffix.');
   }
   const files = [];
   const filePattern = /\bfile:\s*['"]([^'"]+\.webp)['"]/g;

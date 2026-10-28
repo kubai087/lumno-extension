@@ -8,6 +8,7 @@ import type { WallpaperVisual } from './wallpaper-visual';
 import type { WallpaperState } from './wallpaper-runtime-types';
 import { newtabFaviconPreload } from '../../../domain/settings/newtab-wallpaper';
 import { newtabFavicon } from '../../../domain/settings/newtab-wallpaper';
+import { NEWTAB_FAVICON_DEFAULT_ID, NEWTAB_FAVICON_OPTIONS, NEWTAB_FAVICON_SVG_MAIN_PATH, NEWTAB_FAVICON_SVG_SHADOW_PATH } from '../wallpaper-options';
 
 // A favicon the panel offers.
 interface NewtabFaviconOption {
@@ -27,12 +28,8 @@ type FaviconTheme = 'light' | 'dark';
 
 interface FaviconChooserDeps extends Pick<WallpaperVisual, 'getRuntimeAssetUrl'>,
   Pick<WallpaperStorage, 'writeSetting' | 'readStoredSetting'> {
-  NEWTAB_FAVICON_OPTIONS: readonly NewtabFaviconOption[];
-  NEWTAB_FAVICON_DEFAULT_ID: string;
   t: Translate;
   window: Window;
-  NEWTAB_FAVICON_SVG_SHADOW_PATH: string;
-  NEWTAB_FAVICON_SVG_MAIN_PATH: string;
   BroadcastChannelCtor: typeof BroadcastChannel | null;
   document: Document;
   renderWallpaperPanelState(): void;
@@ -47,13 +44,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createFaviconChooser(deps: FaviconChooserDeps) {
   const {
-    NEWTAB_FAVICON_OPTIONS,
-    NEWTAB_FAVICON_DEFAULT_ID,
     t,
     getRuntimeAssetUrl,
     window,
-    NEWTAB_FAVICON_SVG_SHADOW_PATH,
-    NEWTAB_FAVICON_SVG_MAIN_PATH,
     BroadcastChannelCtor,
     document,
     renderWallpaperPanelState,

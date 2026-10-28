@@ -26,6 +26,7 @@ import { readBootValue } from '../../../platform/boot-handoff';
 import { getSelectMenuApi } from '../../react/select-menu';
 import { newtabLinkWallpapers } from '../../../domain/settings/newtab-wallpaper';
 import * as REMOTE_CONTENT from '../../remote-content';
+import { NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE, NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_MODES } from '../wallpaper-options';
 
 type SelectMenuController = ReturnType<typeof createSelectMenuController>;
 
@@ -62,16 +63,13 @@ interface CustomWallpapersDeps extends
   cachedWallpaperImages: Map<string, CachedWallpaperImage>;
   wallpaperImageCache: WallpaperImageCache | null;
   warnWallpaperStoreFailure(message: string): (error: unknown) => void;
-  NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
   window: Window & typeof globalThis;
   dailyWallpaperStandIns: Map<string, CachedWallpaperImage>;
   hideTopActionTooltip(): void;
-  NEWTAB_WALLPAPER_DEFAULT_ID: string;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'>;
   document: Document;
   // The appearance panel's elements by data-wallpaper-ref name.
   getWallpaperPanelRefs(): Readonly<Partial<Record<string, HTMLElement>>>;
-  NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE: string;
   wallpaperState: Pick<WallpaperState,
     'customWallpapers' | 'linkWallpapers' | 'customWallpaperImporting' | 'customWallpaperUrlFormOpen' |
     'customWallpaperUrlInvalid' | 'wallpaperViewController' | 'customWallpaperCatalogLoaded' |
@@ -131,7 +129,6 @@ function createCustomWallpapers(deps: CustomWallpapersDeps) {
     mergeCustomWallpaperRecords,
     wallpaperImageCache,
     warnWallpaperStoreFailure,
-    NEWTAB_WALLPAPER_MODES,
     applyResolvedNewtabWallpaper,
     getEffectiveWallpaperIdForMode,
     getWallpaperById,
@@ -143,7 +140,6 @@ function createCustomWallpapers(deps: CustomWallpapersDeps) {
     writeSetting,
     hideTopActionTooltip,
     getWritableWallpaperPrefs,
-    NEWTAB_WALLPAPER_DEFAULT_ID,
     setWallpaperPrefs,
     getWritableLocalWallpaperOverrides,
     writeCurrentWallpaperPrefs,
@@ -153,7 +149,6 @@ function createCustomWallpapers(deps: CustomWallpapersDeps) {
     getWallpaperPanelRefs,
     getCustomWallpaperById,
     deleteCustomWallpaperRecord,
-    NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE,
     writeLocalWallpaperValue,
     buildLocalWallpaperStorageValue
   } = deps;

@@ -11,6 +11,7 @@ import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperState } from './wallpaper-runtime-types';
 import * as REMOTE_CONTENT from '../../remote-content';
+import { WALLPAPER_SOURCE_TABS } from '../wallpaper-options';
 
 interface PanelMotionDeps extends
   Pick<WallpaperStorage, 'normalizeWallpaperSourceTab' | 'getWallpaperSelectionIdForUi' | 'getWallpaperSourceTabForId'>,
@@ -20,7 +21,6 @@ interface PanelMotionDeps extends
   Pick<WallpaperSources, 'getWallpaperById' | 'normalizeWallpaperMode'>,
   Pick<PanelSettings, 'getWallpaperAppearanceOptionButtons' | 'getWallpaperAppearanceOptionMotionElement'> {
   window: Window;
-  WALLPAPER_SOURCE_TABS: readonly WallpaperSourceTab[];
   document: Document;
   t: Translate;
   getThemeScope(): string;
@@ -36,7 +36,6 @@ function createPanelMotion(deps: PanelMotionDeps) {
     window,
     normalizeWallpaperSourceTab,
     renderWallpaperPanelState,
-    WALLPAPER_SOURCE_TABS,
     loadCustomWallpapers,
     loadBingCatalog,
     getWallpaperSelectionIdForUi,

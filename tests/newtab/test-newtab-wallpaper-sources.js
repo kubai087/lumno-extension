@@ -128,7 +128,7 @@ function readImageSize(file) {
 // running it would sample a missing or stale copy.
 function testEveryBuiltInWallpaperHasASampleAtTheSamplerSize() {
   const effects = runModuleInContext('src/newtab/wallpaper/wallpaper-effects.ts', vm.createContext({}));
-  const source = fs.readFileSync(path.join(repoRoot, 'src/newtab/wallpaper/wallpaper.ts'), 'utf8');
+  const source = fs.readFileSync(path.join(repoRoot, 'src/newtab/wallpaper/wallpaper-options.ts'), 'utf8');
   const suffix = source.match(/NEWTAB_WALLPAPER_SAMPLE_SUFFIX\s*=\s*'([^']+)'/)[1];
   const sourceSize = source.match(/NEWTAB_WALLPAPER_SOURCE_SIZE\s*=\s*Object\.freeze\(\{\s*width:\s*(\d+),\s*height:\s*(\d+)\s*\}\)/);
   const files = [...source.matchAll(/\bfile:\s*'([^']+\.webp)'/g)].map((match) => match[1]);

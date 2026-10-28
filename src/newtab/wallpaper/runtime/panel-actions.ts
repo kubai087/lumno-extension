@@ -24,6 +24,7 @@ import type { SettingsStore } from '../../../platform/settings-store';
 import { newtabTimeFont } from '../../../domain/settings/newtab-time';
 import * as REMOTE_CONTENT from '../../remote-content';
 import * as SETTINGS from '../../../domain/settings';
+import { CRT_PARAMETER_PHYSICAL_MAX, NEWTAB_WALLPAPER_DEFAULT_ID } from '../wallpaper-options';
 
 // Whether a layout change is only shown or also saved.
 type PersistOptions = { persist: boolean };
@@ -57,10 +58,8 @@ interface PanelActionsDeps extends
     'getWallpaperOverlayOpacityForCurrentMode'>,
   Pick<FaviconChooser, 'persistNewtabFavicon'> {
   settings: Pick<SettingsStore, 'get'>;
-  CRT_PARAMETER_PHYSICAL_MAX: Readonly<Record<CrtParameterKey, number>>;
   getCrtParameterPercent(key: CrtParameterKey, value: unknown): number;
   getCrtParameterPhysicalValue(key: CrtParameterKey, percent: unknown): number;
-  NEWTAB_WALLPAPER_DEFAULT_ID: string;
   showTopActionTooltip(anchor: HTMLElement, text: string, options?: { placement?: string }): void;
   hideTopActionTooltip(): void;
   getThemeScope(): string;
@@ -101,7 +100,6 @@ function createPanelActions(deps: PanelActionsDeps) {
   const {
     settings,
     getWallpaperEffectPrefsForEditMode,
-    CRT_PARAMETER_PHYSICAL_MAX,
     getCrtParameterPercent,
     getWallpaperStyleSliderValue,
     persistWallpaperEffectPrefs,
@@ -110,7 +108,6 @@ function createPanelActions(deps: PanelActionsDeps) {
     clearDailyWallpaperPick,
     selectBingWallpaper,
     persistNewtabWallpaper,
-    NEWTAB_WALLPAPER_DEFAULT_ID,
     showTopActionTooltip,
     hideTopActionTooltip,
     isWallpaperPanelOpen,

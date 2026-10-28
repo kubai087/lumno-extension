@@ -4,7 +4,7 @@ const vm = require('vm');
 const { JSDOM } = require('jsdom');
 const { parsePageCss } = require('../helpers/css-rules');
 const { getBundleFiles, runsBefore } = require('../helpers/runtime-scripts');
-const { moduleScript } = require('../helpers/module-script');
+const { moduleScript, runModuleInContext } = require('../helpers/module-script');
 const { readWallpaperRuntimeSource } = require('../helpers/wallpaper-source');
 
 const sandbox = {
@@ -439,7 +439,7 @@ vm.runInNewContext(readWallpaperRuntimeSource(), sandbox, {
 const wallpaper = sandbox.LumnoNewtabWallpaper;
 assert.ok(wallpaper, 'wallpaper runtime module should initialize');
 assert.strictEqual(
-  wallpaper.WALLPAPER_EFFECT_MODE_STORAGE_VERSION,
+  runModuleInContext('src/newtab/wallpaper/wallpaper-options.ts', vm.createContext({})).WALLPAPER_EFFECT_MODE_STORAGE_VERSION,
   11,
   'mode-aware wallpaper effect storage should have an explicit schema version'
 );

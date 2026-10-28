@@ -25,17 +25,15 @@ import type { RemoteContentClient } from '../../remote-content';
 import type { RemoteWallpaper } from '../../remote-content-types';
 import type { CustomWallpapers } from './custom-wallpapers';
 import type { DailyWallpapers } from './daily-wallpapers';
-import type { FaviconChooser, NewtabFaviconOption } from './favicon-chooser';
+import type { FaviconChooser } from './favicon-chooser';
 import type { PanelSettings, SliderConfig } from './panel-settings';
-import type { WallpaperEffectPrefsDeps, WallpaperEffectPrefsRuntime } from './wallpaper-effect-prefs';
+import type { WallpaperEffectPrefsRuntime } from './wallpaper-effect-prefs';
 import type { WallpaperOverlay } from './wallpaper-overlay';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type {
   AppearanceMode,
-  BuiltInWallpaper,
   WallpaperItem,
-  WallpaperMode,
   WallpaperState
 } from './wallpaper-runtime-types';
 import type { SvgNode } from '../../../shared/ui/svg-tree';
@@ -44,6 +42,7 @@ import type { SettingPreview } from '../../setting-preview';
 import { newtabTime12Hour, newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeInk, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../../../domain/settings/newtab-time';
 import * as SETTINGS from '../../../domain/settings';
 import * as REMOTE_CONTENT from '../../remote-content';
+import { BLOCK_PARAMETER_MAX, NEWTAB_FAVICON_OPTIONS, NEWTAB_FAVICON_SVG_MAIN_PATH, NEWTAB_FAVICON_SVG_SHADOW_PATH, NEWTAB_WALLPAPER_EFFECT_INK_TONES, NEWTAB_WALLPAPER_EFFECT_TYPES, NEWTAB_WALLPAPER_MODES, NEWTAB_WALLPAPER_MODE_DARK, NEWTAB_WALLPAPER_OPTIONS } from '../wallpaper-options';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -66,7 +65,6 @@ interface PanelStateDeps extends
     'getWallpaperEffectPrefsForEditMode' | 'getWallpaperEffectControlVisibility' | 'getWallpaperEffectLabel' |
     'getWallpaperEffectInkToneForUi' | 'getWallpaperEffectInkToneLabel' | 'getWallpaperEffectStrengthLabel' |
     'getWallpaperEffectSizeLabel' | 'getWallpaperEffectSpacingLabel' | 'getWallpaperEffectTextureLabel'>,
-  Pick<WallpaperEffectPrefsDeps, 'NEWTAB_WALLPAPER_EFFECT_TYPES' | 'NEWTAB_WALLPAPER_EFFECT_INK_TONES'>,
   Pick<WallpaperStorage,
     'hasAnyWallpaperEnabled' | 'getWallpaperSelectionIdForUi' | 'getWallpaperTileSelectionId' | 'getWallpaperModeLabel'>,
   Pick<WallpaperOverlay,
@@ -74,9 +72,6 @@ interface PanelStateDeps extends
   Pick<FaviconChooser, 'getNewtabFaviconUrl' | 'buildNewtabFaviconState'> {
   t: Translate;
   formatMessage: FormatMessage;
-  NEWTAB_FAVICON_SVG_SHADOW_PATH: string;
-  NEWTAB_FAVICON_SVG_MAIN_PATH: string;
-  NEWTAB_FAVICON_OPTIONS: readonly NewtabFaviconOption[];
   shortcutSizeConfig: SliderConfig;
   shortcutGapConfig: SliderConfig;
   // The page's theme settings: its scope, mode and the global mode.
@@ -102,12 +97,8 @@ interface PanelStateDeps extends
   wallpaperThumbnailCache: WallpaperThumbnailCache | null;
   localWallpaperStore: Pick<WallpaperLocalStore, 'buildTileThumbnail'>;
   warnWallpaperStoreFailure(message: string): (error: unknown) => void;
-  BLOCK_PARAMETER_MAX: number;
   getCrtParameterPercent(key: CrtParameterKey, value: unknown): number;
   clampNumber(value: unknown, min: number, max: number): number;
-  NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
-  NEWTAB_WALLPAPER_MODE_DARK: 'dark';
-  NEWTAB_WALLPAPER_OPTIONS: readonly BuiltInWallpaper[];
   // Runs a change to the open panel while animating its height.
   animateWallpaperPanelResize(mutate: () => void): void;
   document: Document;
@@ -147,9 +138,6 @@ function readTileThumbnailRecord(value: unknown): TileThumbnailRecord | null {
 function createPanelState(deps: PanelStateDeps) {
   const {
     t,
-    NEWTAB_FAVICON_SVG_SHADOW_PATH,
-    NEWTAB_FAVICON_SVG_MAIN_PATH,
-    NEWTAB_FAVICON_OPTIONS,
     getNewtabFaviconUrl,
     getSearchWidthSnapPoints,
     getSearchWidthPercent,
@@ -205,12 +193,9 @@ function createPanelState(deps: PanelStateDeps) {
     getCuratedTileItems,
     getWallpaperEffectPrefsForEditMode,
     getWallpaperEffectControlVisibility,
-    BLOCK_PARAMETER_MAX,
     getCrtParameterPercent,
-    NEWTAB_WALLPAPER_EFFECT_TYPES,
     getWallpaperEffectLabel,
     getWallpaperEffectInkToneForUi,
-    NEWTAB_WALLPAPER_EFFECT_INK_TONES,
     getWallpaperEffectInkToneLabel,
     getWallpaperEffectStrengthLabel,
     getWallpaperEffectSizeLabel,
@@ -221,10 +206,7 @@ function createPanelState(deps: PanelStateDeps) {
     getWallpaperSelectionIdForUi,
     getWallpaperTileSelectionId,
     normalizeWallpaperMode,
-    NEWTAB_WALLPAPER_MODES,
-    NEWTAB_WALLPAPER_MODE_DARK,
     getWallpaperModeLabel,
-    NEWTAB_WALLPAPER_OPTIONS,
     getWallpaperLocalPath,
     getWallpaperOverlayOpacityForCurrentMode,
     getGlassStyle,

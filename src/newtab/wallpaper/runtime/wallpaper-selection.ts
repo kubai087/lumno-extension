@@ -10,6 +10,7 @@ import type { WallpaperVisual } from './wallpaper-visual';
 import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks, newtabLinkWallpapers, newtabLocalWallpaper, newtabOnlineWallpaper, newtabWallpaper, newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../../platform/settings-store';
 import * as REMOTE_CONTENT from '../../remote-content';
+import { NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE, NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_MODES } from '../wallpaper-options';
 import type {
   CachedWallpaperImage,
   DailyWallpaperPicks,
@@ -17,6 +18,7 @@ import type {
   WallpaperMode,
   WallpaperState
 } from './wallpaper-runtime-types';
+import { newtabWallpaperPreload } from '../../../domain/settings/newtab-wallpaper';
 
 interface WallpaperSelectionDeps extends
   Pick<WallpaperSources,
@@ -44,7 +46,6 @@ interface WallpaperSelectionDeps extends
   renderWallpaperPanelState(): void;
   // Starts caching every link wallpaper's image on this device.
   cacheListedLinkWallpapers(): void;
-  NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
   refreshWallpaperAdaptiveSampler(): void;
   // Marks the first wallpaper applied and resolves the page's wait for it.
   finalizeInitialWallpaper(): void;
@@ -65,9 +66,6 @@ interface WallpaperSelectionDeps extends
   remoteClient: Pick<RemoteContentClient, 'restoreWallpaper' | 'setPinnedIds' | 'ensureWallpaper'>;
   dailyWallpaperStandIns: Map<string, CachedWallpaperImage>;
   window: Window;
-  PRELOAD_STORAGE_KEY: string;
-  NEWTAB_WALLPAPER_DEFAULT_ID: string;
-  NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE: string;
   wallpaperState: Pick<WallpaperState,
     'customWallpaperCatalogLoaded' | 'customWallpapers' | 'linkWallpapers' | 'currentWallpaperPrefs' |
     'initialWallpaperApplied' | 'wallpaperVisualSeq' | 'currentWallpaperId' | 'appliedWallpaperVisualUrl' |
@@ -93,7 +91,6 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     normalizeCustomWallpaperRecord,
     normalizeNewtabWallpaperId,
     normalizeWallpaperMode,
-    NEWTAB_WALLPAPER_MODES,
     getResolvedWallpaperMode,
     writeWallpaperPreloadCache,
     applyWallpaperVisualState,
@@ -134,13 +131,10 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     getCachedWallpaperImage,
     dailyWallpaperStandIns,
     window,
-    PRELOAD_STORAGE_KEY,
-    NEWTAB_WALLPAPER_DEFAULT_ID,
     getWritableWallpaperPrefs,
     getWritableLocalWallpaperOverrides,
     writeCurrentWallpaperPrefs,
     isCustomWallpaperId,
-    NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE,
     getWallpaperEffectPrefsForEditMode,
     getWallpaperModePreferenceOrder,
     hasAnyWallpaperEnabled,
@@ -390,7 +384,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
   function readPreloadedDailyWallpaperCopies(): Map<string, { id: string; url: string }> {
     const copies = new Map<string, { id: string; url: string }>();
     try {
-      const data: unknown = JSON.parse(window.localStorage.getItem(PRELOAD_STORAGE_KEY) || 'null');
+      const data: unknown = JSON.parse(window.localStorage.getItem(newtabWallpaperPreload.key) || 'null');
       const wallpapers = isRecord(data) && isRecord(data.wallpapers) ? data.wallpapers : {};
       const today = REMOTE_CONTENT.localDay(Date.now());
       NEWTAB_WALLPAPER_MODES.forEach((mode) => {

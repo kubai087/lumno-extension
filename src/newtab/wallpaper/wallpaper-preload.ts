@@ -9,6 +9,7 @@ import type {
   WallpaperMode,
   WallpaperPreloadState
 } from './wallpaper-preload-types';
+import { PRELOAD_STORAGE_VERSION } from './wallpaper-preload-types';
 import { publishBootValue } from '../../platform/boot-handoff';
 import { newtabFavicon, newtabFaviconPreload, newtabWallpaperEffect, newtabWallpaperPreload } from '../../domain/settings/newtab-wallpaper';
 import * as ProviderStorage from '../../platform/provider-storage';
@@ -37,7 +38,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 (function() {
-  const PRELOAD_STORAGE_VERSION = 4;
   const providerStorageRuntime = ProviderStorage.createProviderStorageRuntime(window.chrome);
   // Only bundled files paint on the first frame. Online photos and links paint from this device's
   // IndexedDB copy as soon as it is read, so a slow or failing network never holds the tab's spinner

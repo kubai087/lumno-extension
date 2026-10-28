@@ -304,7 +304,7 @@ function checkCssFiles() {
 // The built-in wallpapers the runtime lists, read from its source: the
 // package carries the module only inside the new tab bundle.
 function checkNewtabWallpaperFiles() {
-  const source = fs.readFileSync(path.join(repoRoot, 'src/newtab/wallpaper/wallpaper.ts'), 'utf8');
+  const source = fs.readFileSync(path.join(repoRoot, 'src/newtab/wallpaper/wallpaper-options.ts'), 'utf8');
   const directoryMatch = source.match(/NEWTAB_WALLPAPER_EXTENSION_DIRECTORY\s*=\s*['"]([^'"]+)['"]/);
   // Each built-in wallpaper ships a panel thumbnail and the small copy its effects sample.
   const suffixes = ['NEWTAB_WALLPAPER_THUMBNAIL_SUFFIX', 'NEWTAB_WALLPAPER_SAMPLE_SUFFIX']
@@ -312,7 +312,7 @@ function checkNewtabWallpaperFiles() {
     .filter(Boolean);
   const directory = directoryMatch ? directoryMatch[1] : '';
   if (!directory || suffixes.length !== 2) {
-    throw new Error('wallpaper.ts no longer names the wallpaper directory and file suffixes.');
+    throw new Error('wallpaper-options.ts no longer names the wallpaper directory and file suffixes.');
   }
   const filePattern = /\bfile:\s*['"]([^'"]+\.webp)['"]/g;
   let match = null;

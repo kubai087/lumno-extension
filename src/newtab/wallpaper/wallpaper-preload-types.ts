@@ -3,6 +3,9 @@
 // drawing over it.
 import type { WallpaperEffectPrefs, WallpaperEffects, WallpaperSample } from './wallpaper-effects';
 
+// The shape of the stored preload record; a record of another version is ignored.
+const PRELOAD_STORAGE_VERSION = 4;
+
 type WallpaperMode = 'light' | 'dark';
 
 // An image record read from one of the page's IndexedDB stores, holding the
@@ -72,3 +75,5 @@ export type {
   WallpaperMode,
   WallpaperPreloadState
 };
+
+export { PRELOAD_STORAGE_VERSION };

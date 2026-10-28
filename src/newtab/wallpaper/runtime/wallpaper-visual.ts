@@ -5,15 +5,15 @@ import type { AdaptiveToneTarget } from '../wallpaper-adaptive-tone';
 import type { PreloadObjectUrl, WallpaperEffectPreloadRuntime } from '../wallpaper-preload-types';
 import type { WallpaperOverlay } from './wallpaper-overlay';
 import type { WallpaperSources } from './wallpaper-sources';
-import type { WallpaperItem, WallpaperOverlayStops, WallpaperState } from './wallpaper-runtime-types';
+import type { WallpaperItem, WallpaperState } from './wallpaper-runtime-types';
 import { readBootValue } from '../../../platform/boot-handoff';
+import { NEWTAB_WALLPAPER_OVERLAY_STOPS } from '../wallpaper-options';
 
 interface WallpaperVisualDeps extends
   Pick<WallpaperOverlay, 'getResolvedWallpaperOverlayMode' | 'getWallpaperOverlayOpacityForCurrentMode' | 'getWallpaperOverlayStopPercent'>,
   Pick<WallpaperSources, 'isNetworkWallpaperImageUrl' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperSample'> {
   document: Document;
   window: Window;
-  NEWTAB_WALLPAPER_OVERLAY_STOPS: WallpaperOverlayStops;
   // The page's own tone targets; the wallpaper button is added to them.
   getAdaptiveToneTargets?: () => ReadonlyArray<AdaptiveToneTarget | null | undefined>;
   chrome: { runtime?: { getURL?: (path: string) => string } } | null | undefined;
@@ -33,7 +33,6 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
     document,
     window,
     getResolvedWallpaperOverlayMode,
-    NEWTAB_WALLPAPER_OVERLAY_STOPS,
     getWallpaperOverlayOpacityForCurrentMode,
     getWallpaperOverlayStopPercent,
     getAdaptiveToneTargets,
