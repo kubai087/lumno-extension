@@ -47,6 +47,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import * as NEWTAB_SHORTCUT_ICON_STORE from './shortcut-icon-store';
 import * as NEWTAB_SHORTCUT_ICON_PLATE from './shortcut-icon-plate';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
+import { SHORTCUT_DIALOG_ITEM_BOOKMARK, SHORTCUT_DIALOG_ITEM_FOLDER } from '../menu-values';
 
 interface ShortcutsControllerState {
   newtabShortcuts: ShortcutItem[];
@@ -112,7 +113,6 @@ interface ShortcutsControllerDeps {
   formatMessage: FormatMessage;
   getShortcutById(shortcutId: unknown): ShortcutItem | null;
   SHORTCUT_DIALOG_MODE_EDIT: string;
-  SHORTCUT_DIALOG_ITEM_FOLDER: string;
   markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
   loadBookmarks(options?: { force?: boolean }): unknown;
   refreshOpenBookmarkCascadeMenu(): unknown;
@@ -146,7 +146,6 @@ interface ShortcutsControllerDeps {
   NEWTAB_SHORTCUT_DIALOG: Pick<ReturnType<typeof createShortcutDialogApi>, 'createShortcutDialog'>;
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
-  SHORTCUT_DIALOG_ITEM_BOOKMARK: string;
   handleShortcutGroupMenu: ShortcutContextMenu['openShortcutGroupMenu'];
   WEBDAV_STATUS_STORAGE_KEY: string;
   // Slides the tiles to where `apply` puts them.
@@ -278,7 +277,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     formatMessage,
     getShortcutById,
     SHORTCUT_DIALOG_MODE_EDIT,
-    SHORTCUT_DIALOG_ITEM_FOLDER,
     markBookmarkTreeDirty,
     loadBookmarks,
     refreshOpenBookmarkCascadeMenu,
@@ -312,7 +310,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     NEWTAB_SHORTCUT_DIALOG,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
-    SHORTCUT_DIALOG_ITEM_BOOKMARK,
     handleShortcutGroupMenu,
     WEBDAV_STATUS_STORAGE_KEY,
     animateShortcutLayoutChange

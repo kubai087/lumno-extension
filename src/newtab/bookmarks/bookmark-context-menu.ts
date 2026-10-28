@@ -11,6 +11,7 @@ import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type { BookmarkDragSession } from './bookmark-drag';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
+import { BOOKMARK_CONTEXT_MENU_EDIT_VALUE, BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
 
 // The bookmark a context menu was opened for.
 interface BookmarkContextTarget {
@@ -47,11 +48,7 @@ interface BookmarkItemContextMenuEvent {
 
 interface BookmarkContextMenuDeps {
   bookmarksRuntime: BookmarksRuntime;
-  BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE: string;
   t: Translate;
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
-  FOLDER_COLOR_CONTEXT_MENU_VALUE: string;
-  BOOKMARK_CONTEXT_MENU_EDIT_VALUE: string;
   openFolderColorPicker(folderId: string, title: string, sourceElement?: HTMLElement | null): Promise<void>;
   openExternalNewTabUrl(url: string, disposition: Disposition): unknown;
   openBookmarkEditor(target: BookmarkContextTarget): void;
@@ -70,11 +67,7 @@ interface BookmarkContextMenuDeps {
 function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   const {
     bookmarksRuntime,
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     t,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
-    FOLDER_COLOR_CONTEXT_MENU_VALUE,
-    BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
     openFolderColorPicker,
     openExternalNewTabUrl,
     openBookmarkEditor,

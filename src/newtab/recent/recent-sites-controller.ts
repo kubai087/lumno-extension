@@ -19,6 +19,8 @@ import * as RecentSitesMerge from '../../domain/recent-sites-merge';
 import * as RecentSitesStore from '../../domain/recent-sites-store';
 import type { SettingsStore } from '../../platform/settings-store';
 import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
+import { NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
+import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
 
 interface RecentSitesControllerState {
   recentContextMenu: ContextMenuParts | null;
@@ -32,7 +34,6 @@ interface RecentSitesControllerState {
 
 interface RecentSitesControllerDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
   t: Translate;
   showToast: ShowToast;
   openExternalNewTabUrl(url: string, disposition: Disposition): unknown;
@@ -49,7 +50,6 @@ interface RecentSitesControllerDeps {
   getSiteDisplayName: NonNullable<RecentSiteOptions['getSiteDisplayName']>;
   shouldExcludeFromRecentSites(url: string): boolean;
   isBrowserPageRecentUrl(url: string): boolean;
-  MAX_PINNED_RECENT_SITES: number;
   renderRecentSites(items: RecentSite[]): unknown;
   progressMatch: Pick<typeof ProgressMatch, 'looksLikeSeriesPage' | 'compareProgressPages' | 'getProgressSiteKey'>;
   progressHistory: Pick<typeof ProgressHistory, 'createProgressId' | 'getHistoryId' | 'normalizeHistoryMap' | 'restoreVersion'>;
@@ -78,7 +78,6 @@ type CardContextMenuPayload = Parameters<NonNullable<RecentSitesViewOptions['onI
 function createRecentSitesController(deps: RecentSitesControllerDeps) {
   const {
     settings,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     t,
     showToast,
     openExternalNewTabUrl,
@@ -95,7 +94,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     getSiteDisplayName,
     shouldExcludeFromRecentSites,
     isBrowserPageRecentUrl,
-    MAX_PINNED_RECENT_SITES,
     renderRecentSites,
     progressMatch,
     progressHistory,

@@ -8,9 +8,10 @@ import type { ContextMenuParts, SelectMenuController, Translate } from '../newta
 import type { SelectMenuInstance } from '../react/select-menu';
 import type { ShortcutContextMenuMark } from '../react/shortcuts';
 import type { ShortcutDock } from './shortcut-dock';
-import type { ShortcutContextTarget, ShortcutGroupMenuValues } from './shortcut-types';
+import type { ShortcutContextTarget } from './shortcut-types';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem } from '../../domain/shortcuts/types';
+import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_CONTEXT_MENU_EDIT_VALUE, SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE, SHORTCUT_CONTEXT_MENU_REMOVE_VALUE, SHORTCUT_GROUP_MENU_VALUES } from '../menu-values';
 
 interface ShortcutContextMenuState {
   shortcutContextMenu: ContextMenuParts | null;
@@ -29,27 +30,20 @@ interface ShortcutContextMenuDeps {
   resetShortcutDockHover(): void;
   getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null;
   getShortcutById(shortcutId: unknown): ShortcutItem | null;
-  SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE: string;
   hideShortcutAddFromContextMenu(sourceElement: HTMLElement): void;
-  FOLDER_COLOR_CONTEXT_MENU_VALUE: string;
   openFolderColorPicker(folderId: string, title: string, sourceElement?: HTMLElement | null): Promise<void>;
   getShortcutFolderId(shortcut: ShortcutItem): string;
-  SHORTCUT_CONTEXT_MENU_EDIT_VALUE: string;
   openShortcutEditor(shortcut: ShortcutItem, sourceElement: HTMLElement | null): void;
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
   // Opens a folder shortcut's menu, or its site.
   openShortcutUrl(shortcut: ShortcutItem): unknown;
   openExternalNewTabUrl(url: string, disposition: Disposition): unknown;
-  SHORTCUT_CONTEXT_MENU_REMOVE_VALUE: string;
   removeShortcutById(shortcutId: string): unknown;
-  BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE: string;
   openBookmarkFolderTabGroupConfirmation(target: BookmarkEditTarget): void;
   t: Translate;
   getShortcutContextMenuOptions(target?: ShortcutContextTarget | null): SelectMenuOption[];
   closeRecentContextMenu(): void;
   hideShortcutTooltip(): void;
   getShortcutTileId(tile: Element | null | undefined): string;
-  SHORTCUT_GROUP_MENU_VALUES: ShortcutGroupMenuValues;
   openShortcutGroupDialog(groupId: string, sourceElement: HTMLElement): void;
   openShortcutAddDialog(sourceElement: HTMLElement, groupId?: string): void;
   moveShortcutGroup(groupId: string, offset: number): unknown;
@@ -68,26 +62,19 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     resetShortcutDockHover,
     getShortcutTileFromNode,
     getShortcutById,
-    SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE,
     hideShortcutAddFromContextMenu,
-    FOLDER_COLOR_CONTEXT_MENU_VALUE,
     openFolderColorPicker,
     getShortcutFolderId,
-    SHORTCUT_CONTEXT_MENU_EDIT_VALUE,
     openShortcutEditor,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     openShortcutUrl,
     openExternalNewTabUrl,
-    SHORTCUT_CONTEXT_MENU_REMOVE_VALUE,
     removeShortcutById,
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     openBookmarkFolderTabGroupConfirmation,
     t,
     getShortcutContextMenuOptions,
     closeRecentContextMenu,
     hideShortcutTooltip,
     getShortcutTileId,
-    SHORTCUT_GROUP_MENU_VALUES,
     openShortcutGroupDialog,
     openShortcutAddDialog,
     moveShortcutGroup,

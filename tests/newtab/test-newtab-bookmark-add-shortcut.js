@@ -18,11 +18,7 @@ const pageState = {
 const menu = BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
   bookmarksRuntime: { getNode: () => null },
   NEWTAB_BOOKMARKS_STORE: { collectFolderBookmarkUrls: () => [] },
-  BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE: 'open-group',
   t: (key, fallback) => fallback,
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE: 'open',
-  FOLDER_COLOR_CONTEXT_MENU_VALUE: 'color',
-  BOOKMARK_CONTEXT_MENU_EDIT_VALUE: 'edit',
   openFolderColorPicker() {},
   openExternalNewTabUrl() {},
   openBookmarkEditor() {},
@@ -40,7 +36,7 @@ const menu = BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
 
 const site = { bookmarkId: '7', title: 'Example', url: 'https://example.com/', isFolder: false };
 const options = menu.getBookmarkContextMenuOptions(site);
-assert.deepStrictEqual(options.map((option) => option.value), ['open', 'add-shortcut', 'edit', 'remove']);
+assert.deepStrictEqual(options.map((option) => option.value), ['open-in-new-tab', 'add-shortcut', 'edit', 'remove']);
 const addOption = options.find((option) => option.value === 'add-shortcut');
 assert.strictEqual(addOption.label, 'Add to shortcuts');
 assert.strictEqual(addOption.disabled, false);
@@ -52,7 +48,7 @@ assert.strictEqual(existing.disabled, true, 'a site already in the shortcuts can
 
 // Folders add themselves as folder shortcuts.
 const folderOptions = menu.getBookmarkContextMenuOptions({ bookmarkId: '8', title: 'Folder', isFolder: true });
-assert.deepStrictEqual(folderOptions.map((option) => option.value), ['open-group', 'add-shortcut', 'color', 'edit', 'remove']);
+assert.deepStrictEqual(folderOptions.map((option) => option.value), ['open-in-new-tab-group', 'add-shortcut', 'folder-color', 'edit', 'remove']);
 assert.strictEqual(folderOptions[1].label, 'Add to shortcuts');
 const addedFolder = menu.getBookmarkContextMenuOptions({ bookmarkId: '9', title: 'Added', isFolder: true })
   .find((option) => option.value === 'add-shortcut');

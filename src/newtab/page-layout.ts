@@ -1,7 +1,6 @@
 // Page geometry: bookmark and recent grid column counts, the width modes
 // and search width, shortcut grid sizing, which content sections show, and
 // the search entry's vertical position as the viewport changes.
-import type { NewtabWidthMode } from '../domain/settings';
 import type * as LumnoNewtabLayout from './layout';
 import type { LayoutController, SearchEntryLayoutOptions, WidthModeConfig } from './layout';
 import type { LayoutMotion } from './layout-motion';
@@ -20,6 +19,7 @@ import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-pa
 import { bookmarkColumns } from '../domain/settings/bookmarks';
 import { recentCount } from '../domain/settings/recent-sites';
 import * as NEWTAB_LAYOUT from './layout';
+import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX, NEWTAB_WIDTH_MODE_CONFIGS, RECENT_CARD_TARGET_WIDTH_PX, RECENT_GRID_GAP_PX } from './newtab-config';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -59,11 +59,7 @@ interface PageLayoutDeps extends
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
   preview: Pick<SettingPreview, 'get' | 'show' | 'store'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
-  NEWTAB_MOBILE_FLOW_BREAKPOINT_PX: number;
-  NEWTAB_WIDTH_MODE_CONFIGS: Record<NewtabWidthMode, NewtabWidthModeConfig>;
   NEWTAB_SEARCH_WIDTH_CONFIG: typeof LumnoNewtabLayout.SEARCH_WIDTH_CONFIG;
-  RECENT_CARD_TARGET_WIDTH_PX: number;
-  RECENT_GRID_GAP_PX: number;
   MAX_NEWTAB_SHORTCUTS: number;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   pageState: PageLayoutState;
@@ -73,12 +69,8 @@ function createPageLayout(deps: PageLayoutDeps) {
   const {
     preview,
     settings,
-    NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
-    NEWTAB_WIDTH_MODE_CONFIGS,
     normalizeNewtabSearchWidth,
     NEWTAB_SEARCH_WIDTH_CONFIG,
-    RECENT_CARD_TARGET_WIDTH_PX,
-    RECENT_GRID_GAP_PX,
     getBookmarkLimit,
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,

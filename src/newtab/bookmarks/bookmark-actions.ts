@@ -11,6 +11,7 @@ import type { BookmarkContextTarget } from './bookmark-context-menu';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import type { FolderItemIcon } from './folder-item-icons';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
+import { BOOKMARK_CONTEXT_MENU_EDIT_VALUE, BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_DIALOG_ITEM_BOOKMARK, SHORTCUT_DIALOG_ITEM_FOLDER } from '../menu-values';
 
 // The bookmark an action is for, as far as the actions read it.
 type BookmarkEditTarget = Pick<BookmarkContextTarget, 'bookmarkId' | 'isFolder' | 'title'> &
@@ -26,9 +27,6 @@ interface BookmarkActionsState {
 interface BookmarkActionsDeps {
   t: Translate;
   getBookmarkContextMenuOptions(target?: BookmarkContextTarget | null): SelectMenuOption[];
-  BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE: string;
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
-  BOOKMARK_CONTEXT_MENU_EDIT_VALUE: string;
   bookmarksRuntime: BookmarksRuntime;
   openShortcutDialog(options: ShortcutDialogOpenOptions): unknown;
   formatMessage: FormatMessage;
@@ -37,8 +35,6 @@ interface BookmarkActionsDeps {
   isShortcutFolderAnchor(anchor: HTMLElement | null): boolean;
   getFolderItemIcon(bookmarkId: string): FolderItemIcon | null;
   SHORTCUT_DIALOG_MODE_EDIT: string;
-  SHORTCUT_DIALOG_ITEM_FOLDER: string;
-  SHORTCUT_DIALOG_ITEM_BOOKMARK: string;
   getFolderItemIconUrl(bookmarkId: string, url: string): string;
   getBrowserPageFaviconUrl(url: string): string;
   pageState: BookmarkActionsState;
@@ -48,9 +44,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
   const {
     t,
     getBookmarkContextMenuOptions,
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
-    BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
     bookmarksRuntime,
     openShortcutDialog,
     formatMessage,
@@ -58,8 +51,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
     isShortcutFolderAnchor,
     getFolderItemIcon,
     SHORTCUT_DIALOG_MODE_EDIT,
-    SHORTCUT_DIALOG_ITEM_FOLDER,
-    SHORTCUT_DIALOG_ITEM_BOOKMARK,
     getFolderItemIconUrl,
     getBrowserPageFaviconUrl
   } = deps;

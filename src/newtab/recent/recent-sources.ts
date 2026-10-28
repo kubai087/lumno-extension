@@ -15,6 +15,7 @@ import type { RecentSite, RecentSiteOptions, RecentSiteSources } from '../../dom
 import * as RecentSitesMerge from '../../domain/recent-sites-merge';
 import type { SettingsStore } from '../../platform/settings-store';
 import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
+import { NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
 
 interface RecentSourcesState {
   recentContextMenu: ContextMenuParts | null;
@@ -31,7 +32,6 @@ interface RecentSourcesDeps {
   settings: Pick<SettingsStore, 'get'>;
   t: Translate;
   getRecentContextMenuOptions(target?: RecentContextTarget | null): SelectMenuOption[];
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
   restoreProgressVersion: NonNullable<RecentHistoryDialogOptions['onRestore']>;
   showToast: ShowToast;
   // Whether top sites list the user's sites (Edge lists its own).
@@ -50,7 +50,6 @@ function createRecentSources(deps: RecentSourcesDeps) {
     settings,
     t,
     getRecentContextMenuOptions,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     restoreProgressVersion,
     showToast,
     TOP_SITES_FOLLOW_HISTORY,

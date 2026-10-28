@@ -25,6 +25,7 @@ import type { SettingsStore } from '../platform/settings-store';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 import { recentMode } from '../domain/settings/recent-sites';
 import { isRecord } from '../platform/storage-call';
+import { FAVICON_CACHE_BOOT_WAIT_MS, MAX_PINNED_RECENT_SITES } from './newtab-config';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -86,8 +87,6 @@ interface SectionLoadersDeps extends
   updateBookmarkHeader: SectionHeaders['updateBookmarkHeader'];
   recentSection: HTMLElement | null;
   bookmarksRuntime: Pick<BookmarksRuntime, 'invalidate'>;
-  FAVICON_CACHE_BOOT_WAIT_MS: number;
-  MAX_PINNED_RECENT_SITES: number;
   pageState: SectionLoadersState;
 }
 
@@ -122,7 +121,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     closeBookmarkCascadeMenu,
     followTheme,
     areFaviconRenderCachesReady,
-    FAVICON_CACHE_BOOT_WAIT_MS,
     waitForFaviconRenderCaches,
     getTopBookmarks,
     getBookmarkLimit,
@@ -133,7 +131,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     renderShortcuts,
     getRecentSourceLimit,
     getRecentSites,
-    MAX_PINNED_RECENT_SITES,
     beginSearchEntryRestoreLayoutLock
   } = deps;
 

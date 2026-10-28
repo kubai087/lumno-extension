@@ -19,6 +19,7 @@ import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as FaviconThemeColor from '../../domain/favicon/theme-color';
 import type { ThemeRgb } from '../../domain/favicon/types';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
+import { FAVICON_CACHE_BOOT_WAIT_MS } from '../newtab-config';
 
 interface PageFaviconsState {
   faviconDataCache: Map<string, string>;
@@ -30,7 +31,6 @@ interface PageFaviconsState {
 interface PageFaviconsDeps {
   normalizeFaviconHost(hostname: unknown): string;
   // How long the first render waits for the favicon caches to load.
-  FAVICON_CACHE_BOOT_WAIT_MS: number;
   isPersistableTheme: SiteThemeResolver['isPersistableTheme'];
   normalizeAccentRgb: SiteThemeResolver['normalizeAccentRgb'];
   parseCssColor: typeof Color.parseCssColor;
@@ -66,7 +66,6 @@ interface PageFaviconsDeps {
 function createPageFavicons(deps: PageFaviconsDeps) {
   const {
     normalizeFaviconHost,
-    FAVICON_CACHE_BOOT_WAIT_MS,
     isPersistableTheme,
     normalizeAccentRgb,
     parseCssColor,

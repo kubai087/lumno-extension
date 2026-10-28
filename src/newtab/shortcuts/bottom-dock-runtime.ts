@@ -5,6 +5,7 @@ import type { LayoutController } from '../layout';
 import type { LayoutMotion } from '../layout-motion';
 import type { BottomDockRuntimeConfig } from '../react/dock';
 import { getDockApi } from '../react/dock';
+import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX } from '../newtab-config';
 
 // A part of the page that may show an element of its own.
 type ElementOwner = { element?: HTMLElement | null } | null;
@@ -33,7 +34,6 @@ interface BottomDockRuntimeDeps {
   suggestionsSurface: HTMLElement | null;
   suggestionsOutline: HTMLElement | null;
   getNewtabTopOccupiedInsetPx(): number;
-  NEWTAB_MOBILE_FLOW_BREAKPOINT_PX: number;
   shouldAnimateNewtabLayoutShift(): boolean;
   applyNewtabWidthMode(): void;
   pageState: BottomDockRuntimeState;
@@ -47,7 +47,6 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     suggestionsSurface,
     suggestionsOutline,
     getNewtabTopOccupiedInsetPx,
-    NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
   } = deps;

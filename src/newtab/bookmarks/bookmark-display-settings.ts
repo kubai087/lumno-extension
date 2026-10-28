@@ -7,6 +7,7 @@ import type * as BookmarksTopbar from '../react/bookmarks-topbar';
 import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import * as BookmarkSettings from '../../domain/settings/bookmarks';
 import * as NEWTAB_BOOKMARKS_TOPBAR from '../react/bookmarks-topbar';
+import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../menu-values';
 
 type BookmarkViewMode = 'folder' | 'list' | 'top';
 type BookmarkTopbarLayout = ReturnType<typeof BookmarksTopbar.normalizeLayout>;
@@ -26,9 +27,6 @@ interface BookmarkDisplaySettingsDeps {
   initialThemeReadyPromise: Promise<unknown>;
   showToast: ShowToast;
   t: Translate;
-  BOOKMARK_TOPBAR_PICK_COLOR_ACTION: string;
-  BOOKMARK_TOPBAR_SURFACE_MODE_ACTION: string;
-  BOOKMARK_TOPBAR_LAYOUT_ACTION: string;
   pageState: BookmarkDisplaySettingsState;
 }
 
@@ -46,9 +44,6 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
     initialThemeReadyPromise,
     showToast,
     t,
-    BOOKMARK_TOPBAR_PICK_COLOR_ACTION,
-    BOOKMARK_TOPBAR_SURFACE_MODE_ACTION,
-    BOOKMARK_TOPBAR_LAYOUT_ACTION
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.

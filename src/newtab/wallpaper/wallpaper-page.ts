@@ -23,6 +23,7 @@ import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme, newtabInputA
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../domain/settings/newtab-shortcuts';
 import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
+import { NEWTAB_GLASS_ADAPTIVE_SELECTOR } from '../newtab-config';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -62,7 +63,6 @@ interface WallpaperPageDeps {
   // The search box.
   root: HTMLElement;
   // The glass plates that sample the wallpaper behind them.
-  NEWTAB_GLASS_ADAPTIVE_SELECTOR: string;
   localStorageArea: StorageArea | null;
   NEWTAB_SEARCH_WIDTH_CONFIG: SearchWidthConfig;
   t: Translate;
@@ -112,7 +112,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     getEffectiveBookmarkTopbarSurfaceMode,
     isBookmarkTopbarMode,
     root,
-    NEWTAB_GLASS_ADAPTIVE_SELECTOR,
     localStorageArea,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     t,

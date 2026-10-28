@@ -7,6 +7,7 @@ import { getRecentSitesViewApi } from '../react/recent-sites';
 import type { SettingsStore } from '../../platform/settings-store';
 import { recentMode } from '../../domain/settings/recent-sites';
 import type { RecentSitesController } from './recent-sites-controller';
+import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
 
 // An option the recent sites view is handed as it is.
 type ViewOption<K extends keyof RecentSitesViewOptions> = NonNullable<RecentSitesViewOptions[K]>;
@@ -50,7 +51,6 @@ interface RecentSectionDeps {
   applyRecentCardTheme: ViewOption<'applyCardTheme'>;
   getRecentLimit(): number;
   isRecentSitePinned: ViewOption<'isPinned'>;
-  MAX_PINNED_RECENT_SITES: number;
   showToast: ShowToast;
   showTopActionTooltip: ViewOption<'showTopActionTooltip'>;
   navigateToUrl: ViewOption<'navigateToUrl'>;
@@ -91,7 +91,6 @@ function createRecentSection(deps: RecentSectionDeps): void {
     applyRecentCardTheme,
     getRecentLimit,
     isRecentSitePinned,
-    MAX_PINNED_RECENT_SITES,
     showToast,
     showTopActionTooltip,
     navigateToUrl,

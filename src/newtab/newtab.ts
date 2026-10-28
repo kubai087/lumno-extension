@@ -108,26 +108,6 @@ import {
   simpleModeEnabled
 } from '../domain/settings';
 import {
-  BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
-  BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
-  BOOKMARK_TOPBAR_LAYOUT_ACTION,
-  BOOKMARK_TOPBAR_PICK_COLOR_ACTION,
-  BOOKMARK_TOPBAR_SURFACE_MODE_ACTION,
-  FAVICON_CACHE_BOOT_WAIT_MS,
-  FOLDER_COLOR_CONTEXT_MENU_VALUE,
-  MAX_PINNED_RECENT_SITES,
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE,
-  NEWTAB_GLASS_ADAPTIVE_SELECTOR,
-  NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
-  NEWTAB_WIDTH_MODE_CONFIGS,
-  RECENT_CARD_TARGET_WIDTH_PX,
-  RECENT_GRID_GAP_PX,
-  SHORTCUT_CONTEXT_MENU_EDIT_VALUE,
-  SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE,
-  SHORTCUT_CONTEXT_MENU_REMOVE_VALUE,
-  SHORTCUT_DIALOG_ITEM_BOOKMARK,
-  SHORTCUT_DIALOG_ITEM_FOLDER,
-  SHORTCUT_GROUP_MENU_VALUES,
   SYNCED_PAGE_STORAGE_KEYS,
   WORDMARK_ENTRY_ANIMATION_NAME,
   createSiteDisplayNameOptions
@@ -195,6 +175,7 @@ import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
+import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from './menu-values';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -243,7 +224,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     settings,
     t: (...args) => t(...args),
     getRecentContextMenuOptions: (...args) => getRecentContextMenuOptions(...args),
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     restoreProgressVersion: (...args) => restoreProgressVersion(...args),
     showToast: (...args) => showToast(...args),
     TOP_SITES_FOLLOW_HISTORY,
@@ -370,9 +350,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   } = NEWTAB_BOOKMARK_ACTIONS.createBookmarkActions({
     t,
     getBookmarkContextMenuOptions: (...args) => getBookmarkContextMenuOptions(...args),
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
-    BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
     bookmarksRuntime,
     openShortcutDialog: (...args) => openShortcutDialog(...args),
     formatMessage,
@@ -380,8 +357,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     isShortcutFolderAnchor: (...args) => isShortcutFolderAnchor(...args),
     getFolderItemIcon: (...args) => getFolderItemIcon(...args),
     SHORTCUT_DIALOG_MODE_EDIT,
-    SHORTCUT_DIALOG_ITEM_FOLDER,
-    SHORTCUT_DIALOG_ITEM_BOOKMARK,
     getFolderItemIconUrl: (...args) => getFolderItemIconUrl(...args),
     getBrowserPageFaviconUrl: (...args) => getBrowserPageFaviconUrl(...args),
     pageState
@@ -409,17 +384,10 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     hideShortcutDialogTooltip: (...args) => hideShortcutDialogTooltip(...args),
     readSavedFolderColors: (...args) => readSavedFolderColors(...args),
     saveSavedFolderColors: (...args) => saveSavedFolderColors(...args),
-    SHORTCUT_GROUP_MENU_VALUES,
     getShortcutGroups: (...args) => getShortcutGroups(...args),
-    SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE,
     MAX_NEWTAB_SHORTCUTS,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     bookmarksRuntime,
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
-    SHORTCUT_CONTEXT_MENU_EDIT_VALUE,
-    FOLDER_COLOR_CONTEXT_MENU_VALUE,
-    SHORTCUT_CONTEXT_MENU_REMOVE_VALUE,
     updateBookmarkContextMenuLanguageStrings,
     updateRecentContextMenuLanguageStrings,
     createShortcutDialogComponent: (...args) => createShortcutDialogComponent(...args),
@@ -439,11 +407,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     handleBookmarkItemContextMenu
   } = NEWTAB_BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
     bookmarksRuntime,
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     t,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
-    FOLDER_COLOR_CONTEXT_MENU_VALUE,
-    BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
     openFolderColorPicker: (...args) => openFolderColorPicker(...args),
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
     openBookmarkEditor,
@@ -561,9 +525,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     initialThemeReadyPromise,
     showToast,
     t,
-    BOOKMARK_TOPBAR_PICK_COLOR_ACTION,
-    BOOKMARK_TOPBAR_SURFACE_MODE_ACTION,
-    BOOKMARK_TOPBAR_LAYOUT_ACTION,
     pageState
   });
   const initialBookmarkTopbarLayoutReady = followBookmarkTopbar();
@@ -592,26 +553,19 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     resetShortcutDockHover: (...args) => resetShortcutDockHover(...args),
     getShortcutTileFromNode,
     getShortcutById,
-    SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE,
     hideShortcutAddFromContextMenu: (...args) => hideShortcutAddFromContextMenu(...args),
-    FOLDER_COLOR_CONTEXT_MENU_VALUE,
     openFolderColorPicker: (...args) => openFolderColorPicker(...args),
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
-    SHORTCUT_CONTEXT_MENU_EDIT_VALUE,
     openShortcutEditor,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     openShortcutUrl: (...args) => openShortcutUrl(...args),
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
-    SHORTCUT_CONTEXT_MENU_REMOVE_VALUE,
     removeShortcutById: (...args) => removeShortcutById(...args),
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     openBookmarkFolderTabGroupConfirmation,
     t,
     getShortcutContextMenuOptions,
     closeRecentContextMenu: (...args) => closeRecentContextMenu(...args),
     hideShortcutTooltip: (...args) => hideShortcutTooltip(...args),
     getShortcutTileId,
-    SHORTCUT_GROUP_MENU_VALUES,
     openShortcutGroupDialog: (...args) => openShortcutGroupDialog(...args),
     openShortcutAddDialog: (...args) => openShortcutAddDialog(...args),
     moveShortcutGroup: (...args) => moveShortcutGroup(...args),
@@ -802,7 +756,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     restoreProgressVersion
   } = NEWTAB_RECENT_SITES_CONTROLLER.createRecentSitesController({
     settings,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     t,
     showToast,
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
@@ -819,7 +772,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getSiteDisplayName,
     shouldExcludeFromRecentSites,
     isBrowserPageRecentUrl,
-    MAX_PINNED_RECENT_SITES,
     renderRecentSites: (...args) => renderRecentSites(...args),
     progressMatch: PROGRESS_MATCH,
     progressHistory: PROGRESS_HISTORY,
@@ -1016,12 +968,8 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
     preview,
     settings,
-    NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
-    NEWTAB_WIDTH_MODE_CONFIGS,
     normalizeNewtabSearchWidth: (...args) => normalizeNewtabSearchWidth(...args),
     NEWTAB_SEARCH_WIDTH_CONFIG,
-    RECENT_CARD_TARGET_WIDTH_PX,
-    RECENT_GRID_GAP_PX,
     getBookmarkLimit: (...args) => getBookmarkLimit(...args),
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
@@ -1136,7 +1084,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getEffectiveBookmarkTopbarSurfaceMode,
     isBookmarkTopbarMode: (...args) => isBookmarkTopbarMode(...args),
     root,
-    NEWTAB_GLASS_ADAPTIVE_SELECTOR,
     localStorageArea,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
@@ -1282,7 +1229,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getThemeSourceForSuggestion
   } = NEWTAB_PAGE_FAVICONS.createPageFavicons({
     normalizeFaviconHost,
-    FAVICON_CACHE_BOOT_WAIT_MS,
     isPersistableTheme,
     normalizeAccentRgb,
     parseCssColor,
@@ -1489,9 +1435,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getEffectiveBookmarkTopbarSurfaceMode,
     isBookmarkTopbarMode,
     getBookmarkTopbarLayout,
-    BOOKMARK_TOPBAR_LAYOUT_ACTION,
-    BOOKMARK_TOPBAR_SURFACE_MODE_ACTION,
-    BOOKMARK_TOPBAR_PICK_COLOR_ACTION
   });
 
   const {
@@ -1568,7 +1511,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     formatMessage,
     getShortcutById,
     SHORTCUT_DIALOG_MODE_EDIT,
-    SHORTCUT_DIALOG_ITEM_FOLDER,
     markBookmarkTreeDirty: (...args) => markBookmarkTreeDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
     refreshOpenBookmarkCascadeMenu: (...args) => refreshOpenBookmarkCascadeMenu(...args),
@@ -1602,7 +1544,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     NEWTAB_SHORTCUT_DIALOG,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
-    SHORTCUT_DIALOG_ITEM_BOOKMARK,
     handleShortcutGroupMenu: openShortcutGroupMenu,
     WEBDAV_STATUS_STORAGE_KEY: SETTINGS.webdavStatus.key,
     animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args),
@@ -1775,7 +1716,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     applyRecentCardTheme,
     getRecentLimit,
     isRecentSitePinned,
-    MAX_PINNED_RECENT_SITES,
     showToast,
     showTopActionTooltip,
     navigateToUrl,
@@ -1800,7 +1740,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     suggestionsSurface,
     suggestionsOutline,
     getNewtabTopOccupiedInsetPx,
-    NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
     pageState
@@ -1973,7 +1912,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     closeBookmarkCascadeMenu,
     followTheme,
     areFaviconRenderCachesReady,
-    FAVICON_CACHE_BOOT_WAIT_MS,
     waitForFaviconRenderCaches,
     getTopBookmarks,
     getBookmarkLimit,
@@ -1984,7 +1922,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     renderShortcuts,
     getRecentSourceLimit,
     getRecentSites,
-    MAX_PINNED_RECENT_SITES,
     beginSearchEntryRestoreLayoutLock,
     pageState
   });

@@ -3,6 +3,7 @@
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { Translate } from '../newtab-types';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
+import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../menu-values';
 
 // A menu entry with its label by message key.
 interface ModeMenuOptionSource {
@@ -23,9 +24,6 @@ interface BookmarkModeMenuDeps {
   getEffectiveBookmarkTopbarSurfaceMode(): string;
   isBookmarkTopbarMode(): boolean;
   getBookmarkTopbarLayout(): string;
-  BOOKMARK_TOPBAR_LAYOUT_ACTION: string;
-  BOOKMARK_TOPBAR_SURFACE_MODE_ACTION: string;
-  BOOKMARK_TOPBAR_PICK_COLOR_ACTION: string;
 }
 
 function createBookmarkModeMenu(deps: BookmarkModeMenuDeps) {
@@ -34,9 +32,6 @@ function createBookmarkModeMenu(deps: BookmarkModeMenuDeps) {
     getEffectiveBookmarkTopbarSurfaceMode,
     isBookmarkTopbarMode,
     getBookmarkTopbarLayout,
-    BOOKMARK_TOPBAR_LAYOUT_ACTION,
-    BOOKMARK_TOPBAR_SURFACE_MODE_ACTION,
-    BOOKMARK_TOPBAR_PICK_COLOR_ACTION
   } = deps;
 
   function toMenuOption(source: ModeMenuOptionSource): SelectMenuOption {

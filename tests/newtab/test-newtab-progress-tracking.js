@@ -98,7 +98,6 @@ async function createController(pinned, history, options = {}) {
   const opened = [];
   let renders = 0;
   const controller = LumnoNewtabRecentSitesController.createRecentSitesController({
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE: 'open',
     settings,
     t: (_key, fallback) => fallback,
     showToast: (message, isError) => toasts.push({ message, isError }),
@@ -117,7 +116,6 @@ async function createController(pinned, history, options = {}) {
     getSiteDisplayName: (host) => host,
     shouldExcludeFromRecentSites: () => false,
     isBrowserPageRecentUrl: () => false,
-    MAX_PINNED_RECENT_SITES: 3,
     NEWTAB_RECENT_STORE: store,
     renderRecentSites: () => { renders += 1; },
     progressMatch,
@@ -148,14 +146,14 @@ const menuValues = (controller, item) => controller.getRecentContextMenuOptions(
   {
     const { controller } = await createController([tracked], history);
     assert.strictEqual(controller.getRecentProgressState(tracked), 'tracking');
-    assert.deepStrictEqual(menuValues(controller, tracked), ['open', 'add-shortcut', 'stop-progress', 'progress-history', 'remove']);
+    assert.deepStrictEqual(menuValues(controller, tracked), ['open-in-new-tab', 'add-shortcut', 'stop-progress', 'progress-history', 'remove']);
     assert.deepStrictEqual(menuValues(controller, { url: 'https://example.com/', title: 'Example' }),
-      ['open', 'add-shortcut', 'track-progress', 'remove']);
+      ['open-in-new-tab', 'add-shortcut', 'track-progress', 'remove']);
   }
   {
     const { controller } = await createController([tracked], history, { enabled: false });
     assert.strictEqual(controller.getRecentProgressState(tracked), '');
-    assert.deepStrictEqual(menuValues(controller, tracked), ['open', 'add-shortcut', 'remove']);
+    assert.deepStrictEqual(menuValues(controller, tracked), ['open-in-new-tab', 'add-shortcut', 'remove']);
   }
 
   // Pinned cards offer the switch on the card; it turns tracking on and off.

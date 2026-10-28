@@ -15,11 +15,12 @@ import type {
   ShortcutDialogController,
   ShortcutDialogOpenOptions
 } from '../react/shortcut-dialog';
-import type { ShortcutContextTarget, ShortcutGroupMenuValues } from './shortcut-types';
+import type { ShortcutContextTarget } from './shortcut-types';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutConstants from '../../domain/shortcuts/constants';
 import * as NEWTAB_BOOKMARKS_STORE from '../bookmarks/bookmarks-store';
+import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_CONTEXT_MENU_EDIT_VALUE, SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE, SHORTCUT_CONTEXT_MENU_REMOVE_VALUE, SHORTCUT_GROUP_MENU_VALUES } from '../menu-values';
 
 interface ShortcutPageActionsState {
   // The folder color picker, made the first time a plate color is picked.
@@ -42,17 +43,10 @@ interface ShortcutPageActionsDeps {
   hideShortcutDialogTooltip(): void;
   readSavedFolderColors(): Promise<unknown>;
   saveSavedFolderColors(colors: string[]): Promise<void>;
-  SHORTCUT_GROUP_MENU_VALUES: ShortcutGroupMenuValues;
   getShortcutGroups(): ShortcutGroup[];
-  SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE: string;
   MAX_NEWTAB_SHORTCUTS: number;
-  NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
-  BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE: string;
   bookmarksRuntime: BookmarksRuntime;
   getShortcutFolderId(shortcut: ShortcutItem): string;
-  SHORTCUT_CONTEXT_MENU_EDIT_VALUE: string;
-  FOLDER_COLOR_CONTEXT_MENU_VALUE: string;
-  SHORTCUT_CONTEXT_MENU_REMOVE_VALUE: string;
   updateBookmarkContextMenuLanguageStrings(): void;
   updateRecentContextMenuLanguageStrings(): void;
   createShortcutDialogComponent(): Promise<ShortcutDialogController | null>;
@@ -74,17 +68,10 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     hideShortcutDialogTooltip,
     readSavedFolderColors,
     saveSavedFolderColors,
-    SHORTCUT_GROUP_MENU_VALUES,
     getShortcutGroups,
-    SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE,
     MAX_NEWTAB_SHORTCUTS,
-    NEWTAB_CONTEXT_MENU_OPEN_VALUE,
-    BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     bookmarksRuntime,
     getShortcutFolderId,
-    SHORTCUT_CONTEXT_MENU_EDIT_VALUE,
-    FOLDER_COLOR_CONTEXT_MENU_VALUE,
-    SHORTCUT_CONTEXT_MENU_REMOVE_VALUE,
     updateBookmarkContextMenuLanguageStrings,
     updateRecentContextMenuLanguageStrings,
     createShortcutDialogComponent,
