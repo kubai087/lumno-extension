@@ -7,8 +7,8 @@ import type { LocalSearchScope, SearchSourceType, SiteSearchProvider } from '../
 import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
-import type { InputModeProvider, InputModeTheme, ModeMenuItem } from '../../shared/search/input-mode/types';
-import type { FormatMessage, Translate } from '../newtab-types';
+import type { InputModeTheme, ModeMenuItem } from '../../shared/search/input-mode/types';
+import type { Translate } from '../newtab-types';
 import type { SearchModeController } from './search-mode-controller';
 import { getAggregateSearchId } from './search-types';
 import type { ActiveLocalScope } from './search-types';
@@ -26,6 +26,8 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import { getLocalSearchScopeIconName, getLocalSearchScopeLabel, getSiteSearchDisplayName } from '../../shared/search-panel/labels';
+import type { SearchLocale } from '../../shared/search-panel/labels';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -46,6 +48,7 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
+  locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -55,12 +58,8 @@ interface SearchModesDeps {
   searchEngine: DefaultSearchEngine;
   t: Translate;
   createAggregateSearchScopeProvider: SiteSearchProviders['createAggregateSearchScopeProvider'];
-  getSiteSearchDisplayName: SiteSearchProviders['getSiteSearchDisplayName'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
-  getLocalSearchScopeLabel: SiteSearchProviders['getLocalSearchScopeLabel'];
-  getLocalSearchScopeIconName: SiteSearchProviders['getLocalSearchScopeIconName'];
   siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
-  formatMessage: FormatMessage;
   defaultTheme: InputModeTheme;
   clearSearchSuggestions(): void;
   clearSiteSearchPrefix: SearchModeController['clearSiteSearchPrefix'];
@@ -85,6 +84,7 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -94,12 +94,8 @@ function createSearchModes(deps: SearchModesDeps) {
     searchEngine,
     t,
     createAggregateSearchScopeProvider,
-    getSiteSearchDisplayName,
     getProviderIcon,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
     siteSearchIconCache,
-    formatMessage,
     defaultTheme,
     clearSearchSuggestions,
     clearSiteSearchPrefix,
@@ -180,7 +176,7 @@ function createSearchModes(deps: SearchModesDeps) {
           id: SearchSiteSearchProviders.getSearchModeProviderId(provider),
           kind: 'provider',
           provider,
-          label: getSiteSearchDisplayName(provider),
+          label: getSiteSearchDisplayName(locale, provider),
           group: isSearchEngine ? engineGroup : (isAi ? aiGroup : siteGroup),
           groupKey,
           orderList: provider._xIsCustom ? 'custom' : groupKey,
@@ -199,7 +195,7 @@ function createSearchModes(deps: SearchModesDeps) {
         id: `local:${sourceType}`,
         kind: 'local',
         sourceType,
-        label: getLocalSearchScopeLabel({ sourceType }),
+        label: getLocalSearchScopeLabel(locale, { sourceType }),
         groupKey: 'local',
         orderList: 'local',
         orderKey: sourceType,
@@ -344,26 +340,13 @@ function createSearchModes(deps: SearchModesDeps) {
     }
   }
 
-  // The Tab hint names the scope as a provider would, keyed like its mode.
-  function getLocalSearchScopeTabHintProvider(scope: ActiveLocalScope): InputModeProvider {
-    const source = getLocalSearchScopeLabel(scope);
-    return {
-      key: `local:${scope.sourceType}`,
-      name: source,
-      tabHintLabel: formatMessage(
-        'local_search_tab_hint',
-        '仅搜索{source}',
-        { source }
-      )
-    };
-  }
 
   function setLocalSearchScopePrefix(scope: ActiveLocalScope | null): void {
     if (!pageState.inputModeController || !scope) {
       return;
     }
     pageState.inputModeController.setPrefixText(
-      getLocalSearchScopeLabel(scope),
+      getLocalSearchScopeLabel(locale, scope),
       defaultTheme,
       {
         animate: true,
@@ -549,7 +532,6 @@ function createSearchModes(deps: SearchModesDeps) {
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem,
     restoreSearchModeQuery,
-    getLocalSearchScopeTabHintProvider,
     setLocalSearchScopePrefix,
     activateLocalSearchScope,
     clearLocalSearchScope,

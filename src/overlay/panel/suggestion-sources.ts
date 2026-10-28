@@ -37,6 +37,7 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import { getLocalSearchScopeTabHintProvider, getSiteSearchActionTitle } from '../../shared/search-panel/labels';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -64,7 +65,7 @@ interface SuggestionSourcesDeps {
   isLocalNetworkInput(input: string): boolean;
   getHostFromUrl(url: string): string;
   isLocalNetworkHost(host: string): boolean;
-  locale: Pick<SurfaceLocale, 'store'>;
+  locale: Pick<SurfaceLocale, 'store' | 't' | 'formatMessage'>;
   getProviderIcon(provider: SiteSearchProvider): string;
   isSlashCommandInput(input: string): boolean;
   isModeCommand(input: string): boolean;
@@ -76,7 +77,6 @@ interface SuggestionSourcesDeps {
   isCurrentOverlayTabUrl(url: string): boolean;
   getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[] | null): { provider: SiteSearchProvider; query: string } | null;
   buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string;
-  getSiteSearchActionTitle(provider: SiteSearchProvider | null, query: string): string;
   getMatchedOpenTabIdForSuggestion(suggestion: { url?: string } | null): number | null;
   filterOverlayBlacklistedSuggestions(list: OverlaySuggestion[] | null): OverlaySuggestion[];
   getKeywordSearchSuggestionState(list: OverlaySuggestion[]): {
@@ -93,7 +93,6 @@ interface SuggestionSourcesDeps {
   getUrlDisplay(url: string | undefined): string;
   getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
   setSiteSearchTabHint(provider: InputModeProvider): void;
-  getLocalSearchScopeTabHintProvider(scope: LocalSearchScope): InputModeProvider;
   clearSiteSearchTabHint(): void;
   limitOverlaySuggestionsForDisplay(list: OverlaySuggestion[], options?: { uncapped?: boolean } | null): OverlaySuggestion[];
   // Whether the mode menu is moving the panels, which the results join.
@@ -146,7 +145,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     isCurrentOverlayTabUrl,
     getInlineSiteSearchCandidate,
     buildSearchUrl,
-    getSiteSearchActionTitle,
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions,
     getKeywordSearchSuggestionState,
@@ -156,7 +154,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     getUrlDisplay,
     getLocalSearchScopeCandidate,
     setSiteSearchTabHint,
-    getLocalSearchScopeTabHintProvider,
     clearSiteSearchTabHint,
     limitOverlaySuggestionsForDisplay,
     getSearchPanelsLayoutTransitionMenu,
@@ -466,7 +463,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         if (inlineUrl) {
           inlineSuggestion = {
             type: 'inlineSiteSearch',
-            title: getSiteSearchActionTitle(inlineCandidate.provider, ''),
+            title: getSiteSearchActionTitle(locale, inlineCandidate.provider, ''),
             url: inlineUrl,
             favicon: getProviderIcon(inlineCandidate.provider),
             provider: inlineCandidate.provider,
@@ -487,7 +484,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
             }
             return {
               type: 'siteSearch',
-              title: getSiteSearchActionTitle(activeProvider, query),
+              title: getSiteSearchActionTitle(locale, activeProvider, query),
               url: siteUrl,
               favicon: aggregateSearch ? '' : getProviderIcon(activeProvider),
               provider: activeProvider,
@@ -601,7 +598,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         if (resolvedProvider) {
           setSiteSearchTabHint(resolvedProvider);
         } else if (resolvedLocalScope) {
-          setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(resolvedLocalScope));
+          setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(locale, resolvedLocalScope));
         } else {
           clearSiteSearchTabHint();
         }

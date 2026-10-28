@@ -13,10 +13,8 @@ import type {
   SuggestionLike
 } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
+import type { ShowToast, Translate } from '../newtab-types';
 import { getAggregateSearchId } from './search-types';
-import type { ActiveLocalScope } from './search-types';
-import type { RemixIconName } from '../../shared/ui/remix-icon';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
@@ -26,7 +24,7 @@ import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-c
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
-import { isAiSiteSearchProvider, isInteractiveSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
+import { isInteractiveSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SiteSearchProvidersDeps {
@@ -39,7 +37,6 @@ interface SiteSearchProvidersDeps {
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getProviderFaviconUrl'> | null;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
   getExtensionResourceUrl(resourcePath: string): string;
-  formatMessage: FormatMessage;
   getDirectNavigationUrl: NonNullable<Parameters<typeof SearchNavigationMatching.promoteStrongNavigationMatch>[2]>['getDirectNavigationUrl'];
   getUrlDisplay(url: string): string;
   getHelpCenterLocale?(): string;
@@ -56,7 +53,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getPageFaviconUrlResolver,
     siteSearchIconCache,
     getExtensionResourceUrl,
-    formatMessage,
     getDirectNavigationUrl,
     getUrlDisplay,
     getHelpCenterLocale
@@ -156,46 +152,8 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     return AGGREGATE_SEARCH_STORE.createScopeProvider(definition);
   }
 
-  function getSiteSearchDisplayName(provider: Partial<SiteSearchProvider> | null | undefined): string {
-    if (!provider) {
-      return t('site_search_default', '站内');
-    }
-    const mapping = SearchSiteSearchProviders.getSiteSearchProviderDisplayNameMessage(provider);
-    if (mapping) {
-      return t(mapping.messageKey, mapping.fallback);
-    }
-    return provider.name || provider.key || t('site_search_default', '站内');
-  }
 
-  function getSiteSearchActionTitle(provider: SiteSearchProvider | null | undefined, query?: string): string {
-    const site = getSiteSearchDisplayName(provider);
-    const queryText = String(query || '').trim();
-    if (isAggregateSearchProvider(provider)) {
-      return queryText
-        ? formatMessage('aggregate_search_action_query', '使用{name}搜索“{query}”', {
-            name: site,
-            query: queryText
-          })
-        : formatMessage('aggregate_search_action', '使用{name}搜索', { name: site });
-    }
-    if (isAiSiteSearchProvider(provider)) {
-      return queryText
-        ? formatMessage('ask_ai_provider_query', '向 {site} 提问 "{query}"', { site, query: queryText })
-        : formatMessage('ask_ai_provider', '向 {site} 提问', { site });
-    }
-    return queryText
-      ? formatMessage('search_in_site_query', '在 {site} 中搜索 "{query}"', { site, query: queryText })
-      : formatMessage('search_in_site', '在 {site} 中搜索', { site });
-  }
 
-  function getSiteSearchPrefixText(provider: SiteSearchProvider | null | undefined): string {
-    if (isAiSiteSearchProvider(provider)) {
-      return getSiteSearchDisplayName(provider);
-    }
-    return getSiteSearchDisplayName(provider) || formatMessage('search_in_site', '在 {site} 中搜索', {
-      site: provider && provider.name ? provider.name : ''
-    });
-  }
 
   function getInlineSiteSearchCandidate(
     ...args: Parameters<typeof SearchSiteSearchMatching.getInlineSiteSearchCandidate>
@@ -309,29 +267,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     return scope;
   }
 
-  function getLocalSearchScopeLabel(scope: ActiveLocalScope | null | undefined): string {
-    const sourceType = scope && scope.sourceType ? scope.sourceType : '';
-    if (sourceType === 'bookmark') {
-      return t('search_tag_bookmark', '书签');
-    }
-    if (sourceType === 'history') {
-      return t('search_tag_history', '历史');
-    }
-    if (sourceType === 'topSite') {
-      return t('search_tag_top_site', '常用');
-    }
-    return '';
-  }
 
-  function getLocalSearchScopeIconName(sourceType: string): RemixIconName {
-    if (sourceType === 'bookmark') {
-      return 'ri-bookmark-3-line';
-    }
-    if (sourceType === 'history') {
-      return 'ri-history-line';
-    }
-    return 'ri-star-line';
-  }
 
   return {
     buildSearchUrl,
@@ -339,9 +275,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
-    getSiteSearchDisplayName,
-    getSiteSearchActionTitle,
-    getSiteSearchPrefixText,
     getInlineSiteSearchCandidate,
     promoteStrongNavigationMatch,
     getKeywordSearchSuggestionState,
@@ -350,8 +283,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getProviderHost,
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName
   };
 }
 

@@ -15,6 +15,8 @@ import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete'
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
+import { getLocalSearchScopeTabHintProvider } from '../../shared/search-panel/labels';
+import type { SearchLocale } from '../../shared/search-panel/labels';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -29,6 +31,7 @@ interface SearchInputEventsState {
 }
 
 interface SearchInputEventsDeps {
+  locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -41,7 +44,6 @@ interface SearchInputEventsDeps {
   getSiteSearchTriggerCandidate(input: string, providers: SiteSearchProvider[], options: null): SiteSearchProvider | null;
   setSiteSearchTabHint(provider: SiteSearchProvider | InputModeProvider): void;
   getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
-  getLocalSearchScopeTabHintProvider(scope: LocalSearchScope): InputModeProvider;
   cancelPendingOverlaySuggestionRequests(): void;
   notifyOverlayLoadingSession(input: HTMLInputElement | null): void;
   updateModeBadge(rawValue: string): void;
@@ -62,6 +64,7 @@ function readInputType(event: Event | null): string {
 
 function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -74,7 +77,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     getSiteSearchTriggerCandidate,
     setSiteSearchTabHint,
     getLocalSearchScopeCandidate,
-    getLocalSearchScopeTabHintProvider,
     cancelPendingOverlaySuggestionRequests,
     notifyOverlayLoadingSession,
     updateModeBadge,
@@ -171,7 +173,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     const localScope = getLocalSearchScopeCandidate(triggerInput, shortcutRules);
     if (localScope) {
       searchMode.setTriggers(null, { scope: localScope, rawInput: triggerInput });
-      setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(localScope));
+      setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(locale, localScope));
       return;
     }
 

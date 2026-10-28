@@ -42,6 +42,8 @@ import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete'
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import { getLocalSearchScopeTabHintProvider, getSiteSearchActionTitle } from '../../shared/search-panel/labels';
+import type { SearchLocale } from '../../shared/search-panel/labels';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -56,6 +58,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -96,7 +99,6 @@ interface SuggestionsControllerDeps {
   buildKeywordSuggestions: SearchNavigation['buildKeywordSuggestions'];
   getInlineSiteSearchCandidate: SiteSearchProviders['getInlineSiteSearchCandidate'];
   buildSearchUrl: SiteSearchProviders['buildSearchUrl'];
-  getSiteSearchActionTitle: SiteSearchProviders['getSiteSearchActionTitle'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   formatMessage: FormatMessage;
   getMatchedOpenTabIdForSuggestion: SearchNavigation['getMatchedOpenTabIdForSuggestion'];
@@ -110,7 +112,6 @@ interface SuggestionsControllerDeps {
   getDirectNavigationUrl: SearchNavigation['getDirectNavigationUrl'];
   getLocalSearchScopeCandidate: SiteSearchProviders['getLocalSearchScopeCandidate'];
   setSiteSearchTabHint: SearchModeController['setSiteSearchTabHint'];
-  getLocalSearchScopeTabHintProvider: SearchModes['getLocalSearchScopeTabHintProvider'];
   // The rows the list shows; `uncapped` keeps every command.
   limitSuggestionsForDisplay(list: Suggestion[], options: { uncapped: boolean }): Suggestion[];
   t: Translate;
@@ -141,6 +142,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -180,7 +182,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     buildKeywordSuggestions,
     getInlineSiteSearchCandidate,
     buildSearchUrl,
-    getSiteSearchActionTitle,
     getProviderIcon,
     formatMessage,
     getMatchedOpenTabIdForSuggestion,
@@ -193,7 +194,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     getDirectNavigationUrl,
     getLocalSearchScopeCandidate,
     setSiteSearchTabHint,
-    getLocalSearchScopeTabHintProvider,
     limitSuggestionsForDisplay,
     t,
     warmIconCache,
@@ -550,7 +550,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         if (inlineUrl) {
           inlineSuggestion = {
             type: 'inlineSiteSearch',
-            title: getSiteSearchActionTitle(inlineCandidate.provider),
+            title: getSiteSearchActionTitle(locale, inlineCandidate.provider),
             url: inlineUrl,
             favicon: getProviderIcon(inlineCandidate.provider),
             provider: inlineCandidate.provider,
@@ -587,7 +587,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
             }
             return {
               type: 'siteSearch',
-              title: getSiteSearchActionTitle(siteSearchProvider, query),
+              title: getSiteSearchActionTitle(locale, siteSearchProvider, query),
               url: siteUrl,
               favicon: aggregateSearch ? '' : getProviderIcon(siteSearchProvider),
               provider: siteSearchProvider,
@@ -722,7 +722,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         if (resolvedProvider) {
           setSiteSearchTabHint(resolvedProvider);
         } else if (resolvedLocalScope) {
-          setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(resolvedLocalScope));
+          setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(locale, resolvedLocalScope));
         } else {
           clearSiteSearchTabHint();
         }

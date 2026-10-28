@@ -6,8 +6,7 @@ import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../..
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { ModeTagOptions } from '../../shared/search/input-mode/tag';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
-import type { FormatMessage, Translate } from './types';
-import type { RemixIconName } from '../../shared/ui/remix-icon';
+import type { Translate } from './types';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
@@ -19,8 +18,8 @@ import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete'
 import type { ActiveLocalScope, SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
-import { isAiSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
-import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import { getLocalSearchScopeIconName, getLocalSearchScopeLabel } from '../../shared/search-panel/labels';
+import type { SearchLocale } from '../../shared/search-panel/labels';
 
 interface SearchModesState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -31,12 +30,12 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
+  locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   t: Translate;
-  formatMessage: FormatMessage;
   getDirectNavigationUrl(rawQuery: string): unknown;
   getUrlDisplay(url: string | undefined): string;
   cancelPendingOverlaySuggestionRequests(): void;
@@ -59,12 +58,12 @@ interface OpenTabsPrefixOptions {
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
     t,
-    formatMessage,
     getDirectNavigationUrl,
     getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,
@@ -153,46 +152,8 @@ function createSearchModes(deps: SearchModesDeps) {
     }
   }
 
-  function getSiteSearchDisplayName(provider: Partial<SiteSearchProvider> | null | undefined): string {
-    if (!provider) {
-      return t('site_search_default', '站内');
-    }
-    const mapping = SearchSiteSearchProviders.getSiteSearchProviderDisplayNameMessage(provider);
-    if (mapping) {
-      return t(mapping.messageKey, mapping.fallback);
-    }
-    return provider.name || provider.key || t('site_search_default', '站内');
-  }
 
-  function getSiteSearchActionTitle(provider: SiteSearchProvider | null, query: string): string {
-    const site = getSiteSearchDisplayName(provider);
-    const queryText = String(query || '').trim();
-    if (isAggregateSearchProvider(provider)) {
-      return queryText
-        ? formatMessage('aggregate_search_action_query', '使用{name}搜索“{query}”', {
-            name: site,
-            query: queryText
-          })
-        : formatMessage('aggregate_search_action', '使用{name}搜索', { name: site });
-    }
-    if (isAiSiteSearchProvider(provider)) {
-      return queryText
-        ? formatMessage('ask_ai_provider_query', '向 {site} 提问 "{query}"', { site, query: queryText })
-        : formatMessage('ask_ai_provider', '向 {site} 提问', { site });
-    }
-    return queryText
-      ? formatMessage('search_in_site_query', '在 {site} 中搜索 "{query}"', { site, query: queryText })
-      : formatMessage('search_in_site', '在 {site} 中搜索', { site });
-  }
 
-  function getSiteSearchPrefixText(provider: Partial<SiteSearchProvider> | null | undefined): string {
-    if (isAiSiteSearchProvider(provider)) {
-      return getSiteSearchDisplayName(provider);
-    }
-    return getSiteSearchDisplayName(provider) || formatMessage('search_in_site', '在 {site} 中搜索', {
-      site: provider && provider.name ? provider.name : ''
-    });
-  }
 
   function getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[] | null) {
     return SearchSiteSearchMatching.getInlineSiteSearchCandidate(input, providers);
@@ -299,50 +260,15 @@ function createSearchModes(deps: SearchModesDeps) {
     return scope;
   }
 
-  function getLocalSearchScopeLabel(scope: Pick<LocalSearchScope, 'sourceType'> | null): string {
-    const sourceType = scope && scope.sourceType ? scope.sourceType : '';
-    if (sourceType === 'bookmark') {
-      return t('search_tag_bookmark', '书签');
-    }
-    if (sourceType === 'history') {
-      return t('search_tag_history', '历史');
-    }
-    if (sourceType === 'topSite') {
-      return t('search_tag_top_site', '常用');
-    }
-    return '';
-  }
 
-  function getLocalSearchScopeIconName(sourceType: string): RemixIconName {
-    if (sourceType === 'bookmark') {
-      return 'ri-bookmark-3-line';
-    }
-    if (sourceType === 'history') {
-      return 'ri-history-line';
-    }
-    return 'ri-star-line';
-  }
 
-  // A stand-in provider whose Tab hint names the local source.
-  function getLocalSearchScopeTabHintProvider(scope: LocalSearchScope): InputModeProvider {
-    const source = getLocalSearchScopeLabel(scope);
-    return {
-      key: `local:${scope.sourceType}`,
-      name: source,
-      tabHintLabel: formatMessage(
-        'local_search_tab_hint',
-        '仅搜索{source}',
-        { source }
-      )
-    };
-  }
 
   function setLocalSearchScopePrefix(scope: ActiveLocalScope | null): void {
     if (!overlayState.inputModeController || !scope) {
       return;
     }
     overlayState.inputModeController.setPrefixText(
-      getLocalSearchScopeLabel(scope),
+      getLocalSearchScopeLabel(locale, scope),
       overlayState.defaultTheme,
       {
         animate: true,
@@ -475,9 +401,6 @@ function createSearchModes(deps: SearchModesDeps) {
     updateSiteSearchPrefixLayout,
     setSiteSearchPrefix,
     cancelPendingOpenTabsPrefixEntry,
-    getSiteSearchDisplayName,
-    getSiteSearchActionTitle,
-    getSiteSearchPrefixText,
     getInlineSiteSearchCandidate,
     promoteStrongNavigationMatch,
     getKeywordSearchSuggestionState,
@@ -485,9 +408,6 @@ function createSearchModes(deps: SearchModesDeps) {
     promoteTopSiteMatch,
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
-    getLocalSearchScopeTabHintProvider,
     setLocalSearchScopePrefix,
     activateLocalSearchScope,
     clearLocalSearchScope,

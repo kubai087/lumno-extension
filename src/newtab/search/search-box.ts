@@ -30,6 +30,7 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -57,7 +58,7 @@ interface SearchBoxDeps {
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
-  locale: Pick<SurfaceLocale, 'store'>;
+  locale: Pick<SurfaceLocale, 'store' | 't' | 'formatMessage'>;
   settings: Pick<SettingsStore, 'get'>;
   suggestionItems: ViewOption<'items'>;
   t: Translate;
@@ -94,7 +95,6 @@ interface SearchBoxDeps {
   hideTopActionTooltip: ViewOption<'hideTopActionTooltip'>;
   bindCursorTooltip: ViewOption<'bindCursorTooltip'>;
   getSearchActionLabel: ViewOption<'getSearchActionLabel'>;
-  getSiteSearchDisplayName: ViewOption<'getSiteSearchDisplayName'>;
   getDefaultSearchEngineThemeUrl: ViewOption<'getDefaultSearchEngineThemeUrl'>;
   getBrandAccentForUrl: ViewOption<'getBrandAccentForUrl'>;
   buildThemeFromAccent: ViewOption<'buildThemeFromAccent'>;
@@ -187,7 +187,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     hideTopActionTooltip,
     bindCursorTooltip,
     getSearchActionLabel,
-    getSiteSearchDisplayName,
     getDefaultSearchEngineThemeUrl,
     getBrandAccentForUrl,
     buildThemeFromAccent,
@@ -323,7 +322,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     hideTopActionTooltip,
     bindCursorTooltip,
     getSearchActionLabel,
-    getSiteSearchDisplayName,
+    getSiteSearchDisplayName: (provider) => getSiteSearchDisplayName(locale, provider),
     getDefaultSearchEngineThemeUrl,
     getBrandAccentForUrl,
     buildThemeFromAccent,

@@ -83,6 +83,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 import type { InputModeProvider } from '../shared/search/input-mode/types';
 import type { OverlaySuggestion } from './panel/types';
 import { isAggregateSearchProvider } from '../domain/search/aggregate-search-store';
+import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../shared/search-panel/labels';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -367,7 +368,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     siteSearchCatalog,
     getInlineSiteSearchCandidate: (...args) => getInlineSiteSearchCandidate(...args),
     buildSearchUrl: (...args) => buildSearchUrl(...args),
-    getSiteSearchActionTitle: (...args) => getSiteSearchActionTitle(...args),
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions: (...args) => filterOverlayBlacklistedSuggestions(...args),
     getKeywordSearchSuggestionState: (...args) => getKeywordSearchSuggestionState(...args),
@@ -377,7 +377,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getUrlDisplay,
     getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
-    getLocalSearchScopeTabHintProvider: (...args) => getLocalSearchScopeTabHintProvider(...args),
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
     limitOverlaySuggestionsForDisplay: (...args) => limitOverlaySuggestionsForDisplay(...args),
     getSearchPanelsLayoutTransitionMenu: (...args) => getSearchPanelsLayoutTransitionMenu(...args),
@@ -420,6 +419,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    locale,
     searchResults,
     searchMode,
     searchQuery,
@@ -463,7 +463,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyThemeVariables: (...args) => applyThemeVariables(...args),
     applyMarkVariables: (...args) => applyMarkVariables(...args),
     copySearchResultUrl: (...args) => copySearchResultUrl(...args),
-    getSiteSearchDisplayName: (...args) => getSiteSearchDisplayName(...args),
     searchEngine,
     getBrandAccentForUrl: (...args) => getBrandAccentForUrl(...args),
     buildTheme,
@@ -543,6 +542,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleSearchInputCompositionEnd,
     handleSearchInputEvent
   } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -555,7 +555,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getSiteSearchTriggerCandidate: (...args) => getSiteSearchTriggerCandidate(...args),
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
     getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
-    getLocalSearchScopeTabHintProvider: (...args) => getLocalSearchScopeTabHintProvider(...args),
     cancelPendingOverlaySuggestionRequests,
     notifyOverlayLoadingSession,
     updateModeBadge: (...args) => updateModeBadge(...args),
@@ -573,9 +572,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSiteSearchPrefixLayout,
     setSiteSearchPrefix,
     cancelPendingOpenTabsPrefixEntry,
-    getSiteSearchDisplayName,
-    getSiteSearchActionTitle,
-    getSiteSearchPrefixText,
     getInlineSiteSearchCandidate,
     promoteStrongNavigationMatch,
     getKeywordSearchSuggestionState,
@@ -583,9 +579,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     promoteTopSiteMatch,
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
-    getLocalSearchScopeTabHintProvider,
     setLocalSearchScopePrefix,
     activateLocalSearchScope,
     clearLocalSearchScope,
@@ -594,12 +587,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode,
     clearOpenTabsSearchMode
   } = PANEL_SEARCH_MODES.createSearchModes({
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
     t: (...args) => t(...args),
-    formatMessage: (...args) => formatMessage(...args),
     getDirectNavigationUrl,
     getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,
@@ -644,15 +637,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem
   } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
+    locale,
     searchMode,
     searchQuery,
     searchEngine,
     AGGREGATE_SEARCH_STORE,
     t: (...args) => t(...args),
-    getSiteSearchDisplayName,
     getPageRenderableProviderIcon,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
     SEARCH_SOURCE_ORDER,
     siteSearchIconCache,
     siteSearchCatalog,
@@ -1364,8 +1355,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     },
     getProviderThemeHost,
     getThemeForProvider,
-    getSiteSearchPrefixText,
-    getSiteSearchDisplayName,
+    getSiteSearchPrefixText: (provider) => getSiteSearchPrefixText(locale, provider),
+    getSiteSearchDisplayName: (provider) => getSiteSearchDisplayName(locale, provider),
     attachFaviconData: attachInputModeFaviconData,
     formatMessage,
     modeMenuDoubleTabDuration: OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS,

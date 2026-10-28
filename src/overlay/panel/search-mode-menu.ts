@@ -10,7 +10,6 @@ import type { InputModeProvider, ModeMenuItem } from '../../shared/search/input-
 import type { Translate } from './types';
 import { lazyInstance } from '../../shared/lazy-instance';
 import { createHistory as createSearchSourceOrderHistory } from '../../domain/search/search-source-order';
-import type { RemixIconName } from '../../shared/ui/remix-icon';
 import { searchSourceOrder } from '../../domain/settings/search';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
@@ -23,6 +22,8 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import { getLocalSearchScopeIconName, getLocalSearchScopeLabel, getSiteSearchDisplayName } from '../../shared/search-panel/labels';
+import type { SearchLocale } from '../../shared/search-panel/labels';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
@@ -33,6 +34,7 @@ interface SearchModeMenuState {
 }
 
 interface SearchModeMenuDeps {
+  locale: SearchLocale;
   searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
   searchEngine: DefaultSearchEngine;
@@ -42,10 +44,7 @@ interface SearchModeMenuDeps {
   SEARCH_SOURCE_ORDER: Pick<typeof SearchSourceOrder,
     'rankScopeItems' | 'applyScopeMenuMove' | 'applyGroupMove' | 'createHistory'>;
   t: Translate;
-  getSiteSearchDisplayName(provider: SiteSearchProvider | null): string;
   getPageRenderableProviderIcon(provider: SiteSearchProvider): string;
-  getLocalSearchScopeLabel(scope: Pick<LocalSearchScope, 'sourceType'> | null): string;
-  getLocalSearchScopeIconName(sourceType: string): RemixIconName;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
   cancelPendingOpenTabsPrefixEntry(): boolean;
   activateSiteSearch(provider: InputModeProvider | null, options?: { preserveResults?: boolean; animatePrefix?: boolean }): void;
@@ -68,16 +67,14 @@ const getPageSearchSourceOrderHistory = lazyInstance(() => createSearchSourceOrd
 
 function createSearchModeMenu(deps: SearchModeMenuDeps) {
   const {
+    locale,
     searchMode,
     searchQuery,
     searchEngine,
     siteSearchCatalog,
     AGGREGATE_SEARCH_STORE,
     t,
-    getSiteSearchDisplayName,
     getPageRenderableProviderIcon,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
     SEARCH_SOURCE_ORDER,
     siteSearchIconCache,
     cancelPendingOpenTabsPrefixEntry,
@@ -149,7 +146,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
           id: SearchSiteSearchProviders.getSearchModeProviderId(provider),
           kind: 'provider',
           provider,
-          label: getSiteSearchDisplayName(provider),
+          label: getSiteSearchDisplayName(locale, provider),
           group: isSearchEngine ? engineGroup : (isAi ? aiGroup : siteGroup),
           groupKey,
           orderList: provider._xIsCustom ? 'custom' : groupKey,
@@ -181,7 +178,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
         id: `local:${sourceType}`,
         kind: 'local',
         sourceType,
-        label: getLocalSearchScopeLabel({ sourceType }),
+        label: getLocalSearchScopeLabel(locale, { sourceType }),
         groupKey: 'local',
         orderList: 'local',
         orderKey: sourceType,

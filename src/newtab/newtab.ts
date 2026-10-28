@@ -646,9 +646,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
-    getSiteSearchDisplayName,
-    getSiteSearchActionTitle,
-    getSiteSearchPrefixText,
     getInlineSiteSearchCandidate,
     promoteStrongNavigationMatch,
     getKeywordSearchSuggestionState,
@@ -657,8 +654,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getProviderHost,
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
     settings,
     AGGREGATE_SEARCH_STORE,
@@ -669,7 +664,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
     siteSearchIconCache,
     getExtensionResourceUrl,
-    formatMessage,
     getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args),
     getUrlDisplay: (...args) => getUrlDisplay(...args),
     getHelpCenterLocale: (...args) => getHelpCenterLocale(...args)
@@ -2043,7 +2037,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem,
     restoreSearchModeQuery,
-    getLocalSearchScopeTabHintProvider,
     setLocalSearchScopePrefix,
     activateLocalSearchScope,
     clearLocalSearchScope,
@@ -2051,6 +2044,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -2060,12 +2054,8 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     searchEngine,
     t,
     createAggregateSearchScopeProvider,
-    getSiteSearchDisplayName,
     getProviderIcon,
-    getLocalSearchScopeLabel,
-    getLocalSearchScopeIconName,
     siteSearchIconCache,
-    formatMessage,
     defaultTheme,
     clearSearchSuggestions: (...args) => clearSearchSuggestions(...args),
     clearSiteSearchPrefix: (...args) => clearSiteSearchPrefix(...args),
@@ -2143,6 +2133,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    locale,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -2182,7 +2173,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     searchEngine,
     getInlineSiteSearchCandidate,
     buildSearchUrl,
-    getSiteSearchActionTitle,
     getProviderIcon,
     formatMessage,
     getMatchedOpenTabIdForSuggestion,
@@ -2195,7 +2185,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getDirectNavigationUrl,
     getLocalSearchScopeCandidate,
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
-    getLocalSearchScopeTabHintProvider,
     limitSuggestionsForDisplay,
     t,
     warmIconCache,
@@ -2333,7 +2322,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     hideTopActionTooltip,
     bindCursorTooltip,
     getSearchActionLabel: () => t('action_search', '搜索'),
-    getSiteSearchDisplayName,
     getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
     getBrandAccentForUrl,
     buildThemeFromAccent,
@@ -2465,6 +2453,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     setSiteSearchPrefix,
     clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    locale,
     searchResults,
     searchMode,
     searchQuery,
@@ -2484,8 +2473,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getProviderFaviconPageUrl,
     getProviderThemeHost,
     getThemeForProvider,
-    getSiteSearchPrefixText,
-    getSiteSearchDisplayName,
     attachInputModeFaviconData,
     formatMessage,
     bookmarkCursorTooltipController,

@@ -38,6 +38,8 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
+import type { SearchLocale } from '../../shared/search-panel/labels';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -68,6 +70,7 @@ interface SuggestionsRenderState {
 }
 
 interface SuggestionsRenderDeps {
+  locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
@@ -120,7 +123,6 @@ interface SuggestionsRenderDeps {
   applyThemeVariables: ViewOption<'applyThemeVariables'>;
   applyMarkVariables: ViewOption<'applyMarkVariables'>;
   copySearchResultUrl: ViewOption<'onCopyUrl'>;
-  getSiteSearchDisplayName: ViewOption<'getSiteSearchDisplayName'>;
   searchEngine: DefaultSearchEngine;
   getBrandAccentForUrl: ViewOption<'getBrandAccentForUrl'>;
   buildTheme(accent: unknown): ThemeValue;
@@ -147,6 +149,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    locale,
     searchResults,
     searchMode,
     searchQuery,
@@ -190,7 +193,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     applyThemeVariables,
     applyMarkVariables,
     copySearchResultUrl,
-    getSiteSearchDisplayName,
     searchEngine,
     getBrandAccentForUrl,
     buildTheme,
@@ -575,7 +577,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       // Fixed in the overlay's shadow root, like the mode menu's tooltip, so it can sit beside the panel.
       getHelpPassageHost: () => overlayState.overlayStyleRoot || document.body,
       getSearchActionLabel: () => t('action_search', '搜索'),
-      getSiteSearchDisplayName,
+      getSiteSearchDisplayName: (provider) => getSiteSearchDisplayName(locale, provider),
       getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
       getBrandAccentForUrl,
       buildThemeFromAccent: (accent) => buildTheme(accent),

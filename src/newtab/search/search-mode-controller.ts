@@ -20,6 +20,8 @@ import type { SuggestionsController } from './suggestions-controller';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../../shared/search-panel/labels';
+import type { SearchLocale } from '../../shared/search-panel/labels';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -32,6 +34,7 @@ interface SearchModeControllerState {
 }
 
 interface SearchModeControllerDeps {
+  locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
@@ -53,8 +56,6 @@ interface SearchModeControllerDeps {
   getProviderThemeHost: ModeOption<'getProviderThemeHost'>;
   // The theme a provider's icon gives its prefix, once worked out.
   getThemeForProvider(provider: SiteSearchProvider): Promise<InputModeTheme | null | undefined>;
-  getSiteSearchPrefixText: ModeOption<'getSiteSearchPrefixText'>;
-  getSiteSearchDisplayName: ModeOption<'getSiteSearchDisplayName'>;
   attachInputModeFaviconData: ModeOption<'attachFaviconData'>;
   formatMessage: FormatMessage;
   bookmarkCursorTooltipController: ModeOption<'modeMenuCursorTooltipController'>;
@@ -74,6 +75,7 @@ interface SearchModeControllerDeps {
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
+    locale,
     searchResults,
     searchMode,
     searchQuery,
@@ -93,8 +95,6 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     getProviderFaviconPageUrl,
     getProviderThemeHost,
     getThemeForProvider,
-    getSiteSearchPrefixText,
-    getSiteSearchDisplayName,
     attachInputModeFaviconData,
     formatMessage,
     bookmarkCursorTooltipController,
@@ -168,8 +168,8 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     ),
     getProviderThemeHost,
     getThemeForProvider,
-    getSiteSearchPrefixText,
-    getSiteSearchDisplayName,
+    getSiteSearchPrefixText: (provider) => getSiteSearchPrefixText(locale, provider),
+    getSiteSearchDisplayName: (provider) => getSiteSearchDisplayName(locale, provider),
     attachFaviconData: attachInputModeFaviconData,
     formatMessage,
     modeMenuCursorTooltipController: bookmarkCursorTooltipController,
