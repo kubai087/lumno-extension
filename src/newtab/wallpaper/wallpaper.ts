@@ -2,7 +2,6 @@
 // and appearance panel parts in runtime/ together around one shared state.
 import * as LumnoExtensionRoutes from '../../domain/extension-routes';
 import * as SETTINGS from '../../domain/settings';
-import type { NewtabTimeInk, NewtabTopContentMode } from '../../domain/settings';
 import type { StorageAreaLike, StorageChanges } from '../../domain/storage-port';
 import type { ToastTask } from '../../shared/ui/toast-screen';
 import type { FeatureHintChromeApi } from '../../shared/ui/feature-hint-catalog';
@@ -47,8 +46,10 @@ import { CUSTOM_WALLPAPER_ID } from '../../shared/wallpaper-records';
 import { readBootValue } from '../../platform/boot-handoff';
 import { getWallpaperViewApi } from '../react/wallpaper-view';
 import { newtabFavicon, newtabWallpaperEffect, newtabWallpaperOverlay, newtabWallpaperPreload } from '../../domain/settings/newtab-wallpaper';
-import { newtabTime12Hour, newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeInk, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../../domain/settings/newtab-time';
 import { bingDailyCache } from '../../domain/settings/newtab-wallpaper';
+import type { SettingsStore } from '../../platform/settings-store';
+import type { TimePreview } from '../top-content/time-preview';
+import { NEWTAB_TOP_CONTENT_SETTINGS } from '../../domain/settings/newtab-time';
 
 const DEFAULT_STORAGE_KEYS = {
   wallpaper: SETTINGS.newtabWallpaper.key,
@@ -59,27 +60,10 @@ const DEFAULT_STORAGE_KEYS = {
   curatedMixExcluded: SETTINGS.newtabCuratedMixExcluded.key,
   overlay: newtabWallpaperOverlay.key,
   effect: newtabWallpaperEffect.key,
-  topContentMode: SETTINGS.newtabTopContentMode.key ||
-    newtabTopContentMode.key,
-  timeFontWeight: SETTINGS.newtabTimeFontWeight.key ||
-    newtabTimeFontWeight.key,
-  timeFontSize: SETTINGS.newtabTimeFontSize.key ||
-    newtabTimeFontSize.key,
-  timeOpacity: SETTINGS.newtabTimeOpacity.key ||
-    newtabTimeOpacity.key,
-  timeInk: SETTINGS.newtabTimeInk.key ||
-    newtabTimeInk.key,
-  timeFont: SETTINGS.newtabTimeFont.key ||
-    newtabTimeFont.key,
-  timeSecondsVisible: SETTINGS.newtabTimeSecondsVisible.key ||
-    newtabTimeSecondsVisible.key,
-  time12Hour: SETTINGS.newtabTime12Hour.key ||
-    newtabTime12Hour.key,
   favicon: newtabFavicon.key
 };
 const PRELOAD_STORAGE_VERSION = 4;
 const WALLPAPER_EFFECT_MODE_STORAGE_VERSION = 11;
-const NEWTAB_TIME_FONT_WEIGHT_DEFAULT = Number(SETTINGS.NEWTAB_TIME_FONT_WEIGHT_DEFAULT) || 320;
 const CRT_PARAMETER_PHYSICAL_MAX: Readonly<Record<CrtParameterKey, number>> = Object.freeze({
   crtStrength: 20,
   crtBloom: 20,
@@ -173,6 +157,8 @@ interface WallpaperRuntimeOptions {
   chromeObj?: WallpaperChromeApi;
   extensionRoutes?: Pick<typeof LumnoExtensionRoutes, 'buildOptionsUrl'>;
   storageArea?: StorageArea | null;
+  settings: SettingsStore;
+  timePreview: TimePreview;
   localWallpaperStorageArea?: StorageArea | null;
   view?: WallpaperViewApi | null;
   storageKeys?: Partial<typeof DEFAULT_STORAGE_KEYS>;
@@ -219,22 +205,6 @@ interface WallpaperRuntimeOptions {
   showTopActionTooltip?: (anchor: HTMLElement, text: string, options?: { placement?: string }) => void;
   hideTopActionTooltip?: () => void;
   applyWordmarkThemeAppearance?: () => void;
-  getTopContentMode?: () => unknown;
-  setTopContentMode?: (mode: NewtabTopContentMode) => void;
-  getTimeFontWeight?: () => unknown;
-  setTimeFontWeight?: (weight: number) => void;
-  getTimeFontSize?: () => unknown;
-  setTimeFontSize?: (size: number) => void;
-  getTimeOpacity?: () => unknown;
-  setTimeOpacity?: (opacity: number) => void;
-  getTimeInk?: () => unknown;
-  setTimeInk?: (ink: NewtabTimeInk) => void;
-  getTimeFont?: () => unknown;
-  setTimeFont?: (font: string) => void;
-  getTimeSecondsVisible?: () => unknown;
-  setTimeSecondsVisible?: (visible: boolean) => void;
-  getTime12Hour?: () => unknown;
-  setTime12Hour?: (enabled: boolean) => void;
   // The page's own adaptive tone targets.
   getAdaptiveToneTargets?: () => ReadonlyArray<AdaptiveToneTarget | null | undefined>;
   fetchRemoteContent?: (url: string, init: RequestInit) => Promise<Response>;
@@ -242,8 +212,7 @@ interface WallpaperRuntimeOptions {
   getSectionPanelSettings?: () => (SectionPanelSettings & { updateLanguage(): void }) | null | undefined;
 }
 
-function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null) {
-  const options: WallpaperRuntimeOptions = runtimeOptions || {};
+function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   const documentObj = options.documentObj || globalThis.document;
   const windowObj = options.windowObj || globalThis.window;
   const document = documentObj;
@@ -262,14 +231,6 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
   const NEWTAB_CURATED_MIX_EXCLUDED_STORAGE_KEY = storageKeys.curatedMixExcluded;
   const NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY = storageKeys.overlay;
   const NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY = storageKeys.effect;
-  const NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY = storageKeys.topContentMode;
-  const NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY = storageKeys.timeFontWeight;
-  const NEWTAB_TIME_FONT_SIZE_STORAGE_KEY = storageKeys.timeFontSize;
-  const NEWTAB_TIME_OPACITY_STORAGE_KEY = storageKeys.timeOpacity;
-  const NEWTAB_TIME_INK_STORAGE_KEY = storageKeys.timeInk;
-  const NEWTAB_TIME_FONT_STORAGE_KEY = storageKeys.timeFont;
-  const NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY = storageKeys.timeSecondsVisible;
-  const NEWTAB_TIME_12_HOUR_STORAGE_KEY = storageKeys.time12Hour;
   const NEWTAB_FAVICON_STORAGE_KEY = storageKeys.favicon;
   const t: Translate = typeof options.t === 'function'
     ? options.t
@@ -424,58 +385,6 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
     : function() {};
   const applyWordmarkThemeAppearance = typeof options.applyWordmarkThemeAppearance === 'function'
     ? options.applyWordmarkThemeAppearance
-    : function() {};
-  const hasTopContentModeGetter = typeof options.getTopContentMode === 'function';
-  const getTopContentMode = typeof options.getTopContentMode === 'function'
-    ? options.getTopContentMode
-    : function() { return 'brand'; };
-  const setTopContentMode = typeof options.setTopContentMode === 'function'
-    ? options.setTopContentMode
-    : function() {};
-  const hasTimeFontWeightGetter = typeof options.getTimeFontWeight === 'function';
-  const getTimeFontWeight = typeof options.getTimeFontWeight === 'function'
-    ? options.getTimeFontWeight
-    : function() { return NEWTAB_TIME_FONT_WEIGHT_DEFAULT; };
-  const setTimeFontWeight = typeof options.setTimeFontWeight === 'function'
-    ? options.setTimeFontWeight
-    : function() {};
-  const getTimeFontSize = typeof options.getTimeFontSize === 'function'
-    ? options.getTimeFontSize
-    : function() { return SETTINGS.NEWTAB_TIME_FONT_SIZE_DEFAULT; };
-  const setTimeFontSize = typeof options.setTimeFontSize === 'function'
-    ? options.setTimeFontSize
-    : function() {};
-  const getTimeOpacity = typeof options.getTimeOpacity === 'function'
-    ? options.getTimeOpacity
-    : function() { return SETTINGS.NEWTAB_TIME_OPACITY_DEFAULT; };
-  const setTimeOpacity = typeof options.setTimeOpacity === 'function'
-    ? options.setTimeOpacity
-    : function() {};
-  const getTimeInk = typeof options.getTimeInk === 'function'
-    ? options.getTimeInk
-    : function() { return SETTINGS.NEWTAB_TIME_INK_DEFAULT; };
-  const setTimeInk = typeof options.setTimeInk === 'function'
-    ? options.setTimeInk
-    : function() {};
-  const hasTimeFontGetter = typeof options.getTimeFont === 'function';
-  const getTimeFont = typeof options.getTimeFont === 'function'
-    ? options.getTimeFont
-    : function() { return SETTINGS.NEWTAB_TIME_FONT_DEFAULT; };
-  const setTimeFont = typeof options.setTimeFont === 'function'
-    ? options.setTimeFont
-    : function() {};
-  const hasTimeSecondsVisibleGetter = typeof options.getTimeSecondsVisible === 'function';
-  const getTimeSecondsVisible = typeof options.getTimeSecondsVisible === 'function'
-    ? options.getTimeSecondsVisible
-    : function() { return false; };
-  const setTimeSecondsVisible = typeof options.setTimeSecondsVisible === 'function'
-    ? options.setTimeSecondsVisible
-    : function() {};
-  const getTime12Hour = typeof options.getTime12Hour === 'function'
-    ? options.getTime12Hour
-    : function() { return false; };
-  const setTime12Hour = typeof options.setTime12Hour === 'function'
-    ? options.setTime12Hour
     : function() {};
   const getAdaptiveToneTargets = typeof options.getAdaptiveToneTargets === 'function'
     ? options.getAdaptiveToneTargets
@@ -682,9 +591,6 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
   // Whether each network image loaded on this page: 'loaded' or 'failed'. A new tab tries again.
   const wallpaperNetworkImageStates = new Map<string, 'loaded' | 'failed'>();
 
-
-
-
   let resolveInitialWallpaperReady: (() => void) | null = null;
   const initialWallpaperReadyPromise = new Promise<void>((resolve) => {
     resolveInitialWallpaperReady = resolve;
@@ -748,10 +654,6 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
     currentWallpaperPrefs: null,
     currentLocalWallpaperOverrides: null,
     currentWallpaperId: '',
-    currentTopContentMode: normalizeNewtabTopContentMode(getTopContentMode()),
-    currentTimeFontWeight: normalizeNewtabTimeFontWeight(getTimeFontWeight()),
-    currentTimeFont: SETTINGS.newtabTimeFont.parse(getTimeFont()),
-    currentTimeSecondsVisible: normalizeNewtabTimeSecondsVisible(getTimeSecondsVisible()),
     currentNewtabFaviconId: NEWTAB_FAVICON_DEFAULT_ID,
     wallpaperEffects: null,
     wallpaperAdaptiveTone: null,
@@ -843,27 +745,14 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
     getWallpaperAppearanceModeLabel: (...args) => getWallpaperAppearanceModeLabel(...args),
     getThemeMode,
     formatMessage,
-    hasTopContentModeGetter,
-    normalizeNewtabTopContentMode,
-    getTopContentMode,
-    hasTimeFontWeightGetter,
-    normalizeNewtabTimeFontWeight,
-    getTimeFontWeight,
-    hasTimeFontGetter,
-    getTimeFont,
-    hasTimeSecondsVisibleGetter,
-    normalizeNewtabTimeSecondsVisible,
-    getTimeSecondsVisible,
-    getTimeFontSize,
-    getTimeOpacity,
+    settings: options.settings,
+    timePreview: options.timePreview,
     normalizeSearchWidthValue: (...args) => normalizeSearchWidthValue(...args),
     getSearchWidth,
     getSearchWidthMin: (...args) => getSearchWidthMin(...args),
     getSearchWidthMax: (...args) => getSearchWidthMax(...args),
     formatSearchWidthValue: (...args) => formatSearchWidthValue(...args),
     getInputAutoFocusEnabled,
-    getTimeInk,
-    getTime12Hour,
     getShortcutsVisible,
     getShortcutSize,
     getShortcutGap,
@@ -1046,23 +935,16 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
   });
   const wallpaperEffectPreload = readBootValue('wallpaperEffectPreload') || null;
 
-
-
   const WALLPAPER_SOURCE_TABS: readonly WallpaperSourceTab[] = ['built-in', 'local', 'bing', 'curated'];
-
 
   const {
     finalizeInitialWallpaper,
-    applyTopContentMode,
     persistTopContentMode,
-    applyTimeFontWeight,
     persistTimeFontWeight,
     persistTimeFontSizeFromSlider,
     persistTimeOpacityFromSlider,
     persistTimeInk,
-    applyTimeFont,
     persistTimeFont,
-    applyTimeSecondsVisible,
     persistTimeSecondsVisible,
     persistTime12Hour,
     getWallpaperAppearanceOptionButtons,
@@ -1089,28 +971,9 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
     persistShortcutSizeFromSlider,
     persistShortcutGapFromSlider
   } = WALLPAPER_PANEL_SETTINGS.createPanelSettings({
-    normalizeNewtabTopContentMode,
-    setTopContentMode,
     renderWallpaperPanelState,
-    storageArea,
-    NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY,
-    normalizeNewtabTimeFontWeight,
-    setTimeFontWeight,
-    NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY,
-    SETTINGS,
-    setTimeFontSize,
-    NEWTAB_TIME_FONT_SIZE_STORAGE_KEY,
-    setTimeOpacity,
-    NEWTAB_TIME_OPACITY_STORAGE_KEY,
-    setTimeInk,
-    NEWTAB_TIME_INK_STORAGE_KEY,
-    setTimeFont,
-    NEWTAB_TIME_FONT_STORAGE_KEY,
-    normalizeNewtabTimeSecondsVisible,
-    setTimeSecondsVisible,
-    NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY,
-    setTime12Hour,
-    NEWTAB_TIME_12_HOUR_STORAGE_KEY,
+    settings: options.settings,
+    timePreview: options.timePreview,
     getWallpaperPanelRefs,
     searchWidthConfig,
     setSearchWidth,
@@ -1471,6 +1334,7 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
     createWallpaperPanelActions,
     createWallpaperSourcesFeatureHint
   } = WALLPAPER_PANEL_ACTIONS.createPanelActions({
+    settings: options.settings,
     getWallpaperEffectPrefsForEditMode,
     CRT_PARAMETER_PHYSICAL_MAX,
     getCrtParameterPercent,
@@ -1564,18 +1428,6 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
   }
   wallpaperState.currentWallpaperPrefs = getDefaultWallpaperPrefs();
   wallpaperState.currentLocalWallpaperOverrides = getDefaultLocalWallpaperOverrides();
-
-  function normalizeNewtabTopContentMode(value: unknown): NewtabTopContentMode {
-    return SETTINGS.newtabTopContentMode.parse(value);
-  }
-
-  function normalizeNewtabTimeSecondsVisible(value: unknown): boolean {
-    return SETTINGS.newtabTimeSecondsVisible.parse(value);
-  }
-
-  function normalizeNewtabTimeFontWeight(value: unknown): number {
-    return SETTINGS.newtabTimeFontWeight.parse(value);
-  }
 
   wallpaperState.wallpaperAdaptiveTone = WALLPAPER_ADAPTIVE_TONE.createWallpaperAdaptiveTone({
     documentObj,
@@ -1758,44 +1610,6 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
       }
       handled = true;
     }
-    if (NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY && changes[NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY]) {
-      const raw = changes[NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY].newValue;
-      const nextValue = normalizeNewtabTopContentMode(raw);
-      applyTopContentMode(nextValue);
-      if (storageArea && raw !== nextValue) {
-        void storageArea.set({ [NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY]: nextValue });
-      }
-      handled = true;
-    }
-    if (NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY &&
-        changes[NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY]) {
-      const raw = changes[NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY].newValue;
-      const nextValue = normalizeNewtabTimeFontWeight(raw);
-      applyTimeFontWeight(nextValue);
-      if (storageArea && raw !== nextValue) {
-        void storageArea.set({ [NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY]: nextValue });
-      }
-      handled = true;
-    }
-    if (NEWTAB_TIME_FONT_STORAGE_KEY && changes[NEWTAB_TIME_FONT_STORAGE_KEY]) {
-      const raw = changes[NEWTAB_TIME_FONT_STORAGE_KEY].newValue;
-      const nextValue = SETTINGS.newtabTimeFont.parse(raw);
-      applyTimeFont(nextValue);
-      if (storageArea && raw !== nextValue) {
-        void storageArea.set({ [NEWTAB_TIME_FONT_STORAGE_KEY]: nextValue });
-      }
-      handled = true;
-    }
-    if (NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY &&
-        changes[NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY]) {
-      const raw = changes[NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY].newValue;
-      const nextValue = normalizeNewtabTimeSecondsVisible(raw);
-      applyTimeSecondsVisible(nextValue);
-      if (storageArea && raw !== nextValue) {
-        void storageArea.set({ [NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY]: nextValue });
-      }
-      handled = true;
-    }
     if (NEWTAB_FAVICON_STORAGE_KEY && changes[NEWTAB_FAVICON_STORAGE_KEY]) {
       const raw = changes[NEWTAB_FAVICON_STORAGE_KEY].newValue;
       const nextId = normalizeNewtabFaviconId(raw);
@@ -1825,6 +1639,9 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
     return Boolean(wallpaperState.wallpaperViewController && wallpaperState.wallpaperViewController.containsSelectMenuTarget(target));
   }
 
+  // The panel shows the clock settings as they are, whoever changed them.
+  options.settings.subscribe(NEWTAB_TOP_CONTENT_SETTINGS, () => renderWallpaperPanelState());
+
   return {
     storageKeys,
     createControls: createWallpaperControls,
@@ -1840,9 +1657,6 @@ function createWallpaperRuntime(runtimeOptions?: WallpaperRuntimeOptions | null)
     updateSearchWidthUi: renderWallpaperPanelState,
     updateShortcutsUi: renderWallpaperPanelState,
     updateInputAutoFocusUi: renderWallpaperPanelState,
-    updateTopContentModeUi: renderWallpaperPanelState,
-    updateTimeFontWeightUi: renderWallpaperPanelState,
-    updateTimeSecondsVisibleUi: renderWallpaperPanelState,
     refreshCustomWallpapers,
     bootstrapInitialWallpaper,
     bootstrapInitialWallpaperOverlay,

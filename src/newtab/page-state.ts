@@ -188,9 +188,6 @@ function createPageState(): NewtabPageState {
     engagementNoticeController: null,
     webdavFeatureHintController: null,
     helpCenterAskHintController: null,
-    newtabTopContentMode: 'brand',
-    newtabTimeSecondsVisible: false,
-    newtabTime12Hour: false,
     newtabInputAutoFocusEnabled: false,
     newtabFeedbackButtonVisible: true,
     newtabAppearanceButtonVisible: true,
@@ -304,12 +301,7 @@ function createPageState(): NewtabPageState {
     shortcutDockPendingPointerX: Number.NaN,
     newtabShortcutColumns: SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
     newtabShortcutSize: SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT,
-    newtabShortcutGap: SETTINGS.NEWTAB_SHORTCUT_GAP_DEFAULT,
-    newtabTimeFont: SETTINGS.NEWTAB_TIME_FONT_DEFAULT,
-    newtabTimeFontSize: SETTINGS.NEWTAB_TIME_FONT_SIZE_DEFAULT,
-    newtabTimeFontWeight: SETTINGS.NEWTAB_TIME_FONT_WEIGHT_DEFAULT,
-    newtabTimeInk: SETTINGS.NEWTAB_TIME_INK_DEFAULT,
-    newtabTimeOpacity: SETTINGS.NEWTAB_TIME_OPACITY_DEFAULT
+    newtabShortcutGap: SETTINGS.NEWTAB_SHORTCUT_GAP_DEFAULT
   };
 }
 

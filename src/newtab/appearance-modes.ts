@@ -16,7 +16,7 @@ import type { BookmarkCardElement } from './react/bookmarks';
 import type { BookmarksTopbarRuntime } from './react/bookmarks-topbar';
 import type { RecentCardElement } from './react/recent-sites';
 import type { ShortcutTileElement } from './react/shortcuts';
-import type { NewtabTopContentMode, TopContentController } from './react/wordmark';
+import type { TopContentController } from './react/wordmark';
 import type { SearchModes } from './search/search-modes';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
@@ -29,6 +29,8 @@ import type { TopContentRuntime } from './top-content/top-content';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import type { WallpaperPage } from './wallpaper/wallpaper-page';
 import type { ToneScheduleOptions } from './wallpaper/wallpaper-adaptive-tone';
+import type { SettingsStore } from '../platform/settings-store';
+import { newtabTopContentMode } from '../domain/settings/newtab-time';
 
 type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
@@ -46,7 +48,6 @@ interface AppearanceModesState {
   glassThemeOverride: Exclude<NewtabGlassTheme, 'follow'> | '';
   initialThemeApplied: boolean;
   resolveInitialThemeReady: (() => void) | null;
-  newtabTopContentMode: NewtabTopContentMode;
   topContentController: TopContentController | null;
   bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'updateLanguage'> | null;
   quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'> | null;
@@ -77,6 +78,7 @@ interface AppearanceModesDeps extends
   Pick<SuggestionsController, 'renderSuggestions' | 'updateSelection'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceColorForTheme'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
+  settings: Pick<SettingsStore, 'get'>;
   t: Translate;
   renderShortcuts(): void;
   updateRecentModeMenu: SectionHeaders['updateRecentModeMenu'];
@@ -113,6 +115,7 @@ interface AppearanceModesDeps extends
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    settings,
     t,
     renderNewtabTopContent,
     updateRecentModeMenu,
@@ -169,7 +172,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
 
   function applyLanguageStrings(): void {
     document.title = t('newtab_page_title', 'New Tab');
-    if (pageState.topContentController && pageState.newtabTopContentMode === 'time') {
+    if (pageState.topContentController && settings.get(newtabTopContentMode) === 'time') {
       renderNewtabTopContent(false);
     }
     if (pageState.bookmarkTopbarRuntime) {

@@ -15,7 +15,6 @@ import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
-import type { TopContentRuntime } from './top-content/top-content';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import { progressHistory } from '../domain/settings/recent-sites';
 import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
@@ -36,24 +35,18 @@ interface StartupPreferencesState {
   currentRecentMode: string;
   currentNewtabWidthMode: NewtabWidthMode;
   currentNewtabSearchWidth: number | null;
-  newtabTimeFont: string;
   bookmarkLoadedOnce: boolean;
   bookmarkFolderIconsVisible: boolean;
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
   currentBookmarkCount: number;
   currentBookmarkColumns: number;
-  wallpaperRuntime: Pick<WallpaperRuntime, 'updateSearchWidthUi' | 'updateTopContentModeUi'> | null;
+  wallpaperRuntime: Pick<WallpaperRuntime, 'updateSearchWidthUi'> | null;
 }
 
 interface StartupPreferencesDeps extends
   Pick<PagePreferences,
-    'getBookmarkLimit' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' |
-    'normalizeNewtabTopContentMode' | 'normalizeNewtabTimeFontWeight' | 'normalizeNewtabTimeFont' |
-    'normalizeNewtabTimeSecondsVisible' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeBookmarkCount' |
+    'getBookmarkLimit' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeBookmarkCount' |
     'normalizeBookmarkColumns'>,
-  Pick<TopContentRuntime,
-    'loadNewtabTimeFont' | 'setNewtabTimeFontWeight' | 'setNewtabTimeFontSize' | 'setNewtabTimeOpacity' |
-    'setNewtabTimeInk' | 'setNewtabTimeSecondsVisible' | 'setNewtabTime12Hour' | 'setNewtabTopContentMode'>,
   Pick<RecentSitesController, 'readPinnedRecentSites' | 'readHiddenRecentSites'>,
   Pick<AppearanceModes, 'bootstrapInitialLanguageMode'>,
   Pick<PageLayout,
@@ -79,14 +72,6 @@ interface StartupPreferencesDeps extends
   RECENT_MODE_STORAGE_KEY: string;
   NEWTAB_WIDTH_MODE_STORAGE_KEY: string;
   NEWTAB_SEARCH_WIDTH_STORAGE_KEY: string;
-  NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_SIZE_STORAGE_KEY: string;
-  NEWTAB_TIME_OPACITY_STORAGE_KEY: string;
-  NEWTAB_TIME_INK_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_STORAGE_KEY: string;
-  NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_TIME_12_HOUR_STORAGE_KEY: string;
   BOOKMARK_FOLDER_ICONS_VISIBLE_STORAGE_KEY: string;
   BOOKMARK_COUNT_STORAGE_KEY: string;
   BOOKMARK_COLUMNS_STORAGE_KEY: string;
@@ -119,26 +104,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     renderCurrentBookmarkPage,
     updateBookmarkGridHeightLock,
     updateBookmarkSectionPosition,
-    NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY,
-    NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY,
-    NEWTAB_TIME_FONT_SIZE_STORAGE_KEY,
-    NEWTAB_TIME_OPACITY_STORAGE_KEY,
-    NEWTAB_TIME_INK_STORAGE_KEY,
-    NEWTAB_TIME_FONT_STORAGE_KEY,
-    NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY,
-    NEWTAB_TIME_12_HOUR_STORAGE_KEY,
-    normalizeNewtabTopContentMode,
-    normalizeNewtabTimeFontWeight,
-    normalizeNewtabTimeFont,
-    normalizeNewtabTimeSecondsVisible,
-    loadNewtabTimeFont,
-    setNewtabTimeFontWeight,
-    setNewtabTimeFontSize,
-    setNewtabTimeOpacity,
-    setNewtabTimeInk,
-    setNewtabTimeSecondsVisible,
-    setNewtabTime12Hour,
-    setNewtabTopContentMode,
     RECENT_MODE_STORAGE_KEY,
     normalizeRecentMode,
     updateRecentModeMenu,
@@ -164,16 +129,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
-
-  // Settles once the stored clock face has loaded, so the first reveal never
-  // draws the clock in a fallback face.
-  let resolveInitialTimeFontReady: (ready: boolean | PromiseLike<boolean>) => void = () => {};
-  const initialTimeFontReadyTask = new Promise<boolean>((resolve) => {
-    resolveInitialTimeFontReady = resolve;
-  });
-  if (!storageArea) {
-    resolveInitialTimeFontReady(true);
-  }
 
   if (storageArea) {
     void bootstrapInitialLanguageMode();
@@ -258,50 +213,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
       updateBookmarkGridHeightLock();
       updateBookmarkSectionPosition();
     });
-    void storageArea.get([
-      NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY,
-      NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY,
-      NEWTAB_TIME_FONT_SIZE_STORAGE_KEY,
-      NEWTAB_TIME_OPACITY_STORAGE_KEY,
-      NEWTAB_TIME_INK_STORAGE_KEY,
-      NEWTAB_TIME_FONT_STORAGE_KEY,
-      NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY,
-      NEWTAB_TIME_12_HOUR_STORAGE_KEY
-    ], (result) => {
-      if (!result) {
-        return;
-      }
-      const raw = result[NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY];
-      const nextValue = normalizeNewtabTopContentMode(raw);
-      const rawFontWeight = result[NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY];
-      const nextFontWeight = normalizeNewtabTimeFontWeight(rawFontWeight);
-      const rawFont = result[NEWTAB_TIME_FONT_STORAGE_KEY];
-      const nextFont = normalizeNewtabTimeFont(rawFont);
-      const rawSecondsVisible = result[NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY];
-      const nextSecondsVisible = normalizeNewtabTimeSecondsVisible(rawSecondsVisible);
-      repairStoredSetting(NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY, raw, nextValue);
-      repairStoredSetting(NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY, rawFontWeight, nextFontWeight);
-      if (rawFont !== undefined && rawFont !== nextFont) {
-        void storageArea.set({ [NEWTAB_TIME_FONT_STORAGE_KEY]: nextFont });
-      }
-      repairStoredSetting(NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY, rawSecondsVisible, nextSecondsVisible);
-      // The face is set before the mode so the first clock render already
-      // uses it, and the startup reveal waits for it to load.
-      pageState.newtabTimeFont = nextFont;
-      resolveInitialTimeFontReady(nextValue === 'time' ? loadNewtabTimeFont(nextFont) : true);
-      setNewtabTimeFontWeight(nextFontWeight);
-      // Unset stays unset, so the defaults can still change later.
-      setNewtabTimeFontSize(result[NEWTAB_TIME_FONT_SIZE_STORAGE_KEY]);
-      setNewtabTimeOpacity(result[NEWTAB_TIME_OPACITY_STORAGE_KEY]);
-      setNewtabTimeInk(result[NEWTAB_TIME_INK_STORAGE_KEY]);
-      setNewtabTimeSecondsVisible(nextSecondsVisible);
-      // Unset stays unset, so the clock keeps 24 hours until it's turned on.
-      setNewtabTime12Hour(result[NEWTAB_TIME_12_HOUR_STORAGE_KEY]);
-      setNewtabTopContentMode(nextValue);
-      if (pageState.wallpaperRuntime) {
-        pageState.wallpaperRuntime.updateTopContentModeUi();
-      }
-    });
     void storageArea.get([RECENT_MODE_STORAGE_KEY], (result) => {
       if (!result) {
         return;
@@ -362,10 +273,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
       updateBookmarkSectionPosition();
     });
   }
-
-  return {
-    initialTimeFontReadyTask
-  };
 }
 
 type StartupPreferences = ReturnType<typeof createStartupPreferences>;

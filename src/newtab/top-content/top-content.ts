@@ -1,33 +1,34 @@
 // The wordmark/clock area above the search box. Moving the blocks around
 // it when it shows, hides or changes height is layout-motion.ts's job.
 import type * as LumnoSettings from '../../domain/settings';
-import type { NewtabTimeInk, NewtabTopContentMode } from '../../domain/settings';
 import type * as LumnoCommunityLinks from '../../platform/community-links';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import type { TopContentController, WordmarkAppearance } from '../react/wordmark';
 import * as SettingsStorage from '../../platform/settings-storage';
+import type { SettingsStore } from '../../platform/settings-store';
+import type { TimePreview } from './time-preview';
+import {
+  NEWTAB_TOP_CONTENT_SETTINGS,
+  getFixedTimeInk,
+  newtabTime12Hour,
+  newtabTimeFont,
+  newtabTimeFontSize,
+  newtabTimeFontWeight,
+  newtabTimeInk,
+  newtabTimeOpacity,
+  newtabTimeSecondsVisible,
+  newtabTopContentMode
+} from '../../domain/settings/newtab-time';
+
 
 // A card's place on screen before a layout change.
 type LayoutPosition = { left: number; top: number };
 
 interface TopContentState {
-  newtabTopContentMode: NewtabTopContentMode;
-  newtabTimeFont: string;
-  newtabTimeFontSize: number;
-  newtabTimeFontWeight: number;
-  newtabTimeInk: NewtabTimeInk;
-  newtabTimeOpacity: number;
-  newtabTimeSecondsVisible: boolean;
-  newtabTime12Hour: boolean;
   zenModeEnabled: boolean;
   topContentContainer: HTMLElement | null;
   topContentController: TopContentController | null;
   wordmarkImageEl: HTMLImageElement | null;
-  // Refreshes the clock controls of the appearance panel.
-  wallpaperRuntime: {
-    updateTimeSecondsVisibleUi?(): void;
-    updateTimeFontWeightUi?(): void;
-  } | null;
 }
 
 interface TopContentDeps {
@@ -40,12 +41,8 @@ interface TopContentDeps {
   updateSearchEntryLayout(): void;
   updateSuggestionsFloatingLayout(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
-  normalizeNewtabTopContentMode(value: unknown): NewtabTopContentMode;
-  normalizeNewtabTimeFontWeight(value: unknown): number;
-  normalizeNewtabTimeFont(value: unknown): string;
-  normalizeNewtabTimeSecondsVisible(value: unknown): boolean;
-  // The ink a fixed clock color draws in, or '' when it follows the page.
-  getFixedTimeInk(): Exclude<NewtabTimeInk, 'auto'> | '';
+  settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
+  timePreview: TimePreview;
   pageState: TopContentState;
 }
 
@@ -57,15 +54,15 @@ function createTopContentRuntime(deps: TopContentDeps) {
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
     scheduleWallpaperAdaptiveToneUpdate,
-    normalizeNewtabTopContentMode,
-    normalizeNewtabTimeFontWeight,
-    normalizeNewtabTimeFont,
-    normalizeNewtabTimeSecondsVisible,
-    getFixedTimeInk
+    settings,
+    timePreview
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
+
+  // What the clock area last drew with.
+  let shown = readTopContentSettings();
 
   const recentResizeLayoutAnimations = new Set<Animation>();
   let wordmarkEntryTransitionTimer = 0;
@@ -82,10 +79,10 @@ function createTopContentRuntime(deps: TopContentDeps) {
   const TOP_CONTENT_DEFAULT_TIME_FONT_SIZE = Number(SETTINGS.NEWTAB_TIME_FONT_SIZE_DEFAULT) || 54;
 
   function getTopContentMaxHeight(): number {
-    if (pageState.newtabTopContentMode !== 'time') {
+    if (shown.mode !== 'time') {
       return TOP_CONTENT_MAX_HEIGHT_PX;
     }
-    const fontSize = SETTINGS.newtabTimeFontSize.parse(pageState.newtabTimeFontSize);
+    const fontSize = timePreview.fontSize;
     return Math.max(
       TOP_CONTENT_MAX_HEIGHT_PX,
       Math.ceil((fontSize * TOP_CONTENT_MAX_HEIGHT_PX) / TOP_CONTENT_DEFAULT_TIME_FONT_SIZE)
@@ -193,7 +190,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     }
     const transitionOptions = options || {};
     const body = document.body;
-    const nextVisible = Boolean(pageState.newtabTopContentMode !== 'off' && !pageState.zenModeEnabled);
+    const nextVisible = Boolean(shown.mode !== 'off' && !pageState.zenModeEnabled);
     const wasVisible = container.getAttribute('data-visible') !== 'false';
     const stateChanged = wasVisible !== nextVisible;
     const layoutChanged = stateChanged || Boolean(transitionOptions.contentChanged);
@@ -274,7 +271,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
   function getWordmarkSolidFill(wallpaperActive: boolean, wallpaperInk: string | null, theme: string | null): string {
     // A fixed clock ink keeps its tone off the wallpaper too (the adaptive
     // tone already sampled it in that ink on a wallpaper).
-    const fixedInk = getFixedTimeInk();
+    const fixedInk = getFixedTimeInk(shown.mode, settings.get(newtabTimeInk));
     if (fixedInk && !wallpaperActive) {
       return fixedInk === 'light' ? 'rgb(248 250 252)' : 'rgb(31 41 55)';
     }
@@ -331,7 +328,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     if (!controller) {
       return;
     }
-    const timeFont = SETTINGS.getNewtabTimeFont(pageState.newtabTimeFont);
+    const timeFont = SETTINGS.getNewtabTimeFont(shown.font);
     controller.render({
       animateEntry: Boolean(animateEntry),
       ariaLabel: `Lumno ${COMMUNITY_LINKS.getStoreListing().name}`,
@@ -341,95 +338,104 @@ function createTopContentRuntime(deps: TopContentDeps) {
         colonShift: timeFont.colonShift,
         family: timeFont.family,
         stretch: timeFont.stretch,
-        tracking: SETTINGS.getNewtabTimeFontTracking(timeFont.id, pageState.newtabTimeFontWeight)
+        tracking: SETTINGS.getNewtabTimeFontTracking(timeFont.id, shown.fontWeight)
       },
-      fontSize: SETTINGS.newtabTimeFontSize.parse(pageState.newtabTimeFontSize),
-      fontWeight: SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, pageState.newtabTimeFontWeight),
+      fontSize: timePreview.fontSize,
+      fontWeight: SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, shown.fontWeight),
       appearance: getWordmarkAppearance(),
       locale: document.documentElement ? document.documentElement.lang : undefined,
-      mode: pageState.newtabTopContentMode === 'time' ? 'time' : 'brand',
-      opacity: SETTINGS.newtabTimeOpacity.parse(pageState.newtabTimeOpacity) / 100,
-      showSeconds: pageState.newtabTimeSecondsVisible,
-      twelveHour: pageState.newtabTime12Hour
+      mode: shown.mode === 'time' ? 'time' : 'brand',
+      opacity: timePreview.opacity / 100,
+      showSeconds: shown.secondsVisible,
+      twelveHour: shown.twelveHour
     });
     pageState.wordmarkImageEl = controller.getImage();
     scheduleWallpaperAdaptiveToneUpdate();
   }
 
-  function setNewtabTopContentMode(value: unknown): void {
-    const nextMode = normalizeNewtabTopContentMode(value);
-    const contentChanged = nextMode !== pageState.newtabTopContentMode;
-    if (!contentChanged) {
+  function readTopContentSettings() {
+    return {
+      mode: settings.get(newtabTopContentMode),
+      font: settings.get(newtabTimeFont),
+      fontWeight: settings.get(newtabTimeFontWeight),
+      fontSize: settings.get(newtabTimeFontSize),
+      opacity: settings.get(newtabTimeOpacity),
+      ink: settings.get(newtabTimeInk),
+      secondsVisible: settings.get(newtabTimeSecondsVisible),
+      twelveHour: settings.get(newtabTime12Hour)
+    };
+  }
+
+  // The clock grows or shrinks: the area's cap and the blocks below follow.
+  function applyTimeFontSize(): void {
+    renderNewtabTopContent(false);
+    if (pageState.topContentContainer &&
+        pageState.topContentContainer.getAttribute('data-visible') !== 'false') {
+      pageState.topContentContainer.style.setProperty('max-height', `${getTopContentMaxHeight()}px`);
+      updateSearchEntryLayout();
+      updateSuggestionsFloatingLayout();
+    }
+  }
+
+  // A dragged slider's value shows at once.
+  let previewed = { fontSize: timePreview.fontSize, opacity: timePreview.opacity };
+  function applyTimePreview(): void {
+    const next = { fontSize: timePreview.fontSize, opacity: timePreview.opacity };
+    const previous = previewed;
+    previewed = next;
+    if (shown.mode !== 'time') {
       return;
     }
-    pageState.newtabTopContentMode = nextMode;
-    if (nextMode !== 'off') {
+    if (next.fontSize !== previous.fontSize) {
+      applyTimeFontSize();
+    } else if (next.opacity !== previous.opacity) {
       renderNewtabTopContent(false);
     }
-    applyNewtabTopContentVisibility({ contentChanged });
   }
 
-  function updateNewtabTimeSecondsVisibleUi(): void {
-    if (pageState.wallpaperRuntime && typeof pageState.wallpaperRuntime.updateTimeSecondsVisibleUi === 'function') {
-      pageState.wallpaperRuntime.updateTimeSecondsVisibleUi();
-    }
-  }
-
-  function updateNewtabTimePanelUi(): void {
-    if (pageState.wallpaperRuntime && typeof pageState.wallpaperRuntime.updateTimeFontWeightUi === 'function') {
-      pageState.wallpaperRuntime.updateTimeFontWeightUi();
-    }
-  }
-
-  function setNewtabTimeFontWeight(value: unknown): number {
-    const nextValue = normalizeNewtabTimeFontWeight(value);
-    const changed = nextValue !== pageState.newtabTimeFontWeight;
-    pageState.newtabTimeFontWeight = nextValue;
-    if (changed && pageState.newtabTopContentMode === 'time') {
-      renderNewtabTopContent(false);
-    }
-    updateNewtabTimePanelUi();
-    return nextValue;
-  }
-
-  function setNewtabTimeFontSize(value: unknown): number {
-    const nextValue = SETTINGS.newtabTimeFontSize.parse(value);
-    const changed = nextValue !== pageState.newtabTimeFontSize;
-    pageState.newtabTimeFontSize = nextValue;
-    if (changed && pageState.newtabTopContentMode === 'time') {
-      renderNewtabTopContent(false);
-      if (pageState.topContentContainer &&
-          pageState.topContentContainer.getAttribute('data-visible') !== 'false') {
-        pageState.topContentContainer.style.setProperty('max-height', `${getTopContentMaxHeight()}px`);
-        updateSearchEntryLayout();
-        updateSuggestionsFloatingLayout();
+  // Draws what changed since the area last drew.
+  function applyTopContentSettings(): void {
+    const previous = shown;
+    const next = readTopContentSettings();
+    shown = next;
+    timePreview.clear();
+    if (next.mode !== previous.mode) {
+      if (next.mode !== 'off') {
+        renderNewtabTopContent(false);
+      }
+      applyNewtabTopContentVisibility({ contentChanged: true });
+    } else if (next.mode === 'time') {
+      if (next.font !== previous.font) {
+        void loadNewtabTimeFont(next.font).then(() => {
+          if (shown.font === next.font && shown.mode === 'time') {
+            renderNewtabTopContent(false);
+          }
+        });
+      } else if (next.fontSize !== previous.fontSize) {
+        applyTimeFontSize();
+      } else if (next.fontWeight !== previous.fontWeight || next.opacity !== previous.opacity ||
+          next.secondsVisible !== previous.secondsVisible || next.twelveHour !== previous.twelveHour) {
+        renderNewtabTopContent(false);
       }
     }
-    updateNewtabTimePanelUi();
-    return nextValue;
-  }
-
-  function setNewtabTimeInk(value: unknown): NewtabTimeInk {
-    const nextValue = SETTINGS.newtabTimeInk.parse(value);
-    const changed = nextValue !== pageState.newtabTimeInk;
-    pageState.newtabTimeInk = nextValue;
-    if (changed) {
+    if (next.ink !== previous.ink) {
       applyWordmarkThemeAppearance();
       scheduleWallpaperAdaptiveToneUpdate();
-      updateNewtabTimePanelUi();
     }
-    return nextValue;
   }
 
-  function setNewtabTimeOpacity(value: unknown): number {
-    const nextValue = SETTINGS.newtabTimeOpacity.parse(value);
-    const changed = nextValue !== pageState.newtabTimeOpacity;
-    pageState.newtabTimeOpacity = nextValue;
-    if (changed && pageState.newtabTopContentMode === 'time') {
-      renderNewtabTopContent(false);
-    }
-    updateNewtabTimePanelUi();
-    return nextValue;
+  // Draws the stored settings once read, then follows them.
+  function followTopContentSettings(): Promise<boolean> {
+    settings.subscribe(NEWTAB_TOP_CONTENT_SETTINGS, applyTopContentSettings);
+    timePreview.store.subscribe(applyTimePreview);
+    return settings.include(NEWTAB_TOP_CONTENT_SETTINGS).then(() => {
+      // The face loads before the first clock draws, and the startup reveal waits for it.
+      const fontReady = settings.get(newtabTopContentMode) === 'time'
+        ? loadNewtabTimeFont(settings.get(newtabTimeFont))
+        : Promise.resolve(true);
+      applyTopContentSettings();
+      return fontReady;
+    });
   }
 
   // Starts loading the face so the clock never draws in a fallback; the
@@ -439,46 +445,9 @@ function createTopContentRuntime(deps: TopContentDeps) {
     if (!document.fonts || typeof document.fonts.load !== 'function') {
       return Promise.resolve(true);
     }
-    const weight = SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, pageState.newtabTimeFontWeight);
+    const weight = SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, shown.fontWeight);
     return document.fonts.load(`${weight} 54px ${timeFont.family}`, '0123456789:')
       .then(() => true, () => true);
-  }
-
-  function setNewtabTimeFont(value: unknown): string {
-    const nextValue = normalizeNewtabTimeFont(value);
-    const changed = nextValue !== pageState.newtabTimeFont;
-    pageState.newtabTimeFont = nextValue;
-    if (changed && pageState.newtabTopContentMode === 'time') {
-      void loadNewtabTimeFont(nextValue).then(() => {
-        if (pageState.newtabTimeFont === nextValue && pageState.newtabTopContentMode === 'time') {
-          renderNewtabTopContent(false);
-        }
-      });
-    }
-    updateNewtabTimePanelUi();
-    return nextValue;
-  }
-
-  function setNewtabTime12Hour(value: unknown): boolean {
-    const nextValue = SETTINGS.newtabTime12Hour.parse(value);
-    const changed = nextValue !== pageState.newtabTime12Hour;
-    pageState.newtabTime12Hour = nextValue;
-    if (changed && pageState.newtabTopContentMode === 'time') {
-      renderNewtabTopContent(false);
-    }
-    updateNewtabTimeSecondsVisibleUi();
-    return nextValue;
-  }
-
-  function setNewtabTimeSecondsVisible(value: unknown): boolean {
-    const nextValue = normalizeNewtabTimeSecondsVisible(value);
-    const changed = nextValue !== pageState.newtabTimeSecondsVisible;
-    pageState.newtabTimeSecondsVisible = nextValue;
-    if (changed && pageState.newtabTopContentMode === 'time') {
-      renderNewtabTopContent(false);
-    }
-    updateNewtabTimeSecondsVisibleUi();
-    return nextValue;
   }
 
   return {
@@ -491,15 +460,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     finishWordmarkEntryAnimation,
     applyWordmarkThemeAppearance,
     renderNewtabTopContent,
-    setNewtabTopContentMode,
-    setNewtabTimeFontWeight,
-    setNewtabTimeFontSize,
-    setNewtabTimeOpacity,
-    setNewtabTimeInk,
-    setNewtabTimeFont,
-    loadNewtabTimeFont,
-    setNewtabTimeSecondsVisible,
-    setNewtabTime12Hour
+    followTopContentSettings
   };
 }
 

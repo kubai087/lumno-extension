@@ -3,7 +3,7 @@
 // tone targets that keep text and glass surfaces readable on it.
 import type * as LumnoExtensionRoutes from '../../domain/extension-routes';
 import type * as LumnoSettings from '../../domain/settings';
-import type { NewtabGlassStyle, NewtabGlassTheme, NewtabTimeInk, NewtabTopContentMode } from '../../domain/settings';
+import type { NewtabGlassStyle, NewtabGlassTheme } from '../../domain/settings';
 import type { StorageAreaLike } from '../../domain/storage-port';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import type { ToastTask } from '../../shared/ui/toast-screen';
@@ -12,7 +12,6 @@ import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ThemeScope } from '../react/wallpaper-panel/panel-model';
 import type { TopContentController } from '../react/wordmark';
 import type { QuoteRuntime } from '../top-content/quotes';
-import type { TopContentRuntime } from '../top-content/top-content';
 import type { AdaptiveToneTarget, ToneScheduleOptions } from './wallpaper-adaptive-tone';
 import * as NEWTAB_WALLPAPER from './wallpaper';
 import type { WallpaperRuntime } from './wallpaper';
@@ -20,6 +19,9 @@ import type { SectionPanelSettings } from './runtime/panel-actions';
 import type { SearchWidthConfig } from './runtime/panel-settings';
 import { readBootValue } from '../../platform/boot-handoff';
 import { getWallpaperViewApi } from '../react/wallpaper-view';
+import type { SettingsStore } from '../../platform/settings-store';
+import type { TimePreview } from '../top-content/time-preview';
+import { getFixedTimeInk, newtabTimeInk, newtabTopContentMode } from '../../domain/settings/newtab-time';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -28,14 +30,6 @@ type PersistOptions = { persist: boolean };
 
 // The page state parts the wallpaper reads and sets.
 interface WallpaperPageState {
-  newtabTimeInk: NewtabTimeInk;
-  newtabTopContentMode: NewtabTopContentMode;
-  newtabTimeFontWeight: number;
-  newtabTimeFontSize: number;
-  newtabTimeOpacity: number;
-  newtabTimeFont: string;
-  newtabTimeSecondsVisible: boolean;
-  newtabTime12Hour: boolean;
   newtabShortcutsVisible: boolean;
   newtabShortcutAddVisible: boolean;
   newtabShortcutDockMagnificationEnabled: boolean;
@@ -64,9 +58,9 @@ interface WallpaperPageState {
   wallpaperShownAt: number;
 }
 
-interface WallpaperPageDeps extends Pick<TopContentRuntime,
-  'setNewtabTopContentMode' | 'setNewtabTimeFontWeight' | 'setNewtabTimeFontSize' | 'setNewtabTimeOpacity' |
-  'setNewtabTimeInk' | 'setNewtabTimeFont' | 'setNewtabTimeSecondsVisible' | 'setNewtabTime12Hour'> {
+interface WallpaperPageDeps {
+  settings: SettingsStore;
+  timePreview: TimePreview;
   SETTINGS: Pick<typeof LumnoSettings, 'newtabTimeInk' | 'newtabGlassStyle' | 'newtabGlassTheme'>;
   shortcutTiles: readonly HTMLElement[];
   // A dock tile's icon, which its tone samples.
@@ -85,14 +79,6 @@ interface WallpaperPageDeps extends Pick<TopContentRuntime,
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
   NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY: string;
   NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY: string;
-  NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_SIZE_STORAGE_KEY: string;
-  NEWTAB_TIME_OPACITY_STORAGE_KEY: string;
-  NEWTAB_TIME_INK_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_STORAGE_KEY: string;
-  NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_TIME_12_HOUR_STORAGE_KEY: string;
   NEWTAB_FAVICON_STORAGE_KEY: string;
   NEWTAB_SEARCH_WIDTH_CONFIG: SearchWidthConfig;
   t: Translate;
@@ -140,6 +126,8 @@ interface WallpaperPageDeps extends Pick<TopContentRuntime,
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
+    settings,
+    timePreview,
     SETTINGS,
     shortcutTiles,
     getShortcutDockIcon,
@@ -155,14 +143,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY,
     NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
-    NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY,
-    NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY,
-    NEWTAB_TIME_FONT_SIZE_STORAGE_KEY,
-    NEWTAB_TIME_OPACITY_STORAGE_KEY,
-    NEWTAB_TIME_INK_STORAGE_KEY,
-    NEWTAB_TIME_FONT_STORAGE_KEY,
-    NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY,
-    NEWTAB_TIME_12_HOUR_STORAGE_KEY,
     NEWTAB_FAVICON_STORAGE_KEY,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
@@ -177,14 +157,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     showTopActionTooltip,
     hideTopActionTooltip,
     applyWordmarkThemeAppearance,
-    setNewtabTopContentMode,
-    setNewtabTimeFontWeight,
-    setNewtabTimeFontSize,
-    setNewtabTimeOpacity,
-    setNewtabTimeInk,
-    setNewtabTimeFont,
-    setNewtabTimeSecondsVisible,
-    setNewtabTime12Hour,
     getEffectiveNewtabSearchWidth,
     setNewtabSearchWidth,
     NEWTAB_SHORTCUT_COLUMNS_MIN,
@@ -217,12 +189,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
   const pageState = deps.pageState;
 
   const NEWTAB_WALLPAPER_VIEW = getWallpaperViewApi();
-
-  // The clock's ink when the user fixed it; '' leaves it to the wallpaper or theme.
-  function getFixedTimeInk(): Exclude<NewtabTimeInk, 'auto'> | '' {
-    const ink = SETTINGS.newtabTimeInk.parse(pageState.newtabTimeInk);
-    return pageState.newtabTopContentMode === 'time' && ink !== 'auto' ? ink : '';
-  }
 
   function createWallpaperAdaptiveToneTargets(): AdaptiveToneTarget[] {
     const bookmarkPager = pageState.bookmarkPagerPrevButton && pageState.bookmarkPagerPrevButton.parentElement
@@ -296,7 +262,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
         sampleElement: captionSample || topContentSample,
         toneGroup: captionSample ? 'top-caption' : '',
         // A clock ink the user fixed; a caption under the clock keeps the sampled one.
-        ink: getFixedTimeInk(),
+        ink: getFixedTimeInk(settings.get(newtabTopContentMode), settings.get(newtabTimeInk)),
         minWidth: 220,
         minHeight: 72
       },
@@ -496,14 +462,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       localWallpaper: NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
       overlay: NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY,
       effect: NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY,
-      topContentMode: NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY,
-      timeFontWeight: NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY,
-      timeFontSize: NEWTAB_TIME_FONT_SIZE_STORAGE_KEY,
-      timeOpacity: NEWTAB_TIME_OPACITY_STORAGE_KEY,
-      timeInk: NEWTAB_TIME_INK_STORAGE_KEY,
-      timeFont: NEWTAB_TIME_FONT_STORAGE_KEY,
-      timeSecondsVisible: NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY,
-      time12Hour: NEWTAB_TIME_12_HOUR_STORAGE_KEY,
       favicon: NEWTAB_FAVICON_STORAGE_KEY
     },
     searchWidthConfig: NEWTAB_SEARCH_WIDTH_CONFIG,
@@ -520,24 +478,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     showTopActionTooltip: (...args) => showTopActionTooltip(...args),
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
     applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
-    getTopContentMode: () => pageState.newtabTopContentMode,
-    setTopContentMode: (value) => {
-      setNewtabTopContentMode(value);
-    },
-    getTimeFontWeight: () => pageState.newtabTimeFontWeight,
-    setTimeFontWeight: (...args) => setNewtabTimeFontWeight(...args),
-    getTimeFontSize: () => pageState.newtabTimeFontSize,
-    setTimeFontSize: (...args) => setNewtabTimeFontSize(...args),
-    getTimeOpacity: () => pageState.newtabTimeOpacity,
-    setTimeOpacity: (...args) => setNewtabTimeOpacity(...args),
-    getTimeInk: () => pageState.newtabTimeInk,
-    setTimeInk: (...args) => setNewtabTimeInk(...args),
-    getTimeFont: () => pageState.newtabTimeFont,
-    setTimeFont: (...args) => setNewtabTimeFont(...args),
-    getTimeSecondsVisible: () => pageState.newtabTimeSecondsVisible,
-    setTimeSecondsVisible: (...args) => setNewtabTimeSecondsVisible(...args),
-    getTime12Hour: () => pageState.newtabTime12Hour,
-    setTime12Hour: (...args) => setNewtabTime12Hour(...args),
+    settings,
+    timePreview,
     getSearchWidth: getEffectiveNewtabSearchWidth,
     setSearchWidth: (value, options) => {
       setNewtabSearchWidth(value, options);
@@ -681,7 +623,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
   }
 
   return {
-    getFixedTimeInk,
     updateWallpaperLanguageStrings,
     updateWallpaperAppearanceSelectionUi,
     bootstrapInitialWallpaper,

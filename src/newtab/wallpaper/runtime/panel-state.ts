@@ -3,7 +3,6 @@
 // and drawing the model into the React view.
 import type * as LumnoExtensionRoutes from '../../../domain/extension-routes';
 import type * as LumnoSettings from '../../../domain/settings';
-import type { NewtabTopContentMode } from '../../../domain/settings';
 import * as LumnoCommunityLinks from '../../../platform/community-links';
 import type { WallpaperLocalStore } from '../../../shared/wallpaper-records';
 import type { WallpaperThumbnailCache } from '../../../shared/wallpaper-caches';
@@ -42,6 +41,9 @@ import type {
   WallpaperState
 } from './wallpaper-runtime-types';
 import type { SvgNode } from '../../../shared/ui/svg-tree';
+import type { SettingsStore } from '../../../platform/settings-store';
+import type { TimePreview } from '../../top-content/time-preview';
+import { newtabTime12Hour, newtabTimeFont, newtabTimeFontWeight, newtabTimeInk, newtabTimeSecondsVisible, newtabTopContentMode } from '../../../domain/settings/newtab-time';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -89,24 +91,11 @@ interface PanelStateDeps extends
   getThemeMode(): string;
   getRuntimeAssetUrl(path: unknown): string;
   getWallpaperAppearanceModeLabel(mode: AppearanceMode): string;
-  // The page's own settings, read on each build when the page passes a getter.
-  hasTopContentModeGetter: boolean;
-  normalizeNewtabTopContentMode(value: unknown): NewtabTopContentMode;
-  getTopContentMode(): unknown;
-  hasTimeFontWeightGetter: boolean;
-  normalizeNewtabTimeFontWeight(value: unknown): number;
-  getTimeFontWeight(): unknown;
-  hasTimeFontGetter: boolean;
-  getTimeFont(): unknown;
-  hasTimeSecondsVisibleGetter: boolean;
-  normalizeNewtabTimeSecondsVisible(value: unknown): boolean;
-  getTimeSecondsVisible(): unknown;
-  getTimeFontSize(): unknown;
-  getTimeOpacity(): unknown;
+  settings: Pick<SettingsStore, 'get'>;
+  // The clock's size and opacity as shown, a dragged slider's value included.
+  timePreview: Pick<TimePreview, 'fontSize' | 'opacity'>;
   getSearchWidth(): unknown;
   getInputAutoFocusEnabled(): unknown;
-  getTimeInk(): unknown;
-  getTime12Hour(): unknown;
   getShortcutsVisible(): unknown;
   getShortcutSize(): unknown;
   getShortcutGap(): unknown;
@@ -134,8 +123,7 @@ interface PanelStateDeps extends
   chrome: { runtime?: { getURL?: (path: string) => string } } | null | undefined;
   window: Window;
   wallpaperState: Pick<WallpaperState,
-    'pendingThemeScope' | 'heldAppearanceModeLabels' | 'currentTopContentMode' | 'currentTimeFontWeight' |
-    'currentTimeFont' | 'currentTimeSecondsVisible' | 'customWallpapers' | 'linkWallpapers' |
+    'pendingThemeScope' | 'heldAppearanceModeLabels' | 'customWallpapers' | 'linkWallpapers' |
     'customWallpaperImporting' | 'customWallpaperUrlFormOpen' | 'customWallpaperUrlInvalid' |
     'customWallpaperUrlClearToken' | 'bingLoading' | 'bingSelecting' | 'bingItems' | 'bingStatus' |
     'wallpaperPanelOpen' | 'activeWallpaperTab' | 'curatedCategory' | 'currentWallpaperPrefs' |
@@ -187,27 +175,14 @@ function createPanelState(deps: PanelStateDeps) {
     getWallpaperAppearanceModeLabel,
     getThemeMode,
     formatMessage,
-    hasTopContentModeGetter,
-    normalizeNewtabTopContentMode,
-    getTopContentMode,
-    hasTimeFontWeightGetter,
-    normalizeNewtabTimeFontWeight,
-    getTimeFontWeight,
-    hasTimeFontGetter,
-    getTimeFont,
-    hasTimeSecondsVisibleGetter,
-    normalizeNewtabTimeSecondsVisible,
-    getTimeSecondsVisible,
-    getTimeFontSize,
-    getTimeOpacity,
+    settings,
+    timePreview,
     normalizeSearchWidthValue,
     getSearchWidth,
     getSearchWidthMin,
     getSearchWidthMax,
     formatSearchWidthValue,
     getInputAutoFocusEnabled,
-    getTimeInk,
-    getTime12Hour,
     getShortcutsVisible,
     getShortcutSize,
     getShortcutGap,
@@ -425,26 +400,15 @@ function createPanelState(deps: PanelStateDeps) {
   }
 
   function buildWallpaperSearchState(): WallpaperPanelState['search'] {
-    if (hasTopContentModeGetter) {
-      wallpaperState.currentTopContentMode = normalizeNewtabTopContentMode(getTopContentMode());
-    }
-    if (hasTimeFontWeightGetter) {
-      wallpaperState.currentTimeFontWeight = normalizeNewtabTimeFontWeight(getTimeFontWeight());
-    }
-    if (hasTimeFontGetter) {
-      wallpaperState.currentTimeFont = SETTINGS.newtabTimeFont.parse(getTimeFont());
-    }
-    if (hasTimeSecondsVisibleGetter) {
-      wallpaperState.currentTimeSecondsVisible = normalizeNewtabTimeSecondsVisible(getTimeSecondsVisible());
-    }
-    const timeFont = SETTINGS.getNewtabTimeFont(wallpaperState.currentTimeFont);
-    const timeFontWeight = SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, wallpaperState.currentTimeFontWeight);
+    const topContentMode = settings.get(newtabTopContentMode);
+    const timeFont = SETTINGS.getNewtabTimeFont(settings.get(newtabTimeFont));
+    const timeFontWeight = SETTINGS.resolveNewtabTimeFontWeight(timeFont.id, settings.get(newtabTimeFontWeight));
     const timeFontTitle = t('newtab_time_font_title', 'Time font');
-    const timeFontSize = SETTINGS.newtabTimeFontSize.parse(getTimeFontSize());
-    const timeOpacity = SETTINGS.newtabTimeOpacity.parse(getTimeOpacity());
+    const timeFontSize = timePreview.fontSize;
+    const timeOpacity = timePreview.opacity;
     const timeInkTitle = t('newtab_time_ink_title', 'Time color');
     const width = normalizeSearchWidthValue(getSearchWidth());
-    const timeVisible = wallpaperState.currentTopContentMode === 'time';
+    const timeVisible = topContentMode === 'time';
     const autoFocusTitle = t('newtab_input_auto_focus_title', 'Automatically focus input');
     const topContentTitle = t('settings_newtab_wordmark_title', 'Content above the search bar');
     const secondsTitle = t('newtab_time_show_seconds_title', 'Show seconds');
@@ -472,7 +436,7 @@ function createPanelState(deps: PanelStateDeps) {
       topContent: {
         title: topContentTitle,
         tabs: {
-          active: wallpaperState.currentTopContentMode,
+          active: topContentMode,
           label: topContentTitle,
           options: withAriaLabels<TopContentMode>([
             { value: 'brand', label: t('newtab_top_content_brand', 'Brand') },
@@ -522,7 +486,7 @@ function createPanelState(deps: PanelStateDeps) {
         visible: timeVisible,
         title: timeInkTitle,
         tabs: {
-          active: SETTINGS.newtabTimeInk.parse(getTimeInk()),
+          active: settings.get(newtabTimeInk),
           label: timeInkTitle,
           options: withAriaLabels<TimeInk>([
             { value: 'auto', label: t('newtab_time_ink_auto', 'Auto') },
@@ -534,12 +498,12 @@ function createPanelState(deps: PanelStateDeps) {
       seconds: {
         visible: timeVisible,
         title: secondsTitle,
-        toggle: buildPanelToggle(wallpaperState.currentTimeSecondsVisible, secondsTitle)
+        toggle: buildPanelToggle(settings.get(newtabTimeSecondsVisible), secondsTitle)
       },
       twelveHour: {
         visible: timeVisible,
         title: twelveHourTitle,
-        toggle: buildPanelToggle(SETTINGS.newtabTime12Hour.parse(getTime12Hour()), twelveHourTitle)
+        toggle: buildPanelToggle(settings.get(newtabTime12Hour), twelveHourTitle)
       }
     };
   }

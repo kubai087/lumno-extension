@@ -22,6 +22,8 @@ import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperState } from './wallpaper-runtime-types';
+import type { SettingsStore } from '../../../platform/settings-store';
+import { newtabTimeFont } from '../../../domain/settings/newtab-time';
 
 // Whether a layout change is only shown or also saved.
 type PersistOptions = { persist: boolean };
@@ -54,6 +56,7 @@ interface PanelActionsDeps extends
   Pick<WallpaperOverlay, 'getResolvedWallpaperOverlayMode' | 'persistWallpaperOverlayOpacity' |
     'getWallpaperOverlayOpacityForCurrentMode'>,
   Pick<FaviconChooser, 'persistNewtabFavicon'> {
+  settings: Pick<SettingsStore, 'get'>;
   CRT_PARAMETER_PHYSICAL_MAX: Readonly<Record<CrtParameterKey, number>>;
   getCrtParameterPercent(key: CrtParameterKey, value: unknown): number;
   getCrtParameterPhysicalValue(key: CrtParameterKey, percent: unknown): number;
@@ -84,7 +87,7 @@ interface PanelActionsDeps extends
   t: Translate;
   closeWallpaperPanel(): void;
   wallpaperState: Pick<WallpaperState,
-    'currentTimeFont' | 'customWallpaperImporting' | 'customWallpaperUrlFormOpen' | 'customWallpaperUrlInvalid' |
+    'customWallpaperImporting' | 'customWallpaperUrlFormOpen' | 'customWallpaperUrlInvalid' |
     'wallpaperViewController' | 'wallpaperSourcesHintController' | 'wallpaperControl' | 'wallpaperPanel' |
     'wallpaperButton' | 'wallpaperPanelOpen' | 'activeWallpaperTab' | 'activeWallpaperMode'>;
 }
@@ -98,6 +101,7 @@ function isCrtParameterKey(key: EffectParameterKey): key is CrtParameterKey {
 
 function createPanelActions(deps: PanelActionsDeps) {
   const {
+    settings,
     getWallpaperEffectPrefsForEditMode,
     CRT_PARAMETER_PHYSICAL_MAX,
     getCrtParameterPercent,
@@ -243,7 +247,7 @@ function createPanelActions(deps: PanelActionsDeps) {
       },
       selectTopContent: (mode) => persistTopContentMode(mode),
       setTimeFontWeight: (value) => persistTimeFontWeight(value),
-      resetTimeFontWeight: () => persistTimeFontWeight(SETTINGS.getNewtabTimeFont(wallpaperState.currentTimeFont).defaultWeight),
+      resetTimeFontWeight: () => persistTimeFontWeight(SETTINGS.getNewtabTimeFont(settings.get(newtabTimeFont)).defaultWeight),
       setTimeFontSize: (value, change) => persistTimeFontSizeFromSlider(value, change),
       resetTimeFontSize: () => persistTimeFontSizeFromSlider(SETTINGS.NEWTAB_TIME_FONT_SIZE_DEFAULT, { final: true }),
       setTimeOpacity: (value, change) => persistTimeOpacityFromSlider(value, change),

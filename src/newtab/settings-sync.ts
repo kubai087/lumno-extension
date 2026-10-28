@@ -37,7 +37,6 @@ import type { ShortcutsController } from './shortcuts/shortcuts-controller';
 import * as LumnoNewtabStorageChangeRegistry from './storage-change-registry';
 import type { GlassSurfaces } from './theme/glass-surfaces';
 import type { SiteThemeResolver } from './theme/site-theme-resolver';
-import type { TopContentRuntime } from './top-content/top-content';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import type { WallpaperPage } from './wallpaper/wallpaper-page';
 import { shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
@@ -96,8 +95,7 @@ interface SettingsSyncDeps extends
   Pick<PagePreferences,
     'normalizeBookmarkCount' | 'normalizeBookmarkColumns' | 'getBookmarkLimit' | 'normalizeBookmarkFolderIconsVisible' |
     'normalizeNewtabInputAutoFocusEnabled' | 'updateNewtabInputAutoFocusUi' | 'normalizeNewtabWidthMode' |
-    'normalizeNewtabSearchWidth' | 'normalizeNewtabTopContentMode' | 'normalizeNewtabTimeFontWeight' |
-    'normalizeNewtabTimeFont' | 'normalizeNewtabTimeSecondsVisible' | 'normalizeNewtabFeedbackButtonVisible' |
+    'normalizeNewtabSearchWidth' | 'normalizeNewtabFeedbackButtonVisible' |
     'normalizeNewtabAppearanceButtonVisible' | 'normalizeZenModeEnabled' | 'normalizeNewtabShortcutsVisible' |
     'updateNewtabShortcutPreferencesUi' | 'normalizeNewtabShortcutAddVisible' |
     'normalizeNewtabShortcutDockMagnificationEnabled' | 'normalizeNewtabShortcutColumns' |
@@ -125,16 +123,10 @@ interface SettingsSyncDeps extends
     'normalizeNewtabThemeScope' | 'applyLanguageMode'>,
   Pick<WallpaperPage, 'updateWallpaperAppearanceSelectionUi' | 'updateWallpaperLanguageStrings'>,
   Pick<ModeCommands, 'updateModeCommandSuggestions' | 'updateZenCommandSuggestions' | 'applyZenMode'>,
-  Pick<TopContentRuntime,
-    'setNewtabTopContentMode' | 'setNewtabTimeFontWeight' | 'setNewtabTimeFontSize' | 'setNewtabTimeOpacity' |
-    'setNewtabTimeInk' | 'setNewtabTimeFont' | 'setNewtabTimeSecondsVisible' | 'setNewtabTime12Hour'>,
   Pick<GlassSurfaces, 'applyNewtabGlassStyle' | 'applyNewtabGlassTheme'>,
   Pick<SearchBoxControls, 'applyNewtabActionButtonVisibility'> {
   settings: Pick<SettingsStore, 'subscribe'>;
   registerBookmarkDisplayStorageChanges: BookmarkDisplaySettings['registerStorageChangeHandlers'];
-  SETTINGS: Pick<typeof LumnoSettings,
-    'newtabTimeFontSize' | 'newtabTimeOpacity' | 'newtabTimeInk' |
-    'newtabTime12Hour'>;
   settingsRuntimeApi: Pick<typeof LumnoSettings,
     'assetRevision' | 'progressTrackingEnabled' | 'progressTrackingEnabled'>;
   storageArea: StorageAreaLike | null;
@@ -160,14 +152,6 @@ interface SettingsSyncDeps extends
   RECENT_COUNT_STORAGE_KEY: string;
   NEWTAB_WIDTH_MODE_STORAGE_KEY: string;
   NEWTAB_SEARCH_WIDTH_STORAGE_KEY: string;
-  NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_SIZE_STORAGE_KEY: string;
-  NEWTAB_TIME_OPACITY_STORAGE_KEY: string;
-  NEWTAB_TIME_INK_STORAGE_KEY: string;
-  NEWTAB_TIME_FONT_STORAGE_KEY: string;
-  NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_TIME_12_HOUR_STORAGE_KEY: string;
   NEWTAB_GLASS_STYLE_STORAGE_KEY: string;
   NEWTAB_GLASS_THEME_STORAGE_KEY: string;
   NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY: string;
@@ -196,7 +180,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function createSettingsSync(deps: SettingsSyncDeps) {
   const {
     settings,
-    SETTINGS,
     normalizeBookmarkCount,
     markBookmarkDataDirty,
     loadBookmarks,
@@ -257,26 +240,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY,
-    normalizeNewtabTopContentMode,
-    setNewtabTopContentMode,
-    NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY,
-    normalizeNewtabTimeFontWeight,
-    setNewtabTimeFontWeight,
-    NEWTAB_TIME_FONT_SIZE_STORAGE_KEY,
-    setNewtabTimeFontSize,
-    NEWTAB_TIME_OPACITY_STORAGE_KEY,
-    setNewtabTimeOpacity,
-    NEWTAB_TIME_INK_STORAGE_KEY,
-    setNewtabTimeInk,
-    NEWTAB_TIME_FONT_STORAGE_KEY,
-    normalizeNewtabTimeFont,
-    setNewtabTimeFont,
-    NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY,
-    normalizeNewtabTimeSecondsVisible,
-    setNewtabTimeSecondsVisible,
-    NEWTAB_TIME_12_HOUR_STORAGE_KEY,
-    setNewtabTime12Hour,
     NEWTAB_GLASS_STYLE_STORAGE_KEY,
     applyNewtabGlassStyle,
     NEWTAB_GLASS_THEME_STORAGE_KEY,
@@ -524,70 +487,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     if (pageState.wallpaperRuntime) {
       pageState.wallpaperRuntime.updateSearchWidthUi();
     }
-  });
-  storageChanges.on(NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabTopContentMode(raw);
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTopContentMode(nextValue);
-  });
-  storageChanges.on(NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabTimeFontWeight(raw);
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTimeFontWeight(nextValue);
-  });
-  storageChanges.on(NEWTAB_TIME_FONT_SIZE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TIME_FONT_SIZE_STORAGE_KEY].newValue;
-    const nextValue = SETTINGS.newtabTimeFontSize.parse(raw);
-    if (storageArea && raw !== undefined && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TIME_FONT_SIZE_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTimeFontSize(nextValue);
-  });
-  storageChanges.on(NEWTAB_TIME_OPACITY_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TIME_OPACITY_STORAGE_KEY].newValue;
-    const nextValue = SETTINGS.newtabTimeOpacity.parse(raw);
-    if (storageArea && raw !== undefined && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TIME_OPACITY_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTimeOpacity(nextValue);
-  });
-  storageChanges.on(NEWTAB_TIME_INK_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TIME_INK_STORAGE_KEY].newValue;
-    const nextValue = SETTINGS.newtabTimeInk.parse(raw);
-    if (storageArea && raw !== undefined && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TIME_INK_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTimeInk(nextValue);
-  });
-  storageChanges.on(NEWTAB_TIME_FONT_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TIME_FONT_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabTimeFont(raw);
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TIME_FONT_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTimeFont(nextValue);
-  });
-  storageChanges.on(NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY].newValue;
-    const nextValue = normalizeNewtabTimeSecondsVisible(raw);
-    if (storageArea && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTimeSecondsVisible(nextValue);
-  });
-  storageChanges.on(NEWTAB_TIME_12_HOUR_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_TIME_12_HOUR_STORAGE_KEY].newValue;
-    const nextValue = SETTINGS.newtabTime12Hour.parse(raw);
-    if (storageArea && raw !== undefined && raw !== nextValue) {
-      void storageArea.set({ [NEWTAB_TIME_12_HOUR_STORAGE_KEY]: nextValue });
-    }
-    setNewtabTime12Hour(nextValue);
   });
   storageChanges.on(NEWTAB_GLASS_STYLE_STORAGE_KEY, (changes) => {
     applyNewtabGlassStyle(changes[NEWTAB_GLASS_STYLE_STORAGE_KEY].newValue);

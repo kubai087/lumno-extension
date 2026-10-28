@@ -128,14 +128,6 @@ import {
   newtabShortcutWidth,
   newtabThemeMode,
   newtabThemeScope,
-  newtabTime12Hour,
-  newtabTimeFontSize,
-  newtabTimeFont,
-  newtabTimeFontWeight,
-  newtabTimeInk,
-  newtabTimeOpacity,
-  newtabTimeSecondsVisible,
-  newtabTopContentMode,
   newtabWallpaperEffect,
   newtabWallpaperOverlay,
   newtabWallpaper,
@@ -200,6 +192,7 @@ import { bookmarkFolderColorRefs, bookmarkFolderColorsLegacy } from '../domain/s
 import { newtabShortcutFaviconCache, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
 import { takePrefetchedRead } from '../platform/storage-read-batch';
+import { TimePreview } from './top-content/time-preview';
 import * as SearchSettings from '../domain/settings/search';
 
 // The search settings the page reads as it starts.
@@ -231,6 +224,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   const pageState = LumnoNewtabPageState.createPageState();
   // The page's settings, read and followed through the one store of this context.
   const settings = getContextSettingsStore(chrome, window, takePrefetchedRead);
+  const timePreview = new TimePreview(settings);
   const root = document.getElementById('_x_extension_newtab_root_2024_unique_');
   if (!root) {
     return;
@@ -1004,6 +998,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     bootstrapInitialLanguageMode,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    settings,
     t,
     notifyLanguageChange: () => languageChangeListeners.forEach((listener) => listener()),
     renderNewtabTopContent: (...args) => renderNewtabTopContent(...args),
@@ -1116,10 +1111,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const {
     normalizeNewtabWidthMode,
     normalizeNewtabSearchWidth,
-    normalizeNewtabTopContentMode,
-    normalizeNewtabTimeSecondsVisible,
-    normalizeNewtabTimeFontWeight,
-    normalizeNewtabTimeFont,
     normalizeNewtabShortcutsVisible,
     normalizeNewtabShortcutAddVisible,
     normalizeNewtabShortcutDockMagnificationEnabled,
@@ -1241,7 +1232,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
-    getFixedTimeInk,
     updateWallpaperLanguageStrings,
     updateWallpaperAppearanceSelectionUi,
     bootstrapInitialWallpaper,
@@ -1256,6 +1246,8 @@ import * as SettingsStorage from '../platform/settings-storage';
     closeWallpaperPanel,
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
+    settings,
+    timePreview,
     SETTINGS,
     shortcutTiles,
     getShortcutDockIcon,
@@ -1271,14 +1263,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     NEWTAB_WALLPAPER_OVERLAY_STORAGE_KEY: newtabWallpaperOverlay.key,
     NEWTAB_WALLPAPER_EFFECT_STORAGE_KEY: newtabWallpaperEffect.key,
-    NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY: newtabTopContentMode.key,
-    NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY: newtabTimeFontWeight.key,
-    NEWTAB_TIME_FONT_SIZE_STORAGE_KEY: newtabTimeFontSize.key,
-    NEWTAB_TIME_OPACITY_STORAGE_KEY: newtabTimeOpacity.key,
-    NEWTAB_TIME_INK_STORAGE_KEY: newtabTimeInk.key,
-    NEWTAB_TIME_FONT_STORAGE_KEY: newtabTimeFont.key,
-    NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY: newtabTimeSecondsVisible.key,
-    NEWTAB_TIME_12_HOUR_STORAGE_KEY: newtabTime12Hour.key,
     NEWTAB_FAVICON_STORAGE_KEY: newtabFavicon.key,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
@@ -1293,14 +1277,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     showTopActionTooltip: (...args) => showTopActionTooltip(...args),
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
     applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
-    setNewtabTopContentMode: (...args) => setNewtabTopContentMode(...args),
-    setNewtabTimeFontWeight: (...args) => setNewtabTimeFontWeight(...args),
-    setNewtabTimeFontSize: (...args) => setNewtabTimeFontSize(...args),
-    setNewtabTimeOpacity: (...args) => setNewtabTimeOpacity(...args),
-    setNewtabTimeInk: (...args) => setNewtabTimeInk(...args),
-    setNewtabTimeFont: (...args) => setNewtabTimeFont(...args),
-    setNewtabTimeSecondsVisible: (...args) => setNewtabTimeSecondsVisible(...args),
-    setNewtabTime12Hour: (...args) => setNewtabTime12Hour(...args),
     getEffectiveNewtabSearchWidth,
     setNewtabSearchWidth,
     NEWTAB_SHORTCUT_COLUMNS_MIN,
@@ -1378,7 +1354,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     storageChanges
   } = NEWTAB_SETTINGS_SYNC.createSettingsSync({
     settings,
-    SETTINGS,
     normalizeBookmarkCount,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
@@ -1439,26 +1414,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY: newtabTopContentMode.key,
-    normalizeNewtabTopContentMode,
-    setNewtabTopContentMode: (...args) => setNewtabTopContentMode(...args),
-    NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY: newtabTimeFontWeight.key,
-    normalizeNewtabTimeFontWeight,
-    setNewtabTimeFontWeight: (...args) => setNewtabTimeFontWeight(...args),
-    NEWTAB_TIME_FONT_SIZE_STORAGE_KEY: newtabTimeFontSize.key,
-    setNewtabTimeFontSize: (...args) => setNewtabTimeFontSize(...args),
-    NEWTAB_TIME_OPACITY_STORAGE_KEY: newtabTimeOpacity.key,
-    setNewtabTimeOpacity: (...args) => setNewtabTimeOpacity(...args),
-    NEWTAB_TIME_INK_STORAGE_KEY: newtabTimeInk.key,
-    setNewtabTimeInk: (...args) => setNewtabTimeInk(...args),
-    NEWTAB_TIME_FONT_STORAGE_KEY: newtabTimeFont.key,
-    normalizeNewtabTimeFont,
-    setNewtabTimeFont: (...args) => setNewtabTimeFont(...args),
-    NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY: newtabTimeSecondsVisible.key,
-    normalizeNewtabTimeSecondsVisible,
-    setNewtabTimeSecondsVisible: (...args) => setNewtabTimeSecondsVisible(...args),
-    NEWTAB_TIME_12_HOUR_STORAGE_KEY: newtabTime12Hour.key,
-    setNewtabTime12Hour: (...args) => setNewtabTime12Hour(...args),
     NEWTAB_GLASS_STYLE_STORAGE_KEY: newtabGlassStyle.key,
     applyNewtabGlassStyle: (...args) => applyNewtabGlassStyle(...args),
     NEWTAB_GLASS_THEME_STORAGE_KEY: newtabGlassTheme.key,
@@ -1510,9 +1465,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     pageState
   });
 
-  const {
-    initialTimeFontReadyTask
-  } = NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
+  NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
     storageArea,
     bootstrapInitialLanguageMode,
     settingsRuntimeApi,
@@ -1537,26 +1490,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
     updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
     updateBookmarkSectionPosition,
-    NEWTAB_TOP_CONTENT_MODE_STORAGE_KEY: newtabTopContentMode.key,
-    NEWTAB_TIME_FONT_WEIGHT_STORAGE_KEY: newtabTimeFontWeight.key,
-    NEWTAB_TIME_FONT_SIZE_STORAGE_KEY: newtabTimeFontSize.key,
-    NEWTAB_TIME_OPACITY_STORAGE_KEY: newtabTimeOpacity.key,
-    NEWTAB_TIME_INK_STORAGE_KEY: newtabTimeInk.key,
-    NEWTAB_TIME_FONT_STORAGE_KEY: newtabTimeFont.key,
-    NEWTAB_TIME_SECONDS_VISIBLE_STORAGE_KEY: newtabTimeSecondsVisible.key,
-    NEWTAB_TIME_12_HOUR_STORAGE_KEY: newtabTime12Hour.key,
-    normalizeNewtabTopContentMode,
-    normalizeNewtabTimeFontWeight,
-    normalizeNewtabTimeFont,
-    normalizeNewtabTimeSecondsVisible,
-    loadNewtabTimeFont: (...args) => loadNewtabTimeFont(...args),
-    setNewtabTimeFontWeight: (...args) => setNewtabTimeFontWeight(...args),
-    setNewtabTimeFontSize: (...args) => setNewtabTimeFontSize(...args),
-    setNewtabTimeOpacity: (...args) => setNewtabTimeOpacity(...args),
-    setNewtabTimeInk: (...args) => setNewtabTimeInk(...args),
-    setNewtabTimeSecondsVisible: (...args) => setNewtabTimeSecondsVisible(...args),
-    setNewtabTime12Hour: (...args) => setNewtabTime12Hour(...args),
-    setNewtabTopContentMode: (...args) => setNewtabTopContentMode(...args),
     RECENT_MODE_STORAGE_KEY: recentMode.key,
     normalizeRecentMode,
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
@@ -1704,15 +1637,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     finishWordmarkEntryAnimation,
     applyWordmarkThemeAppearance,
     renderNewtabTopContent,
-    setNewtabTopContentMode,
-    setNewtabTimeFontWeight,
-    setNewtabTimeFontSize,
-    setNewtabTimeOpacity,
-    setNewtabTimeInk,
-    setNewtabTimeFont,
-    loadNewtabTimeFont,
-    setNewtabTimeSecondsVisible,
-    setNewtabTime12Hour
+    followTopContentSettings
   } = NEWTAB_TOP_CONTENT_RUNTIME.createTopContentRuntime({
     COMMUNITY_LINKS,
     recentCards,
@@ -1720,13 +1645,13 @@ import * as SettingsStorage from '../platform/settings-storage';
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
     scheduleWallpaperAdaptiveToneUpdate,
-    normalizeNewtabTopContentMode,
-    normalizeNewtabTimeFontWeight,
-    normalizeNewtabTimeFont,
-    normalizeNewtabTimeSecondsVisible,
-    getFixedTimeInk,
+    settings,
+    timePreview,
     pageState
   });
+  // Settles once the stored clock face has loaded, so the first reveal never
+  // draws the clock in a fallback face.
+  const initialTimeFontReadyTask = followTopContentSettings();
 
   const {
     finishNewtabEntryAnimation,

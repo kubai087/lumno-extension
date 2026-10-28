@@ -99,22 +99,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     return SETTINGS.normalizeNewtabSearchWidth(value, { ...NEWTAB_SEARCH_WIDTH_CONFIG, ...options });
   }
 
-  function normalizeNewtabTopContentMode(value: unknown) {
-    return SETTINGS.newtabTopContentMode.parse(value);
-  }
-
-  function normalizeNewtabTimeSecondsVisible(value: unknown) {
-    return SETTINGS.newtabTimeSecondsVisible.parse(value);
-  }
-
-  function normalizeNewtabTimeFontWeight(value: unknown) {
-    return SETTINGS.newtabTimeFontWeight.parse(value);
-  }
-
-  function normalizeNewtabTimeFont(value: unknown) {
-    return SETTINGS.newtabTimeFont.parse(value);
-  }
-
   function normalizeNewtabShortcutsVisible(value: unknown) {
     return SETTINGS.newtabShortcutsVisible.parse(value);
   }
@@ -322,10 +306,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
   return {
     normalizeNewtabWidthMode,
     normalizeNewtabSearchWidth,
-    normalizeNewtabTopContentMode,
-    normalizeNewtabTimeSecondsVisible,
-    normalizeNewtabTimeFontWeight,
-    normalizeNewtabTimeFont,
     normalizeNewtabShortcutsVisible,
     normalizeNewtabShortcutAddVisible,
     normalizeNewtabShortcutDockMagnificationEnabled,

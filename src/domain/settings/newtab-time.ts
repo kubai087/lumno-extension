@@ -213,6 +213,12 @@ const newtabTime12Hour = defineSetting({
 
 // The weight a face actually draws with: the stored weight, held to the
 // range that face supports.
+// The ink a fixed clock color draws in, or '' when the clock follows the
+// wallpaper or the theme (or no clock shows).
+function getFixedTimeInk(mode: NewtabTopContentMode, ink: NewtabTimeInk): Exclude<NewtabTimeInk, 'auto'> | '' {
+  return mode === 'time' && ink !== 'auto' ? ink : '';
+}
+
 function resolveNewtabTimeFontWeight(fontId: unknown, weight: unknown): number {
   const font = getNewtabTimeFont(fontId);
   return Math.min(font.maxWeight, Math.max(font.minWeight, newtabTimeFontWeight.parse(weight)));
@@ -232,7 +238,20 @@ function getNewtabTimeFontTracking(fontId: unknown, weight: unknown): number | n
   return Math.round((light + ((heavy - light) * amount)) * 1000) / 1000;
 }
 
+// The settings the wordmark and clock area above the search box draws from.
+const NEWTAB_TOP_CONTENT_SETTINGS = [
+  newtabTopContentMode,
+  newtabTimeFont,
+  newtabTimeFontWeight,
+  newtabTimeFontSize,
+  newtabTimeOpacity,
+  newtabTimeInk,
+  newtabTimeSecondsVisible,
+  newtabTime12Hour
+];
+
 export {
+  NEWTAB_TOP_CONTENT_SETTINGS,
   NEWTAB_TIME_FONTS,
   NEWTAB_TIME_FONT_DEFAULT,
   NEWTAB_TIME_FONT_SIZE_DEFAULT,
@@ -249,6 +268,7 @@ export {
   NEWTAB_TOP_CONTENT_BRAND,
   NEWTAB_TOP_CONTENT_OFF,
   NEWTAB_TOP_CONTENT_TIME,
+  getFixedTimeInk,
   getNewtabTimeFont,
   getNewtabTimeFontTracking,
   newtabTime12Hour,

@@ -1,7 +1,6 @@
 // The data the wallpaper runtime and its parts in this folder share: the
 // wallpapers they show, the preferences that pick them, and the one state
 // object wallpaper.ts hands every part.
-import type { NewtabTopContentMode } from '../../../domain/settings';
 import type { WallpaperRecord } from '../../../shared/wallpaper-records';
 import type { FeatureHintController } from '../../../shared/ui/feature-hint-catalog';
 import type { WallpaperPanelActions, WallpaperPanelState, WallpaperSourceTab, ThemeScope } from '../../react/wallpaper-panel/panel-model';
@@ -95,10 +94,6 @@ interface WallpaperState {
   currentAppliedWallpaperEffectPrefs: WallpaperEffectPrefs;
   currentLocalWallpaperOverrides: LocalWallpaperOverrides | null;
   currentNewtabFaviconId: string;
-  currentTimeFont: string;
-  currentTimeFontWeight: number;
-  currentTimeSecondsVisible: boolean;
-  currentTopContentMode: NewtabTopContentMode;
   currentWallpaperEffectPrefsByMode: WallpaperEffectStoragePrefs;
   currentWallpaperId: string;
   currentWallpaperOverlayOpacity: Record<WallpaperMode, number>;

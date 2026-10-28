@@ -45,6 +45,49 @@ const WALLPAPER_PREFS_STORAGE_VERSION = 2;
 const CUSTOM_WALLPAPER_ID_PREFIX = 'custom-wallpaper-';
 const LOCAL_WALLPAPER_DISABLED_VALUE = '__lumno_local_wallpaper_disabled__';
 
+
+// The page's settings as the runtime reads them, held in memory: a write
+// shows at once, as the page's settings store does.
+function createTestSettings() {
+  const values = new Map();
+  const listeners = [];
+  const notify = () => listeners.forEach((listener) => listener());
+  return {
+    get: (setting) => (values.has(setting.key) ? values.get(setting.key) : setting.parse(undefined)),
+    set(setting, value) {
+      values.set(setting.key, setting.parse(value));
+      notify();
+      return Promise.resolve();
+    },
+    setMany(entries) {
+      entries.forEach(([setting, value]) => values.set(setting.key, setting.parse(value)));
+      notify();
+      return Promise.resolve();
+    },
+    subscribe(_settings, listener) {
+      listeners.push(listener);
+      return () => {};
+    }
+  };
+}
+
+// A wallpaper runtime over the given options, with the page's settings and
+// the clock preview the runtime reads.
+function createRuntimeWithSettings(sandbox, options) {
+  const settings = options.settings || createTestSettings();
+  const preview = {};
+  const timePreview = {
+    get fontSize() {
+      return preview.fontSize === undefined ? settings.get(REAL_WALLPAPER_DEPENDENCIES.LumnoSettings.newtabTimeFontSize) : preview.fontSize;
+    },
+    get opacity() {
+      return preview.opacity === undefined ? settings.get(REAL_WALLPAPER_DEPENDENCIES.LumnoSettings.newtabTimeOpacity) : preview.opacity;
+    },
+    show: (value) => Object.assign(preview, value)
+  };
+  return sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({ ...options, settings, timePreview });
+}
+
 function createFakeStyle() {
   const values = new Map();
   return {
@@ -813,12 +856,14 @@ function assertBrandMarkCopy() {
   // The panel shows those messages for the content above the search bar.
   const zhMessages = readLocaleMessages('zh_CN');
   const localized = createWallpaperSandbox();
-  const localizedRuntime = localized.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const timeSettings = createTestSettings();
+  timeSettings.set(REAL_WALLPAPER_DEPENDENCIES.LumnoSettings.newtabTopContentMode, 'time');
+  const localizedRuntime = createRuntimeWithSettings(localized.sandbox, {
     documentObj: localized.documentObj,
     windowObj: localized.windowObj,
     storageArea: null,
-    t: (key, fallback) => (zhMessages[key] ? zhMessages[key].message : fallback || ''),
-    getTopContentMode: () => 'time'
+    settings: timeSettings,
+    t: (key, fallback) => (zhMessages[key] ? zhMessages[key].message : fallback || '')
   });
   localizedRuntime.createControls();
   const search = panelState(localizedRuntime).search;
@@ -839,7 +884,7 @@ function assertBrandMarkCopy() {
 function assertThemeAwareAlternateFaviconAsset() {
   // The picker previews the alternate favicon as the supplied lumno1.svg.
   const { documentObj, windowObj, sandbox } = createWallpaperSandbox();
-  const runtime = sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const runtime = createRuntimeWithSettings(sandbox, {
     documentObj,
     windowObj,
     storageArea: null,
@@ -1283,7 +1328,7 @@ let shortcutAddVisible = true;
 let shortcutDockMagnificationEnabled = true;
 let shortcutColumns = 10;
 const shortcutPreferenceWrites = [];
-const runtime = sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+const runtime = createRuntimeWithSettings(sandbox, {
   documentObj,
   windowObj,
   storageArea: null,
@@ -1435,7 +1480,7 @@ async function testOverlayAndStrengthSnapToTheirMarksWhileDragged() {
   const storageArea = createMemoryStorage({});
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea,
@@ -1477,7 +1522,7 @@ async function testWallpaperSourcesHintWaitsForFinalFocusRoute() {
     'true'
   );
   let pendingRouteCreates = 0;
-  const pendingRuntime = pendingRoute.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const pendingRuntime = createRuntimeWithSettings(pendingRoute.sandbox, {
     documentObj: pendingRoute.documentObj,
     windowObj: pendingRoute.windowObj,
     storageArea: null,
@@ -1506,7 +1551,7 @@ async function testWallpaperSourcesHintWaitsForFinalFocusRoute() {
   const hintElement = settledRoute.documentObj.createElement('span');
   hintElement.setAttribute('data-feature-hint-id', 'newtab-wallpaper-sources');
   hintElement.setAttribute('data-visible', 'true');
-  const settledRuntime = settledRoute.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const settledRuntime = createRuntimeWithSettings(settledRoute.sandbox, {
     documentObj: settledRoute.documentObj,
     windowObj: settledRoute.windowObj,
     storageArea: null,
@@ -1559,7 +1604,7 @@ async function testWallpaperSourcesHintWaitsForFinalFocusRoute() {
   );
 }
 
-const scopedRuntime = sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+const scopedRuntime = createRuntimeWithSettings(sandbox, {
   documentObj,
   windowObj,
   storageArea: null,
@@ -1578,7 +1623,7 @@ assert.strictEqual(panelState(scopedRuntime).search.width.value, 920,
   'the search width slider stays available in the New Tab scope');
 
 let previewGlobalMode = 'dark';
-const previewRuntime = sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+const previewRuntime = createRuntimeWithSettings(sandbox, {
   documentObj,
   windowObj,
   storageArea: null,
@@ -1602,7 +1647,7 @@ assert.ok(previewUrl('system').endsWith('assets/images/newtab-system.svg'),
   'following a Global that follows the system should keep the split preview');
 
 let switchingScope = 'global';
-const switchingRuntime = sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+const switchingRuntime = createRuntimeWithSettings(sandbox, {
   documentObj,
   windowObj,
   storageArea: null,
@@ -1651,7 +1696,7 @@ async function testBuiltInWallpaperBootstrapDefersCustomCatalogRead() {
   }], localStoreCalls);
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox({ localStoreApi });
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: DEFAULT_WALLPAPER_ID }),
@@ -1687,7 +1732,7 @@ async function testWallpaperTileIntentReusesDecodedImagePromise() {
   const imageHarness = createDeferredWallpaperImageHarness();
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox({ Image: imageHarness.Image });
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: DEFAULT_WALLPAPER_ID }),
@@ -1729,7 +1774,7 @@ async function testRapidWallpaperSelectionNeverAppliesStaleDecode() {
   const imageHarness = createDeferredWallpaperImageHarness();
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox({ Image: imageHarness.Image });
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: DEFAULT_WALLPAPER_ID }),
@@ -1772,7 +1817,7 @@ async function testSyncedCustomWallpaperWithoutLocalRecordFallsBackToDefault() {
     [WALLPAPER_STORAGE_KEY]: `${CUSTOM_WALLPAPER_ID_PREFIX}remote-only`
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -1807,7 +1852,7 @@ async function testUnrecognizedSyncedWallpaperIsNotWrittenBack() {
   const futureId = 'future-source-photo';
   const syncStorage = createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: futureId });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -1849,7 +1894,7 @@ async function testLegacySyncedCustomWallpaperMigratesToLocalOnlySelection() {
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox({
     localStoreApi
   });
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -1915,7 +1960,7 @@ async function testOversizedDataUrlWallpaperRendersThroughBlobUrl() {
     },
     revokeObjectURL() {}
   };
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: createMemoryStorage(),
@@ -1967,7 +2012,7 @@ async function testInitialThemeResolutionDoesNotPaintFallbackBeforeCustomWallpap
       localStoreApi
     });
     testDocument.body.setAttribute('data-theme', mode);
-    const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+    const testRuntime = createRuntimeWithSettings(testSandbox, {
       documentObj: testDocument,
       windowObj: testWindow,
       storageArea: syncStorage,
@@ -2020,7 +2065,7 @@ async function testWallpaperModeConsistencyDefaultsOnAndCopiesLegacySelectionWhe
     [WALLPAPER_STORAGE_KEY]: 'white-shanshui'
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2083,7 +2128,7 @@ async function testDisablingWallpaperModeConsistencyIgnoresStaleLocalDisabledOve
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
   testDocument.body.setAttribute('data-theme', 'dark');
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2133,7 +2178,7 @@ async function testSplitWallpaperPanelOpensOnTheShownMode() {
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
   testDocument.body.setAttribute('data-theme', 'dark');
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2184,7 +2229,7 @@ async function testWallpaperLuminanceIsCachedForThePreload() {
       }
     });
     testDocument.body.setAttribute('data-theme', 'light');
-    const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+    const testRuntime = createRuntimeWithSettings(testSandbox, {
       documentObj: testDocument,
       windowObj: testWindow,
       storageArea: createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: 'dark-shanshui-moonlit' }),
@@ -2331,7 +2376,7 @@ async function testSplitBuiltInWallpaperSelectionFollowsResolvedTheme() {
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
   testDocument.body.setAttribute('data-theme', 'light');
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2423,7 +2468,7 @@ async function testWallpaperPreloadCacheRetainsMinimumLightOverlay() {
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox();
   testDocument.body.setAttribute('data-theme', 'light');
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2469,7 +2514,7 @@ async function testSplitLocalWallpaperSelectionStaysLocalOnly() {
     localStoreApi
   });
   testDocument.body.setAttribute('data-theme', 'light');
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2546,7 +2591,7 @@ async function testDeletingLocalWallpapersKeepsTheLocalTabOpen() {
     localStoreApi
   });
   testDocument.body.setAttribute('data-theme', 'light');
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2603,7 +2648,7 @@ async function testNewtabFaviconOptionsRenderBelowLogoAndPersistSelection() {
     [NEWTAB_FAVICON_STORAGE_KEY]: 'default'
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea: syncStorage,
@@ -2707,7 +2752,7 @@ async function testNewtabFaviconThemeBroadcastRefreshesBackgroundTabs() {
   });
   const foreground = createWallpaperSandbox({ BroadcastChannel });
   const background = createWallpaperSandbox({ BroadcastChannel });
-  const foregroundRuntime = foreground.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const foregroundRuntime = createRuntimeWithSettings(foreground.sandbox, {
     documentObj: foreground.documentObj,
     windowObj: foreground.windowObj,
     storageArea: foregroundStorage,
@@ -2716,7 +2761,7 @@ async function testNewtabFaviconThemeBroadcastRefreshesBackgroundTabs() {
     },
     t: (_key, fallback) => fallback || ''
   });
-  const backgroundRuntime = background.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const backgroundRuntime = createRuntimeWithSettings(background.sandbox, {
     documentObj: background.documentObj,
     windowObj: background.windowObj,
     storageArea: backgroundStorage,
@@ -2779,7 +2824,7 @@ async function testWallpaperEffectInkToneControlPersistsAndFollowsEffectType() {
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea,
@@ -2841,7 +2886,7 @@ async function testBlocksExposeReliefControls() {
   const storageArea = createMemoryStorage({});
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea,
@@ -2919,7 +2964,7 @@ async function testEffectSpecificParametersRoundTrip() {
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea,
@@ -2964,21 +3009,13 @@ async function testEffectSpecificParametersRoundTrip() {
 
 async function testTimeSettingsFollowTheContentAboveTheSearchBar() {
   const settings = REAL_WALLPAPER_DEPENDENCIES.LumnoSettings;
-  const storageArea = createMemoryStorage({});
-  const page = { mode: 'brand', weight: 320, font: 'open-sans', seconds: false };
+  const store = createTestSettings();
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } = createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
-    storageArea,
-    getTopContentMode: () => page.mode,
-    setTopContentMode: (mode) => { page.mode = mode; },
-    getTimeFontWeight: () => page.weight,
-    setTimeFontWeight: (weight) => { page.weight = weight; },
-    getTimeFont: () => page.font,
-    setTimeFont: (font) => { page.font = font; },
-    getTimeSecondsVisible: () => page.seconds,
-    setTimeSecondsVisible: (visible) => { page.seconds = visible; },
+    storageArea: createMemoryStorage({}),
+    settings: store,
     t: (_key, fallback) => fallback || ''
   });
   testRuntime.createControls();
@@ -3001,8 +3038,7 @@ async function testTimeSettingsFollowTheContentAboveTheSearchBar() {
   assert.strictEqual(search().timeWeight.resetVisible, false, 'the default weight has nothing to reset');
 
   panelActions(testRuntime).selectTopContent('time');
-  assert.strictEqual(page.mode, 'time');
-  assert.strictEqual(storageArea.data[settings.newtabTopContentMode.key], 'time');
+  assert.strictEqual(store.get(settings.newtabTopContentMode), 'time');
   assert.strictEqual(search().timeWeight.visible, true, 'the time shows its font weight setting');
   assert.strictEqual(search().timeFont.visible, true, 'the time shows its font setting');
   assert.strictEqual(search().seconds.visible, true, 'the time shows its seconds setting');
@@ -3010,10 +3046,8 @@ async function testTimeSettingsFollowTheContentAboveTheSearchBar() {
   // Picking a face moves the weight to that face's default and the slider to its range.
   panelActions(testRuntime).setTimeFontWeight(700, NOT_DRAGGING);
   panelActions(testRuntime).setTimeFont('bitcount');
-  assert.strictEqual(page.font, 'bitcount');
-  assert.strictEqual(page.weight, 480);
-  assert.strictEqual(storageArea.data[settings.newtabTimeFont.key], 'bitcount');
-  assert.strictEqual(storageArea.data[settings.newtabTimeFontWeight.key], 480);
+  assert.strictEqual(store.get(settings.newtabTimeFont), 'bitcount');
+  assert.strictEqual(store.get(settings.newtabTimeFontWeight), 480);
   assert.deepStrictEqual(
     [search().timeFont.value, search().timeWeight.min, search().timeWeight.max, search().timeWeight.value],
     ['bitcount', 300, 550, 480]
@@ -3021,47 +3055,35 @@ async function testTimeSettingsFollowTheContentAboveTheSearchBar() {
   assert.strictEqual(search().timeWeight.resetVisible, false, "the face's own default has nothing to reset");
   // A heavier synced weight shows at the face's ceiling; the stored weight is kept
   // for the faces that can draw it.
-  testRuntime.handleStorageChange({ [settings.newtabTimeFontWeight.key]: { newValue: 800 } });
-  assert.strictEqual(page.weight, 800);
+  store.set(settings.newtabTimeFontWeight, 800);
   assert.strictEqual(search().timeWeight.value, 550);
   panelActions(testRuntime).resetTimeFontWeight();
-  assert.strictEqual(page.weight, 480, "reset returns to the face's own default");
+  assert.strictEqual(store.get(settings.newtabTimeFontWeight), 480, "reset returns to the face's own default");
   // Another device picks a face; an unknown one falls back to Open Sans.
-  testRuntime.handleStorageChange({ [settings.newtabTimeFont.key]: { newValue: 'geist' } });
-  assert.strictEqual(page.font, 'geist');
+  store.set(settings.newtabTimeFont, 'geist');
   assert.strictEqual(search().timeWeight.max, 800);
-  testRuntime.handleStorageChange({ [settings.newtabTimeFont.key]: { newValue: 'papyrus' } });
-  assert.strictEqual(page.font, 'open-sans');
-  assert.strictEqual(storageArea.data[settings.newtabTimeFont.key], 'open-sans');
+  store.set(settings.newtabTimeFont, 'papyrus');
+  assert.strictEqual(store.get(settings.newtabTimeFont), 'open-sans');
   panelActions(testRuntime).setTimeFontWeight(320, NOT_DRAGGING);
 
   panelActions(testRuntime).setTimeFontWeight(612, NOT_DRAGGING);
-  assert.strictEqual(page.weight, 612);
-  assert.strictEqual(storageArea.data[settings.newtabTimeFontWeight.key], 612);
+  assert.strictEqual(store.get(settings.newtabTimeFontWeight), 612);
   assert.strictEqual(search().timeWeight.value, 612);
   assert.strictEqual(search().timeWeight.resetVisible, true, 'a changed weight offers a reset');
   panelActions(testRuntime).resetTimeFontWeight();
-  assert.strictEqual(page.weight, 320);
-  assert.strictEqual(storageArea.data[settings.newtabTimeFontWeight.key], 320);
+  assert.strictEqual(store.get(settings.newtabTimeFontWeight), 320);
   assert.strictEqual(search().timeWeight.resetVisible, false);
   panelActions(testRuntime).setTimeFontWeight(612, NOT_DRAGGING);
   panelActions(testRuntime).setTimeSecondsVisible(true);
-  assert.strictEqual(page.seconds, true);
-  assert.strictEqual(storageArea.data[settings.newtabTimeSecondsVisible.key], true);
+  assert.strictEqual(store.get(settings.newtabTimeSecondsVisible), true);
   assert.strictEqual(search().seconds.toggle.checked, true);
 
-  // Another device changes the settings: the page and the panel follow.
-  page.weight = 300;
-  testRuntime.handleStorageChange({ [settings.newtabTimeFontWeight.key]: { newValue: 9999 } });
-  assert.strictEqual(page.weight, 800, 'a synced weight is clamped before it reaches the page');
-  assert.strictEqual(storageArea.data[settings.newtabTimeFontWeight.key], 800,
-    'an out-of-range synced weight is written back clamped');
-  assert.strictEqual(search().timeWeight.value, 800);
-  testRuntime.handleStorageChange({ [settings.newtabTimeSecondsVisible.key]: { newValue: false } });
-  assert.strictEqual(page.seconds, false);
+  // Another device changes the settings: the panel follows.
+  store.set(settings.newtabTimeFontWeight, 9999);
+  assert.strictEqual(search().timeWeight.value, 800, 'a synced weight is clamped');
+  store.set(settings.newtabTimeSecondsVisible, false);
   assert.strictEqual(search().seconds.toggle.checked, false);
-  testRuntime.handleStorageChange({ [settings.newtabTopContentMode.key]: { newValue: 'off' } });
-  assert.strictEqual(page.mode, 'off');
+  store.set(settings.newtabTopContentMode, 'off');
   assert.strictEqual(search().topContent.tabs.active, 'off');
   assert.strictEqual(search().timeWeight.visible, false);
 }
@@ -3090,7 +3112,7 @@ async function testGlassBlurCanBeEnabledAndDisabled() {
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea,
@@ -3169,7 +3191,7 @@ async function testGlassBlurFilterSwitchPreservesTheOutgoingFrame() {
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox({ effectsApi });
   testWindow.__setMediaMatchSilently('(prefers-reduced-motion: reduce)', false);
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea,
@@ -3249,7 +3271,7 @@ async function testCrtFilterPersistsAndShowsDisplayControls() {
   });
   const { documentObj: testDocument, windowObj: testWindow, sandbox: testSandbox } =
     createWallpaperSandbox();
-  const testRuntime = testSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const testRuntime = createRuntimeWithSettings(testSandbox, {
     documentObj: testDocument,
     windowObj: testWindow,
     storageArea,
@@ -3361,7 +3383,7 @@ async function testBingDailySelectionAndManualOverride() {
   const prefs = createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: {
     version: 2, sameForModes: false, light: DEFAULT_WALLPAPER_ID, dark: 'dark-linocut-topographic'
   } });
-  const runtime = context.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const runtime = createRuntimeWithSettings(context.sandbox, {
     documentObj: context.documentObj, windowObj: context.windowObj,
     storageArea: prefs, localWallpaperStorageArea: createMemoryStorage()
   });
@@ -3415,7 +3437,7 @@ async function testLegacyOnlineWallpaperMigratesToBing() {
     ensureWallpaper: async (id) => { ensured.push(id); return photo; }, setPinnedIds() {} };
   const context = createWallpaperSandbox({ remoteApi: { ...remote, createClient: () => client } });
   const prefs = createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: 'wallhaven-abc123' });
-  const runtime = context.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const runtime = createRuntimeWithSettings(context.sandbox, {
     documentObj: context.documentObj, windowObj: context.windowObj,
     storageArea: prefs, localWallpaperStorageArea: createMemoryStorage()
   });
@@ -3439,7 +3461,7 @@ async function testOnlineWallpaperSurvivesOlderVersions() {
   const prefs = createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: 'bing-daily' });
   const boot = async () => {
     const context = createWallpaperSandbox({ remoteApi: { ...remote, createClient: () => client } });
-    const runtime = context.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+    const runtime = createRuntimeWithSettings(context.sandbox, {
       documentObj: context.documentObj, windowObj: context.windowObj,
       storageArea: prefs, localWallpaperStorageArea: createMemoryStorage()
     });
@@ -3471,7 +3493,7 @@ async function testOnlineWallpaperSurvivesOlderVersions() {
 function createCuratedRuntime(prefs, options) {
   const context = createWallpaperSandbox(options && options.sandbox);
   const toasts = [];
-  const runtime = context.sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const runtime = createRuntimeWithSettings(context.sandbox, {
     documentObj: context.documentObj, windowObj: context.windowObj,
     storageArea: prefs, localWallpaperStorageArea: (options && options.localStorageArea) || createMemoryStorage(),
     showToast: (message, isError) => toasts.push({ message, isError }),
@@ -3932,7 +3954,7 @@ async function testRuntimeAdoptsThePreloadedUploadAndItsBlobUrl() {
   });
   documentObj.documentElement.style.setProperty('--x-nt-wallpaper-image',
     preloadDocument.documentElement.style.getPropertyValue('--x-nt-wallpaper-image'));
-  const runtime = runtimeSandbox.LumnoNewtabWallpaper.createWallpaperRuntime({
+  const runtime = createRuntimeWithSettings(runtimeSandbox, {
     documentObj,
     windowObj,
     storageArea: createMemoryStorage({ [WALLPAPER_STORAGE_KEY]: 'custom-upload' }),
