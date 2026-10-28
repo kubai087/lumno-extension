@@ -2,4 +2,4 @@
 // against the module they were split from.
 export * from '../../src/platform/provider-storage';
 export * from '../../src/platform/settings-storage';
-export * from '../../src/platform/storage-read-batch';
+export * from '../../src/platform/storage-prefetch';

@@ -495,19 +495,16 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     });
   }
 
-  function readShortcutSyncValues(area: StorageAreaLike): Promise<StorageItems> {
-    return new Promise((resolve) => {
-      try {
-        const maybePromise = area.get(ShortcutConstants.SHORTCUT_STORAGE_KEYS.slice(), (result) => {
-          resolve(result || {});
-        });
-        if (maybePromise) {
-          maybePromise.then((result) => resolve(result || {})).catch(() => resolve({}));
-        }
-      } catch {
-        resolve({});
-      }
-    });
+  // The stored list, read in one go so a torn save shows as one.
+  function readShortcutSyncValues(): Promise<StorageItems> {
+    return settings.include(NEWTAB_SHORTCUT_LIST_SETTINGS).then(() => {
+      const values: StorageItems = {};
+      NEWTAB_SHORTCUT_LIST_SETTINGS.forEach((setting) => {
+        const stored = settings.getStored(setting);
+        if (typeof stored !== 'undefined') values[setting.key] = stored;
+      });
+      return values;
+    }, (): StorageItems => ({}));
   }
 
   // Changes other pages store: a new list reloads the grid unless this
@@ -1025,7 +1022,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       return Promise.resolve(pageState.newtabShortcuts);
     }
     return Promise.all([
-      readShortcutSyncValues(storageArea),
+      readShortcutSyncValues(),
       readShortcutOverflowRecord()
     ]).then(([values, overflowRecord]) => {
       const state = ShortcutStoragePlan.readShortcutState(values, overflowRecord, getShortcutStoreOptions());

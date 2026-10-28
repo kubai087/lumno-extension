@@ -18,7 +18,7 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
-import { searchResultSourceTypes } from '../../domain/settings/search';
+import { searchResultSourceTypes, searchSourceOrder } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 
 // A site search the typed text turns into on Tab.
@@ -51,7 +51,7 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
-  settings: Pick<SettingsStore, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'set'>;
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
   t: Translate;
@@ -76,8 +76,6 @@ interface SearchModesDeps {
   getSiteSearchTriggerCandidate: SiteSearchProviders['getSiteSearchTriggerCandidate'];
   getLocalSearchScopeCandidate: SiteSearchProviders['getLocalSearchScopeCandidate'];
   getShortcutRules(): Promise<ShortcutRule[]>;
-  readSearchSourceOrder?(): unknown;
-  writeSearchSourceOrder?(order: SearchSourceOrder): unknown;
   pageState: SearchModesState;
 }
 
@@ -116,8 +114,6 @@ function createSearchModes(deps: SearchModesDeps) {
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
     getShortcutRules,
-    readSearchSourceOrder,
-    writeSearchSourceOrder
   } = deps;
   // Undo and redo for the moves made in this page's panel.
   const searchSourceOrderHistory = SEARCH_SOURCE_ORDER.createHistory();
@@ -226,11 +222,15 @@ function createSearchModes(deps: SearchModesDeps) {
     return SEARCH_SOURCE_ORDER.rankScopeItems(items, sourceOrder);
   }
 
+  function writeSearchSourceOrder(order: SearchSourceOrder): Promise<void> {
+    return settings.set(searchSourceOrder, order);
+  }
+
   // The stored order; null when it cannot be read.
   function loadSearchSourceOrder(): Promise<unknown> {
-    return readSearchSourceOrder
-      ? Promise.resolve(readSearchSourceOrder()).catch(() => null)
-      : Promise.resolve(null);
+    return settings.include(searchSourceOrder)
+      .then(() => settings.getStored(searchSourceOrder))
+      .catch(() => null);
   }
 
   function getSearchModeMenuItems(): Promise<ModeMenuItem[]> {
@@ -245,9 +245,6 @@ function createSearchModes(deps: SearchModesDeps) {
   // A tile dragged in the panel: store the new order on top of the latest
   // stored one, so a concurrent change from Settings is not lost.
   function reorderSearchModeMenu(payload: Parameters<typeof SEARCH_SOURCE_ORDER.applyScopeMenuMove>[1]): void {
-    if (!writeSearchSourceOrder) {
-      return;
-    }
     void queueSearchSourceOrderTask(() => loadSearchSourceOrder()
       .then((value) => recordSearchSourceOrder(
         value,
@@ -257,16 +254,13 @@ function createSearchModes(deps: SearchModesDeps) {
 
   function recordSearchSourceOrder(before: unknown, after: SearchSourceOrder): unknown {
     searchSourceOrderHistory.record(before, after);
-    return writeSearchSourceOrder ? writeSearchSourceOrder(after) : null;
+    return writeSearchSourceOrder(after);
   }
 
   // Returns whether there was a step to take, so the panel only claims
   // Ctrl/Cmd+Z when it does something.
   function stepSearchModeMenuHistory(direction: 'undo' | 'redo'): boolean {
-    // Narrowed here, for the queued task below.
-    const write = writeSearchSourceOrder;
-    if (!write ||
-        !(direction === 'redo' ? searchSourceOrderHistory.canRedo() : searchSourceOrderHistory.canUndo())) {
+    if (!(direction === 'redo' ? searchSourceOrderHistory.canRedo() : searchSourceOrderHistory.canUndo())) {
       return false;
     }
     void queueSearchSourceOrderTask(() => loadSearchSourceOrder()
@@ -274,16 +268,13 @@ function createSearchModes(deps: SearchModesDeps) {
         const target = direction === 'redo'
           ? searchSourceOrderHistory.redo(value)
           : searchSourceOrderHistory.undo(value);
-        return target ? write(target) : null;
+        return target ? writeSearchSourceOrder(target) : null;
       }));
     return true;
   }
 
   // A group block moved from its title in the panel.
   function moveSearchModeMenuGroup(payload: { delta: number; group: string; groups: string[] }): void {
-    if (!writeSearchSourceOrder) {
-      return;
-    }
     void queueSearchSourceOrderTask(() => loadSearchSourceOrder()
       .then((value) => recordSearchSourceOrder(
         value,

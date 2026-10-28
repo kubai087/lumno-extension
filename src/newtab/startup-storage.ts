@@ -1,15 +1,14 @@
-// The storage area the page reads settings from, the one batched read that
-// fetches every key the first render needs before the modules ask for them
-// one by one, and moving preferences an older version kept locally.
+// The storage area the page's settings live in, the startup read the next
+// New Tab prefetches, and moving preferences an older version kept locally.
 import * as LumnoSettings from '../domain/settings';
 import * as ProviderStorage from '../platform/provider-storage';
 import * as SettingsStorage from '../platform/settings-storage';
-import * as StorageReadBatch from '../platform/storage-read-batch';
+import { takePrefetchedRead } from '../platform/storage-prefetch';
 
 function createStartupStorage() {
   const settingsRuntimeApi = LumnoSettings;
   const providerStorageRuntime = ProviderStorage.createProviderStorageRuntime(chrome);
-  const rawStorageArea = providerStorageRuntime.area;
+  const storageArea = providerStorageRuntime.area;
   // The next New Tab prefetches these keys before its scripts load (newtab-storage-prefetch.ts).
   function rememberStartupStorageKeys(keys: readonly string[] | null | undefined): void {
     if (!keys || !keys.length) {
@@ -25,33 +24,16 @@ function createStartupStorage() {
       // localStorage is only a fast path; the next load reads storage as before.
     }
   }
-  const startupStorageReadBatch = rawStorageArea
-    ? StorageReadBatch.createStorageReadBatch(rawStorageArea)
-    : null;
-  const storageArea = startupStorageReadBatch
-    ? startupStorageReadBatch.area
-    : rawStorageArea;
-  if (startupStorageReadBatch) {
-    void startupStorageReadBatch.ready.then((metrics) => {
-      rememberStartupStorageKeys(metrics && metrics.keys);
-      if (!document.documentElement) {
-        return;
-      }
-      document.documentElement.setAttribute(
-        'data-lumno-newtab-bootstrap-storage-reads',
-        String(Number(metrics && metrics.underlyingReadCount) || 0)
-      );
-      document.documentElement.setAttribute(
-        'data-lumno-newtab-bootstrap-storage-requests',
-        String(Number(metrics && metrics.requestCount) || 0)
-      );
-      document.documentElement.setAttribute(
-        'data-lumno-newtab-bootstrap-storage-keys',
-        metrics && metrics.keyCount === null
-          ? 'all'
-          : String(Number(metrics && metrics.keyCount) || 0)
-      );
-    });
+  // The settings store's first read of the settings area is the page's
+  // startup read: it takes the prefetch, and its keys are what the next
+  // New Tab prefetches.
+  let startupReadTaken = false;
+  function takeStartupRead(area: object, keys: readonly string[]): ReturnType<typeof takePrefetchedRead> {
+    if (!startupReadTaken && area === storageArea) {
+      startupReadTaken = true;
+      rememberStartupStorageKeys(keys);
+    }
+    return takePrefetchedRead(area, keys);
   }
 
   // Whether a storage change came from the area settings live in.
@@ -73,9 +55,8 @@ function createStartupStorage() {
   return {
     settingsRuntimeApi,
     providerStorageRuntime,
-    rawStorageArea,
-    startupStorageReadBatch,
     storageArea,
+    takeStartupRead,
     isPrimaryStorageAreaName,
     migrateLocalSettingsIfNeeded
   };

@@ -3,7 +3,7 @@
 import * as LumnoSettings from '../domain/settings';
 import { publishBootValue } from '../platform/boot-handoff';
 import * as ProviderStorage from '../platform/provider-storage';
-import * as StorageReadBatch from '../platform/storage-read-batch';
+import { prefetchStorageRead } from '../platform/storage-prefetch';
 
 (function() {
   // Starts the startup work the last New Tab's choices make known while the rest of the page is still
@@ -42,5 +42,5 @@ import * as StorageReadBatch from '../platform/storage-read-batch';
     return;
   }
   const providerRuntime = ProviderStorage.createProviderStorageRuntime(chromeApi);
-  StorageReadBatch.prefetchStorageRead(providerRuntime.area, keys, chromeApi);
+  prefetchStorageRead(providerRuntime.area, keys, chromeApi);
 })();

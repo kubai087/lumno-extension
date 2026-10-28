@@ -169,7 +169,6 @@ import { createSearchInput } from '../shared/react/search-input';
 import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import { newtabShortcutFaviconCache, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
-import { takePrefetchedRead } from '../platform/storage-read-batch';
 import { SettingPreview } from './setting-preview';
 import { repairStoredSettings } from './setting-repairs';
 import { newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../domain/settings/newtab-time';
@@ -196,15 +195,21 @@ import * as FaviconBrowserIconIndex from '../domain/favicon/browser-icon-index';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
-import * as SettingsStorage from '../platform/settings-storage';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
   // receives this one object as `pageState` and reads and writes the same
   // properties this file does. page-state.ts lists its initial values.
   const pageState = LumnoNewtabPageState.createPageState();
+  const {
+    settingsRuntimeApi,
+    providerStorageRuntime,
+    storageArea,
+    takeStartupRead,
+    migrateLocalSettingsIfNeeded
+  } = NEWTAB_STARTUP_STORAGE.createStartupStorage();
   // The page's settings, read and followed through the one store of this context.
-  const settings = getContextSettingsStore(chrome, window, takePrefetchedRead);
+  const settings = getContextSettingsStore(chrome, window, takeStartupRead);
   // A dragged slider's value until it is saved.
   const preview = new SettingPreview(settings);
   preview.follow([
@@ -219,13 +224,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     document.body.removeAttribute('data-nt-ready');
   }
 
-  const {
-    settingsRuntimeApi,
-    providerStorageRuntime,
-    startupStorageReadBatch,
-    storageArea,
-    migrateLocalSettingsIfNeeded
-  } = NEWTAB_STARTUP_STORAGE.createStartupStorage();
 
   // Edge's topSites lists its own promoted sites instead of the user's, so Edge
   // ranks most-visited from history visit counts alone.
@@ -2070,17 +2068,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     getSiteSearchTriggerCandidate,
     getLocalSearchScopeCandidate,
     getShortcutRules: (...args) => getShortcutRules(...args),
-    readSearchSourceOrder: () => SettingsStorage.readStorageValue(
-      storageArea,
-      chrome,
-      SETTINGS.searchSourceOrder.key
-    ),
-    writeSearchSourceOrder: (value) => SettingsStorage.writeStorageValue(
-      storageArea,
-      chrome,
-      SETTINGS.searchSourceOrder.key,
-      value
-    ),
     pageState
   });
 
@@ -2744,9 +2731,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
   const initialLanguageReadyTask = followLanguage();
   const initialMotionPreferenceReadyTask = readBootValue('motionPreferenceReady');
-  const initialLayoutStorageReadyTask = startupStorageReadBatch
-    ? startupStorageReadBatch.ready
-    : Promise.resolve(true);
   const initialFontsReadyTask = document.fonts && document.fonts.ready &&
     typeof document.fonts.ready.then === 'function'
       ? document.fonts.ready.catch(() => true)
@@ -2764,7 +2748,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     sectionPolicyReadyPromise,
     initialShortcutsReadyTask,
     recentSitesReadyTask,
-    initialLayoutStorageReadyTask,
     initialFontsReadyTask,
     initialTimeFontReadyTask,
     initialQuoteReadyTask

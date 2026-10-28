@@ -57,36 +57,9 @@ interface ProviderStorageOptions extends RetryOptions {
   modeRetryDelaysMs?: number[];
 }
 
-interface ReadBatchMetrics {
-  keys: readonly string[] | null;
-  keyCount: number | null;
-  requestCount: number;
-  underlyingReadCount: number;
-}
 
-// The area a read batch hands out: reads made before the batch flushes are
-// served by one storage read.
-interface BatchedStorageArea extends StorageAreaLike {
-  get(
-    keys?: StorageKeys | ((items: StorageItems | undefined) => void),
-    callback?: (items: StorageItems | undefined) => void
-  ): Promise<StorageItems | undefined> | void;
-  remove(keys: string | string[], callback?: () => void): Promise<void> | void;
-  clear(callback?: () => void): Promise<void> | void;
-}
 
-interface StorageReadBatch {
-  area: BatchedStorageArea;
-  flush(): void;
-  ready: Promise<ReadBatchMetrics>;
-}
 
-interface StorageReadPrefetch {
-  keys: Set<string>;
-  stale: boolean;
-  result: Promise<StorageItems | null>;
-  release: () => void;
-}
 
 // What window.matchMedia answers for the reduced-motion query.
 interface MotionWindow {
@@ -407,16 +380,12 @@ export {
 };
 export type {
   AreaName,
-  BatchedStorageArea,
   FacadeCallback,
   MotionWindow,
   ProviderStorageOptions,
   ProviderStorageRuntime,
-  ReadBatchMetrics,
   RetryOptions,
   StorageAreaFacade,
   StorageChromeApi,
-  StorageMethod,
-  StorageReadBatch,
-  StorageReadPrefetch
+  StorageMethod
 };
