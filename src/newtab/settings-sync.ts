@@ -4,7 +4,6 @@
 import type { SiteSearchProvider } from '../domain/search/types';
 import type * as LumnoSettings from '../domain/settings';
 import type { InputModeController } from '../shared/search/search-input-mode';
-import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentHistoryDialogController } from './react/recent-history-dialog';
 import type { SuggestionsController } from './search/suggestions-controller';
@@ -41,7 +40,6 @@ interface SettingsSyncDeps extends
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites'>,
   Pick<SuggestionsController, 'requestTabsAndRender'> {
   settings: Pick<SettingsStore, 'subscribe'>;
-  registerBookmarkDisplayStorageChanges: BookmarkDisplaySettings['registerStorageChangeHandlers'];
   settingsRuntimeApi: Pick<typeof LumnoSettings,
     'assetRevision' | 'progressTrackingEnabled' | 'progressTrackingEnabled'>;
   // Whether changes in this storage area are this page's settings.
@@ -62,7 +60,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     markRecentDataDirty,
     loadRecentSites,
     isPrimaryStorageAreaName,
-    registerBookmarkDisplayStorageChanges,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
     requestTabsAndRender
@@ -82,7 +79,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
   });
   addStorageChangeListener(storageChanges.dispatch);
 
-  registerBookmarkDisplayStorageChanges(storageChanges);
   // With settings in sync, wallpaper files and caches still change in local.
   storageChanges.on([
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,

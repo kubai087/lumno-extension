@@ -1,8 +1,5 @@
-// Reads the stored New Tab preferences once at startup (language, clock,
-// sections, shortcuts, pinned and hidden recent sites, appearance) and
-// applies them before the first reveal.
-import type { StorageAreaLike } from '../domain/storage-port';
-import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
+// The page width and the recent and bookmark section settings: drawn once
+// read, and again whenever they or a dragged slider's value change.
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { PageLayout } from './page-layout';
 import type { PagePreferences } from './page-preferences';
@@ -34,13 +31,9 @@ interface StartupPreferencesDeps extends
     'getBookmarkLimit'>,
   Pick<PageLayout,
     'applyNewtabWidthMode' | 'applyRecentGridColumns' |
-    'applyBookmarkGridColumns' | 'keepBookmarkPageAnchorAfterLimitChange' | 'updateBookmarkSectionPosition'>,
-  Pick<BookmarkDisplaySettings,
-    'loadInitialBookmarkTopbarSurfaceColors' |
-    'loadInitialBookmarkTopbarSurfaceMode'> {
+    'applyBookmarkGridColumns' | 'keepBookmarkPageAnchorAfterLimitChange' | 'updateBookmarkSectionPosition'> {
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'store'>;
-  storageArea: StorageAreaLike | null;
   renderRecentSites: SectionLoaders['renderRecentSites'];
   markRecentDataDirty: SectionLoaders['markRecentDataDirty'];
   loadRecentSites: SectionLoaders['loadRecentSites'];
@@ -56,7 +49,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
   const {
     settings,
     preview,
-    storageArea,
     renderRecentSites,
     markRecentDataDirty,
     loadRecentSites,
@@ -69,8 +61,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     updateBookmarkGridHeightLock,
     updateBookmarkSectionPosition,
     updateRecentModeMenu,
-    loadInitialBookmarkTopbarSurfaceColors,
-    loadInitialBookmarkTopbarSurfaceMode,
     markBookmarkDataDirty,
     loadBookmarks
   } = deps;
@@ -161,10 +151,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
   preview.store.subscribe(() => applySectionPreferences(false));
   void settings.include(SECTION_SETTINGS).then(() => applySectionPreferences(true));
 
-  if (storageArea) {
-    loadInitialBookmarkTopbarSurfaceColors();
-    loadInitialBookmarkTopbarSurfaceMode();
-  }
 }
 
 type StartupPreferences = ReturnType<typeof createStartupPreferences>;

@@ -191,11 +191,8 @@ sourceFiles.forEach((file) => {
 
 assert.deepStrictEqual(
   persistedRemoveCalls.sort(),
-  [
-    'src/newtab/bookmarks/bookmark-display-settings.ts:bookmarkTopbarSurfaceStorageArea:BookmarkSettings.bookmarkTopbarSurfaceColorLegacy.key',
-    'src/newtab/bookmarks/bookmark-display-settings.ts:localArea:BookmarkSettings.bookmarkTopbarSurfaceColorLegacy.key'
-  ],
-  'persisted storage removals must remain limited to the reviewed legacy cleanup paths'
+  [],
+  'persisted storage is removed through the settings store, one setting at a time'
 );
 // The settings migrations remove what older versions left behind; these are
 // every key they may remove, and none is a setting the current version keeps.

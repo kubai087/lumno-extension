@@ -69,7 +69,7 @@ interface AppearanceModesDeps extends
   Pick<SearchModes, 'setLocalSearchScopePrefix'>,
   Pick<ModeCommands, 'updateModeBadge'>,
   Pick<SuggestionsController, 'renderSuggestions' | 'updateSelection'>,
-  Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceColorForTheme'>,
+  Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
   locale: Pick<SurfaceLocale, 'store' | 'ready'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'include' | 'subscribe'>;
@@ -117,7 +117,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     shortcutTiles,
     applyShortcutTileTheme,
     resolveTheme,
-    syncBookmarkTopbarSurfaceColorForTheme,
+    syncBookmarkTopbarSurfaceAppearance,
     applyWordmarkThemeAppearance,
     suggestionItems,
     applyThemeVariables,
@@ -222,7 +222,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     const previousResolved = document.body ? document.body.getAttribute('data-theme') : '';
     const resolved = resolveTheme(mode, mediaMatchesOverride);
     document.body.setAttribute('data-theme', resolved);
-    syncBookmarkTopbarSurfaceColorForTheme(resolved);
+    syncBookmarkTopbarSurfaceAppearance({ scheduleTone: false });
     if (document.documentElement) {
       document.documentElement.removeAttribute('data-wallpaper-preload-theme');
       document.documentElement.style.colorScheme = resolved;

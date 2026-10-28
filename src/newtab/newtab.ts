@@ -271,10 +271,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const localStorageArea = (chrome && chrome.storage && chrome.storage.local)
     ? chrome.storage.local
     : storageArea;
-  const bookmarkTopbarSurfaceStorageArea =
-    (chrome && chrome.storage && chrome.storage.local)
-      ? chrome.storage.local
-      : null;
   function getExtensionResourceUrl(resourcePath: unknown): string {
     const normalizedPath = String(resourcePath || '').replace(/^\/+/, '');
     if (chrome && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
@@ -539,19 +535,15 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
-    initialBookmarkTopbarLayoutReady,
+    followBookmarkTopbar,
     bookmarkTopbarStorageKeys,
     getEffectiveBookmarkTopbarSurfaceMode,
     getBookmarkTopbarLayout,
     syncBookmarkTopbarSurfaceAppearance,
-    loadInitialBookmarkTopbarSurfaceMode,
-    syncBookmarkTopbarSurfaceColorForTheme,
-    loadInitialBookmarkTopbarSurfaceColors,
-    registerStorageChangeHandlers: registerBookmarkDisplayStorageChanges,
     handleBookmarkModeMenuAction
   } = NEWTAB_BOOKMARK_DISPLAY_SETTINGS.createBookmarkDisplaySettings({
     NEWTAB_BOOKMARKS_TOPBAR,
-    bookmarkTopbarSurfaceStorageArea,
+    settings,
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     setNewtabTopLayout: (...args) => setNewtabTopLayout(...args),
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
@@ -563,6 +555,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     BOOKMARK_TOPBAR_LAYOUT_ACTION,
     pageState
   });
+  const initialBookmarkTopbarLayoutReady = followBookmarkTopbar();
   const recentCards: RecentCardElement[] = [];
   const bookmarkCards: BookmarkCardElement[] = [];
   const suggestionItems: SuggestionElement[] = [];
@@ -939,6 +932,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    syncBookmarkTopbarSurfaceAppearance,
     locale,
     settings,
     t,
@@ -958,7 +952,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     shortcutTiles,
     applyShortcutTileTheme,
     resolveTheme,
-    syncBookmarkTopbarSurfaceColorForTheme,
     applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     suggestionItems,
     applyThemeVariables,
@@ -1227,7 +1220,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
     isPrimaryStorageAreaName,
-    registerBookmarkDisplayStorageChanges,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
@@ -1237,7 +1229,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
     preview,
     settings,
-    storageArea,
     renderRecentSites: (...args) => renderRecentSites(...args),
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
@@ -1250,8 +1241,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
     updateBookmarkSectionPosition,
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
-    loadInitialBookmarkTopbarSurfaceColors,
-    loadInitialBookmarkTopbarSurfaceMode,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
     pageState
