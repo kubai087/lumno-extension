@@ -106,7 +106,6 @@ import { isNode } from '../shared/dom-guards';
 import {
   bookmarkColumns,
   bookmarkCount,
-  bookmarkFolderColorPresets,
   bookmarkFolderIconsVisible,
   bookmarkViewMode,
   newtabFavicon,
@@ -174,7 +173,6 @@ import { getPageStructureApi } from './react/page-structure';
 import { getFolderColorPickerApi } from './react/folder-color-picker-lazy';
 import { createSearchInput } from '../shared/react/search-input';
 import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
-import { bookmarkFolderColorRefs, bookmarkFolderColorsLegacy } from '../domain/settings/bookmarks';
 import { newtabShortcutFaviconCache, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
 import { takePrefetchedRead } from '../platform/storage-read-batch';
@@ -641,8 +639,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const shortcutGroupHeaders: HTMLElement[] = [];
-  const LEGACY_FOLDER_COLORS_STORAGE_KEY = bookmarkFolderColorsLegacy.key;
-  const FOLDER_COLOR_REFS_STORAGE_KEY = bookmarkFolderColorRefs.key;
 
   const {
     buildSearchUrl,
@@ -843,18 +839,14 @@ import * as SettingsStorage from '../platform/settings-storage';
     applySavedFolderColor,
     readSavedFolderColors,
     saveSavedFolderColors,
-    syncFolderColorsWithBookmarks,
     scheduleFolderColorSync,
     loadFolderColors,
     openFolderColorPicker
   } = NEWTAB_FOLDER_COLORS.createFolderColors({
     folderColorApi,
     NEWTAB_BOOKMARK_FOLDER_ICON,
-    storageArea,
-    FOLDER_COLOR_REFS_STORAGE_KEY,
+    settings,
     bookmarksRuntime,
-    localStorageArea,
-    LEGACY_FOLDER_COLORS_STORAGE_KEY,
     closeBookmarkCascadeMenu,
     closeShortcutDialog,
     hideCursorTooltip: (...args) => hideCursorTooltip(...args),
@@ -862,7 +854,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     playFolderPathMorph,
     bindShortcutDialogTooltip: (...args) => bindShortcutDialogTooltip(...args),
     hideShortcutDialogTooltip: (...args) => hideShortcutDialogTooltip(...args),
-    FOLDER_COLOR_PRESETS_STORAGE_KEY: bookmarkFolderColorPresets.key,
     showToast,
     pageState
   });
@@ -1236,14 +1227,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
     isPrimaryStorageAreaName,
-    FOLDER_COLOR_REFS_STORAGE_KEY,
-    NEWTAB_BOOKMARK_FOLDER_ICON,
-    syncFolderColorsWithBookmarks,
-    siteSearchIconCache,
-    setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
-    defaultTheme,
-    getThemeForProvider,
-    requestSuggestions: (...args) => requestSuggestions(...args),
     registerBookmarkDisplayStorageChanges,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
@@ -2523,6 +2506,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     setSiteSearchPrefix,
     clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    requestSuggestions,
     settings,
     renderSuggestions,
     searchInput,

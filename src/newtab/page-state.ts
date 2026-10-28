@@ -192,9 +192,6 @@ function createPageState(): NewtabPageState {
     shortcutPersistenceInFlightCount: 0,
     shortcutDragState: null,
 
-    // Synced colors keyed by folder path, and the colors they resolve to for
-    // this device's bookmark ids.
-    folderColorRefs: {},
     shortcutFaviconPolicyRevision: 0,
     shortcutFaviconPendingCacheEntries: {},
 

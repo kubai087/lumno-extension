@@ -1,7 +1,8 @@
 // Folder accent colors: the per-folder color references kept in storage,
 // applying them to bookmark and shortcut folders, migrating the legacy
 // per-device map, and opening the color picker.
-import type { StorageAreaLike, StorageItems } from '../../domain/storage-port';
+import { bookmarkFolderColorPresets, bookmarkFolderColorRefs, bookmarkFolderColorsLegacy } from '../../domain/settings/bookmarks';
+import type { SettingsStore } from '../../platform/settings-store';
 import type { createFolderColorPicker } from '../react/folder-color-picker';
 import type { createFolderColorPickerApi } from '../react/folder-color-picker-lazy';
 import type { BindTooltip, ShowToast, Translate } from '../newtab-types';
@@ -14,18 +15,13 @@ type FolderColorPicker = ReturnType<typeof createFolderColorPicker>;
 interface FolderColorsState {
   // Made the first time a folder's color is changed.
   folderColorPicker: FolderColorPicker | null;
-  // Synced colors keyed by folder path.
-  folderColorRefs: FolderColorRefs;
 }
 
 interface FolderColorsDeps {
   folderColorApi: ReturnType<typeof createFolderColorPickerApi> | undefined;
   NEWTAB_BOOKMARK_FOLDER_ICON: typeof FolderIcon;
-  storageArea: StorageAreaLike | null;
-  FOLDER_COLOR_REFS_STORAGE_KEY: string;
+  settings: Pick<SettingsStore, 'get' | 'include' | 'remove' | 'set' | 'subscribe'>;
   bookmarksRuntime: BookmarksRuntime;
-  localStorageArea: StorageAreaLike | null;
-  LEGACY_FOLDER_COLORS_STORAGE_KEY: string;
   closeBookmarkCascadeMenu(): void;
   closeShortcutDialog(): void;
   hideCursorTooltip(): void;
@@ -33,7 +29,6 @@ interface FolderColorsDeps {
   playFolderPathMorph: typeof FolderIcon.playFolderPathMorph;
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
-  FOLDER_COLOR_PRESETS_STORAGE_KEY: string;
   showToast: ShowToast;
   pageState: FolderColorsState;
 }
@@ -42,11 +37,8 @@ function createFolderColors(deps: FolderColorsDeps) {
   const {
     folderColorApi,
     NEWTAB_BOOKMARK_FOLDER_ICON,
-    storageArea,
-    FOLDER_COLOR_REFS_STORAGE_KEY,
+    settings,
     bookmarksRuntime,
-    localStorageArea,
-    LEGACY_FOLDER_COLORS_STORAGE_KEY,
     closeBookmarkCascadeMenu,
     closeShortcutDialog,
     hideCursorTooltip,
@@ -54,7 +46,6 @@ function createFolderColors(deps: FolderColorsDeps) {
     playFolderPathMorph,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
-    FOLDER_COLOR_PRESETS_STORAGE_KEY,
     showToast
   } = deps;
 
@@ -62,6 +53,14 @@ function createFolderColors(deps: FolderColorsDeps) {
   const pageState = deps.pageState;
 
   let folderColors: FolderColorMap = {};
+  // Synced colors keyed by folder path.
+  let folderColorRefs: FolderColorRefs = {};
+  // Colors another device saved arrive here; see applyFolderColorRefs for
+  // why they are not written back.
+  settings.subscribe(bookmarkFolderColorRefs, () => {
+    folderColorRefs = NEWTAB_BOOKMARK_FOLDER_ICON.normalizeFolderColorRefs(settings.get(bookmarkFolderColorRefs));
+    void syncFolderColorsWithBookmarks(false).catch(() => {});
+  });
 
   let folderColorPreview: { folderId: string; color: string } | null = null;
   pageState.folderColorPicker = null;
@@ -85,54 +84,22 @@ function createFolderColors(deps: FolderColorsDeps) {
     });
   }
 
-  // Settles once the storage call ends; rejects with runtime.lastError.
-  function settleStorageCall<T>(
-    area: StorageAreaLike | null,
-    call: (area: StorageAreaLike, done: (result?: T) => void) => void,
-    fallback: T
-  ): Promise<T> {
-    return new Promise((resolve, reject) => {
-      if (!area) { reject(new Error('Storage unavailable')); return; }
-      call(area, (result) => {
-        const error = chrome.runtime && chrome.runtime.lastError;
-        if (error) reject(new Error(error.message));
-        else resolve(result === undefined ? fallback : result);
-      });
-    });
-  }
-
-  function readStorage(area: StorageAreaLike | null, keys: string[]): Promise<StorageItems> {
-    return settleStorageCall<StorageItems>(area, (target, done) => { void target.get(keys, done); }, {});
-  }
-
-  function writeStorage(area: StorageAreaLike | null, items: StorageItems): Promise<void> {
-    return settleStorageCall<void>(area, (target, done) => { void target.set(items, done); }, undefined);
-  }
-
-  function removeStorage(area: StorageAreaLike | null, keys: string[]): Promise<void> {
-    return settleStorageCall<void>(area, (target, done) => {
-      if (typeof target.remove === 'function') void target.remove(keys, done);
-      else done();
-    }, undefined);
-  }
-
   function readFolderColorRefs(): Promise<FolderColorRefs> {
-    return readStorage(storageArea, [FOLDER_COLOR_REFS_STORAGE_KEY]).then((data) =>
-      NEWTAB_BOOKMARK_FOLDER_ICON.normalizeFolderColorRefs(data[FOLDER_COLOR_REFS_STORAGE_KEY]));
+    return settings.include(bookmarkFolderColorRefs).then(() =>
+      NEWTAB_BOOKMARK_FOLDER_ICON.normalizeFolderColorRefs(settings.get(bookmarkFolderColorRefs)));
   }
 
   function writeFolderColorRefs(refs: FolderColorRefs): Promise<void> {
-    return writeStorage(storageArea, { [FOLDER_COLOR_REFS_STORAGE_KEY]: refs });
+    return settings.set(bookmarkFolderColorRefs, refs);
   }
 
   // The colors saved in the picker, read as untrusted.
   function readSavedFolderColors(): Promise<unknown> {
-    return readStorage(storageArea, [FOLDER_COLOR_PRESETS_STORAGE_KEY])
-      .then((data) => data[FOLDER_COLOR_PRESETS_STORAGE_KEY]);
+    return settings.include(bookmarkFolderColorPresets).then(() => settings.get(bookmarkFolderColorPresets));
   }
 
   function saveSavedFolderColors(colors: string[]): Promise<void> {
-    return writeStorage(storageArea, { [FOLDER_COLOR_PRESETS_STORAGE_KEY]: colors });
+    return settings.set(bookmarkFolderColorPresets, colors);
   }
 
   // Bookmark ids and paths can change underneath the synced map; resolving
@@ -141,18 +108,18 @@ function createFolderColors(deps: FolderColorsDeps) {
   // A map arriving from another device whose bookmarks have not caught up
   // would otherwise move the entry back and forth between the two devices.
   function applyFolderColorRefs(persist: boolean): Promise<void> {
-    const resolved = NEWTAB_BOOKMARK_FOLDER_ICON.resolveFolderColors(pageState.folderColorRefs, bookmarksRuntime.getNodeMap());
+    const resolved = NEWTAB_BOOKMARK_FOLDER_ICON.resolveFolderColors(folderColorRefs, bookmarksRuntime.getNodeMap());
     folderColors = resolved.colors;
     refreshFolderColors();
     if (!resolved.changed || !persist) return Promise.resolve();
-    pageState.folderColorRefs = resolved.refs;
+    folderColorRefs = resolved.refs;
     return writeFolderColorRefs(resolved.refs).catch((error) => {
       console.warn('[Lumno] Could not update folder color references.', error);
     });
   }
 
   function syncFolderColorsWithBookmarks(persist: boolean): Promise<void> {
-    if (!Object.keys(pageState.folderColorRefs).length) {
+    if (!Object.keys(folderColorRefs).length) {
       folderColors = {};
       refreshFolderColors();
       return Promise.resolve();
@@ -166,7 +133,7 @@ function createFolderColors(deps: FolderColorsDeps) {
   // Bookmark sync can deliver many changes at once; resolve after they settle.
   let folderColorSyncTimer = 0;
   function scheduleFolderColorSync(): void {
-    if (!Object.keys(pageState.folderColorRefs).length) return;
+    if (!Object.keys(folderColorRefs).length) return;
     window.clearTimeout(folderColorSyncTimer);
     folderColorSyncTimer = window.setTimeout(() => {
       folderColorSyncTimer = 0;
@@ -176,21 +143,21 @@ function createFolderColors(deps: FolderColorsDeps) {
 
   // Colors saved before they synced were keyed by this device's bookmark ids.
   async function migrateLegacyFolderColors(): Promise<void> {
-    const data = await readStorage(localStorageArea, [LEGACY_FOLDER_COLORS_STORAGE_KEY]);
-    const legacy = NEWTAB_BOOKMARK_FOLDER_ICON.normalizeFolderColorMap(data[LEGACY_FOLDER_COLORS_STORAGE_KEY]);
+    await settings.include(bookmarkFolderColorsLegacy);
+    const legacy = NEWTAB_BOOKMARK_FOLDER_ICON.normalizeFolderColorMap(settings.get(bookmarkFolderColorsLegacy));
     if (!Object.keys(legacy).length) return;
     if (!await bookmarksRuntime.ensureReady(false)) return;
     const refs = await readFolderColorRefs();
     const next = NEWTAB_BOOKMARK_FOLDER_ICON.importFolderColorMap(legacy, refs, bookmarksRuntime.getNodeMap());
     if (JSON.stringify(next) !== JSON.stringify(refs)) await writeFolderColorRefs(next);
-    await removeStorage(localStorageArea, [LEGACY_FOLDER_COLORS_STORAGE_KEY]);
+    await settings.remove(bookmarkFolderColorsLegacy);
   }
 
   function loadFolderColors(): Promise<void> {
     return migrateLegacyFolderColors().catch((error) => {
       console.warn('[Lumno] Could not migrate folder colors.', error);
     }).then(readFolderColorRefs).then((refs) => {
-      pageState.folderColorRefs = refs;
+      folderColorRefs = refs;
       return syncFolderColorsWithBookmarks(true);
     }).catch(() => {});
   }
@@ -202,7 +169,7 @@ function createFolderColors(deps: FolderColorsDeps) {
       : null;
     if (!next) throw new Error('Folder is unavailable');
     await writeFolderColorRefs(next);
-    pageState.folderColorRefs = next;
+    folderColorRefs = next;
     await applyFolderColorRefs(true);
   }
 

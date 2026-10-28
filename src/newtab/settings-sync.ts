@@ -1,23 +1,16 @@
 // Keeps an open New Tab in step with settings changed elsewhere (Settings,
 // another tab, sync): one listener per storage key on the shared change
 // registry, and the runtime messages that ask the page to refresh a section.
-import type { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type * as LumnoSettings from '../domain/settings';
-import type { ThemeVariant } from '../shared/favicon/favicon-theme';
 import type { InputModeController } from '../shared/search/search-input-mode';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
-import type * as BookmarkFolderIcon from './bookmarks/bookmark-folder-icon';
-import type { FolderColorRefs } from './bookmarks/bookmark-folder-icon';
-import type { FolderColors } from './bookmarks/folder-colors';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentHistoryDialogController } from './react/recent-history-dialog';
-import type { SearchModeController } from './search/search-mode-controller';
 import type { SuggestionsController } from './search/suggestions-controller';
 import type { SectionLoaders } from './section-loaders';
 import type { ShortcutIconMap } from './shortcuts/shortcut-icon-store';
 import * as LumnoNewtabStorageChangeRegistry from './storage-change-registry';
-import type { SiteThemeResolver } from './theme/site-theme-resolver';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import { bingDailyCache } from '../domain/settings/newtab-wallpaper';
 import type { CachedIconMap } from '../domain/favicon/shortcut-favicon/types';
@@ -29,7 +22,6 @@ import type { SettingsStore } from '../platform/settings-store';
 interface SettingsSyncState {
   bookmarkCurrentPage: number;
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
-  folderColorRefs: FolderColorRefs;
   recentSourceItems: RecentSite[];
   recentRenderSignature: string;
   recentHistoryDialogController: Pick<RecentHistoryDialogController, 'close'> | null;
@@ -47,20 +39,13 @@ interface SettingsSyncState {
 interface SettingsSyncDeps extends
   Pick<SectionLoaders,
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites'>,
-  Pick<FolderColors, 'syncFolderColorsWithBookmarks'>,
-  Pick<SearchModeController, 'setSiteSearchPrefix'>,
-  Pick<SiteThemeResolver, 'getThemeForProvider'>,
-  Pick<SuggestionsController, 'requestSuggestions' | 'requestTabsAndRender'> {
+  Pick<SuggestionsController, 'requestTabsAndRender'> {
   settings: Pick<SettingsStore, 'subscribe'>;
   registerBookmarkDisplayStorageChanges: BookmarkDisplaySettings['registerStorageChangeHandlers'];
   settingsRuntimeApi: Pick<typeof LumnoSettings,
     'assetRevision' | 'progressTrackingEnabled' | 'progressTrackingEnabled'>;
   // Whether changes in this storage area are this page's settings.
   isPrimaryStorageAreaName(areaName: string): boolean;
-  NEWTAB_BOOKMARK_FOLDER_ICON: Pick<typeof BookmarkFolderIcon, 'normalizeFolderColorRefs'>;
-  defaultTheme: ThemeVariant;
-  FOLDER_COLOR_REFS_STORAGE_KEY: string;
-  siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
   pageState: SettingsSyncState;
 }
@@ -77,14 +62,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     markRecentDataDirty,
     loadRecentSites,
     isPrimaryStorageAreaName,
-    FOLDER_COLOR_REFS_STORAGE_KEY,
-    NEWTAB_BOOKMARK_FOLDER_ICON,
-    syncFolderColorsWithBookmarks,
-    siteSearchIconCache,
-    setSiteSearchPrefix,
-    defaultTheme,
-    getThemeForProvider,
-    requestSuggestions,
     registerBookmarkDisplayStorageChanges,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
@@ -105,28 +82,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
   });
   addStorageChangeListener(storageChanges.dispatch);
 
-  storageChanges.on(FOLDER_COLOR_REFS_STORAGE_KEY, (changes) => {
-    pageState.folderColorRefs = NEWTAB_BOOKMARK_FOLDER_ICON.normalizeFolderColorRefs(changes[FOLDER_COLOR_REFS_STORAGE_KEY].newValue);
-    void syncFolderColorsWithBookmarks(false).catch(() => {});
-  });
-  storageChanges.on(siteSearchIconCache.storageKey, (changes) => {
-    siteSearchIconCache.applyStored(changes[siteSearchIconCache.storageKey].newValue);
-    if (pageState.siteSearchState && pageState.inputModeController) {
-      const activeProvider = pageState.siteSearchState;
-      setSiteSearchPrefix(activeProvider, defaultTheme);
-      void getThemeForProvider(activeProvider).then((theme) => {
-        if (pageState.siteSearchState === activeProvider) {
-          setSiteSearchPrefix(activeProvider, theme);
-        }
-      }).catch(() => {});
-    }
-    if (pageState.inputModeController) {
-      pageState.inputModeController.refreshModeMenu();
-    }
-    if (pageState.latestQuery) {
-      requestSuggestions(pageState.latestQuery, { immediate: true });
-    }
-  }, { area: 'local' });
   registerBookmarkDisplayStorageChanges(storageChanges);
   // With settings in sync, wallpaper files and caches still change in local.
   storageChanges.on([

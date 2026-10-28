@@ -12,10 +12,11 @@ import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ActiveLocalScope, RenderSuggestions } from './search-types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
-import { searchResultDisplayLimit, searchResultPriority, searchResultSourceTypes } from '../../domain/settings/search';
+import { searchResultDisplayLimit, searchResultPriority, searchResultSourceTypes, siteSearchIconCache as siteSearchIconCacheSetting } from '../../domain/settings/search';
 import { newtabOpenInNewTab } from '../../domain/settings/newtab-page';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { SuggestionsController } from './suggestions-controller';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -32,7 +33,8 @@ interface SearchModeControllerState {
 }
 
 interface SearchModeControllerDeps {
-  settings: Pick<SettingsStore, 'include'>;
+  settings: Pick<SettingsStore, 'getStored' | 'include' | 'subscribe'>;
+  requestSuggestions: SuggestionsController['requestSuggestions'];
   renderSuggestions: RenderSuggestions;
   searchInput: HTMLInputElement;
   // The room the clear button takes at the input's right.
@@ -65,12 +67,13 @@ interface SearchModeControllerDeps {
   hideToast(): void;
   setSearchScopeIconEnabled(enabled: boolean): void;
   syncSearchModeMenuResultOffset(): void;
-  siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
+  siteSearchIconCache: Pick<SiteSearchIconCache, 'applyStored' | 'load'>;
   pageState: SearchModeControllerState;
 }
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
+    requestSuggestions,
     settings,
     renderSuggestions,
     searchInput,
@@ -193,7 +196,8 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     );
     searchModeMenuResultResizeObserver.observe(suggestionsContainer);
   }
-  siteSearchIconCache.load().then(() => {
+  // The active site search's prefix shows its icon once the icons are read.
+  function showActiveProviderIcon(): void {
     if (!pageState.siteSearchState || !pageState.inputModeController) {
       return;
     }
@@ -204,6 +208,19 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
         setSiteSearchPrefix(activeProvider, theme);
       }
     }).catch(() => {});
+  }
+  void siteSearchIconCache.load().then(showActiveProviderIcon);
+  // Icons another page stored redraw the prefix, the mode menu and the
+  // suggestions.
+  settings.subscribe(siteSearchIconCacheSetting, () => {
+    siteSearchIconCache.applyStored(settings.getStored(siteSearchIconCacheSetting));
+    showActiveProviderIcon();
+    if (pageState.inputModeController) {
+      pageState.inputModeController.refreshModeMenu();
+    }
+    if (pageState.latestQuery) {
+      requestSuggestions(pageState.latestQuery, { immediate: true });
+    }
   });
 
   function updateSiteSearchPrefixLayout(): void {
