@@ -1,14 +1,15 @@
 // Slash commands for theme, zen mode and Firefox's website appearance, and
 // the setters behind them.
 import type { WebAppearanceMode } from '../domain/messages';
-import type * as LumnoSettings from '../domain/settings';
 import type { ThemeMode } from '../domain/settings';
 import type { StorageAreaLike } from '../domain/storage-port';
 import * as LumnoMessaging from '../platform/messaging';
 import type { SearchInputParts } from '../shared/react/search-input';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
-import type { FormatMessage, NewtabThemeMode, NewtabThemeScope, Translate } from './newtab-types';
+import type { FormatMessage, Translate } from './newtab-types';
 import type { RenderSuggestions, SlashCommand } from './search/search-types';
+import type { SettingsStore } from '../platform/settings-store';
+import { NEWTAB_THEME_SETTINGS } from '../domain/settings/newtab-page';
 
 interface ModeCommandsState {
   zenModeEnabled: boolean;
@@ -16,12 +17,10 @@ interface ModeCommandsState {
   inputParts: Pick<SearchInputParts, 'input' | 'setChrome'> | null;
   bookmarkTopbarRuntime: { setVisible(visible: boolean): void } | null;
   currentBookmarkCount: number;
-  newtabThemeScope: NewtabThemeScope;
-  globalThemeMode: ThemeMode;
-  newtabThemeMode: NewtabThemeMode;
 }
 
 interface ModeCommandsDeps {
+  settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
   t: Translate;
   formatMessage: FormatMessage;
   updateInputRightPadding(): void;
@@ -48,16 +47,6 @@ interface ModeCommandsDeps {
   normalizeZenModeEnabled(value: unknown): boolean;
   storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
   NEWTAB_ZEN_MODE_STORAGE_KEY: string;
-  SETTINGS: Pick<typeof LumnoSettings, 'createGlobalThemeModeStorageUpdate'>;
-  THEME_STORAGE_KEY: string;
-  applyScopedThemeMode(): void;
-  updateWallpaperLanguageStrings(): void;
-  normalizeThemeMode(value: unknown): ThemeMode;
-  NEWTAB_THEME_MODE_STORAGE_KEY: string;
-  normalizeNewtabThemeMode(value: unknown): NewtabThemeMode;
-  isNewtabThemeFollowingGlobal(): boolean;
-  normalizeNewtabThemeScope(value: unknown): NewtabThemeScope;
-  NEWTAB_THEME_SCOPE_STORAGE_KEY: string;
   pageState: ModeCommandsState;
 }
 
@@ -66,6 +55,7 @@ const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'da
 
 function createModeCommands(deps: ModeCommandsDeps) {
   const {
+    settings,
     t,
     formatMessage,
     updateInputRightPadding,
@@ -91,17 +81,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     scheduleWallpaperAdaptiveToneUpdate,
     normalizeZenModeEnabled,
     storageArea,
-    NEWTAB_ZEN_MODE_STORAGE_KEY,
-    SETTINGS,
-    THEME_STORAGE_KEY,
-    applyScopedThemeMode,
-    updateWallpaperLanguageStrings,
-    normalizeThemeMode,
-    NEWTAB_THEME_MODE_STORAGE_KEY,
-    normalizeNewtabThemeMode,
-    isNewtabThemeFollowingGlobal,
-    normalizeNewtabThemeScope,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY
+    NEWTAB_ZEN_MODE_STORAGE_KEY
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -480,92 +460,8 @@ function createModeCommands(deps: ModeCommandsDeps) {
     });
   }
 
-  function getThemeScope(): NewtabThemeScope {
-    return pageState.newtabThemeScope;
-  }
-
-  function getGlobalThemeStorageUpdate(mode: unknown): Record<string, ThemeMode> {
-    return SETTINGS.createGlobalThemeModeStorageUpdate(mode);
-  }
-
-  function setGlobalThemeMode(mode: ThemeMode): void {
-    const updates = getGlobalThemeStorageUpdate(mode);
-    pageState.globalThemeMode = updates[THEME_STORAGE_KEY];
-    if (!storageArea) {
-      applyScopedThemeMode();
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-      return;
-    }
-    void storageArea.set(updates, () => {
-      applyScopedThemeMode();
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-    });
-  }
-
-  function setThemeMode(mode: unknown): void {
-    const nextMode = normalizeThemeMode(mode);
-    const isEditingNewtabTheme = pageState.newtabThemeScope === 'home';
-    const targetKey = isEditingNewtabTheme
-      ? NEWTAB_THEME_MODE_STORAGE_KEY
-      : THEME_STORAGE_KEY;
-    const nextStoredMode = isEditingNewtabTheme && nextMode === 'system'
-      ? 'global'
-      : nextMode;
-    if (!isEditingNewtabTheme) {
-      setGlobalThemeMode(nextMode);
-      return;
-    }
-    pageState.newtabThemeMode = normalizeNewtabThemeMode(nextStoredMode);
-    if (!storageArea) {
-      applyScopedThemeMode();
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-      return;
-    }
-    void storageArea.set({ [targetKey]: nextStoredMode }, () => {
-      applyScopedThemeMode();
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-    });
-  }
-
-  function setVisibleThemeMode(mode: unknown): void {
-    const nextMode = normalizeThemeMode(mode);
-    if (isNewtabThemeFollowingGlobal()) {
-      setGlobalThemeMode(nextMode);
-      return;
-    }
-    const nextStoredMode = nextMode === 'system' ? 'global' : nextMode;
-    pageState.newtabThemeMode = normalizeNewtabThemeMode(nextStoredMode);
-    if (!storageArea) {
-      applyScopedThemeMode();
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-      return;
-    }
-    void storageArea.set({ [NEWTAB_THEME_MODE_STORAGE_KEY]: nextStoredMode }, () => {
-      applyScopedThemeMode();
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-    });
-  }
-
-  function setThemeScope(scope: unknown): void {
-    const nextScope = normalizeNewtabThemeScope(scope);
-    const updates = { [NEWTAB_THEME_SCOPE_STORAGE_KEY]: nextScope };
-    pageState.newtabThemeScope = nextScope;
-    if (!storageArea) {
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-      return;
-    }
-    void storageArea.set(updates, () => {
-      updateWallpaperLanguageStrings();
-      updateModeCommandSuggestions();
-    });
-  }
+  // The theme commands show the theme as it is.
+  settings.subscribe(NEWTAB_THEME_SETTINGS, () => updateModeCommandSuggestions());
 
   return {
     getCommandMatches,
@@ -584,11 +480,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     updateZenCommandSuggestions,
     applyZenMode,
     setZenModeEnabled,
-    loadZenMode,
-    getThemeScope,
-    setThemeMode,
-    setVisibleThemeMode,
-    setThemeScope
+    loadZenMode
   };
 }
 

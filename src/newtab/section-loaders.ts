@@ -71,7 +71,7 @@ interface SectionLoadersDeps extends
     'mergeRecentSitesWithPinned'>,
   Pick<UrlPolicy, 'shouldExcludeFromRecentSites'>,
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu' | 'getTopBookmarks'>,
-  Pick<AppearanceModes, 'bootstrapInitialThemeMode'>,
+  Pick<AppearanceModes, 'followTheme'>,
   Pick<PageFavicons, 'areFaviconRenderCachesReady' | 'waitForFaviconRenderCaches'>,
   Pick<PagePreferences, 'getBookmarkLimit'>,
   Pick<ShortcutsController, 'renderShortcuts'>,
@@ -114,7 +114,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     recentSection,
     bookmarksRuntime,
     closeBookmarkCascadeMenu,
-    bootstrapInitialThemeMode,
+    followTheme,
     areFaviconRenderCachesReady,
     FAVICON_CACHE_BOOT_WAIT_MS,
     waitForFaviconRenderCaches,
@@ -339,7 +339,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       ? Number(config.sectionDataRevision)
       : pageState.sectionDataRevision;
     if (!pageState.initialThemeApplied) {
-      return bootstrapInitialThemeMode().then(() => loadBookmarks({
+      return followTheme().then(() => loadBookmarks({
         ...config,
         sectionDataRevision: requestedSectionDataRevision
       }));
@@ -425,7 +425,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       ? Number(config.sectionDataRevision)
       : pageState.sectionDataRevision;
     if (!pageState.initialThemeApplied) {
-      return bootstrapInitialThemeMode().then(() => loadRecentSites({
+      return followTheme().then(() => loadRecentSites({
         ...config,
         sectionDataRevision: requestedSectionDataRevision
       }));

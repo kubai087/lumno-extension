@@ -113,8 +113,6 @@ import {
   newtabAppearanceButtonVisible,
   newtabFavicon,
   newtabFeedbackButtonVisible,
-  newtabGlassStyle,
-  newtabGlassTheme,
   newtabInputAutoFocusEnabled,
   newtabLocalWallpaper,
   newtabOpenInNewTab,
@@ -127,8 +125,6 @@ import {
   NEWTAB_SHORTCUT_WIDTH_MAX,
   NEWTAB_SHORTCUT_WIDTH_MIN,
   newtabShortcutWidth,
-  newtabThemeMode,
-  newtabThemeScope,
   newtabWallpaperEffect,
   newtabWallpaperOverlay,
   newtabWallpaper,
@@ -139,8 +135,7 @@ import {
   pinnedRecentSites,
   recentCount,
   recentMode,
-  simpleModeEnabled,
-  themeMode
+  simpleModeEnabled
 } from '../domain/settings';
 import {
   BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
@@ -966,18 +961,17 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
+    getThemeScope,
+    setThemeMode,
+    setVisibleThemeMode,
+    setThemeScope,
     followLanguage,
     refreshThemeAwareFavicons,
     scheduleThemeAwareFaviconRescue,
     applyThemeMode,
-    normalizeThemeMode,
-    normalizeNewtabThemeMode,
-    normalizeNewtabThemeScope,
-    isNewtabThemeFollowingGlobal,
     getScopedThemeMode,
     getSelectedThemeMode,
-    applyScopedThemeMode,
-    bootstrapInitialThemeMode,
+    followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
     locale,
@@ -1011,13 +1005,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     removeMediaQueryChangeListener,
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
     initialThemeReadyPromise,
-    storageArea,
-    THEME_STORAGE_KEY: themeMode.key,
-    NEWTAB_THEME_MODE_STORAGE_KEY: newtabThemeMode.key,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY: newtabThemeScope.key,
-    NEWTAB_GLASS_STYLE_STORAGE_KEY: newtabGlassStyle.key,
-    NEWTAB_GLASS_THEME_STORAGE_KEY: newtabGlassTheme.key,
-    getGlassThemeOverride: SETTINGS.getNewtabGlassThemeOverride,
     pageState
   });
   const NEWTAB_SEARCH_WIDTH_CONFIG = NEWTAB_LAYOUT.SEARCH_WIDTH_CONFIG;
@@ -1224,7 +1211,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
     settings,
     timePreview,
-    SETTINGS,
     shortcutTiles,
     getShortcutDockIcon,
     shortcutGroupHeaders,
@@ -1245,9 +1231,9 @@ import * as SettingsStorage from '../platform/settings-storage';
     formatMessage,
     getSelectedThemeMode,
     getScopedThemeMode,
-    getThemeScope: (...args) => getThemeScope(...args),
-    setThemeMode: (...args) => setThemeMode(...args),
-    setThemeScope: (...args) => setThemeScope(...args),
+    getThemeScope,
+    setThemeMode,
+    setThemeScope,
     showToast,
     beginToast,
     showTopActionTooltip: (...args) => showTopActionTooltip(...args),
@@ -1274,11 +1260,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
     setNewtabInputAutoFocusEnabled,
-    applyNewtabGlassStyle: (...args) => applyNewtabGlassStyle(...args),
-    NEWTAB_GLASS_STYLE_STORAGE_KEY: newtabGlassStyle.key,
-    applyNewtabGlassTheme: (...args) => applyNewtabGlassTheme(...args),
-    NEWTAB_GLASS_THEME_STORAGE_KEY: newtabGlassTheme.key,
-    bootstrapInitialThemeMode,
+    followTheme,
     pageState
   });
 
@@ -1305,7 +1287,7 @@ import * as SettingsStorage from '../platform/settings-storage';
 
   const initialWallpaperOverlayReadyTask = bootstrapInitialWallpaperOverlay();
   const initialWallpaperVisualReadyTask = Promise.all([
-    bootstrapInitialThemeMode(),
+    followTheme(),
     initialWallpaperOverlayReadyTask.then(() => bootstrapInitialWallpaper()),
     initialWallpaperOverlayReadyTask,
     bootstrapInitialWallpaperEffect()
@@ -1366,17 +1348,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
-    THEME_STORAGE_KEY: themeMode.key,
-    normalizeThemeMode,
-    isNewtabThemeFollowingGlobal,
-    applyScopedThemeMode,
-    updateWallpaperAppearanceSelectionUi,
-    updateModeCommandSuggestions: (...args) => updateModeCommandSuggestions(...args),
-    NEWTAB_THEME_MODE_STORAGE_KEY: newtabThemeMode.key,
-    normalizeNewtabThemeMode,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY: newtabThemeScope.key,
-    normalizeNewtabThemeScope,
-    updateWallpaperLanguageStrings,
     NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: newtabInputAutoFocusEnabled.key,
     normalizeNewtabInputAutoFocusEnabled,
     updateNewtabInputAutoFocusUi,
@@ -1388,10 +1359,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_GLASS_STYLE_STORAGE_KEY: newtabGlassStyle.key,
-    applyNewtabGlassStyle: (...args) => applyNewtabGlassStyle(...args),
-    NEWTAB_GLASS_THEME_STORAGE_KEY: newtabGlassTheme.key,
-    applyNewtabGlassTheme: (...args) => applyNewtabGlassTheme(...args),
     NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY: newtabFeedbackButtonVisible.key,
     normalizeNewtabFeedbackButtonVisible,
     applyNewtabActionButtonVisibility: (...args) => applyNewtabActionButtonVisibility(...args),
@@ -2242,7 +2209,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     recentSection: pageState.recentSection,
     bookmarksRuntime,
     closeBookmarkCascadeMenu,
-    bootstrapInitialThemeMode,
+    followTheme,
     areFaviconRenderCachesReady,
     FAVICON_CACHE_BOOT_WAIT_MS,
     waitForFaviconRenderCaches,
@@ -2390,7 +2357,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     isModeCommand: (...args) => isModeCommand(...args),
     isZenCommand: (...args) => isZenCommand(...args),
     getNextThemeMode: (...args) => getNextThemeMode(...args),
-    setVisibleThemeMode: (...args) => setVisibleThemeMode(...args),
+    setVisibleThemeMode,
     setZenModeEnabled: (...args) => setZenModeEnabled(...args),
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     activateSiteSearch,
@@ -2425,7 +2392,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     SUGGESTION_ACTION_MODEL,
     activateSiteSearch,
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
-    setVisibleThemeMode: (...args) => setVisibleThemeMode(...args),
+    setVisibleThemeMode,
     setZenModeEnabled: (...args) => setZenModeEnabled(...args),
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     shouldSwitchMatchedTabSuggestion,
@@ -2445,13 +2412,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     getShortcutRules,
     isModeCommand: (...args) => isModeCommand(...args),
     isZenCommand: (...args) => isZenCommand(...args),
-    storageArea,
-    THEME_STORAGE_KEY: themeMode.key,
-    NEWTAB_THEME_MODE_STORAGE_KEY: newtabThemeMode.key,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY: newtabThemeScope.key,
-    normalizeThemeMode,
-    normalizeNewtabThemeMode,
-    normalizeNewtabThemeScope,
     getScopedThemeMode,
     applyThemeMode,
     getCommandMatches: (...args) => getCommandMatches(...args),
@@ -2521,16 +2481,12 @@ import * as SettingsStorage from '../platform/settings-storage';
     buildZenSuggestion,
     loadWebAppearance,
     setWebAppearanceMode,
-    updateModeCommandSuggestions,
     updateZenCommandSuggestions,
     applyZenMode,
     setZenModeEnabled,
-    loadZenMode,
-    getThemeScope,
-    setThemeMode,
-    setVisibleThemeMode,
-    setThemeScope
+    loadZenMode
   } = NEWTAB_MODE_COMMANDS.createModeCommands({
+    settings,
     t,
     formatMessage,
     updateInputRightPadding: (...args) => updateInputRightPadding(...args),
@@ -2557,16 +2513,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     normalizeZenModeEnabled,
     storageArea,
     NEWTAB_ZEN_MODE_STORAGE_KEY: newtabZenMode.key,
-    SETTINGS,
-    THEME_STORAGE_KEY: themeMode.key,
-    applyScopedThemeMode,
-    updateWallpaperLanguageStrings,
-    normalizeThemeMode,
-    NEWTAB_THEME_MODE_STORAGE_KEY: newtabThemeMode.key,
-    normalizeNewtabThemeMode,
-    isNewtabThemeFollowingGlobal,
-    normalizeNewtabThemeScope,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY: newtabThemeScope.key,
     pageState
   });
 
@@ -2756,19 +2702,13 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
-    applyNewtabGlassStyle,
-    applyNewtabGlassTheme,
-    loadNewtabGlassStyle
+    followNewtabGlassStyle
   } = NEWTAB_GLASS_SURFACES.createGlassSurfaces({
+    settings,
     scheduleWallpaperAdaptiveToneUpdate,
     SETTINGS,
     syncBookmarkTopbarSurfaceAppearance,
-    updateWallpaperAppearanceSelectionUi,
-    applyScopedThemeMode,
-    storageArea,
-    NEWTAB_GLASS_STYLE_STORAGE_KEY: newtabGlassStyle.key,
-    NEWTAB_GLASS_THEME_STORAGE_KEY: newtabGlassTheme.key,
-    pageState
+    updateWallpaperAppearanceSelectionUi
   });
 
   const {
@@ -3010,7 +2950,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   }, { passive: true });
   bottomDockRuntime.onScroll(scheduleWallpaperAdaptiveToneUpdate, { passive: true });
   const actionButtonVisibilityReadyPromise = loadNewtabActionButtonVisibility();
-  const glassStyleReadyPromise = loadNewtabGlassStyle();
+  const glassStyleReadyPromise = followNewtabGlassStyle();
   const shortcutPreferencesReadyPromise = loadNewtabShortcutPreferences();
   const shortcutsReadyPromise = shortcutPreferencesReadyPromise.then(loadVisibleShortcuts);
   const initialShortcutsReadyTask = shortcutsReadyPromise.catch((error) => {

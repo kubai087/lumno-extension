@@ -2,46 +2,30 @@
 // under, the stored glass style and theme, and the ink hint remembered for
 // the next load.
 import type * as Settings from '../../domain/settings';
-import type { NewtabGlassTheme } from '../../domain/settings';
-import type { StorageAreaLike } from '../../domain/storage-port';
 import type { ToneScheduleOptions } from '../wallpaper/wallpaper-adaptive-tone';
 import { createLiquidSurfaces } from '../react/liquid-glass';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
-
-interface GlassSurfacesState {
-  newtabGlassTheme: NewtabGlassTheme;
-  // The theme a light or dark material holds the page in; '' to follow.
-  glassThemeOverride: Exclude<NewtabGlassTheme, 'follow'> | '';
-  initialThemeApplied: boolean;
-}
+import type { SettingsStore } from '../../platform/settings-store';
+import { newtabGlassStyle, newtabGlassTheme } from '../../domain/settings/newtab-page';
 
 interface GlassSurfacesDeps {
+  settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   // { resetInk: true } when a setting changed what the glass ink should be.
   scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions): void;
   SETTINGS: Pick<typeof Settings, 'newtabGlassStyle' | 'newtabGlassTheme' | 'getNewtabGlassThemeOverride'>;
   syncBookmarkTopbarSurfaceAppearance(options: { updateMenu: boolean }): void;
   updateWallpaperAppearanceSelectionUi(): void;
-  applyScopedThemeMode(): void;
-  storageArea: StorageAreaLike | null;
-  NEWTAB_GLASS_STYLE_STORAGE_KEY: string;
-  NEWTAB_GLASS_THEME_STORAGE_KEY: string;
-  pageState: GlassSurfacesState;
 }
 
 function createGlassSurfaces(deps: GlassSurfacesDeps) {
   const {
+    settings,
     scheduleWallpaperAdaptiveToneUpdate,
     SETTINGS,
     syncBookmarkTopbarSurfaceAppearance,
-    updateWallpaperAppearanceSelectionUi,
-    applyScopedThemeMode,
-    storageArea,
-    NEWTAB_GLASS_STYLE_STORAGE_KEY,
-    NEWTAB_GLASS_THEME_STORAGE_KEY
+    updateWallpaperAppearanceSelectionUi
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // Surfaces whose rim bends the wallpaper under the liquid style; the search bar, the results
   // plate it grows into and the site search panel that opens under it, and the dock's cards.
@@ -124,8 +108,8 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     }
   }
 
-  function applyNewtabGlassStyle(value: unknown): void {
-    const style = SETTINGS.newtabGlassStyle.parse(value);
+  function applyNewtabGlassStyle(): void {
+    const style = settings.get(newtabGlassStyle);
     if (style === 'none') {
       document.body.removeAttribute('data-glass-style');
     } else {
@@ -141,14 +125,11 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     scheduleWallpaperAdaptiveToneUpdate({ resetInk: true });
   }
 
-  // A material set to light or dark holds the page's theme there (appearance-modes.ts reads
-  // pageState.glassThemeOverride) and marks the body, so the wallpaper sampler keeps light glass
-  // light instead of turning it dark over a dark wallpaper.
+  // A material set to light or dark holds the page's theme there (appearance-modes.ts reads the
+  // same settings) and marks the body, so the wallpaper sampler keeps light glass light instead
+  // of turning it dark over a dark wallpaper.
   function syncNewtabGlassThemeOverride(): void {
-    const override = SETTINGS.getNewtabGlassThemeOverride(
-      document.body.getAttribute('data-glass-style'),
-      pageState.newtabGlassTheme
-    );
+    const override = SETTINGS.getNewtabGlassThemeOverride(settings.get(newtabGlassStyle), settings.get(newtabGlassTheme));
     if (override) {
       document.body.setAttribute('data-glass-theme', override);
       if (override === 'light') {
@@ -157,47 +138,20 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     } else {
       document.body.removeAttribute('data-glass-theme');
     }
-    if (override === pageState.glassThemeOverride) {
-      return;
-    }
-    pageState.glassThemeOverride = override;
-    // Until the stored theme lands, the theme bootstrap applies the override itself.
-    if (pageState.initialThemeApplied) {
-      applyScopedThemeMode();
-    }
   }
 
-  function applyNewtabGlassTheme(value: unknown): void {
-    pageState.newtabGlassTheme = SETTINGS.newtabGlassTheme.parse(value);
-    syncNewtabGlassThemeOverride();
-    updateWallpaperAppearanceSelectionUi();
-    scheduleWallpaperAdaptiveToneUpdate({ resetInk: true });
-  }
-
-  function loadNewtabGlassStyle(): Promise<void> {
-    if (!storageArea) {
-      applyNewtabGlassStyle('none');
-      return Promise.resolve();
-    }
-    // Narrowed here, for the storage callback below.
-    const area = storageArea;
-    return new Promise((resolve) => {
-      void area.get([NEWTAB_GLASS_STYLE_STORAGE_KEY, NEWTAB_GLASS_THEME_STORAGE_KEY], (result) => {
-        pageState.newtabGlassTheme = SETTINGS.newtabGlassTheme.parse(result && result[NEWTAB_GLASS_THEME_STORAGE_KEY]);
-        applyNewtabGlassStyle(result && result[NEWTAB_GLASS_STYLE_STORAGE_KEY]);
-        resolve();
-      });
-    });
+  // Puts the stored material on the page once read, and again on every change.
+  function followNewtabGlassStyle(): Promise<void> {
+    settings.subscribe([newtabGlassStyle, newtabGlassTheme], applyNewtabGlassStyle);
+    return settings.include([newtabGlassStyle, newtabGlassTheme]).then(applyNewtabGlassStyle);
   }
 
   return {
-    applyNewtabGlassStyle,
-    applyNewtabGlassTheme,
-    loadNewtabGlassStyle
+    followNewtabGlassStyle
   };
 }
 
 type GlassSurfaces = ReturnType<typeof createGlassSurfaces>;
 
 export { createGlassSurfaces };
-export type { GlassSurfaces, GlassSurfacesDeps, GlassSurfacesState };
+export type { GlassSurfaces, GlassSurfacesDeps };

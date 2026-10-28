@@ -2,6 +2,7 @@
 // material, buttons, zen mode and where clicks open.
 import { defineSetting } from './define';
 import { custom, flag, isRecord, oneOf } from './schema';
+import { themeMode } from './appearance';
 
 type NewtabWidthMode = 'standard' | 'wide';
 
@@ -151,7 +152,11 @@ function getNewtabGlassThemeOverride(style: unknown, theme: unknown): Exclude<Ne
   return newtabGlassStyle.parse(style) !== 'none' && glassTheme !== 'follow' ? glassTheme : '';
 }
 
+// The settings that decide the page's theme.
+const NEWTAB_THEME_SETTINGS = [themeMode, newtabThemeMode, newtabThemeScope, newtabGlassStyle, newtabGlassTheme];
+
 export {
+  NEWTAB_THEME_SETTINGS,
   NEWTAB_GLASS_STYLES,
   NEWTAB_GLASS_THEMES,
   NEWTAB_OPEN_IN_NEW_TAB_SURFACES,

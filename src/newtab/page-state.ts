@@ -19,7 +19,6 @@ import type { EntryMotionState } from './entry-motion';
 import type { FeedbackControlState } from './feedback-control';
 import type { FocusResumeState } from './focus-resume';
 import type { FolderColorsState } from './bookmarks/folder-colors';
-import type { GlassSurfacesState } from './theme/glass-surfaces';
 import type { InputFocusState } from './input-focus';
 import type { ModeCommandsState } from './mode-commands';
 import type { PageFaviconsState } from './theme/page-favicons';
@@ -85,7 +84,6 @@ type NewtabPageState =
   FeedbackControlState &
   FocusResumeState &
   FolderColorsState &
-  GlassSurfacesState &
   InputFocusState &
   ModeCommandsState &
   PageFaviconsState &
@@ -127,11 +125,6 @@ type NewtabPageState =
 
 function createPageState(): NewtabPageState {
   return {
-    globalThemeMode: 'system',
-    newtabThemeMode: 'global',
-    newtabThemeScope: 'global',
-    newtabGlassTheme: 'follow',
-    glassThemeOverride: '',
     currentThemeMode: 'system',
     initialThemeApplied: false,
     resolveInitialThemeReady: null,

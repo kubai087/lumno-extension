@@ -7,19 +7,17 @@ import type * as ProgressHistory from '../domain/progress-history';
 import type { ProgressHistoryMap } from '../domain/progress-history';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type * as LumnoSettings from '../domain/settings';
-import type { NewtabWidthMode, ThemeMode } from '../domain/settings';
+import type { NewtabWidthMode } from '../domain/settings';
 import type { StorageAreaLike } from '../domain/storage-port';
 import type { FolderBindingRuntime } from '../platform/bookmark-folder-bindings';
 import type { ThemeVariant } from '../shared/favicon/favicon-theme';
 import type { InputModeController } from '../shared/search/search-input-mode';
-import type { AppearanceModes } from './appearance-modes';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type * as BookmarkFolderIcon from './bookmarks/bookmark-folder-icon';
 import type { FolderColorRefs } from './bookmarks/bookmark-folder-icon';
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { FolderColors } from './bookmarks/folder-colors';
 import type { ModeCommands } from './mode-commands';
-import type { NewtabThemeMode, NewtabThemeScope } from './newtab-types';
 import type { PageLayout } from './page-layout';
 import type { PagePreferences } from './page-preferences';
 import type { BookmarksViewController } from './react/bookmarks';
@@ -35,10 +33,8 @@ import type * as ShortcutIconStore from './shortcuts/shortcut-icon-store';
 import type { ShortcutIconMap } from './shortcuts/shortcut-icon-store';
 import type { ShortcutsController } from './shortcuts/shortcuts-controller';
 import * as LumnoNewtabStorageChangeRegistry from './storage-change-registry';
-import type { GlassSurfaces } from './theme/glass-surfaces';
 import type { SiteThemeResolver } from './theme/site-theme-resolver';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
-import type { WallpaperPage } from './wallpaper/wallpaper-page';
 import { shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { bingDailyCache } from '../domain/settings/newtab-wallpaper';
 import { progressHistory } from '../domain/settings/recent-sites';
@@ -74,9 +70,6 @@ interface SettingsSyncState {
   inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
   latestQuery: string;
   wallpaperRuntime: Pick<WallpaperRuntime, 'handleStorageChange' | 'updateSearchWidthUi'> | null;
-  globalThemeMode: ThemeMode;
-  newtabThemeMode: NewtabThemeMode;
-  newtabThemeScope: NewtabThemeScope;
   newtabInputAutoFocusEnabled: boolean;
   currentNewtabWidthMode: NewtabWidthMode;
   currentNewtabSearchWidth: number | null;
@@ -118,12 +111,7 @@ interface SettingsSyncDeps extends
   Pick<SearchModeController, 'setSiteSearchPrefix'>,
   Pick<SiteThemeResolver, 'getThemeForProvider'>,
   Pick<SuggestionsController, 'requestSuggestions' | 'requestTabsAndRender'>,
-  Pick<AppearanceModes,
-    'normalizeThemeMode' | 'isNewtabThemeFollowingGlobal' | 'applyScopedThemeMode' | 'normalizeNewtabThemeMode' |
-    'normalizeNewtabThemeScope'>,
-  Pick<WallpaperPage, 'updateWallpaperAppearanceSelectionUi' | 'updateWallpaperLanguageStrings'>,
-  Pick<ModeCommands, 'updateModeCommandSuggestions' | 'updateZenCommandSuggestions' | 'applyZenMode'>,
-  Pick<GlassSurfaces, 'applyNewtabGlassStyle' | 'applyNewtabGlassTheme'>,
+  Pick<ModeCommands, 'updateZenCommandSuggestions' | 'applyZenMode'>,
   Pick<SearchBoxControls, 'applyNewtabActionButtonVisibility'> {
   settings: Pick<SettingsStore, 'subscribe'>;
   registerBookmarkDisplayStorageChanges: BookmarkDisplaySettings['registerStorageChangeHandlers'];
@@ -144,15 +132,10 @@ interface SettingsSyncDeps extends
   siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
   NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
-  THEME_STORAGE_KEY: string;
-  NEWTAB_THEME_MODE_STORAGE_KEY: string;
-  NEWTAB_THEME_SCOPE_STORAGE_KEY: string;
   NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: string;
   RECENT_COUNT_STORAGE_KEY: string;
   NEWTAB_WIDTH_MODE_STORAGE_KEY: string;
   NEWTAB_SEARCH_WIDTH_STORAGE_KEY: string;
-  NEWTAB_GLASS_STYLE_STORAGE_KEY: string;
-  NEWTAB_GLASS_THEME_STORAGE_KEY: string;
   NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY: string;
   NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY: string;
   NEWTAB_ZEN_MODE_STORAGE_KEY: string;
@@ -215,17 +198,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
-    THEME_STORAGE_KEY,
-    normalizeThemeMode,
-    isNewtabThemeFollowingGlobal,
-    applyScopedThemeMode,
-    updateWallpaperAppearanceSelectionUi,
-    updateModeCommandSuggestions,
-    NEWTAB_THEME_MODE_STORAGE_KEY,
-    normalizeNewtabThemeMode,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY,
-    normalizeNewtabThemeScope,
-    updateWallpaperLanguageStrings,
     NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY,
     normalizeNewtabInputAutoFocusEnabled,
     updateNewtabInputAutoFocusUi,
@@ -237,10 +209,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_GLASS_STYLE_STORAGE_KEY,
-    applyNewtabGlassStyle,
-    NEWTAB_GLASS_THEME_STORAGE_KEY,
-    applyNewtabGlassTheme,
     NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY,
     normalizeNewtabFeedbackButtonVisible,
     applyNewtabActionButtonVisibility,
@@ -417,24 +385,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
       pageState.wallpaperRuntime.handleStorageChange(changes);
     }
   }, { area: (areaName) => areaName === 'local' && !isPrimaryStorageAreaName(areaName) });
-  storageChanges.on(THEME_STORAGE_KEY, (changes) => {
-    pageState.globalThemeMode = normalizeThemeMode(changes[THEME_STORAGE_KEY].newValue);
-    if (isNewtabThemeFollowingGlobal()) {
-      applyScopedThemeMode();
-    } else {
-      updateWallpaperAppearanceSelectionUi();
-      updateModeCommandSuggestions();
-    }
-  });
-  storageChanges.on(NEWTAB_THEME_MODE_STORAGE_KEY, (changes) => {
-    pageState.newtabThemeMode = normalizeNewtabThemeMode(changes[NEWTAB_THEME_MODE_STORAGE_KEY].newValue);
-    applyScopedThemeMode();
-  });
-  storageChanges.on(NEWTAB_THEME_SCOPE_STORAGE_KEY, (changes) => {
-    pageState.newtabThemeScope = normalizeNewtabThemeScope(changes[NEWTAB_THEME_SCOPE_STORAGE_KEY].newValue);
-    updateWallpaperLanguageStrings();
-    updateModeCommandSuggestions();
-  });
   storageChanges.onAny((changes) => {
     if (pageState.wallpaperRuntime) {
     pageState.wallpaperRuntime.handleStorageChange(changes);
@@ -481,12 +431,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     if (pageState.wallpaperRuntime) {
       pageState.wallpaperRuntime.updateSearchWidthUi();
     }
-  });
-  storageChanges.on(NEWTAB_GLASS_STYLE_STORAGE_KEY, (changes) => {
-    applyNewtabGlassStyle(changes[NEWTAB_GLASS_STYLE_STORAGE_KEY].newValue);
-  });
-  storageChanges.on(NEWTAB_GLASS_THEME_STORAGE_KEY, (changes) => {
-    applyNewtabGlassTheme(changes[NEWTAB_GLASS_THEME_STORAGE_KEY].newValue);
   });
   storageChanges.on(NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY, (changes) => {
     const raw = changes[NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY].newValue;

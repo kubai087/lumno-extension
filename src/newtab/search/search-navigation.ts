@@ -19,6 +19,7 @@ import * as SearchDirectNavigation from '../../domain/search/utils/direct-naviga
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { AppearanceModes } from '../appearance-modes';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -61,7 +62,7 @@ interface SearchNavigationDeps {
   isModeCommand(query: string): boolean;
   isZenCommand(query: string): boolean;
   getNextThemeMode(mode: string): string;
-  setVisibleThemeMode: ModeCommands['setVisibleThemeMode'];
+  setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setZenModeEnabled: ModeCommands['setZenModeEnabled'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   activateSiteSearch: SearchModes['activateSiteSearch'];

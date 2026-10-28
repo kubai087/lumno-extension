@@ -2,8 +2,6 @@
 // first wallpaper, overlay and effect shown at startup, and the adaptive
 // tone targets that keep text and glass surfaces readable on it.
 import type * as LumnoExtensionRoutes from '../../domain/extension-routes';
-import type * as LumnoSettings from '../../domain/settings';
-import type { NewtabGlassStyle, NewtabGlassTheme } from '../../domain/settings';
 import type { StorageAreaLike } from '../../domain/storage-port';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import type { ToastTask } from '../../shared/ui/toast-screen';
@@ -22,6 +20,8 @@ import { getWallpaperViewApi } from '../react/wallpaper-view';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { TimePreview } from '../top-content/time-preview';
 import { getFixedTimeInk, newtabTimeInk, newtabTopContentMode } from '../../domain/settings/newtab-time';
+import { themeMode } from '../../domain/settings/appearance';
+import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme } from '../../domain/settings/newtab-page';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -37,8 +37,6 @@ interface WallpaperPageState {
   newtabShortcutSize: number;
   newtabShortcutGap: number;
   newtabInputAutoFocusEnabled: boolean;
-  newtabGlassTheme: NewtabGlassTheme;
-  globalThemeMode: string;
   bookmarkPagerPrevButton: HTMLElement | null;
   bookmarkTitleWrap: HTMLElement | null;
   bookmarkTopbarRuntime: { element: HTMLElement | null } | null;
@@ -61,7 +59,6 @@ interface WallpaperPageState {
 interface WallpaperPageDeps {
   settings: SettingsStore;
   timePreview: TimePreview;
-  SETTINGS: Pick<typeof LumnoSettings, 'newtabTimeInk' | 'newtabGlassStyle' | 'newtabGlassTheme'>;
   shortcutTiles: readonly HTMLElement[];
   // A dock tile's icon, which its tone samples.
   getShortcutDockIcon(tile: HTMLElement): HTMLElement | null;
@@ -116,11 +113,7 @@ interface WallpaperPageDeps {
   // Settles once the auto-focus setting is read.
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
   setNewtabInputAutoFocusEnabled(enabled: boolean): void;
-  applyNewtabGlassStyle(style: NewtabGlassStyle): void;
-  NEWTAB_GLASS_STYLE_STORAGE_KEY: string;
-  applyNewtabGlassTheme(theme: NewtabGlassTheme): void;
-  NEWTAB_GLASS_THEME_STORAGE_KEY: string;
-  bootstrapInitialThemeMode(): PromiseLike<unknown>;
+  followTheme(): PromiseLike<unknown>;
   pageState: WallpaperPageState;
 }
 
@@ -128,7 +121,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
     settings,
     timePreview,
-    SETTINGS,
     shortcutTiles,
     getShortcutDockIcon,
     shortcutGroupHeaders,
@@ -178,11 +170,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
     setNewtabInputAutoFocusEnabled,
-    applyNewtabGlassStyle,
-    NEWTAB_GLASS_STYLE_STORAGE_KEY,
-    applyNewtabGlassTheme,
-    NEWTAB_GLASS_THEME_STORAGE_KEY,
-    bootstrapInitialThemeMode
+    followTheme
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -470,7 +458,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     getThemeMode: getSelectedThemeMode,
     getEffectiveThemeMode: getScopedThemeMode,
     getThemeScope: (...args) => getThemeScope(...args),
-    getGlobalThemeMode: () => pageState.globalThemeMode,
+    getGlobalThemeMode: () => settings.get(themeMode),
     setThemeMode: (...args) => setThemeMode(...args),
     setThemeScope: (...args) => setThemeScope(...args),
     showToast,
@@ -516,22 +504,10 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     inputAutoFocusReady: initialNewtabInputAutoFocusReadyTask,
     getInputAutoFocusEnabled: () => pageState.newtabInputAutoFocusEnabled,
     setInputAutoFocusEnabled: setNewtabInputAutoFocusEnabled,
-    getGlassStyle: () => SETTINGS.newtabGlassStyle.parse(document.body.getAttribute('data-glass-style')),
-    setGlassStyle(value) {
-      const style = SETTINGS.newtabGlassStyle.parse(value);
-      applyNewtabGlassStyle(style);
-      if (storageArea) {
-        void storageArea.set({ [NEWTAB_GLASS_STYLE_STORAGE_KEY]: style });
-      }
-    },
-    getGlassTheme: () => pageState.newtabGlassTheme,
-    setGlassTheme(value) {
-      const theme = SETTINGS.newtabGlassTheme.parse(value);
-      applyNewtabGlassTheme(theme);
-      if (storageArea) {
-        void storageArea.set({ [NEWTAB_GLASS_THEME_STORAGE_KEY]: theme });
-      }
-    },
+    getGlassStyle: () => settings.get(newtabGlassStyle),
+    setGlassStyle: (value) => void settings.set(newtabGlassStyle, newtabGlassStyle.parse(value)),
+    getGlassTheme: () => settings.get(newtabGlassTheme),
+    setGlassTheme: (value) => void settings.set(newtabGlassTheme, newtabGlassTheme.parse(value)),
     getAdaptiveToneTargets: createWallpaperAdaptiveToneTargets,
     view: NEWTAB_WALLPAPER_VIEW
   });
@@ -553,7 +529,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     if (!runtime) {
       return Promise.resolve();
     }
-    return Promise.resolve(bootstrapInitialThemeMode()).then(() => runtime.bootstrapInitialWallpaper());
+    return Promise.resolve(followTheme()).then(() => runtime.bootstrapInitialWallpaper());
   }
 
   function bootstrapInitialWallpaperOverlay(): Promise<void> {
@@ -621,6 +597,12 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       pageState.wallpaperRuntime.scheduleAdaptiveToneUpdate(options);
     }
   }
+
+  // The panel's theme controls show the theme settings as they are.
+  settings.subscribe(NEWTAB_THEME_SETTINGS, () => {
+    updateWallpaperLanguageStrings();
+    updateWallpaperAppearanceSelectionUi();
+  });
 
   return {
     updateWallpaperLanguageStrings,

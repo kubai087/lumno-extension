@@ -3,7 +3,6 @@ import type { OverlayTab, ShortcutRule } from '../../domain/messages';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings';
-import type { StorageAreaLike } from '../../domain/storage-port';
 import type * as CommunityLinks from '../../platform/community-links';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SearchInputParts } from '../../shared/react/search-input';
@@ -17,7 +16,7 @@ import type * as SuggestionNavigation from '../../shared/search/suggestion-navig
 import { holdSuggestionsHeight, releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { AppearanceModes } from '../appearance-modes';
 import type { ModeCommands } from '../mode-commands';
-import type { FormatMessage, NewtabThemeMode, NewtabThemeScope, SendRuntimeMessage, Translate } from '../newtab-types';
+import type { FormatMessage, SendRuntimeMessage, Translate } from '../newtab-types';
 import type * as DirectNavigationSettle from './direct-navigation-settle';
 import type { SearchAutocomplete } from './search-autocomplete';
 import type { SearchModeController } from './search-mode-controller';
@@ -63,9 +62,6 @@ interface SuggestionsControllerState {
   suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
   localSearchScopeState: ActiveLocalScope | null;
   siteSearchState: SiteSearchProvider | null;
-  globalThemeMode: ThemeMode;
-  newtabThemeMode: NewtabThemeMode;
-  newtabThemeScope: NewtabThemeScope;
   currentThemeMode: ThemeMode;
   currentNewtabTabId: number | null;
 }
@@ -78,7 +74,7 @@ interface SuggestionsControllerDeps {
   SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel, 'getSuggestionUpdateKind' | 'getActionContextKey'>;
   activateSiteSearch: SearchModes['activateSiteSearch'];
   focusSearchInputPreservingScroll(): boolean;
-  setVisibleThemeMode: ModeCommands['setVisibleThemeMode'];
+  setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setZenModeEnabled: ModeCommands['setZenModeEnabled'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   shouldSwitchMatchedTabSuggestion: SearchNavigation['shouldSwitchMatchedTabSuggestion'];
@@ -98,13 +94,6 @@ interface SuggestionsControllerDeps {
   getShortcutRules(): Promise<ShortcutRule[]>;
   isModeCommand(query: string): boolean;
   isZenCommand(query: string): boolean;
-  storageArea: StorageAreaLike | null;
-  THEME_STORAGE_KEY: string;
-  NEWTAB_THEME_MODE_STORAGE_KEY: string;
-  NEWTAB_THEME_SCOPE_STORAGE_KEY: string;
-  normalizeThemeMode: AppearanceModes['normalizeThemeMode'];
-  normalizeNewtabThemeMode: AppearanceModes['normalizeNewtabThemeMode'];
-  normalizeNewtabThemeScope: AppearanceModes['normalizeNewtabThemeScope'];
   // The theme mode the page follows: its own, or the global one.
   getScopedThemeMode: AppearanceModes['getScopedThemeMode'];
   applyThemeMode: AppearanceModes['applyThemeMode'];
@@ -192,13 +181,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     getShortcutRules,
     isModeCommand,
     isZenCommand,
-    storageArea,
-    THEME_STORAGE_KEY,
-    NEWTAB_THEME_MODE_STORAGE_KEY,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY,
-    normalizeThemeMode,
-    normalizeNewtabThemeMode,
-    normalizeNewtabThemeScope,
     getScopedThemeMode,
     applyThemeMode,
     getCommandMatches,
@@ -526,21 +508,10 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       const zenCommandActive = slashCommandModeActive && !siteSearchQueryModeActive && isZenCommand(rawTagInput);
       const toggleCommandActive = modeCommandActive || zenCommandActive;
       if (modeCommandActive) {
-        if (storageArea) {
-          void storageArea.get([
-            THEME_STORAGE_KEY,
-            NEWTAB_THEME_MODE_STORAGE_KEY,
-            NEWTAB_THEME_SCOPE_STORAGE_KEY
-          ], (result) => {
-            pageState.globalThemeMode = normalizeThemeMode(result ? result[THEME_STORAGE_KEY] : 'system');
-            pageState.newtabThemeMode = normalizeNewtabThemeMode(result ? result[NEWTAB_THEME_MODE_STORAGE_KEY] : 'global');
-            pageState.newtabThemeScope = normalizeNewtabThemeScope(result ? result[NEWTAB_THEME_SCOPE_STORAGE_KEY] : 'global');
-            const storedMode = getScopedThemeMode();
-            if (storedMode !== pageState.currentThemeMode && query === pageState.latestQuery) {
-              applyThemeMode(storedMode);
-              renderSuggestions([], query);
-            }
-          });
+        // The command shows the stored theme, which another page may have changed.
+        const storedMode = getScopedThemeMode();
+        if (storedMode !== pageState.currentThemeMode) {
+          applyThemeMode(storedMode);
         }
       }
       const commandMatches = (slashCommandModeActive && !toggleCommandActive && !siteSearchQueryModeActive)

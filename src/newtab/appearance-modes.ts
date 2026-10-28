@@ -1,16 +1,14 @@
 // Applying the UI language and the light/dark theme to the New Tab, and
 // following the system theme.
-import type * as LumnoSettings from '../domain/settings';
-import type { NewtabGlassTheme, ThemeMode } from '../domain/settings';
+import type { ThemeMode } from '../domain/settings';
 import type { SiteSearchProvider } from '../domain/search/types';
-import type { StorageAreaLike } from '../domain/storage-port';
 import type { Suggestion, SuggestionElement, SuggestionsViewOptions } from '../shared/react/search/suggestion-list/types';
 import type { InputModeController } from '../shared/search/search-input-mode';
 import type { FeatureHintController } from '../shared/ui/feature-hint-catalog';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { FeedbackControlRuntime } from './feedback-control';
 import type { ModeCommands } from './mode-commands';
-import type { NewtabThemeMode, NewtabThemeScope, Translate } from './newtab-types';
+import type { NewtabThemeScope, Translate } from './newtab-types';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import { localeToHtmlLang } from '../domain/settings/locale';
 import { cacheNewtabLocale } from '../platform/settings-storage';
@@ -33,6 +31,8 @@ import type { WallpaperPage } from './wallpaper/wallpaper-page';
 import type { ToneScheduleOptions } from './wallpaper/wallpaper-adaptive-tone';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabTopContentMode } from '../domain/settings/newtab-time';
+import { themeMode } from '../domain/settings/appearance';
+import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
 
 type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
@@ -40,10 +40,6 @@ type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
 interface AppearanceModesState {
   // The mode applied to the page, after scope and glass material are settled.
   currentThemeMode: ThemeMode;
-  globalThemeMode: ThemeMode;
-  newtabThemeMode: NewtabThemeMode;
-  newtabThemeScope: NewtabThemeScope;
-  glassThemeOverride: Exclude<NewtabGlassTheme, 'follow'> | '';
   initialThemeApplied: boolean;
   resolveInitialThemeReady: (() => void) | null;
   topContentController: TopContentController | null;
@@ -76,7 +72,7 @@ interface AppearanceModesDeps extends
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceColorForTheme'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
   locale: Pick<SurfaceLocale, 'store' | 'ready'>;
-  settings: Pick<SettingsStore, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'set' | 'include' | 'subscribe'>;
   t: Translate;
   renderShortcuts(): void;
   updateRecentModeMenu: SectionHeaders['updateRecentModeMenu'];
@@ -97,13 +93,6 @@ interface AppearanceModesDeps extends
   removeMediaQueryChangeListener(queryList: MediaQueryList, listener: (event: MediaQueryListEvent) => void): void;
   // Settle once the first theme and the first language are applied.
   initialThemeReadyPromise: Promise<unknown>;
-  storageArea: StorageAreaLike | null;
-  THEME_STORAGE_KEY: string;
-  NEWTAB_THEME_MODE_STORAGE_KEY: string;
-  NEWTAB_THEME_SCOPE_STORAGE_KEY: string;
-  NEWTAB_GLASS_STYLE_STORAGE_KEY: string;
-  NEWTAB_GLASS_THEME_STORAGE_KEY: string;
-  getGlassThemeOverride: typeof LumnoSettings.getNewtabGlassThemeOverride;
   pageState: AppearanceModesState;
 }
 
@@ -139,21 +128,13 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     mediaQuery,
     removeMediaQueryChangeListener,
     scheduleWallpaperAdaptiveToneUpdate,
-    initialThemeReadyPromise,
-    storageArea,
-    THEME_STORAGE_KEY,
-    NEWTAB_THEME_MODE_STORAGE_KEY,
-    NEWTAB_THEME_SCOPE_STORAGE_KEY,
-    NEWTAB_GLASS_STYLE_STORAGE_KEY,
-    NEWTAB_GLASS_THEME_STORAGE_KEY,
-    getGlassThemeOverride
+    initialThemeReadyPromise
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
   let mediaListenerAttached = false;
-  let hasThemeBootstrapStarted = false;
 
   function applyLanguageStrings(): void {
     document.title = t('newtab_page_title', 'New Tab');
@@ -205,7 +186,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     }
   }
 
-
   function refreshShortcutTileThemes(): void {
     shortcutTiles.forEach((tile) => {
       if (!tile) {
@@ -235,7 +215,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
 
   function applyThemeMode(mode: ThemeMode, options?: { mediaMatches?: boolean }): void {
     const previousThemeMode = pageState.currentThemeMode;
-    pageState.currentThemeMode = normalizeThemeMode(mode);
+    pageState.currentThemeMode = themeMode.parse(mode);
     const mediaMatchesOverride = options && typeof options.mediaMatches === 'boolean'
       ? options.mediaMatches
       : null;
@@ -301,81 +281,74 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     scheduleWallpaperAdaptiveToneUpdate(didResolvedThemeChange ? { resetInk: true } : undefined);
   }
 
-  function normalizeThemeMode(value: unknown): ThemeMode {
-    if (value === 'light' || value === 'dark') {
-      return value;
-    }
-    return 'system';
-  }
-
-  function normalizeNewtabThemeMode(value: unknown): NewtabThemeMode {
-    if (value === 'light' || value === 'dark') {
-      return value;
-    }
-    return 'global';
-  }
-
-  function normalizeNewtabThemeScope(value: unknown): NewtabThemeScope {
-    return value === 'home' ? 'home' : 'global';
-  }
-
   function isNewtabThemeFollowingGlobal(): boolean {
-    return pageState.newtabThemeMode === 'global';
+    return settings.get(newtabThemeMode) === 'global';
   }
 
   // A glass material set to light or dark holds the page there, over whatever the theme says.
   function getScopedThemeMode(): ThemeMode {
-    if (pageState.glassThemeOverride) {
-      return pageState.glassThemeOverride;
+    const override = getNewtabGlassThemeOverride(settings.get(newtabGlassStyle), settings.get(newtabGlassTheme));
+    if (override) {
+      return override;
     }
-    const newtabThemeMode = pageState.newtabThemeMode;
-    return newtabThemeMode === 'global' ? pageState.globalThemeMode : newtabThemeMode;
+    const pageMode = settings.get(newtabThemeMode);
+    return pageMode === 'global' ? settings.get(themeMode) : pageMode;
   }
 
+  // The mode the theme controls show: the page's own when it has its own scope.
   function getSelectedThemeMode(): ThemeMode {
-    if (pageState.newtabThemeScope !== 'home') {
-      return pageState.globalThemeMode;
+    if (settings.get(newtabThemeScope) !== 'home') {
+      return settings.get(themeMode);
     }
-    const newtabThemeMode = pageState.newtabThemeMode;
-    return newtabThemeMode === 'global' ? 'system' : newtabThemeMode;
+    const pageMode = settings.get(newtabThemeMode);
+    return pageMode === 'global' ? 'system' : pageMode;
   }
 
   function applyScopedThemeMode(options?: { mediaMatches?: boolean }): void {
     applyThemeMode(getScopedThemeMode(), options);
   }
 
-  function bootstrapInitialThemeMode(): Promise<unknown> {
-    if (hasThemeBootstrapStarted) {
-      return initialThemeReadyPromise;
-    }
-    hasThemeBootstrapStarted = true;
-    if (!storageArea) {
-      pageState.globalThemeMode = 'system';
-      pageState.newtabThemeMode = 'global';
-      pageState.newtabThemeScope = 'global';
-      applyScopedThemeMode();
-      return initialThemeReadyPromise;
-    }
-    void storageArea.get([
-      THEME_STORAGE_KEY,
-      NEWTAB_THEME_MODE_STORAGE_KEY,
-      NEWTAB_THEME_SCOPE_STORAGE_KEY,
-      NEWTAB_GLASS_STYLE_STORAGE_KEY,
-      NEWTAB_GLASS_THEME_STORAGE_KEY
-    ], (result) => {
-      pageState.globalThemeMode = normalizeThemeMode(result ? result[THEME_STORAGE_KEY] : 'system');
-      pageState.newtabThemeMode = normalizeNewtabThemeMode(result ? result[NEWTAB_THEME_MODE_STORAGE_KEY] : 'global');
-      pageState.newtabThemeScope = normalizeNewtabThemeScope(result ? result[NEWTAB_THEME_SCOPE_STORAGE_KEY] : 'global');
-      // Read with the theme so a page held light or dark by its material opens in it, not after.
-      pageState.glassThemeOverride = getGlassThemeOverride(
-        result ? result[NEWTAB_GLASS_STYLE_STORAGE_KEY] : 'none',
-        result ? result[NEWTAB_GLASS_THEME_STORAGE_KEY] : 'follow'
-      );
-      applyScopedThemeMode();
-    });
-    return initialThemeReadyPromise;
+  function getThemeScope(): NewtabThemeScope {
+    return settings.get(newtabThemeScope);
   }
 
+  // Writes the theme the page's controls edit: the global one, or the
+  // page's own when it has its own scope.
+  function setThemeMode(mode: unknown): void {
+    const nextMode = themeMode.parse(mode);
+    if (settings.get(newtabThemeScope) !== 'home') {
+      void settings.set(themeMode, nextMode);
+      return;
+    }
+    void settings.set(newtabThemeMode, nextMode === 'system' ? 'global' : nextMode);
+  }
+
+  // Writes the theme the page shows: the global one while the page follows it.
+  function setVisibleThemeMode(mode: unknown): void {
+    const nextMode = themeMode.parse(mode);
+    if (settings.get(newtabThemeMode) === 'global') {
+      void settings.set(themeMode, nextMode);
+      return;
+    }
+    void settings.set(newtabThemeMode, nextMode === 'system' ? 'global' : nextMode);
+  }
+
+  function setThemeScope(scope: unknown): void {
+    void settings.set(newtabThemeScope, newtabThemeScope.parse(scope));
+  }
+
+  // Puts the page in its theme once the theme settings are read, and again
+  // whenever one of them changes.
+  // Later calls only wait for the first theme.
+  let themeFollowed = false;
+  function followTheme(): Promise<unknown> {
+    if (!themeFollowed) {
+      themeFollowed = true;
+      settings.subscribe(NEWTAB_THEME_SETTINGS, () => applyScopedThemeMode());
+      void settings.include(NEWTAB_THEME_SETTINGS).then(() => applyScopedThemeMode());
+    }
+    return initialThemeReadyPromise;
+  }
 
   function handleMediaChange(event: MediaQueryListEvent): void {
     if (pageState.currentThemeMode !== 'system') {
@@ -422,18 +395,19 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
   }
 
   return {
+    getThemeScope,
+    setThemeMode,
+    setVisibleThemeMode,
+    setThemeScope,
     followLanguage,
     refreshThemeAwareFavicons,
     scheduleThemeAwareFaviconRescue,
     applyThemeMode,
-    normalizeThemeMode,
-    normalizeNewtabThemeMode,
-    normalizeNewtabThemeScope,
     isNewtabThemeFollowingGlobal,
     getScopedThemeMode,
     getSelectedThemeMode,
     applyScopedThemeMode,
-    bootstrapInitialThemeMode,
+    followTheme,
     syncSystemThemeMode
   };
 }
