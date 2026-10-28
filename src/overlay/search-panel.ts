@@ -77,6 +77,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
 import { SearchMatching } from '../shared/search-panel/matching';
 import { SearchResults } from '../shared/search-panel/search-results';
@@ -184,6 +185,23 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     preview: overlayState.suggestionInputPreview,
     isModeActive: () => Boolean(searchMode.site || searchMode.local),
     getUrlDisplay: (url) => getUrlDisplay(url)
+  });
+  const modeActions = new SearchModeActions<InputModeProvider>({
+    settings: overlayState.settings.store,
+    locale,
+    mode: searchMode,
+    query: searchQuery,
+    autocomplete: searchAutocomplete,
+    surface: {
+      getInput: () => overlayState.searchInput,
+      getModeController: () => overlayState.inputModeController,
+      defaultTheme: overlayState.defaultTheme,
+      getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || overlayState.defaultTheme,
+      getThemeForProvider: (provider) => getThemeForProvider(provider),
+      cancelRequests: () => cancelPendingOverlaySuggestionRequests(),
+      clearResults: () => clearSearchSuggestions(),
+      beforeEnterSite: () => cancelPendingOpenTabsPrefixEntry()
+    }
   });
   const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
   const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings.store, searchEngine, openOptions.siteSearchProviders);
@@ -429,6 +447,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    modeActions,
     locale,
     searchResults,
     searchMode,
@@ -443,7 +462,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     removeOverlay,
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
     openDocumentPipPickerFromOverlay: (...args) => openDocumentPipPickerFromOverlay(...args),
-    activateSiteSearch: (...args) => activateSiteSearch(...args),
     openOverlayCommunityQrDialog: (...args) => openOverlayCommunityQrDialog(...args),
     applyThemeModeChange: (...args) => applyThemeModeChange(...args),
     applyWebAppearanceMode: (...args) => applyWebAppearanceMode(...args),
@@ -495,6 +513,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    modeActions,
     searchMatching,
     searchResults,
     searchMode,
@@ -503,13 +522,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     cancelPendingOpenTabsPrefixEntry: (...args) => cancelPendingOpenTabsPrefixEntry(...args),
     openSearchModeMenuFromDoubleTab: (...args) => openSearchModeMenuFromDoubleTab(...args),
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
-    activateSiteSearch: (...args) => activateSiteSearch(...args),
-    activateLocalSearchScope: (...args) => activateLocalSearchScope(...args),
     siteSearchCatalog,
     getShortcutRules,
     syncSuggestionActionModifiersFromEvent: (...args) => syncSuggestionActionModifiersFromEvent(...args),
-    clearSiteSearch: (...args) => clearSiteSearch(...args),
-    clearLocalSearchScope: (...args) => clearLocalSearchScope(...args),
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode: (...args) => clearOpenTabsSearchMode(...args),
@@ -575,27 +590,17 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    updateSiteSearchPrefixLayout,
-    setSiteSearchPrefix,
     cancelPendingOpenTabsPrefixEntry,
-    setLocalSearchScopePrefix,
-    activateLocalSearchScope,
-    clearLocalSearchScope,
-    activateSiteSearch,
-    clearSiteSearch,
     activateOpenTabsSearchMode,
     clearOpenTabsSearchMode
   } = PANEL_SEARCH_MODES.createSearchModes({
-    locale,
-    searchResults,
+    modeActions,
     searchMode,
     searchAutocomplete,
     searchQuery,
     t: (...args) => t(...args),
     cancelPendingOverlaySuggestionRequests,
     clearSearchSuggestions,
-    getImmediateThemeForSuggestion: (...args) => getImmediateThemeForSuggestion(...args),
-    getThemeForProvider: (...args) => getThemeForProvider(...args),
     renderCachedTabsForOverlay,
     requestTabsAndRender,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
@@ -631,10 +636,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem
   } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
+    modeActions,
     menuOrder,
     locale,
     searchMode,
-    searchQuery,
     searchEngine,
     AGGREGATE_SEARCH_STORE,
     t: (...args) => t(...args),
@@ -643,9 +648,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     siteSearchIconCache,
     siteSearchCatalog,
     cancelPendingOpenTabsPrefixEntry,
-    activateSiteSearch,
     activateOpenTabsSearchMode,
-    activateLocalSearchScope,
     overlayState
   });
 
@@ -826,15 +829,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyOverlayCjkFontFace,
     applyLanguageStrings
   } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     locale,
     updateModeBadge,
-    setSiteSearchPrefix,
     getThemeForProvider,
-    updateSiteSearchPrefixLayout,
-    setLocalSearchScopePrefix,
     updateSearchSuggestions,
     requestTabsAndRender,
     applyInputActionLabels: () => applyInputActionLabels(),
@@ -1289,20 +1290,19 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
 
   const settingsApplied = PANEL_SETTINGS_SYNC.createSettingsSync({
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     updateSearchSuggestions,
     applyOverlayTheme,
     searchEngine,
-    clearLocalSearchScope,
     requestOverlaySearchSuggestions,
     shouldShowOpenTabsForEmptyQuery,
     renderTabSuggestions,
     filterTabsForOverlay,
     SUGGESTION_NAVIGATION,
     refreshOverlayFaviconsForPolicyChange,
-    setSiteSearchPrefix,
     getImmediateThemeForSuggestion,
     requestTabsAndRender,
     clearDefaultOpenTabsSuggestions,
@@ -1393,10 +1393,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       return;
     }
     const activeProvider = searchMode.site;
-    setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
+    modeActions.setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
     getThemeForProvider(activeProvider).then((theme) => {
       if (searchMode.site === activeProvider) {
-        setSiteSearchPrefix(activeProvider, theme);
+        modeActions.setSiteSearchPrefix(activeProvider, theme);
       }
     }).catch(() => {});
   });
@@ -1433,9 +1433,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
         : null;
       if (updatedProvider) {
         searchMode.replaceSite(updatedProvider);
-        setSiteSearchPrefix(updatedProvider, overlayState.defaultTheme, { animate: false });
+        modeActions.setSiteSearchPrefix(updatedProvider, overlayState.defaultTheme, { animate: false });
       } else {
-        clearSiteSearch();
+        modeActions.clearSiteSearch();
       }
     }
     if (overlayState.inputModeController) {
@@ -1450,10 +1450,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     siteSearchIconCache.applyStored(overlayState.settings.store.getStored(siteSearchIconCacheSetting));
     if (searchMode.site && overlayState.inputModeController) {
       const activeProvider = searchMode.site;
-      setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
+      modeActions.setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
       getThemeForProvider(activeProvider).then((theme) => {
         if (searchMode.site === activeProvider) {
-          setSiteSearchPrefix(activeProvider, theme);
+          modeActions.setSiteSearchPrefix(activeProvider, theme);
         }
       }).catch(() => {});
     }

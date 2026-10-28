@@ -20,6 +20,7 @@ import { getPageNoticeApi } from './react/page-notice';
 import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
 import type { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
+import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 
 interface PageNoticesState {
   updateNoticeController: UpdateNoticeController | null;
@@ -32,6 +33,7 @@ interface PageNoticesState {
 }
 
 interface PageNoticesDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   locale: Pick<SurfaceLocale, 'store'>;
   pageSearchParams: URLSearchParams;
   bottomDock: HTMLElement | null;
@@ -45,7 +47,6 @@ interface PageNoticesDeps {
   COMMUNITY_LINKS: Pick<typeof LumnoCommunityLinks, 'getReviewUrl'>;
   // Settles once the page's entry animation is done.
   newtabEntryAnimationReadyPromise: Promise<unknown>;
-  activateSiteSearch(provider: SiteSearchProvider): void;
   // The search box's container.
   root: HTMLElement;
   siteSearchCatalog: Pick<SiteSearchCatalog, 'loadProviders'>;
@@ -54,6 +55,7 @@ interface PageNoticesDeps {
 
 function createPageNotices(deps: PageNoticesDeps) {
   const {
+    modeActions,
     locale,
     pageSearchParams,
     bottomDock,
@@ -66,7 +68,6 @@ function createPageNotices(deps: PageNoticesDeps) {
     openFeedbackExternalUrl,
     COMMUNITY_LINKS,
     newtabEntryAnimationReadyPromise,
-    activateSiteSearch,
     root,
     siteSearchCatalog
   } = deps;
@@ -309,7 +310,7 @@ function createPageNotices(deps: PageNoticesDeps) {
       onLinkClick() {
         dismissHelpCenterAskHint();
         if (helpCenterAskProvider) {
-          activateSiteSearch(helpCenterAskProvider);
+          modeActions.activateSiteSearch(helpCenterAskProvider);
         }
         searchInput.focus({ preventScroll: true });
       }

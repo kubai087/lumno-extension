@@ -195,6 +195,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
 import { SearchMatching } from '../shared/search-panel/matching';
 import { SearchResults } from '../shared/search-panel/search-results';
@@ -668,6 +669,22 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   });
 
   const defaultTheme = createDefaultTheme();
+  const modeActions = new SearchModeActions<SiteSearchProvider>({
+    settings,
+    locale,
+    mode: searchMode,
+    query: searchQuery,
+    autocomplete: searchAutocomplete,
+    surface: {
+      getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
+      getModeController: () => pageState.inputModeController,
+      defaultTheme,
+      getImmediateTheme: () => defaultTheme,
+      getThemeForProvider: (provider) => getThemeForProvider(provider),
+      cancelRequests: () => searchResults.cancelRequests(),
+      clearResults: () => clearSearchSuggestions()
+    }
+  });
   const urlHighlightTheme = createUrlHighlightTheme();
 
   const {
@@ -700,6 +717,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     applyThemeVariables,
     applyMarkVariables
   } = NEWTAB_SITE_THEME_RESOLVER.createSiteThemeResolver({
+    modeActions,
     searchMode,
     normalizeHost,
     parseCssColor,
@@ -713,7 +731,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     shortcutTiles,
     applyShortcutTileTheme: (...args) => applyShortcutTileTheme(...args),
     suggestionItems,
-    setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
     updateSelection: (...args) => updateSelection(...args),
     setPersistedSiteThemeEntry: (...args) => setPersistedSiteThemeEntry(...args),
     getPersistedSiteThemeEntry: (...args) => getPersistedSiteThemeEntry(...args),
@@ -928,6 +945,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
@@ -942,7 +960,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     updateWallpaperAppearanceSelectionUi: (...args) => updateWallpaperAppearanceSelectionUi(...args),
     updateFeedbackLanguageStrings,
     renderShortcuts: () => renderShortcuts(),
-    setLocalSearchScopePrefix: (...args) => setLocalSearchScopePrefix(...args),
     updateModeBadge: (...args) => updateModeBadge(...args),
     recentCards,
     bookmarkCards,
@@ -1233,12 +1250,12 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   }
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     settings,
     searchEngine,
-    clearLocalSearchScope: (...args) => clearLocalSearchScope(...args),
     renderSuggestions: (...args) => renderSuggestions(...args),
     requestSuggestions: (...args) => requestSuggestions(...args),
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
@@ -1246,7 +1263,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     scheduleBookmarkReloadIfVisible: (...args) => scheduleBookmarkReloadIfVisible(...args),
     refreshThemeAwareFavicons,
     renderShortcuts: (...args) => renderShortcuts(...args),
-    setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
     getImmediateThemeForSuggestion,
     pageState
   });
@@ -2031,14 +2047,9 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getSearchModeMenuItems,
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem,
-    restoreSearchModeQuery,
-    setLocalSearchScopePrefix,
-    activateLocalSearchScope,
-    clearLocalSearchScope,
-    activateSiteSearch,
-    clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    modeActions,
     menuOrder,
     searchMatching,
     locale,
@@ -2053,11 +2064,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     createAggregateSearchScopeProvider,
     getProviderIcon,
     siteSearchIconCache,
-    defaultTheme,
-    clearSearchSuggestions: (...args) => clearSearchSuggestions(...args),
-    clearSiteSearchPrefix: (...args) => clearSiteSearchPrefix(...args),
-    setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
-    getThemeForProvider,
     getShortcutRules: (...args) => getShortcutRules(...args),
     pageState
   });
@@ -2077,6 +2083,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    modeActions,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -2101,7 +2108,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getNextThemeMode: (...args) => getNextThemeMode(...args),
     setVisibleThemeMode,
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
-    activateSiteSearch,
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
     openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
     runSiteSearchProviderQuery,
@@ -2127,6 +2133,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    modeActions,
     searchMatching,
     locale,
     searchResults,
@@ -2136,7 +2143,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     settings,
     getPageFaviconCandidateUrl,
     SUGGESTION_ACTION_MODEL,
-    activateSiteSearch,
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
     setVisibleThemeMode,
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
@@ -2270,6 +2276,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    modeActions,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -2330,8 +2337,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     requestSuggestions,
     syncSuggestionActionModifiersFromEvent,
     SUGGESTION_NAVIGATION,
-    clearSiteSearch,
-    clearLocalSearchScope,
     isImeCompositionEvent,
     SEARCH_INPUT_HISTORY,
     getNextSuggestionIndex,
@@ -2383,6 +2388,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     dismissHelpCenterAskHint,
     dismissWebdavFeatureHint
   } = NEWTAB_PAGE_NOTICES.createPageNotices({
+    modeActions,
     locale,
     pageSearchParams,
     bottomDock,
@@ -2395,7 +2401,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     openFeedbackExternalUrl,
     COMMUNITY_LINKS,
     newtabEntryAnimationReadyPromise,
-    activateSiteSearch,
     root,
     siteSearchCatalog,
     pageState
@@ -2438,10 +2443,8 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   const {
     setSiteSearchTabHint,
     clearSiteSearchTabHint,
-    updateSiteSearchPrefixLayout,
-    setSiteSearchPrefix,
-    clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    modeActions,
     menuOrder,
     locale,
     searchResults,
@@ -2478,6 +2481,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   });
 
   NEWTAB_PAGE_RESIZE.createPageResize({
+    modeActions,
     getBookmarkLimit,
     applyNewtabWidthMode,
     applyNewtabShortcutColumns,
@@ -2485,7 +2489,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     captureRecentCardLayout,
     applyRecentGridColumns,
     applyBookmarkGridColumns,
-    updateSiteSearchPrefixLayout,
     keepBookmarkPageAnchorAfterLimitChange,
     renderCurrentBookmarkPage,
     updateBookmarkGridHeightLock,
@@ -2515,21 +2518,17 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   });
 
   NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     siteSearchCatalog,
     createAggregateSearchScopeProvider,
-    activateSiteSearch,
-    activateLocalSearchScope,
-    restoreSearchModeQuery,
     showSuggestionSnapshot,
     focusSearchInputPreservingScroll,
     requestSuggestions,
     settings,
-    setSiteSearchPrefix,
     defaultTheme,
-    clearSiteSearch,
     pageState
   });
 

@@ -2,6 +2,8 @@
 // after the resize settles, without animating the blocks.
 import type { SectionLoaders } from './section-loaders';
 import type { RecentSite } from '../domain/recent-sites-store';
+import type { SearchModeActions } from '../shared/search-panel/mode-actions';
+import type { SiteSearchProvider } from '../domain/search/types';
 
 // A card's place on screen before a layout change.
 type CardLayout = Map<HTMLElement, { left: number; top: number }>;
@@ -17,6 +19,7 @@ interface PageResizeState {
 }
 
 interface PageResizeDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   getBookmarkLimit(): number;
   applyNewtabWidthMode(): void;
   applyNewtabShortcutColumns(): void;
@@ -25,7 +28,6 @@ interface PageResizeDeps {
   // Each returns whether the grid's column count changed.
   applyRecentGridColumns(): boolean;
   applyBookmarkGridColumns(): boolean;
-  updateSiteSearchPrefixLayout(): void;
   keepBookmarkPageAnchorAfterLimitChange(previousLimit: number): void;
   renderCurrentBookmarkPage(): void;
   updateBookmarkGridHeightLock(): void;
@@ -41,6 +43,7 @@ interface PageResizeDeps {
 
 function createPageResize(deps: PageResizeDeps): void {
   const {
+    modeActions,
     getBookmarkLimit,
     applyNewtabWidthMode,
     applyNewtabShortcutColumns,
@@ -48,7 +51,6 @@ function createPageResize(deps: PageResizeDeps): void {
     captureRecentCardLayout,
     applyRecentGridColumns,
     applyBookmarkGridColumns,
-    updateSiteSearchPrefixLayout,
     keepBookmarkPageAnchorAfterLimitChange,
     renderCurrentBookmarkPage,
     updateBookmarkGridHeightLock,
@@ -78,7 +80,7 @@ function createPageResize(deps: PageResizeDeps): void {
       : null;
     const recentColumnsChanged = applyRecentGridColumns();
     const bookmarkColumnsChanged = applyBookmarkGridColumns();
-    updateSiteSearchPrefixLayout();
+    modeActions.updateSiteSearchPrefixLayout();
     if (bookmarkColumnsChanged && pageState.bookmarkLoadedOnce) {
       keepBookmarkPageAnchorAfterLimitChange(previousBookmarkLimit);
       renderCurrentBookmarkPage();

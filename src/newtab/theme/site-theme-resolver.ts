@@ -12,7 +12,6 @@ import type { SuggestionElement } from '../../shared/react/search/suggestion-lis
 import type { BookmarkCardElement } from '../react/bookmarks';
 import type { RecentCardElement } from '../react/recent-sites';
 import type { ShortcutTileElement } from '../react/shortcuts';
-import type { SearchModeController } from '../search/search-mode-controller';
 import type { SiteSearchProviders } from '../search/site-search-providers';
 import type { ThemeConfidence, ThemeSource, ThemeSubject } from './theme-types';
 import { themeColorCache, themeHostCache } from '../../shared/favicon/theme-caches';
@@ -23,6 +22,7 @@ import * as FaviconThemedCandidates from '../../domain/favicon/themed-candidates
 import type { ThemeRgb } from '../../domain/favicon/types';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 interface SiteThemeResolverState {
   // Favicon data URLs by icon address.
@@ -40,6 +40,7 @@ type ViewTheme = Partial<ThemeVariant> | null | undefined;
 type ApplyElementTheme<E> = (element: E, theme: ThemeVariant, host: string) => void;
 
 interface SiteThemeResolverDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchMode: SearchMode<SiteSearchProvider>;
   normalizeHost(hostname: string): string;
   parseCssColor: typeof Color.parseCssColor;
@@ -53,7 +54,6 @@ interface SiteThemeResolverDeps {
   shortcutTiles: ShortcutTileElement[];
   applyShortcutTileTheme: ApplyElementTheme<ShortcutTileElement>;
   suggestionItems: SuggestionElement[];
-  setSiteSearchPrefix: SearchModeController['setSiteSearchPrefix'];
   updateSelection(): void;
   setPersistedSiteThemeEntry(hostKey: string, theme: ThemeVariant): unknown;
   getPersistedSiteThemeEntry(hostKey: string): SiteThemeEntry | null;
@@ -108,6 +108,7 @@ interface ThemeResolutionItem {
 
 function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
   const {
+    modeActions,
     searchMode,
     normalizeHost,
     parseCssColor,
@@ -121,7 +122,6 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     shortcutTiles,
     applyShortcutTileTheme,
     suggestionItems,
-    setSiteSearchPrefix,
     updateSelection,
     setPersistedSiteThemeEntry,
     getPersistedSiteThemeEntry,
@@ -395,7 +395,7 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
       }
     });
     if (searchMode.site && getProviderThemeHost(searchMode.site) === normalizedHost) {
-      setSiteSearchPrefix(searchMode.site, theme);
+      modeActions.setSiteSearchPrefix(searchMode.site, theme);
     }
     updateSelection();
   }

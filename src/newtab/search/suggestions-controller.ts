@@ -19,7 +19,6 @@ import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage, SendRuntimeMessage, Translate } from '../newtab-types';
 import type * as DirectNavigationSettle from './direct-navigation-settle';
 import type { SearchModeController } from './search-mode-controller';
-import type { SearchModes } from './search-modes';
 import type { SearchNavigation, SearchNavigationDeps } from './search-navigation';
 import type {
   RequestSuggestionsOptions,
@@ -47,6 +46,7 @@ import type { SearchLocale } from '../../shared/search-panel/labels';
 import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-search-matching';
 import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engine-suggestions';
 import type { SearchMatching } from '../../shared/search-panel/matching';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -61,6 +61,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchMatching: SearchMatching;
   locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
@@ -72,7 +73,6 @@ interface SuggestionsControllerDeps {
   searchEngine: DefaultSearchEngine;
   getPageFaviconCandidateUrl(pageUrl: string): string;
   SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel, 'getSuggestionUpdateKind' | 'getActionContextKey'>;
-  activateSiteSearch: SearchModes['activateSiteSearch'];
   focusSearchInputPreservingScroll(): boolean;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
@@ -140,6 +140,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    modeActions,
     searchMatching,
     locale,
     searchResults,
@@ -151,7 +152,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     searchEngine,
     getPageFaviconCandidateUrl,
     SUGGESTION_ACTION_MODEL,
-    activateSiteSearch,
     focusSearchInputPreservingScroll,
     setVisibleThemeMode,
     setWebAppearanceMode,
@@ -311,7 +311,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       return;
     }
     if (suggestion.type === 'siteSearchPrompt' && isSiteSearchProvider(suggestion.provider)) {
-      activateSiteSearch(suggestion.provider);
+      modeActions.activateSiteSearch(suggestion.provider);
       focusSearchInputPreservingScroll();
       return;
     }

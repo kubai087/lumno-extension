@@ -23,6 +23,7 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
 import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -35,6 +36,7 @@ interface SearchModeControllerState {
 }
 
 interface SearchModeControllerDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
@@ -74,6 +76,7 @@ interface SearchModeControllerDeps {
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
+    modeActions,
     locale,
     searchResults,
     searchMode,
@@ -201,10 +204,10 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
       return;
     }
     const activeProvider = searchMode.site;
-    setSiteSearchPrefix(activeProvider, defaultTheme);
+    modeActions.setSiteSearchPrefix(activeProvider, defaultTheme);
     getThemeForProvider(activeProvider).then((theme) => {
       if (searchMode.site === activeProvider) {
-        setSiteSearchPrefix(activeProvider, theme);
+        modeActions.setSiteSearchPrefix(activeProvider, theme);
       }
     }).catch(() => {});
   }
@@ -222,31 +225,12 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     }
   });
 
-  function updateSiteSearchPrefixLayout(): void {
-    if (pageState.inputModeController) {
-      pageState.inputModeController.updateLayout();
-    }
-  }
 
-  function setSiteSearchPrefix(...args: Parameters<InputModeController['setProviderPrefix']>): void {
-    const [provider, theme, options] = args;
-    if (pageState.inputModeController) {
-      pageState.inputModeController.setProviderPrefix(provider, theme, options);
-    }
-  }
 
-  function clearSiteSearchPrefix(): void {
-    if (pageState.inputModeController) {
-      pageState.inputModeController.clearProviderPrefix();
-    }
-  }
 
   return {
     setSiteSearchTabHint,
     clearSiteSearchTabHint,
-    updateSiteSearchPrefixLayout,
-    setSiteSearchPrefix,
-    clearSiteSearchPrefix
   };
 }
 

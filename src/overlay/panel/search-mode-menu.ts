@@ -3,7 +3,7 @@
 // picking an item.
 import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
 import type * as SearchSourceOrder from '../../domain/search/search-source-order';
-import type { LocalSearchScope, SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
+import type { SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider, ModeMenuItem } from '../../shared/search/input-mode/types';
 import type { Translate } from './types';
@@ -14,13 +14,13 @@ import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
-import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { getLocalSearchScopeIconName, getLocalSearchScopeLabel, getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
 import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
@@ -31,10 +31,10 @@ interface SearchModeMenuState {
 }
 
 interface SearchModeMenuDeps {
+  modeActions: SearchModeActions<InputModeProvider>;
   menuOrder: SearchModeMenuOrder;
   locale: SearchLocale;
   searchMode: SearchMode<InputModeProvider>;
-  searchQuery: SearchQuery;
   searchEngine: DefaultSearchEngine;
   siteSearchCatalog: SiteSearchCatalog;
   AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore,
@@ -45,9 +45,7 @@ interface SearchModeMenuDeps {
   getPageRenderableProviderIcon(provider: SiteSearchProvider): string;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'load'>;
   cancelPendingOpenTabsPrefixEntry(): boolean;
-  activateSiteSearch(provider: InputModeProvider | null, options?: { preserveResults?: boolean; animatePrefix?: boolean }): void;
   activateOpenTabsSearchMode(options?: { deferResults?: boolean }): void;
-  activateLocalSearchScope(scope: LocalSearchScope | null, options?: { preserveResults?: boolean }): boolean;
   overlayState: SearchModeMenuState;
 }
 
@@ -55,10 +53,10 @@ const LOCAL_SOURCE_TYPES: readonly SearchSourceType[] = ['topSite', 'bookmark', 
 
 function createSearchModeMenu(deps: SearchModeMenuDeps) {
   const {
+    modeActions,
     menuOrder,
     locale,
     searchMode,
-    searchQuery,
     searchEngine,
     siteSearchCatalog,
     AGGREGATE_SEARCH_STORE,
@@ -67,9 +65,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     SEARCH_SOURCE_ORDER,
     siteSearchIconCache,
     cancelPendingOpenTabsPrefixEntry,
-    activateSiteSearch,
     activateOpenTabsSearchMode,
-    activateLocalSearchScope
   } = deps;
 
   // The panel state object shared with search-panel.ts and the other modules.
@@ -230,13 +226,13 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
         return false;
       }
       if (expectedInputValue.trim()) {
-        activateSiteSearch(provider, {
+        modeActions.activateSiteSearch(provider, {
           animatePrefix: false,
           preserveResults: true
         });
-        restoreSearchModeQuery(expectedInputValue);
+        modeActions.restoreSearchModeQuery(expectedInputValue);
       } else {
-        activateSiteSearch(provider, { animatePrefix: false });
+        modeActions.activateSiteSearch(provider, { animatePrefix: false });
       }
       const controller = overlayState.inputModeController;
       if (!controller) {
@@ -254,18 +250,6 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     ]).then(([, providers]) => activateDefaultProvider(providers));
   }
 
-  // Puts the query back after a mode switch emptied the input, and runs
-  // it again in the new mode.
-  function restoreSearchModeQuery(rawQuery: string): void {
-    const value = String(rawQuery || '');
-    searchQuery.set(value);
-    const input = overlayState.searchInput;
-    if (!input) {
-      return;
-    }
-    input.value = value;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  }
 
   function shouldPreserveSearchModeResults(rawQuery: string): boolean {
     return Boolean(String(rawQuery || '').trim());
@@ -279,7 +263,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     const preserveResults = shouldPreserveSearchModeResults(rawQuery);
     if (item.kind === 'openTabs') {
       activateOpenTabsSearchMode({ deferResults: true });
-      restoreSearchModeQuery(rawQuery);
+      modeActions.restoreSearchModeQuery(rawQuery);
       return;
     }
     if (item.kind === 'local') {
@@ -287,21 +271,21 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
         return;
       }
       // Chosen from the menu, so no trigger was typed.
-      activateLocalSearchScope(
+      modeActions.activateLocalSearchScope(
         { sourceType: item.sourceType, trigger: '', key: '' },
         { preserveResults }
       );
-      restoreSearchModeQuery(rawQuery);
+      modeActions.restoreSearchModeQuery(rawQuery);
       return;
     }
     if (item.kind === 'aggregate' && item.provider) {
-      activateSiteSearch(item.provider, { preserveResults });
-      restoreSearchModeQuery(rawQuery);
+      modeActions.activateSiteSearch(item.provider, { preserveResults });
+      modeActions.restoreSearchModeQuery(rawQuery);
       return;
     }
     if (item.kind === 'provider' && item.provider) {
-      activateSiteSearch(item.provider, { preserveResults });
-      restoreSearchModeQuery(rawQuery);
+      modeActions.activateSiteSearch(item.provider, { preserveResults });
+      modeActions.restoreSearchModeQuery(rawQuery);
     }
   }
 

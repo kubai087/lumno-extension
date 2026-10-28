@@ -31,6 +31,7 @@ import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete'
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -54,6 +55,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -115,8 +117,6 @@ interface SearchBoxDeps {
   requestSuggestions: RequestSuggestions;
   syncSuggestionActionModifiersFromEvent(event: KeyboardEvent): void;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getSuggestionNavigationKey'>;
-  clearSiteSearch: SearchModes['clearSiteSearch'];
-  clearLocalSearchScope: SearchModes['clearLocalSearchScope'];
   isImeCompositionEvent(event: KeyboardEvent): boolean;
   SEARCH_INPUT_HISTORY: Pick<typeof SearchInputHistory, 'getShortcutDirection'>;
   // The row a step from `selectedIndex` lands on, and whether it wrapped.
@@ -146,6 +146,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -206,8 +207,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     requestSuggestions,
     syncSuggestionActionModifiersFromEvent,
     SUGGESTION_NAVIGATION,
-    clearSiteSearch,
-    clearLocalSearchScope,
     isImeCompositionEvent,
     SEARCH_INPUT_HISTORY,
     getNextSuggestionIndex,
@@ -497,7 +496,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       // Leaving a site search lists the query's ordinary results.
       if (event.key === 'Escape' && searchMode.site) {
         event.preventDefault();
-        clearSiteSearch();
+        modeActions.clearSiteSearch();
         const fallbackQuery = input.value.trim();
         if (fallbackQuery) {
           requestSuggestions(fallbackQuery, { immediate: true });
@@ -508,7 +507,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       }
       if (event.key === 'Escape' && searchMode.local) {
         event.preventDefault();
-        clearLocalSearchScope();
+        modeActions.clearLocalSearchScope();
         const fallbackQuery = input.value.trim();
         if (fallbackQuery) {
           requestSuggestions(fallbackQuery, { immediate: true });
@@ -521,14 +520,14 @@ function createSearchBox(deps: SearchBoxDeps) {
         if (!shouldRemoveSearchModeTagOnBackspace(event)) {
           return;
         }
-        clearSiteSearch();
+        modeActions.clearSiteSearch();
         return;
       }
       if (event.key === 'Backspace' && searchMode.local && !input.value) {
         if (!shouldRemoveSearchModeTagOnBackspace(event)) {
           return;
         }
-        clearLocalSearchScope();
+        modeActions.clearLocalSearchScope();
         clearSearchSuggestions();
         return;
       }

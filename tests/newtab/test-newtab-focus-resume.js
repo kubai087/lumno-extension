@@ -107,17 +107,20 @@ function createResume(page, overrides = {}) {
   const resume = page.api.createFocusResume({
     getSiteSearchSnapshotId: (provider) => `provider:${provider.key}`,
     findSiteSearchBySnapshotId: (id) => providers[id] || null,
-    activateSiteSearch: (provider, options) => {
-      calls.push(['site', provider.key, options.preserveResults]);
-      input.value = '';
-    },
-    activateLocalSearchScope: (scope) => {
-      calls.push(['local', scope.sourceType]);
-      input.value = '';
-    },
-    restoreSearchModeQuery: (rawQuery) => {
-      calls.push(['query', rawQuery]);
-      input.value = rawQuery;
+    // Records the mode changes instead of drawing them.
+    modeActions: {
+      activateSiteSearch: (provider, options) => {
+        calls.push(['site', provider.key, options.preserveResults]);
+        input.value = '';
+      },
+      activateLocalSearchScope: (scope) => {
+        calls.push(['local', scope.sourceType]);
+        input.value = '';
+      },
+      restoreSearchModeQuery: (rawQuery) => {
+        calls.push(['query', rawQuery]);
+        input.value = rawQuery;
+      }
     },
     showSuggestionSnapshot: (suggestions, query, selectedIndex) => {
       calls.push(['results', suggestions.length, query, selectedIndex]);

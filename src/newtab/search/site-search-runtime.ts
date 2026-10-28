@@ -8,8 +8,6 @@ import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import * as LumnoNewtabFocusResume from '../focus-resume';
 import type { FocusResume, FocusResumeState } from '../focus-resume';
 import type { SettingsStore } from '../../platform/settings-store';
-import type { SearchModeController } from './search-mode-controller';
-import type { SearchModes } from './search-modes';
 import { getAggregateSearchId } from './search-types';
 import type { RequestSuggestions } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
@@ -20,6 +18,7 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 interface SiteSearchRuntimeState extends FocusResumeState {
   // Carries the search across the reload the search shortcut makes.
@@ -28,41 +27,33 @@ interface SiteSearchRuntimeState extends FocusResumeState {
 }
 
 interface SiteSearchRuntimeDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   createAggregateSearchScopeProvider: SiteSearchProviders['createAggregateSearchScopeProvider'];
-  activateSiteSearch: SearchModes['activateSiteSearch'];
-  activateLocalSearchScope: SearchModes['activateLocalSearchScope'];
-  restoreSearchModeQuery: SearchModes['restoreSearchModeQuery'];
   showSuggestionSnapshot(suggestions: Suggestion[], query: string, selectedIndex: number): Promise<void>;
   focusSearchInputPreservingScroll(): boolean;
   requestSuggestions: RequestSuggestions;
   settings: Pick<SettingsStore, 'subscribe'>;
-  setSiteSearchPrefix: SearchModeController['setSiteSearchPrefix'];
   defaultTheme: InputModeTheme;
-  clearSiteSearch: SearchModes['clearSiteSearch'];
   pageState: SiteSearchRuntimeState;
 }
 
 function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     siteSearchCatalog,
     createAggregateSearchScopeProvider,
-    activateSiteSearch,
-    activateLocalSearchScope,
-    restoreSearchModeQuery,
     showSuggestionSnapshot,
     focusSearchInputPreservingScroll,
     requestSuggestions,
     settings,
-    setSiteSearchPrefix,
     defaultTheme,
-    clearSiteSearch
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -89,14 +80,12 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   }
 
   const focusResume = LumnoNewtabFocusResume.createFocusResume({
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
-    activateSiteSearch,
-    activateLocalSearchScope,
-    restoreSearchModeQuery,
     showSuggestionSnapshot,
     focusSearchInputPreservingScroll,
     pageState
@@ -123,9 +112,9 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
         : null;
       if (updatedProvider) {
         searchMode.replaceSite(updatedProvider);
-        setSiteSearchPrefix(updatedProvider, defaultTheme, { animate: false });
+        modeActions.setSiteSearchPrefix(updatedProvider, defaultTheme, { animate: false });
       } else {
-        clearSiteSearch();
+        modeActions.clearSiteSearch();
       }
     }
     if (pageState.inputModeController) {

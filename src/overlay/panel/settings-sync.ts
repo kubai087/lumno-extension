@@ -27,9 +27,10 @@ import type { DefaultSearchEngine } from '../../shared/search-panel/default-engi
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 
-// Row is a suggestion row, Provider a site search provider and Theme a
-// suggestion theme; this module only passes them along.
+// Row is a suggestion row; this module only passes it along.
 interface SettingsSyncState {
   settings: OverlaySettings;
   overlay: HTMLElement | null;
@@ -41,9 +42,10 @@ interface SettingsSyncState {
   documentPipEnabled: boolean;
 }
 
-interface SettingsSyncDeps<Row, Provider, Theme> {
+interface SettingsSyncDeps<Row> {
+  modeActions: SearchModeActions<InputModeProvider>;
   searchResults: Pick<SearchResults<Row>, 'lastResponse'>;
-  searchMode: Pick<SearchMode<Provider>, 'site' | 'local' | 'openTabs'>;
+  searchMode: Pick<SearchMode<InputModeProvider>, 'site' | 'local' | 'openTabs'>;
   searchQuery: SearchQuery;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'cancelNumberShortcuts'>;
   updateSearchSuggestions(rows: Row[], query: string, options?: { forceFullRerender?: boolean }): void;
@@ -51,15 +53,13 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
   applyOverlayTheme(mode: ThemeMode): void;
   applyOverlayFontFamily(): void;
   searchEngine: DefaultSearchEngine;
-  clearLocalSearchScope(): void;
   shouldShowOpenTabsForEmptyQuery(): boolean;
   renderTabSuggestions(tabs: OverlayTab[]): void;
   filterTabsForOverlay(tabs: OverlayTab[], query: string): OverlayTab[];
   requestTabsAndRender(query?: string): void;
   clearDefaultOpenTabsSuggestions(): void;
   refreshOverlayFaviconsForPolicyChange(): void;
-  setSiteSearchPrefix(provider: Provider, theme: Theme, options: { animate: boolean }): void;
-  getImmediateThemeForSuggestion(suggestion: { provider: Provider }): Theme;
+  getImmediateThemeForSuggestion(suggestion: { provider: InputModeProvider }): InputModeTheme | null;
   documentPipSupported: boolean;
   overlayState: SettingsSyncState;
 }
@@ -68,22 +68,21 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
 // the panel's modules read the settings themselves. The returned promise
 // settles once the theme, the size and the fonts the session read are
 // applied.
-function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Provider, Theme>): Promise<void> {
+function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     updateSearchSuggestions,
     applyOverlayTheme,
     searchEngine,
-    clearLocalSearchScope,
     requestOverlaySearchSuggestions,
     shouldShowOpenTabsForEmptyQuery,
     renderTabSuggestions,
     filterTabsForOverlay,
     SUGGESTION_NAVIGATION,
     refreshOverlayFaviconsForPolicyChange,
-    setSiteSearchPrefix,
     getImmediateThemeForSuggestion,
     requestTabsAndRender,
     clearDefaultOpenTabsSuggestions,
@@ -130,7 +129,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   settings.follow(searchResultSourceTypes, () => {
     const scope = searchMode.local;
     if (scope && !settings.get(searchResultSourceTypes).some((type) => type === scope.sourceType)) {
-      clearLocalSearchScope();
+      modeActions.clearLocalSearchScope();
     }
     if (searchQuery.text) {
       requestOverlaySearchSuggestions(searchQuery.text);
@@ -147,7 +146,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
     if (overlayState.inputModeController) {
       const provider = searchMode.site;
       if (provider) {
-        setSiteSearchPrefix(provider, getImmediateThemeForSuggestion({ provider }), { animate: false });
+        modeActions.setSiteSearchPrefix(provider, getImmediateThemeForSuggestion({ provider }), { animate: false });
       }
       overlayState.inputModeController.refreshModeMenu();
     }

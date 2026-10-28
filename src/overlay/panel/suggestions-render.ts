@@ -40,6 +40,7 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -70,6 +71,7 @@ interface SuggestionsRenderState {
 }
 
 interface SuggestionsRenderDeps {
+  modeActions: SearchModeActions<InputModeProvider>;
   locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
@@ -85,7 +87,6 @@ interface SuggestionsRenderDeps {
   removeOverlay(overlay: HTMLElement | null): void;
   activateOpenTabsSearchMode(): void;
   openDocumentPipPickerFromOverlay(): void;
-  activateSiteSearch(provider: InputModeProvider | null): void;
   openOverlayCommunityQrDialog(qrUrl: string): void;
   applyThemeModeChange(mode: string): void;
   applyWebAppearanceMode(mode: WebAppearanceMode): void;
@@ -149,6 +150,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    modeActions,
     locale,
     searchResults,
     searchMode,
@@ -163,7 +165,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     removeOverlay,
     activateOpenTabsSearchMode,
     openDocumentPipPickerFromOverlay,
-    activateSiteSearch,
     openOverlayCommunityQrDialog,
     applyThemeModeChange,
     applyWebAppearanceMode,
@@ -370,7 +371,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       return;
     }
     if (suggestion.type === 'siteSearchPrompt' && provider) {
-      activateSiteSearch(provider);
+      modeActions.activateSiteSearch(provider);
       if (input) {
         input.focus();
       }

@@ -21,12 +21,12 @@ animation-delay: 0s !important;
 
 import type { SearchSourceType, SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
-import type { ActiveLocalScope } from './search/search-types';
 import { publishBootValue, takeBootValue } from '../platform/boot-handoff';
 import { newtabFocusResume } from '../domain/settings/page-cache';
 import type { SearchQuery } from '../shared/search-panel/search-query';
 import type { SearchMode } from '../shared/search-panel/search-mode';
 import type { SearchResults } from '../shared/search-panel/search-results';
+import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 
 // The search on screen, carried across the focus reload.
 interface SearchSnapshot {
@@ -48,14 +48,12 @@ interface FocusResumeState {
 }
 
 interface FocusResumeDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   getSiteSearchSnapshotId(provider: SiteSearchProvider): string;
   findSiteSearchBySnapshotId(id: string): SiteSearchProvider | null;
-  activateSiteSearch(provider: SiteSearchProvider, options: { preserveResults: boolean; animatePrefix: boolean }): void;
-  activateLocalSearchScope(scope: ActiveLocalScope, options: { preserveResults: boolean }): unknown;
-  restoreSearchModeQuery(rawQuery: string): void;
   showSuggestionSnapshot(suggestions: Suggestion[], query: string, selectedIndex: number): Promise<void>;
   focusSearchInputPreservingScroll(): void;
   pageState: FocusResumeState;
@@ -175,14 +173,12 @@ function prepareResumeLoad(): boolean {
 
 function createFocusResume(deps: FocusResumeDeps) {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
-    activateSiteSearch,
-    activateLocalSearchScope,
-    restoreSearchModeQuery,
     showSuggestionSnapshot,
     focusSearchInputPreservingScroll
   } = deps;
@@ -222,17 +218,17 @@ function createFocusResume(deps: FocusResumeDeps) {
     }
     // Each mode clears the input, so the mode goes first.
     if (snapshot.localSourceType) {
-      activateLocalSearchScope({ sourceType: snapshot.localSourceType }, { preserveResults: true });
+      modeActions.activateLocalSearchScope({ sourceType: snapshot.localSourceType }, { preserveResults: true });
     } else if (snapshot.siteSearchId) {
       const provider = findSiteSearchBySnapshotId(snapshot.siteSearchId);
       if (provider) {
-        activateSiteSearch(provider, { preserveResults: true, animatePrefix: false });
+        modeActions.activateSiteSearch(provider, { preserveResults: true, animatePrefix: false });
       }
     }
     const rawQuery = String(snapshot.rawQuery || '');
     let rendered = Promise.resolve();
     if (rawQuery) {
-      restoreSearchModeQuery(rawQuery);
+      modeActions.restoreSearchModeQuery(rawQuery);
       rendered = showSuggestionSnapshot(snapshot.suggestions, rawQuery.trim(), snapshot.selectedIndex);
     }
     // The shortcut selects the query, as it does when the page has focus.

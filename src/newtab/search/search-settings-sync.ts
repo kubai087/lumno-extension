@@ -18,11 +18,11 @@ import type { DefaultSearchEngine } from '../../shared/search-panel/default-engi
 import * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeTheme } from '../../shared/search/input-mode/types';
-import type { SearchModeController } from './search-mode-controller';
 import type { RenderSuggestions, RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 interface SearchSettingsSyncState {
   suggestionsContainer: HTMLElement | null;
@@ -33,12 +33,12 @@ interface SearchSettingsSyncState {
 }
 
 interface SearchSettingsSyncDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'subscribe'>;
   searchEngine: Pick<DefaultSearchEngine, 'store'>;
-  clearLocalSearchScope(): boolean;
   renderSuggestions: RenderSuggestions;
   requestSuggestions: RequestSuggestions;
   markRecentDataDirty(): void;
@@ -46,19 +46,18 @@ interface SearchSettingsSyncDeps {
   scheduleBookmarkReloadIfVisible(): void;
   refreshThemeAwareFavicons?(): void;
   renderShortcuts(): void;
-  setSiteSearchPrefix: SearchModeController['setSiteSearchPrefix'];
   getImmediateThemeForSuggestion(suggestion: { provider: SiteSearchProvider }): InputModeTheme;
   pageState: SearchSettingsSyncState;
 }
 
 function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     settings,
     searchEngine,
-    clearLocalSearchScope,
     renderSuggestions,
     requestSuggestions,
     markRecentDataDirty,
@@ -66,7 +65,6 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     scheduleBookmarkReloadIfVisible,
     refreshThemeAwareFavicons,
     renderShortcuts,
-    setSiteSearchPrefix,
     getImmediateThemeForSuggestion
   } = deps;
 
@@ -89,7 +87,7 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   settings.subscribe(searchResultSourceTypes, () => {
     const scope = searchMode.local;
     if (scope && !settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
-      clearLocalSearchScope();
+      modeActions.clearLocalSearchScope();
     }
   });
   settings.subscribe([searchResultDisplayLimit, simpleModeEnabled], redrawSuggestions);
@@ -111,7 +109,7 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     renderShortcuts();
     if (pageState.inputModeController) {
       if (searchMode.site) {
-        setSiteSearchPrefix(searchMode.site, getImmediateThemeForSuggestion({ provider: searchMode.site }), { animate: false });
+        modeActions.setSiteSearchPrefix(searchMode.site, getImmediateThemeForSuggestion({ provider: searchMode.site }), { animate: false });
       }
       pageState.inputModeController.refreshModeMenu();
     }

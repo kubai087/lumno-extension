@@ -6,7 +6,7 @@ import type { createSearchInputHistoryController } from '../../domain/search/sea
 import type * as SearchInputHistory from '../../domain/search/search-input-history';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
-import type { LocalSearchScope, SuggestionLike } from '../../domain/search/types';
+import type { SuggestionLike } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionElement } from '../../shared/react/search/suggestion-list/types';
@@ -28,6 +28,7 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import type { SearchMatching } from '../../shared/search-panel/matching';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -48,6 +49,7 @@ interface PanelKeysState {
 }
 
 interface PanelKeysDeps {
+  modeActions: SearchModeActions<InputModeProvider>;
   searchMatching: SearchMatching;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
@@ -57,12 +59,8 @@ interface PanelKeysDeps {
   cancelPendingOpenTabsPrefixEntry(): boolean;
   openSearchModeMenuFromDoubleTab(): Promise<boolean>;
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
-  activateSiteSearch(provider: InputModeProvider | null): void;
-  activateLocalSearchScope(scope: LocalSearchScope | null): boolean;
   getShortcutRules(): Promise<ShortcutRule[]>;
   syncSuggestionActionModifiersFromEvent(event: ActivationEvent | null): void;
-  clearSiteSearch(): void;
-  clearLocalSearchScope(): boolean;
   requestOverlaySearchSuggestions(query: string): void;
   clearSearchSuggestions(): void;
   clearOpenTabsSearchMode(): void;
@@ -109,6 +107,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    modeActions,
     searchMatching,
     searchResults,
     searchMode,
@@ -118,12 +117,8 @@ function createPanelKeys(deps: PanelKeysDeps) {
     cancelPendingOpenTabsPrefixEntry,
     openSearchModeMenuFromDoubleTab,
     activateOpenTabsSearchMode,
-    activateSiteSearch,
-    activateLocalSearchScope,
     getShortcutRules,
     syncSuggestionActionModifiersFromEvent,
-    clearSiteSearch,
-    clearLocalSearchScope,
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode,
@@ -229,13 +224,13 @@ function createPanelKeys(deps: PanelKeysDeps) {
     const siteTrigger = searchMode.siteTrigger;
     if (siteTrigger && siteTrigger.rawInput === triggerInput && siteTrigger.provider) {
       e.preventDefault();
-      activateSiteSearch(siteTrigger.provider);
+      modeActions.activateSiteSearch(siteTrigger.provider);
       return true;
     }
     const scopeTrigger = searchMode.localTrigger;
     if (scopeTrigger && scopeTrigger.rawInput === triggerInput && scopeTrigger.scope) {
       e.preventDefault();
-      return activateLocalSearchScope(scopeTrigger.scope);
+      return modeActions.activateLocalSearchScope(scopeTrigger.scope);
     }
     if (triggerInput) {
       e.preventDefault();
@@ -243,13 +238,13 @@ function createPanelKeys(deps: PanelKeysDeps) {
       const topSiteMatch = searchMatching.getTopSiteMatchCandidate(searchResults.rows, triggerInput);
       const directProvider = searchMatching.getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
       if (directProvider) {
-        activateSiteSearch(directProvider);
+        modeActions.activateSiteSearch(directProvider);
         return true;
       }
       const cachedRules = shortcutRulesCache.rules;
       const directLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, cachedRules);
       if (siteSearchCatalog.loadedProviders && directLocalScope) {
-        activateLocalSearchScope(directLocalScope);
+        modeActions.activateLocalSearchScope(directLocalScope);
         return true;
       }
       void Promise.all([
@@ -270,12 +265,12 @@ function createPanelKeys(deps: PanelKeysDeps) {
           asyncTopSiteMatch
         );
         if (asyncProvider) {
-          activateSiteSearch(asyncProvider);
+          modeActions.activateSiteSearch(asyncProvider);
           return;
         }
         const asyncLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, rules);
         if (asyncLocalScope) {
-          activateLocalSearchScope(asyncLocalScope);
+          modeActions.activateLocalSearchScope(asyncLocalScope);
           return;
         }
         searchAutocomplete.accept();
@@ -332,7 +327,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (e.key === 'Escape' && searchMode.site) {
       e.preventDefault();
       e.stopPropagation();
-      clearSiteSearch();
+      modeActions.clearSiteSearch();
       const fallbackQuery = input.value.trim();
       if (fallbackQuery) {
         requestOverlaySearchSuggestions(fallbackQuery);
@@ -344,7 +339,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (e.key === 'Escape' && searchMode.local) {
       e.preventDefault();
       e.stopPropagation();
-      clearLocalSearchScope();
+      modeActions.clearLocalSearchScope();
       const fallbackQuery = input.value.trim();
       if (fallbackQuery) {
         requestOverlaySearchSuggestions(fallbackQuery);
@@ -363,14 +358,14 @@ function createPanelKeys(deps: PanelKeysDeps) {
       if (!shouldRemoveSearchModeTagOnBackspace(e)) {
         return;
       }
-      clearSiteSearch();
+      modeActions.clearSiteSearch();
       return;
     }
     if (e.key === 'Backspace' && searchMode.local && !input.value) {
       if (!shouldRemoveSearchModeTagOnBackspace(e)) {
         return;
       }
-      clearLocalSearchScope();
+      modeActions.clearLocalSearchScope();
       clearSearchSuggestions();
       return;
     }
@@ -639,7 +634,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
             return;
           }
           if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
-            activateSiteSearch(selectedSuggestion.provider);
+            modeActions.activateSiteSearch(selectedSuggestion.provider);
             input.focus();
             return;
           }

@@ -11,7 +11,6 @@ import type { Suggestion, SuggestionElement } from '../../shared/react/search/su
 import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
 import type { SurfaceOpenKeys } from '../page-navigation';
-import type { SearchModes } from './search-modes';
 import type { RenderSuggestions, SlashCommand } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
@@ -25,6 +24,7 @@ import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -40,6 +40,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -65,7 +66,6 @@ interface SearchNavigationDeps {
   getNextThemeMode(mode: string): string;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
-  activateSiteSearch: SearchModes['activateSiteSearch'];
   focusSearchInputPreservingScroll(): boolean;
   openCommunityQrDialog(url: string | undefined): void;
   runSiteSearchProviderQuery: SiteSearchProviders['runSiteSearchProviderQuery'];
@@ -83,6 +83,7 @@ type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -107,7 +108,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     getNextThemeMode,
     setVisibleThemeMode,
     setWebAppearanceMode,
-    activateSiteSearch,
     focusSearchInputPreservingScroll,
     openCommunityQrDialog,
     runSiteSearchProviderQuery,
@@ -461,7 +461,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return true;
       }
       if (selectedSuggestion.type === 'siteSearchPrompt' && isSiteSearchProvider(selectedSuggestion.provider)) {
-        activateSiteSearch(selectedSuggestion.provider);
+        modeActions.activateSiteSearch(selectedSuggestion.provider);
         focusSearchInputPreservingScroll();
         return true;
       }

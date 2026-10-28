@@ -17,7 +17,6 @@ import type { BookmarksTopbarRuntime } from './react/bookmarks-topbar';
 import type { RecentCardElement } from './react/recent-sites';
 import type { ShortcutTileElement } from './react/shortcuts';
 import type { TopContentController } from './react/wordmark';
-import type { SearchModes } from './search/search-modes';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
 import type { SuggestionsController } from './search/suggestions-controller';
@@ -35,6 +34,7 @@ import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, n
 import type { SearchQuery } from '../shared/search-panel/search-query';
 import type { SearchMode } from '../shared/search-panel/search-mode';
 import type { SearchResults } from '../shared/search-panel/search-results';
+import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 
 type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
@@ -64,11 +64,11 @@ interface AppearanceModesDeps extends
   Pick<TopContentRuntime, 'renderNewtabTopContent' | 'applyWordmarkThemeAppearance'>,
   Pick<WallpaperPage, 'updateWallpaperLanguageStrings' | 'updateWallpaperAppearanceSelectionUi'>,
   Pick<FeedbackControlRuntime, 'updateFeedbackLanguageStrings'>,
-  Pick<SearchModes, 'setLocalSearchScopePrefix'>,
   Pick<ModeCommands, 'updateModeBadge'>,
   Pick<SuggestionsController, 'renderSuggestions' | 'updateSelection'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
+  modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
@@ -99,6 +99,7 @@ interface AppearanceModesDeps extends
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
@@ -112,7 +113,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     updateWallpaperAppearanceSelectionUi,
     updateFeedbackLanguageStrings,
     renderShortcuts,
-    setLocalSearchScopePrefix,
     updateModeBadge,
     recentCards,
     bookmarkCards,
@@ -181,7 +181,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
         pageState.inputParts.input.placeholder = pageState.defaultPlaceholderText;
       }
       if (searchMode.local) {
-        setLocalSearchScopePrefix(searchMode.local);
+        modeActions.setLocalSearchScopePrefix(searchMode.local);
       }
     }
     updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');

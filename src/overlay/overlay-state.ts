@@ -57,7 +57,7 @@ type OverlayState =
   EntryMotionState &
   FaviconPolicyState &
   PanelKeysState &
-  PanelLanguageState<ThemeVariant> &
+  PanelLanguageState &
   PanelNoticesState &
   PanelSessionState &
   PanelThemeState &

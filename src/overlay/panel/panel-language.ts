@@ -5,12 +5,13 @@ import * as OVERLAY_FONT_FACES from '../../shared/overlay-font-faces';
 import { localeToHtmlLang } from '../../domain/settings/locale';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
-import type { ActiveLocalScope, SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 
-// Row is a suggestion row, Provider a site search provider and Theme a
-// suggestion theme; this module only passes them along.
-interface PanelLanguageState<Theme> {
+// Row is a suggestion row; this module only passes it along.
+interface PanelLanguageState {
   inputModeController: { refreshModeMenuLanguage?(): void } | null;
   overlayUpdateNoticeController: { updateLanguage?(): void } | null;
   overlayGraphicsNoticeController: { updateLanguage?(): void } | null;
@@ -18,37 +19,33 @@ interface PanelLanguageState<Theme> {
   searchInput: HTMLInputElement | null;
   defaultPlaceholderText: string;
   modeBadge: HTMLElement | null;
-  defaultTheme: Theme;
+  defaultTheme: InputModeTheme;
 }
 
-interface PanelLanguageDeps<Row, Provider, Theme> {
+interface PanelLanguageDeps<Row> {
+  modeActions: SearchModeActions<InputModeProvider>;
   searchResults: Pick<SearchResults<Row>, 'lastResponse'>;
-  searchMode: Pick<SearchMode<Provider>, 'site' | 'local'>;
+  searchMode: Pick<SearchMode<InputModeProvider>, 'site' | 'local'>;
   searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 't'>;
   updateModeBadge(rawValue: string): void;
-  setSiteSearchPrefix(provider: Provider, theme: Theme): void;
-  getThemeForProvider(provider: Provider): Promise<Theme>;
-  updateSiteSearchPrefixLayout(): void;
-  setLocalSearchScopePrefix(scope: ActiveLocalScope): void;
+  getThemeForProvider(provider: InputModeProvider): Promise<InputModeTheme>;
   updateSearchSuggestions(rows: Row[], query: string): void;
   requestTabsAndRender(): void;
   // Names the search input's buttons again.
   applyInputActionLabels(): void;
-  overlayState: PanelLanguageState<Theme>;
+  overlayState: PanelLanguageState;
 }
 
-function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, Provider, Theme>) {
+function createPanelLanguage<Row>(deps: PanelLanguageDeps<Row>) {
   const {
+    modeActions,
     searchResults,
     searchMode,
     searchQuery,
     locale,
     updateModeBadge,
-    setSiteSearchPrefix,
     getThemeForProvider,
-    updateSiteSearchPrefixLayout,
-    setLocalSearchScopePrefix,
     updateSearchSuggestions,
     requestTabsAndRender,
     applyInputActionLabels
@@ -100,16 +97,16 @@ function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, 
     }
     if (searchMode.site) {
       const activeSiteSearchProvider = searchMode.site;
-      setSiteSearchPrefix(activeSiteSearchProvider, overlayState.defaultTheme);
+      modeActions.setSiteSearchPrefix(activeSiteSearchProvider, overlayState.defaultTheme);
       void getThemeForProvider(activeSiteSearchProvider).then((theme) => {
         if (searchMode.site === activeSiteSearchProvider) {
-          setSiteSearchPrefix(activeSiteSearchProvider, theme);
+          modeActions.setSiteSearchPrefix(activeSiteSearchProvider, theme);
         }
       });
-      updateSiteSearchPrefixLayout();
+      modeActions.updateSiteSearchPrefixLayout();
     } else if (searchMode.local) {
-      setLocalSearchScopePrefix(searchMode.local);
-      updateSiteSearchPrefixLayout();
+      modeActions.setLocalSearchScopePrefix(searchMode.local);
+      modeActions.updateSiteSearchPrefixLayout();
     }
     if (!refreshResults) {
       return;
