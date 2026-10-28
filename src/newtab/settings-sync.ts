@@ -120,7 +120,7 @@ interface SettingsSyncDeps extends
   Pick<SuggestionsController, 'requestSuggestions' | 'requestTabsAndRender'>,
   Pick<AppearanceModes,
     'normalizeThemeMode' | 'isNewtabThemeFollowingGlobal' | 'applyScopedThemeMode' | 'normalizeNewtabThemeMode' |
-    'normalizeNewtabThemeScope' | 'applyLanguageMode'>,
+    'normalizeNewtabThemeScope'>,
   Pick<WallpaperPage, 'updateWallpaperAppearanceSelectionUi' | 'updateWallpaperLanguageStrings'>,
   Pick<ModeCommands, 'updateModeCommandSuggestions' | 'updateZenCommandSuggestions' | 'applyZenMode'>,
   Pick<GlassSurfaces, 'applyNewtabGlassStyle' | 'applyNewtabGlassTheme'>,
@@ -147,7 +147,6 @@ interface SettingsSyncDeps extends
   THEME_STORAGE_KEY: string;
   NEWTAB_THEME_MODE_STORAGE_KEY: string;
   NEWTAB_THEME_SCOPE_STORAGE_KEY: string;
-  LANGUAGE_STORAGE_KEY: string;
   NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: string;
   RECENT_COUNT_STORAGE_KEY: string;
   NEWTAB_WIDTH_MODE_STORAGE_KEY: string;
@@ -227,8 +226,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     NEWTAB_THEME_SCOPE_STORAGE_KEY,
     normalizeNewtabThemeScope,
     updateWallpaperLanguageStrings,
-    LANGUAGE_STORAGE_KEY,
-    applyLanguageMode,
     NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY,
     normalizeNewtabInputAutoFocusEnabled,
     updateNewtabInputAutoFocusUi,
@@ -442,9 +439,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     if (pageState.wallpaperRuntime) {
     pageState.wallpaperRuntime.handleStorageChange(changes);
     }
-  });
-  storageChanges.on(LANGUAGE_STORAGE_KEY, (changes) => {
-    applyLanguageMode(changes[LANGUAGE_STORAGE_KEY].newValue || 'system');
   });
   storageChanges.on(NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY, (changes) => {
     const rawValue = changes[NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY].newValue;

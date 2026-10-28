@@ -26,6 +26,7 @@ import { createSuggestionsView } from '../../shared/react/search/suggestions';
 import { macosCtrlSuggestionNavigationEnabled, tabRankScoreDebug } from '../../domain/settings/search';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -56,6 +57,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  locale: Pick<SurfaceLocale, 'store'>;
   settings: Pick<SettingsStore, 'get'>;
   suggestionItems: ViewOption<'items'>;
   t: Translate;
@@ -135,7 +137,6 @@ interface SearchBoxDeps {
   restoreDismissedSearchSuggestions(): void;
   hideSearchInputCursorTooltip(): void;
   // Runs the listener again whenever the page language changes.
-  onLanguageChange(listener: () => void): void;
   openSearchModeMenuFromDoubleTab: SearchModes['openSearchModeMenuFromDoubleTab'];
   bindSearchInputCursorTooltip: BindCursorTooltip;
   pageState: SearchBoxState;
@@ -148,6 +149,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    locale,
     settings,
     suggestionItems,
     t,
@@ -224,7 +226,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     refreshFallbackShortcut,
     restoreDismissedSearchSuggestions,
     hideSearchInputCursorTooltip,
-    onLanguageChange,
     openSearchModeMenuFromDoubleTab,
     bindSearchInputCursorTooltip
   } = deps;
@@ -659,7 +660,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       }
     });
   }
-  onLanguageChange(() => {
+  locale.store.subscribe(() => {
     setSearchScopeIconEnabled(searchScopeIconEnabled);
   });
   inputParts.setChrome({

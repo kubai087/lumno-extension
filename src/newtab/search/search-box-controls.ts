@@ -13,6 +13,7 @@ import type { FormatMessage, Translate } from '../newtab-types';
 import type { PageNavigation } from '../page-navigation';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import * as SettingsStorage from '../../platform/settings-storage';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 interface SearchBoxControlsState {
   inputParts: SearchInputParts | null;
@@ -30,11 +31,11 @@ interface SearchBoxControlsState {
 }
 
 interface SearchBoxControlsDeps {
+  locale: Pick<SurfaceLocale, 'store'>;
   dismissHelpCenterAskHint(): void;
   rightIcon: HTMLElement | null;
   formatMessage: FormatMessage;
   // Runs the listener again whenever the page language changes.
-  onLanguageChange(listener: () => void): void;
   dismissWebdavFeatureHint(): void;
   EXTENSION_ROUTES: Pick<typeof ExtensionRoutes, 'buildOptionsUrl'>;
   getExtensionResourceUrl(resourcePath: string): string;
@@ -56,10 +57,10 @@ interface SearchBoxControlsDeps {
 
 function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   const {
+    locale,
     dismissHelpCenterAskHint,
     rightIcon,
     formatMessage,
-    onLanguageChange,
     dismissWebdavFeatureHint,
     EXTENSION_ROUTES,
     getExtensionResourceUrl,
@@ -112,7 +113,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
       inputParts.setChrome({ rightIconLabel: settingsTooltipText() });
     };
     applySettingsTooltip();
-    onLanguageChange(applySettingsTooltip);
+    locale.store.subscribe(applySettingsTooltip);
     rightIcon.addEventListener('click', function(event) {
       event.preventDefault();
       event.stopPropagation();
@@ -171,7 +172,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
       inputParts.setChrome({ clearLabel: searchClearTooltipText() });
     };
     applySearchClearTooltip();
-    onLanguageChange(applySearchClearTooltip);
+    locale.store.subscribe(applySearchClearTooltip);
     searchInput.addEventListener('input', updateInputRightPadding);
   }
 
@@ -182,7 +183,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
       inputParts.setChrome({ secondaryLabel: closeOtherTabsTooltipText() });
     };
     applyCloseOtherTabsTooltip();
-    onLanguageChange(applyCloseOtherTabsTooltip);
+    locale.store.subscribe(applyCloseOtherTabsTooltip);
   }
 
   function updateInputRightPadding(): void {

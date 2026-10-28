@@ -7,22 +7,20 @@ import { queryHtmlElement } from '../shared/dom-lookup';
 import * as LumnoNewtabDismissStack from './dismiss-stack';
 import type { Translate } from './newtab-types';
 import type { createFeedbackControlApi, FeedbackControlController, FeedbackControlModel } from './react/feedback';
+import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 
 interface FeedbackControlState {
   feedbackLinks: CommunityLinks | null;
-  currentResolvedLocale: string | null;
-  currentLanguageMode: string;
   feedbackControl: HTMLDivElement | null;
   feedbackButton: HTMLElement | null;
   feedbackReactController: FeedbackControlController | null;
 }
 
 interface FeedbackControlDeps {
+  locale: Pick<SurfaceLocale, 'store'>;
   COMMUNITY_LINKS: Pick<typeof LumnoCommunityLinks,
     'normalizeHttpsUrl' | 'load' | 'getCommunityChannel' | 'buildFreshQrUrl' | 'getReviewUrl'>;
   LUMNO_FEEDBACK_LINKS_FALLBACK: CommunityLinks;
-  getSystemLocale(): string;
-  normalizeLocale(locale: unknown): string;
   t: Translate;
   openExternalNewTabUrl(url: string, disposition: Disposition): boolean;
   hideTopActionTooltip(): void;
@@ -33,10 +31,9 @@ interface FeedbackControlDeps {
 
 function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   const {
+    locale,
     COMMUNITY_LINKS,
     LUMNO_FEEDBACK_LINKS_FALLBACK,
-    getSystemLocale,
-    normalizeLocale,
     t,
     openExternalNewTabUrl,
     hideTopActionTooltip,
@@ -69,15 +66,14 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   }
 
   function getFeedbackWebLocale(): string {
-    const locale = pageState.currentResolvedLocale ||
-      (pageState.currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(pageState.currentLanguageMode));
-    if (locale === 'zh_CN') {
+    const shownLocale = locale.store.getSnapshot().locale;
+    if (shownLocale === 'zh_CN') {
       return 'zh-CN';
     }
-    if (locale === 'zh_TW') {
+    if (shownLocale === 'zh_TW') {
       return 'zh-TW';
     }
-    if (locale === 'ja') {
+    if (shownLocale === 'ja') {
       return 'ja';
     }
     return 'en';

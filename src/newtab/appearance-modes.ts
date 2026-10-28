@@ -11,7 +11,9 @@ import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-setti
 import type { FeedbackControlRuntime } from './feedback-control';
 import type { ModeCommands } from './mode-commands';
 import type { NewtabThemeMode, NewtabThemeScope, Translate } from './newtab-types';
-import type { LocaleMessages, PageLanguage } from './page-language';
+import type { SurfaceLocale } from '../shared/i18n/surface-locale';
+import { localeToHtmlLang } from '../domain/settings/locale';
+import { cacheNewtabLocale } from '../platform/settings-storage';
 import type { BookmarkCardElement } from './react/bookmarks';
 import type { BookmarksTopbarRuntime } from './react/bookmarks-topbar';
 import type { RecentCardElement } from './react/recent-sites';
@@ -36,10 +38,6 @@ type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
 
 interface AppearanceModesState {
-  currentLanguageMode: string;
-  currentResolvedLocale: string | null;
-  currentMessages: LocaleMessages | null;
-  resolveInitialLanguageReady: (() => void) | null;
   // The mode applied to the page, after scope and glass material are settled.
   currentThemeMode: ThemeMode;
   globalThemeMode: ThemeMode;
@@ -69,7 +67,6 @@ interface AppearanceModesState {
 }
 
 interface AppearanceModesDeps extends
-  Pick<PageLanguage, 'getSystemLocale' | 'normalizeLocale' | 'applyDocumentLanguage' | 'loadLocaleMessages'>,
   Pick<TopContentRuntime, 'renderNewtabTopContent' | 'applyWordmarkThemeAppearance'>,
   Pick<WallpaperPage, 'updateWallpaperLanguageStrings' | 'updateWallpaperAppearanceSelectionUi'>,
   Pick<FeedbackControlRuntime, 'updateFeedbackLanguageStrings'>,
@@ -78,13 +75,12 @@ interface AppearanceModesDeps extends
   Pick<SuggestionsController, 'renderSuggestions' | 'updateSelection'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceColorForTheme'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
+  locale: Pick<SurfaceLocale, 'store' | 'ready'>;
   settings: Pick<SettingsStore, 'get'>;
   t: Translate;
   renderShortcuts(): void;
   updateRecentModeMenu: SectionHeaders['updateRecentModeMenu'];
   updateBookmarkModeMenu: SectionHeaders['updateBookmarkModeMenu'];
-  // Tells the listeners outside this module that the language changed.
-  notifyLanguageChange(): void;
   forceReloadRecentSitesForI18n: SectionLoaders['forceReloadRecentSitesForI18n'];
   // { resetInk: true } when a setting changed what the glass ink should be.
   scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions): void;
@@ -101,20 +97,19 @@ interface AppearanceModesDeps extends
   removeMediaQueryChangeListener(queryList: MediaQueryList, listener: (event: MediaQueryListEvent) => void): void;
   // Settle once the first theme and the first language are applied.
   initialThemeReadyPromise: Promise<unknown>;
-  initialLanguageReadyPromise: Promise<unknown>;
   storageArea: StorageAreaLike | null;
   THEME_STORAGE_KEY: string;
   NEWTAB_THEME_MODE_STORAGE_KEY: string;
   NEWTAB_THEME_SCOPE_STORAGE_KEY: string;
   NEWTAB_GLASS_STYLE_STORAGE_KEY: string;
   NEWTAB_GLASS_THEME_STORAGE_KEY: string;
-  LANGUAGE_STORAGE_KEY: string;
   getGlassThemeOverride: typeof LumnoSettings.getNewtabGlassThemeOverride;
   pageState: AppearanceModesState;
 }
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    locale,
     settings,
     t,
     renderNewtabTopContent,
@@ -124,17 +119,12 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     updateWallpaperAppearanceSelectionUi,
     updateFeedbackLanguageStrings,
     renderShortcuts,
-    notifyLanguageChange,
     setLocalSearchScopePrefix,
     updateModeBadge,
     recentCards,
     bookmarkCards,
     renderSuggestions,
-    getSystemLocale,
-    normalizeLocale,
-    applyDocumentLanguage,
     forceReloadRecentSitesForI18n,
-    loadLocaleMessages,
     shortcutTiles,
     applyShortcutTileTheme,
     resolveTheme,
@@ -156,9 +146,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     NEWTAB_THEME_SCOPE_STORAGE_KEY,
     NEWTAB_GLASS_STYLE_STORAGE_KEY,
     NEWTAB_GLASS_THEME_STORAGE_KEY,
-    getGlassThemeOverride,
-    initialLanguageReadyPromise,
-    LANGUAGE_STORAGE_KEY
+    getGlassThemeOverride
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -166,9 +154,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
 
   let mediaListenerAttached = false;
   let hasThemeBootstrapStarted = false;
-  let initialLanguageApplied = false;
-  let hasLanguageBootstrapStarted = false;
-  let languageApplyRequestId = 0;
 
   function applyLanguageStrings(): void {
     document.title = t('newtab_page_title', 'New Tab');
@@ -218,35 +203,8 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     if (pageState.latestQuery && pageState.latestQuery.trim()) {
       void renderSuggestions(pageState.lastSuggestionResponse, pageState.latestQuery);
     }
-    notifyLanguageChange();
   }
 
-  function applyLanguageMode(mode: unknown): void {
-    const requestId = ++languageApplyRequestId;
-    pageState.currentLanguageMode = typeof mode === 'string' && mode ? mode : 'system';
-    const targetLocale = pageState.currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(pageState.currentLanguageMode);
-    pageState.currentResolvedLocale = targetLocale;
-    applyDocumentLanguage(targetLocale);
-    const finalizeLanguageInit = () => {
-      if (initialLanguageApplied) {
-        return;
-      }
-      initialLanguageApplied = true;
-      if (pageState.resolveInitialLanguageReady) {
-        pageState.resolveInitialLanguageReady();
-      }
-    };
-    const applyResolvedMessages = (messages: LocaleMessages | null | undefined) => {
-      if (requestId !== languageApplyRequestId) {
-        return;
-      }
-      pageState.currentMessages = messages || {};
-      applyLanguageStrings();
-      forceReloadRecentSitesForI18n();
-      finalizeLanguageInit();
-    };
-    void loadLocaleMessages(targetLocale).then(applyResolvedMessages);
-  }
 
   function refreshShortcutTileThemes(): void {
     shortcutTiles.forEach((tile) => {
@@ -418,20 +376,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     return initialThemeReadyPromise;
   }
 
-  function bootstrapInitialLanguageMode(): Promise<unknown> {
-    if (hasLanguageBootstrapStarted) {
-      return initialLanguageReadyPromise;
-    }
-    hasLanguageBootstrapStarted = true;
-    if (!storageArea) {
-      applyLanguageMode('system');
-      return initialLanguageReadyPromise;
-    }
-    void storageArea.get([LANGUAGE_STORAGE_KEY], (result) => {
-      applyLanguageMode(result ? result[LANGUAGE_STORAGE_KEY] : 'system');
-    });
-    return initialLanguageReadyPromise;
-  }
 
   function handleMediaChange(event: MediaQueryListEvent): void {
     if (pageState.currentThemeMode !== 'system') {
@@ -455,8 +399,30 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     applyThemeMode('system', { mediaMatches: mediaQuery.matches });
   }
 
+  // Puts the page in its language once the first messages are in, and again
+  // on every change; the document's language moves with the locale at once.
+  function followLanguage(): Promise<void> {
+    let shownMessages = locale.store.getSnapshot().messages;
+    let shownLocale = '';
+    const applyLocale = () => {
+      const { locale: current, messages } = locale.store.getSnapshot();
+      if (current !== shownLocale) {
+        shownLocale = current;
+        document.documentElement.lang = localeToHtmlLang(current);
+        cacheNewtabLocale(current);
+      }
+      if (messages !== shownMessages) {
+        shownMessages = messages;
+        applyLanguageStrings();
+        forceReloadRecentSitesForI18n();
+      }
+    };
+    locale.store.subscribe(applyLocale);
+    return locale.ready.then(applyLocale);
+  }
+
   return {
-    applyLanguageMode,
+    followLanguage,
     refreshThemeAwareFavicons,
     scheduleThemeAwareFaviconRescue,
     applyThemeMode,
@@ -468,7 +434,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     getSelectedThemeMode,
     applyScopedThemeMode,
     bootstrapInitialThemeMode,
-    bootstrapInitialLanguageMode,
     syncSystemThemeMode
   };
 }

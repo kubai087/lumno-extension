@@ -43,7 +43,9 @@ import * as NEWTAB_INPUT_FOCUS from './input-focus';
 import * as NEWTAB_LAYOUT from './layout';
 import * as NEWTAB_MODE_COMMANDS from './mode-commands';
 import * as NEWTAB_PAGE_KEYBOARD from './page-keyboard';
-import * as NEWTAB_PAGE_LANGUAGE from './page-language';
+import { loadNewtabLocaleMessages } from './page-language';
+import { SurfaceLocale } from '../shared/i18n/surface-locale';
+import * as SearchDirectNavigation from '../domain/search/utils/direct-navigation';
 import * as NEWTAB_PAGE_LAYOUT from './page-layout';
 import * as NEWTAB_PAGE_NAVIGATION from './page-navigation';
 import * as NEWTAB_PAGE_NOTICES from './page-notices';
@@ -108,7 +110,6 @@ import {
   bookmarkFolderIconsVisible,
   bookmarkViewMode,
   hiddenRecentSites,
-  language,
   newtabAppearanceButtonVisible,
   newtabFavicon,
   newtabFeedbackButtonVisible,
@@ -329,25 +330,11 @@ import * as SettingsStorage from '../platform/settings-storage';
   const NEWTAB_SHORTCUTS_VIEW = getShortcutsViewApi();
   const NEWTAB_FEEDBACK_CONTROL = getFeedbackControlApi();
 
-  // Text set once at startup may be read before the chosen language loads;
-  // controls register here to re-read it whenever the language is applied.
-  const languageChangeListeners: Array<() => void> = [];
-
-  const {
-    onLanguageChange,
-    normalizeLocale,
-    applyDocumentLanguage,
-    getSystemLocale,
-    sanitizeDisplayText,
-    loadLocaleMessages,
-    t,
-    formatMessage
-  } = NEWTAB_PAGE_LANGUAGE.createPageLanguage({
-    languageChangeListeners,
-    SETTINGS,
-    getExtensionResourceUrl,
-    pageState
-  });
+  // The page's language; it follows the stored choice from the first read.
+  const locale = new SurfaceLocale(settings, loadNewtabLocaleMessages);
+  locale.follow();
+  const { t, formatMessage } = locale;
+  const sanitizeDisplayText = SearchDirectNavigation.sanitizeDisplayText;
 
   const {
     getFeedbackWebLocale,
@@ -357,10 +344,9 @@ import * as SettingsStorage from '../platform/settings-storage';
     closeFeedbackPopover,
     createFeedbackControls
   } = NEWTAB_FEEDBACK_CONTROL_RUNTIME.createFeedbackControlRuntime({
+    locale,
     COMMUNITY_LINKS,
     LUMNO_FEEDBACK_LINKS_FALLBACK,
-    getSystemLocale,
-    normalizeLocale,
     t,
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
@@ -600,9 +586,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     BOOKMARK_TOPBAR_SURFACE_MODE_ACTION,
     BOOKMARK_TOPBAR_LAYOUT_ACTION,
     pageState
-  });
-  const initialLanguageReadyPromise = new Promise<void>((resolve) => {
-    pageState.resolveInitialLanguageReady = resolve;
   });
   const initialBookmarkViewModeReadyPromise = new Promise<void>((resolve) => {
     pageState.resolveInitialBookmarkViewModeReady = resolve;
@@ -983,7 +966,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
 
   const {
-    applyLanguageMode,
+    followLanguage,
     refreshThemeAwareFavicons,
     scheduleThemeAwareFaviconRescue,
     applyThemeMode,
@@ -995,12 +978,11 @@ import * as SettingsStorage from '../platform/settings-storage';
     getSelectedThemeMode,
     applyScopedThemeMode,
     bootstrapInitialThemeMode,
-    bootstrapInitialLanguageMode,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    locale,
     settings,
     t,
-    notifyLanguageChange: () => languageChangeListeners.forEach((listener) => listener()),
     renderNewtabTopContent: (...args) => renderNewtabTopContent(...args),
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
@@ -1013,11 +995,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     recentCards,
     bookmarkCards,
     renderSuggestions: (...args) => renderSuggestions(...args),
-    getSystemLocale,
-    normalizeLocale,
-    applyDocumentLanguage,
     forceReloadRecentSitesForI18n: (...args) => forceReloadRecentSitesForI18n(...args),
-    loadLocaleMessages,
     shortcutTiles,
     applyShortcutTileTheme,
     resolveTheme,
@@ -1040,8 +1018,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_GLASS_STYLE_STORAGE_KEY: newtabGlassStyle.key,
     NEWTAB_GLASS_THEME_STORAGE_KEY: newtabGlassTheme.key,
     getGlassThemeOverride: SETTINGS.getNewtabGlassThemeOverride,
-    initialLanguageReadyPromise,
-    LANGUAGE_STORAGE_KEY: language.key,
     pageState
   });
   const NEWTAB_SEARCH_WIDTH_CONFIG = NEWTAB_LAYOUT.SEARCH_WIDTH_CONFIG;
@@ -1166,7 +1142,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   pageState.quoteRuntime = LumnoNewtabQuotes.createRuntime({
     documentObj: document, windowObj: window, chromeObj: chrome,
     storageArea, localStorageArea, t, showToast,
-    getLocale: () => pageState.currentResolvedLocale,
+    getLocale: () => locale.store.getSnapshot().locale,
     getSearchRoot: () => root,
     getShortcutSection: () => pageState.shortcutSection,
     getTooltipController: () => topActionTooltipController,
@@ -1401,8 +1377,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_THEME_SCOPE_STORAGE_KEY: newtabThemeScope.key,
     normalizeNewtabThemeScope,
     updateWallpaperLanguageStrings,
-    LANGUAGE_STORAGE_KEY: language.key,
-    applyLanguageMode,
     NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: newtabInputAutoFocusEnabled.key,
     normalizeNewtabInputAutoFocusEnabled,
     updateNewtabInputAutoFocusUi,
@@ -1467,7 +1441,6 @@ import * as SettingsStorage from '../platform/settings-storage';
 
   NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
     storageArea,
-    bootstrapInitialLanguageMode,
     settingsRuntimeApi,
     renderRecentSites: (...args) => renderRecentSites(...args),
     localStorageArea,
@@ -2623,6 +2596,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    locale,
     settings,
     suggestionItems,
     t,
@@ -2699,7 +2673,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     refreshFallbackShortcut,
     restoreDismissedSearchSuggestions,
     hideSearchInputCursorTooltip,
-    onLanguageChange,
     openSearchModeMenuFromDoubleTab,
     bindSearchInputCursorTooltip,
     pageState
@@ -2736,6 +2709,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     dismissHelpCenterAskHint,
     dismissWebdavFeatureHint
   } = NEWTAB_PAGE_NOTICES.createPageNotices({
+    locale,
     pageSearchParams,
     bottomDock,
     t,
@@ -2746,8 +2720,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     LUMNO_FEEDBACK_LINKS_FALLBACK,
     openFeedbackExternalUrl,
     COMMUNITY_LINKS,
-    getSystemLocale,
-    normalizeLocale,
     newtabEntryAnimationReadyPromise,
     activateSiteSearch,
     root,
@@ -2761,10 +2733,10 @@ import * as SettingsStorage from '../platform/settings-storage';
     applyNewtabActionButtonVisibility,
     loadNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
+    locale,
     dismissHelpCenterAskHint,
     rightIcon,
     formatMessage,
-    onLanguageChange,
     dismissWebdavFeatureHint,
     EXTENSION_ROUTES,
     getExtensionResourceUrl,
@@ -2957,7 +2929,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   document.body.insertBefore(pageState.suggestionsContainer, newtabUpdateNoticeAnchor);
   // 等首轮语言解析完成后再创建，避免默认文案在新标签页首帧短暂闪现。
   Promise.all([
-    initialLanguageReadyPromise,
+    locale.ready,
     pageState.updateNoticeController && pageState.updateNoticeController.ready
       ? pageState.updateNoticeController.ready
       : Promise.resolve(false)
@@ -3047,7 +3019,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
   // The search settings join the page's first storage read.
   const sectionPolicyReadyPromise = settings.include(NEWTAB_SEARCH_SETTINGS);
-  const initialLanguageReadyTask = bootstrapInitialLanguageMode();
+  const initialLanguageReadyTask = followLanguage();
   const initialMotionPreferenceReadyTask = readBootValue('motionPreferenceReady');
   const initialLayoutStorageReadyTask = startupStorageReadBatch
     ? startupStorageReadBatch.ready

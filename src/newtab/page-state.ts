@@ -24,7 +24,6 @@ import type { InputFocusState } from './input-focus';
 import type { ModeCommandsState } from './mode-commands';
 import type { PageFaviconsState } from './theme/page-favicons';
 import type { PageKeyboardState } from './page-keyboard';
-import type { PageLanguageState } from './page-language';
 import type { PageLayoutState } from './page-layout';
 import type { PageNavigationState } from './page-navigation';
 import type { PageNoticesState } from './page-notices';
@@ -91,7 +90,6 @@ type NewtabPageState =
   ModeCommandsState &
   PageFaviconsState &
   PageKeyboardState &
-  PageLanguageState &
   PageLayoutState &
   PageNavigationState &
   PageNoticesState &
@@ -138,7 +136,6 @@ function createPageState(): NewtabPageState {
     initialThemeApplied: false,
     resolveInitialThemeReady: null,
 
-    resolveInitialLanguageReady: null,
     modeBadge: null,
     inputModeController: null,
     selectedIndex: -1,
@@ -272,7 +269,6 @@ function createPageState(): NewtabPageState {
     localSearchScopeState: null,
     folderColorPicker: null,
     searchScopeIcon: null,
-    currentMessages: null,
     recentContextMenu: null,
     recentContextMenuSelectController: null,
     recentContextMenuTarget: null,
@@ -292,8 +288,6 @@ function createPageState(): NewtabPageState {
     bookmarkRenderSignature: '',
     sectionDataRevision: 0,
     newtabShortcuts: [],
-    currentResolvedLocale: null,
-    currentLanguageMode: 'system',
     recentLoadedOnce: false,
     recentRenderSignature: '',
     // Progress tracking (Labs) stays off until its stored switch is read.

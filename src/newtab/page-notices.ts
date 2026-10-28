@@ -19,6 +19,7 @@ import type { Translate } from './newtab-types';
 import { getPageNoticeApi } from './react/page-notice';
 import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
 import type { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
+import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 
 interface PageNoticesState {
   updateNoticeController: UpdateNoticeController | null;
@@ -26,13 +27,12 @@ interface PageNoticesState {
   engagementNoticeController: EngagementNoticeController | null;
   inputParts: { input: HTMLInputElement; container: HTMLElement } | null;
   feedbackLinks: CommunityLinks | null;
-  currentResolvedLocale: string | null;
-  currentLanguageMode: string;
   helpCenterAskHintController: FeatureHintController | null;
   webdavFeatureHintController: { dismiss?: () => void } | null;
 }
 
 interface PageNoticesDeps {
+  locale: Pick<SurfaceLocale, 'store'>;
   pageSearchParams: URLSearchParams;
   bottomDock: HTMLElement | null;
   t: Translate;
@@ -43,8 +43,6 @@ interface PageNoticesDeps {
   LUMNO_FEEDBACK_LINKS_FALLBACK: CommunityLinks;
   openFeedbackExternalUrl(url: unknown, disposition?: Disposition): boolean;
   COMMUNITY_LINKS: Pick<typeof LumnoCommunityLinks, 'getReviewUrl'>;
-  getSystemLocale(): string;
-  normalizeLocale(locale: unknown): string;
   // Settles once the page's entry animation is done.
   newtabEntryAnimationReadyPromise: Promise<unknown>;
   activateSiteSearch(provider: SiteSearchProvider): void;
@@ -56,6 +54,7 @@ interface PageNoticesDeps {
 
 function createPageNotices(deps: PageNoticesDeps) {
   const {
+    locale,
     pageSearchParams,
     bottomDock,
     t,
@@ -66,8 +65,6 @@ function createPageNotices(deps: PageNoticesDeps) {
     LUMNO_FEEDBACK_LINKS_FALLBACK,
     openFeedbackExternalUrl,
     COMMUNITY_LINKS,
-    getSystemLocale,
-    normalizeLocale,
     newtabEntryAnimationReadyPromise,
     activateSiteSearch,
     root,
@@ -273,8 +270,7 @@ function createPageNotices(deps: PageNoticesDeps) {
   }
   // Help Center results and the page the search row opens both follow the interface language.
   function getHelpCenterLocale(): string {
-    return pageState.currentResolvedLocale ||
-      (pageState.currentLanguageMode === 'system' ? getSystemLocale() : normalizeLocale(pageState.currentLanguageMode));
+    return locale.store.getSnapshot().locale;
   }
 
   // The WeChat group QR opens in a dialog over the page, never in a new tab.

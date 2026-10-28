@@ -65,10 +65,10 @@ class SurfaceLocale {
     return fallback || '';
   };
 
-  readonly formatMessage = (key: string, fallback: string, values?: Record<string, string>): string => {
+  readonly formatMessage = (key: string, fallback: string, values?: Readonly<Record<string, string | number>>): string => {
     const text = this.t(key, fallback);
     return values
-      ? text.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name: string) => (Object.hasOwn(values, name) ? values[name] : match))
+      ? text.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name: string) => (Object.hasOwn(values, name) ? String(values[name]) : match))
       : text;
   };
 

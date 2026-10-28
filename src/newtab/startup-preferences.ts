@@ -6,7 +6,6 @@ import type { ProgressHistoryMap } from '../domain/progress-history';
 import type * as LumnoSettings from '../domain/settings';
 import type { NewtabWidthMode } from '../domain/settings';
 import type { StorageAreaLike } from '../domain/storage-port';
-import type { AppearanceModes } from './appearance-modes';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { PageLayout } from './page-layout';
@@ -48,7 +47,6 @@ interface StartupPreferencesDeps extends
     'getBookmarkLimit' | 'normalizeNewtabWidthMode' | 'normalizeNewtabSearchWidth' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeBookmarkCount' |
     'normalizeBookmarkColumns'>,
   Pick<RecentSitesController, 'readPinnedRecentSites' | 'readHiddenRecentSites'>,
-  Pick<AppearanceModes, 'bootstrapInitialLanguageMode'>,
   Pick<PageLayout,
     'normalizeRecentCount' | 'normalizeRecentMode' | 'applyNewtabWidthMode' | 'applyRecentGridColumns' |
     'applyBookmarkGridColumns' | 'keepBookmarkPageAnchorAfterLimitChange' | 'updateBookmarkSectionPosition'>,
@@ -81,7 +79,6 @@ interface StartupPreferencesDeps extends
 function createStartupPreferences(deps: StartupPreferencesDeps) {
   const {
     storageArea,
-    bootstrapInitialLanguageMode,
     settingsRuntimeApi,
     renderRecentSites,
     localStorageArea,
@@ -131,7 +128,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
   const pageState = deps.pageState;
 
   if (storageArea) {
-    void bootstrapInitialLanguageMode();
     void storageArea.get([settingsRuntimeApi.progressTrackingEnabled.key], (result) => {
       pageState.progressTrackingEnabled = settingsRuntimeApi.progressTrackingEnabled.parse(
         result && result[settingsRuntimeApi.progressTrackingEnabled.key]
