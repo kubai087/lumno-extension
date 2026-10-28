@@ -15,6 +15,8 @@ import type { ShortcutPageActions } from './shortcuts/shortcut-page-actions';
 import type { ShortcutsController } from './shortcuts/shortcuts-controller';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import * as RecentSitesStore from '../domain/recent-sites-store';
+import { newtabZenMode } from '../domain/settings/newtab-page';
+import type { SettingsStore } from '../platform/settings-store';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -46,7 +48,6 @@ interface PageLayoutState {
   newtabShortcutGap: number;
   newtabShortcutsVisible: boolean;
   newtabShortcutAddVisible: boolean;
-  zenModeEnabled: boolean;
   newtabResizeLayoutLocked: boolean;
   layoutController: Pick<LayoutController,
     'applyWidthMode' | 'updateBottomDockLayout' | 'updateSearchEntryLayout'> | null;
@@ -64,6 +65,7 @@ interface PageLayoutDeps extends
   Pick<ShortcutDock, 'resetShortcutDockHover'>,
   Pick<ShortcutContextMenu, 'closeShortcutContextMenu'>,
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
+  settings: Pick<SettingsStore, 'get'>;
   NEWTAB_LAYOUT: Pick<typeof LumnoNewtabLayout, 'getAdaptiveGridColumnCount' | 'CONTENT_MAX_WIDTH_PX'>;
   NEWTAB_MOBILE_FLOW_BREAKPOINT_PX: number;
   NEWTAB_WIDTH_MODE_CONFIGS: Record<NewtabWidthMode, NewtabWidthModeConfig>;
@@ -79,6 +81,7 @@ interface PageLayoutDeps extends
 
 function createPageLayout(deps: PageLayoutDeps) {
   const {
+    settings,
     normalizeBookmarkColumns,
     NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
@@ -255,8 +258,8 @@ function createPageLayout(deps: PageLayoutDeps) {
       return;
     }
     section.setAttribute('data-content-visible', visible ? 'true' : 'false');
-    section.setAttribute('data-visible', visible && !pageState.zenModeEnabled ? 'true' : 'false');
-    if (section === pageState.recentSection && (!visible || pageState.zenModeEnabled)) {
+    section.setAttribute('data-visible', visible && !settings.get(newtabZenMode) ? 'true' : 'false');
+    if (section === pageState.recentSection && (!visible || settings.get(newtabZenMode))) {
       closeRecentContextMenu();
     }
     scheduleWallpaperAdaptiveToneUpdate();
@@ -335,7 +338,7 @@ function createPageLayout(deps: PageLayoutDeps) {
       pageState.shortcutSection,
       Boolean(pageState.newtabShortcutsVisible && hasVisibleContent)
     );
-    if (!pageState.newtabShortcutsVisible || !hasVisibleContent || pageState.zenModeEnabled) {
+    if (!pageState.newtabShortcutsVisible || !hasVisibleContent || settings.get(newtabZenMode)) {
       resetShortcutDockHover();
       closeShortcutContextMenu();
       closeShortcutDialog();

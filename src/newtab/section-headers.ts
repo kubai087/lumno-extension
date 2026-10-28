@@ -13,6 +13,8 @@ import type { BookmarksTopbarRuntime } from './react/bookmarks-topbar';
 import type { SectionLoaders } from './section-loaders';
 import type { TooltipBindings } from './tooltip-bindings';
 import type { ViewportInsets } from './viewport-insets';
+import { newtabZenMode } from '../domain/settings/newtab-page';
+import type { SettingsStore } from '../platform/settings-store';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
@@ -50,7 +52,6 @@ interface SectionHeadersState {
   bookmarkRenderSignature: string;
   bookmarkLoadedOnce: boolean;
   currentBookmarkCount: number;
-  zenModeEnabled: boolean;
 }
 
 interface SectionHeadersDeps extends
@@ -59,6 +60,7 @@ interface SectionHeadersDeps extends
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu'>,
   Pick<TooltipBindings, 'showTopActionTooltip' | 'hideTopActionTooltip'>,
   Pick<ViewportInsets, 'getNewtabVisualViewportInsets'> {
+  settings: Pick<SettingsStore, 'get'>;
   t: Translate;
   markRecentDataDirty: SectionLoaders['markRecentDataDirty'];
   loadRecentSites: SectionLoaders['loadRecentSites'];
@@ -79,6 +81,7 @@ interface SectionHeadersDeps extends
 
 function createSectionHeaders(deps: SectionHeadersDeps) {
   const {
+    settings,
     t,
     normalizeRecentMode,
     storageArea,
@@ -219,7 +222,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     if (isBookmarkTopbarMode()) {
       setContentSectionVisible(bookmarkSection, false);
       if (pageState.bookmarkTopbarRuntime) {
-        pageState.bookmarkTopbarRuntime.setVisible(nextVisible && !pageState.zenModeEnabled);
+        pageState.bookmarkTopbarRuntime.setVisible(nextVisible && !settings.get(newtabZenMode));
       }
       return;
     }

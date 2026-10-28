@@ -110,10 +110,7 @@ import {
   bookmarkFolderIconsVisible,
   bookmarkViewMode,
   hiddenRecentSites,
-  newtabAppearanceButtonVisible,
   newtabFavicon,
-  newtabFeedbackButtonVisible,
-  newtabInputAutoFocusEnabled,
   newtabLocalWallpaper,
   newtabOpenInNewTab,
   newtabSearchWidth,
@@ -129,7 +126,6 @@ import {
   newtabWallpaperOverlay,
   newtabWallpaper,
   newtabWidthMode,
-  newtabZenMode,
   numberShortcutInstantEnabled,
   overlayTabPriority,
   pinnedRecentSites,
@@ -189,6 +185,9 @@ import { newtabShortcutFaviconCache, newtabShortcutsLocalOverflow, shortcutFolde
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
 import { takePrefetchedRead } from '../platform/storage-read-batch';
 import { TimePreview } from './top-content/time-preview';
+import { repairStoredSettings } from './setting-repairs';
+import { newtabTimeFont, newtabTimeFontWeight, newtabTimeSecondsVisible, newtabTopContentMode } from '../domain/settings/newtab-time';
+import { newtabAppearanceButtonVisible, newtabFeedbackButtonVisible } from '../domain/settings/newtab-page';
 import * as SearchSettings from '../domain/settings/search';
 
 // The search settings the page reads as it starts.
@@ -1046,6 +1045,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     updateBookmarkSectionPosition,
     updateSearchEntryLayout
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
+    settings,
     normalizeBookmarkColumns: (...args) => normalizeBookmarkColumns(...args),
     NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
@@ -1081,11 +1081,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     normalizeNewtabShortcutSize,
     normalizeNewtabShortcutGap,
     inferNewtabShortcutColumnsFromWidth,
-    normalizeNewtabInputAutoFocusEnabled,
-    normalizeNewtabFeedbackButtonVisible,
-    normalizeNewtabAppearanceButtonVisible,
-    updateNewtabInputAutoFocusUi,
-    setNewtabInputAutoFocusEnabled,
     updateNewtabShortcutPreferencesUi,
     setNewtabShortcutsVisible,
     setNewtabShortcutAddVisible,
@@ -1095,11 +1090,11 @@ import * as SettingsStorage from '../platform/settings-storage';
     setNewtabShortcutGap,
     initialNewtabInputAutoFocusReadyTask,
     normalizeBookmarkFolderIconsVisible,
-    normalizeZenModeEnabled,
     normalizeBookmarkCount,
     getBookmarkLimit,
     normalizeBookmarkColumns
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
+    settings,
     SETTINGS,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     NEWTAB_SHORTCUT_COLUMNS_MIN,
@@ -1107,7 +1102,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SHORTCUT_WIDTH_MIN,
     NEWTAB_SHORTCUT_WIDTH_MAX,
     storageArea,
-    NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: newtabInputAutoFocusEnabled.key,
     applyNewtabShortcutsVisibility,
     updateBookmarkSectionPosition,
     NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: newtabShortcutsVisible.key,
@@ -1259,7 +1253,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     FEATURE_HINTS,
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
-    setNewtabInputAutoFocusEnabled,
     followTheme,
     pageState
   });
@@ -1348,9 +1341,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
-    NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: newtabInputAutoFocusEnabled.key,
-    normalizeNewtabInputAutoFocusEnabled,
-    updateNewtabInputAutoFocusUi,
     RECENT_COUNT_STORAGE_KEY: recentCount.key,
     NEWTAB_WIDTH_MODE_STORAGE_KEY: newtabWidthMode.key,
     normalizeNewtabWidthMode,
@@ -1359,15 +1349,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY: newtabSearchWidth.key,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY: newtabFeedbackButtonVisible.key,
-    normalizeNewtabFeedbackButtonVisible,
-    applyNewtabActionButtonVisibility: (...args) => applyNewtabActionButtonVisibility(...args),
-    NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY: newtabAppearanceButtonVisible.key,
-    normalizeNewtabAppearanceButtonVisible,
-    NEWTAB_ZEN_MODE_STORAGE_KEY: newtabZenMode.key,
-    normalizeZenModeEnabled,
-    applyZenMode: (...args) => applyZenMode(...args),
-    updateZenCommandSuggestions: (...args) => updateZenCommandSuggestions(...args),
     NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: newtabShortcutsVisible.key,
     normalizeNewtabShortcutsVisible,
     applyNewtabShortcutsVisibility,
@@ -1664,6 +1645,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     setBookmarkViewMode,
     navigateBookmarkFolder
   } = NEWTAB_SECTION_HEADERS.createSectionHeaders({
+    settings,
     t,
     normalizeRecentMode,
     storageArea,
@@ -2358,7 +2340,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     isZenCommand: (...args) => isZenCommand(...args),
     getNextThemeMode: (...args) => getNextThemeMode(...args),
     setVisibleThemeMode,
-    setZenModeEnabled: (...args) => setZenModeEnabled(...args),
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     activateSiteSearch,
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
@@ -2393,7 +2374,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     activateSiteSearch,
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
     setVisibleThemeMode,
-    setZenModeEnabled: (...args) => setZenModeEnabled(...args),
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     shouldSwitchMatchedTabSuggestion,
     openMatchedTabSuggestion,
@@ -2460,6 +2440,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     focusSearchInputPreservingScroll,
     handleGlobalTypingFocus
   } = NEWTAB_INPUT_FOCUS.createInputFocus({
+    settings,
     SHORTCUT_KEY_MATCHER,
     prepareFocusReload: () => (pageState.focusResume ? pageState.focusResume.prepareFocusReload() : false),
     refreshTabsIfIdle,
@@ -2481,10 +2462,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     buildZenSuggestion,
     loadWebAppearance,
     setWebAppearanceMode,
-    updateZenCommandSuggestions,
-    applyZenMode,
-    setZenModeEnabled,
-    loadZenMode
+    followZenMode
   } = NEWTAB_MODE_COMMANDS.createModeCommands({
     settings,
     t,
@@ -2510,9 +2488,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     updateBookmarkSectionPosition,
     updateSearchEntryLayout,
     scheduleWallpaperAdaptiveToneUpdate,
-    normalizeZenModeEnabled,
-    storageArea,
-    NEWTAB_ZEN_MODE_STORAGE_KEY: newtabZenMode.key,
     pageState
   });
 
@@ -2676,9 +2651,9 @@ import * as SettingsStorage from '../platform/settings-storage';
   const {
     SEARCH_CLEAR_BUTTON_INSET,
     updateInputRightPadding,
-    applyNewtabActionButtonVisibility,
-    loadNewtabActionButtonVisibility
+    followNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
+    settings,
     locale,
     dismissHelpCenterAskHint,
     rightIcon,
@@ -2693,11 +2668,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     searchInput,
     closeFeedbackPopover,
     closeWallpaperPanel,
-    storageArea,
-    NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY: newtabFeedbackButtonVisible.key,
-    NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY: newtabAppearanceButtonVisible.key,
-    normalizeNewtabFeedbackButtonVisible,
-    normalizeNewtabAppearanceButtonVisible,
     pageState
   });
 
@@ -2949,7 +2919,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     });
   }, { passive: true });
   bottomDockRuntime.onScroll(scheduleWallpaperAdaptiveToneUpdate, { passive: true });
-  const actionButtonVisibilityReadyPromise = loadNewtabActionButtonVisibility();
+  const actionButtonVisibilityReadyPromise = followNewtabActionButtonVisibility();
   const glassStyleReadyPromise = followNewtabGlassStyle();
   const shortcutPreferencesReadyPromise = loadNewtabShortcutPreferences();
   const shortcutsReadyPromise = shortcutPreferencesReadyPromise.then(loadVisibleShortcuts);
@@ -2959,6 +2929,23 @@ import * as SettingsStorage from '../platform/settings-storage';
   });
   // The search settings join the page's first storage read.
   const sectionPolicyReadyPromise = settings.include(NEWTAB_SEARCH_SETTINGS);
+  // The page keeps the stored copy of its settings normalized.
+  void repairStoredSettings(settings, storageArea, {
+    saved: [
+      SearchSettings.tabRankScoreDebug,
+      newtabTopContentMode,
+      newtabTimeFontWeight,
+      newtabTimeSecondsVisible,
+      newtabFeedbackButtonVisible,
+      newtabAppearanceButtonVisible
+    ],
+    invalidOnly: [
+      SearchSettings.searchResultPriority,
+      SearchSettings.searchResultDisplayLimit,
+      SearchSettings.faviconEnhancedFetchEnabled,
+      newtabTimeFont
+    ]
+  });
   const initialLanguageReadyTask = followLanguage();
   const initialMotionPreferenceReadyTask = readBootValue('motionPreferenceReady');
   const initialLayoutStorageReadyTask = startupStorageReadBatch
@@ -2972,7 +2959,7 @@ import * as SettingsStorage from '../platform/settings-storage';
   Promise.all([
     initialAppearanceReadyTask,
     initialBookmarkViewModeReadyPromise,
-    loadZenMode(),
+    followZenMode(),
     actionButtonVisibilityReadyPromise,
     glassStyleReadyPromise,
     initialMotionPreferenceReadyTask,

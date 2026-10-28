@@ -20,6 +20,7 @@ import * as SearchNavigationMatching from '../../domain/search/utils/navigation-
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { AppearanceModes } from '../appearance-modes';
+import { newtabZenMode } from '../../domain/settings/newtab-page';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -27,7 +28,6 @@ interface SearchNavigationState {
   localSearchScopeState: ActiveLocalScope | null;
   selectedIndex: number;
   currentThemeMode: string;
-  zenModeEnabled: boolean;
   currentSuggestions: Suggestion[];
   siteSearchState: SiteSearchProvider | null;
   latestRawQuery: string;
@@ -43,7 +43,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
-  settings: Pick<SettingsStore, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'set'>;
   formatMessage: FormatMessage;
   getExtensionResourceUrl(resourcePath: string): string;
   BROWSER_PROFILE: Pick<typeof BrowserProfile, 'getBrowserInternalProfile' | 'canOpenBrowserPages'>;
@@ -63,7 +63,6 @@ interface SearchNavigationDeps {
   isZenCommand(query: string): boolean;
   getNextThemeMode(mode: string): string;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
-  setZenModeEnabled: ModeCommands['setZenModeEnabled'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   activateSiteSearch: SearchModes['activateSiteSearch'];
   focusSearchInputPreservingScroll(): boolean;
@@ -102,7 +101,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     isZenCommand,
     getNextThemeMode,
     setVisibleThemeMode,
-    setZenModeEnabled,
     setWebAppearanceMode,
     activateSiteSearch,
     focusSearchInputPreservingScroll,
@@ -423,7 +421,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       return;
     }
     if (!pageState.localSearchScopeState && isZenCommand(query)) {
-      setZenModeEnabled(!pageState.zenModeEnabled);
+      void settings.set(newtabZenMode, !settings.get(newtabZenMode));
       return;
     }
     const executeSuggestion = (
@@ -442,7 +440,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return true;
       }
       if (selectedSuggestion.type === 'zenSwitch') {
-        setZenModeEnabled(selectedSuggestion.nextEnabled);
+        void settings.set(newtabZenMode, newtabZenMode.parse(selectedSuggestion.nextEnabled));
         return true;
       }
       if (selectedSuggestion.type === 'webAppearanceSwitch') {

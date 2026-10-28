@@ -21,7 +21,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { TimePreview } from '../top-content/time-preview';
 import { getFixedTimeInk, newtabTimeInk, newtabTopContentMode } from '../../domain/settings/newtab-time';
 import { themeMode } from '../../domain/settings/appearance';
-import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme } from '../../domain/settings/newtab-page';
+import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme, newtabInputAutoFocusEnabled } from '../../domain/settings/newtab-page';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -36,7 +36,6 @@ interface WallpaperPageState {
   newtabShortcutColumns: number;
   newtabShortcutSize: number;
   newtabShortcutGap: number;
-  newtabInputAutoFocusEnabled: boolean;
   bookmarkPagerPrevButton: HTMLElement | null;
   bookmarkTitleWrap: HTMLElement | null;
   bookmarkTopbarRuntime: { element: HTMLElement | null } | null;
@@ -112,7 +111,6 @@ interface WallpaperPageDeps {
   newtabEntryAnimationReadyPromise: PromiseLike<unknown>;
   // Settles once the auto-focus setting is read.
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
-  setNewtabInputAutoFocusEnabled(enabled: boolean): void;
   followTheme(): PromiseLike<unknown>;
   pageState: WallpaperPageState;
 }
@@ -169,7 +167,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     FEATURE_HINTS,
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
-    setNewtabInputAutoFocusEnabled,
     followTheme
   } = deps;
 
@@ -502,8 +499,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     featureHints: FEATURE_HINTS,
     featureHintVisibilityGate: newtabEntryAnimationReadyPromise,
     inputAutoFocusReady: initialNewtabInputAutoFocusReadyTask,
-    getInputAutoFocusEnabled: () => pageState.newtabInputAutoFocusEnabled,
-    setInputAutoFocusEnabled: setNewtabInputAutoFocusEnabled,
+    getInputAutoFocusEnabled: () => settings.get(newtabInputAutoFocusEnabled),
+    setInputAutoFocusEnabled: (enabled) => void settings.set(newtabInputAutoFocusEnabled, enabled),
     getGlassStyle: () => settings.get(newtabGlassStyle),
     setGlassStyle: (value) => void settings.set(newtabGlassStyle, newtabGlassStyle.parse(value)),
     getGlassTheme: () => settings.get(newtabGlassTheme),

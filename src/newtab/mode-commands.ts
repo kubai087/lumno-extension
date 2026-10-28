@@ -2,7 +2,6 @@
 // the setters behind them.
 import type { WebAppearanceMode } from '../domain/messages';
 import type { ThemeMode } from '../domain/settings';
-import type { StorageAreaLike } from '../domain/storage-port';
 import * as LumnoMessaging from '../platform/messaging';
 import type { SearchInputParts } from '../shared/react/search-input';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
@@ -10,9 +9,9 @@ import type { FormatMessage, Translate } from './newtab-types';
 import type { RenderSuggestions, SlashCommand } from './search/search-types';
 import type { SettingsStore } from '../platform/settings-store';
 import { NEWTAB_THEME_SETTINGS } from '../domain/settings/newtab-page';
+import { newtabZenMode } from '../domain/settings/newtab-page';
 
 interface ModeCommandsState {
-  zenModeEnabled: boolean;
   currentThemeMode: ThemeMode;
   inputParts: Pick<SearchInputParts, 'input' | 'setChrome'> | null;
   bookmarkTopbarRuntime: { setVisible(visible: boolean): void } | null;
@@ -20,7 +19,7 @@ interface ModeCommandsState {
 }
 
 interface ModeCommandsDeps {
-  settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
+  settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   t: Translate;
   formatMessage: FormatMessage;
   updateInputRightPadding(): void;
@@ -44,9 +43,6 @@ interface ModeCommandsDeps {
   updateBookmarkSectionPosition(): void;
   updateSearchEntryLayout(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
-  normalizeZenModeEnabled(value: unknown): boolean;
-  storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_ZEN_MODE_STORAGE_KEY: string;
   pageState: ModeCommandsState;
 }
 
@@ -78,10 +74,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     hideCursorTooltip,
     updateBookmarkSectionPosition,
     updateSearchEntryLayout,
-    scheduleWallpaperAdaptiveToneUpdate,
-    normalizeZenModeEnabled,
-    storageArea,
-    NEWTAB_ZEN_MODE_STORAGE_KEY
+    scheduleWallpaperAdaptiveToneUpdate
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -210,8 +203,8 @@ function createModeCommands(deps: ModeCommandsDeps) {
     }
     if (zenCommandActive) {
       return t(
-        pageState.zenModeEnabled ? 'zen_badge_on' : 'zen_badge_off',
-        pageState.zenModeEnabled ? 'Zen：已开启' : 'Zen：已关闭'
+        settings.get(newtabZenMode) ? 'zen_badge_on' : 'zen_badge_off',
+        settings.get(newtabZenMode) ? 'Zen：已开启' : 'Zen：已关闭'
       );
     }
     return formatMessage('mode_badge', '模式：{mode}', {
@@ -295,14 +288,14 @@ function createModeCommands(deps: ModeCommandsDeps) {
   function buildZenSuggestion(): Suggestion {
     return {
       type: 'zenSwitch',
-      title: pageState.zenModeEnabled
+      title: settings.get(newtabZenMode)
         ? formatMessage('zen_disable_title', '{name}：退出 Zen 模式', { name: 'Lumno' })
         : formatMessage('zen_enable_title', '{name}：进入 Zen 模式', { name: 'Lumno' }),
       url: '',
       favicon: getExtensionResourceUrl('assets/images/lumno.png'),
       commandText: '/zen',
       commandAliases: [],
-      nextEnabled: !pageState.zenModeEnabled
+      nextEnabled: !settings.get(newtabZenMode)
     };
   }
 
@@ -396,13 +389,13 @@ function createModeCommands(deps: ModeCommandsDeps) {
     }
     section.setAttribute(
       'data-visible',
-      configuredVisible === 'true' && !pageState.zenModeEnabled ? 'true' : 'false'
+      configuredVisible === 'true' && !settings.get(newtabZenMode) ? 'true' : 'false'
     );
   }
 
   function applyZenMode(): void {
     if (document.body) {
-      document.body.setAttribute('data-zen-mode', pageState.zenModeEnabled ? 'true' : 'false');
+      document.body.setAttribute('data-zen-mode', settings.get(newtabZenMode) ? 'true' : 'false');
     }
     applyNewtabTopContentVisibility();
     applyNewtabShortcutsVisibility();
@@ -410,10 +403,10 @@ function createModeCommands(deps: ModeCommandsDeps) {
     syncSectionZenVisibility(recentSection);
     if (pageState.bookmarkTopbarRuntime && isBookmarkTopbarMode()) {
       pageState.bookmarkTopbarRuntime.setVisible(
-        !pageState.zenModeEnabled && bookmarkCards.length > 0 && pageState.currentBookmarkCount > 0
+        !settings.get(newtabZenMode) && bookmarkCards.length > 0 && pageState.currentBookmarkCount > 0
       );
     }
-    if (pageState.zenModeEnabled) {
+    if (settings.get(newtabZenMode)) {
       closeBookmarkCascadeMenu();
       closeShortcutContextMenu();
       closeRecentContextMenu();
@@ -430,34 +423,14 @@ function createModeCommands(deps: ModeCommandsDeps) {
     updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
   }
 
-  function setZenModeEnabled(enabled: unknown): void {
-    const nextEnabled = normalizeZenModeEnabled(enabled);
-    pageState.zenModeEnabled = nextEnabled;
-    if (!storageArea) {
-      applyZenMode();
-      updateZenCommandSuggestions();
-      return;
-    }
-    void storageArea.set({ [NEWTAB_ZEN_MODE_STORAGE_KEY]: nextEnabled }, () => {
-      applyZenMode();
-      updateZenCommandSuggestions();
-    });
-  }
 
-  function loadZenMode(): Promise<boolean> {
-    const area = storageArea;
-    if (!area) {
-      pageState.zenModeEnabled = false;
+  // Puts the page in or out of zen once the setting is read, and on every change.
+  function followZenMode(): Promise<void> {
+    settings.subscribe(newtabZenMode, () => {
       applyZenMode();
-      return Promise.resolve(pageState.zenModeEnabled);
-    }
-    return new Promise((resolve) => {
-      void area.get([NEWTAB_ZEN_MODE_STORAGE_KEY], (result) => {
-        pageState.zenModeEnabled = normalizeZenModeEnabled(result && result[NEWTAB_ZEN_MODE_STORAGE_KEY]);
-        applyZenMode();
-        resolve(pageState.zenModeEnabled);
-      });
+      updateZenCommandSuggestions();
     });
+    return settings.include(newtabZenMode).then(applyZenMode);
   }
 
   // The theme commands show the theme as it is.
@@ -479,8 +452,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     updateModeCommandSuggestions,
     updateZenCommandSuggestions,
     applyZenMode,
-    setZenModeEnabled,
-    loadZenMode
+    followZenMode
   };
 }
 

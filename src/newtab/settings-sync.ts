@@ -17,13 +17,11 @@ import type * as BookmarkFolderIcon from './bookmarks/bookmark-folder-icon';
 import type { FolderColorRefs } from './bookmarks/bookmark-folder-icon';
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { FolderColors } from './bookmarks/folder-colors';
-import type { ModeCommands } from './mode-commands';
 import type { PageLayout } from './page-layout';
 import type { PagePreferences } from './page-preferences';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentHistoryDialogController } from './react/recent-history-dialog';
 import type { RecentSitesController } from './recent/recent-sites-controller';
-import type { SearchBoxControls } from './search/search-box-controls';
 import type { SearchModeController } from './search/search-mode-controller';
 import type { SuggestionsController } from './search/suggestions-controller';
 import type { SectionHeaders } from './section-headers';
@@ -41,7 +39,6 @@ import { progressHistory } from '../domain/settings/recent-sites';
 import type { CachedIconMap } from '../domain/favicon/shortcut-favicon/types';
 import type { HiddenRecentSite, RecentSite } from '../domain/recent-sites-store';
 import * as ProviderStorage from '../platform/provider-storage';
-import * as SettingsStorage from '../platform/settings-storage';
 import { tabRankScoreDebug } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
 
@@ -70,12 +67,8 @@ interface SettingsSyncState {
   inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
   latestQuery: string;
   wallpaperRuntime: Pick<WallpaperRuntime, 'handleStorageChange' | 'updateSearchWidthUi'> | null;
-  newtabInputAutoFocusEnabled: boolean;
   currentNewtabWidthMode: NewtabWidthMode;
   currentNewtabSearchWidth: number | null;
-  newtabFeedbackButtonVisible: boolean;
-  newtabAppearanceButtonVisible: boolean;
-  zenModeEnabled: boolean;
   newtabShortcutsVisible: boolean;
   newtabShortcutAddVisible: boolean;
   newtabShortcutDockMagnificationEnabled: boolean;
@@ -86,10 +79,8 @@ interface SettingsSyncState {
 
 interface SettingsSyncDeps extends
   Pick<PagePreferences,
-    'normalizeBookmarkCount' | 'normalizeBookmarkColumns' | 'getBookmarkLimit' | 'normalizeBookmarkFolderIconsVisible' |
-    'normalizeNewtabInputAutoFocusEnabled' | 'updateNewtabInputAutoFocusUi' | 'normalizeNewtabWidthMode' |
-    'normalizeNewtabSearchWidth' | 'normalizeNewtabFeedbackButtonVisible' |
-    'normalizeNewtabAppearanceButtonVisible' | 'normalizeZenModeEnabled' | 'normalizeNewtabShortcutsVisible' |
+    'normalizeBookmarkCount' | 'normalizeBookmarkColumns' | 'getBookmarkLimit' | 'normalizeBookmarkFolderIconsVisible' | 'normalizeNewtabWidthMode' |
+    'normalizeNewtabSearchWidth' | 'normalizeNewtabShortcutsVisible' |
     'updateNewtabShortcutPreferencesUi' | 'normalizeNewtabShortcutAddVisible' |
     'normalizeNewtabShortcutDockMagnificationEnabled' | 'normalizeNewtabShortcutColumns' |
     'normalizeNewtabShortcutSize' | 'normalizeNewtabShortcutGap'>,
@@ -110,9 +101,7 @@ interface SettingsSyncDeps extends
   Pick<FolderColors, 'syncFolderColorsWithBookmarks'>,
   Pick<SearchModeController, 'setSiteSearchPrefix'>,
   Pick<SiteThemeResolver, 'getThemeForProvider'>,
-  Pick<SuggestionsController, 'requestSuggestions' | 'requestTabsAndRender'>,
-  Pick<ModeCommands, 'updateZenCommandSuggestions' | 'applyZenMode'>,
-  Pick<SearchBoxControls, 'applyNewtabActionButtonVisibility'> {
+  Pick<SuggestionsController, 'requestSuggestions' | 'requestTabsAndRender'> {
   settings: Pick<SettingsStore, 'subscribe'>;
   registerBookmarkDisplayStorageChanges: BookmarkDisplaySettings['registerStorageChangeHandlers'];
   settingsRuntimeApi: Pick<typeof LumnoSettings,
@@ -132,13 +121,9 @@ interface SettingsSyncDeps extends
   siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
   NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
-  NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: string;
   RECENT_COUNT_STORAGE_KEY: string;
   NEWTAB_WIDTH_MODE_STORAGE_KEY: string;
   NEWTAB_SEARCH_WIDTH_STORAGE_KEY: string;
-  NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_ZEN_MODE_STORAGE_KEY: string;
   NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: string;
   NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: string;
   NEWTAB_SHORTCUT_DOCK_MAGNIFICATION_ENABLED_STORAGE_KEY: string;
@@ -198,9 +183,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     PROGRESS_HISTORY,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
-    NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY,
-    normalizeNewtabInputAutoFocusEnabled,
-    updateNewtabInputAutoFocusUi,
     RECENT_COUNT_STORAGE_KEY,
     NEWTAB_WIDTH_MODE_STORAGE_KEY,
     normalizeNewtabWidthMode,
@@ -209,15 +191,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     NEWTAB_SEARCH_WIDTH_STORAGE_KEY,
     normalizeNewtabSearchWidth,
     updateNewtabSearchWidthLayout,
-    NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY,
-    normalizeNewtabFeedbackButtonVisible,
-    applyNewtabActionButtonVisibility,
-    NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY,
-    normalizeNewtabAppearanceButtonVisible,
-    NEWTAB_ZEN_MODE_STORAGE_KEY,
-    normalizeZenModeEnabled,
-    applyZenMode,
-    updateZenCommandSuggestions,
     NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY,
     normalizeNewtabShortcutsVisible,
     applyNewtabShortcutsVisibility,
@@ -390,12 +363,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     pageState.wallpaperRuntime.handleStorageChange(changes);
     }
   });
-  storageChanges.on(NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY, (changes) => {
-    const rawValue = changes[NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY].newValue;
-    pageState.newtabInputAutoFocusEnabled = normalizeNewtabInputAutoFocusEnabled(rawValue);
-    SettingsStorage.cacheNewtabInputAutoFocusEnabled(pageState.newtabInputAutoFocusEnabled);
-    updateNewtabInputAutoFocusUi();
-  });
   storageChanges.on(RECENT_COUNT_STORAGE_KEY, (changes) => {
     applyRecentCountPreference(changes[RECENT_COUNT_STORAGE_KEY].newValue);
   });
@@ -431,31 +398,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     if (pageState.wallpaperRuntime) {
       pageState.wallpaperRuntime.updateSearchWidthUi();
     }
-  });
-  storageChanges.on(NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY].newValue;
-    pageState.newtabFeedbackButtonVisible = normalizeNewtabFeedbackButtonVisible(raw);
-    if (storageArea && raw !== pageState.newtabFeedbackButtonVisible) {
-      void storageArea.set({
-        [NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY]: pageState.newtabFeedbackButtonVisible
-      });
-    }
-    applyNewtabActionButtonVisibility();
-  });
-  storageChanges.on(NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY, (changes) => {
-    const raw = changes[NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY].newValue;
-    pageState.newtabAppearanceButtonVisible = normalizeNewtabAppearanceButtonVisible(raw);
-    if (storageArea && raw !== pageState.newtabAppearanceButtonVisible) {
-      void storageArea.set({
-        [NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY]: pageState.newtabAppearanceButtonVisible
-      });
-    }
-    applyNewtabActionButtonVisibility();
-  });
-  storageChanges.on(NEWTAB_ZEN_MODE_STORAGE_KEY, (changes) => {
-    pageState.zenModeEnabled = normalizeZenModeEnabled(changes[NEWTAB_ZEN_MODE_STORAGE_KEY].newValue);
-    applyZenMode();
-    updateZenCommandSuggestions();
   });
   storageChanges.on(NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY, (changes) => {
     const raw = changes[NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY].newValue;

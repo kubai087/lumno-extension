@@ -5,12 +5,13 @@ import type { StorageAreaLike } from '../domain/storage-port';
 import type { PageLayout } from './page-layout';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import * as SettingsStorage from '../platform/settings-storage';
+import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
+import type { SettingsStore } from '../platform/settings-store';
 
 // Whether a change is only shown or also saved.
 type PersistOptions = { persist?: boolean } | null | undefined;
 
 interface PagePreferencesState {
-  newtabInputAutoFocusEnabled: boolean;
   newtabShortcutsVisible: boolean;
   newtabShortcutAddVisible: boolean;
   newtabShortcutDockMagnificationEnabled: boolean;
@@ -22,6 +23,7 @@ interface PagePreferencesState {
 }
 
 interface PagePreferencesDeps {
+  settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   applyNewtabShortcutsVisibility: PageLayout['applyNewtabShortcutsVisibility'];
   updateBookmarkSectionPosition: PageLayout['updateBookmarkSectionPosition'];
   applyNewtabShortcutColumns: PageLayout['applyNewtabShortcutColumns'];
@@ -46,7 +48,6 @@ interface PagePreferencesDeps {
   NEWTAB_SHORTCUT_WIDTH_MIN: number;
   NEWTAB_SHORTCUT_WIDTH_MAX: number;
   storageArea: Pick<StorageAreaLike, 'get' | 'set'> | null;
-  NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY: string;
   NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY: string;
   renderShortcuts(): void;
   NEWTAB_SHORTCUT_ADD_VISIBLE_STORAGE_KEY: string;
@@ -61,6 +62,7 @@ interface PagePreferencesDeps {
 
 function createPagePreferences(deps: PagePreferencesDeps) {
   const {
+    settings,
     SETTINGS,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     NEWTAB_SHORTCUT_COLUMNS_MIN,
@@ -68,7 +70,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     NEWTAB_SHORTCUT_WIDTH_MIN,
     NEWTAB_SHORTCUT_WIDTH_MAX,
     storageArea,
-    NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY,
     applyNewtabShortcutsVisibility,
     updateBookmarkSectionPosition,
     NEWTAB_SHORTCUTS_VISIBLE_STORAGE_KEY,
@@ -154,16 +155,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     }
   }
 
-  function setNewtabInputAutoFocusEnabled(enabled: unknown): boolean {
-    const nextValue = normalizeNewtabInputAutoFocusEnabled(enabled);
-    pageState.newtabInputAutoFocusEnabled = nextValue;
-    cacheNewtabInputAutoFocusEnabled(nextValue);
-    updateNewtabInputAutoFocusUi();
-    if (storageArea) {
-      void storageArea.set({ [NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY]: nextValue });
-    }
-    return nextValue;
-  }
 
   function updateNewtabShortcutPreferencesUi(): void {
     if (pageState.wallpaperRuntime) {
@@ -257,24 +248,19 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     return nextValue;
   }
 
-  function loadNewtabInputAutoFocusEnabled(): Promise<boolean> {
-    const area = storageArea;
-    if (!area) {
-      pageState.newtabInputAutoFocusEnabled = false;
-      return Promise.resolve(pageState.newtabInputAutoFocusEnabled);
-    }
-    return new Promise((resolve) => {
-      void area.get([NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY], (result) => {
-        const rawValue = result && result[NEWTAB_INPUT_AUTO_FOCUS_ENABLED_STORAGE_KEY];
-        pageState.newtabInputAutoFocusEnabled = normalizeNewtabInputAutoFocusEnabled(rawValue);
-        cacheNewtabInputAutoFocusEnabled(pageState.newtabInputAutoFocusEnabled);
-        updateNewtabInputAutoFocusUi();
-        resolve(pageState.newtabInputAutoFocusEnabled);
-      });
-    });
+  // Keeps the page's quick copy and the panel current once the setting is
+  // read, and on every change.
+  function followNewtabInputAutoFocus(): Promise<boolean> {
+    const apply = () => {
+      cacheNewtabInputAutoFocusEnabled(settings.get(newtabInputAutoFocusEnabled));
+      updateNewtabInputAutoFocusUi();
+      return settings.get(newtabInputAutoFocusEnabled);
+    };
+    settings.subscribe(newtabInputAutoFocusEnabled, apply);
+    return settings.include(newtabInputAutoFocusEnabled).then(apply);
   }
 
-  const initialNewtabInputAutoFocusReadyTask = loadNewtabInputAutoFocusEnabled();
+  const initialNewtabInputAutoFocusReadyTask = followNewtabInputAutoFocus();
 
   function normalizeBookmarkFolderIconsVisible(value: unknown) {
     return SETTINGS.bookmarkFolderIconsVisible.parse(value);
@@ -317,7 +303,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     normalizeNewtabFeedbackButtonVisible,
     normalizeNewtabAppearanceButtonVisible,
     updateNewtabInputAutoFocusUi,
-    setNewtabInputAutoFocusEnabled,
     updateNewtabShortcutPreferencesUi,
     setNewtabShortcutsVisible,
     setNewtabShortcutAddVisible,

@@ -3,7 +3,6 @@
 // buttons the page shows.
 import type * as ExtensionRoutes from '../../domain/extension-routes';
 import type { SiteSearchProvider } from '../../domain/search/types';
-import type { StorageAreaLike, StorageItems } from '../../domain/storage-port';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SearchInputParts } from '../../shared/react/search-input';
 import type { InputModeController } from '../../shared/search/search-input-mode';
@@ -12,8 +11,9 @@ import type { FeatureHintController } from '../../shared/ui/feature-hint-catalog
 import type { FormatMessage, Translate } from '../newtab-types';
 import type { PageNavigation } from '../page-navigation';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
-import * as SettingsStorage from '../../platform/settings-storage';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import { newtabAppearanceButtonVisible, newtabFeedbackButtonVisible } from '../../domain/settings/newtab-page';
+import type { SettingsStore } from '../../platform/settings-store';
 
 interface SearchBoxControlsState {
   inputParts: SearchInputParts | null;
@@ -22,8 +22,6 @@ interface SearchBoxControlsState {
   engagementNoticeController: { recordMeaningfulUse?(): void } | null;
   webdavFeatureHintController: FeatureHintController | null;
   inputModeController: Pick<InputModeController, 'updateLayout'> | null;
-  newtabFeedbackButtonVisible: boolean;
-  newtabAppearanceButtonVisible: boolean;
   feedbackReactController: unknown;
   wallpaperRuntime: unknown;
   feedbackControl: HTMLElement | null;
@@ -31,6 +29,7 @@ interface SearchBoxControlsState {
 }
 
 interface SearchBoxControlsDeps {
+  settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   locale: Pick<SurfaceLocale, 'store'>;
   dismissHelpCenterAskHint(): void;
   rightIcon: HTMLElement | null;
@@ -47,16 +46,12 @@ interface SearchBoxControlsDeps {
   searchInput: HTMLInputElement;
   closeFeedbackPopover(): void;
   closeWallpaperPanel(): void;
-  storageArea: StorageAreaLike | null;
-  NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY: string;
-  NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY: string;
-  normalizeNewtabFeedbackButtonVisible(value: unknown): boolean;
-  normalizeNewtabAppearanceButtonVisible(value: unknown): boolean;
   pageState: SearchBoxControlsState;
 }
 
 function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   const {
+    settings,
     locale,
     dismissHelpCenterAskHint,
     rightIcon,
@@ -70,12 +65,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
     getOpenDisposition,
     searchInput,
     closeFeedbackPopover,
-    closeWallpaperPanel,
-    storageArea,
-    NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY,
-    NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY,
-    normalizeNewtabFeedbackButtonVisible,
-    normalizeNewtabAppearanceButtonVisible
+    closeWallpaperPanel
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -209,56 +199,27 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   }
 
   function applyNewtabActionButtonVisibility(): void {
-    if (!pageState.newtabFeedbackButtonVisible && pageState.feedbackReactController) {
+    if (!settings.get(newtabFeedbackButtonVisible) && pageState.feedbackReactController) {
       closeFeedbackPopover();
     }
-    if (!pageState.newtabAppearanceButtonVisible && pageState.wallpaperRuntime) {
+    if (!settings.get(newtabAppearanceButtonVisible) && pageState.wallpaperRuntime) {
       closeWallpaperPanel();
     }
-    setNewtabActionControlVisibility(pageState.feedbackControl, pageState.newtabFeedbackButtonVisible);
-    setNewtabActionControlVisibility(pageState.wallpaperControl, pageState.newtabAppearanceButtonVisible);
+    setNewtabActionControlVisibility(pageState.feedbackControl, settings.get(newtabFeedbackButtonVisible));
+    setNewtabActionControlVisibility(pageState.wallpaperControl, settings.get(newtabAppearanceButtonVisible));
   }
 
-  function loadNewtabActionButtonVisibility(): Promise<void> {
-    if (!storageArea) {
-      pageState.newtabFeedbackButtonVisible = true;
-      pageState.newtabAppearanceButtonVisible = true;
-      applyNewtabActionButtonVisibility();
-      return Promise.resolve();
-    }
-    // Narrowed here, for the storage callback below.
-    const area = storageArea;
-    return new Promise((resolve) => {
-      void area.get([
-        NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY,
-        NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY
-      ], (result) => {
-        const stored = result || {};
-        const rawFeedback = stored[NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY];
-        const rawAppearance = stored[NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY];
-        pageState.newtabFeedbackButtonVisible = normalizeNewtabFeedbackButtonVisible(rawFeedback);
-        pageState.newtabAppearanceButtonVisible = normalizeNewtabAppearanceButtonVisible(rawAppearance);
-        const repairs: StorageItems = {};
-        if (rawFeedback !== pageState.newtabFeedbackButtonVisible) {
-          repairs[NEWTAB_FEEDBACK_BUTTON_VISIBLE_STORAGE_KEY] = pageState.newtabFeedbackButtonVisible;
-        }
-        if (rawAppearance !== pageState.newtabAppearanceButtonVisible) {
-          repairs[NEWTAB_APPEARANCE_BUTTON_VISIBLE_STORAGE_KEY] = pageState.newtabAppearanceButtonVisible;
-        }
-        applyNewtabActionButtonVisibility();
-        // A missing value stays missing while this device's local copy
-        // migrates in.
-        SettingsStorage.writeSettingRepairs(chrome, area, repairs, stored);
-        resolve();
-      });
-    });
+  // Shows or hides the buttons once their settings are read, and on every change.
+  function followNewtabActionButtonVisibility(): Promise<void> {
+    const buttons = [newtabFeedbackButtonVisible, newtabAppearanceButtonVisible];
+    settings.subscribe(buttons, applyNewtabActionButtonVisibility);
+    return settings.include(buttons).then(applyNewtabActionButtonVisibility);
   }
 
   return {
     SEARCH_CLEAR_BUTTON_INSET,
     updateInputRightPadding,
-    applyNewtabActionButtonVisibility,
-    loadNewtabActionButtonVisibility
+    followNewtabActionButtonVisibility
   };
 }
 

@@ -39,6 +39,7 @@ import { numberShortcutInstantEnabled, searchResultDisplayLimit, searchResultPri
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
+import { newtabZenMode } from '../../domain/settings/newtab-page';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -67,7 +68,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
-  settings: Pick<SettingsStore, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'set'>;
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
   getPageFaviconCandidateUrl(pageUrl: string): string;
@@ -75,7 +76,6 @@ interface SuggestionsControllerDeps {
   activateSiteSearch: SearchModes['activateSiteSearch'];
   focusSearchInputPreservingScroll(): boolean;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
-  setZenModeEnabled: ModeCommands['setZenModeEnabled'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   shouldSwitchMatchedTabSuggestion: SearchNavigation['shouldSwitchMatchedTabSuggestion'];
   openMatchedTabSuggestion: SearchNavigation['openMatchedTabSuggestion'];
@@ -162,7 +162,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     activateSiteSearch,
     focusSearchInputPreservingScroll,
     setVisibleThemeMode,
-    setZenModeEnabled,
     setWebAppearanceMode,
     shouldSwitchMatchedTabSuggestion,
     openMatchedTabSuggestion,
@@ -348,7 +347,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       return;
     }
     if (suggestion.type === 'zenSwitch') {
-      setZenModeEnabled(suggestion.nextEnabled);
+      void settings.set(newtabZenMode, newtabZenMode.parse(suggestion.nextEnabled));
       focusSearchInputPreservingScroll();
       return;
     }

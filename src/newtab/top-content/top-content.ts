@@ -19,13 +19,13 @@ import {
   newtabTimeSecondsVisible,
   newtabTopContentMode
 } from '../../domain/settings/newtab-time';
+import { newtabZenMode } from '../../domain/settings/newtab-page';
 
 
 // A card's place on screen before a layout change.
 type LayoutPosition = { left: number; top: number };
 
 interface TopContentState {
-  zenModeEnabled: boolean;
   topContentContainer: HTMLElement | null;
   topContentController: TopContentController | null;
   wordmarkImageEl: HTMLImageElement | null;
@@ -190,7 +190,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     }
     const transitionOptions = options || {};
     const body = document.body;
-    const nextVisible = Boolean(shown.mode !== 'off' && !pageState.zenModeEnabled);
+    const nextVisible = Boolean(shown.mode !== 'off' && !settings.get(newtabZenMode));
     const wasVisible = container.getAttribute('data-visible') !== 'false';
     const stateChanged = wasVisible !== nextVisible;
     const layoutChanged = stateChanged || Boolean(transitionOptions.contentChanged);

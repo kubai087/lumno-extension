@@ -3,16 +3,18 @@
 import type * as ShortcutKeyMatcher from '../domain/shortcut-key-matcher';
 import type { ShortcutSpec } from '../domain/shortcut-key-matcher';
 import * as LumnoMessaging from '../platform/messaging';
+import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
+import type { SettingsStore } from '../platform/settings-store';
 
 interface InputFocusState {
   inputParts: { input: HTMLInputElement } | null;
-  newtabInputAutoFocusEnabled: boolean;
   folderColorPicker: { isOpen(): boolean } | null;
   inputModeController: { shouldHandleModeMenuKeyEvent?: (event: KeyboardEvent) => boolean } | null;
   searchScopeIcon: HTMLElement | null;
 }
 
 interface InputFocusDeps {
+  settings: Pick<SettingsStore, 'get'>;
   SHORTCUT_KEY_MATCHER: Pick<typeof ShortcutKeyMatcher, 'parseShortcut' | 'eventMatchesShortcut'>;
   // Saves the search on screen before the focus reload; false when it could not.
   prepareFocusReload?: () => boolean;
@@ -29,6 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createInputFocus(deps: InputFocusDeps) {
   const {
+    settings,
     SHORTCUT_KEY_MATCHER,
     prepareFocusReload,
     refreshTabsIfIdle,
@@ -214,7 +217,7 @@ function createInputFocus(deps: InputFocusDeps) {
     const attemptFocusIfVisible = () => {
       // The search shortcut reopens the page with the focus hint even when
       // auto-focus is off; that load still focuses the input once.
-      if (!pageState.newtabInputAutoFocusEnabled && !forceInitialFocusPending) {
+      if (!settings.get(newtabInputAutoFocusEnabled) && !forceInitialFocusPending) {
         return;
       }
       if (document.visibilityState !== 'visible') {

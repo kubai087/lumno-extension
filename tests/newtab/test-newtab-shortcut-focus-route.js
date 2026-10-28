@@ -71,10 +71,11 @@ function bootPage(options = {}) {
   context.globalThis = context;
   vm.runInContext(moduleScript('src/newtab/input-focus.ts', 'LumnoNewtabInputFocus'), context);
   const pageState = {
-    inputParts: { input },
-    newtabInputAutoFocusEnabled: options.autoFocusEnabled === true
+    inputParts: { input }
   };
   context.LumnoNewtabInputFocus.createInputFocus({
+    // The page's settings: only the auto-focus choice is read here.
+    settings: { get: () => options.autoFocusEnabled === true },
     pageState,
     SHORTCUT_KEY_MATCHER: { parseShortcut: () => null, eventMatchesShortcut: () => false },
     prepareFocusReload: () => preparedAt.push(replacedUrls.length),
