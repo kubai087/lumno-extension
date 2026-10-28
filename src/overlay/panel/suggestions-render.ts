@@ -20,8 +20,6 @@ import type {
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeParts } from '../../shared/search/input-mode/controller-types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
-import type * as SuggestionsHeightLayout from '../../shared/search/suggestions-height-layout';
 import type { CursorTooltipController } from '../../shared/ui/cursor-tooltip-model';
 import type { TooltipController } from '../../shared/ui/tooltip';
 import type { ActivationEvent } from './result-activation';
@@ -41,6 +39,8 @@ import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-
 import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
+import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -81,8 +81,6 @@ interface SuggestionsRenderDeps {
   requestOverlaySearchSuggestions(query: string): void;
   // The rendered rows, filled by the view.
   suggestionItems: SuggestionElement[];
-  SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'scrollItemIntoView'>;
-  SUGGESTIONS_HEIGHT_LAYOUT: Pick<typeof SuggestionsHeightLayout, 'applyNaturalSuggestionsHeightLayout'>;
   syncSearchModeMenuResultOffset(): void;
   removeOverlay(overlay: HTMLElement | null): void;
   activateOpenTabsSearchMode(): void;
@@ -159,8 +157,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     updateSearchSuggestions,
     requestOverlaySearchSuggestions,
     suggestionItems,
-    SUGGESTION_NAVIGATION,
-    SUGGESTIONS_HEIGHT_LAYOUT,
     syncSearchModeMenuResultOffset,
     removeOverlay,
     activateOpenTabsSearchMode,

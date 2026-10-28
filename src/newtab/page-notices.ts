@@ -9,10 +9,8 @@ import * as LumnoMessaging from '../platform/messaging';
 import type { CommunityLinks } from '../domain/community-links';
 import type { Disposition, OpenEvent } from '../domain/navigation-disposition';
 import type { SiteSearchProvider } from '../domain/search/types';
-import type * as LumnoCommunityLinks from '../platform/community-links';
 import type { EngagementNoticeController } from '../shared/engagement-notice';
 import type { GraphicsNoticeController } from '../shared/graphics-acceleration-notice';
-import type * as LumnoFeatureHints from '../shared/ui/feature-hints';
 import type { FeatureHintController } from '../shared/ui/feature-hint-catalog';
 import type { UpdateNoticeController } from '../shared/update-notice';
 import type { Translate } from './newtab-types';
@@ -21,6 +19,8 @@ import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-p
 import type { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
+import * as FEATURE_HINTS from '../shared/ui/feature-hints';
+import * as COMMUNITY_LINKS from '../platform/community-links';
 
 interface PageNoticesState {
   updateNoticeController: UpdateNoticeController | null;
@@ -38,13 +38,11 @@ interface PageNoticesDeps {
   pageSearchParams: URLSearchParams;
   bottomDock: HTMLElement | null;
   t: Translate;
-  FEATURE_HINTS: typeof LumnoFeatureHints;
   getOpenDisposition(event: OpenEvent | Disposition | null | undefined, fallback?: Disposition): Disposition;
   getFeedbackWebLocale(): string;
   isFeedbackPopoverOpen(): boolean;
   LUMNO_FEEDBACK_LINKS_FALLBACK: CommunityLinks;
   openFeedbackExternalUrl(url: unknown, disposition?: Disposition): boolean;
-  COMMUNITY_LINKS: Pick<typeof LumnoCommunityLinks, 'getReviewUrl'>;
   // Settles once the page's entry animation is done.
   newtabEntryAnimationReadyPromise: Promise<unknown>;
   // The search box's container.
@@ -60,13 +58,11 @@ function createPageNotices(deps: PageNoticesDeps) {
     pageSearchParams,
     bottomDock,
     t,
-    FEATURE_HINTS,
     getOpenDisposition,
     getFeedbackWebLocale,
     isFeedbackPopoverOpen,
     LUMNO_FEEDBACK_LINKS_FALLBACK,
     openFeedbackExternalUrl,
-    COMMUNITY_LINKS,
     newtabEntryAnimationReadyPromise,
     root,
     siteSearchCatalog

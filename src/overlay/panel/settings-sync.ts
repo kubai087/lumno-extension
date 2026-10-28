@@ -21,7 +21,6 @@ import {
   searchResultSourceTypes,
   tabRankScoreDebug
 } from '../../domain/settings/search';
-import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type { OverlaySettings } from '../overlay-settings';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
@@ -29,6 +28,7 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
+import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 
 // Row is a suggestion row; this module only passes it along.
 interface SettingsSyncState {
@@ -47,7 +47,6 @@ interface SettingsSyncDeps<Row> {
   searchResults: Pick<SearchResults<Row>, 'lastResponse'>;
   searchMode: Pick<SearchMode<InputModeProvider>, 'site' | 'local' | 'openTabs'>;
   searchQuery: SearchQuery;
-  SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'cancelNumberShortcuts'>;
   updateSearchSuggestions(rows: Row[], query: string, options?: { forceFullRerender?: boolean }): void;
   requestOverlaySearchSuggestions(query: string): void;
   applyOverlayTheme(mode: ThemeMode): void;
@@ -81,7 +80,6 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
     shouldShowOpenTabsForEmptyQuery,
     renderTabSuggestions,
     filterTabsForOverlay,
-    SUGGESTION_NAVIGATION,
     refreshOverlayFaviconsForPolicyChange,
     getImmediateThemeForSuggestion,
     requestTabsAndRender,

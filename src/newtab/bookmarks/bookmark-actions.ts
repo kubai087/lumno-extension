@@ -8,9 +8,9 @@ import type { ContextMenuParts, FormatMessage, SelectMenuController, ShowToast, 
 import type { ShortcutDialogOpenOptions } from '../react/shortcut-dialog';
 import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type { BookmarkContextTarget } from './bookmark-context-menu';
-import type * as BookmarksStore from './bookmarks-store';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import type { FolderItemIcon } from './folder-item-icons';
+import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 
 // The bookmark an action is for, as far as the actions read it.
 type BookmarkEditTarget = Pick<BookmarkContextTarget, 'bookmarkId' | 'isFolder' | 'title'> &
@@ -30,7 +30,6 @@ interface BookmarkActionsDeps {
   NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
   BOOKMARK_CONTEXT_MENU_EDIT_VALUE: string;
   bookmarksRuntime: BookmarksRuntime;
-  NEWTAB_BOOKMARKS_STORE: Pick<typeof BookmarksStore, 'collectFolderBookmarkUrls'>;
   openShortcutDialog(options: ShortcutDialogOpenOptions): unknown;
   formatMessage: FormatMessage;
   showToast: ShowToast;
@@ -53,7 +52,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
     bookmarksRuntime,
-    NEWTAB_BOOKMARKS_STORE,
     openShortcutDialog,
     formatMessage,
     showToast,

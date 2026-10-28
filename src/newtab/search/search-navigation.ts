@@ -1,9 +1,7 @@
 // Keyword and direct-URL suggestions, open-tab matching and quick navigation.
 import type { OverlayTab, ShortcutRule } from '../../domain/messages';
 import type { Disposition } from '../../domain/navigation-disposition';
-import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
-import type * as BrowserProfile from '../../platform/browser-profile';
 import type { BrowserInternalProfile } from '../../platform/browser-profile';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SearchInputParts } from '../../shared/react/search-input';
@@ -25,6 +23,8 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
+import * as BROWSER_PROFILE from '../../platform/browser-profile';
+import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -49,9 +49,7 @@ interface SearchNavigationDeps {
   settings: Pick<SettingsStore, 'get' | 'set'>;
   formatMessage: FormatMessage;
   getExtensionResourceUrl(resourcePath: string): string;
-  BROWSER_PROFILE: Pick<typeof BrowserProfile, 'getBrowserInternalProfile' | 'canOpenBrowserPages'>;
   getPageFaviconCandidateUrl(pageUrl: string): string;
-  SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel, 'shouldOpenSwitchActionInNewTab' | 'getSearchResultOpenDisposition'>;
   isBackgroundOpenEvent(event: OpenEventLike | null | undefined): boolean;
   // Where a plain open from the surface goes, after its new-tab setting.
   getSurfaceOpenDisposition(surface: 'search', keys: SurfaceOpenKeys): Disposition;
@@ -92,9 +90,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     settings,
     formatMessage,
     getExtensionResourceUrl,
-    BROWSER_PROFILE,
     getPageFaviconCandidateUrl,
-    SUGGESTION_ACTION_MODEL,
     isBackgroundOpenEvent,
     getSurfaceOpenDisposition,
     recordSearchSuggestionSelection,

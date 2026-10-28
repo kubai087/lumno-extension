@@ -6,6 +6,7 @@ import type { ShowToast, Translate } from '../newtab-types';
 import type * as BookmarksTopbar from '../react/bookmarks-topbar';
 import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import * as BookmarkSettings from '../../domain/settings/bookmarks';
+import * as NEWTAB_BOOKMARKS_TOPBAR from '../react/bookmarks-topbar';
 
 type BookmarkViewMode = 'folder' | 'list' | 'top';
 type BookmarkTopbarLayout = ReturnType<typeof BookmarksTopbar.normalizeLayout>;
@@ -17,7 +18,6 @@ interface BookmarkDisplaySettingsState {
 }
 
 interface BookmarkDisplaySettingsDeps {
-  NEWTAB_BOOKMARKS_TOPBAR: Pick<typeof BookmarksTopbar, 'normalizeLayout' | 'normalizeSurfaceColor' | 'normalizeSurfaceMode'>;
   // The bar's material and layout stay on this device.
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'remove' | 'set' | 'subscribe'>;
   updateBookmarkModeMenu(): void;
@@ -39,7 +39,6 @@ interface SurfaceAppearanceOptions {
 
 function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
   const {
-    NEWTAB_BOOKMARKS_TOPBAR,
     settings,
     updateBookmarkModeMenu,
     setNewtabTopLayout,

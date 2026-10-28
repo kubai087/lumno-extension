@@ -2,13 +2,13 @@
 // shows, their labels, applying and saving them, and the first effect shown
 // at startup.
 import type { Translate } from '../../newtab-types';
-import type * as WallpaperEffects from '../wallpaper-effects';
 import type { EffectType, WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from '../wallpaper-effects';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
 import { newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../../platform/settings-store';
+import * as WALLPAPER_EFFECTS from '../wallpaper-effects';
 
 // A message and its fallback text.
 interface EffectLabel {
@@ -21,7 +21,6 @@ interface WallpaperEffectPrefsDeps extends Pick<WallpaperSources, 'normalizeWall
   normalizeSingleWallpaperEffectPrefs(value: unknown, inheritedVersion?: unknown): WallpaperEffectPrefs;
   normalizeWallpaperEffectStoragePrefs(value: unknown): WallpaperEffectStoragePrefs;
   WALLPAPER_EFFECT_MODE_STORAGE_VERSION: number;
-  WALLPAPER_EFFECTS: Pick<typeof WallpaperEffects, 'resolveAutoInkTone' | 'resolvePrefsForMode'>;
   NEWTAB_WALLPAPER_EFFECT_INK_TONES: ReadonlyArray<EffectLabel & { tone: 'dark' | 'light' }>;
   t: Translate;
   NEWTAB_WALLPAPER_EFFECT_TYPES: ReadonlyArray<EffectLabel & { type: EffectType }>;
@@ -48,7 +47,6 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     getResolvedWallpaperMode,
     normalizeWallpaperEffectStoragePrefs,
     WALLPAPER_EFFECT_MODE_STORAGE_VERSION,
-    WALLPAPER_EFFECTS,
     NEWTAB_WALLPAPER_EFFECT_INK_TONES,
     t,
     NEWTAB_WALLPAPER_EFFECT_TYPES,

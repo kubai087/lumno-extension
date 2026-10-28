@@ -1,10 +1,10 @@
 // Focusing the search input: shortcut-triggered focus, typing anywhere on the
 // page and auto-focus recovery.
-import type * as ShortcutKeyMatcher from '../domain/shortcut-key-matcher';
 import type { ShortcutSpec } from '../domain/shortcut-key-matcher';
 import * as LumnoMessaging from '../platform/messaging';
 import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
+import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
 
 interface InputFocusState {
   inputParts: { input: HTMLInputElement } | null;
@@ -15,7 +15,6 @@ interface InputFocusState {
 
 interface InputFocusDeps {
   settings: Pick<SettingsStore, 'get'>;
-  SHORTCUT_KEY_MATCHER: Pick<typeof ShortcutKeyMatcher, 'parseShortcut' | 'eventMatchesShortcut'>;
   // Saves the search on screen before the focus reload; false when it could not.
   prepareFocusReload?: () => boolean;
   refreshTabsIfIdle(): void;
@@ -32,7 +31,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function createInputFocus(deps: InputFocusDeps) {
   const {
     settings,
-    SHORTCUT_KEY_MATCHER,
     prepareFocusReload,
     refreshTabsIfIdle,
     initialNewtabInputAutoFocusReadyTask,

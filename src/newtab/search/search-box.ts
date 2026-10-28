@@ -1,7 +1,6 @@
 // Builds the search box: the suggestions view, the search input with its
 // key, input and focus handling, the global listeners that return focus to
 // it, and the search scope icon.
-import type * as SearchInputHistory from '../../domain/search/search-input-history';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
@@ -15,7 +14,6 @@ import type {
   SuggestionsViewController,
   SuggestionsViewOptions
 } from '../../shared/react/search/suggestion-list/types';
-import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import * as NEWTAB_BACKGROUND_SEARCH_FOCUS from './background-search-focus';
@@ -34,6 +32,8 @@ import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
+import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
+import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -117,9 +117,7 @@ interface SearchBoxDeps {
   getDirectUrlSuggestion(query: string): SuggestionLike | null;
   renderPendingSuggestions(query: string): unknown;
   requestSuggestions: RequestSuggestions;
-  SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getSuggestionNavigationKey'>;
   isImeCompositionEvent(event: KeyboardEvent): boolean;
-  SEARCH_INPUT_HISTORY: Pick<typeof SearchInputHistory, 'getShortcutDirection'>;
   // The row a step from `selectedIndex` lands on, and whether it wrapped.
   getNextSuggestionIndex(direction: number, selectedIndex: number, itemCount: number, autoIndex: number): { index: number; didWrap: boolean };
   getAutoHighlightIndex(): number;
@@ -208,9 +206,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     getDirectUrlSuggestion,
     renderPendingSuggestions,
     requestSuggestions,
-    SUGGESTION_NAVIGATION,
     isImeCompositionEvent,
-    SEARCH_INPUT_HISTORY,
     getNextSuggestionIndex,
     getAutoHighlightIndex,
     updateSelection,

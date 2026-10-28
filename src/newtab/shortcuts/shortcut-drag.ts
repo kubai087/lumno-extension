@@ -1,14 +1,11 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
-import type * as FolderReferences from '../../domain/bookmark-folder-reference';
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import type { BookmarkDragSession } from '../bookmarks/bookmark-drag';
 import type { BookmarkDragController } from '../bookmarks/bookmark-drag-controller';
-import type * as MoveHistory from '../bookmarks/bookmark-move-history';
 import type { BookmarkMoveHistory } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import { hasBookmarkFolder } from '../cross-surface-drag';
-import type * as CrossSurfaceDrag from '../cross-surface-drag';
 import type { DragDropTarget, LayoutRect, ShortcutStackTarget, SurfaceDragState } from '../cross-surface-drag';
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
@@ -21,6 +18,9 @@ import type { PersistShortcuts, ShortcutInsertionSlot } from './shortcut-types';
 import type { ShortcutsController } from './shortcuts-controller';
 import { getShortcutUrl, isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem } from '../../domain/shortcuts/types';
+import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
+import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
+import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
 
 interface ShortcutDragState {
   shortcutGrid: HTMLElement | null;
@@ -38,16 +38,12 @@ interface ShortcutDragState {
 
 interface ShortcutDragDeps {
   getShortcutReorderTiles: ShortcutPageActions['getShortcutReorderTiles'];
-  NEWTAB_CROSS_SURFACE_DRAG: Pick<typeof CrossSurfaceDrag,
-    'prefersReducedMotion' | 'getRowInsertionSlot' | 'planShortcutReorder'>;
   refreshShortcutTileCacheFromDom: ShortcutPageActions['refreshShortcutTileCacheFromDom'];
   getShortcutTileId: ShortcutPageActions['getShortcutTileId'];
   getShortcutTileById: ShortcutPageActions['getShortcutTileById'];
   renderShortcuts(): void;
   flushDeferredShortcutRender(): void;
   resetShortcutDockHover(): void;
-  NEWTAB_BOOKMARK_MOVE_HISTORY: Pick<typeof MoveHistory,
-    'createShortcutReorderRecord' | 'createShortcutStackRecord' | 'createTransferRecord' | 'normalizeMoveDestinationIndex'>;
   persistShortcuts: PersistShortcuts;
   bookmarkMoveHistory: Pick<BookmarkMoveHistory, 'push'>;
   hideCursorTooltip(): void;
@@ -77,7 +73,6 @@ interface ShortcutDragDeps {
   applyBookmarkShortcutTransfer: BookmarkDragController['applyBookmarkShortcutTransfer'];
   applyShortcutStack: BookmarkDragController['applyShortcutStack'];
   getFolderItemIconForShortcut: ShortcutsController['getFolderItemIconForShortcut'];
-  FOLDER_REFERENCES: Pick<typeof FolderReferences, 'createEntryId'>;
   showToast: ShowToast;
   hideToast(): void;
   t: Translate;
@@ -153,14 +148,12 @@ type TileMoveSlot = Pick<ShortcutInsertionSlot, 'anchorTile' | 'markerPosition'>
 function createShortcutDrag(deps: ShortcutDragDeps) {
   const {
     getShortcutReorderTiles,
-    NEWTAB_CROSS_SURFACE_DRAG,
     refreshShortcutTileCacheFromDom,
     getShortcutTileId,
     getShortcutTileById,
     renderShortcuts,
     flushDeferredShortcutRender,
     resetShortcutDockHover,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     persistShortcuts,
     bookmarkMoveHistory,
     hideCursorTooltip,
@@ -190,7 +183,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     applyBookmarkShortcutTransfer,
     applyShortcutStack,
     getFolderItemIconForShortcut,
-    FOLDER_REFERENCES,
     showToast,
     hideToast,
     t,

@@ -1,7 +1,5 @@
 // URL classification, favicon source policy and the search/favicon blacklists
 // used by New Tab suggestions, recent sites and favicons.
-import type * as BlacklistUtils from '../domain/blacklist-utils';
-import type * as ExtensionRoutes from '../domain/extension-routes';
 import * as LumnoUrlGuards from '../platform/url-guards';
 import type { Translate } from './newtab-types';
 import * as FaviconCanonical from '../domain/favicon/canonical';
@@ -10,6 +8,8 @@ import type { FaviconUrlResolver } from '../domain/favicon/resolver';
 import * as SearchBrandSuggestions from '../domain/search/utils/brand-suggestions';
 import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, searchResultDisplayLimit } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
+import * as EXTENSION_ROUTES from '../domain/extension-routes';
+import * as BLACKLIST_UTILS from '../domain/blacklist-utils';
 
 // What the search blacklist reads from a suggestion.
 interface BlacklistableSuggestion {
@@ -19,10 +19,8 @@ interface BlacklistableSuggestion {
 
 interface UrlPolicyDeps {
   settings: Pick<SettingsStore, 'get'>;
-  EXTENSION_ROUTES: Pick<typeof ExtensionRoutes, 'classifyExtensionUrl'>;
   t: Translate;
   getPageFaviconUrlResolver(): FaviconUrlResolver | null;
-  BLACKLIST_UTILS: Pick<typeof BlacklistUtils, 'normalizeItems' | 'isUrlBlocked'>;
   // The browser's own icon for a page, where _favicon is missing (Firefox).
   getBrowserIconUrl?: (pageUrl: string) => string;
 }
@@ -30,10 +28,8 @@ interface UrlPolicyDeps {
 function createUrlPolicy(deps: UrlPolicyDeps) {
   const {
     settings,
-    EXTENSION_ROUTES,
     t,
     getPageFaviconUrlResolver,
-    BLACKLIST_UTILS,
     getBrowserIconUrl
   } = deps;
 

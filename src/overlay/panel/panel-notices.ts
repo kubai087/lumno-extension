@@ -2,7 +2,6 @@
 // graphics acceleration notice, the engagement notice and the community QR
 // dialog.
 import type { Disposition } from '../../domain/navigation-disposition';
-import type * as CommunityLinks from '../../platform/community-links';
 import * as ENGAGEMENT_NOTICE from '../../shared/engagement-notice';
 import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import * as GRAPHICS_NOTICE from '../../shared/graphics-acceleration-notice';
@@ -15,6 +14,7 @@ import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
 import type { Translate } from './types';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import * as COMMUNITY_LINKS from '../../platform/community-links';
 
 interface PanelNoticesState {
   overlay: HTMLElement | null;
@@ -26,7 +26,6 @@ interface PanelNoticesState {
 
 interface PanelNoticesDeps {
   removeOverlay(overlay: HTMLElement | null): void;
-  COMMUNITY_LINKS: Pick<typeof CommunityLinks, 'FALLBACK_LINKS'>;
   t: Translate;
   getOpenDisposition(event: ActivationEvent | null, fallback?: Disposition): Disposition;
   locale: Pick<SurfaceLocale, 'store'>;
@@ -36,7 +35,6 @@ interface PanelNoticesDeps {
 function createPanelNotices(deps: PanelNoticesDeps) {
   const {
     removeOverlay,
-    COMMUNITY_LINKS,
     t,
     getOpenDisposition,
     locale

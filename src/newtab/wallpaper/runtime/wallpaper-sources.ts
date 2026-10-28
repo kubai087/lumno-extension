@@ -3,9 +3,9 @@
 // to.
 import type { WallpaperLocalStore } from '../../../shared/wallpaper-records';
 import type { Translate } from '../../newtab-types';
-import type * as RemoteContent from '../../remote-content';
 import type { RemoteContentClient } from '../../remote-content';
 import type { WallpaperSample } from '../wallpaper-effects';
+import * as REMOTE_CONTENT from '../../remote-content';
 import type {
   BuiltInWallpaper,
   CachedWallpaperImage,
@@ -29,7 +29,6 @@ interface WallpaperSourcesDeps {
   localWallpaperStore: Pick<WallpaperLocalStore, 'isCustomWallpaperId'>;
   isLinkWallpaperId(id: unknown): boolean;
   getLinkWallpaperById(id: string): WallpaperItem | null;
-  REMOTE_CONTENT: Pick<typeof RemoteContent, 'wallpaperFromId' | 'isDailyWallpaperId' | 'BING_DAILY_ID'>;
   // The photo picked for a daily slot today, or ''.
   getDailyWallpaperPick(dailyId: string): string;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'> | null;
@@ -64,7 +63,6 @@ function createWallpaperSources(deps: WallpaperSourcesDeps) {
     localWallpaperStore,
     isLinkWallpaperId,
     getLinkWallpaperById,
-    REMOTE_CONTENT,
     getDailyWallpaperPick,
     remoteClient,
     NEWTAB_WALLPAPER_OPTIONS,

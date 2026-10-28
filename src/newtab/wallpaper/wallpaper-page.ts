@@ -1,11 +1,9 @@
 // The page's wallpaper: the wallpaper runtime and its panel controls, the
 // first wallpaper, overlay and effect shown at startup, and the adaptive
 // tone targets that keep text and glass surfaces readable on it.
-import type * as LumnoExtensionRoutes from '../../domain/extension-routes';
 import type { StorageAreaLike } from '../../domain/storage-port';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import type { ToastTask } from '../../shared/ui/toast-screen';
-import type * as LumnoFeatureHints from '../../shared/ui/feature-hints';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ThemeScope } from '../react/wallpaper-panel/panel-model';
 import type { TopContentController } from '../react/wordmark';
@@ -23,6 +21,8 @@ import { getFixedTimeInk, newtabTimeInk, newtabTopContentMode } from '../../doma
 import { themeMode } from '../../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme, newtabInputAutoFocusEnabled } from '../../domain/settings/newtab-page';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../domain/settings/newtab-shortcuts';
+import * as EXTENSION_ROUTES from '../../domain/extension-routes';
+import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -63,7 +63,6 @@ interface WallpaperPageDeps {
   root: HTMLElement;
   // The glass plates that sample the wallpaper behind them.
   NEWTAB_GLASS_ADAPTIVE_SELECTOR: string;
-  EXTENSION_ROUTES: Pick<typeof LumnoExtensionRoutes, 'buildOptionsUrl'>;
   localStorageArea: StorageArea | null;
   NEWTAB_SEARCH_WIDTH_CONFIG: SearchWidthConfig;
   t: Translate;
@@ -95,7 +94,6 @@ interface WallpaperPageDeps {
   setNewtabShortcutColumns(columns: number, options: PersistOptions): void;
   setNewtabShortcutSize(size: number, options: PersistOptions): void;
   setNewtabShortcutGap(gap: number, options: PersistOptions): void;
-  FEATURE_HINTS: typeof LumnoFeatureHints;
   // Settles once the page's entry animation is done.
   newtabEntryAnimationReadyPromise: PromiseLike<unknown>;
   // Settles once the auto-focus setting is read.
@@ -115,7 +113,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     isBookmarkTopbarMode,
     root,
     NEWTAB_GLASS_ADAPTIVE_SELECTOR,
-    EXTENSION_ROUTES,
     localStorageArea,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
@@ -147,7 +144,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     setNewtabShortcutColumns,
     setNewtabShortcutSize,
     setNewtabShortcutGap,
-    FEATURE_HINTS,
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
     followTheme

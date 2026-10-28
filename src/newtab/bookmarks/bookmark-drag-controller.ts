@@ -1,11 +1,9 @@
 // Bookmark card layout animation, drag and drop (within the grid, across
 // folders and onto shortcuts) and the bookmark move undo history.
-import type * as FolderReferences from '../../domain/bookmark-folder-reference';
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
 import { isElementNode, isHtmlElement, isHtmlTag } from '../../shared/dom-guards';
 import { queryHtmlTags } from '../../shared/dom-lookup';
 import { createSvgElement } from '../../shared/ui/svg-tree';
-import type * as CrossSurfaceDrag from '../cross-surface-drag';
 import type {
   BlockedDropTarget,
   DragDropTarget,
@@ -21,11 +19,9 @@ import type { BookmarkCardElement } from '../react/bookmarks';
 import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import type { PersistShortcuts, ShortcutInsertionSlot } from '../shortcuts/shortcut-types';
 import type { BookmarkCascadeRuntime, CascadeItemEventDetail, CascadeRefreshOptions } from './bookmark-cascade-menu';
-import type * as BookmarkDrag from './bookmark-drag';
 import type { BookmarkDragSession, BookmarkDragSource, BookmarkLayoutItem } from './bookmark-drag';
 import type * as FolderIcon from './bookmark-folder-icon';
 import { describeFolderIcon } from './bookmark-folder-icon';
-import type * as MoveHistory from './bookmark-move-history';
 import type { BookmarkMoveHistory, ShortcutGroupDeleteRecord } from './bookmark-move-history';
 import type { BookmarkItem } from './bookmarks-store';
 import * as BOOKMARK_DRAG_RULES from './bookmark-drag-rules';
@@ -41,6 +37,9 @@ import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import type { SettingPreview } from '../setting-preview';
 import { bookmarkCount, bookmarkViewMode } from '../../domain/settings/bookmarks';
 import type { SettingsStore } from '../../platform/settings-store';
+import * as NEWTAB_BOOKMARK_DRAG from './bookmark-drag';
+import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
+import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 
 interface BookmarkDragControllerState {
   bookmarkGrid: HTMLElement | null;
@@ -70,14 +69,11 @@ interface BookmarkDragControllerDeps {
   preview: Pick<SettingPreview, 'get'>;
   isBookmarkTopbarMode(): boolean;
   getBookmarkLimit(): number;
-  NEWTAB_BOOKMARK_DRAG: typeof BookmarkDrag;
   initFolderPathMorph: typeof FolderIcon.initFolderPathMorph;
   setFolderPathMorphState: typeof FolderIcon.setFolderPathMorphState;
   isContentSectionVisible(section: HTMLElement | null): boolean;
   bookmarkSection: HTMLElement | null;
   bookmarksRuntime: BookmarksRuntime;
-  NEWTAB_CROSS_SURFACE_DRAG: typeof CrossSurfaceDrag;
-  NEWTAB_BOOKMARK_MOVE_HISTORY: typeof MoveHistory;
   getShortcutById(id: string): ShortcutItem | null;
   // The local bookmark folder a folder shortcut shows.
   getShortcutFolderId(shortcut: ShortcutItem): string;
@@ -87,7 +83,6 @@ interface BookmarkDragControllerDeps {
   getShortcutInsertionSlotAt(pointerX: number, pointerY: number, excludedTile: HTMLElement | null): ShortcutInsertionSlot;
   MAX_NEWTAB_SHORTCUTS: number;
   getShortcutTileId(tile: HTMLElement | null | undefined): string;
-  FOLDER_REFERENCES: Pick<typeof FolderReferences, 'describe' | 'createEntryId'>;
   bookmarkMoveHistory: BookmarkMoveHistory;
   showToast: ShowToast;
   t: Translate;
@@ -145,14 +140,11 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     preview,
     isBookmarkTopbarMode,
     getBookmarkLimit,
-    NEWTAB_BOOKMARK_DRAG,
     initFolderPathMorph,
     setFolderPathMorphState,
     isContentSectionVisible,
     bookmarkSection,
     bookmarksRuntime,
-    NEWTAB_CROSS_SURFACE_DRAG,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     getShortcutById,
     getShortcutFolderId,
     getShortcutReorderTiles,
@@ -161,7 +153,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getShortcutInsertionSlotAt,
     MAX_NEWTAB_SHORTCUTS,
     getShortcutTileId,
-    FOLDER_REFERENCES,
     bookmarkMoveHistory,
     showToast,
     t,
@@ -714,13 +705,10 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     applyShortcutStack
   } = BOOKMARK_SHORTCUT_TRANSFER.createBookmarkShortcutTransfer({
     bookmarksRuntime,
-    NEWTAB_CROSS_SURFACE_DRAG,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     getShortcutStoreOptions,
     getShortcutFolderId,
     getShortcutGroups,
     MAX_NEWTAB_SHORTCUTS,
-    FOLDER_REFERENCES,
     bookmarkMoveHistory,
     shortcutFolderRuntime,
     getFolderItemIcon,
@@ -1288,8 +1276,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   } = BOOKMARK_MOVE_ACTIONS.createBookmarkMoveActions({
     bookmarksRuntime,
     bookmarkMoveHistory,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
-    NEWTAB_CROSS_SURFACE_DRAG,
     transfer: { applyBookmarkShortcutTransfer, applyShortcutStack },
     applyShortcutGroupDeleteRecord,
     persistShortcuts,

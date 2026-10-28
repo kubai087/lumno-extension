@@ -1,9 +1,9 @@
 // Page-wide keys: Tab into site search, Escape through the dismiss stack,
 // and the modifier keys suggestion actions follow.
-import type * as SuggestionNavigation from '../shared/search/suggestion-navigation';
 import type { NumberShortcutContainer, NumberShortcutItem, NumberShortcutOptions } from '../shared/search/suggestion-navigation';
 import type { DismissStack } from './dismiss-stack';
 import type { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
+import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
 
 interface PageKeyboardState {
   // Moves into site search on Tab, when the search box allows it.
@@ -28,7 +28,6 @@ interface PageKeyboardDeps {
   isEditableElement(target: EventTarget | null): boolean;
   // Undoes or redoes a bookmark move; false when there was none.
   performBookmarkMoveHistoryAction(direction: 'undo' | 'redo'): boolean;
-  SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'handleNumberShortcutKeyEvent' | 'cancelNumberShortcuts'>;
   suggestionItems: ReadonlyArray<NumberShortcutItem | null | undefined>;
   numberShortcutOptions: NumberShortcutOptions;
   pageState: PageKeyboardState;
@@ -43,7 +42,6 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     finishBookmarkDrag,
     isEditableElement,
     performBookmarkMoveHistoryAction,
-    SUGGESTION_NAVIGATION,
     suggestionItems,
     numberShortcutOptions,
   } = deps;

@@ -3,7 +3,6 @@
 import type { ShortcutRule, WebAppearanceMode } from '../../domain/messages';
 import type { Disposition } from '../../domain/navigation-disposition';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
-import type * as SearchInputHistory from '../../domain/search/search-input-history';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
@@ -12,7 +11,6 @@ import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionElement } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type { NumberShortcutOptions } from '../../shared/search/suggestion-navigation';
 import type { ActivationEvent } from './result-activation';
 import type { SlashCommand } from './slash-commands';
@@ -30,6 +28,8 @@ import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
+import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
+import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -66,10 +66,8 @@ interface PanelKeysDeps {
   clearSearchSuggestions(): void;
   clearOpenTabsSearchMode(): void;
   isImeCompositionEvent(event: KeyboardEvent): boolean;
-  SEARCH_INPUT_HISTORY: Pick<typeof SearchInputHistory, 'getShortcutDirection'>;
   // The rendered rows, in list order.
   suggestionItems: SuggestionElement[];
-  SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getSuggestionNavigationKey' | 'handleNumberShortcutKeyEvent'>;
   numberShortcutOptions: NumberShortcutOptions;
   removeOverlay(overlay: HTMLElement | null): void;
   closeOverlayWithMotion(overlay: HTMLElement | null): void;
@@ -124,9 +122,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     clearSearchSuggestions,
     clearOpenTabsSearchMode,
     isImeCompositionEvent,
-    SEARCH_INPUT_HISTORY,
     suggestionItems,
-    SUGGESTION_NAVIGATION,
     numberShortcutOptions,
     removeOverlay,
     closeOverlayWithMotion,

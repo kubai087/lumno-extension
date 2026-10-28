@@ -1,20 +1,20 @@
 // The bookmark changes the move history records, and undoing or redoing
 // each: a reorder or a move across folders after a drag, a delete from a
 // context menu, and the shortcut changes that share the same history.
-import type * as CrossSurfaceDrag from '../cross-surface-drag';
 import type { DragDropTarget } from '../cross-surface-drag';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
 import type { BookmarkCascadeRuntime, CascadeRefreshOptions } from './bookmark-cascade-menu';
 import type { BookmarkDragSession } from './bookmark-drag';
 import { getMoveDestination, getUndoShortcutLabels } from './bookmark-drag-rules';
-import type * as MoveHistory from './bookmark-move-history';
 import type { BookmarkLocation, BookmarkMoveHistory, ShortcutGroupDeleteRecord } from './bookmark-move-history';
 import type { BookmarkShortcutTransfer } from './bookmark-shortcut-transfer';
 import type { BookmarkItem, BookmarkNode } from './bookmarks-store';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem } from '../../domain/shortcuts/types';
+import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
+import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 
 interface BookmarkMoveActionsState {
   bookmarkAllItems: BookmarkItem[];
@@ -28,8 +28,6 @@ interface BookmarkMoveActionsState {
 interface BookmarkMoveActionsDeps {
   bookmarksRuntime: BookmarksRuntime;
   bookmarkMoveHistory: BookmarkMoveHistory;
-  NEWTAB_BOOKMARK_MOVE_HISTORY: Pick<typeof MoveHistory, 'createDeleteRecord' | 'createMoveRecord' | 'getMoveApiDestinationIndex'>;
-  NEWTAB_CROSS_SURFACE_DRAG: Pick<typeof CrossSurfaceDrag, 'planShortcutReorder'>;
   transfer: Pick<BookmarkShortcutTransfer, 'applyBookmarkShortcutTransfer' | 'applyShortcutStack'>;
   applyShortcutGroupDeleteRecord(record: ShortcutGroupDeleteRecord, isUndo: boolean): Promise<boolean>;
   persistShortcuts: PersistShortcuts;
@@ -62,8 +60,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
   const {
     bookmarksRuntime,
     bookmarkMoveHistory,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
-    NEWTAB_CROSS_SURFACE_DRAG,
     transfer,
     applyShortcutGroupDeleteRecord,
     persistShortcuts,

@@ -6,11 +6,9 @@ import { queryHtmlElement } from '../../shared/dom-lookup';
 import { createRemixIconElement } from '../../shared/ui/remix-icon';
 import type { BookmarkDragSession } from '../bookmarks/bookmark-drag';
 import type { BookmarkDragController } from '../bookmarks/bookmark-drag-controller';
-import type * as MoveHistory from '../bookmarks/bookmark-move-history';
 import type { BookmarkMoveHistory } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import { hasBookmarkFolder } from '../cross-surface-drag';
-import type * as CrossSurfaceDrag from '../cross-surface-drag';
 import type { DragDropTarget, ShortcutInsertionTarget, SurfaceDragState } from '../cross-surface-drag';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
@@ -21,6 +19,8 @@ import type { ShortcutsController } from '../shortcuts/shortcuts-controller';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem, ShortcutLink } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
+import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
+import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
 
 interface RecentCardDragState {
   newtabShortcuts: ShortcutItem[];
@@ -33,9 +33,6 @@ interface RecentCardDragState {
 }
 
 interface RecentCardDragDeps {
-  NEWTAB_CROSS_SURFACE_DRAG: Pick<typeof CrossSurfaceDrag, 'planBookmarkToShortcut'>;
-  NEWTAB_BOOKMARK_MOVE_HISTORY: Pick<typeof MoveHistory,
-    'createShortcutReorderRecord' | 'createShortcutAddRecord' | 'createTransferRecord'>;
   getShortcutStoreOptions: ShortcutsController['getShortcutStoreOptions'];
   getShortcutFolderId: ShortcutsController['getShortcutFolderId'];
   MAX_NEWTAB_SHORTCUTS: number;
@@ -108,8 +105,6 @@ function cloneHtmlElement(element: HTMLElement): HTMLElement | null {
 
 function createRecentCardDrag(deps: RecentCardDragDeps) {
   const {
-    NEWTAB_CROSS_SURFACE_DRAG,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     getShortcutStoreOptions,
     getShortcutFolderId,
     MAX_NEWTAB_SHORTCUTS,

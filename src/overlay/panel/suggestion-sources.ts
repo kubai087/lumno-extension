@@ -1,13 +1,11 @@
 // Building suggestions: keywords, direct navigation, help center
 // answers, and the update that merges local, tab and remote results.
 import type { ShortcutRule } from '../../domain/messages';
-import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import { themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import { readShortcutRules } from '../../domain/shortcut-rules-reader';
 import * as BROWSER_PROFILE from '../../platform/browser-profile';
-import type * as CommunityLinks from '../../platform/community-links';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
@@ -42,6 +40,8 @@ import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-sea
 import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engine-suggestions';
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
+import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
+import * as COMMUNITY_LINKS from '../../platform/community-links';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -65,8 +65,6 @@ interface SuggestionSourcesDeps {
   siteSearchCatalog: SiteSearchCatalog;
   formatMessage: FormatMessage;
   t: Translate;
-  SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel, 'getSuggestionUpdateKind' | 'getActionContextKey'>;
-  COMMUNITY_LINKS: Pick<typeof CommunityLinks, 'load' | 'getLinks' | 'getCommunityChannel'>;
   getPageFaviconCandidateUrl(url: string): string;
   isLocalNetworkInput(input: string): boolean;
   getHostFromUrl(url: string): string;
@@ -124,10 +122,8 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     isLocalNetworkInput,
     getHostFromUrl,
     isLocalNetworkHost,
-    SUGGESTION_ACTION_MODEL,
     locale,
     getProviderIcon,
-    COMMUNITY_LINKS,
     t,
     isSlashCommandInput,
     isModeCommand,

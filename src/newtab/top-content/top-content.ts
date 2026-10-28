@@ -1,7 +1,5 @@
 // The wordmark/clock area above the search box. Moving the blocks around
 // it when it shows, hides or changes height is layout-motion.ts's job.
-import type * as LumnoSettings from '../../domain/settings';
-import type * as LumnoCommunityLinks from '../../platform/community-links';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import type { TopContentController, WordmarkAppearance } from '../react/wordmark';
 import * as SettingsStorage from '../../platform/settings-storage';
@@ -20,6 +18,8 @@ import {
   newtabTopContentMode
 } from '../../domain/settings/newtab-time';
 import { newtabZenMode } from '../../domain/settings/newtab-page';
+import * as COMMUNITY_LINKS from '../../platform/community-links';
+import * as SETTINGS from '../../domain/settings';
 
 
 // A card's place on screen before a layout change.
@@ -32,12 +32,7 @@ interface TopContentState {
 }
 
 interface TopContentDeps {
-  COMMUNITY_LINKS: Pick<typeof LumnoCommunityLinks, 'getStoreListing'>;
   recentCards: readonly HTMLElement[];
-  SETTINGS: Pick<typeof LumnoSettings,
-    'NEWTAB_TIME_FONT_SIZE_DEFAULT' | 'newtabTimeFontSize' | 'getNewtabTimeFont' |
-    'getNewtabTimeFontTracking' | 'resolveNewtabTimeFontWeight' | 'newtabTimeOpacity' |
-    'newtabTimeInk' | 'newtabTime12Hour'>;
   updateSearchEntryLayout(): void;
   updateSuggestionsFloatingLayout(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
@@ -48,9 +43,7 @@ interface TopContentDeps {
 
 function createTopContentRuntime(deps: TopContentDeps) {
   const {
-    COMMUNITY_LINKS,
     recentCards,
-    SETTINGS,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
     scheduleWallpaperAdaptiveToneUpdate,

@@ -1,29 +1,21 @@
-import * as BLACKLIST_UTILS from '../domain/blacklist-utils';
-import * as FOLDER_REFERENCES from '../domain/bookmark-folder-reference';
 import * as FOLDER_BINDINGS from '../platform/bookmark-folder-bindings';
 import * as LumnoBrowserProfile from '../platform/browser-profile';
 import * as LumnoCommunityLinks from '../platform/community-links';
-import * as EXTENSION_ROUTES from '../domain/extension-routes';
 import * as LumnoShortcutFaviconStore from '../platform/shortcut-favicon-store';
 import * as LumnoBrowserIcons from '../platform/browser-icons';
-import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 import * as PROGRESS_HISTORY from '../domain/progress-history';
 import * as PROGRESS_MATCH from '../domain/progress-match';
-import * as AGGREGATE_SEARCH_STORE from '../domain/search/aggregate-search-store';
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
 import * as SUGGESTION_ACTION_MODEL from '../domain/search/suggestion-action-model';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
-import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
 import * as SITE_DISPLAY_NAME from '../domain/site-display-name';
-import * as FEATURE_HINTS from '../shared/ui/feature-hints';
 import * as NEWTAB_APPEARANCE_MODES from './appearance-modes';
 import * as NEWTAB_BOOKMARK_ACTIONS from './bookmarks/bookmark-actions';
 import * as NEWTAB_BOOKMARK_CASCADE_ACTIONS from './bookmarks/bookmark-cascade-actions';
 import * as NEWTAB_BOOKMARK_CONTEXT_MENU from './bookmarks/bookmark-context-menu';
 import * as NEWTAB_BOOKMARK_DISPLAY_SETTINGS from './bookmarks/bookmark-display-settings';
 import * as NEWTAB_BOOKMARK_DRAG_CONTROLLER from './bookmarks/bookmark-drag-controller';
-import * as NEWTAB_BOOKMARK_DRAG from './bookmarks/bookmark-drag';
 import * as NEWTAB_BOOKMARK_FOLDER_ICON from './bookmarks/bookmark-folder-icon';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmarks/bookmark-move-history';
 import * as NEWTAB_BOOKMARK_PAGER from './bookmarks/bookmark-pager';
@@ -34,7 +26,6 @@ import * as NEWTAB_FOLDER_COLORS from './bookmarks/folder-colors';
 import * as LumnoNewtabFolderItemIcons from './bookmarks/folder-item-icons';
 import * as NEWTAB_CARD_ACTIVATION_GUARD from './card-activation-guard';
 import * as NEWTAB_CLIPBOARD_ACTIONS from './clipboard-actions';
-import * as NEWTAB_CROSS_SURFACE_DRAG from './cross-surface-drag';
 import * as LumnoNewtabDismissStack from './dismiss-stack';
 import * as NEWTAB_ENTRY_MOTION from './entry-motion';
 import * as NEWTAB_FEEDBACK_CONTROL_RUNTIME from './feedback-control';
@@ -55,7 +46,6 @@ import * as NEWTAB_RECENT_CARD_DRAG from './recent/recent-card-drag';
 import * as NEWTAB_RECENT_SECTION from './recent/recent-section';
 import * as NEWTAB_RECENT_SITES_CONTROLLER from './recent/recent-sites-controller';
 import * as NEWTAB_RECENT_SOURCES from './recent/recent-sources';
-import * as NEWTAB_DIRECT_NAVIGATION_SETTLE from './search/direct-navigation-settle';
 import * as NEWTAB_SEARCH_BOX_CONTROLS from './search/search-box-controls';
 import * as NEWTAB_SEARCH_BOX from './search/search-box';
 import * as NEWTAB_SEARCH_INPUT_COMPOSITION from './search/search-input-composition';
@@ -76,7 +66,6 @@ import * as NEWTAB_BOTTOM_DOCK_RUNTIME from './shortcuts/bottom-dock-runtime';
 import * as NEWTAB_SHORTCUT_CONTEXT_MENU from './shortcuts/shortcut-context-menu';
 import * as NEWTAB_SHORTCUT_DOCK from './shortcuts/shortcut-dock';
 import * as NEWTAB_SHORTCUT_DRAG from './shortcuts/shortcut-drag';
-import * as NEWTAB_SHORTCUT_ICON_PLATE from './shortcuts/shortcut-icon-plate';
 import * as NEWTAB_SHORTCUT_ICON_STORE from './shortcuts/shortcut-icon-store';
 import * as NEWTAB_SHORTCUT_PAGE_ACTIONS from './shortcuts/shortcut-page-actions';
 import * as NEWTAB_SHORTCUTS_CONTROLLER from './shortcuts/shortcuts-controller';
@@ -334,7 +323,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     createFeedbackControls
   } = NEWTAB_FEEDBACK_CONTROL_RUNTIME.createFeedbackControlRuntime({
     locale,
-    COMMUNITY_LINKS,
     LUMNO_FEEDBACK_LINKS_FALLBACK,
     t,
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
@@ -386,7 +374,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     BOOKMARK_CONTEXT_MENU_EDIT_VALUE,
     bookmarksRuntime,
-    NEWTAB_BOOKMARKS_STORE,
     openShortcutDialog: (...args) => openShortcutDialog(...args),
     formatMessage,
     showToast,
@@ -428,7 +415,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     MAX_NEWTAB_SHORTCUTS,
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
-    NEWTAB_BOOKMARKS_STORE,
     bookmarksRuntime,
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
     SHORTCUT_CONTEXT_MENU_EDIT_VALUE,
@@ -453,7 +439,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     handleBookmarkItemContextMenu
   } = NEWTAB_BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
     bookmarksRuntime,
-    NEWTAB_BOOKMARKS_STORE,
     BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     t,
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
@@ -569,7 +554,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     syncBookmarkTopbarSurfaceAppearance,
     handleBookmarkModeMenuAction
   } = NEWTAB_BOOKMARK_DISPLAY_SETTINGS.createBookmarkDisplaySettings({
-    NEWTAB_BOOKMARKS_TOPBAR,
     settings,
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     setNewtabTopLayout: (...args) => setNewtabTopLayout(...args),
@@ -666,7 +650,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     createAggregateSearchScopeProvider,
     getProviderHost,
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
-    AGGREGATE_SEARCH_STORE,
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
     siteSearchIconCache,
     getExtensionResourceUrl
@@ -792,10 +775,8 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     shouldExcludeFromRecentSites
   } = NEWTAB_URL_POLICY.createUrlPolicy({
     settings,
-    EXTENSION_ROUTES,
     t,
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
-    BLACKLIST_UTILS,
     getBrowserIconUrl: pageState.firefoxBrowserIcons ? pageState.firefoxBrowserIcons.get : undefined
   });
 
@@ -867,7 +848,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     openFolderColorPicker
   } = NEWTAB_FOLDER_COLORS.createFolderColors({
     folderColorApi,
-    NEWTAB_BOOKMARK_FOLDER_ICON,
     settings,
     bookmarksRuntime,
     closeBookmarkCascadeMenu,
@@ -1036,7 +1016,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
     preview,
     settings,
-    NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     NEWTAB_WIDTH_MODE_CONFIGS,
     normalizeNewtabSearchWidth: (...args) => normalizeNewtabSearchWidth(...args),
@@ -1070,7 +1049,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
     preview,
     settings,
-    SETTINGS,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     NEWTAB_SHORTCUT_COLUMNS_MIN,
     NEWTAB_SHORTCUT_COLUMNS_MAX,
@@ -1159,7 +1137,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     isBookmarkTopbarMode: (...args) => isBookmarkTopbarMode(...args),
     root,
     NEWTAB_GLASS_ADAPTIVE_SELECTOR,
-    EXTENSION_ROUTES,
     localStorageArea,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
@@ -1191,7 +1168,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     setNewtabShortcutColumns,
     setNewtabShortcutSize,
     setNewtabShortcutGap,
-    FEATURE_HINTS,
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
     followTheme,
@@ -1353,7 +1329,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   } = NEWTAB_PAGE_NAVIGATION.createPageNavigation({
     searchQuery,
     settings,
-    NAVIGATION_DISPOSITION,
     getShortcutTileById,
     bookmarksRuntime,
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
@@ -1393,9 +1368,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     renderNewtabTopContent,
     followTopContentSettings
   } = NEWTAB_TOP_CONTENT_RUNTIME.createTopContentRuntime({
-    COMMUNITY_LINKS,
     recentCards,
-    SETTINGS,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
     scheduleWallpaperAdaptiveToneUpdate,
@@ -1585,8 +1558,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     updateShortcutLanguageStrings,
     updateBookmarkSectionPosition,
     storageArea,
-    NEWTAB_SHORTCUT_ICON_STORE,
-    NEWTAB_SHORTCUT_ICON_PLATE,
     pickShortcutIconPlateColor,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
@@ -1601,7 +1572,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     markBookmarkTreeDirty: (...args) => markBookmarkTreeDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
     refreshOpenBookmarkCascadeMenu: (...args) => refreshOpenBookmarkCascadeMenu(...args),
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     bookmarkMoveHistory,
     getBookmarkUndoShortcutLabel: (...args) => getBookmarkUndoShortcutLabel(...args),
     resetShortcutDockHover,
@@ -1680,14 +1650,11 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     preview,
     isBookmarkTopbarMode,
     getBookmarkLimit,
-    NEWTAB_BOOKMARK_DRAG,
     initFolderPathMorph,
     setFolderPathMorphState,
     isContentSectionVisible,
     bookmarkSection,
     bookmarksRuntime,
-    NEWTAB_CROSS_SURFACE_DRAG,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     getShortcutById,
     getShortcutFolderId,
     getShortcutReorderTiles,
@@ -1696,7 +1663,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getShortcutInsertionSlotAt: (...args) => getShortcutInsertionSlotAt(...args),
     MAX_NEWTAB_SHORTCUTS,
     getShortcutTileId,
-    FOLDER_REFERENCES,
     bookmarkMoveHistory,
     showToast,
     t,
@@ -1770,7 +1736,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     navigateToUrl,
     openUrlFromNewtabCard,
     dismissStack,
-    NEWTAB_CROSS_SURFACE_DRAG,
     isShortcutFolderAnchor,
     getFolderItemIconUrl,
     bookmarksRuntime,
@@ -1859,7 +1824,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   } = NEWTAB_BOOKMARK_PAGER.createBookmarkPager({
     isBookmarkTopbarMode,
     getBookmarkLimit,
-    NEWTAB_BOOKMARKS_STORE,
     updateBookmarkHeader,
     getBookmarkGridColumnCount,
     renderBookmarks: (...args) => renderBookmarks(...args),
@@ -1881,14 +1845,12 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     handleShortcutDragPointerDown
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
     getShortcutReorderTiles,
-    NEWTAB_CROSS_SURFACE_DRAG,
     refreshShortcutTileCacheFromDom,
     getShortcutTileId,
     getShortcutTileById,
     renderShortcuts,
     flushDeferredShortcutRender,
     resetShortcutDockHover,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     persistShortcuts,
     bookmarkMoveHistory,
     hideCursorTooltip,
@@ -1918,7 +1880,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     applyBookmarkShortcutTransfer,
     applyShortcutStack,
     getFolderItemIconForShortcut,
-    FOLDER_REFERENCES,
     showToast,
     hideToast,
     t,
@@ -1934,8 +1895,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   });
 
   pageState.recentCardDragRuntime = NEWTAB_RECENT_CARD_DRAG.createRecentCardDrag({
-    NEWTAB_CROSS_SURFACE_DRAG,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     getShortcutStoreOptions,
     getShortcutFolderId,
     MAX_NEWTAB_SHORTCUTS,
@@ -2100,9 +2059,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     settings,
     formatMessage,
     getExtensionResourceUrl,
-    BROWSER_PROFILE,
     getPageFaviconCandidateUrl,
-    SUGGESTION_ACTION_MODEL,
     isBackgroundOpenEvent,
     getSurfaceOpenDisposition,
     recordSearchSuggestionSelection,
@@ -2151,7 +2108,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     searchQuery,
     settings,
     getPageFaviconCandidateUrl,
-    SUGGESTION_ACTION_MODEL,
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
     setVisibleThemeMode,
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
@@ -2163,7 +2119,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     navigateToQuery,
     suggestionsContainer: pageState.suggestionsContainer,
     suggestionItems,
-    SUGGESTION_NAVIGATION,
     refreshTabsForSearchContext,
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
@@ -2191,9 +2146,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     t,
     warmIconCache,
     setSuggestionsVisible,
-    NEWTAB_DIRECT_NAVIGATION_SETTLE,
     sendRuntimeMessage,
-    COMMUNITY_LINKS: LumnoCommunityLinks || null,
     openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
     getHelpCenterLocale: (...args) => getHelpCenterLocale(...args),
     pageState
@@ -2206,7 +2159,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     handleGlobalTypingFocus
   } = NEWTAB_INPUT_FOCUS.createInputFocus({
     settings,
-    SHORTCUT_KEY_MATCHER,
     prepareFocusReload: () => (pageState.focusResume ? pageState.focusResume.prepareFocusReload() : false),
     refreshTabsIfIdle,
     initialNewtabInputAutoFocusReadyTask,
@@ -2344,9 +2296,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getDirectUrlSuggestion,
     renderPendingSuggestions,
     requestSuggestions,
-    SUGGESTION_NAVIGATION,
     isImeCompositionEvent,
-    SEARCH_INPUT_HISTORY,
     getNextSuggestionIndex,
     getAutoHighlightIndex,
     updateSelection,
@@ -2401,13 +2351,11 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     pageSearchParams,
     bottomDock,
     t,
-    FEATURE_HINTS,
     getOpenDisposition,
     getFeedbackWebLocale,
     isFeedbackPopoverOpen,
     LUMNO_FEEDBACK_LINKS_FALLBACK,
     openFeedbackExternalUrl,
-    COMMUNITY_LINKS,
     newtabEntryAnimationReadyPromise,
     root,
     siteSearchCatalog,
@@ -2426,9 +2374,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     rightIcon,
     formatMessage,
     dismissWebdavFeatureHint,
-    EXTENSION_ROUTES,
     getExtensionResourceUrl,
-    FEATURE_HINTS,
     helpCenterAskHintSettled,
     t,
     getOpenDisposition,
@@ -2443,7 +2389,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   } = NEWTAB_GLASS_SURFACES.createGlassSurfaces({
     settings,
     scheduleWallpaperAdaptiveToneUpdate,
-    SETTINGS,
     syncBookmarkTopbarSurfaceAppearance,
     updateWallpaperAppearanceSelectionUi
   });
@@ -2517,7 +2462,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     finishBookmarkDrag,
     isEditableElement,
     performBookmarkMoveHistoryAction,
-    SUGGESTION_NAVIGATION,
     suggestionItems,
     numberShortcutOptions,
     pageState

@@ -2,7 +2,6 @@
 // and the trigger/scope lookups used by the search input. The lists
 // themselves are the catalog's.
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
-import type * as AggregateSearchStore from '../../domain/search/aggregate-search-store';
 import type { AggregateScopeProvider, AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type {
   SiteSearchProvider
@@ -11,9 +10,9 @@ import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
+import * as AGGREGATE_SEARCH_STORE from '../../domain/search/aggregate-search-store';
 
 interface SiteSearchProvidersDeps {
-  AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore, 'isAggregateSearchProvider' | 'createScopeProvider'>;
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getProviderFaviconUrl'> | null;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
   getExtensionResourceUrl(resourcePath: string): string;
@@ -21,7 +20,6 @@ interface SiteSearchProvidersDeps {
 
 function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
-    AGGREGATE_SEARCH_STORE,
     getPageFaviconUrlResolver,
     siteSearchIconCache,
     getExtensionResourceUrl

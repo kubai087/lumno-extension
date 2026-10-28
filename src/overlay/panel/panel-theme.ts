@@ -1,7 +1,6 @@
 // The panel's own theme: light or dark from the setting or the page,
 // watching the page for theme changes, the font family, and the CSS
 // variables the panel draws with.
-import type * as Settings from '../../domain/settings';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import { getHoverColors as getModeHoverColors, getThemeForMode as getThemeVariantForMode } from '../../shared/favicon/favicon-theme';
 import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
@@ -10,6 +9,7 @@ import type { PageTheme } from '../page-theme';
 import type { OverlayPanelModel, OverlayPanelView } from '../react/shell';
 import { overlayFontFallback, overlayFontFamily, overlayPageThemeAdaptationEnabled } from '../../domain/settings/overlay-panel';
 import type { OverlaySettings } from '../overlay-settings';
+import * as SETTINGS from '../../domain/settings';
 
 type PageThemeObserver = ReturnType<typeof LumnoOverlayPageTheme.createPageThemeObserver>;
 
@@ -29,7 +29,6 @@ interface PanelThemeDeps {
   parseCssColor(color: string): number[] | null;
   stopOverlayPageThemeObserver(): void;
   applyOverlayTheme(mode: ThemeMode): void;
-  SETTINGS: Pick<typeof Settings, 'getOverlayFontFamilyCssValue'>;
   OVERLAY_FONT_FAMILY_CSS_VAR: `--${string}`;
   overlayState: PanelThemeState;
 }
@@ -65,7 +64,6 @@ function createPanelTheme(deps: PanelThemeDeps) {
     parseCssColor,
     stopOverlayPageThemeObserver,
     applyOverlayTheme,
-    SETTINGS,
     OVERLAY_FONT_FAMILY_CSS_VAR
   } = deps;
 

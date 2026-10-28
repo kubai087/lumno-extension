@@ -20,10 +20,6 @@ function createSources(overrides) {
     localWallpaperStore: { isCustomWallpaperId: (id) => /^custom-wallpaper-/.test(id) },
     isLinkWallpaperId: (id) => /^link-/.test(id),
     getLinkWallpaperById: (id) => linkWallpapers.get(id) || null,
-    REMOTE_CONTENT: {
-      wallpaperFromId: (id) => /^(bing|curated)-/.test(id),
-      isDailyWallpaperId: (id) => id === 'bing-daily'
-    },
     getDailyWallpaperPick: () => '',
     remoteClient: { getWallpaper: (id) => remoteWallpapers.get(id) || null },
     NEWTAB_WALLPAPER_OPTIONS: [
@@ -72,10 +68,10 @@ function testSampleNamesTheShownImagesSmallCopyAndFullSize() {
   assert.strictEqual(sample('custom-wallpaper-old'), null,
     'a record whose thumbnail is the full image has no smaller copy');
 
-  const photo = { id: 'bing-1', cacheImage: true, imageUrl: 'https://example.test/bing.jpg', thumbnailUrl: 'https://example.test/bing-tile.jpg' };
-  remoteWallpapers.set('bing-1', photo);
-  assert.strictEqual(sample('bing-1'), null, 'a photo shown from the network has no local small copy');
-  cachedWallpaperImages.set('bing-1', {
+  const photo = { id: 'bing-20260101-OHR.Test_1', cacheImage: true, imageUrl: 'https://example.test/bing.jpg', thumbnailUrl: 'https://example.test/bing-tile.jpg' };
+  remoteWallpapers.set('bing-20260101-OHR.Test_1', photo);
+  assert.strictEqual(sample('bing-20260101-OHR.Test_1'), null, 'a photo shown from the network has no local small copy');
+  cachedWallpaperImages.set('bing-20260101-OHR.Test_1', {
     url: photo.imageUrl,
     imageDataUrl: 'data:image/webp;base64,YmluZw==',
     thumbnailDataUrl: 'data:image/webp;base64,YmluZy1zbWFsbA==',
@@ -83,18 +79,18 @@ function testSampleNamesTheShownImagesSmallCopyAndFullSize() {
     width: 1920,
     height: 1080
   });
-  assert.deepStrictEqual(sample('bing-1'), { url: 'data:image/webp;base64,YmluZy1zYW1wbGU=', width: 1920, height: 1080 },
+  assert.deepStrictEqual(sample('bing-20260101-OHR.Test_1'), { url: 'data:image/webp;base64,YmluZy1zYW1wbGU=', width: 1920, height: 1080 },
     'a cached photo samples the small copy cached for sampling');
-  cachedWallpaperImages.set('bing-1', Object.assign({}, cachedWallpaperImages.get('bing-1'),
+  cachedWallpaperImages.set('bing-20260101-OHR.Test_1', Object.assign({}, cachedWallpaperImages.get('bing-20260101-OHR.Test_1'),
     { sampleDataUrl: undefined, width: undefined, height: undefined }));
-  assert.deepStrictEqual(sample('bing-1'), { url: 'data:image/webp;base64,YmluZy1zbWFsbA==', width: 0, height: 0 },
+  assert.deepStrictEqual(sample('bing-20260101-OHR.Test_1'), { url: 'data:image/webp;base64,YmluZy1zbWFsbA==', width: 0, height: 0 },
     'a copy cached before sampling copies and sizes were saved samples its thumbnail');
 
-  const remote = { id: 'curated-2', imageUrl: 'https://example.test/curated.jpg' };
-  remoteWallpapers.set('curated-2', remote);
-  assert.strictEqual(sample('curated-2'), null, 'a network photo still loading has nothing to sample');
+  const remote = { id: 'picsum-2', imageUrl: 'https://example.test/curated.jpg' };
+  remoteWallpapers.set('picsum-2', remote);
+  assert.strictEqual(sample('picsum-2'), null, 'a network photo still loading has nothing to sample');
   wallpaperNetworkImageStates.set(remote.imageUrl, 'failed');
-  assert.deepStrictEqual(sample('curated-2'), bundledSample,
+  assert.deepStrictEqual(sample('picsum-2'), bundledSample,
     'a network photo that failed samples the default it shows instead');
 
   linkWallpapers.set('link-1', { id: 'link-1', url: 'https://example.test/link.jpg', imageDataUrl: '', thumbnailDataUrl: '' });

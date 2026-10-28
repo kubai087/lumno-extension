@@ -1,13 +1,11 @@
 // What the appearance panel's controls do: the action table the React view
 // calls, slider value inputs, and the wallpaper sources feature hint.
-import type * as LumnoSettings from '../../../domain/settings';
 import type * as LumnoFeatureHints from '../../../shared/ui/feature-hints';
 import type { FeatureHintChromeApi, FeatureHintController, FeatureHintOptions } from '../../../shared/ui/feature-hint-catalog';
 import type { Translate } from '../../newtab-types';
 import type { EffectSliderKey, GlassTheme, ThemeScope, WallpaperPanelActions } from '../../react/wallpaper-panel/panel-model';
 import type { SliderChange } from '../../react/wallpaper-panel/panel-primitives';
 import type { WallpaperViewController } from '../../react/wallpaper-view';
-import type * as RemoteContent from '../../remote-content';
 import type { QuoteRuntime } from '../../top-content/quotes';
 import type { WallpaperEffectPrefs } from '../wallpaper-effects';
 import type { CustomWallpapers } from './custom-wallpapers';
@@ -24,6 +22,8 @@ import type { WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperState } from './wallpaper-runtime-types';
 import type { SettingsStore } from '../../../platform/settings-store';
 import { newtabTimeFont } from '../../../domain/settings/newtab-time';
+import * as REMOTE_CONTENT from '../../remote-content';
+import * as SETTINGS from '../../../domain/settings';
 
 // Whether a layout change is only shown or also saved.
 type PersistOptions = { persist: boolean };
@@ -60,7 +60,6 @@ interface PanelActionsDeps extends
   CRT_PARAMETER_PHYSICAL_MAX: Readonly<Record<CrtParameterKey, number>>;
   getCrtParameterPercent(key: CrtParameterKey, value: unknown): number;
   getCrtParameterPhysicalValue(key: CrtParameterKey, percent: unknown): number;
-  REMOTE_CONTENT: Pick<typeof RemoteContent, 'BING_DAILY_ID' | 'isDailyWallpaperId'>;
   NEWTAB_WALLPAPER_DEFAULT_ID: string;
   showTopActionTooltip(anchor: HTMLElement, text: string, options?: { placement?: string }): void;
   hideTopActionTooltip(): void;
@@ -69,7 +68,6 @@ interface PanelActionsDeps extends
   setInputAutoFocusEnabled(enabled: boolean): void;
   setGlassStyle(value: string): void;
   setGlassTheme(value: GlassTheme): void;
-  SETTINGS: Pick<typeof LumnoSettings, 'getNewtabTimeFont' | 'NEWTAB_TIME_FONT_SIZE_DEFAULT' | 'NEWTAB_TIME_OPACITY_DEFAULT'>;
   setShortcutsVisible(visible: boolean, options: PersistOptions): void;
   setShortcutAddVisible(visible: boolean, options: PersistOptions): void;
   setShortcutDockMagnificationEnabled(enabled: boolean, options: PersistOptions): void;
@@ -109,7 +107,6 @@ function createPanelActions(deps: PanelActionsDeps) {
     persistWallpaperEffectPrefs,
     getCrtParameterPhysicalValue,
     getWallpaperById,
-    REMOTE_CONTENT,
     clearDailyWallpaperPick,
     selectBingWallpaper,
     persistNewtabWallpaper,
@@ -128,7 +125,6 @@ function createPanelActions(deps: PanelActionsDeps) {
     setGlassTheme,
     persistTopContentMode,
     persistTimeFontWeight,
-    SETTINGS,
     persistTimeFontSizeFromSlider,
     persistTimeOpacityFromSlider,
     persistTimeInk,

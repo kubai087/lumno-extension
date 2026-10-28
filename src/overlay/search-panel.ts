@@ -1,16 +1,13 @@
 import { buildTheme, createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../shared/favicon/favicon-theme';
 import { parseCssColor, rgbToCss } from '../domain/color';
-import * as COMMUNITY_LINKS from '../platform/community-links';
 import * as OVERLAY_FONT_FACES from '../shared/overlay-font-faces';
 import * as LumnoShortcutFaviconStore from '../platform/shortcut-favicon-store';
 import * as AGGREGATE_SEARCH_STORE from '../domain/search/aggregate-search-store';
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
 import * as SEARCH_INPUT_MODE from '../shared/search/search-input-mode';
-import * as SUGGESTION_ACTION_MODEL from '../domain/search/suggestion-action-model';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
-import * as SUGGESTIONS_HEIGHT_LAYOUT from '../shared/search/suggestions-height-layout';
 import * as SETTINGS from '../domain/settings';
 import * as LumnoCursorTooltip from '../shared/ui/cursor-tooltip';
 import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
@@ -272,7 +269,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isFaviconProxyUrl,
     isChromeMonogramFaviconUrl
   } = PANEL_FAVICON_POLICY.createFaviconPolicy({
-    SETTINGS,
     logOverlayFaviconDecision,
     overlayState
   });
@@ -428,10 +424,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isLocalNetworkInput: (...args) => isLocalNetworkInput(...args),
     getHostFromUrl: (...args) => getHostFromUrl(...args),
     isLocalNetworkHost: (...args) => isLocalNetworkHost(...args),
-    SUGGESTION_ACTION_MODEL,
     locale,
     getProviderIcon: (...args) => getProviderIcon(...args),
-    COMMUNITY_LINKS,
     t: (...args) => t(...args),
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     isModeCommand: (...args) => isModeCommand(...args),
@@ -498,8 +492,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     requestOverlaySearchSuggestions,
     suggestionItems,
-    SUGGESTION_NAVIGATION,
-    SUGGESTIONS_HEIGHT_LAYOUT,
     syncSearchModeMenuResultOffset: (...args) => syncSearchModeMenuResultOffset(...args),
     removeOverlay,
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
@@ -571,9 +563,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     clearSearchSuggestions,
     clearOpenTabsSearchMode: (...args) => clearOpenTabsSearchMode(...args),
     isImeCompositionEvent,
-    SEARCH_INPUT_HISTORY,
     suggestionItems,
-    SUGGESTION_NAVIGATION,
     numberShortcutOptions,
     removeOverlay,
     closeOverlayWithMotion,
@@ -693,7 +683,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   } = PANEL_RESULT_ACTIVATION.createResultActivation({
     suggestionModifiers,
     ensureOverlaySuggestionsView,
-    SUGGESTION_ACTION_MODEL,
     removeOverlay,
     recordSearchSuggestionSelectionFromSuggestion,
     overlayState
@@ -777,7 +766,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     parseCssColor,
     stopOverlayPageThemeObserver,
     applyOverlayTheme,
-    SETTINGS,
     OVERLAY_FONT_FAMILY_CSS_VAR,
     overlayState
   });
@@ -845,9 +833,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchResults,
     searchMode,
     normalizeSearchResultDisplayLimit,
-    SUGGESTION_NAVIGATION,
     setInputScopedStyle,
-    SUGGESTIONS_HEIGHT_LAYOUT,
     ensureOverlaySuggestionsView,
     suggestionItems,
     updateSelection,
@@ -1114,7 +1100,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     openOverlayCommunityQrDialog
   } = PANEL_PANEL_NOTICES.createPanelNotices({
     removeOverlay,
-    COMMUNITY_LINKS,
     t,
     getOpenDisposition,
     locale,
@@ -1330,7 +1315,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     shouldShowOpenTabsForEmptyQuery,
     renderTabSuggestions,
     filterTabsForOverlay,
-    SUGGESTION_NAVIGATION,
     refreshOverlayFaviconsForPolicyChange,
     getImmediateThemeForSuggestion,
     requestTabsAndRender,

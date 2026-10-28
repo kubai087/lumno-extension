@@ -9,7 +9,6 @@ import type { WallpaperImageCache } from '../../../shared/wallpaper-caches';
 import * as LumnoNewtabDismissStack from '../../dismiss-stack';
 import type { FormatMessage, ShowToast, Translate } from '../../newtab-types';
 import type { createSelectMenuController } from '../../react/select-menu';
-import type * as RemoteContent from '../../remote-content';
 import type { RemoteContentClient } from '../../remote-content';
 import type { RemoteWallpaper } from '../../remote-content-types';
 import type { WallpaperSelection } from './wallpaper-selection';
@@ -26,6 +25,7 @@ import type {
 import { readBootValue } from '../../../platform/boot-handoff';
 import { getSelectMenuApi } from '../../react/select-menu';
 import { newtabLinkWallpapers } from '../../../domain/settings/newtab-wallpaper';
+import * as REMOTE_CONTENT from '../../remote-content';
 
 type SelectMenuController = ReturnType<typeof createSelectMenuController>;
 
@@ -63,8 +63,6 @@ interface CustomWallpapersDeps extends
   wallpaperImageCache: WallpaperImageCache | null;
   warnWallpaperStoreFailure(message: string): (error: unknown) => void;
   NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
-  REMOTE_CONTENT: Pick<typeof RemoteContent,
-    'wallpaperFromId' | 'isDailyWallpaperId' | 'BING_DAILY_ID' | 'getCuratedDailyWallpaper'>;
   window: Window & typeof globalThis;
   dailyWallpaperStandIns: Map<string, CachedWallpaperImage>;
   hideTopActionTooltip(): void;
@@ -136,7 +134,6 @@ function createCustomWallpapers(deps: CustomWallpapersDeps) {
     NEWTAB_WALLPAPER_MODES,
     applyResolvedNewtabWallpaper,
     getEffectiveWallpaperIdForMode,
-    REMOTE_CONTENT,
     getWallpaperById,
     window,
     writeWallpaperPreloadCache,

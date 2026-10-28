@@ -2,7 +2,6 @@
 // or picked wallpaper once it is ready, and saving the choice and whether
 // wallpapers are on, per mode.
 import type { WallpaperRecord } from '../../../shared/wallpaper-records';
-import type * as RemoteContent from '../../remote-content';
 import type { RemoteContentClient } from '../../remote-content';
 import type { WallpaperEffectPrefsRuntime } from './wallpaper-effect-prefs';
 import type { WallpaperSources } from './wallpaper-sources';
@@ -10,6 +9,7 @@ import type { StoredValue, WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperVisual } from './wallpaper-visual';
 import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks, newtabLinkWallpapers, newtabLocalWallpaper, newtabOnlineWallpaper, newtabWallpaper, newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../../platform/settings-store';
+import * as REMOTE_CONTENT from '../../remote-content';
 import type {
   CachedWallpaperImage,
   DailyWallpaperPicks,
@@ -55,8 +55,6 @@ interface WallpaperSelectionDeps extends
   syncWallpaperSourceTabToEditMode(): void;
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'set'>;
   normalizeDailyWallpaperPicks(value: unknown): DailyWallpaperPicks;
-  REMOTE_CONTENT: Pick<typeof RemoteContent,
-    'setRandomMixExcluded' | 'wallpaperFromId' | 'BING_DAILY_ID' | 'localDay' | 'isDailyWallpaperId'>;
   // Takes the synced link list; true when it changed.
   setLinkWallpapers(value: unknown): boolean;
   isLinkWallpaperId(id: unknown): boolean;
@@ -123,7 +121,6 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     getWallpaperEffectStorageValue,
     readStoredSetting,
     normalizeDailyWallpaperPicks,
-    REMOTE_CONTENT,
     mergeOnlineWallpaperValue,
     setLinkWallpapers,
     isLinkWallpaperId,

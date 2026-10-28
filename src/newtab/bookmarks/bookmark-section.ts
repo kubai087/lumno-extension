@@ -2,7 +2,6 @@
 // the bookmark view, the cascade menu runtime and the top bar runtime.
 import * as LumnoMenuSurface from '../../shared/ui/menu-surface';
 import type { TooltipController } from '../../shared/ui/tooltip';
-import type * as CrossSurfaceDrag from '../cross-surface-drag';
 import type { DismissStack } from '../dismiss-stack';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import type { BookmarkCardElement, BookmarksViewController, BookmarksViewOptions } from '../react/bookmarks';
@@ -21,6 +20,7 @@ import { getBookmarkCascadeViewApi } from '../react/bookmark-cascade-view';
 import type { SettingPreview } from '../setting-preview';
 import { bookmarkFolderIconsVisible, bookmarkViewMode } from '../../domain/settings/bookmarks';
 import type { SettingsStore } from '../../platform/settings-store';
+import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 
 type ViewOption<K extends keyof BookmarksViewOptions> = NonNullable<BookmarksViewOptions[K]>;
 
@@ -84,7 +84,6 @@ interface BookmarkSectionDeps {
     options: { openInBackgroundTab?: boolean; openInOtherTab?: boolean; anchor?: HTMLElement | null; surface: string }
   ): unknown;
   dismissStack: DismissStack;
-  NEWTAB_CROSS_SURFACE_DRAG: typeof CrossSurfaceDrag;
   isShortcutFolderAnchor(anchor: HTMLElement | null | undefined): boolean;
   getFolderItemIconUrl(bookmarkId: string, url: string): string;
   bookmarksRuntime: BookmarksRuntime;
@@ -139,7 +138,6 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     navigateToUrl,
     openUrlFromNewtabCard,
     dismissStack,
-    NEWTAB_CROSS_SURFACE_DRAG,
     isShortcutFolderAnchor,
     getFolderItemIconUrl,
     bookmarksRuntime,

@@ -2,7 +2,6 @@
 // and shortcut sections, each wallpaper source's tiles, effects, favicons,
 // and drawing the model into the React view.
 import type * as LumnoExtensionRoutes from '../../../domain/extension-routes';
-import type * as LumnoSettings from '../../../domain/settings';
 import * as LumnoCommunityLinks from '../../../platform/community-links';
 import type { WallpaperLocalStore } from '../../../shared/wallpaper-records';
 import type { WallpaperThumbnailCache } from '../../../shared/wallpaper-caches';
@@ -22,7 +21,6 @@ import type {
   WallpaperSourceTab
 } from '../../react/wallpaper-panel/panel-model';
 import type { SegmentOption, SliderChange, SliderState, ToggleState } from '../../react/wallpaper-panel/panel-primitives';
-import type * as RemoteContent from '../../remote-content';
 import type { RemoteContentClient } from '../../remote-content';
 import type { RemoteWallpaper } from '../../remote-content-types';
 import type { CustomWallpapers } from './custom-wallpapers';
@@ -44,6 +42,8 @@ import type { SvgNode } from '../../../shared/ui/svg-tree';
 import type { SettingsStore } from '../../../platform/settings-store';
 import type { SettingPreview } from '../../setting-preview';
 import { newtabTime12Hour, newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeInk, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../../../domain/settings/newtab-time';
+import * as SETTINGS from '../../../domain/settings';
+import * as REMOTE_CONTENT from '../../remote-content';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -77,12 +77,6 @@ interface PanelStateDeps extends
   NEWTAB_FAVICON_SVG_SHADOW_PATH: string;
   NEWTAB_FAVICON_SVG_MAIN_PATH: string;
   NEWTAB_FAVICON_OPTIONS: readonly NewtabFaviconOption[];
-  SETTINGS: Pick<typeof LumnoSettings,
-    'NEWTAB_QUOTE_FONT_SIZE_MIN' | 'NEWTAB_QUOTE_FONT_SIZE_MAX' | 'NEWTAB_QUOTE_FONT_SIZE_DEFAULT' |
-    'NEWTAB_TIME_FONT_SIZE_DEFAULT' | 'NEWTAB_TIME_FONT_SIZE_MIN' | 'NEWTAB_TIME_FONT_SIZE_MAX' |
-    'newtabTimeFont' | 'getNewtabTimeFont' | 'resolveNewtabTimeFontWeight' | 'newtabTimeFontSize' |
-    'newtabTimeOpacity' | 'NEWTAB_TIME_FONTS' | 'NEWTAB_TIME_OPACITY_MIN' | 'NEWTAB_TIME_OPACITY_MAX' |
-    'NEWTAB_TIME_OPACITY_DEFAULT' | 'newtabTimeInk' | 'newtabTime12Hour' | 'newtabGlassTheme'>;
   shortcutSizeConfig: SliderConfig;
   shortcutGapConfig: SliderConfig;
   // The page's theme settings: its scope, mode and the global mode.
@@ -104,8 +98,6 @@ interface PanelStateDeps extends
   getShortcutColumns(): unknown;
   getGlassStyle(): string;
   getGlassTheme(): unknown;
-  REMOTE_CONTENT: Pick<typeof RemoteContent,
-    'getWallpaperProvider' | 'BING_DAILY_ID' | 'CURATED_CATEGORIES' | 'getRandomMixCategories' | 'RANDOM_CATEGORY'>;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'>;
   wallpaperThumbnailCache: WallpaperThumbnailCache | null;
   localWallpaperStore: Pick<WallpaperLocalStore, 'buildTileThumbnail'>;
@@ -159,7 +151,6 @@ function createPanelState(deps: PanelStateDeps) {
     NEWTAB_FAVICON_SVG_MAIN_PATH,
     NEWTAB_FAVICON_OPTIONS,
     getNewtabFaviconUrl,
-    SETTINGS,
     getSearchWidthSnapPoints,
     getSearchWidthPercent,
     getShortcutColumnsTickValues,
@@ -199,7 +190,6 @@ function createPanelState(deps: PanelStateDeps) {
     getWallpaperDisplayName,
     getLinkWallpaperById,
     isLocalWallpaperLibraryFull,
-    REMOTE_CONTENT,
     getWallpaperById,
     formatBingCopyright,
     getBingWallpaperLabel,

@@ -9,8 +9,8 @@ import type { SelectMenuInstance } from '../react/select-menu';
 import type { ShortcutSite } from '../shortcuts/shortcut-types';
 import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type { BookmarkDragSession } from './bookmark-drag';
-import type * as BookmarksStore from './bookmarks-store';
 import type { BookmarksRuntime } from './bookmarks-runtime';
+import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 
 // The bookmark a context menu was opened for.
 interface BookmarkContextTarget {
@@ -47,7 +47,6 @@ interface BookmarkItemContextMenuEvent {
 
 interface BookmarkContextMenuDeps {
   bookmarksRuntime: BookmarksRuntime;
-  NEWTAB_BOOKMARKS_STORE: Pick<typeof BookmarksStore, 'collectFolderBookmarkUrls'>;
   BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE: string;
   t: Translate;
   NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
@@ -71,7 +70,6 @@ interface BookmarkContextMenuDeps {
 function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   const {
     bookmarksRuntime,
-    NEWTAB_BOOKMARKS_STORE,
     BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
     t,
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,

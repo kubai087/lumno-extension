@@ -9,6 +9,7 @@ import type { BindTooltip, ShowToast, Translate } from '../newtab-types';
 import type * as FolderIcon from './bookmark-folder-icon';
 import type { FolderColorMap, FolderColorRefs } from './bookmark-folder-icon';
 import type { BookmarksRuntime } from './bookmarks-runtime';
+import * as NEWTAB_BOOKMARK_FOLDER_ICON from './bookmark-folder-icon';
 
 type FolderColorPicker = ReturnType<typeof createFolderColorPicker>;
 
@@ -19,7 +20,6 @@ interface FolderColorsState {
 
 interface FolderColorsDeps {
   folderColorApi: ReturnType<typeof createFolderColorPickerApi> | undefined;
-  NEWTAB_BOOKMARK_FOLDER_ICON: typeof FolderIcon;
   settings: Pick<SettingsStore, 'get' | 'include' | 'remove' | 'set' | 'subscribe'>;
   bookmarksRuntime: BookmarksRuntime;
   closeBookmarkCascadeMenu(): void;
@@ -36,7 +36,6 @@ interface FolderColorsDeps {
 function createFolderColors(deps: FolderColorsDeps) {
   const {
     folderColorApi,
-    NEWTAB_BOOKMARK_FOLDER_ICON,
     settings,
     bookmarksRuntime,
     closeBookmarkCascadeMenu,

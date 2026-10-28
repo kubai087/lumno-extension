@@ -3,7 +3,6 @@
 // scope change animation.
 import type { Translate } from '../../newtab-types';
 import type { ThemeScope, WallpaperSourceTab } from '../../react/wallpaper-panel/panel-model';
-import type * as RemoteContent from '../../remote-content';
 import type { DailyWallpapers } from './daily-wallpapers';
 import type { PanelSettings } from './panel-settings';
 import type { PanelState } from './panel-state';
@@ -11,6 +10,7 @@ import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { WallpaperState } from './wallpaper-runtime-types';
+import * as REMOTE_CONTENT from '../../remote-content';
 
 interface PanelMotionDeps extends
   Pick<WallpaperStorage, 'normalizeWallpaperSourceTab' | 'getWallpaperSelectionIdForUi' | 'getWallpaperSourceTabForId'>,
@@ -21,7 +21,6 @@ interface PanelMotionDeps extends
   Pick<PanelSettings, 'getWallpaperAppearanceOptionButtons' | 'getWallpaperAppearanceOptionMotionElement'> {
   window: Window;
   WALLPAPER_SOURCE_TABS: readonly WallpaperSourceTab[];
-  REMOTE_CONTENT: Pick<typeof RemoteContent, 'isDailyWallpaperId' | 'wallpaperFromId'>;
   document: Document;
   t: Translate;
   getThemeScope(): string;
@@ -42,7 +41,6 @@ function createPanelMotion(deps: PanelMotionDeps) {
     loadBingCatalog,
     getWallpaperSelectionIdForUi,
     getWallpaperById,
-    REMOTE_CONTENT,
     showCuratedPageOfSelection,
     getWallpaperSourceTabForId,
     normalizeWallpaperMode,

@@ -1,13 +1,13 @@
 // The feedback button and popover: community links, QR code refresh and
 // the React-rendered control.
 import type { CommunityLinks } from '../domain/community-links';
-import type * as LumnoCommunityLinks from '../platform/community-links';
 import type { Disposition } from '../domain/navigation-disposition';
 import { queryHtmlElement } from '../shared/dom-lookup';
 import * as LumnoNewtabDismissStack from './dismiss-stack';
 import type { Translate } from './newtab-types';
 import type { createFeedbackControlApi, FeedbackControlController, FeedbackControlModel } from './react/feedback';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
+import * as COMMUNITY_LINKS from '../platform/community-links';
 
 interface FeedbackControlState {
   feedbackLinks: CommunityLinks | null;
@@ -18,8 +18,6 @@ interface FeedbackControlState {
 
 interface FeedbackControlDeps {
   locale: Pick<SurfaceLocale, 'store'>;
-  COMMUNITY_LINKS: Pick<typeof LumnoCommunityLinks,
-    'normalizeHttpsUrl' | 'load' | 'getCommunityChannel' | 'buildFreshQrUrl' | 'getReviewUrl'>;
   LUMNO_FEEDBACK_LINKS_FALLBACK: CommunityLinks;
   t: Translate;
   openExternalNewTabUrl(url: string, disposition: Disposition): boolean;
@@ -32,7 +30,6 @@ interface FeedbackControlDeps {
 function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   const {
     locale,
-    COMMUNITY_LINKS,
     LUMNO_FEEDBACK_LINKS_FALLBACK,
     t,
     openExternalNewTabUrl,

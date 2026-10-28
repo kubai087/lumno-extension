@@ -19,6 +19,7 @@ import type { SettingPreview } from './setting-preview';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
 import { bookmarkColumns } from '../domain/settings/bookmarks';
 import { recentCount } from '../domain/settings/recent-sites';
+import * as NEWTAB_LAYOUT from './layout';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -58,7 +59,6 @@ interface PageLayoutDeps extends
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
   preview: Pick<SettingPreview, 'get' | 'show' | 'store'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
-  NEWTAB_LAYOUT: Pick<typeof LumnoNewtabLayout, 'getAdaptiveGridColumnCount' | 'CONTENT_MAX_WIDTH_PX'>;
   NEWTAB_MOBILE_FLOW_BREAKPOINT_PX: number;
   NEWTAB_WIDTH_MODE_CONFIGS: Record<NewtabWidthMode, NewtabWidthModeConfig>;
   NEWTAB_SEARCH_WIDTH_CONFIG: typeof LumnoNewtabLayout.SEARCH_WIDTH_CONFIG;
@@ -73,7 +73,6 @@ function createPageLayout(deps: PageLayoutDeps) {
   const {
     preview,
     settings,
-    NEWTAB_LAYOUT,
     NEWTAB_MOBILE_FLOW_BREAKPOINT_PX,
     NEWTAB_WIDTH_MODE_CONFIGS,
     normalizeNewtabSearchWidth,

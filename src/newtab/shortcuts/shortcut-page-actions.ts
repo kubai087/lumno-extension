@@ -5,7 +5,6 @@ import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
-import type * as BookmarksStore from '../bookmarks/bookmarks-store';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import type { FolderColorPicker } from '../bookmarks/folder-colors';
 import type { BindTooltip, ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
@@ -20,6 +19,7 @@ import type { ShortcutContextTarget, ShortcutGroupMenuValues } from './shortcut-
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutConstants from '../../domain/shortcuts/constants';
+import * as NEWTAB_BOOKMARKS_STORE from '../bookmarks/bookmarks-store';
 
 interface ShortcutPageActionsState {
   // The folder color picker, made the first time a plate color is picked.
@@ -48,7 +48,6 @@ interface ShortcutPageActionsDeps {
   MAX_NEWTAB_SHORTCUTS: number;
   NEWTAB_CONTEXT_MENU_OPEN_VALUE: string;
   BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE: string;
-  NEWTAB_BOOKMARKS_STORE: Pick<typeof BookmarksStore, 'collectFolderBookmarkUrls'>;
   bookmarksRuntime: BookmarksRuntime;
   getShortcutFolderId(shortcut: ShortcutItem): string;
   SHORTCUT_CONTEXT_MENU_EDIT_VALUE: string;
@@ -81,7 +80,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     MAX_NEWTAB_SHORTCUTS,
     NEWTAB_CONTEXT_MENU_OPEN_VALUE,
     BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE,
-    NEWTAB_BOOKMARKS_STORE,
     bookmarksRuntime,
     getShortcutFolderId,
     SHORTCUT_CONTEXT_MENU_EDIT_VALUE,

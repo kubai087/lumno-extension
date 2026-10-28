@@ -1,6 +1,5 @@
 // Opening URLs, bookmarks, shortcuts and searches from the New Tab with the
 // right tab disposition.
-import type * as NavigationDisposition from '../domain/navigation-disposition';
 import type { DefaultTabOpen, Disposition, OpenEvent } from '../domain/navigation-disposition';
 import type { NewtabOpenInNewTabSurface } from '../domain/settings';
 import * as LumnoMessaging from '../platform/messaging';
@@ -13,6 +12,7 @@ import { newtabOpenInNewTab } from '../domain/settings/newtab-page';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
 import type { SearchQuery } from '../shared/search-panel/search-query';
+import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 
 // A shortcut as the page opens it: a site, or a bookmark folder.
 type OpenableShortcut = ShortcutItem | VisibleShortcutItem;
@@ -36,8 +36,6 @@ interface PageNavigationState {
 interface PageNavigationDeps {
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get'>;
-  NAVIGATION_DISPOSITION: Pick<typeof NavigationDisposition,
-    'isMiddleClick' | 'isBackgroundOpenEvent' | 'getDisposition' | 'getDefaultTabDisposition'>;
   getShortcutTileById(id: string): HTMLElement | null;
   bookmarksRuntime: Pick<BookmarksRuntime, 'ensureReady' | 'getNode'>;
   getShortcutFolderId(shortcut: OpenableShortcut): string;
@@ -54,7 +52,6 @@ function createPageNavigation(deps: PageNavigationDeps) {
   const {
     searchQuery,
     settings,
-    NAVIGATION_DISPOSITION,
     getShortcutTileById,
     bookmarksRuntime,
     getShortcutFolderId,

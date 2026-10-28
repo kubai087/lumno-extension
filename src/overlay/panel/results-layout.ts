@@ -5,14 +5,14 @@ import type { SearchInputParts } from '../../shared/react/search-input';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
-import type * as SuggestionsHeightLayout from '../../shared/search/suggestions-height-layout';
 import { overlayOpenTabsDefaultVisible } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
+import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
+import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
 
 interface ResultsLayoutState {
   settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
@@ -32,8 +32,6 @@ interface ResultsLayoutDeps {
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   normalizeSearchResultDisplayLimit(value: unknown): number;
-  SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getVisibleRowsViewportHeight'>;
-  SUGGESTIONS_HEIGHT_LAYOUT: Pick<typeof SuggestionsHeightLayout, 'applyNaturalSuggestionsHeightLayout'>;
   setInputScopedStyle(element: HTMLElement | null, property: string, value: string): void;
   ensureOverlaySuggestionsView(): Pick<SuggestionsViewController, 'clear'>;
   // The rendered rows; emptied with the list.
@@ -53,9 +51,7 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     searchResults,
     searchMode,
     normalizeSearchResultDisplayLimit,
-    SUGGESTION_NAVIGATION,
     setInputScopedStyle,
-    SUGGESTIONS_HEIGHT_LAYOUT,
     ensureOverlaySuggestionsView,
     suggestionItems,
     updateSelection

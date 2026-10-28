@@ -10,7 +10,6 @@ import type { ShortcutFaviconStore } from '../../platform/shortcut-favicon-store
 import * as LumnoShortcutStorage from '../../platform/shortcut-storage';
 import { isRecord, isThenable } from '../../platform/storage-call';
 import type { BookmarkCascadeRuntime } from '../bookmarks/bookmark-cascade-menu';
-import type * as MoveHistory from '../bookmarks/bookmark-move-history';
 import type { BookmarkMoveHistory, ShortcutGroupDeleteRecord } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import type {
@@ -30,8 +29,6 @@ import type { createShortcutDialogApi } from '../react/shortcut-dialog-lazy';
 import type { createShortcutsViewApi, ShortcutContextMenuMark, ShortcutsViewController, ShortcutsViewOptions } from '../react/shortcuts';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
 import type { ShortcutDock } from './shortcut-dock';
-import type * as ShortcutIconPlate from './shortcut-icon-plate';
-import type * as ShortcutIconStoreModule from './shortcut-icon-store';
 import type { ShortcutIconMap, ShortcutIconStore } from './shortcut-icon-store';
 import type { ShortcutPageActions } from './shortcut-page-actions';
 import type { PersistShortcuts, PersistShortcutsOptions, ShortcutIconChange, ShortcutSite } from './shortcut-types';
@@ -47,6 +44,9 @@ import * as ShortcutStoragePlan from '../../domain/shortcuts/storage-plan';
 import type { ProviderStorageRuntime } from '../../platform/settings-storage';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS, NEWTAB_SHORTCUT_LIST_SETTINGS, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutFaviconCache, newtabShortcutIcons, newtabShortcutWidth, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../../domain/settings/newtab-shortcuts';
 import type { SettingsStore } from '../../platform/settings-store';
+import * as NEWTAB_SHORTCUT_ICON_STORE from './shortcut-icon-store';
+import * as NEWTAB_SHORTCUT_ICON_PLATE from './shortcut-icon-plate';
+import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
 
 interface ShortcutsControllerState {
   newtabShortcuts: ShortcutItem[];
@@ -101,8 +101,6 @@ interface ShortcutsControllerDeps {
   updateShortcutLanguageStrings(): void;
   updateBookmarkSectionPosition(options?: { preserveSearchEntryLayout?: boolean }): void;
   storageArea: StorageAreaLike | null;
-  NEWTAB_SHORTCUT_ICON_STORE: Pick<typeof ShortcutIconStoreModule, 'normalizeIconMap' | 'normalizeIconDataUrl'>;
-  NEWTAB_SHORTCUT_ICON_PLATE: Pick<typeof ShortcutIconPlate, 'analyzeImage' | 'resolvePlate' | 'getPlateColorChoices'>;
   pickShortcutIconPlateColor: ShortcutPageActions['pickShortcutIconPlateColor'];
   applyNewtabShortcutLayoutPreferences(): void;
   applyNewtabShortcutDockMagnification(): void;
@@ -118,7 +116,6 @@ interface ShortcutsControllerDeps {
   markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
   loadBookmarks(options?: { force?: boolean }): unknown;
   refreshOpenBookmarkCascadeMenu(): unknown;
-  NEWTAB_BOOKMARK_MOVE_HISTORY: Pick<typeof MoveHistory, 'createShortcutDeleteRecord' | 'createShortcutGroupDeleteRecord'>;
   bookmarkMoveHistory: Pick<BookmarkMoveHistory, 'push'>;
   getBookmarkUndoShortcutLabel(): string;
   resetShortcutDockHover: ShortcutDock['resetShortcutDockHover'];
@@ -271,8 +268,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     updateShortcutLanguageStrings,
     updateBookmarkSectionPosition,
     storageArea,
-    NEWTAB_SHORTCUT_ICON_STORE,
-    NEWTAB_SHORTCUT_ICON_PLATE,
     pickShortcutIconPlateColor,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
@@ -287,7 +282,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     markBookmarkTreeDirty,
     loadBookmarks,
     refreshOpenBookmarkCascadeMenu,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     bookmarkMoveHistory,
     getBookmarkUndoShortcutLabel,
     resetShortcutDockHover,

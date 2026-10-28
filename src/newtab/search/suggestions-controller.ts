@@ -3,7 +3,6 @@ import type { OverlayTab, ShortcutRule } from '../../domain/messages';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings';
-import type * as CommunityLinks from '../../platform/community-links';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SearchInputParts } from '../../shared/react/search-input';
 import type {
@@ -12,12 +11,10 @@ import type {
   SuggestionProvider,
   SuggestionsViewController
 } from '../../shared/react/search/suggestion-list/types';
-import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import { holdSuggestionsHeight, releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { AppearanceModes } from '../appearance-modes';
 import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage, SendRuntimeMessage, Translate } from '../newtab-types';
-import type * as DirectNavigationSettle from './direct-navigation-settle';
 import type { SearchModeController } from './search-mode-controller';
 import type { SearchNavigation, SearchNavigationDeps } from './search-navigation';
 import type {
@@ -50,6 +47,10 @@ import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
+import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
+import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
+import * as NEWTAB_DIRECT_NAVIGATION_SETTLE from './direct-navigation-settle';
+import * as COMMUNITY_LINKS from '../../platform/community-links';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -76,7 +77,6 @@ interface SuggestionsControllerDeps {
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
   getPageFaviconCandidateUrl(pageUrl: string): string;
-  SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel, 'getSuggestionUpdateKind' | 'getActionContextKey'>;
   focusSearchInputPreservingScroll(): boolean;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
@@ -88,7 +88,6 @@ interface SuggestionsControllerDeps {
   navigateToQuery: SearchNavigationDeps['navigateToQuery'];
   suggestionsContainer: HTMLElement | null;
   suggestionItems: SuggestionElement[];
-  SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'scrollItemIntoView'>;
   refreshTabsForSearchContext: SearchNavigation['refreshTabsForSearchContext'];
   clearSiteSearchTabHint: SearchModeController['clearSiteSearchTabHint'];
   isSlashCommandInput(query: string): boolean;
@@ -117,9 +116,7 @@ interface SuggestionsControllerDeps {
   t: Translate;
   warmIconCache(list: Suggestion[]): void;
   setSuggestionsVisible(visible: boolean): void;
-  NEWTAB_DIRECT_NAVIGATION_SETTLE: Pick<typeof DirectNavigationSettle, 'createDirectNavigationSettleController'>;
   sendRuntimeMessage: SendRuntimeMessage;
-  COMMUNITY_LINKS: Pick<typeof CommunityLinks, 'load' | 'getLinks' | 'getCommunityChannel'> | null;
   openCommunityQrDialog?(url: string | undefined): void;
   getHelpCenterLocale(): string;
   pageState: SuggestionsControllerState;
@@ -156,7 +153,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     siteSearchCatalog,
     searchEngine,
     getPageFaviconCandidateUrl,
-    SUGGESTION_ACTION_MODEL,
     focusSearchInputPreservingScroll,
     setVisibleThemeMode,
     setWebAppearanceMode,
@@ -168,7 +164,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     navigateToQuery,
     suggestionsContainer,
     suggestionItems,
-    SUGGESTION_NAVIGATION,
     refreshTabsForSearchContext,
     clearSiteSearchTabHint,
     isSlashCommandInput,
@@ -194,9 +189,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     t,
     warmIconCache,
     setSuggestionsVisible,
-    NEWTAB_DIRECT_NAVIGATION_SETTLE,
     sendRuntimeMessage,
-    COMMUNITY_LINKS,
     openCommunityQrDialog,
     getHelpCenterLocale
   } = deps;

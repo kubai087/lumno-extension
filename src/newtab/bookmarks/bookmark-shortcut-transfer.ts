@@ -3,13 +3,10 @@
 // shortcuts stacked into a new bookmark folder. Each step writes its
 // destination before it removes its source, rolls back what it wrote when
 // a later step fails, and goes on the move history to undo.
-import type * as FolderReferences from '../../domain/bookmark-folder-reference';
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
-import type * as CrossSurfaceDrag from '../cross-surface-drag';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
 import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
-import type * as MoveHistory from './bookmark-move-history';
 import type {
   BookmarkMoveHistory,
   ShortcutDeleteRecord,
@@ -22,6 +19,9 @@ import type { FolderItemIcon, FolderItemIconMap } from './folder-item-icons';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutFolder, ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
+import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
+import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
+import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
 
 interface BookmarkShortcutTransferState {
   newtabShortcuts: ShortcutItem[];
@@ -34,15 +34,11 @@ interface BookmarkShortcutTransferState {
 
 interface BookmarkShortcutTransferDeps {
   bookmarksRuntime: BookmarksRuntime;
-  NEWTAB_CROSS_SURFACE_DRAG: Pick<typeof CrossSurfaceDrag, 'planBookmarkToShortcut' | 'planTransferShortcuts' | 'planShortcutStack'>;
-  NEWTAB_BOOKMARK_MOVE_HISTORY: Pick<typeof MoveHistory,
-    'createTransferRecord' | 'getMoveApiDestinationIndex' | 'isShortcutStackFolderIntact'>;
   getShortcutStoreOptions(): Parameters<typeof ShortcutNormalize.createShortcutRecord>[1];
   // The local bookmark folder a folder shortcut shows.
   getShortcutFolderId(shortcut: ShortcutItem): string;
   getShortcutGroups?(): ShortcutGroup[];
   MAX_NEWTAB_SHORTCUTS: number;
-  FOLDER_REFERENCES: Pick<typeof FolderReferences, 'describe' | 'createEntryId'>;
   bookmarkMoveHistory: BookmarkMoveHistory;
   shortcutFolderRuntime: Pick<FolderBindingRuntime, 'bind' | 'flush'>;
   getFolderItemIcon?(bookmarkId: string): FolderItemIcon | null;
@@ -73,13 +69,10 @@ interface ShortcutDropPlan {
 function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
   const {
     bookmarksRuntime,
-    NEWTAB_CROSS_SURFACE_DRAG,
-    NEWTAB_BOOKMARK_MOVE_HISTORY,
     getShortcutStoreOptions,
     getShortcutFolderId,
     getShortcutGroups,
     MAX_NEWTAB_SHORTCUTS,
-    FOLDER_REFERENCES,
     bookmarkMoveHistory,
     shortcutFolderRuntime,
     getFolderItemIcon,

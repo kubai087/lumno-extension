@@ -7,13 +7,13 @@ import type { SettingsStore } from '../../../platform/settings-store';
 import type { WallpaperLocalStore } from '../../../shared/wallpaper-records';
 import type { ShowToast, Translate } from '../../newtab-types';
 import type { WallpaperSourceTab } from '../../react/wallpaper-panel/panel-model';
-import type * as RemoteContent from '../../remote-content';
 import type { RemoteContentClient } from '../../remote-content';
 import type { RemoteWallpaper } from '../../remote-content-types';
 import type { AdaptiveToneSampler } from '../wallpaper-adaptive-tone';
-import type * as WallpaperEffects from '../wallpaper-effects';
 import type { WallpaperEffectStoragePrefs } from '../wallpaper-effects';
 import type { WallpaperSources } from './wallpaper-sources';
+import * as REMOTE_CONTENT from '../../remote-content';
+import * as WALLPAPER_EFFECTS from '../wallpaper-effects';
 import type {
   LocalWallpaperOverrides,
   WallpaperItem,
@@ -79,8 +79,6 @@ interface WallpaperStorageDeps extends Pick<WallpaperSources,
   'cloneLocalWallpaperOverrides' | 'normalizeNewtabWallpaperId' | 'getDefaultLocalWallpaperOverrides' |
   'getDefaultWallpaperPrefs' | 'getWallpaperById' | 'getCachedWallpaperImage' | 'getShownWallpaperCopy' |
   'getWallpaperRuntimePath' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperImageUrl' | 'getWallpaperSample'> {
-  REMOTE_CONTENT: Pick<typeof RemoteContent,
-    'wallpaperFromId' | 'isDailyWallpaperId' | 'getWallpaperProvider' | 'localDay'>;
   isLinkWallpaperId(id: unknown): boolean;
   NEWTAB_WALLPAPER_DEFAULT_ID: string;
   NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
@@ -101,7 +99,6 @@ interface WallpaperStorageDeps extends Pick<WallpaperSources,
   remoteClient: RemoteContentClient | null;
   window: Window;
   PRELOAD_STORAGE_KEY: string;
-  WALLPAPER_EFFECTS: Pick<typeof WallpaperEffects, 'analyzeImageData'>;
   NEWTAB_WALLPAPER_OVERLAY_STOPS: WallpaperOverlayStops;
   getWallpaperOverlayStopPercent(base: number, opacity: number): number;
   PRELOAD_STORAGE_VERSION: number;
@@ -120,7 +117,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createWallpaperStorage(deps: WallpaperStorageDeps) {
   const {
-    REMOTE_CONTENT,
     isLinkWallpaperId,
     NEWTAB_WALLPAPER_DEFAULT_ID,
     NEWTAB_WALLPAPER_MODES,
@@ -154,7 +150,6 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
     getDisplayedWallpaperImageUrl,
     getWallpaperImageUrl,
     getWallpaperSample,
-    WALLPAPER_EFFECTS,
     NEWTAB_WALLPAPER_OVERLAY_STOPS,
     getWallpaperOverlayStopPercent,
     PRELOAD_STORAGE_VERSION,

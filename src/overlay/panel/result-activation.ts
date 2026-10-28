@@ -4,7 +4,6 @@
 // not pinned; Option/Alt flips that.
 import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
 import type { Disposition } from '../../domain/navigation-disposition';
-import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
@@ -12,6 +11,7 @@ import { overlayOpenInCurrentTab } from '../../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
+import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
 
 // The keys and button of the click or key press that opens a result.
 interface ActivationEvent {
@@ -39,8 +39,6 @@ interface ResultActivationDeps {
   suggestionModifiers: SuggestionModifiers;
   ensureOverlaySuggestionsView(): Pick<SuggestionsViewController,
     'setOpenInCurrentTabModifierActive' | 'setOpenSwitchInNewTabModifierActive' | 'setOpenInBackgroundTabModifierActive'>;
-  SUGGESTION_ACTION_MODEL: Pick<typeof SuggestionActionModel,
-    'shouldOpenSwitchActionInNewTab' | 'getSearchResultOpenDisposition'>;
   removeOverlay(overlay: HTMLElement | null): void;
   recordSearchSuggestionSelectionFromSuggestion(suggestion: DisplayedSuggestion, query: string, surface: string): void;
   overlayState: ResultActivationState;
@@ -50,7 +48,6 @@ function createResultActivation(deps: ResultActivationDeps) {
   const {
     suggestionModifiers,
     ensureOverlaySuggestionsView,
-    SUGGESTION_ACTION_MODEL,
     removeOverlay,
     recordSearchSuggestionSelectionFromSuggestion
   } = deps;

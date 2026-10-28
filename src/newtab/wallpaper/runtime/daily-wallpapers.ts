@@ -3,7 +3,6 @@
 // or curated photo.
 import type { ToastTask } from '../../../shared/ui/toast-screen';
 import type { FormatMessage, ShowToast, Translate } from '../../newtab-types';
-import type * as RemoteContent from '../../remote-content';
 import type { RemoteContentClient } from '../../remote-content';
 import type { RemoteWallpaper } from '../../remote-content-types';
 import type { WallpaperSelection } from './wallpaper-selection';
@@ -11,6 +10,7 @@ import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type { DailyWallpaperPicks, WallpaperItem, WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
 import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks } from '../../../domain/settings/newtab-wallpaper';
+import * as REMOTE_CONTENT from '../../remote-content';
 
 interface DailyWallpapersDeps extends
   Pick<WallpaperStorage,
@@ -21,10 +21,6 @@ interface DailyWallpapersDeps extends
   renderWallpaperPanelState(): void;
   remoteClient: Pick<RemoteContentClient, 'getCatalog' | 'ensureWallpaper' | 'getWallpaper'>;
   NEWTAB_WALLPAPER_MODES: readonly WallpaperMode[];
-  REMOTE_CONTENT: Pick<typeof RemoteContent,
-    'BING_DAILY_ID' | 'localDay' | 'isDailyWallpaperId' | 'getWallpaperProvider' | 'getCuratedWallpapers' |
-    'CURATED_CATEGORIES' | 'RANDOM_CATEGORY' | 'getRandomMixCategories' | 'normalizeRandomMixExcluded' |
-    'setRandomMixExcluded' | 'curatedDailyId'>;
   document: Document;
   window: Window;
   showToast: ShowToast;
@@ -63,7 +59,6 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     remoteClient,
     NEWTAB_WALLPAPER_MODES,
     getEffectiveWallpaperIdForMode,
-    REMOTE_CONTENT,
     getResolvedWallpaperMode,
     applyResolvedNewtabWallpaper,
     document,

@@ -1,18 +1,17 @@
 // The glass material: which surfaces the liquid style bends the wallpaper
 // under, the stored glass style and theme, and the ink hint remembered for
 // the next load.
-import type * as Settings from '../../domain/settings';
 import type { ToneScheduleOptions } from '../wallpaper/wallpaper-adaptive-tone';
 import { createLiquidSurfaces } from '../react/liquid-glass';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
 import { newtabGlassStyle, newtabGlassTheme } from '../../domain/settings/newtab-page';
+import * as SETTINGS from '../../domain/settings';
 
 interface GlassSurfacesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   // { resetInk: true } when a setting changed what the glass ink should be.
   scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions): void;
-  SETTINGS: Pick<typeof Settings, 'newtabGlassStyle' | 'newtabGlassTheme' | 'getNewtabGlassThemeOverride'>;
   syncBookmarkTopbarSurfaceAppearance(options: { updateMenu: boolean }): void;
   updateWallpaperAppearanceSelectionUi(): void;
 }
@@ -21,7 +20,6 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
   const {
     settings,
     scheduleWallpaperAdaptiveToneUpdate,
-    SETTINGS,
     syncBookmarkTopbarSurfaceAppearance,
     updateWallpaperAppearanceSelectionUi
   } = deps;

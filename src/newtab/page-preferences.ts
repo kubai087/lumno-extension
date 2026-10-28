@@ -8,6 +8,7 @@ import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
+import * as SETTINGS from '../domain/settings';
 
 // Whether a change is only shown or also saved.
 type PersistOptions = { persist?: boolean } | null | undefined;
@@ -20,19 +21,6 @@ interface PagePreferencesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'set'>;
   getBookmarkGridColumnCount: PageLayout['getBookmarkGridColumnCount'];
-  SETTINGS: Pick<typeof LumnoSettings,
-    'inferNewtabShortcutColumnsFromWidth' | 'bookmarkColumns' | 'bookmarkCount' |
-    'bookmarkFolderIconsVisible' | 'macosCtrlSuggestionNavigationEnabled' |
-    'newtabAppearanceButtonVisible' | 'newtabFeedbackButtonVisible' |
-    'newtabInputAutoFocusEnabled' | 'normalizeNewtabSearchWidth' |
-    'newtabShortcutAddVisible' | 'newtabShortcutColumns' |
-    'newtabShortcutDockMagnificationEnabled' | 'newtabShortcutGap' |
-    'newtabShortcutSize' | 'newtabShortcutsVisible' | 'newtabTimeFont' |
-    'newtabTimeFontWeight' | 'newtabTimeSecondsVisible' |
-    'newtabTopContentMode' | 'newtabWidthMode' |
-    'numberShortcutInstantEnabled' | 'overlayTabPriority' |
-    'searchResultPriority' | 'simpleModeEnabled' |
-    'tabRankScoreDebug'>;
   NEWTAB_SEARCH_WIDTH_CONFIG: NonNullable<Parameters<typeof LumnoSettings.normalizeNewtabSearchWidth>[1]>;
   NEWTAB_SHORTCUT_COLUMNS_MIN: number;
   NEWTAB_SHORTCUT_COLUMNS_MAX: number;
@@ -45,7 +33,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
   const {
     settings,
     preview,
-    SETTINGS,
     NEWTAB_SEARCH_WIDTH_CONFIG,
     NEWTAB_SHORTCUT_COLUMNS_MIN,
     NEWTAB_SHORTCUT_COLUMNS_MAX,

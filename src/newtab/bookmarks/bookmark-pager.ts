@@ -2,8 +2,8 @@
 // animated page switches.
 import { isHtmlElement, isSvgElement } from '../../shared/dom-guards';
 import * as LumnoNewtabCrossSurfaceDrag from '../cross-surface-drag';
-import type * as BookmarksStore from './bookmarks-store';
 import type { BookmarkItem } from './bookmarks-store';
+import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 
 interface BookmarkPagerState {
   bookmarkAllItems: BookmarkItem[];
@@ -21,7 +21,6 @@ interface BookmarkPagerState {
 interface BookmarkPagerDeps {
   isBookmarkTopbarMode(): boolean;
   getBookmarkLimit(): number;
-  NEWTAB_BOOKMARKS_STORE: Pick<typeof BookmarksStore, 'getBookmarkPageItems'>;
   updateBookmarkHeader(): void;
   getBookmarkGridColumnCount(): number;
   renderBookmarks(items: BookmarkItem[]): void;
@@ -40,7 +39,6 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
   const {
     isBookmarkTopbarMode,
     getBookmarkLimit,
-    NEWTAB_BOOKMARKS_STORE,
     updateBookmarkHeader,
     getBookmarkGridColumnCount,
     renderBookmarks,

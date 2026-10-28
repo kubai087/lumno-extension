@@ -1,12 +1,10 @@
 // The controls inside the search box: the settings menu button, the clear
 // button, close other tabs, the input's right padding, and which action
 // buttons the page shows.
-import type * as ExtensionRoutes from '../../domain/extension-routes';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SearchInputParts } from '../../shared/react/search-input';
 import type { InputModeController } from '../../shared/search/search-input-mode';
-import type * as FeatureHints from '../../shared/ui/feature-hints';
 import type { FeatureHintController } from '../../shared/ui/feature-hint-catalog';
 import type { FormatMessage, Translate } from '../newtab-types';
 import type { PageNavigation } from '../page-navigation';
@@ -15,6 +13,8 @@ import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import { newtabAppearanceButtonVisible, newtabFeedbackButtonVisible } from '../../domain/settings/newtab-page';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import * as EXTENSION_ROUTES from '../../domain/extension-routes';
+import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 
 interface SearchBoxControlsState {
   inputParts: SearchInputParts | null;
@@ -37,9 +37,7 @@ interface SearchBoxControlsDeps {
   formatMessage: FormatMessage;
   // Runs the listener again whenever the page language changes.
   dismissWebdavFeatureHint(): void;
-  EXTENSION_ROUTES: Pick<typeof ExtensionRoutes, 'buildOptionsUrl'>;
   getExtensionResourceUrl(resourcePath: string): string;
-  FEATURE_HINTS: Pick<typeof FeatureHints, 'createFeatureHint'>;
   // Settles with whether the Help Center tip is showing.
   helpCenterAskHintSettled: Promise<boolean>;
   t: Translate;
@@ -59,9 +57,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
     rightIcon,
     formatMessage,
     dismissWebdavFeatureHint,
-    EXTENSION_ROUTES,
     getExtensionResourceUrl,
-    FEATURE_HINTS,
     helpCenterAskHintSettled,
     t,
     getOpenDisposition,

@@ -2,7 +2,6 @@
 // blacklists, local network hosts, and the display limit for results.
 import * as LumnoBlacklistUtils from '../../domain/blacklist-utils';
 import type { BlacklistRule } from '../../domain/blacklist-utils';
-import type * as Settings from '../../domain/settings';
 import * as FaviconCanonical from '../../domain/favicon/canonical';
 import * as FaviconHostPolicy from '../../domain/favicon/host-policy';
 import * as FaviconResolver from '../../domain/favicon/resolver';
@@ -13,6 +12,7 @@ import type { FaviconDecisionLogger } from '../../domain/favicon/types';
 import * as SearchBrandSuggestions from '../../domain/search/utils/brand-suggestions';
 import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, searchResultDisplayLimit } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import * as SETTINGS from '../../domain/settings';
 
 interface FaviconPolicyState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -21,7 +21,6 @@ interface FaviconPolicyState {
 }
 
 interface FaviconPolicyDeps {
-  SETTINGS: Pick<typeof Settings, 'searchResultDisplayLimit'>;
   logOverlayFaviconDecision: FaviconDecisionLogger;
   overlayState: FaviconPolicyState;
 }
@@ -34,7 +33,6 @@ interface FilterableSuggestion {
 
 function createFaviconPolicy(deps: FaviconPolicyDeps) {
   const {
-    SETTINGS,
     logOverlayFaviconDecision
   } = deps;
 
