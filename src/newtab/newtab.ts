@@ -10,7 +10,6 @@ import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 import * as PROGRESS_HISTORY from '../domain/progress-history';
 import * as PROGRESS_MATCH from '../domain/progress-match';
 import * as AGGREGATE_SEARCH_STORE from '../domain/search/aggregate-search-store';
-import * as AGGREGATE_SEARCH_SURFACE from '../domain/search/aggregate-search-surface';
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
 import * as SUGGESTION_ACTION_MODEL from '../domain/search/suggestion-action-model';
@@ -195,6 +194,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
 import { SearchModeMenu } from '../shared/search-panel/mode-menu';
 import { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
@@ -519,6 +519,12 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();
+  const siteSearchRunner = new SiteSearchRunner({
+    t: (key, fallback) => locale.t(key, fallback),
+    showToast: (message, isError) => showToast(message, isError),
+    getHelpCenterLocale: () => getHelpCenterLocale(),
+    openInCurrentTab: (url) => navigateToUrl(url)
+  });
   const menuOrder = new SearchModeMenuOrder(settings);
   const searchMatching = new SearchMatching({
     settings: settings,
@@ -651,22 +657,15 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   const shortcutGroupHeaders: HTMLElement[] = [];
 
   const {
-    buildSearchUrl,
-    runSiteSearchProviderQuery,
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
     getProviderHost,
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
     AGGREGATE_SEARCH_STORE,
-    AGGREGATE_SEARCH_SURFACE,
-    showToast,
-    t,
-    navigateToUrl: (...args) => navigateToUrl(...args),
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
     siteSearchIconCache,
-    getExtensionResourceUrl,
-    getHelpCenterLocale: (...args) => getHelpCenterLocale(...args)
+    getExtensionResourceUrl
   });
 
   const defaultTheme = createDefaultTheme();
@@ -2088,6 +2087,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    siteSearchRunner,
     modeActions,
     searchResults,
     searchMode,
@@ -2115,7 +2115,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
     openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
-    runSiteSearchProviderQuery,
     navigateToQuery,
     pageState
   });
@@ -2138,6 +2137,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    siteSearchRunner,
     modeActions,
     searchMatching,
     locale,
@@ -2153,7 +2153,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     shouldSwitchMatchedTabSuggestion,
     openMatchedTabSuggestion,
-    runSiteSearchProviderQuery,
     shouldOpenSearchResultInBackgroundTab,
     getSearchResultDisposition,
     openSearchResultUrl,
@@ -2177,7 +2176,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     buildKeywordSuggestions,
     siteSearchCatalog,
     searchEngine,
-    buildSearchUrl,
     getProviderIcon,
     formatMessage,
     getMatchedOpenTabIdForSuggestion,

@@ -47,6 +47,7 @@ import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-sea
 import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engine-suggestions';
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -61,6 +62,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  siteSearchRunner: SiteSearchRunner;
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchMatching: SearchMatching;
   locale: SearchLocale;
@@ -78,7 +80,6 @@ interface SuggestionsControllerDeps {
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   shouldSwitchMatchedTabSuggestion: SearchNavigation['shouldSwitchMatchedTabSuggestion'];
   openMatchedTabSuggestion: SearchNavigation['openMatchedTabSuggestion'];
-  runSiteSearchProviderQuery: SiteSearchProviders['runSiteSearchProviderQuery'];
   shouldOpenSearchResultInBackgroundTab: SearchNavigation['shouldOpenSearchResultInBackgroundTab'];
   getSearchResultDisposition: SearchNavigation['getSearchResultDisposition'];
   openSearchResultUrl: SearchNavigation['openSearchResultUrl'];
@@ -101,7 +102,6 @@ interface SuggestionsControllerDeps {
   buildCommandSuggestion(command: SlashCommand): Suggestion;
   getDirectUrlSuggestion: SearchNavigation['getDirectUrlSuggestion'];
   buildKeywordSuggestions: SearchNavigation['buildKeywordSuggestions'];
-  buildSearchUrl: SiteSearchProviders['buildSearchUrl'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   formatMessage: FormatMessage;
   getMatchedOpenTabIdForSuggestion: SearchNavigation['getMatchedOpenTabIdForSuggestion'];
@@ -140,6 +140,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    siteSearchRunner,
     modeActions,
     searchMatching,
     locale,
@@ -157,7 +158,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     setWebAppearanceMode,
     shouldSwitchMatchedTabSuggestion,
     openMatchedTabSuggestion,
-    runSiteSearchProviderQuery,
     shouldOpenSearchResultInBackgroundTab,
     getSearchResultDisposition,
     openSearchResultUrl,
@@ -179,7 +179,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     buildCommandSuggestion,
     getDirectUrlSuggestion,
     buildKeywordSuggestions,
-    buildSearchUrl,
     getProviderIcon,
     formatMessage,
     getMatchedOpenTabIdForSuggestion,
@@ -340,7 +339,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       return;
     }
     if (isSiteSearchProvider(suggestion.provider) && suggestion.searchQuery) {
-      runSiteSearchProviderQuery(
+      siteSearchRunner.run(
         suggestion.provider,
         suggestion.searchQuery,
         getSearchResultDisposition(event)
@@ -535,7 +534,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         : null;
       let inlineSuggestion: Suggestion | null = null;
       if (inlineCandidate) {
-        const inlineUrl = buildSearchUrl(
+        const inlineUrl = siteSearchRunner.buildSearchUrl(
           inlineCandidate.provider.template,
           inlineCandidate.query,
           inlineCandidate.provider
@@ -574,7 +573,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
             const aggregateSearch = isAggregateSearchProvider(siteSearchProvider);
             const siteUrl = aggregateSearch
               ? ''
-              : buildSearchUrl(siteSearchProvider.template, query, siteSearchProvider);
+              : siteSearchRunner.buildSearchUrl(siteSearchProvider.template, query, siteSearchProvider);
             if (!aggregateSearch && !siteUrl) {
               return null;
             }

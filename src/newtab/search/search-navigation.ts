@@ -12,7 +12,6 @@ import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
 import type { SurfaceOpenKeys } from '../page-navigation';
 import type { RenderSuggestions, SlashCommand } from './search-types';
-import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
@@ -25,6 +24,7 @@ import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete'
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -40,6 +40,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
+  siteSearchRunner: SiteSearchRunner;
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
@@ -68,7 +69,6 @@ interface SearchNavigationDeps {
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   focusSearchInputPreservingScroll(): boolean;
   openCommunityQrDialog(url: string | undefined): void;
-  runSiteSearchProviderQuery: SiteSearchProviders['runSiteSearchProviderQuery'];
   // Searches the query with the default engine; `forceSearch` skips the
   // address check.
   navigateToQuery(query: string, forceSearch: boolean, disposition: Disposition): void;
@@ -83,6 +83,7 @@ type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    siteSearchRunner,
     modeActions,
     searchResults,
     searchMode,
@@ -110,7 +111,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     setWebAppearanceMode,
     focusSearchInputPreservingScroll,
     openCommunityQrDialog,
-    runSiteSearchProviderQuery,
     navigateToQuery
   } = deps;
 
@@ -470,7 +470,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return true;
       }
       if (isSiteSearchProvider(selectedSuggestion.provider) && selectedSuggestion.searchQuery) {
-        return runSiteSearchProviderQuery(
+        return siteSearchRunner.run(
           selectedSuggestion.provider,
           selectedSuggestion.searchQuery,
           getSearchResultDisposition(event)
@@ -512,7 +512,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       return;
     }
     if (searchMode.site) {
-      if (runSiteSearchProviderQuery(
+      if (siteSearchRunner.run(
         searchMode.site,
         query,
         getSearchResultDisposition(event)
@@ -525,7 +525,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     const inline = searchMode.inline;
     if (inline && inline.isAuto && inline.rawInput === currentRawInput) {
       if (inline.provider && inline.query) {
-        if (runSiteSearchProviderQuery(
+        if (siteSearchRunner.run(
           inline.provider,
           inline.query,
           getSearchResultDisposition(event)

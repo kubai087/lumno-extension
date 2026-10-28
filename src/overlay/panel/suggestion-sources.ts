@@ -41,6 +41,7 @@ import { getLocalSearchScopeTabHintProvider, getSiteSearchActionTitle } from '..
 import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-search-matching';
 import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engine-suggestions';
 import type { SearchMatching } from '../../shared/search-panel/matching';
+import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -54,6 +55,7 @@ interface SuggestionSourcesState {
 }
 
 interface SuggestionSourcesDeps {
+  siteSearchRunner: SiteSearchRunner;
   searchMatching: SearchMatching;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
@@ -79,7 +81,6 @@ interface SuggestionSourcesDeps {
   buildModeSuggestion(): CommandSuggestion;
   buildCommandSuggestion(command: SlashCommand): CommandSuggestion;
   isCurrentOverlayTabUrl(url: string): boolean;
-  buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string;
   getMatchedOpenTabIdForSuggestion(suggestion: { url?: string } | null): number | null;
   filterOverlayBlacklistedSuggestions(list: OverlaySuggestion[] | null): OverlaySuggestion[];
   getUrlDisplay(url: string | undefined): string;
@@ -110,6 +111,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    siteSearchRunner,
     searchMatching,
     searchResults,
     searchMode,
@@ -135,7 +137,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     buildModeSuggestion,
     buildCommandSuggestion,
     isCurrentOverlayTabUrl,
-    buildSearchUrl,
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions,
     getUrlDisplay,
@@ -441,7 +442,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         : null;
       let inlineSuggestion: OverlaySuggestion | null = null;
       if (inlineCandidate) {
-        const inlineUrl = buildSearchUrl(
+        const inlineUrl = siteSearchRunner.buildSearchUrl(
           inlineCandidate.provider.template || '',
           inlineCandidate.query,
           inlineCandidate.provider
@@ -464,7 +465,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
             const aggregateSearch = isAggregateSearchProvider(activeProvider);
             const siteUrl = aggregateSearch
               ? ''
-              : buildSearchUrl(activeProvider.template || '', query, activeProvider);
+              : siteSearchRunner.buildSearchUrl(activeProvider.template || '', query, activeProvider);
             if (!aggregateSearch && !siteUrl) {
               return null;
             }

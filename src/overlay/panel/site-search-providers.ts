@@ -9,21 +9,17 @@ import type { SiteSearchProvider } from '../../domain/search/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
-import type { Translate } from './types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
-import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 import type { OverlayFaviconRuntime } from '../favicon-view';
-import { isInteractiveSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 
 interface SiteSearchProvidersDeps {
+  siteSearchRunner: SiteSearchRunner;
   favicons: Pick<OverlayFaviconRuntime, 'requestFaviconData'>;
-  getHelpCenterLocale(): string;
-  showOverlayToast(message: string, isError?: boolean): void;
-  t: Translate;
   getSearchResultDisposition(event: ActivationEvent | null): Disposition;
   getSearchResultNewTabDisposition(event: ActivationEvent | null): 'backgroundTab' | 'newTab';
   finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean;
@@ -35,10 +31,8 @@ interface SiteSearchProvidersDeps {
 
 function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
+    siteSearchRunner,
     favicons,
-    getHelpCenterLocale,
-    showOverlayToast,
-    t,
     getSearchResultDisposition,
     getSearchResultNewTabDisposition,
     finishOverlayResultActivation,
@@ -48,85 +42,31 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   } = deps;
 
 
-  let aggregateSearchRequestController: ReturnType<typeof AGGREGATE_SEARCH_SURFACE.createAggregateSearchRequestController> | null = null;
-
-  function buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string {
-    if (!template) {
-      return '';
-    }
-    const url = template.replace(/\{query\}/g, encodeURIComponent(query));
-    return provider ? SearchSiteSearchProviders.withHelpCenterLocale(url, provider, getHelpCenterLocale()) : url;
-  }
 
 
 
 
 
-  function getAggregateSearchRequestController(): ReturnType<typeof AGGREGATE_SEARCH_SURFACE.createAggregateSearchRequestController> {
-    if (aggregateSearchRequestController) {
-      return aggregateSearchRequestController;
-    }
-    const controller = AGGREGATE_SEARCH_SURFACE.createAggregateSearchRequestController({
-      chromeApi: chrome,
-      onFeedback(descriptor) {
-        showOverlayToast(t(descriptor.messageKey, descriptor.fallback), descriptor.isError);
-      }
-    });
-    aggregateSearchRequestController = controller;
-    return controller;
-  }
+
 
   // Runs a site search, an interactive provider or an aggregate search;
   // true when a tab opened at once, so the panel may close.
+  // Runs the query in the tab or tabs the activation asks for; an
+  // aggregate search finishes the activation once its sources opened.
   function openSiteSearchProviderQuery(provider: InputModeProvider | null, query: string, event: ActivationEvent | null): boolean {
-    const trimmedQuery = String(query || '').trim();
-    if (!provider || !trimmedQuery) {
-      return false;
+    if (!isAggregateSearchProvider(provider)) {
+      return siteSearchRunner.run(provider, query, getSearchResultDisposition(event));
     }
-    if (isAggregateSearchProvider(provider) && provider.aggregateId) {
-      const disposition = getSearchResultNewTabDisposition(event);
-      const controller = getAggregateSearchRequestController();
-      if (!controller) {
-        showOverlayToast(t('toast_error', 'Operation failed. Please try again.'), true);
-        return false;
-      }
-      controller.run({
-        aggregateId: String(provider.aggregateId),
-        disposition,
-        query: trimmedQuery
-      }, {
-        onSuccess(response) {
-          const feedbackDelayMs = AGGREGATE_SEARCH_SURFACE.getSuccessFeedbackDelayMs(response);
-          if (feedbackDelayMs > 0) {
-            window.setTimeout(() => {
-              finishOverlayResultActivation(event, true);
-            }, feedbackDelayMs);
-            return;
-          }
-          finishOverlayResultActivation(event, true);
+    return siteSearchRunner.run(provider, query, getSearchResultNewTabDisposition(event), {
+      onSuccess(response) {
+        const feedbackDelayMs = AGGREGATE_SEARCH_SURFACE.getSuccessFeedbackDelayMs(response);
+        if (feedbackDelayMs > 0) {
+          window.setTimeout(() => finishOverlayResultActivation(event, true), feedbackDelayMs);
+          return;
         }
-      });
-      return false;
-    }
-    if (isInteractiveSiteSearchProvider(provider)) {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-        action: 'runSiteSearchProviderQuery',
-        provider: provider,
-        query: trimmedQuery,
-        disposition: getSearchResultDisposition(event)
-      });
-      return true;
-    }
-    const siteUrl = buildSearchUrl(provider.template || '', trimmedQuery, provider);
-    if (!siteUrl) {
-      return false;
-    }
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-      action: 'createTab',
-      url: siteUrl,
-      disposition: getSearchResultDisposition(event)
+        finishOverlayResultActivation(event, true);
+      }
     });
-    return true;
   }
 
   // Teaches the ranking which result was picked for the query.
@@ -185,7 +125,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   }
 
   return {
-    buildSearchUrl,
     openSiteSearchProviderQuery,
     recordSearchSuggestionSelectionFromSuggestion,
     getProviderIcon,

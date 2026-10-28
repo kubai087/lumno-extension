@@ -76,6 +76,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
 import { SearchModeMenu } from '../shared/search-panel/mode-menu';
 import { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
@@ -165,6 +166,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
+  const siteSearchRunner = new SiteSearchRunner({
+    t: (key, fallback) => locale.t(key, fallback),
+    showToast: (message, isError) => showOverlayToast(message, isError),
+    getHelpCenterLocale: () => getHelpCenterLocale(),
+    openInCurrentTab: (url) => LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'createTab', url, disposition: 'currentTab' })
+  });
   // The mode menu's moves can be undone for as long as the page lives,
   // across panel openings.
   if (!pageMenuOrder) {
@@ -409,6 +416,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    siteSearchRunner,
     searchMatching,
     searchResults,
     searchMode,
@@ -434,7 +442,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     buildCommandSuggestion: (...args) => buildCommandSuggestion(...args),
     isCurrentOverlayTabUrl,
     siteSearchCatalog,
-    buildSearchUrl: (...args) => buildSearchUrl(...args),
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions: (...args) => filterOverlayBlacklistedSuggestions(...args),
     getUrlDisplay,
@@ -646,17 +653,14 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
 
   const {
-    buildSearchUrl,
     openSiteSearchProviderQuery,
     recordSearchSuggestionSelectionFromSuggestion,
     getProviderIcon,
     toPageRenderableIconUrl,
     getPageRenderableProviderIcon
   } = PANEL_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
+    siteSearchRunner,
     favicons: faviconRuntime,
-    getHelpCenterLocale,
-    showOverlayToast: (...args) => showOverlayToast(...args),
-    t: (...args) => t(...args),
     getSearchResultDisposition: (...args) => getSearchResultDisposition(...args),
     getSearchResultNewTabDisposition: (...args) => getSearchResultNewTabDisposition(...args),
     finishOverlayResultActivation: (...args) => finishOverlayResultActivation(...args),
