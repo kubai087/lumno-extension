@@ -32,7 +32,6 @@ import type { SuggestionSourcesState } from './panel/suggestion-sources';
 import type { SuggestionThemesState } from './panel/suggestion-themes';
 import type { SuggestionsRenderState } from './panel/suggestions-render';
 import type { TabMatchingState } from './panel/tab-matching';
-import type { OverlaySuggestion } from './panel/types';
 import type { OverlaySettings } from './overlay-settings';
 import type { RevealGate } from './site-fixes';
 
@@ -58,7 +57,7 @@ type OverlayState =
   EntryMotionState &
   FaviconPolicyState &
   PanelKeysState &
-  PanelLanguageState<OverlaySuggestion, ThemeVariant> &
+  PanelLanguageState<ThemeVariant> &
   PanelNoticesState &
   PanelSessionState &
   PanelThemeState &
@@ -68,7 +67,7 @@ type OverlayState =
   SearchInputEventsState &
   SearchModeMenuState &
   SearchModesState &
-  SettingsSyncState<OverlaySuggestion> &
+  SettingsSyncState &
   SlashCommandsState &
   SuggestionSourcesState &
   SuggestionThemesState &
@@ -155,14 +154,8 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayThemeMode: 'system',
     defaultPlaceholderText: 'Search or enter URL…',
 
-    // -1 while the input holds focus, else the selected row.
-    selectedIndex: -1,
-    currentSuggestions: [],
-    lastSuggestionResponse: [],
-    lastEngineSuggestionResponse: [],
     lastRenderedQuery: '',
     lastRenderedActionContextKey: '',
-    overlaySuggestionRequestSeq: 0,
     overlayRemoteSuggestionDebounceTimer: null,
     overlayFirstResultRevealTimer: null
   };

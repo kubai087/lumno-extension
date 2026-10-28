@@ -40,20 +40,14 @@ import { newtabZenMode } from '../../domain/settings/newtab-page';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
-  selectedIndex: number;
-  lastSuggestionResponse: Suggestion[];
-  // The last answer that had the search engine's suggestions in it.
-  lastEngineSuggestionResponse: Suggestion[];
   inputParts: SearchInputParts | null;
   tabs: OverlayTab[];
-  currentSuggestions: Suggestion[];
   // Hidden from the background; the input's focus shows them again.
   searchSuggestionsDismissed: boolean;
-  // Bumped by each request, so an older one's results are dropped.
-  suggestionRequestSeq: number;
   remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
   suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
   currentThemeMode: ThemeMode;
@@ -61,6 +55,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -146,6 +141,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -225,7 +221,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       helpCenterFeedbackLinksRequested = true;
       void COMMUNITY_LINKS.load().then(() => {
         if (query === searchQuery.text) {
-          renderSuggestions(pageState.lastSuggestionResponse, query);
+          renderSuggestions(searchResults.lastResponse, query);
         }
       });
     }
@@ -244,7 +240,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }),
     onUpdate: (query) => {
       if (query === searchQuery.text) {
-        renderSuggestions(pageState.lastSuggestionResponse, query);
+        renderSuggestions(searchResults.lastResponse, query);
       }
     }
   });
@@ -304,7 +300,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     if (!pageState.suggestionsView) {
       return;
     }
-    pageState.suggestionsView.updateSelection(pageState.selectedIndex);
+    pageState.suggestionsView.updateSelection(searchResults.selectedIndex);
   }
 
   function activateRenderedSuggestion(
@@ -394,10 +390,10 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   }
 
   function scrollSelectedSuggestionIntoView(direction: 'up' | 'down', didWrap: boolean): void {
-    if (!suggestionsContainer || pageState.selectedIndex < 0) {
+    if (!suggestionsContainer || searchResults.selectedIndex < 0) {
       return;
     }
-    const item = suggestionItems[pageState.selectedIndex];
+    const item = suggestionItems[searchResults.selectedIndex];
     SUGGESTION_NAVIGATION.scrollItemIntoView(suggestionsContainer, item, {
       direction,
       didWrap,
@@ -432,16 +428,16 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     if (pageState.suggestionsView) {
       pageState.suggestionsView.clear();
     }
-    pageState.currentSuggestions = [];
-    pageState.lastSuggestionResponse = [];
-    pageState.selectedIndex = -1;
+    searchResults.show([]);
+    searchResults.setLastResponse([]);
+    searchResults.select(-1);
     lastRenderedActionContextKey = '';
   }
 
   function dismissSearchSuggestionsFromBackground(): void {
     searchAutocomplete.restoreTyped();
     pageState.searchSuggestionsDismissed = true;
-    pageState.suggestionRequestSeq += 1;
+    searchResults.cancelRequests();
     if (pageState.remoteSuggestionDebounceTimer) {
       clearTimeout(pageState.remoteSuggestionDebounceTimer);
       pageState.remoteSuggestionDebounceTimer = null;
@@ -484,7 +480,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       clearSearchSuggestions();
       return undefined;
     }
-    pageState.lastSuggestionResponse = suggestions;
+    searchResults.setLastResponse(suggestions);
 
     return getShortcutRules().then((rules) => {
       const view = pageState.suggestionsView;
@@ -538,7 +534,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           if (query !== searchQuery.text) {
             return;
           }
-          renderSuggestions(pageState.lastSuggestionResponse, query);
+          renderSuggestions(searchResults.lastResponse, query);
         });
       }
       const inlineCandidate = (!localSearchQueryModeActive && !slashCommandModeActive &&
@@ -781,13 +777,13 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       const updateKind = getSuggestionUpdateKind({
         actionContextKey,
         lastRenderedActionContextKey,
-        currentSuggestions: pageState.currentSuggestions,
+        currentSuggestions: searchResults.rows,
         allSuggestions
       });
       const canAppend = updateKind === 'append';
-      const startIndex = canAppend ? pageState.currentSuggestions.length : 0;
+      const startIndex = canAppend ? searchResults.rows.length : 0;
 
-      pageState.currentSuggestions = allSuggestions;
+      searchResults.show(allSuggestions);
       lastRenderedActionContextKey = actionContextKey;
       if (updateKind !== 'highlight') {
         warmIconCache(allSuggestions.filter((item) => (
@@ -822,14 +818,14 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   }
 
   function renderPendingSuggestions(query: string): void {
-    void renderSuggestions(pageState.lastSuggestionResponse, query);
+    void renderSuggestions(searchResults.lastResponse, query);
   }
 
   // Shows results saved before a reload exactly as they were. Replies to
   // requests made before this are dropped, so they cannot replace them.
   // Resolves once the results are rendered.
   function showSuggestionSnapshot(suggestions: Suggestion[], query: string, selectedIndex: number): Promise<void> {
-    pageState.suggestionRequestSeq += 1;
+    searchResults.cancelRequests();
     if (pageState.remoteSuggestionDebounceTimer) {
       clearTimeout(pageState.remoteSuggestionDebounceTimer);
       pageState.remoteSuggestionDebounceTimer = null;
@@ -840,7 +836,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }
     directNavigationSettleController.cancel();
     searchQuery.setText(query);
-    pageState.selectedIndex = selectedIndex;
+    searchResults.select(selectedIndex);
     return Promise.resolve(renderSuggestions(suggestions, query));
   }
 
@@ -849,7 +845,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     NEWTAB_DIRECT_NAVIGATION_SETTLE.createDirectNavigationSettleController<SettleContext>({
       delayMs: DIRECT_NAVIGATION_SETTLE_DELAY_MS,
       onSettle: ({ query, requestSeq }) => {
-        if (requestSeq !== pageState.suggestionRequestSeq || query !== searchQuery.text) {
+        if (!searchResults.isCurrentRequest(requestSeq) || query !== searchQuery.text) {
           return;
         }
         renderPendingSuggestions(query);
@@ -870,7 +866,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     const retryCount = options && Number(options.retryCount) > 0 ? Number(options.retryCount) : 0;
     const requestStartedAt = Date.now();
     const requestQuery = searchQuery.text;
-    const requestSeq = ++pageState.suggestionRequestSeq;
+    const requestSeq = searchResults.beginRequest();
     const requestSearchFirst = settings.get(searchResultPriority) === 'search';
     const showExactSearchPendingState = requestSearchFirst &&
       !requestLocalSearchScope &&
@@ -893,20 +889,20 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }
     // A list of another query's results keeps its height until this
     // query's full answer.
-    if (!requestLocalSearchScope && pageState.currentSuggestions.length > 0 && suggestionsContainer &&
+    if (!requestLocalSearchScope && searchResults.rows.length > 0 && suggestionsContainer &&
         suggestionsContainer.getAttribute('data-visible') === 'true') {
       holdSuggestionsHeight(suggestionsContainer, window);
     }
     // Shown with the local results until this query's suggestions arrive.
     const carriedEngineSuggestions = SearchEngineSuggestions.carryOverEngineSuggestions(
-      pageState.lastEngineSuggestionResponse,
+      searchResults.lastEngineResponse,
       requestQuery
     );
     if (showExactSearchPendingState) {
       void renderSuggestions(carriedEngineSuggestions, requestQuery, { pendingRemote: true });
     }
     pageState.suggestionRequestWatchdogTimer = setTimeout(function() {
-      if (requestSeq !== pageState.suggestionRequestSeq || requestQuery !== searchQuery.text) {
+      if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
         return;
       }
       if (retryCount < 1) {
@@ -926,7 +922,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         clearTimeout(pageState.suggestionRequestWatchdogTimer);
         pageState.suggestionRequestWatchdogTimer = null;
       }
-      if (requestSeq !== pageState.suggestionRequestSeq || requestQuery !== searchQuery.text) {
+      if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
         return;
       }
       directNavigationSettleController.cancel();
@@ -948,7 +944,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         : Math.max(0, 120 - (Date.now() - requestStartedAt));
       pageState.remoteSuggestionDebounceTimer = setTimeout(function() {
         pageState.remoteSuggestionDebounceTimer = null;
-        if (requestSeq !== pageState.suggestionRequestSeq || requestQuery !== searchQuery.text) {
+        if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
           return;
         }
         const remoteRequestSent = sendRuntimeMessage<'getSearchEngineSuggestions'>({
@@ -958,7 +954,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           localSuggestions: localSuggestions,
           searchFirst: requestSearchFirst
         }, function(remoteResponse) {
-          if (requestSeq !== pageState.suggestionRequestSeq || requestQuery !== searchQuery.text) {
+          if (!searchResults.isCurrentRequest(requestSeq) || requestQuery !== searchQuery.text) {
             return;
           }
           if (chrome.runtime && chrome.runtime.lastError) {
@@ -971,7 +967,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
             void renderSuggestions(localSuggestions, requestQuery);
             return;
           }
-          pageState.lastEngineSuggestionResponse = remoteResponse.suggestions;
+          searchResults.setLastEngineResponse(remoteResponse.suggestions);
           void renderSuggestions(remoteResponse.suggestions, requestQuery);
         });
         if (!remoteRequestSent) {
@@ -984,7 +980,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         clearTimeout(pageState.suggestionRequestWatchdogTimer);
         pageState.suggestionRequestWatchdogTimer = null;
       }
-      if (requestSeq === pageState.suggestionRequestSeq && requestQuery === searchQuery.text) {
+      if (searchResults.isCurrentRequest(requestSeq) && requestQuery === searchQuery.text) {
         directNavigationSettleController.cancel();
         renderPendingSuggestions(requestQuery);
       }

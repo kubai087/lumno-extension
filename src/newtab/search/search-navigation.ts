@@ -24,13 +24,12 @@ import { newtabZenMode } from '../../domain/settings/newtab-page';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
   currentNewtabTabId: number | null;
-  selectedIndex: number;
   currentThemeMode: string;
-  currentSuggestions: Suggestion[];
   inputParts: SearchInputParts | null;
 }
 
@@ -41,6 +40,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
+  searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -83,6 +83,7 @@ type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -410,7 +411,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
   // web search.
   function submitSearchQuery(query: string, event: KeyboardEvent): void {
     const commandMatch = searchMode.local ? null : getCommandMatch(query);
-    if (commandMatch && pageState.selectedIndex === -1) {
+    if (commandMatch && searchResults.selectedIndex === -1) {
       if (commandMatch.command.type === 'commandNewTab') {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openNewTab' });
         return;
@@ -491,14 +492,14 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       }
       return false;
     };
-    if (pageState.selectedIndex >= 0 && pageState.currentSuggestions[pageState.selectedIndex]) {
-      if (executeSuggestion(pageState.currentSuggestions[pageState.selectedIndex], event, pageState.selectedIndex)) {
+    if (searchResults.selectedIndex >= 0 && searchResults.rows[searchResults.selectedIndex]) {
+      if (executeSuggestion(searchResults.rows[searchResults.selectedIndex], event, searchResults.selectedIndex)) {
         return;
       }
     } else {
       const autoIndex = getAutoHighlightIndex();
-      if (autoIndex >= 0 && pageState.currentSuggestions[autoIndex]) {
-        if (executeSuggestion(pageState.currentSuggestions[autoIndex], event, autoIndex)) {
+      if (autoIndex >= 0 && searchResults.rows[autoIndex]) {
+        if (executeSuggestion(searchResults.rows[autoIndex], event, autoIndex)) {
           return;
         }
       }

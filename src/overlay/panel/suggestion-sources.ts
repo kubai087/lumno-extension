@@ -35,23 +35,21 @@ import type { OverlayFaviconRuntime } from '../favicon-view';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
   searchInput: HTMLInputElement | null;
   suggestionsContainer: HTMLElement | null;
-  // The rows of the last answer, to rebuild the list when something changes.
-  lastSuggestionResponse: OverlaySuggestion[];
-  currentSuggestions: OverlaySuggestion[];
   lastRenderedQuery: string;
   lastRenderedActionContextKey: string;
-  selectedIndex: number;
   overlayThemeMode: ThemeMode;
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
 }
 
 interface SuggestionSourcesDeps {
+  searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -122,6 +120,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -337,7 +336,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         },
         onUpdate: (updatedQuery) => {
           if (updatedQuery === searchQuery.text) {
-            updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text);
+            updateSearchSuggestions(searchResults.lastResponse, searchQuery.text);
           }
         }
       });
@@ -357,7 +356,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       helpCenterFeedbackLinksRequested = true;
       void COMMUNITY_LINKS.load().then(() => {
         if (query === searchQuery.text) {
-          updateSearchSuggestions(overlayState.lastSuggestionResponse, query);
+          updateSearchSuggestions(searchResults.lastResponse, query);
         }
       });
     }
@@ -382,7 +381,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     const remoteMixState = renderOptions.remoteMixState && typeof renderOptions.remoteMixState === 'object'
       ? renderOptions.remoteMixState
       : null;
-    overlayState.lastSuggestionResponse = Array.isArray(suggestions) ? suggestions : [];
+    searchResults.setLastResponse(Array.isArray(suggestions) ? suggestions : []);
     const rawTagInput = (searchQuery.raw || query || '').trim();
     const localSearchQueryModeActive = Boolean(searchMode.local && String(query || '').trim());
     const slashCommandModeActive = !localSearchQueryModeActive && isSlashCommandInput(rawTagInput);
@@ -449,7 +448,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           if (query !== searchQuery.text) {
             return;
           }
-          updateSearchSuggestions(overlayState.lastSuggestionResponse, query);
+          updateSearchSuggestions(searchResults.lastResponse, query);
         });
       }
       const inputValue = overlayState.searchInput ? overlayState.searchInput.value : '';
@@ -646,14 +645,14 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         forceFullRerender,
         actionContextKey,
         lastRenderedActionContextKey: overlayState.lastRenderedActionContextKey,
-        currentSuggestions: overlayState.currentSuggestions,
+        currentSuggestions: searchResults.rows,
         allSuggestions
       });
       const shouldAnimateScopeResultEnter = Boolean(
         getSearchPanelsLayoutTransitionMenu() &&
         siteSearchQueryModeActive &&
         updateKind === 'structure' &&
-        overlayState.currentSuggestions.length === 0 &&
+        searchResults.rows.length === 0 &&
         allSuggestions.some((suggestion) => suggestion && suggestion.type === 'siteSearch')
       );
       const canAppend = updateKind === 'append';
@@ -663,11 +662,11 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       const previousScrollTop = shouldPreserveVisualState && container
         ? Math.max(0, Number(container.scrollTop) || 0)
         : 0;
-      const startIndex = canAppend ? overlayState.currentSuggestions.length : 0;
+      const startIndex = canAppend ? searchResults.rows.length : 0;
       pauseOverlayAntiTranslateObserverForMutationBurst();
       setOpenTabsResultsViewport(false);
       const reactView = ensureOverlaySuggestionsView();
-      overlayState.currentSuggestions = allSuggestions;
+      searchResults.show(allSuggestions);
       overlayState.lastRenderedQuery = query;
       overlayState.lastRenderedActionContextKey = actionContextKey;
       if (updateKind !== 'highlight') {
@@ -720,7 +719,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       }
       commitSuggestionsNaturalHeightAfterRender();
       if (updateKind === 'structure') {
-        overlayState.selectedIndex = -1;
+        searchResults.select(-1);
       }
     });
   }
@@ -729,7 +728,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     releaseSuggestionsHeight(overlayState.suggestionsContainer, window);
     searchMode.clearHints();
     clearSiteSearchTabHint();
-    overlayState.lastSuggestionResponse = [];
+    searchResults.setLastResponse([]);
     if (shouldShowOpenTabsForEmptyQuery()) {
       requestTabsAndRender();
       return;

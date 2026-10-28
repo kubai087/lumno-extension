@@ -195,9 +195,11 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchResults } from '../shared/search-panel/search-results';
 import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 import type { SiteSearchProvider } from '../domain/search/types';
+import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -513,6 +515,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();
+  const searchResults = new SearchResults<Suggestion>();
   const searchMode = new SearchMode<SiteSearchProvider>();
   const searchAutocomplete = new SearchAutocomplete({
     settings: settings,
@@ -936,6 +939,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    searchResults,
     searchMode,
     searchQuery,
     syncBookmarkTopbarSurfaceAppearance,
@@ -1240,6 +1244,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
   }
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
+    searchResults,
     searchMode,
     searchQuery,
     settings,
@@ -2049,6 +2054,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -2093,6 +2099,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -2142,6 +2149,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -2291,6 +2299,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -2464,6 +2473,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
     setSiteSearchPrefix,
     clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    searchResults,
     searchMode,
     searchQuery,
     requestSuggestions,
@@ -2540,6 +2550,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
   });
 
   NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
+    searchResults,
     searchMode,
     searchQuery,
     siteSearchCatalog,
@@ -2559,6 +2570,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
   });
 
   NEWTAB_SEARCH_INPUT_COMPOSITION.createSearchInputComposition({
+    searchResults,
     searchAutocomplete,
     searchQuery,
     directNavigationSettleController,

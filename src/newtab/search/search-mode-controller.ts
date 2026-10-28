@@ -19,6 +19,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { SuggestionsController } from './suggestions-controller';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -28,10 +29,10 @@ interface SearchModeControllerState {
   modeBadge: HTMLElement | null;
   suggestionsContainer: HTMLElement | null;
   inputModeController: InputModeController | null;
-  lastSuggestionResponse: Suggestion[];
 }
 
 interface SearchModeControllerDeps {
+  searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'subscribe'>;
@@ -74,6 +75,7 @@ interface SearchModeControllerDeps {
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
+    searchResults,
     searchMode,
     searchQuery,
     requestSuggestions,
@@ -140,7 +142,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
   void settings.include([searchResultPriority, searchResultSourceTypes, searchResultDisplayLimit, overlayTabPriority, newtabOpenInNewTab])
     .then(() => {
       if (searchQuery.text) {
-        renderSuggestions(pageState.lastSuggestionResponse, searchQuery.text);
+        renderSuggestions(searchResults.lastResponse, searchQuery.text);
       }
     });
   const defaultPlaceholder = searchInput.placeholder;

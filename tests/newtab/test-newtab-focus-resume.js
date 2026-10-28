@@ -83,6 +83,7 @@ function bootPage(options = {}) {
 
 const { SearchQuery } = require('../../src/shared/search-panel/search-query.ts');
 const { SearchMode } = require('../../src/shared/search-panel/search-mode.ts');
+const { SearchResults } = require('../../src/shared/search-panel/search-results.ts');
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function createResume(page, overrides = {}) {
@@ -94,11 +95,12 @@ function createResume(page, overrides = {}) {
   const searchQuery = new SearchQuery();
   searchQuery.set(overrides.rawQuery || '');
   const searchMode = new SearchMode();
+  const searchResults = new SearchResults();
+  searchResults.setLastResponse(overrides.lastResponse || []);
+  searchResults.select(overrides.selectedIndex === undefined ? -1 : overrides.selectedIndex);
   if (overrides.site) searchMode.enterSite(overrides.site);
   const pageState = {
     inputParts: { input },
-    lastSuggestionResponse: [],
-    selectedIndex: -1,
     ...overrides.pageState
   };
   const providers = { 'provider:gh': { key: 'gh', name: 'GitHub' } };
@@ -124,9 +126,10 @@ function createResume(page, overrides = {}) {
     focusSearchInputPreservingScroll: () => calls.push(['focus']),
     searchQuery,
     searchMode,
+    searchResults,
     pageState
   });
-  return { resume, calls, input, pageState };
+  return { resume, calls, input, pageState, searchResults };
 }
 
 function snapshot(fields) {
@@ -137,12 +140,12 @@ async function main() {
   // Saving: what the user typed, its mode and the results, plus the opt-in.
   {
     const page = bootPage();
-    const { resume, input, pageState } = createResume(page, {
+    const { resume, input, searchResults } = createResume(page, {
       rawQuery: 'git',
       site: { key: 'gh' },
+      lastResponse: [{ url: 'https://github.com' }],
+      selectedIndex: 2,
       pageState: {
-        lastSuggestionResponse: [{ url: 'https://github.com' }],
-        selectedIndex: 2
       }
     });
     input.value = 'github.com';
@@ -150,7 +153,7 @@ async function main() {
     const saved = JSON.parse(page.store.get(STORAGE_KEY));
     assert.strictEqual(saved.rawQuery, 'git', 'inline autocomplete text is not part of the query');
     assert.strictEqual(saved.siteSearchId, 'provider:gh');
-    assert.deepStrictEqual(saved.suggestions, pageState.lastSuggestionResponse);
+    assert.deepStrictEqual(saved.suggestions, searchResults.lastResponse);
     assert.strictEqual(saved.selectedIndex, 2);
     assert.match(page.styles[0].textContent, /@view-transition \{ navigation: auto; \}/);
   }

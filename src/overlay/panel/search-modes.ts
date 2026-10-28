@@ -17,6 +17,8 @@ import type { OverlaySettings } from '../overlay-settings';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { ActiveLocalScope, SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
+import type { OverlaySuggestion } from './types';
 
 interface SearchModesState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -24,10 +26,10 @@ interface SearchModesState {
     'updateLayout' | 'setProviderPrefix' | 'setPrefixText' | 'clearProviderPrefix'> | null;
   searchInput: HTMLInputElement | null;
   defaultTheme: InputModeTheme;
-  overlaySuggestionRequestSeq: number;
 }
 
 interface SearchModesDeps {
+  searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -57,6 +59,7 @@ interface OpenTabsPrefixOptions {
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -378,7 +381,7 @@ function createSearchModes(deps: SearchModesDeps) {
     if (!searchMode.local) {
       return false;
     }
-    overlayState.overlaySuggestionRequestSeq += 1;
+    searchResults.cancelRequests();
     searchMode.leaveLocal();
     clearSiteSearchPrefix();
     searchAutocomplete.clear();

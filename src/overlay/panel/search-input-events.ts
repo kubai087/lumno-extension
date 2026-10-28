@@ -13,6 +13,8 @@ import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/ca
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
+import type { OverlaySuggestion } from './types';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -24,10 +26,10 @@ interface SearchInputEventsState {
   // Typing on from a suggestion the arrows show keeps it as typed text.
   suggestionInputPreview: Pick<SuggestionInputPreview, 'commit'>;
   overlayEngagementNoticeController: Pick<EngagementNoticeController, 'recordMeaningfulUse'> | null;
-  selectedIndex: number;
 }
 
 interface SearchInputEventsDeps {
+  searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -60,6 +62,7 @@ function readInputType(event: Event | null): string {
 
 function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -195,8 +198,8 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       const rawValue = liveInput ? (liveInput.value || '') : '';
       const query = rawValue.trim();
       updateModeBadge(rawValue);
-      if (overlayState.selectedIndex >= 0) {
-        overlayState.selectedIndex = -1;
+      if (searchResults.selectedIndex >= 0) {
+        searchResults.select(-1);
         updateSelection();
       }
       searchQuery.set(rawValue, query);
@@ -250,8 +253,8 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         searchQuery.set(rawValue, query);
         return;
       }
-      if (overlayState.selectedIndex >= 0) {
-        overlayState.selectedIndex = -1;
+      if (searchResults.selectedIndex >= 0) {
+        searchResults.select(-1);
         updateSelection();
       }
       if (!query && searchMode.site) {

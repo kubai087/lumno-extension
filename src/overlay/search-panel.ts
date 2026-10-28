@@ -77,9 +77,11 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchResults } from '../shared/search-panel/search-results';
 import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 import type { InputModeProvider } from '../shared/search/input-mode/types';
+import type { OverlaySuggestion } from './panel/types';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -156,6 +158,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
+  const searchResults = new SearchResults<OverlaySuggestion>();
   const searchMode = new SearchMode<InputModeProvider>();
   const searchAutocomplete = new SearchAutocomplete({
     settings: overlayState.settings.store,
@@ -220,7 +223,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
   });
   function cancelPendingOverlaySuggestionRequests() {
-    overlayState.overlaySuggestionRequestSeq += 1;
+    searchResults.cancelRequests();
     if (overlayState.overlayRemoteSuggestionDebounceTimer) {
       clearTimeout(overlayState.overlayRemoteSuggestionDebounceTimer);
       overlayState.overlayRemoteSuggestionDebounceTimer = null;
@@ -337,6 +340,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -395,6 +399,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updatePendingSearchSuggestions,
     requestOverlaySearchSuggestions
   } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
+    searchResults,
     searchMode,
     searchQuery,
     updateSearchSuggestions,
@@ -415,6 +420,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    searchResults,
     searchMode,
     searchQuery,
     favicons: faviconRuntime,
@@ -482,6 +488,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -539,6 +546,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleSearchInputCompositionEnd,
     handleSearchInputEvent
   } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -589,6 +597,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode,
     clearOpenTabsSearchMode
   } = PANEL_SEARCH_MODES.createSearchModes({
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -827,6 +836,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setSiteSearchTabHint,
     clearSiteSearchTabHint
   } = PANEL_RESULTS_LAYOUT.createResultsLayout({
+    searchResults,
     searchMode,
     normalizeSearchResultDisplayLimit,
     SUGGESTION_NAVIGATION,
@@ -842,6 +852,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyOverlayCjkFontFace,
     applyLanguageStrings
   } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
+    searchResults,
     searchMode,
     searchQuery,
     locale,
@@ -1285,7 +1296,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   // Focusing the input hands the selection back to it.
   overlayState.searchInput.addEventListener('focus', function() {
-    overlayState.selectedIndex = -1;
+    searchResults.select(-1);
     updateSelection();
     overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
   });
@@ -1304,6 +1315,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
 
   const settingsApplied = PANEL_SETTINGS_SYNC.createSettingsSync({
+    searchResults,
     searchMode,
     searchQuery,
     updateSearchSuggestions,

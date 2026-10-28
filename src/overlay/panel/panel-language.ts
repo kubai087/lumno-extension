@@ -6,10 +6,11 @@ import { localeToHtmlLang } from '../../domain/settings/locale';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { ActiveLocalScope, SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 // Row is a suggestion row, Provider a site search provider and Theme a
 // suggestion theme; this module only passes them along.
-interface PanelLanguageState<Row, Theme> {
+interface PanelLanguageState<Theme> {
   inputModeController: { refreshModeMenuLanguage?(): void } | null;
   overlayUpdateNoticeController: { updateLanguage?(): void } | null;
   overlayGraphicsNoticeController: { updateLanguage?(): void } | null;
@@ -18,10 +19,10 @@ interface PanelLanguageState<Row, Theme> {
   defaultPlaceholderText: string;
   modeBadge: HTMLElement | null;
   defaultTheme: Theme;
-  lastSuggestionResponse: Row[];
 }
 
 interface PanelLanguageDeps<Row, Provider, Theme> {
+  searchResults: Pick<SearchResults<Row>, 'lastResponse'>;
   searchMode: Pick<SearchMode<Provider>, 'site' | 'local'>;
   searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 't'>;
@@ -34,11 +35,12 @@ interface PanelLanguageDeps<Row, Provider, Theme> {
   requestTabsAndRender(): void;
   // Names the search input's buttons again.
   applyInputActionLabels(): void;
-  overlayState: PanelLanguageState<Row, Theme>;
+  overlayState: PanelLanguageState<Theme>;
 }
 
 function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, Provider, Theme>) {
   const {
+    searchResults,
     searchMode,
     searchQuery,
     locale,
@@ -113,7 +115,7 @@ function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, 
       return;
     }
     if (searchQuery.text) {
-      updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text);
+      updateSearchSuggestions(searchResults.lastResponse, searchQuery.text);
     } else {
       requestTabsAndRender();
     }

@@ -22,9 +22,9 @@ import type { SearchModeController } from './search-mode-controller';
 import type { RenderSuggestions, RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 interface SearchSettingsSyncState {
-  lastSuggestionResponse: Suggestion[];
   suggestionsContainer: HTMLElement | null;
   // Bumped when the favicon policy changes, so requests made before it are
   // dropped.
@@ -33,6 +33,7 @@ interface SearchSettingsSyncState {
 }
 
 interface SearchSettingsSyncDeps {
+  searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'subscribe'>;
@@ -52,6 +53,7 @@ interface SearchSettingsSyncDeps {
 
 function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   const {
+    searchResults,
     searchMode,
     searchQuery,
     settings,
@@ -73,7 +75,7 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
 
   function redrawSuggestions(): void {
     if (searchQuery.text) {
-      renderSuggestions(pageState.lastSuggestionResponse, searchQuery.text);
+      renderSuggestions(searchResults.lastResponse, searchQuery.text);
     }
   }
 

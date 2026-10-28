@@ -18,6 +18,7 @@ import { searchSourceOrder } from '../../domain/settings/search';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 interface SiteSearchRuntimeState extends FocusResumeState {
   // Carries the search across the reload the search shortcut makes.
@@ -26,6 +27,7 @@ interface SiteSearchRuntimeState extends FocusResumeState {
 }
 
 interface SiteSearchRuntimeDeps {
+  searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
@@ -46,6 +48,7 @@ interface SiteSearchRuntimeDeps {
 
 function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   const {
+    searchResults,
     searchMode,
     searchQuery,
     siteSearchCatalog,
@@ -87,6 +90,7 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   }
 
   const focusResume = LumnoNewtabFocusResume.createFocusResume({
+    searchResults,
     searchMode,
     searchQuery,
     getSiteSearchSnapshotId,

@@ -25,6 +25,7 @@ import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/ca
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -36,8 +37,6 @@ interface PanelKeysState {
     'openModeMenu' | 'shouldOpenModeMenuOnDoubleTab' | 'shouldRemoveModeTagOnBackspace' | 'closeModeMenu'> | null;
   inputHistoryController: Pick<ReturnType<typeof createSearchInputHistoryController>, 'move' | 'record'> | null;
   isApplyingSearchInputHistory: boolean;
-  currentSuggestions: OverlaySuggestion[];
-  selectedIndex: number;
   // The search suggestion the arrows show in the input.
   suggestionInputPreview: SuggestionInputPreview;
   overlayThemeMode: ThemeMode;
@@ -47,6 +46,7 @@ interface PanelKeysState {
 }
 
 interface PanelKeysDeps {
+  searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -114,6 +114,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -247,7 +248,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (triggerInput) {
       e.preventDefault();
       const providers = siteSearchCatalog.triggerProviders;
-      const topSiteMatch = getTopSiteMatchCandidate(overlayState.currentSuggestions, triggerInput);
+      const topSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
       const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
       if (directProvider) {
         activateSiteSearch(directProvider);
@@ -270,7 +271,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
             searchMode.openTabs || String(liveInput.value || '').trim() !== triggerInput) {
           return;
         }
-        const asyncTopSiteMatch = getTopSiteMatchCandidate(overlayState.currentSuggestions, triggerInput);
+        const asyncTopSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
         const asyncProvider = getSiteSearchTriggerCandidate(
           triggerInput,
           siteSearchCatalog.triggerProviders,
@@ -331,7 +332,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (e.key === 'Escape' && overlayState.suggestionInputPreview.restore(input, searchQuery.raw)) {
       e.preventDefault();
       e.stopPropagation();
-      overlayState.selectedIndex = -1;
+      searchResults.select(-1);
       updateSelection();
       return;
     }
@@ -459,9 +460,9 @@ function createPanelKeys(deps: PanelKeysDeps) {
 
   // The result row the arrows selected; null for none or an open tab.
   function getSelectedSuggestion(): OverlaySuggestion | null {
-    const index = overlayState.selectedIndex;
+    const index = searchResults.selectedIndex;
     const item = suggestionItems[index];
-    return item && item._xIsSearchSuggestion ? overlayState.currentSuggestions[index] || null : null;
+    return item && item._xIsSearchSuggestion ? searchResults.rows[index] || null : null;
   }
 
   // Shows the selected search suggestion in the input, or what was typed
@@ -506,18 +507,17 @@ function createPanelKeys(deps: PanelKeysDeps) {
         return;
       }
       let didWrap = false;
-      if (overlayState.selectedIndex === -1) {
+      if (searchResults.selectedIndex === -1) {
         // Move from auto highlight (or input) to next suggestion
         const autoIndex = getAutoHighlightIndex();
-        overlayState.selectedIndex = autoIndex >= 0
-          ? (autoIndex + 1) % suggestionItems.length
-          : 0;
-        didWrap = autoIndex >= 0 && overlayState.selectedIndex === 0;
+        const nextIndex = autoIndex >= 0 ? (autoIndex + 1) % suggestionItems.length : 0;
+        searchResults.select(nextIndex);
+        didWrap = autoIndex >= 0 && nextIndex === 0;
       } else {
         // Move to next suggestion
-        const previousIndex = overlayState.selectedIndex;
-        overlayState.selectedIndex = (overlayState.selectedIndex + 1) % suggestionItems.length;
-        didWrap = previousIndex === suggestionItems.length - 1 && overlayState.selectedIndex === 0;
+        const previousIndex = searchResults.selectedIndex;
+        searchResults.select((searchResults.selectedIndex + 1) % suggestionItems.length);
+        didWrap = previousIndex === suggestionItems.length - 1 && searchResults.selectedIndex === 0;
       }
       updateSelection();
       previewSelectedSuggestion(input);
@@ -529,25 +529,25 @@ function createPanelKeys(deps: PanelKeysDeps) {
         return;
       }
       let didWrap = false;
-      if (overlayState.selectedIndex === 0) {
+      if (searchResults.selectedIndex === 0) {
         // Wrap from first suggestion to the last suggestion
-        overlayState.selectedIndex = suggestionItems.length - 1;
+        searchResults.select(suggestionItems.length - 1);
         didWrap = true;
-      } else if (overlayState.selectedIndex === -1) {
+      } else if (searchResults.selectedIndex === -1) {
         const autoIndex = getAutoHighlightIndex();
         if (autoIndex > 0) {
-          overlayState.selectedIndex = autoIndex - 1;
+          searchResults.select(autoIndex - 1);
         } else if (autoIndex === 0) {
-          overlayState.selectedIndex = suggestionItems.length - 1;
+          searchResults.select(suggestionItems.length - 1);
           didWrap = true;
         } else {
           // Move from input to last suggestion
-          overlayState.selectedIndex = suggestionItems.length - 1;
+          searchResults.select(suggestionItems.length - 1);
           didWrap = true;
         }
       } else {
         // Move to previous suggestion
-        overlayState.selectedIndex = overlayState.selectedIndex - 1;
+        searchResults.select(searchResults.selectedIndex - 1);
       }
       updateSelection();
       previewSelectedSuggestion(input);
@@ -564,7 +564,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
         overlayState.inputHistoryController.record(query);
       }
       const commandMatch = searchMode.local ? null : getCommandMatch(query);
-      if (commandMatch && overlayState.selectedIndex === -1) {
+      if (commandMatch && searchResults.selectedIndex === -1) {
         if (commandMatch.command.type === 'modeSwitch') {
           applyThemeModeChange(getNextThemeMode(overlayState.overlayThemeMode || 'system'));
           input.focus();
@@ -591,13 +591,13 @@ function createPanelKeys(deps: PanelKeysDeps) {
         removeOverlay(overlayState.overlay);
         return;
       }
-      if (!searchMode.local && isModeCommand(query) && overlayState.selectedIndex === -1) {
+      if (!searchMode.local && isModeCommand(query) && searchResults.selectedIndex === -1) {
         applyThemeModeChange(getNextThemeMode(overlayState.overlayThemeMode || 'system'));
         return;
       }
 
-      const activeSuggestionIndex = overlayState.selectedIndex >= 0
-        ? overlayState.selectedIndex
+      const activeSuggestionIndex = searchResults.selectedIndex >= 0
+        ? searchResults.selectedIndex
         : getAutoHighlightIndex();
       if (activeSuggestionIndex >= 0 && suggestionItems[activeSuggestionIndex]) {
         // Check if we're showing search suggestions or tab suggestions
@@ -605,8 +605,8 @@ function createPanelKeys(deps: PanelKeysDeps) {
         const isSearchSuggestion = Boolean(activeItem._xIsSearchSuggestion);
         let canKeepOverlayOpen = false;
 
-        if (isSearchSuggestion && overlayState.currentSuggestions[activeSuggestionIndex]) {
-          const selectedSuggestion = overlayState.currentSuggestions[activeSuggestionIndex];
+        if (isSearchSuggestion && searchResults.rows[activeSuggestionIndex]) {
+          const selectedSuggestion = searchResults.rows[activeSuggestionIndex];
           if (selectedSuggestion.type === 'modeSwitch') {
             applyThemeModeChange(selectedSuggestion.nextMode || '');
             input.focus();

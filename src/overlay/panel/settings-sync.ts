@@ -26,23 +26,23 @@ import type { OverlaySettings } from '../overlay-settings';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 // Row is a suggestion row, Provider a site search provider and Theme a
 // suggestion theme; this module only passes them along.
-interface SettingsSyncState<Row> {
+interface SettingsSyncState {
   settings: OverlaySettings;
   overlay: HTMLElement | null;
   suggestionsContainer: HTMLElement | null;
   overlayViewportSizeSync: { apply(overlayElement: HTMLElement | null): void };
   overlayNoticeLayer: { sync(overlayElement: HTMLElement | null): void };
   inputModeController: { refreshModeMenu(): void } | null;
-  // The rows of the last answer, to rebuild the list when a setting changes.
-  lastSuggestionResponse: Row[];
   tabs: OverlayTab[];
   documentPipEnabled: boolean;
 }
 
 interface SettingsSyncDeps<Row, Provider, Theme> {
+  searchResults: Pick<SearchResults<Row>, 'lastResponse'>;
   searchMode: Pick<SearchMode<Provider>, 'site' | 'local' | 'openTabs'>;
   searchQuery: SearchQuery;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'cancelNumberShortcuts'>;
@@ -61,7 +61,7 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
   setSiteSearchPrefix(provider: Provider, theme: Theme, options: { animate: boolean }): void;
   getImmediateThemeForSuggestion(suggestion: { provider: Provider }): Theme;
   documentPipSupported: boolean;
-  overlayState: SettingsSyncState<Row>;
+  overlayState: SettingsSyncState;
 }
 
 // What the panel does when an overlay setting changes while it is open;
@@ -70,6 +70,7 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
 // applied.
 function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Provider, Theme>): Promise<void> {
   const {
+    searchResults,
     searchMode,
     searchQuery,
     updateSearchSuggestions,
@@ -102,7 +103,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
 
   function refreshOverlaySuggestionsFromLastResponse(): void {
     if (searchQuery.text) {
-      updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text);
+      updateSearchSuggestions(searchResults.lastResponse, searchQuery.text);
     }
   }
 
@@ -117,7 +118,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
       return;
     }
     if (searchQuery.text) {
-      updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text, options);
+      updateSearchSuggestions(searchResults.lastResponse, searchQuery.text, options);
     }
   }
 

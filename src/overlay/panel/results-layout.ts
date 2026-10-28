@@ -11,6 +11,8 @@ import { overlayOpenTabsDefaultVisible } from '../../domain/settings/overlay-pan
 import { searchResultDisplayLimit } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
+import type { OverlaySuggestion } from './types';
 
 interface ResultsLayoutState {
   settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
@@ -22,14 +24,12 @@ interface ResultsLayoutState {
   // no !important.
   inputModeController: Pick<InputModeController,
     'placeModeMenuBelowResults' | 'updateLayout' | 'setTabHintVisible'> | null;
-  // The rows shown; this module only empties the list.
-  currentSuggestions: unknown[];
   lastRenderedQuery: string;
   lastRenderedActionContextKey: string;
-  selectedIndex: number;
 }
 
 interface ResultsLayoutDeps {
+  searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   normalizeSearchResultDisplayLimit(value: unknown): number;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getVisibleRowsViewportHeight'>;
@@ -50,6 +50,7 @@ function isCustomProperty(property: string): property is `--${string}` {
 
 function createResultsLayout(deps: ResultsLayoutDeps) {
   const {
+    searchResults,
     searchMode,
     normalizeSearchResultDisplayLimit,
     SUGGESTION_NAVIGATION,
@@ -262,10 +263,10 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
       overlayState.suggestionsContainer.removeAttribute('data-scope-result-enter');
     }
     suggestionItems.length = 0;
-    overlayState.currentSuggestions = [];
+    searchResults.show([]);
     overlayState.lastRenderedQuery = '';
     overlayState.lastRenderedActionContextKey = '';
-    overlayState.selectedIndex = -1;
+    searchResults.select(-1);
     setOverlayResultsCollapsed(true);
     updateSelection();
   }

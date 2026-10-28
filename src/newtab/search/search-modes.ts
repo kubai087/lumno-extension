@@ -23,6 +23,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -39,13 +40,11 @@ interface LocalScopeTrigger {
 interface SearchModesState {
   inputParts: SearchInputParts | null;
   inputModeController: InputModeController | null;
-  currentSuggestions: Suggestion[];
-  selectedIndex: number;
-  suggestionRequestSeq: number;
   suggestionInputPreview: Pick<SuggestionInputPreview, 'commit' | 'editAddress'>;
 }
 
 interface SearchModesDeps {
+  searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -87,6 +86,7 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -383,7 +383,7 @@ function createSearchModes(deps: SearchModesDeps) {
       return false;
     }
     const options = activationOptions || {};
-    pageState.suggestionRequestSeq += 1;
+    searchResults.cancelRequests();
     searchMode.enterLocal(scope);
     getSearchInput().value = '';
     searchQuery.clear();
@@ -399,7 +399,7 @@ function createSearchModes(deps: SearchModesDeps) {
     if (!searchMode.local) {
       return false;
     }
-    pageState.suggestionRequestSeq += 1;
+    searchResults.cancelRequests();
     searchMode.leaveLocal();
     clearSiteSearchPrefix();
     searchAutocomplete.clear();
@@ -462,7 +462,7 @@ function createSearchModes(deps: SearchModesDeps) {
       return false;
     }
     // On a page the arrows selected, Tab puts its address in the input to edit.
-    const selectedSuggestion = pageState.selectedIndex >= 0 ? pageState.currentSuggestions[pageState.selectedIndex] : null;
+    const selectedSuggestion = searchResults.selectedIndex >= 0 ? searchResults.rows[searchResults.selectedIndex] : null;
     if (!event.shiftKey && pageState.suggestionInputPreview.editAddress(getSearchInput(), selectedSuggestion)) {
       event.preventDefault();
       getSearchInput().dispatchEvent(new Event('input', { bubbles: true }));
@@ -494,7 +494,7 @@ function createSearchModes(deps: SearchModesDeps) {
     if (triggerInput) {
       event.preventDefault();
       const providers = siteSearchCatalog.triggerProviders;
-      const topSiteMatch = getTopSiteMatchCandidate(pageState.currentSuggestions, triggerInput);
+      const topSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
       const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
       if (directProvider) {
         activateSiteSearch(directProvider);
@@ -515,7 +515,7 @@ function createSearchModes(deps: SearchModesDeps) {
             String(getSearchInput().value || '').trim() !== triggerInput) {
           return;
         }
-        const asyncTopSiteMatch = getTopSiteMatchCandidate(pageState.currentSuggestions, triggerInput);
+        const asyncTopSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
         const asyncProvider = getSiteSearchTriggerCandidate(
           triggerInput,
           siteSearchCatalog.triggerProviders,

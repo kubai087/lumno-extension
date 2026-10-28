@@ -29,6 +29,7 @@ import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -36,8 +37,6 @@ type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<Suggestion
 interface SearchBoxState {
   suggestionsView: SuggestionsViewController | null;
   suggestionsContainer: HTMLElement | null;
-  selectedIndex: number;
-  currentSuggestions: Suggestion[];
   // The search suggestion the arrows show in the input.
   suggestionInputPreview: SuggestionInputPreview;
   inputParts: SearchInputParts | null;
@@ -54,6 +53,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -147,6 +147,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -292,7 +293,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     getPageFaviconRenderCandidates,
     setSuggestionsVisible,
     onSetSelectedIndex: (nextIndex) => {
-      pageState.selectedIndex = nextIndex;
+      searchResults.select(nextIndex);
       if (nextIndex < 0) {
         pageState.suggestionInputPreview.restore(
           pageState.inputParts ? pageState.inputParts.input : null,
@@ -300,7 +301,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         );
       }
     },
-    getSelectedIndex: () => pageState.selectedIndex,
+    getSelectedIndex: () => searchResults.selectedIndex,
     onSwitchToTab: (tab, event) => {
       if (shouldOpenSearchResultInBackgroundTab(event) && tab.url) {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
@@ -493,7 +494,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       // Then the text typed before the arrows showed a suggestion comes back.
       if (event.key === 'Escape' && pageState.suggestionInputPreview.restore(input, searchQuery.raw)) {
         event.preventDefault();
-        pageState.selectedIndex = -1;
+        searchResults.select(-1);
         updateSelection();
         return;
       }
@@ -566,18 +567,18 @@ function createSearchBox(deps: SearchBoxDeps) {
         event.preventDefault();
         const next = getNextSuggestionIndex(
           suggestionNavigationKey === 'ArrowDown' ? 1 : -1,
-          pageState.selectedIndex,
+          searchResults.selectedIndex,
           suggestionItems.length,
-          pageState.selectedIndex === -1 ? getAutoHighlightIndex() : -1
+          searchResults.selectedIndex === -1 ? getAutoHighlightIndex() : -1
         );
-        pageState.selectedIndex = next.index;
+        searchResults.select(next.index);
         const didWrap = next.didWrap;
         updateSelection();
         // A search suggestion shows in the input; other rows keep what was typed.
         const selectedItem = suggestionItems[next.index];
         pageState.suggestionInputPreview.show(
           input,
-          selectedItem && selectedItem._xIsSearchSuggestion ? pageState.currentSuggestions[next.index] : null,
+          selectedItem && selectedItem._xIsSearchSuggestion ? searchResults.rows[next.index] : null,
           searchQuery.raw
         );
         scrollSelectedSuggestionIntoView(

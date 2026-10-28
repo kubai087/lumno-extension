@@ -37,6 +37,7 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -53,10 +54,8 @@ interface SuggestionsRenderState {
   // Made once the panel has mounted.
   topActionTooltipController: Pick<TooltipController, 'show' | 'hide'> | null;
   overlayCursorTooltipController: Pick<CursorTooltipController, 'bind'> | null;
-  selectedIndex: number;
   // Dropping the selection puts back what the arrows wrote over.
   suggestionInputPreview: Pick<SuggestionInputPreview, 'restore'>;
-  currentSuggestions: OverlaySuggestion[];
   lastRenderedQuery: string;
   lastRenderedActionContextKey: string;
   tabs: OverlayTab[];
@@ -69,6 +68,7 @@ interface SuggestionsRenderState {
 }
 
 interface SuggestionsRenderDeps {
+  searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
   favicons: Pick<OverlayFaviconRuntime, 'attachResolvedFaviconWithFallbacks' | 'applyFaviconOpticalAlignment' | 'preloadIcon'>;
@@ -149,6 +149,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    searchResults,
     searchMode,
     searchQuery,
     favicons,
@@ -282,7 +283,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   function updateSelection(): void {
-    ensureOverlaySuggestionsView().updateSelection(overlayState.selectedIndex);
+    ensureOverlaySuggestionsView().updateSelection(searchResults.selectedIndex);
   }
 
   function syncSuggestionLastState(): void {
@@ -294,10 +295,10 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   function scrollSelectedSuggestionIntoView(direction: 'up' | 'down', didWrap: boolean): void {
-    if (!overlayState.suggestionsContainer || overlayState.selectedIndex < 0) {
+    if (!overlayState.suggestionsContainer || searchResults.selectedIndex < 0) {
       return;
     }
-    const item = suggestionItems[overlayState.selectedIndex];
+    const item = suggestionItems[searchResults.selectedIndex];
     SUGGESTION_NAVIGATION.scrollItemIntoView(overlayState.suggestionsContainer, item, {
       direction,
       didWrap,
@@ -535,12 +536,12 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       attachFaviconWithFallbacks: attachReactOverlayFavicon,
       preloadIcon: favicons.preloadIcon,
       onSetSelectedIndex: (nextIndex) => {
-        overlayState.selectedIndex = nextIndex;
+        searchResults.select(nextIndex);
         if (nextIndex < 0) {
           overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
         }
       },
-      getSelectedIndex: () => overlayState.selectedIndex,
+      getSelectedIndex: () => searchResults.selectedIndex,
       onSwitchToTab: (tab, event) => {
         const suggestion: OverlaySuggestion = {
           type: 'openTab',
@@ -624,7 +625,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     }
     const reactView = ensureOverlaySuggestionsView();
     suggestionItems.length = 0;
-    overlayState.currentSuggestions = [];
+    searchResults.show([]);
     overlayState.lastRenderedQuery = '';
     overlayState.lastRenderedActionContextKey = '';
     const list = Array.isArray(tabList) ? tabList.slice() : [];
@@ -643,7 +644,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       container.scrollTop = 0;
     }
     setOverlayResultsCollapsed(false, { deferLayoutSync: true });
-    overlayState.selectedIndex = -1;
+    searchResults.select(-1);
     updateSelection();
     commitSuggestionsNaturalHeightAfterRender();
   }
