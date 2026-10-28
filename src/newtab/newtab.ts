@@ -529,7 +529,6 @@ import * as SettingsStorage from '../platform/settings-storage';
   const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
   siteSearchCatalog.follow();
   const NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES = ShortcutConstants.DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES;
-  const NEWTAB_SHORTCUTS_STORAGE_KEYS = ShortcutConstants.SHORTCUT_STORAGE_KEYS;
   const pageSearchParams = new URLSearchParams(window.location.search || '');
   const {
     mediaQuery,
@@ -1237,27 +1236,18 @@ import * as SettingsStorage from '../platform/settings-storage';
     markRecentDataDirty: (...args) => markRecentDataDirty(...args),
     loadRecentSites: (...args) => loadRecentSites(...args),
     isPrimaryStorageAreaName,
-    shortcutFolderRuntime,
-    renderShortcuts: (...args) => renderShortcuts(...args),
     FOLDER_COLOR_REFS_STORAGE_KEY,
     NEWTAB_BOOKMARK_FOLDER_ICON,
     syncFolderColorsWithBookmarks,
-    NEWTAB_SHORTCUT_ICONS_STORAGE_KEY,
-    NEWTAB_SHORTCUT_ICON_STORE,
-    NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY,
     siteSearchIconCache,
     setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
     defaultTheme,
     getThemeForProvider,
     requestSuggestions: (...args) => requestSuggestions(...args),
-    NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY,
-    isShortcutSyncStorageActive: (...args) => isShortcutSyncStorageActive(...args),
-    scheduleShortcutStorageReload: (...args) => scheduleShortcutStorageReload(...args),
     registerBookmarkDisplayStorageChanges,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: newtabLocalWallpaper.key,
     settingsRuntimeApi,
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
-    NEWTAB_SHORTCUTS_STORAGE_KEYS,
     pageState
   });
 
@@ -1554,8 +1544,6 @@ import * as SettingsStorage from '../platform/settings-storage';
     getVisibleShortcuts,
     refreshShortcutFolderReferences,
     getShortcutStoreOptions,
-    isShortcutSyncStorageActive,
-    scheduleShortcutStorageReload,
     getShortcutIconDataUrl,
     getShortcutFaviconDataUrl,
     getShortcutFaviconCandidateUrl,
@@ -1563,6 +1551,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     renderShortcuts,
     flushDeferredShortcutRender,
     followNewtabShortcutPreferences,
+    followStoredShortcutData,
     loadVisibleShortcuts,
     persistShortcuts,
     removeShortcutById,
@@ -1662,6 +1651,7 @@ import * as SettingsStorage from '../platform/settings-storage';
     animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args),
     pageState
   });
+  followStoredShortcutData();
 
   const {
     queueBookmarkLayoutAnimation,

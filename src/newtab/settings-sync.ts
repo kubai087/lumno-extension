@@ -1,11 +1,9 @@
 // Keeps an open New Tab in step with settings changed elsewhere (Settings,
 // another tab, sync): one listener per storage key on the shared change
 // registry, and the runtime messages that ask the page to refresh a section.
-import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import type { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type * as LumnoSettings from '../domain/settings';
-import type { FolderBindingRuntime } from '../platform/bookmark-folder-bindings';
 import type { ThemeVariant } from '../shared/favicon/favicon-theme';
 import type { InputModeController } from '../shared/search/search-input-mode';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
@@ -17,13 +15,10 @@ import type { RecentHistoryDialogController } from './react/recent-history-dialo
 import type { SearchModeController } from './search/search-mode-controller';
 import type { SuggestionsController } from './search/suggestions-controller';
 import type { SectionLoaders } from './section-loaders';
-import type * as ShortcutIconStore from './shortcuts/shortcut-icon-store';
 import type { ShortcutIconMap } from './shortcuts/shortcut-icon-store';
-import type { ShortcutsController } from './shortcuts/shortcuts-controller';
 import * as LumnoNewtabStorageChangeRegistry from './storage-change-registry';
 import type { SiteThemeResolver } from './theme/site-theme-resolver';
 import type { WallpaperRuntime } from './wallpaper/wallpaper';
-import { shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { bingDailyCache } from '../domain/settings/newtab-wallpaper';
 import type { CachedIconMap } from '../domain/favicon/shortcut-favicon/types';
 import type { RecentSite } from '../domain/recent-sites-store';
@@ -52,7 +47,6 @@ interface SettingsSyncState {
 interface SettingsSyncDeps extends
   Pick<SectionLoaders,
     'markBookmarkDataDirty' | 'loadBookmarks' | 'markRecentDataDirty' | 'loadRecentSites'>,
-  Pick<ShortcutsController, 'renderShortcuts' | 'isShortcutSyncStorageActive' | 'scheduleShortcutStorageReload'>,
   Pick<FolderColors, 'syncFolderColorsWithBookmarks'>,
   Pick<SearchModeController, 'setSiteSearchPrefix'>,
   Pick<SiteThemeResolver, 'getThemeForProvider'>,
@@ -63,16 +57,10 @@ interface SettingsSyncDeps extends
     'assetRevision' | 'progressTrackingEnabled' | 'progressTrackingEnabled'>;
   // Whether changes in this storage area are this page's settings.
   isPrimaryStorageAreaName(areaName: string): boolean;
-  shortcutFolderRuntime: Pick<FolderBindingRuntime, 'accept'>;
   NEWTAB_BOOKMARK_FOLDER_ICON: Pick<typeof BookmarkFolderIcon, 'normalizeFolderColorRefs'>;
-  NEWTAB_SHORTCUT_ICON_STORE: Pick<typeof ShortcutIconStore, 'normalizeIconMap'>;
   defaultTheme: ThemeVariant;
-  NEWTAB_SHORTCUTS_STORAGE_KEYS: readonly string[];
   FOLDER_COLOR_REFS_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_ICONS_STORAGE_KEY: string;
-  NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY: string;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'storageKey' | 'applyStored'>;
-  NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY: string;
   pageState: SettingsSyncState;
 }
@@ -89,27 +77,18 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     markRecentDataDirty,
     loadRecentSites,
     isPrimaryStorageAreaName,
-    shortcutFolderRuntime,
-    renderShortcuts,
     FOLDER_COLOR_REFS_STORAGE_KEY,
     NEWTAB_BOOKMARK_FOLDER_ICON,
     syncFolderColorsWithBookmarks,
-    NEWTAB_SHORTCUT_ICONS_STORAGE_KEY,
-    NEWTAB_SHORTCUT_ICON_STORE,
-    NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY,
     siteSearchIconCache,
     setSiteSearchPrefix,
     defaultTheme,
     getThemeForProvider,
     requestSuggestions,
-    NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY,
-    isShortcutSyncStorageActive,
-    scheduleShortcutStorageReload,
     registerBookmarkDisplayStorageChanges,
     NEWTAB_LOCAL_WALLPAPER_STORAGE_KEY,
     settingsRuntimeApi,
-    requestTabsAndRender,
-    NEWTAB_SHORTCUTS_STORAGE_KEYS
+    requestTabsAndRender
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -126,28 +105,10 @@ function createSettingsSync(deps: SettingsSyncDeps) {
   });
   addStorageChangeListener(storageChanges.dispatch);
 
-  storageChanges.on(shortcutFolderBindings.key, (changes) => {
-    shortcutFolderRuntime.accept(changes[shortcutFolderBindings.key].newValue);
-    renderShortcuts();
-  }, { area: 'local' });
   storageChanges.on(FOLDER_COLOR_REFS_STORAGE_KEY, (changes) => {
     pageState.folderColorRefs = NEWTAB_BOOKMARK_FOLDER_ICON.normalizeFolderColorRefs(changes[FOLDER_COLOR_REFS_STORAGE_KEY].newValue);
     void syncFolderColorsWithBookmarks(false).catch(() => {});
   });
-  storageChanges.on(NEWTAB_SHORTCUT_ICONS_STORAGE_KEY, (changes) => {
-    pageState.newtabShortcutIcons = NEWTAB_SHORTCUT_ICON_STORE.normalizeIconMap(
-      changes[NEWTAB_SHORTCUT_ICONS_STORAGE_KEY].newValue
-    );
-    renderShortcuts();
-  }, { area: 'local' });
-  storageChanges.on(NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY, (changes) => {
-    const storedFavicons = changes[NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY].newValue;
-    pageState.newtabShortcutFavicons = ShortcutIconCache.normalizeCacheMap({
-      ...(isRecord(storedFavicons) ? storedFavicons : {}),
-      ...pageState.shortcutFaviconPendingCacheEntries
-    });
-    renderShortcuts();
-  }, { area: 'local' });
   storageChanges.on(siteSearchIconCache.storageKey, (changes) => {
     siteSearchIconCache.applyStored(changes[siteSearchIconCache.storageKey].newValue);
     if (pageState.siteSearchState && pageState.inputModeController) {
@@ -164,11 +125,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
     }
     if (pageState.latestQuery) {
       requestSuggestions(pageState.latestQuery, { immediate: true });
-    }
-  }, { area: 'local' });
-  storageChanges.on(NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY, () => {
-    if (isShortcutSyncStorageActive() && pageState.shortcutPersistenceInFlightCount === 0) {
-      scheduleShortcutStorageReload();
     }
   }, { area: 'local' });
   registerBookmarkDisplayStorageChanges(storageChanges);
@@ -190,11 +146,6 @@ function createSettingsSync(deps: SettingsSyncDeps) {
   settings.subscribe(tabRankScoreDebug, () => {
     if (!pageState.latestQuery || !pageState.latestQuery.trim()) {
       requestTabsAndRender();
-    }
-  });
-  storageChanges.on(NEWTAB_SHORTCUTS_STORAGE_KEYS, () => {
-    if (pageState.shortcutPersistenceInFlightCount === 0) {
-      scheduleShortcutStorageReload();
     }
   });
 

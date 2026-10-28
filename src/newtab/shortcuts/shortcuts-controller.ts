@@ -45,7 +45,7 @@ import * as ShortcutConstants from '../../domain/shortcuts/constants';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import * as ShortcutStoragePlan from '../../domain/shortcuts/storage-plan';
 import type { ProviderStorageRuntime } from '../../platform/settings-storage';
-import { NEWTAB_SHORTCUT_GRID_SETTINGS, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutWidth } from '../../domain/settings/newtab-shortcuts';
+import { NEWTAB_SHORTCUT_GRID_SETTINGS, NEWTAB_SHORTCUT_LIST_SETTINGS, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutFaviconCache, newtabShortcutIcons, newtabShortcutWidth, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../../domain/settings/newtab-shortcuts';
 import type { SettingsStore } from '../../platform/settings-store';
 
 interface ShortcutsControllerState {
@@ -508,6 +508,35 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
         resolve({});
       }
     });
+  }
+
+  // Changes other pages store: a new list reloads the grid unless this
+  // page is saving its own, new icons, favicons or folder bindings redraw
+  // it.
+  function followStoredShortcutData(): void {
+    settings.subscribe(NEWTAB_SHORTCUT_LIST_SETTINGS, () => {
+      if (pageState.shortcutPersistenceInFlightCount === 0) {
+        scheduleShortcutStorageReload();
+      }
+    });
+    settings.subscribe(newtabShortcutsLocalOverflow, () => {
+      if (isShortcutSyncStorageActive() && pageState.shortcutPersistenceInFlightCount === 0) {
+        scheduleShortcutStorageReload();
+      }
+    });
+    settings.subscribe(newtabShortcutIcons, () => {
+      pageState.newtabShortcutIcons = NEWTAB_SHORTCUT_ICON_STORE.normalizeIconMap(settings.getStored(newtabShortcutIcons));
+      renderShortcuts();
+    });
+    settings.subscribe(newtabShortcutFaviconCache, () => {
+      const storedFavicons = settings.getStored(newtabShortcutFaviconCache);
+      pageState.newtabShortcutFavicons = ShortcutIconCache.normalizeCacheMap({
+        ...(isRecord(storedFavicons) ? storedFavicons : {}),
+        ...pageState.shortcutFaviconPendingCacheEntries
+      });
+      renderShortcuts();
+    });
+    settings.subscribe(shortcutFolderBindings, () => renderShortcuts());
   }
 
   function scheduleShortcutStorageReload(delayMs?: number): void {
@@ -1886,6 +1915,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   }
 
   return {
+    followStoredShortcutData,
     setShortcutContextMenuMark,
     getShortcutFolderId,
     getFolderItemIconUrl,
