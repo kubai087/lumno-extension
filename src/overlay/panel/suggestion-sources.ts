@@ -17,10 +17,7 @@ import type { RemoteMixState } from './remote-suggestions';
 import type { CommandSuggestion, SlashCommand } from './slash-commands';
 import type {
   FormatMessage,
-  InlineSearchState,
-  LocalSearchScopeTrigger,
   OverlaySuggestion,
-  SiteSearchTrigger,
   Translate
 } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
@@ -37,6 +34,7 @@ import type { DefaultSearchEngine } from '../../shared/search-panel/default-engi
 import type { OverlayFaviconRuntime } from '../favicon-view';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -48,17 +46,13 @@ interface SuggestionSourcesState {
   lastRenderedQuery: string;
   lastRenderedActionContextKey: string;
   selectedIndex: number;
-  siteSearchState: InputModeProvider | null;
-  siteSearchTriggerState: SiteSearchTrigger<InputModeProvider> | null;
-  localSearchScopeState: LocalSearchScope | null;
-  localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
-  inlineSearchState: InlineSearchState | null;
   overlayThemeMode: ThemeMode;
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
 }
 
 interface SuggestionSourcesDeps {
+  searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   favicons: Pick<OverlayFaviconRuntime, 'warmIconCache'>;
@@ -128,6 +122,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    searchMode,
     searchAutocomplete,
     searchQuery,
     favicons,
@@ -324,7 +319,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
 
   // The help pages matching the query while the help center site search is on.
   function getHelpCenterSuggestions(query: string): OverlaySuggestion[] {
-    const provider = overlayState.siteSearchState;
+    const provider = searchMode.site;
     if (!provider || !SearchSiteSearchProviders.isHelpCenterSiteSearchProvider(provider)) {
       return [];
     }
@@ -389,11 +384,11 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       : null;
     overlayState.lastSuggestionResponse = Array.isArray(suggestions) ? suggestions : [];
     const rawTagInput = (searchQuery.raw || query || '').trim();
-    const localSearchQueryModeActive = Boolean(overlayState.localSearchScopeState && String(query || '').trim());
+    const localSearchQueryModeActive = Boolean(searchMode.local && String(query || '').trim());
     const slashCommandModeActive = !localSearchQueryModeActive && isSlashCommandInput(rawTagInput);
     const siteSearchQueryModeActive = !localSearchQueryModeActive &&
       !slashCommandModeActive &&
-      Boolean(overlayState.siteSearchState && String(query || '').trim());
+      Boolean(searchMode.site && String(query || '').trim());
     const modeCommandActive = slashCommandModeActive && !siteSearchQueryModeActive && isModeCommand(rawTagInput);
     if (modeCommandActive) {
       const storedMode = overlayState.settings.get(themeMode);
@@ -482,7 +477,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         }
       }
 
-      const activeProvider = overlayState.siteSearchState;
+      const activeProvider = searchMode.site;
       const siteSearchSuggestion: OverlaySuggestion | null = siteSearchQueryModeActive && activeProvider
         ? (() => {
             const aggregateSearch = isAggregateSearchProvider(activeProvider);
@@ -505,7 +500,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
 
       // Add New Tab, ChatGPT and Perplexity suggestions to the beginning
       const newTabRows: OverlaySuggestion[] = newTabSuggestion ? [newTabSuggestion] : [];
-      const scope = overlayState.localSearchScopeState;
+      const scope = searchMode.local;
       let allSuggestions: OverlaySuggestion[] = localSearchQueryModeActive
         ? suggestions.filter((item) => Boolean(item && scope && item.type === scope.sourceType))
         : (slashCommandModeActive ? [...preSuggestions] : (siteSearchQueryModeActive
@@ -553,7 +548,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           triggerInput: rawTagInput,
           providers: providersForTags,
           inlineSuggestion,
-          siteSearchActive: Boolean(overlayState.siteSearchState),
+          siteSearchActive: Boolean(searchMode.site),
           preferAutocompleteFirst: overlayState.settings.get(searchResultPriority) !== 'search',
           onlyKeywordSuggestions,
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
@@ -588,25 +583,23 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           searchAutocomplete.apply(allSuggestions, primarySuggestion, primaryHighlightReason);
         }
         const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
-        overlayState.inlineSearchState = inlineSuggestion
-          ? {
-              url: inlineSuggestion.url,
-              provider: inlineSuggestion.provider,
-              query: inlineSuggestion.searchQuery || '',
-              rawInput: rawTagInputForInline,
-              isAuto: inlineAutoHighlight
-            }
-          : null;
         const resolvedProvider = siteSearchTrigger;
         const resolvedLocalScope = !resolvedProvider
           ? getLocalSearchScopeCandidate(rawTagInputForInline, rules)
           : null;
-        overlayState.siteSearchTriggerState = resolvedProvider
-          ? { provider: resolvedProvider, rawInput: rawTagInputForInline }
-          : null;
-        overlayState.localSearchScopeTriggerState = resolvedLocalScope
-          ? { scope: resolvedLocalScope, rawInput: rawTagInputForInline }
-          : null;
+        searchMode.setHints(
+          inlineSuggestion
+            ? {
+                url: inlineSuggestion.url,
+                provider: inlineSuggestion.provider,
+                query: inlineSuggestion.searchQuery || '',
+                rawInput: rawTagInputForInline,
+                isAuto: inlineAutoHighlight
+              }
+            : null,
+          resolvedProvider ? { provider: resolvedProvider, rawInput: rawTagInputForInline } : null,
+          resolvedLocalScope ? { scope: resolvedLocalScope, rawInput: rawTagInputForInline } : null
+        );
         if (resolvedProvider) {
           setSiteSearchTabHint(resolvedProvider);
         } else if (resolvedLocalScope) {
@@ -616,9 +609,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         }
       } else if (localSearchQueryModeActive) {
         searchAutocomplete.clear();
-        overlayState.inlineSearchState = null;
-        overlayState.siteSearchTriggerState = null;
-        overlayState.localSearchScopeTriggerState = null;
+        searchMode.clearHints();
         clearSiteSearchTabHint();
         if (allSuggestions.length > 0) {
           primaryHighlightIndex = 0;
@@ -627,17 +618,13 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         }
       } else if (modeCommandActive) {
         searchAutocomplete.clear();
-        overlayState.inlineSearchState = null;
-        overlayState.siteSearchTriggerState = null;
-        overlayState.localSearchScopeTriggerState = null;
+        searchMode.clearHints();
         clearSiteSearchTabHint();
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'modeSwitch';
       } else if (slashCommandModeActive) {
         searchAutocomplete.clear();
-        overlayState.inlineSearchState = null;
-        overlayState.siteSearchTriggerState = null;
-        overlayState.localSearchScopeTriggerState = null;
+        searchMode.clearHints();
         clearSiteSearchTabHint();
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'command';
@@ -740,9 +727,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   function clearSearchSuggestions(): void {
     cancelPendingOverlaySuggestionRequests();
     releaseSuggestionsHeight(overlayState.suggestionsContainer, window);
-    overlayState.inlineSearchState = null;
-    overlayState.siteSearchTriggerState = null;
-    overlayState.localSearchScopeTriggerState = null;
+    searchMode.clearHints();
     clearSiteSearchTabHint();
     overlayState.lastSuggestionResponse = [];
     if (shouldShowOpenTabsForEmptyQuery()) {

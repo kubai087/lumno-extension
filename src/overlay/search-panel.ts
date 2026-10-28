@@ -77,7 +77,9 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
+import type { InputModeProvider } from '../shared/search/input-mode/types';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -154,12 +156,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
+  const searchMode = new SearchMode<InputModeProvider>();
   const searchAutocomplete = new SearchAutocomplete({
     settings: overlayState.settings.store,
     query: searchQuery,
     getInput: () => overlayState.searchInput,
     preview: overlayState.suggestionInputPreview,
-    isModeActive: () => Boolean(overlayState.siteSearchState || overlayState.localSearchScopeState),
+    isModeActive: () => Boolean(searchMode.site || searchMode.local),
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
   const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
@@ -334,6 +337,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     favicons: faviconRuntime,
@@ -391,6 +395,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updatePendingSearchSuggestions,
     requestOverlaySearchSuggestions
   } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
+    searchMode,
     searchQuery,
     updateSearchSuggestions,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
@@ -410,6 +415,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    searchMode,
     searchQuery,
     favicons: faviconRuntime,
     updateSearchSuggestions,
@@ -476,6 +482,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     cancelPendingOpenTabsPrefixEntry: (...args) => cancelPendingOpenTabsPrefixEntry(...args),
@@ -532,6 +539,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleSearchInputCompositionEnd,
     handleSearchInputEvent
   } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
@@ -581,6 +589,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode,
     clearOpenTabsSearchMode
   } = PANEL_SEARCH_MODES.createSearchModes({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     t: (...args) => t(...args),
@@ -635,6 +644,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem
   } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
+    searchMode,
     searchQuery,
     searchEngine,
     AGGREGATE_SEARCH_STORE,
@@ -817,6 +827,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setSiteSearchTabHint,
     clearSiteSearchTabHint
   } = PANEL_RESULTS_LAYOUT.createResultsLayout({
+    searchMode,
     normalizeSearchResultDisplayLimit,
     SUGGESTION_NAVIGATION,
     setInputScopedStyle,
@@ -831,6 +842,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyOverlayCjkFontFace,
     applyLanguageStrings
   } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
+    searchMode,
     searchQuery,
     locale,
     updateModeBadge,
@@ -1292,6 +1304,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
 
   const settingsApplied = PANEL_SETTINGS_SYNC.createSettingsSync({
+    searchMode,
     searchQuery,
     updateSearchSuggestions,
     applyOverlayTheme,
@@ -1375,9 +1388,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     },
     onModeMenuLayoutChange: syncSearchModeMenuResultOffset,
     isTabHintSuppressed: () => Boolean(
-      overlayState.siteSearchState ||
-      overlayState.localSearchScopeState ||
-      overlayState.openTabsSearchModeActive
+      searchMode.site ||
+      searchMode.local ||
+      searchMode.openTabs
     )
   });
   syncSearchModeMenuResultOffset();
@@ -1391,13 +1404,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     });
   }
   siteSearchIconCache.load().then(() => {
-    if (!overlayState.siteSearchState || !overlayState.inputModeController) {
+    if (!searchMode.site || !overlayState.inputModeController) {
       return;
     }
-    const activeProvider = overlayState.siteSearchState;
+    const activeProvider = searchMode.site;
     setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
     getThemeForProvider(activeProvider).then((theme) => {
-      if (overlayState.siteSearchState === activeProvider) {
+      if (searchMode.site === activeProvider) {
         setSiteSearchPrefix(activeProvider, theme);
       }
     }).catch(() => {});
@@ -1426,13 +1439,15 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // A changed list may drop the aggregate search the input is in, or
   // change its sources.
   siteSearchCatalog.store.subscribe(() => {
-    const activeProvider = overlayState.siteSearchState;
+    const activeProvider = searchMode.site;
     if (activeProvider && isAggregateSearchProvider(activeProvider)) {
       const activeId = String(activeProvider.aggregateId || '');
       const definition = siteSearchCatalog.aggregates.find((item) => String(item && item.id ? item.id : '') === activeId);
-      if (definition && siteSearchCatalog.isAggregateAvailable(definition)) {
-        const updatedProvider = AGGREGATE_SEARCH_STORE.createScopeProvider(definition);
-        overlayState.siteSearchState = updatedProvider;
+      const updatedProvider = definition && siteSearchCatalog.isAggregateAvailable(definition)
+        ? AGGREGATE_SEARCH_STORE.createScopeProvider(definition)
+        : null;
+      if (updatedProvider) {
+        searchMode.replaceSite(updatedProvider);
         setSiteSearchPrefix(updatedProvider, overlayState.defaultTheme, { animate: false });
       } else {
         clearSiteSearch();
@@ -1448,11 +1463,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   overlayState.settings.follow(siteSearchIconCacheSetting, () => {
     siteSearchIconCache.applyStored(overlayState.settings.store.getStored(siteSearchIconCacheSetting));
-    if (overlayState.siteSearchState && overlayState.inputModeController) {
-      const activeProvider = overlayState.siteSearchState;
+    if (searchMode.site && overlayState.inputModeController) {
+      const activeProvider = searchMode.site;
       setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
       getThemeForProvider(activeProvider).then((theme) => {
-        if (overlayState.siteSearchState === activeProvider) {
+        if (searchMode.site === activeProvider) {
           setSiteSearchPrefix(activeProvider, theme);
         }
       }).catch(() => {});

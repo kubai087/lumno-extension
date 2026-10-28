@@ -1,12 +1,14 @@
 // Remote search suggestions: requesting them from the background and
 // merging late responses into what is shown.
 import { carryOverEngineSuggestions } from '../../domain/search/utils/engine-suggestions';
-import type { LocalSearchScope, SuggestionLike } from '../../domain/search/types';
+import type { SuggestionLike } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import { holdSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import { searchResultPriority } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { InputModeProvider } from '../../shared/search/input-mode/types';
 
 // Shared by the renders of one request: whether the search engine's
 // suggestions came back, and whether the list showed its final mix.
@@ -29,9 +31,6 @@ interface RemoteSuggestionsState {
   lastEngineSuggestionResponse: SuggestionLike[];
   // The query of the rows shown; empty for the open tabs list.
   lastRenderedQuery: string;
-  // Only whether a site search is active.
-  siteSearchState: unknown;
-  localSearchScopeState: LocalSearchScope | null;
   // Raised for each request, so a late answer to an older one is dropped.
   overlaySuggestionRequestSeq: number;
   overlayRemoteSuggestionDebounceTimer: number | null;
@@ -39,6 +38,7 @@ interface RemoteSuggestionsState {
 }
 
 interface RemoteSuggestionsDeps {
+  searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
   updateSearchSuggestions(rows: SuggestionLike[], query: string, options?: SuggestionUpdateOptions): void;
   isSlashCommandInput(input: string): boolean;
@@ -48,6 +48,7 @@ interface RemoteSuggestionsDeps {
 
 function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
   const {
+    searchMode,
     searchQuery,
     updateSearchSuggestions,
     isSlashCommandInput,
@@ -86,12 +87,12 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
   // suggestions, and renders each answer that is still current.
   function requestOverlaySearchSuggestions(query: string): void {
     const requestQuery = String(query || '').trim();
-    const requestLocalSearchScope = overlayState.localSearchScopeState;
+    const requestLocalSearchScope = searchMode.local;
     if (!requestLocalSearchScope && isSlashCommandInput(requestQuery)) {
       updateSearchSuggestions([], requestQuery);
       return;
     }
-    if (overlayState.siteSearchState && requestQuery) {
+    if (searchMode.site && requestQuery) {
       updateSearchSuggestions([], requestQuery);
       return;
     }

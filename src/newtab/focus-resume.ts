@@ -25,6 +25,7 @@ import type { ActiveLocalScope } from './search/search-types';
 import { publishBootValue, takeBootValue } from '../platform/boot-handoff';
 import { newtabFocusResume } from '../domain/settings/page-cache';
 import type { SearchQuery } from '../shared/search-panel/search-query';
+import type { SearchMode } from '../shared/search-panel/search-mode';
 
 // The search on screen, carried across the focus reload.
 interface SearchSnapshot {
@@ -43,13 +44,12 @@ interface HeldViewTransition {
 
 interface FocusResumeState {
   inputParts: { input: HTMLInputElement } | null;
-  siteSearchState: SiteSearchProvider | null;
-  localSearchScopeState: ActiveLocalScope | null;
   lastSuggestionResponse: Suggestion[];
   selectedIndex: number;
 }
 
 interface FocusResumeDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   getSiteSearchSnapshotId(provider: SiteSearchProvider): string;
   findSiteSearchBySnapshotId(id: string): SiteSearchProvider | null;
@@ -175,6 +175,7 @@ function prepareResumeLoad(): boolean {
 
 function createFocusResume(deps: FocusResumeDeps) {
   const {
+    searchMode,
     searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
@@ -197,8 +198,8 @@ function createFocusResume(deps: FocusResumeDeps) {
     return {
       savedAt: Date.now(),
       rawQuery: typed && value.startsWith(typed) ? typed : value,
-      siteSearchId: pageState.siteSearchState ? getSiteSearchSnapshotId(pageState.siteSearchState) : '',
-      localSourceType: pageState.localSearchScopeState ? pageState.localSearchScopeState.sourceType : '',
+      siteSearchId: searchMode.site ? getSiteSearchSnapshotId(searchMode.site) : '',
+      localSourceType: searchMode.local ? searchMode.local.sourceType : '',
       suggestions: pageState.lastSuggestionResponse || [],
       selectedIndex: Number.isInteger(pageState.selectedIndex) ? pageState.selectedIndex : -1
     };

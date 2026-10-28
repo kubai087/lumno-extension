@@ -19,21 +19,21 @@ import * as SuggestionNavigation from '../../shared/search/suggestion-navigation
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import type { SearchModeController } from './search-mode-controller';
-import type { ActiveLocalScope, RenderSuggestions, RequestSuggestions } from './search-types';
+import type { RenderSuggestions, RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SearchSettingsSyncState {
-  localSearchScopeState: ActiveLocalScope | null;
   lastSuggestionResponse: Suggestion[];
   suggestionsContainer: HTMLElement | null;
   // Bumped when the favicon policy changes, so requests made before it are
   // dropped.
   shortcutFaviconPolicyRevision: number;
   inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
-  siteSearchState: SiteSearchProvider | null;
 }
 
 interface SearchSettingsSyncDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'subscribe'>;
   searchEngine: Pick<DefaultSearchEngine, 'store'>;
@@ -52,6 +52,7 @@ interface SearchSettingsSyncDeps {
 
 function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   const {
+    searchMode,
     searchQuery,
     settings,
     searchEngine,
@@ -84,7 +85,7 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   }
 
   settings.subscribe(searchResultSourceTypes, () => {
-    const scope = pageState.localSearchScopeState;
+    const scope = searchMode.local;
     if (scope && !settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
       clearLocalSearchScope();
     }
@@ -107,8 +108,8 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     pageState.shortcutFaviconPolicyRevision += 1;
     renderShortcuts();
     if (pageState.inputModeController) {
-      if (pageState.siteSearchState) {
-        setSiteSearchPrefix(pageState.siteSearchState, getImmediateThemeForSuggestion({ provider: pageState.siteSearchState }), { animate: false });
+      if (searchMode.site) {
+        setSiteSearchPrefix(searchMode.site, getImmediateThemeForSuggestion({ provider: searchMode.site }), { animate: false });
       }
       pageState.inputModeController.refreshModeMenu();
     }

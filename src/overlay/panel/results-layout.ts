@@ -10,6 +10,7 @@ import type * as SuggestionsHeightLayout from '../../shared/search/suggestions-h
 import { overlayOpenTabsDefaultVisible } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface ResultsLayoutState {
   settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
@@ -21,10 +22,6 @@ interface ResultsLayoutState {
   // no !important.
   inputModeController: Pick<InputModeController,
     'placeModeMenuBelowResults' | 'updateLayout' | 'setTabHintVisible'> | null;
-  // Only whether a site search or a local scope is active.
-  siteSearchState: unknown;
-  localSearchScopeState: unknown;
-  openTabsSearchModeActive: boolean;
   // The rows shown; this module only empties the list.
   currentSuggestions: unknown[];
   lastRenderedQuery: string;
@@ -33,6 +30,7 @@ interface ResultsLayoutState {
 }
 
 interface ResultsLayoutDeps {
+  searchMode: SearchMode<InputModeProvider>;
   normalizeSearchResultDisplayLimit(value: unknown): number;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'getVisibleRowsViewportHeight'>;
   SUGGESTIONS_HEIGHT_LAYOUT: Pick<typeof SuggestionsHeightLayout, 'applyNaturalSuggestionsHeightLayout'>;
@@ -52,6 +50,7 @@ function isCustomProperty(property: string): property is `--${string}` {
 
 function createResultsLayout(deps: ResultsLayoutDeps) {
   const {
+    searchMode,
     normalizeSearchResultDisplayLimit,
     SUGGESTION_NAVIGATION,
     setInputScopedStyle,
@@ -249,10 +248,10 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
   }
 
   function shouldShowOpenTabsForEmptyQuery(): boolean {
-    if (overlayState.siteSearchState || overlayState.localSearchScopeState) {
+    if (searchMode.site || searchMode.local) {
       return false;
     }
-    return overlayState.openTabsSearchModeActive ||
+    return searchMode.openTabs ||
       (overlayState.settings.isLoaded() && overlayState.settings.get(overlayOpenTabsDefaultVisible));
   }
 

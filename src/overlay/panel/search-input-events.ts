@@ -8,11 +8,11 @@ import type { LocalSearchScope, SiteSearchProvider } from '../../domain/search/t
 import * as LumnoMessaging from '../../platform/messaging';
 import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import type { LocalSearchScopeTrigger, SiteSearchTrigger } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -24,16 +24,11 @@ interface SearchInputEventsState {
   // Typing on from a suggestion the arrows show keeps it as typed text.
   suggestionInputPreview: Pick<SuggestionInputPreview, 'commit'>;
   overlayEngagementNoticeController: Pick<EngagementNoticeController, 'recordMeaningfulUse'> | null;
-  siteSearchTriggerState: SiteSearchTrigger<SiteSearchProvider> | null;
-  localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
-  // Only whether a site search or a local scope is active.
-  siteSearchState: unknown;
-  localSearchScopeState: LocalSearchScope | null;
-  openTabsSearchModeActive: boolean;
   selectedIndex: number;
 }
 
 interface SearchInputEventsDeps {
+  searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
@@ -65,6 +60,7 @@ function readInputType(event: Event | null): string {
 
 function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    searchMode,
     searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
@@ -136,8 +132,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
   }
 
   function clearPendingSearchTriggerHint(): void {
-    overlayState.siteSearchTriggerState = null;
-    overlayState.localSearchScopeTriggerState = null;
+    searchMode.setTriggers(null, null);
     clearSiteSearchTabHint();
   }
 
@@ -145,9 +140,9 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
   function syncSearchTriggerHintFromInput(rawValue: string): void {
     const triggerInput = String(rawValue || '').trim();
     if (!triggerInput ||
-        overlayState.siteSearchState ||
-        overlayState.localSearchScopeState ||
-        overlayState.openTabsSearchModeActive ||
+        searchMode.site ||
+        searchMode.local ||
+        searchMode.openTabs ||
         isSlashCommandInput(triggerInput)) {
       clearPendingSearchTriggerHint();
       return;
@@ -164,8 +159,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     // asynchronous suggestion request to finish.
     const provider = getSiteSearchTriggerCandidate(triggerInput, providers, null);
     if (provider) {
-      overlayState.siteSearchTriggerState = { provider, rawInput: triggerInput };
-      overlayState.localSearchScopeTriggerState = null;
+      searchMode.setTriggers({ provider, rawInput: triggerInput }, null);
       setSiteSearchTabHint(provider);
       return;
     }
@@ -173,8 +167,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     const shortcutRules = shortcutRulesCache.rules;
     const localScope = getLocalSearchScopeCandidate(triggerInput, shortcutRules);
     if (localScope) {
-      overlayState.siteSearchTriggerState = null;
-      overlayState.localSearchScopeTriggerState = { scope: localScope, rawInput: triggerInput };
+      searchMode.setTriggers(null, { scope: localScope, rawInput: triggerInput });
       setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(localScope));
       return;
     }
@@ -210,11 +203,11 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       searchAutocomplete.clear();
       syncSearchTriggerHintFromInput(rawValue);
       if (query.length > 0) {
-        if (!overlayState.localSearchScopeState && isSlashCommandInput(query)) {
+        if (!searchMode.local && isSlashCommandInput(query)) {
           updateSearchSuggestions([], query);
           return;
         }
-        if (overlayState.openTabsSearchModeActive) {
+        if (searchMode.openTabs) {
           renderCachedTabsOrRequest(query);
           return;
         }
@@ -223,7 +216,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         }
         requestOverlaySearchSuggestions(query);
       } else {
-        if (overlayState.openTabsSearchModeActive) {
+        if (searchMode.openTabs) {
           renderCachedTabsOrRequest('');
           return;
         }
@@ -261,7 +254,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         overlayState.selectedIndex = -1;
         updateSelection();
       }
-      if (!query && overlayState.siteSearchState) {
+      if (!query && searchMode.site) {
         searchQuery.clear();
         searchAutocomplete.clear();
         clearSearchSuggestions();
@@ -271,11 +264,11 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       searchAutocomplete.clear();
       syncSearchTriggerHintFromInput(rawValue);
       if (query.length > 0) {
-        if (!overlayState.localSearchScopeState && isSlashCommandInput(query)) {
+        if (!searchMode.local && isSlashCommandInput(query)) {
           updateSearchSuggestions([], query);
           return;
         }
-        if (overlayState.openTabsSearchModeActive) {
+        if (searchMode.openTabs) {
           renderCachedTabsOrRequest(query);
           return;
         }
@@ -284,7 +277,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         }
         requestOverlaySearchSuggestions(query);
       } else {
-        if (overlayState.openTabsSearchModeActive) {
+        if (searchMode.openTabs) {
           renderCachedTabsOrRequest('');
           return;
         }

@@ -20,7 +20,7 @@ import type { InputModeController } from '../../shared/search/search-input-mode'
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import * as NEWTAB_BACKGROUND_SEARCH_FOCUS from './background-search-focus';
 import type { SearchModes } from './search-modes';
-import type { ActiveLocalScope, RenderSuggestions, RequestSuggestions } from './search-types';
+import type { RenderSuggestions, RequestSuggestions } from './search-types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
 import { macosCtrlSuggestionNavigationEnabled, tabRankScoreDebug } from '../../domain/settings/search';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
@@ -28,6 +28,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -46,8 +47,6 @@ interface SearchBoxState {
   searchSuggestionsDismissed: boolean;
   remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
   suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
-  localSearchScopeState: ActiveLocalScope | null;
-  siteSearchState: SiteSearchProvider | null;
   handleTabKey: ((event: KeyboardEvent) => unknown) | null;
   searchLayer: HTMLElement | null;
   modeBadge: HTMLElement | null;
@@ -55,6 +54,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 'store'>;
@@ -147,6 +147,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    searchMode,
     searchAutocomplete,
     searchQuery,
     locale,
@@ -445,7 +446,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       }
       searchQuery.setRaw(rawValue);
       searchAutocomplete.clear();
-      if (!pageState.localSearchScopeState && isSlashCommandInput(query)) {
+      if (!searchMode.local && isSlashCommandInput(query)) {
         searchQuery.setText(query);
         renderSuggestions([], query);
         return;
@@ -497,7 +498,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         return;
       }
       // Leaving a site search lists the query's ordinary results.
-      if (event.key === 'Escape' && pageState.siteSearchState) {
+      if (event.key === 'Escape' && searchMode.site) {
         event.preventDefault();
         clearSiteSearch();
         const fallbackQuery = input.value.trim();
@@ -508,7 +509,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         }
         return;
       }
-      if (event.key === 'Escape' && pageState.localSearchScopeState) {
+      if (event.key === 'Escape' && searchMode.local) {
         event.preventDefault();
         clearLocalSearchScope();
         const fallbackQuery = input.value.trim();
@@ -519,14 +520,14 @@ function createSearchBox(deps: SearchBoxDeps) {
         }
         return;
       }
-      if (event.key === 'Backspace' && pageState.siteSearchState && !input.value) {
+      if (event.key === 'Backspace' && searchMode.site && !input.value) {
         if (!shouldRemoveSearchModeTagOnBackspace(event)) {
           return;
         }
         clearSiteSearch();
         return;
       }
-      if (event.key === 'Backspace' && pageState.localSearchScopeState && !input.value) {
+      if (event.key === 'Backspace' && searchMode.local && !input.value) {
         if (!shouldRemoveSearchModeTagOnBackspace(event)) {
           return;
         }

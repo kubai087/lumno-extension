@@ -64,6 +64,7 @@ const persistedThemes = new Map();
 const shortcutIconSources = new Map([['https://www.xiaohongshu.com/', SNAPSHOT_URL]]);
 
 const resolver = sandbox.LumnoNewtabSiteThemeResolver.createSiteThemeResolver({
+  searchMode: { site: null },
   FAVICON_UTILS,
   getExtensionResourceUrl: (path) => path,
   normalizeHost: BRAND_ACCENTS.normalizeHost,

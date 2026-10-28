@@ -6,7 +6,7 @@ import type { Disposition } from '../../domain/navigation-disposition';
 import * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
-import type { LocalSearchScope, SiteSearchProvider } from '../../domain/search/types';
+import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type {
   FaviconCandidates,
@@ -36,6 +36,7 @@ import type { OverlayFaviconRuntime } from '../favicon-view';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -58,9 +59,6 @@ interface SuggestionsRenderState {
   currentSuggestions: OverlaySuggestion[];
   lastRenderedQuery: string;
   lastRenderedActionContextKey: string;
-  openTabsSearchModeActive: boolean;
-  localSearchScopeState: LocalSearchScope | null;
-  siteSearchState: InputModeProvider | null;
   tabs: OverlayTab[];
   // The open tabs have been listed at least once.
   overlayTabsCacheReady: boolean;
@@ -71,6 +69,7 @@ interface SuggestionsRenderState {
 }
 
 interface SuggestionsRenderDeps {
+  searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
   favicons: Pick<OverlayFaviconRuntime, 'attachResolvedFaviconWithFallbacks' | 'applyFaviconOpticalAlignment' | 'preloadIcon'>;
   updateSearchSuggestions(rows: never[], query: string): void;
@@ -150,6 +149,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    searchMode,
     searchQuery,
     favicons,
     updateSearchSuggestions,
@@ -630,7 +630,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     const list = Array.isArray(tabList) ? tabList.slice() : [];
     setOpenTabsResultsViewport(true, list.length);
     if (list.length === 0) {
-      const emptyText = overlayState.openTabsSearchModeActive
+      const emptyText = searchMode.openTabs
         ? t('overlay_empty_open_tabs', '未找到匹配的已打开标签页')
         : t('overlay_empty_result', '无匹配结果');
       renderOverlayEmptyState(emptyText, 'noTabs');
@@ -651,13 +651,13 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   // Which mode a tab listing was asked for, so a late answer for another
   // mode is not shown.
   function getOverlaySearchModeKey(): string {
-    if (overlayState.openTabsSearchModeActive) {
+    if (searchMode.openTabs) {
       return 'openTabs';
     }
-    if (overlayState.localSearchScopeState && overlayState.localSearchScopeState.sourceType) {
-      return `local:${overlayState.localSearchScopeState.sourceType}`;
+    if (searchMode.local && searchMode.local.sourceType) {
+      return `local:${searchMode.local.sourceType}`;
     }
-    const provider = overlayState.siteSearchState;
+    const provider = searchMode.site;
     if (provider) {
       if (isAggregateSearchProvider(provider)) {
         return `aggregate:${String(provider.aggregateId || '')}`;
@@ -720,7 +720,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
         return;
       }
       const activeQuery = searchQuery.text;
-      if (!overlayState.openTabsSearchModeActive &&
+      if (!searchMode.openTabs &&
           (activeQuery || !shouldShowOpenTabsForEmptyQuery())) {
         return;
       }

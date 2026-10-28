@@ -20,6 +20,7 @@ import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
@@ -27,12 +28,10 @@ interface SearchModeMenuState {
   inputModeController: Pick<InputModeController, 'openModeMenu'> | null;
   // The page the overlay opened on, whose site search the menu offers first.
   initialContextTabUrl: string;
-  siteSearchState: InputModeProvider | null;
-  localSearchScopeState: LocalSearchScope | null;
-  openTabsSearchModeActive: boolean;
 }
 
 interface SearchModeMenuDeps {
+  searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
   searchEngine: DefaultSearchEngine;
   siteSearchCatalog: SiteSearchCatalog;
@@ -70,6 +69,7 @@ const getPageSearchSourceOrderHistory = lazyInstance(() => createSearchSourceOrd
 
 function createSearchModeMenu(deps: SearchModeMenuDeps) {
   const {
+    searchMode,
     searchQuery,
     searchEngine,
     siteSearchCatalog,
@@ -111,7 +111,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
     const aggregateGroup = t('search_scope_group_aggregates', '聚合搜索');
     const items: ModeMenuItem[] = [];
     const providers = siteSearchCatalog.modeProviders;
-    const activeProvider = overlayState.siteSearchState;
+    const activeProvider = searchMode.site;
     siteSearchCatalog.aggregates.forEach((definition) => {
       if (!siteSearchCatalog.isAggregateAvailable(definition, providers)) {
         return;
@@ -175,7 +175,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
       orderList: 'pinned',
       iconName: 'ri-window-line',
       menuIconName: 'browser',
-      active: overlayState.openTabsSearchModeActive
+      active: searchMode.openTabs
     });
     LOCAL_SOURCE_TYPES.forEach((sourceType) => {
       if (!overlayState.settings.get(searchResultSourceTypes).includes(sourceType)) {
@@ -197,7 +197,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
         group: localGroup,
         iconName: getLocalSearchScopeIconName(sourceType),
         menuIconName: sourceType === 'topSite' ? 'star' : sourceType,
-        active: Boolean(overlayState.localSearchScopeState && overlayState.localSearchScopeState.sourceType === sourceType)
+        active: Boolean(searchMode.local && searchMode.local.sourceType === sourceType)
       });
     });
     return SEARCH_SOURCE_ORDER.rankScopeItems(items, sourceOrder);
@@ -279,15 +279,15 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
   // default engine's, and opens the menu; resolves to whether it opened.
   function openSearchModeMenuFromDoubleTab(): Promise<boolean> {
     cancelPendingOpenTabsPrefixEntry();
-    const expectedSiteSearchState = overlayState.siteSearchState;
-    const expectedLocalSearchScopeState = overlayState.localSearchScopeState;
-    const expectedOpenTabsSearchModeActive = overlayState.openTabsSearchModeActive;
+    const expectedSiteSearchState = searchMode.site;
+    const expectedLocalSearchScopeState = searchMode.local;
+    const expectedOpenTabsSearchModeActive = searchMode.openTabs;
     const expectedInputValue = readInputValue();
     const isActivationCurrent = (): boolean => Boolean(
       overlayState.inputModeController &&
-      overlayState.siteSearchState === expectedSiteSearchState &&
-      overlayState.localSearchScopeState === expectedLocalSearchScopeState &&
-      overlayState.openTabsSearchModeActive === expectedOpenTabsSearchModeActive &&
+      searchMode.site === expectedSiteSearchState &&
+      searchMode.local === expectedLocalSearchScopeState &&
+      searchMode.openTabs === expectedOpenTabsSearchModeActive &&
       readInputValue() === expectedInputValue &&
       !expectedSiteSearchState &&
       !expectedLocalSearchScopeState

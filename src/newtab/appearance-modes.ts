@@ -20,7 +20,6 @@ import type { TopContentController } from './react/wordmark';
 import type { SearchModes } from './search/search-modes';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
-import type { ActiveLocalScope } from './search/search-types';
 import type { SuggestionsController } from './search/suggestions-controller';
 import type { CardThemes } from './theme/card-themes';
 import type { FaviconViewRuntime } from './theme/favicon-view';
@@ -34,6 +33,7 @@ import { newtabTopContentMode } from '../domain/settings/newtab-time';
 import { themeMode } from '../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
 import type { SearchQuery } from '../shared/search-panel/search-query';
+import type { SearchMode } from '../shared/search-panel/search-mode';
 
 type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
@@ -54,8 +54,6 @@ interface AppearanceModesState {
   helpCenterAskHintController: LanguageAware | null;
   inputParts: { input: HTMLInputElement } | null;
   defaultPlaceholderText: string;
-  siteSearchState: SiteSearchProvider | null;
-  localSearchScopeState: ActiveLocalScope | null;
   lastSuggestionResponse: Suggestion[];
   faviconViewRuntime: Pick<FaviconViewRuntime,
     'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
@@ -71,6 +69,7 @@ interface AppearanceModesDeps extends
   Pick<SuggestionsController, 'renderSuggestions' | 'updateSelection'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 'store' | 'ready'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'include' | 'subscribe'>;
@@ -99,6 +98,7 @@ interface AppearanceModesDeps extends
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    searchMode,
     searchQuery,
     locale,
     settings,
@@ -175,11 +175,11 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     }
     if (pageState.inputParts && pageState.inputParts.input) {
       pageState.defaultPlaceholderText = t('search_placeholder', pageState.defaultPlaceholderText);
-      if (!pageState.siteSearchState && !pageState.localSearchScopeState) {
+      if (!searchMode.site && !searchMode.local) {
         pageState.inputParts.input.placeholder = pageState.defaultPlaceholderText;
       }
-      if (pageState.localSearchScopeState) {
-        setLocalSearchScopePrefix(pageState.localSearchScopeState);
+      if (searchMode.local) {
+        setLocalSearchScopePrefix(searchMode.local);
       }
     }
     updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');

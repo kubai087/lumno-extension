@@ -14,10 +14,10 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import { newtabAppearanceButtonVisible, newtabFeedbackButtonVisible } from '../../domain/settings/newtab-page';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SearchBoxControlsState {
   inputParts: SearchInputParts | null;
-  siteSearchState: SiteSearchProvider | null;
   // Counts the uses the review notice waits for.
   engagementNoticeController: { recordMeaningfulUse?(): void } | null;
   webdavFeatureHintController: FeatureHintController | null;
@@ -29,6 +29,7 @@ interface SearchBoxControlsState {
 }
 
 interface SearchBoxControlsDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   locale: Pick<SurfaceLocale, 'store'>;
   dismissHelpCenterAskHint(): void;
@@ -51,6 +52,7 @@ interface SearchBoxControlsDeps {
 
 function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   const {
+    searchMode,
     settings,
     locale,
     dismissHelpCenterAskHint,
@@ -79,7 +81,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
 
   inputParts.input.addEventListener('input', function() {
     // Typing a question in the Help Center search means the tip has done its job.
-    if (pageState.siteSearchState && SearchSiteSearchProviders.isHelpCenterSiteSearchProvider(pageState.siteSearchState)) {
+    if (searchMode.site && SearchSiteSearchProviders.isHelpCenterSiteSearchProvider(searchMode.site)) {
       dismissHelpCenterAskHint();
     }
   });

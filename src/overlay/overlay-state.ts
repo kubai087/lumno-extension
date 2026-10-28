@@ -8,7 +8,6 @@ import type { SuggestionInputPreview } from '../domain/search/suggestion-input-p
 import type { ThemeVariant } from '../shared/favicon/favicon-theme';
 import type { SearchInputParts } from '../shared/react/search-input';
 import type { InputModeController } from '../shared/search/search-input-mode';
-import type { InputModeProvider } from '../shared/search/input-mode/types';
 import type { CursorTooltipController } from '../shared/ui/cursor-tooltip-model';
 import type { TooltipController } from '../shared/ui/tooltip';
 import type { OverlayKeyRouter } from './keyboard';
@@ -59,7 +58,7 @@ type OverlayState =
   EntryMotionState &
   FaviconPolicyState &
   PanelKeysState &
-  PanelLanguageState<OverlaySuggestion, InputModeProvider, ThemeVariant> &
+  PanelLanguageState<OverlaySuggestion, ThemeVariant> &
   PanelNoticesState &
   PanelSessionState &
   PanelThemeState &
@@ -69,7 +68,7 @@ type OverlayState =
   SearchInputEventsState &
   SearchModeMenuState &
   SearchModesState &
-  SettingsSyncState<OverlaySuggestion, InputModeProvider> &
+  SettingsSyncState<OverlaySuggestion> &
   SlashCommandsState &
   SuggestionSourcesState &
   SuggestionThemesState &
@@ -156,12 +155,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayThemeMode: 'system',
     defaultPlaceholderText: 'Search or enter URL…',
 
-    inlineSearchState: null,
-    siteSearchState: null,
-    siteSearchTriggerState: null,
-    localSearchScopeState: null,
-    localSearchScopeTriggerState: null,
-    openTabsSearchModeActive: false,
     // -1 while the input holds focus, else the selected row.
     selectedIndex: -1,
     currentSuggestions: [],

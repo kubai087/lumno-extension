@@ -9,7 +9,7 @@ import type { InputModeController } from '../../shared/search/search-input-mode'
 import type { InputModeConfig } from '../../shared/search/input-mode/controller-types';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
-import type { ActiveLocalScope, RenderSuggestions } from './search-types';
+import type { RenderSuggestions } from './search-types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import { searchResultDisplayLimit, searchResultPriority, searchResultSourceTypes, siteSearchIconCache as siteSearchIconCacheSetting } from '../../domain/settings/search';
@@ -18,6 +18,7 @@ import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SuggestionsController } from './suggestions-controller';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -27,12 +28,11 @@ interface SearchModeControllerState {
   modeBadge: HTMLElement | null;
   suggestionsContainer: HTMLElement | null;
   inputModeController: InputModeController | null;
-  siteSearchState: SiteSearchProvider | null;
-  localSearchScopeState: ActiveLocalScope | null;
   lastSuggestionResponse: Suggestion[];
 }
 
 interface SearchModeControllerDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'subscribe'>;
   requestSuggestions: SuggestionsController['requestSuggestions'];
@@ -74,6 +74,7 @@ interface SearchModeControllerDeps {
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
+    searchMode,
     searchQuery,
     requestSuggestions,
     settings,
@@ -189,7 +190,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
       setSearchScopeIconEnabled(!active);
     },
     onModeMenuLayoutChange: syncSearchModeMenuResultOffset,
-    isTabHintSuppressed: () => Boolean(pageState.siteSearchState || pageState.localSearchScopeState)
+    isTabHintSuppressed: () => Boolean(searchMode.site || searchMode.local)
   });
   syncSearchModeMenuResultOffset();
   if (typeof window.ResizeObserver === 'function') {
@@ -200,13 +201,13 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
   }
   // The active site search's prefix shows its icon once the icons are read.
   function showActiveProviderIcon(): void {
-    if (!pageState.siteSearchState || !pageState.inputModeController) {
+    if (!searchMode.site || !pageState.inputModeController) {
       return;
     }
-    const activeProvider = pageState.siteSearchState;
+    const activeProvider = searchMode.site;
     setSiteSearchPrefix(activeProvider, defaultTheme);
     getThemeForProvider(activeProvider).then((theme) => {
-      if (pageState.siteSearchState === activeProvider) {
+      if (searchMode.site === activeProvider) {
         setSiteSearchPrefix(activeProvider, theme);
       }
     }).catch(() => {});

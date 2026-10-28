@@ -195,7 +195,9 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
+import type { SiteSearchProvider } from '../domain/search/types';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -511,12 +513,13 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();
+  const searchMode = new SearchMode<SiteSearchProvider>();
   const searchAutocomplete = new SearchAutocomplete({
     settings: settings,
     query: searchQuery,
     getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
     preview: pageState.suggestionInputPreview,
-    isModeActive: () => Boolean(pageState.siteSearchState),
+    isModeActive: () => Boolean(searchMode.site),
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
   const searchEngine = new DefaultSearchEngine(settings);
@@ -705,6 +708,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     applyThemeVariables,
     applyMarkVariables
   } = NEWTAB_SITE_THEME_RESOLVER.createSiteThemeResolver({
+    searchMode,
     normalizeHost,
     parseCssColor,
     defaultAccentColor,
@@ -932,6 +936,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    searchMode,
     searchQuery,
     syncBookmarkTopbarSurfaceAppearance,
     locale,
@@ -1235,6 +1240,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
   }
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
+    searchMode,
     searchQuery,
     settings,
     searchEngine,
@@ -2043,6 +2049,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     settings,
@@ -2086,6 +2093,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     settings,
@@ -2134,6 +2142,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     settings,
@@ -2282,6 +2291,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    searchMode,
     searchAutocomplete,
     searchQuery,
     locale,
@@ -2418,6 +2428,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     updateInputRightPadding,
     followNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
+    searchMode,
     settings,
     locale,
     dismissHelpCenterAskHint,
@@ -2453,6 +2464,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
     setSiteSearchPrefix,
     clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    searchMode,
     searchQuery,
     requestSuggestions,
     settings,
@@ -2528,6 +2540,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
   });
 
   NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
+    searchMode,
     searchQuery,
     siteSearchCatalog,
     isAggregateSearchProvider,

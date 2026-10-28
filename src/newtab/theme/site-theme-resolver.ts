@@ -22,9 +22,9 @@ import * as FaviconThemeColor from '../../domain/favicon/theme-color';
 import * as FaviconThemedCandidates from '../../domain/favicon/themed-candidates';
 import type { ThemeRgb } from '../../domain/favicon/types';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SiteThemeResolverState {
-  siteSearchState: SiteSearchProvider | null;
   // Favicon data URLs by icon address.
   faviconDataCache: Map<string, string>;
   // Fetches an icon's data URL; null when it cannot.
@@ -40,6 +40,7 @@ type ViewTheme = Partial<ThemeVariant> | null | undefined;
 type ApplyElementTheme<E> = (element: E, theme: ThemeVariant, host: string) => void;
 
 interface SiteThemeResolverDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   normalizeHost(hostname: string): string;
   parseCssColor: typeof Color.parseCssColor;
   defaultAccentColor: ThemeRgb;
@@ -107,6 +108,7 @@ interface ThemeResolutionItem {
 
 function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
   const {
+    searchMode,
     normalizeHost,
     parseCssColor,
     defaultAccentColor,
@@ -392,8 +394,8 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
         applyThemeVariables(item, theme);
       }
     });
-    if (pageState.siteSearchState && getProviderThemeHost(pageState.siteSearchState) === normalizedHost) {
-      setSiteSearchPrefix(pageState.siteSearchState, theme);
+    if (searchMode.site && getProviderThemeHost(searchMode.site) === normalizedHost) {
+      setSiteSearchPrefix(searchMode.site, theme);
     }
     updateSelection();
   }

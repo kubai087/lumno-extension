@@ -131,8 +131,6 @@ function createPageState(): NewtabPageState {
     currentSuggestions: [],
     lastSuggestionResponse: [],
     lastEngineSuggestionResponse: [],
-    siteSearchTriggerState: null,
-    localSearchScopeTriggerState: null,
     suggestionsView: null,
     recentSourceItems: [],
     defaultPlaceholderText: 'Search or enter URL…',
@@ -191,7 +189,6 @@ function createPageState(): NewtabPageState {
 
     // 使用本地打包字体，避免外链字体依赖。
 
-    inlineSearchState: null,
     remoteSuggestionDebounceTimer: null,
     tabs: [],
     currentNewtabTabId: null,
@@ -225,8 +222,6 @@ function createPageState(): NewtabPageState {
     feedbackControl: null,
     feedbackButton: null,
     feedbackReactController: null,
-    siteSearchState: null,
-    localSearchScopeState: null,
     folderColorPicker: null,
     searchScopeIcon: null,
     recentContextMenu: null,

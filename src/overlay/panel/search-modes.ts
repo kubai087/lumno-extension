@@ -6,7 +6,7 @@ import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../..
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { ModeTagOptions } from '../../shared/search/input-mode/tag';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
-import type { FormatMessage, LocalSearchScopeTrigger, SiteSearchTrigger, Translate } from './types';
+import type { FormatMessage, Translate } from './types';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
@@ -16,6 +16,7 @@ import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
+import type { ActiveLocalScope, SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SearchModesState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -23,17 +24,11 @@ interface SearchModesState {
     'updateLayout' | 'setProviderPrefix' | 'setPrefixText' | 'clearProviderPrefix'> | null;
   searchInput: HTMLInputElement | null;
   defaultTheme: InputModeTheme;
-  openTabsSearchModeActive: boolean;
-  siteSearchState: InputModeProvider | null;
-  siteSearchTriggerState: SiteSearchTrigger<InputModeProvider> | null;
-  localSearchScopeState: LocalSearchScope | null;
-  localSearchScopeTriggerState: LocalSearchScopeTrigger | null;
-  // Cleared whenever the mode changes.
-  inlineSearchState: unknown;
   overlaySuggestionRequestSeq: number;
 }
 
 interface SearchModesDeps {
+  searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   t: Translate;
@@ -62,6 +57,7 @@ interface OpenTabsPrefixOptions {
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    searchMode,
     searchAutocomplete,
     searchQuery,
     t,
@@ -138,7 +134,7 @@ function createSearchModes(deps: SearchModesDeps) {
     const prefixOptions = options || {};
     pendingOpenTabsPrefixEntryTimer = window.setTimeout(() => {
       pendingOpenTabsPrefixEntryTimer = 0;
-      if (!overlayState.openTabsSearchModeActive || overlayState.siteSearchState || overlayState.localSearchScopeState) {
+      if (!searchMode.openTabs || searchMode.site || searchMode.local) {
         return;
       }
       setOpenTabsSearchPrefix(overlayState.defaultTheme, {
@@ -340,7 +336,7 @@ function createSearchModes(deps: SearchModesDeps) {
     };
   }
 
-  function setLocalSearchScopePrefix(scope: LocalSearchScope | null): void {
+  function setLocalSearchScopePrefix(scope: ActiveLocalScope | null): void {
     if (!overlayState.inputModeController || !scope) {
       return;
     }
@@ -365,12 +361,7 @@ function createSearchModes(deps: SearchModesDeps) {
       ? activationOptions
       : {};
     cancelPendingOverlaySuggestionRequests();
-    overlayState.openTabsSearchModeActive = false;
-    overlayState.localSearchScopeState = scope;
-    overlayState.localSearchScopeTriggerState = null;
-    overlayState.siteSearchState = null;
-    overlayState.siteSearchTriggerState = null;
-    overlayState.inlineSearchState = null;
+    searchMode.enterLocal(scope);
     if (overlayState.searchInput) {
       overlayState.searchInput.value = '';
     }
@@ -384,13 +375,11 @@ function createSearchModes(deps: SearchModesDeps) {
   }
 
   function clearLocalSearchScope(): boolean {
-    if (!overlayState.localSearchScopeState) {
+    if (!searchMode.local) {
       return false;
     }
     overlayState.overlaySuggestionRequestSeq += 1;
-    overlayState.localSearchScopeState = null;
-    overlayState.localSearchScopeTriggerState = null;
-    overlayState.inlineSearchState = null;
+    searchMode.leaveLocal();
     clearSiteSearchPrefix();
     searchAutocomplete.clear();
     return true;
@@ -410,11 +399,7 @@ function createSearchModes(deps: SearchModesDeps) {
     if (options.preserveResults === true) {
       cancelPendingOverlaySuggestionRequests();
     }
-    overlayState.openTabsSearchModeActive = false;
-    overlayState.localSearchScopeState = null;
-    overlayState.localSearchScopeTriggerState = null;
-    overlayState.siteSearchState = provider;
-    overlayState.inlineSearchState = null;
+    searchMode.enterSite(provider);
     if (overlayState.searchInput) {
       overlayState.searchInput.value = '';
     }
@@ -425,7 +410,7 @@ function createSearchModes(deps: SearchModesDeps) {
       animate: options.animatePrefix !== false
     });
     void getThemeForProvider(provider).then((theme) => {
-      if (overlayState.siteSearchState === provider) {
+      if (searchMode.site === provider) {
         setSiteSearchPrefix(provider, theme);
       }
     });
@@ -435,11 +420,10 @@ function createSearchModes(deps: SearchModesDeps) {
   }
 
   function clearSiteSearch(): void {
-    if (!overlayState.siteSearchState) {
+    if (!searchMode.site) {
       return;
     }
-    overlayState.siteSearchState = null;
-    overlayState.inlineSearchState = null;
+    searchMode.leaveSite();
     clearSiteSearchPrefix();
     searchAutocomplete.clear();
   }
@@ -450,12 +434,7 @@ function createSearchModes(deps: SearchModesDeps) {
     const prefixOptions = options || {};
     cancelPendingOpenTabsPrefixEntry();
     cancelPendingOverlaySuggestionRequests();
-    overlayState.openTabsSearchModeActive = true;
-    overlayState.siteSearchState = null;
-    overlayState.localSearchScopeState = null;
-    overlayState.localSearchScopeTriggerState = null;
-    overlayState.inlineSearchState = null;
-    overlayState.siteSearchTriggerState = null;
+    searchMode.enterOpenTabs();
     searchAutocomplete.clear();
     if (prefixOptions.deferPrefixEntry === true) {
       scheduleOpenTabsPrefixEntry(prefixOptions);
@@ -470,11 +449,11 @@ function createSearchModes(deps: SearchModesDeps) {
   }
 
   function clearOpenTabsSearchMode(): void {
-    if (!overlayState.openTabsSearchModeActive) {
+    if (!searchMode.openTabs) {
       return;
     }
     cancelPendingOpenTabsPrefixEntry();
-    overlayState.openTabsSearchModeActive = false;
+    searchMode.leaveOpenTabs();
     clearSiteSearchPrefix();
     searchAutocomplete.clear();
     const rawValue = overlayState.searchInput ? overlayState.searchInput.value || '' : '';

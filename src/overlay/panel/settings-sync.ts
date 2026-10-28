@@ -1,5 +1,4 @@
 import type { OverlayTab } from '../../domain/messages';
-import type { LocalSearchScope } from '../../domain/search/types';
 import { simpleModeEnabled, themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import { documentPipEnabled } from '../../domain/settings/features';
@@ -26,10 +25,11 @@ import type * as SuggestionNavigation from '../../shared/search/suggestion-navig
 import type { OverlaySettings } from '../overlay-settings';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 // Row is a suggestion row, Provider a site search provider and Theme a
 // suggestion theme; this module only passes them along.
-interface SettingsSyncState<Row, Provider> {
+interface SettingsSyncState<Row> {
   settings: OverlaySettings;
   overlay: HTMLElement | null;
   suggestionsContainer: HTMLElement | null;
@@ -39,13 +39,11 @@ interface SettingsSyncState<Row, Provider> {
   // The rows of the last answer, to rebuild the list when a setting changes.
   lastSuggestionResponse: Row[];
   tabs: OverlayTab[];
-  openTabsSearchModeActive: boolean;
-  siteSearchState: Provider | null;
-  localSearchScopeState: LocalSearchScope | null;
   documentPipEnabled: boolean;
 }
 
 interface SettingsSyncDeps<Row, Provider, Theme> {
+  searchMode: Pick<SearchMode<Provider>, 'site' | 'local' | 'openTabs'>;
   searchQuery: SearchQuery;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'cancelNumberShortcuts'>;
   updateSearchSuggestions(rows: Row[], query: string, options?: { forceFullRerender?: boolean }): void;
@@ -63,7 +61,7 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
   setSiteSearchPrefix(provider: Provider, theme: Theme, options: { animate: boolean }): void;
   getImmediateThemeForSuggestion(suggestion: { provider: Provider }): Theme;
   documentPipSupported: boolean;
-  overlayState: SettingsSyncState<Row, Provider>;
+  overlayState: SettingsSyncState<Row>;
 }
 
 // What the panel does when an overlay setting changes while it is open;
@@ -72,6 +70,7 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
 // applied.
 function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Provider, Theme>): Promise<void> {
   const {
+    searchMode,
     searchQuery,
     updateSearchSuggestions,
     applyOverlayTheme,
@@ -108,7 +107,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   }
 
   function showsOpenTabs(): boolean {
-    return overlayState.openTabsSearchModeActive ||
+    return searchMode.openTabs ||
       (!searchQuery.text && shouldShowOpenTabsForEmptyQuery());
   }
 
@@ -128,7 +127,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
 
   settings.follow([searchResultPriority, searchBlacklist, overlayTabPriority], refreshOverlaySuggestionsFromLastResponse);
   settings.follow(searchResultSourceTypes, () => {
-    const scope = overlayState.localSearchScopeState;
+    const scope = searchMode.local;
     if (scope && !settings.get(searchResultSourceTypes).some((type) => type === scope.sourceType)) {
       clearLocalSearchScope();
     }
@@ -145,7 +144,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   settings.follow([faviconEnhancedFetchEnabled, faviconRequestBlacklist], () => {
     refreshOverlayFaviconsForPolicyChange();
     if (overlayState.inputModeController) {
-      const provider = overlayState.siteSearchState;
+      const provider = searchMode.site;
       if (provider) {
         setSiteSearchPrefix(provider, getImmediateThemeForSuggestion({ provider }), { animate: false });
       }
@@ -154,7 +153,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   });
 
   settings.follow(overlayOpenTabsDefaultVisible, () => {
-    if (searchQuery.text || overlayState.openTabsSearchModeActive) {
+    if (searchQuery.text || searchMode.openTabs) {
       return;
     }
     if (settings.get(overlayOpenTabsDefaultVisible)) {

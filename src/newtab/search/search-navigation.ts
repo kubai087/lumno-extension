@@ -12,7 +12,7 @@ import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
 import type { SurfaceOpenKeys } from '../page-navigation';
 import type { SearchModes } from './search-modes';
-import type { ActiveLocalScope, InlineSearchState, RenderSuggestions, SlashCommand } from './search-types';
+import type { RenderSuggestions, SlashCommand } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
@@ -23,17 +23,15 @@ import type { AppearanceModes } from '../appearance-modes';
 import { newtabZenMode } from '../../domain/settings/newtab-page';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
   currentNewtabTabId: number | null;
-  localSearchScopeState: ActiveLocalScope | null;
   selectedIndex: number;
   currentThemeMode: string;
   currentSuggestions: Suggestion[];
-  siteSearchState: SiteSearchProvider | null;
   inputParts: SearchInputParts | null;
-  inlineSearchState: InlineSearchState | null;
 }
 
 // A slash command the typed text names, and the text that completes it.
@@ -43,6 +41,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'set'>;
@@ -84,6 +83,7 @@ type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    searchMode,
     searchAutocomplete,
     searchQuery,
     settings,
@@ -409,7 +409,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
   // inline or autocompleted site, a quick-navigation target, and last a
   // web search.
   function submitSearchQuery(query: string, event: KeyboardEvent): void {
-    const commandMatch = pageState.localSearchScopeState ? null : getCommandMatch(query);
+    const commandMatch = searchMode.local ? null : getCommandMatch(query);
     if (commandMatch && pageState.selectedIndex === -1) {
       if (commandMatch.command.type === 'commandNewTab') {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openNewTab' });
@@ -420,11 +420,11 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return;
       }
     }
-    if (!pageState.localSearchScopeState && isModeCommand(query)) {
+    if (!searchMode.local && isModeCommand(query)) {
       setVisibleThemeMode(getNextThemeMode(pageState.currentThemeMode));
       return;
     }
-    if (!pageState.localSearchScopeState && isZenCommand(query)) {
+    if (!searchMode.local && isZenCommand(query)) {
       void settings.set(newtabZenMode, !settings.get(newtabZenMode));
       return;
     }
@@ -503,16 +503,16 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         }
       }
     }
-    if (!pageState.localSearchScopeState && isSlashCommandInput(query)) {
+    if (!searchMode.local && isSlashCommandInput(query)) {
       renderSuggestions([], query);
       return;
     }
-    if (pageState.localSearchScopeState) {
+    if (searchMode.local) {
       return;
     }
-    if (pageState.siteSearchState) {
+    if (searchMode.site) {
       if (runSiteSearchProviderQuery(
-        pageState.siteSearchState,
+        searchMode.site,
         query,
         getSearchResultDisposition(event)
       )) {
@@ -521,7 +521,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     }
     const inputValue = pageState.inputParts ? pageState.inputParts.input.value : '';
     const currentRawInput = (searchQuery.raw || inputValue || '').trim();
-    const inline = pageState.inlineSearchState;
+    const inline = searchMode.inline;
     if (inline && inline.isAuto && inline.rawInput === currentRawInput) {
       if (inline.provider && inline.query) {
         if (runSiteSearchProviderQuery(

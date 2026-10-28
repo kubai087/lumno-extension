@@ -19,11 +19,9 @@ import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage, SendRuntimeMessage, Translate } from '../newtab-types';
 import type * as DirectNavigationSettle from './direct-navigation-settle';
 import type { SearchModeController } from './search-mode-controller';
-import type { LocalScopeTrigger, SearchModes, SiteSearchTrigger } from './search-modes';
+import type { SearchModes } from './search-modes';
 import type { SearchNavigation, SearchNavigationDeps } from './search-navigation';
 import type {
-  ActiveLocalScope,
-  InlineSearchState,
   RequestSuggestionsOptions,
   SlashCommand
 } from './search-types';
@@ -41,6 +39,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import { newtabZenMode } from '../../domain/settings/newtab-page';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -50,9 +49,6 @@ interface SuggestionsControllerState {
   lastEngineSuggestionResponse: Suggestion[];
   inputParts: SearchInputParts | null;
   tabs: OverlayTab[];
-  inlineSearchState: InlineSearchState | null;
-  siteSearchTriggerState: SiteSearchTrigger | null;
-  localSearchScopeTriggerState: LocalScopeTrigger | null;
   currentSuggestions: Suggestion[];
   // Hidden from the background; the input's focus shows them again.
   searchSuggestionsDismissed: boolean;
@@ -60,13 +56,12 @@ interface SuggestionsControllerState {
   suggestionRequestSeq: number;
   remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
   suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
-  localSearchScopeState: ActiveLocalScope | null;
-  siteSearchState: SiteSearchProvider | null;
   currentThemeMode: ThemeMode;
   currentNewtabTabId: number | null;
 }
 
 interface SuggestionsControllerDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
@@ -151,6 +146,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    searchMode,
     searchAutocomplete,
     searchQuery,
     settings,
@@ -431,9 +427,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   function clearSearchSuggestions(): void {
     directNavigationSettleController.cancel();
     releaseSuggestionsHeight(suggestionsContainer, window);
-    pageState.inlineSearchState = null;
-    pageState.siteSearchTriggerState = null;
-    pageState.localSearchScopeTriggerState = null;
+    searchMode.clearHints();
     clearSiteSearchTabHint();
     if (pageState.suggestionsView) {
       pageState.suggestionsView.clear();
@@ -470,7 +464,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       return false;
     }
     searchQuery.set(rawValue, query);
-    if (!pageState.localSearchScopeState && isSlashCommandInput(query)) {
+    if (!searchMode.local && isSlashCommandInput(query)) {
       renderSuggestions([], query);
       return true;
     }
@@ -499,11 +493,11 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       }
       const inputValue = pageState.inputParts ? pageState.inputParts.input.value : '';
       const rawTagInput = (searchQuery.raw || inputValue || '').trim();
-      const localSearchQueryModeActive = Boolean(pageState.localSearchScopeState && String(query || '').trim());
+      const localSearchQueryModeActive = Boolean(searchMode.local && String(query || '').trim());
       const slashCommandModeActive = !localSearchQueryModeActive && isSlashCommandInput(rawTagInput);
       const siteSearchQueryModeActive = !localSearchQueryModeActive &&
         !slashCommandModeActive &&
-        Boolean(pageState.siteSearchState && String(query || '').trim());
+        Boolean(searchMode.site && String(query || '').trim());
       const modeCommandActive = slashCommandModeActive && !siteSearchQueryModeActive && isModeCommand(rawTagInput);
       const zenCommandActive = slashCommandModeActive && !siteSearchQueryModeActive && isZenCommand(rawTagInput);
       const toggleCommandActive = modeCommandActive || zenCommandActive;
@@ -586,7 +580,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           forceSearch: true
         };
       // Narrowed here, for the site search rows below.
-      const siteSearchProvider = pageState.siteSearchState;
+      const siteSearchProvider = searchMode.site;
       const siteSearchSuggestion: Suggestion | null = siteSearchQueryModeActive && siteSearchProvider
         ? (() => {
             const aggregateSearch = isAggregateSearchProvider(siteSearchProvider);
@@ -632,8 +626,8 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       let allSuggestions = localSearchQueryModeActive
         ? suggestions.filter((item) => (
           item &&
-          pageState.localSearchScopeState &&
-          item.type === pageState.localSearchScopeState.sourceType
+          searchMode.local &&
+          item.type === searchMode.local.sourceType
         ))
         : (slashCommandModeActive ? [...preSuggestions] : (siteSearchQueryModeActive
           ? (siteSearchSuggestion ? [siteSearchSuggestion, ...helpCenterSuggestions] : [])
@@ -681,7 +675,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           triggerInput: rawTagInput,
           providers: providersForTags,
           inlineSuggestion,
-          siteSearchActive: Boolean(pageState.siteSearchState),
+          siteSearchActive: Boolean(searchMode.site),
           preferAutocompleteFirst: settings.get(searchResultPriority) !== 'search',
           onlyKeywordSuggestions,
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
@@ -713,25 +707,23 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           searchAutocomplete.apply(allSuggestions, primarySuggestion, primaryHighlightReason);
         }
         const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
-        pageState.inlineSearchState = inlineSuggestion
-          ? {
-              url: inlineSuggestion.url,
-              provider: isSiteSearchProvider(inlineSuggestion.provider) ? inlineSuggestion.provider : null,
-              query: inlineSuggestion.searchQuery || '',
-              rawInput: rawTagInput,
-              isAuto: inlineAutoHighlight
-            }
-          : null;
         const resolvedProvider = siteSearchTrigger;
         const resolvedLocalScope = !resolvedProvider
           ? getLocalSearchScopeCandidate(rawTagInput, rules)
           : null;
-        pageState.siteSearchTriggerState = resolvedProvider
-          ? { provider: resolvedProvider, rawInput: rawTagInput }
-          : null;
-        pageState.localSearchScopeTriggerState = resolvedLocalScope
-          ? { scope: resolvedLocalScope, rawInput: rawTagInput }
-          : null;
+        searchMode.setHints(
+          inlineSuggestion
+            ? {
+                url: inlineSuggestion.url,
+                provider: isSiteSearchProvider(inlineSuggestion.provider) ? inlineSuggestion.provider : null,
+                query: inlineSuggestion.searchQuery || '',
+                rawInput: rawTagInput,
+                isAuto: inlineAutoHighlight
+              }
+            : null,
+          resolvedProvider ? { provider: resolvedProvider, rawInput: rawTagInput } : null,
+          resolvedLocalScope ? { scope: resolvedLocalScope, rawInput: rawTagInput } : null
+        );
         if (resolvedProvider) {
           setSiteSearchTabHint(resolvedProvider);
         } else if (resolvedLocalScope) {
@@ -741,9 +733,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         }
       } else if (localSearchQueryModeActive) {
         searchAutocomplete.clear();
-        pageState.inlineSearchState = null;
-        pageState.siteSearchTriggerState = null;
-        pageState.localSearchScopeTriggerState = null;
+        searchMode.clearHints();
         clearSiteSearchTabHint();
         if (allSuggestions.length > 0) {
           primaryHighlightIndex = 0;
@@ -752,25 +742,19 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         }
       } else if (modeCommandActive) {
         searchAutocomplete.clear();
-        pageState.inlineSearchState = null;
-        pageState.siteSearchTriggerState = null;
-        pageState.localSearchScopeTriggerState = null;
+        searchMode.clearHints();
         clearSiteSearchTabHint();
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'modeSwitch';
       } else if (zenCommandActive) {
         searchAutocomplete.clear();
-        pageState.inlineSearchState = null;
-        pageState.siteSearchTriggerState = null;
-        pageState.localSearchScopeTriggerState = null;
+        searchMode.clearHints();
         clearSiteSearchTabHint();
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'zenSwitch';
       } else if (slashCommandModeActive) {
         searchAutocomplete.clear();
-        pageState.inlineSearchState = null;
-        pageState.siteSearchTriggerState = null;
-        pageState.localSearchScopeTriggerState = null;
+        searchMode.clearHints();
         clearSiteSearchTabHint();
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'command';
@@ -874,7 +858,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
 
   function requestSuggestions(query: string, options?: SuggestionRequestOptions): void {
     searchQuery.setText(query);
-    const requestLocalSearchScope = pageState.localSearchScopeState;
+    const requestLocalSearchScope = searchMode.local;
     if (!requestLocalSearchScope && isSlashCommandInput(query)) {
       void renderSuggestions([], query);
       return;
@@ -890,7 +874,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     const requestSearchFirst = settings.get(searchResultPriority) === 'search';
     const showExactSearchPendingState = requestSearchFirst &&
       !requestLocalSearchScope &&
-      !pageState.siteSearchState &&
+      !searchMode.site &&
       !getDirectUrlSuggestion(requestQuery);
     directNavigationSettleController.cancel();
     if (deferInitialDirectNavigationRender) {

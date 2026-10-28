@@ -17,15 +17,16 @@ import * as SearchSiteSearchProviders from '../../domain/search/utils/site-searc
 import { searchSourceOrder } from '../../domain/settings/search';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { SearchMode } from '../../shared/search-panel/search-mode';
 
 interface SiteSearchRuntimeState extends FocusResumeState {
   // Carries the search across the reload the search shortcut makes.
   focusResume: FocusResume | null;
   inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
-  siteSearchState: SiteSearchProvider | null;
 }
 
 interface SiteSearchRuntimeDeps {
+  searchMode: SearchMode<SiteSearchProvider>;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   isAggregateSearchProvider: SiteSearchProviders['isAggregateSearchProvider'];
@@ -45,6 +46,7 @@ interface SiteSearchRuntimeDeps {
 
 function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   const {
+    searchMode,
     searchQuery,
     siteSearchCatalog,
     isAggregateSearchProvider,
@@ -85,6 +87,7 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   }
 
   const focusResume = LumnoNewtabFocusResume.createFocusResume({
+    searchMode,
     searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
@@ -109,14 +112,14 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   // A changed list may drop the aggregate search the input is in, or
   // change its sources.
   siteSearchCatalog.store.subscribe(() => {
-    if (isAggregateSearchProvider(pageState.siteSearchState)) {
-      const activeId = getAggregateSearchId(pageState.siteSearchState);
+    if (isAggregateSearchProvider(searchMode.site)) {
+      const activeId = getAggregateSearchId(searchMode.site);
       const definition = siteSearchCatalog.aggregates.find((item) => String(item && item.id ? item.id : '') === activeId);
       const updatedProvider = definition && siteSearchCatalog.isAggregateAvailable(definition)
         ? createAggregateSearchScopeProvider(definition)
         : null;
       if (updatedProvider) {
-        pageState.siteSearchState = updatedProvider;
+        searchMode.replaceSite(updatedProvider);
         setSiteSearchPrefix(updatedProvider, defaultTheme, { animate: false });
       } else {
         clearSiteSearch();

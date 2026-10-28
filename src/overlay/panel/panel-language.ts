@@ -1,15 +1,15 @@
 // Puts the panel's language on what it shows: the CJK face for the
 // locale, and the copy of the input, the notices and the results.
-import type { LocalSearchScope } from '../../domain/search/types';
 import * as LumnoCjkFontFaces from '../../shared/cjk-font-faces';
 import * as OVERLAY_FONT_FACES from '../../shared/overlay-font-faces';
 import { localeToHtmlLang } from '../../domain/settings/locale';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
+import type { ActiveLocalScope, SearchMode } from '../../shared/search-panel/search-mode';
 
 // Row is a suggestion row, Provider a site search provider and Theme a
 // suggestion theme; this module only passes them along.
-interface PanelLanguageState<Row, Provider, Theme> {
+interface PanelLanguageState<Row, Theme> {
   inputModeController: { refreshModeMenuLanguage?(): void } | null;
   overlayUpdateNoticeController: { updateLanguage?(): void } | null;
   overlayGraphicsNoticeController: { updateLanguage?(): void } | null;
@@ -17,29 +17,29 @@ interface PanelLanguageState<Row, Provider, Theme> {
   searchInput: HTMLInputElement | null;
   defaultPlaceholderText: string;
   modeBadge: HTMLElement | null;
-  siteSearchState: Provider | null;
-  localSearchScopeState: LocalSearchScope | null;
   defaultTheme: Theme;
   lastSuggestionResponse: Row[];
 }
 
 interface PanelLanguageDeps<Row, Provider, Theme> {
+  searchMode: Pick<SearchMode<Provider>, 'site' | 'local'>;
   searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 't'>;
   updateModeBadge(rawValue: string): void;
   setSiteSearchPrefix(provider: Provider, theme: Theme): void;
   getThemeForProvider(provider: Provider): Promise<Theme>;
   updateSiteSearchPrefixLayout(): void;
-  setLocalSearchScopePrefix(scope: LocalSearchScope): void;
+  setLocalSearchScopePrefix(scope: ActiveLocalScope): void;
   updateSearchSuggestions(rows: Row[], query: string): void;
   requestTabsAndRender(): void;
   // Names the search input's buttons again.
   applyInputActionLabels(): void;
-  overlayState: PanelLanguageState<Row, Provider, Theme>;
+  overlayState: PanelLanguageState<Row, Theme>;
 }
 
 function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, Provider, Theme>) {
   const {
+    searchMode,
     searchQuery,
     locale,
     updateModeBadge,
@@ -88,7 +88,7 @@ function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, 
     }
     if (overlayState.searchInput) {
       overlayState.defaultPlaceholderText = locale.t('overlay_search_placeholder', locale.t('search_placeholder', overlayState.defaultPlaceholderText));
-      if (!overlayState.siteSearchState && !overlayState.localSearchScopeState) {
+      if (!searchMode.site && !searchMode.local) {
         overlayState.searchInput.placeholder = overlayState.defaultPlaceholderText;
       }
     }
@@ -96,17 +96,17 @@ function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, 
     if (overlayState.modeBadge) {
       updateModeBadge(overlayState.searchInput ? overlayState.searchInput.value : '');
     }
-    if (overlayState.siteSearchState) {
-      const activeSiteSearchProvider = overlayState.siteSearchState;
+    if (searchMode.site) {
+      const activeSiteSearchProvider = searchMode.site;
       setSiteSearchPrefix(activeSiteSearchProvider, overlayState.defaultTheme);
       void getThemeForProvider(activeSiteSearchProvider).then((theme) => {
-        if (overlayState.siteSearchState === activeSiteSearchProvider) {
+        if (searchMode.site === activeSiteSearchProvider) {
           setSiteSearchPrefix(activeSiteSearchProvider, theme);
         }
       });
       updateSiteSearchPrefixLayout();
-    } else if (overlayState.localSearchScopeState) {
-      setLocalSearchScopePrefix(overlayState.localSearchScopeState);
+    } else if (searchMode.local) {
+      setLocalSearchScopePrefix(searchMode.local);
       updateSiteSearchPrefixLayout();
     }
     if (!refreshResults) {
