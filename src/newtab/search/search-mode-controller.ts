@@ -17,6 +17,7 @@ import { newtabOpenInNewTab } from '../../domain/settings/newtab-page';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SuggestionsController } from './suggestions-controller';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
@@ -28,11 +29,11 @@ interface SearchModeControllerState {
   inputModeController: InputModeController | null;
   siteSearchState: SiteSearchProvider | null;
   localSearchScopeState: ActiveLocalScope | null;
-  latestQuery: string;
   lastSuggestionResponse: Suggestion[];
 }
 
 interface SearchModeControllerDeps {
+  searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'subscribe'>;
   requestSuggestions: SuggestionsController['requestSuggestions'];
   renderSuggestions: RenderSuggestions;
@@ -73,6 +74,7 @@ interface SearchModeControllerDeps {
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
+    searchQuery,
     requestSuggestions,
     settings,
     renderSuggestions,
@@ -136,8 +138,8 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
 
   void settings.include([searchResultPriority, searchResultSourceTypes, searchResultDisplayLimit, overlayTabPriority, newtabOpenInNewTab])
     .then(() => {
-      if (pageState.latestQuery) {
-        renderSuggestions(pageState.lastSuggestionResponse, pageState.latestQuery);
+      if (searchQuery.text) {
+        renderSuggestions(pageState.lastSuggestionResponse, searchQuery.text);
       }
     });
   const defaultPlaceholder = searchInput.placeholder;
@@ -218,8 +220,8 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     if (pageState.inputModeController) {
       pageState.inputModeController.refreshModeMenu();
     }
-    if (pageState.latestQuery) {
-      requestSuggestions(pageState.latestQuery, { immediate: true });
+    if (searchQuery.text) {
+      requestSuggestions(searchQuery.text, { immediate: true });
     }
   });
 

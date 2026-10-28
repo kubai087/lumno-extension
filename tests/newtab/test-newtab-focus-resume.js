@@ -81,6 +81,7 @@ function bootPage(options = {}) {
   };
 }
 
+const { SearchQuery } = require('../../src/shared/search-panel/search-query.ts');
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function createResume(page, overrides = {}) {
@@ -89,9 +90,10 @@ function createResume(page, overrides = {}) {
     value: '',
     select() { calls.push(['select']); }
   };
+  const searchQuery = new SearchQuery();
+  searchQuery.set(overrides.rawQuery || '');
   const pageState = {
     inputParts: { input },
-    latestRawQuery: '',
     siteSearchState: null,
     localSearchScopeState: null,
     lastSuggestionResponse: [],
@@ -119,6 +121,7 @@ function createResume(page, overrides = {}) {
       return wait(5).then(() => calls.push(['rendered']));
     },
     focusSearchInputPreservingScroll: () => calls.push(['focus']),
+    searchQuery,
     pageState
   });
   return { resume, calls, input, pageState };
@@ -133,8 +136,8 @@ async function main() {
   {
     const page = bootPage();
     const { resume, input, pageState } = createResume(page, {
+      rawQuery: 'git',
       pageState: {
-        latestRawQuery: 'git',
         siteSearchState: { key: 'gh' },
         lastSuggestionResponse: [{ url: 'https://github.com' }],
         selectedIndex: 2

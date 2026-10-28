@@ -20,10 +20,10 @@ import type { InputModeController } from '../../shared/search/search-input-mode'
 import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import type { SearchModeController } from './search-mode-controller';
 import type { ActiveLocalScope, RenderSuggestions, RequestSuggestions } from './search-types';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SearchSettingsSyncState {
   localSearchScopeState: ActiveLocalScope | null;
-  latestQuery: string;
   lastSuggestionResponse: Suggestion[];
   suggestionsContainer: HTMLElement | null;
   // Bumped when the favicon policy changes, so requests made before it are
@@ -34,6 +34,7 @@ interface SearchSettingsSyncState {
 }
 
 interface SearchSettingsSyncDeps {
+  searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'subscribe'>;
   searchEngine: Pick<DefaultSearchEngine, 'store'>;
   clearLocalSearchScope(): boolean;
@@ -51,6 +52,7 @@ interface SearchSettingsSyncDeps {
 
 function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   const {
+    searchQuery,
     settings,
     searchEngine,
     clearLocalSearchScope,
@@ -69,15 +71,15 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   const pageState = deps.pageState;
 
   function redrawSuggestions(): void {
-    if (pageState.latestQuery) {
-      renderSuggestions(pageState.lastSuggestionResponse, pageState.latestQuery);
+    if (searchQuery.text) {
+      renderSuggestions(pageState.lastSuggestionResponse, searchQuery.text);
     }
   }
 
   // These settings change which suggestions show, so they refresh at once.
   function refreshSuggestions(): void {
-    if (pageState.latestQuery && pageState.latestQuery.trim()) {
-      requestSuggestions(pageState.latestQuery, { immediate: true });
+    if (searchQuery.text && searchQuery.text.trim()) {
+      requestSuggestions(searchQuery.text, { immediate: true });
     }
   }
 

@@ -11,6 +11,7 @@ import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { LocalSearchScopeTrigger, SiteSearchTrigger } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -29,12 +30,10 @@ interface SearchInputEventsState {
   localSearchScopeState: LocalSearchScope | null;
   openTabsSearchModeActive: boolean;
   selectedIndex: number;
-  latestOverlayQuery: string;
-  latestRawInputValue: string;
-  lastDeletionAt: number;
 }
 
 interface SearchInputEventsDeps {
+  searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   applyNoTranslate(element: Element): unknown;
   clearSiteSearchTabHint(): void;
@@ -65,6 +64,7 @@ function readInputType(event: Event | null): string {
 
 function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    searchQuery,
     siteSearchCatalog,
     applyNoTranslate,
     clearSiteSearchTabHint,
@@ -205,8 +205,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         overlayState.selectedIndex = -1;
         updateSelection();
       }
-      overlayState.latestOverlayQuery = query;
-      overlayState.latestRawInputValue = rawValue;
+      searchQuery.set(rawValue, query);
       clearAutocomplete();
       syncSearchTriggerHintFromInput(rawValue);
       if (query.length > 0) {
@@ -251,11 +250,10 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       const isPaste = inputType === 'insertFromPaste';
       const isDelete = inputType.startsWith('delete');
       if (isDelete) {
-        overlayState.lastDeletionAt = Date.now();
+        searchQuery.markDeletion();
       }
       if (overlayState.imeKeyGuard.isComposing()) {
-        overlayState.latestRawInputValue = rawValue;
-        overlayState.latestOverlayQuery = query;
+        searchQuery.set(rawValue, query);
         return;
       }
       if (overlayState.selectedIndex >= 0) {
@@ -263,14 +261,12 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         updateSelection();
       }
       if (!query && overlayState.siteSearchState) {
-        overlayState.latestOverlayQuery = '';
-        overlayState.latestRawInputValue = '';
+        searchQuery.clear();
         clearAutocomplete();
         clearSearchSuggestions();
         return;
       }
-      overlayState.latestOverlayQuery = query;
-      overlayState.latestRawInputValue = rawValue;
+      searchQuery.set(rawValue, query);
       clearAutocomplete();
       syncSearchTriggerHintFromInput(rawValue);
       if (query.length > 0) {

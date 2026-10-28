@@ -7,20 +7,18 @@ import type { AutocompleteState } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
 import { searchResultPriority } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SearchAutocompleteState {
   inputParts: SearchInputParts | null;
   autocompleteState: AutocompleteState | null;
-  latestQuery: string;
-  latestRawQuery: string;
-  // When the user last deleted text; autocomplete holds off right after.
-  lastDeletionAt: number;
   siteSearchState: SiteSearchProvider | null;
   // A suggestion the arrows show keeps the input until it is dropped.
   suggestionInputPreview: Pick<SuggestionInputPreview, 'isActive'>;
 }
 
 interface SearchAutocompleteDeps {
+  searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get'>;
   getUrlDisplay(url: string | undefined): string;
   isEnglishQuery(query: string): boolean;
@@ -40,6 +38,7 @@ type SuggestionList = readonly (Suggestion | null | undefined)[];
 
 function createSearchAutocomplete(deps: SearchAutocompleteDeps) {
   const {
+    searchQuery,
     settings,
     getUrlDisplay,
     isEnglishQuery,
@@ -205,8 +204,7 @@ function createSearchAutocomplete(deps: SearchAutocompleteDeps) {
       pageState.inputParts.input.value = rawQuery;
       pageState.inputParts.input.setSelectionRange(rawQuery.length, rawQuery.length);
     }
-    pageState.latestRawQuery = rawQuery;
-    pageState.latestQuery = rawQuery.trim();
+    searchQuery.set(rawQuery);
     clearAutocomplete();
     return true;
   }
@@ -229,7 +227,7 @@ function createSearchAutocomplete(deps: SearchAutocompleteDeps) {
     primarySuggestion?: Suggestion | null,
     primaryHighlightReason?: string
   ): void {
-    const rawQuery = pageState.latestRawQuery;
+    const rawQuery = searchQuery.raw;
     const trimmedQuery = rawQuery.trim();
     const inputParts = pageState.inputParts;
     if (pageState.suggestionInputPreview.isActive()) {
@@ -243,7 +241,7 @@ function createSearchAutocomplete(deps: SearchAutocompleteDeps) {
       clearAutocomplete();
       return;
     }
-    if (Date.now() - pageState.lastDeletionAt < 250) {
+    if (Date.now() - searchQuery.lastDeletionAt < 250) {
       clearAutocomplete();
       return;
     }

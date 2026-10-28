@@ -5,6 +5,7 @@ import * as LumnoCjkFontFaces from '../../shared/cjk-font-faces';
 import * as OVERLAY_FONT_FACES from '../../shared/overlay-font-faces';
 import { localeToHtmlLang } from '../../domain/settings/locale';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 // Row is a suggestion row, Provider a site search provider and Theme a
 // suggestion theme; this module only passes them along.
@@ -19,11 +20,11 @@ interface PanelLanguageState<Row, Provider, Theme> {
   siteSearchState: Provider | null;
   localSearchScopeState: LocalSearchScope | null;
   defaultTheme: Theme;
-  latestOverlayQuery: string;
   lastSuggestionResponse: Row[];
 }
 
 interface PanelLanguageDeps<Row, Provider, Theme> {
+  searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 't'>;
   updateModeBadge(rawValue: string): void;
   setSiteSearchPrefix(provider: Provider, theme: Theme): void;
@@ -39,6 +40,7 @@ interface PanelLanguageDeps<Row, Provider, Theme> {
 
 function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, Provider, Theme>) {
   const {
+    searchQuery,
     locale,
     updateModeBadge,
     setSiteSearchPrefix,
@@ -110,8 +112,8 @@ function createPanelLanguage<Row, Provider, Theme>(deps: PanelLanguageDeps<Row, 
     if (!refreshResults) {
       return;
     }
-    if (overlayState.latestOverlayQuery) {
-      updateSearchSuggestions(overlayState.lastSuggestionResponse, overlayState.latestOverlayQuery);
+    if (searchQuery.text) {
+      updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text);
     } else {
       requestTabsAndRender();
     }

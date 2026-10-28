@@ -33,6 +33,7 @@ import type { SettingsStore } from '../platform/settings-store';
 import { newtabTopContentMode } from '../domain/settings/newtab-time';
 import { themeMode } from '../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
+import type { SearchQuery } from '../shared/search-panel/search-query';
 
 type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
@@ -55,7 +56,6 @@ interface AppearanceModesState {
   defaultPlaceholderText: string;
   siteSearchState: SiteSearchProvider | null;
   localSearchScopeState: ActiveLocalScope | null;
-  latestQuery: string;
   lastSuggestionResponse: Suggestion[];
   faviconViewRuntime: Pick<FaviconViewRuntime,
     'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
@@ -71,6 +71,7 @@ interface AppearanceModesDeps extends
   Pick<SuggestionsController, 'renderSuggestions' | 'updateSelection'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
+  searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 'store' | 'ready'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'include' | 'subscribe'>;
   t: Translate;
@@ -98,6 +99,7 @@ interface AppearanceModesDeps extends
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    searchQuery,
     locale,
     settings,
     t,
@@ -181,8 +183,8 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
       }
     }
     updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
-    if (pageState.latestQuery && pageState.latestQuery.trim()) {
-      void renderSuggestions(pageState.lastSuggestionResponse, pageState.latestQuery);
+    if (searchQuery.text && searchQuery.text.trim()) {
+      void renderSuggestions(pageState.lastSuggestionResponse, searchQuery.text);
     }
   }
 

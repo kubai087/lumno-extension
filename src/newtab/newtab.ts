@@ -195,6 +195,7 @@ import * as FaviconBrowserIconIndex from '../domain/favicon/browser-icon-index';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
+import { SearchQuery } from '../shared/search-panel/search-query';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -509,6 +510,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
   }));
   void siteSearchIconCache.load();
+  const searchQuery = new SearchQuery();
   const searchEngine = new DefaultSearchEngine(settings);
   searchEngine.follow();
   const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
@@ -923,6 +925,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    searchQuery,
     syncBookmarkTopbarSurfaceAppearance,
     locale,
     settings,
@@ -1225,6 +1228,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
   }
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
+    searchQuery,
     settings,
     searchEngine,
     clearLocalSearchScope: (...args) => clearLocalSearchScope(...args),
@@ -1307,6 +1311,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     openBookmarkFolder,
     navigateToQuery
   } = NEWTAB_PAGE_NAVIGATION.createPageNavigation({
+    searchQuery,
     settings,
     NAVIGATION_DISPOSITION,
     getShortcutTileById,
@@ -2018,6 +2023,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     dismissAutocompletePreviewOnNonTabKey,
     applyAutocomplete
   } = NEWTAB_SEARCH_AUTOCOMPLETE.createSearchAutocomplete({
+    searchQuery,
     settings,
     getUrlDisplay,
     isEnglishQuery,
@@ -2044,6 +2050,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    searchQuery,
     settings,
     siteSearchCatalog,
     searchEngine,
@@ -2086,6 +2093,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    searchQuery,
     settings,
     formatMessage,
     getExtensionResourceUrl,
@@ -2132,6 +2140,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    searchQuery,
     settings,
     getPageFaviconCandidateUrl,
     SUGGESTION_ACTION_MODEL,
@@ -2282,6 +2291,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    searchQuery,
     locale,
     settings,
     suggestionItems,
@@ -2453,6 +2463,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
     setSiteSearchPrefix,
     clearSiteSearchPrefix
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    searchQuery,
     requestSuggestions,
     settings,
     renderSuggestions,
@@ -2527,6 +2538,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
   });
 
   NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
+    searchQuery,
     siteSearchCatalog,
     isAggregateSearchProvider,
     createAggregateSearchScopeProvider,
@@ -2544,6 +2556,7 @@ import * as ShortcutConstants from '../domain/shortcuts/constants';
   });
 
   NEWTAB_SEARCH_INPUT_COMPOSITION.createSearchInputComposition({
+    searchQuery,
     directNavigationSettleController,
     imeKeyGuard,
     clearAutocomplete,

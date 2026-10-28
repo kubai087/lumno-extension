@@ -19,6 +19,7 @@ import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SearchModeMenuState {
   settings: Pick<OverlaySettings, 'get' | 'store' | 'loaded' | 'set'>;
@@ -29,11 +30,10 @@ interface SearchModeMenuState {
   siteSearchState: InputModeProvider | null;
   localSearchScopeState: LocalSearchScope | null;
   openTabsSearchModeActive: boolean;
-  latestRawInputValue: string;
-  latestOverlayQuery: string;
 }
 
 interface SearchModeMenuDeps {
+  searchQuery: SearchQuery;
   searchEngine: DefaultSearchEngine;
   siteSearchCatalog: SiteSearchCatalog;
   AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore,
@@ -70,6 +70,7 @@ const getPageSearchSourceOrderHistory = lazyInstance(() => createSearchSourceOrd
 
 function createSearchModeMenu(deps: SearchModeMenuDeps) {
   const {
+    searchQuery,
     searchEngine,
     siteSearchCatalog,
     AGGREGATE_SEARCH_STORE,
@@ -330,8 +331,7 @@ function createSearchModeMenu(deps: SearchModeMenuDeps) {
   // it again in the new mode.
   function restoreSearchModeQuery(rawQuery: string): void {
     const value = String(rawQuery || '');
-    overlayState.latestRawInputValue = value;
-    overlayState.latestOverlayQuery = value.trim();
+    searchQuery.set(value);
     const input = overlayState.searchInput;
     if (!input) {
       return;

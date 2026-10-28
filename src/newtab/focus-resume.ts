@@ -24,6 +24,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import type { ActiveLocalScope } from './search/search-types';
 import { publishBootValue, takeBootValue } from '../platform/boot-handoff';
 import { newtabFocusResume } from '../domain/settings/page-cache';
+import type { SearchQuery } from '../shared/search-panel/search-query';
 
 // The search on screen, carried across the focus reload.
 interface SearchSnapshot {
@@ -42,7 +43,6 @@ interface HeldViewTransition {
 
 interface FocusResumeState {
   inputParts: { input: HTMLInputElement } | null;
-  latestRawQuery: string;
   siteSearchState: SiteSearchProvider | null;
   localSearchScopeState: ActiveLocalScope | null;
   lastSuggestionResponse: Suggestion[];
@@ -50,6 +50,7 @@ interface FocusResumeState {
 }
 
 interface FocusResumeDeps {
+  searchQuery: SearchQuery;
   getSiteSearchSnapshotId(provider: SiteSearchProvider): string;
   findSiteSearchBySnapshotId(id: string): SiteSearchProvider | null;
   activateSiteSearch(provider: SiteSearchProvider, options: { preserveResults: boolean; animatePrefix: boolean }): void;
@@ -174,6 +175,7 @@ function prepareResumeLoad(): boolean {
 
 function createFocusResume(deps: FocusResumeDeps) {
   const {
+    searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
     activateSiteSearch,
@@ -191,7 +193,7 @@ function createFocusResume(deps: FocusResumeDeps) {
     const value = input ? String(input.value || '') : '';
     // Inline autocomplete writes its completion into the input; keep what
     // the user typed.
-    const typed = String(pageState.latestRawQuery || '');
+    const typed = String(searchQuery.raw || '');
     return {
       savedAt: Date.now(),
       rawQuery: typed && value.startsWith(typed) ? typed : value,

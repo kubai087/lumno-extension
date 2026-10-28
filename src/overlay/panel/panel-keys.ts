@@ -23,6 +23,7 @@ import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { macosCtrlSuggestionNavigationEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -45,8 +46,6 @@ interface PanelKeysState {
   selectedIndex: number;
   // The search suggestion the arrows show in the input.
   suggestionInputPreview: SuggestionInputPreview;
-  latestRawInputValue: string;
-  latestOverlayQuery: string;
   overlayThemeMode: ThemeMode;
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
@@ -54,6 +53,7 @@ interface PanelKeysState {
 }
 
 interface PanelKeysDeps {
+  searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   cancelPendingOpenTabsPrefixEntry(): boolean;
   openSearchModeMenuFromDoubleTab(): Promise<boolean>;
@@ -119,6 +119,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    searchQuery,
     siteSearchCatalog,
     cancelPendingOpenTabsPrefixEntry,
     openSearchModeMenuFromDoubleTab,
@@ -183,8 +184,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     // Tab takes the suggestion the arrows show as typed text.
     if (!e.shiftKey && overlayState.suggestionInputPreview.commit()) {
       e.preventDefault();
-      overlayState.latestRawInputValue = input.value;
-      overlayState.latestOverlayQuery = input.value.trim();
+      searchQuery.set(input.value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
     }
@@ -213,13 +213,12 @@ function createPanelKeys(deps: PanelKeysDeps) {
     // On a page the arrows selected, Tab puts its address in the input to edit.
     if (!e.shiftKey && overlayState.suggestionInputPreview.editAddress(input, getSelectedSuggestion())) {
       e.preventDefault();
-      overlayState.latestRawInputValue = input.value;
-      overlayState.latestOverlayQuery = input.value.trim();
+      searchQuery.set(input.value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
     }
     const rawValue = input.value;
-    const rawTrigger = overlayState.latestRawInputValue || rawValue;
+    const rawTrigger = searchQuery.raw || rawValue;
     const triggerInput = (rawTrigger || rawValue).trim();
     if (!triggerInput && overlayState.inputModeController &&
         typeof overlayState.inputModeController.shouldOpenModeMenuOnDoubleTab === 'function') {
@@ -310,8 +309,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     }
     input.value = completion;
     input.setSelectionRange(completion.length, completion.length);
-    overlayState.latestRawInputValue = completion;
-    overlayState.latestOverlayQuery = completion.trim();
+    searchQuery.set(completion);
     overlayState.autocompleteState = null;
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
@@ -347,7 +345,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       return;
     }
     // Then the text typed before the arrows showed a suggestion comes back.
-    if (e.key === 'Escape' && overlayState.suggestionInputPreview.restore(input, overlayState.latestRawInputValue)) {
+    if (e.key === 'Escape' && overlayState.suggestionInputPreview.restore(input, searchQuery.raw)) {
       e.preventDefault();
       e.stopPropagation();
       overlayState.selectedIndex = -1;
@@ -450,8 +448,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     dismissAutocompletePreviewOnNonTabKey(e);
     if (e.key !== 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey &&
         !overlayState.suggestionInputPreview.isActive()) {
-      overlayState.latestRawInputValue = input.value;
-      overlayState.latestOverlayQuery = input.value.trim();
+      searchQuery.set(input.value);
     }
   }
 
@@ -487,7 +484,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
   // Shows the selected search suggestion in the input, or what was typed
   // for any other row.
   function previewSelectedSuggestion(input: HTMLInputElement): void {
-    overlayState.suggestionInputPreview.show(input, getSelectedSuggestion(), overlayState.latestRawInputValue);
+    overlayState.suggestionInputPreview.show(input, getSelectedSuggestion(), searchQuery.raw);
   }
 
   function getSuggestionNavigationKey(event: KeyboardEvent): 'ArrowDown' | 'ArrowUp' | '' {
@@ -578,7 +575,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       // A suggestion the arrows show opens as its row; the query stays what
       // was typed.
       const query = (overlayState.suggestionInputPreview.isActive()
-        ? overlayState.latestRawInputValue
+        ? searchQuery.raw
         : input.value).trim();
       if (query && overlayState.inputHistoryController) {
         overlayState.inputHistoryController.record(query);
@@ -599,8 +596,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
           LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openOptionsPage' });
         } else if (commandMatch.command.type === 'commandOpenTabs') {
           input.value = '';
-          overlayState.latestRawInputValue = '';
-          overlayState.latestOverlayQuery = '';
+          searchQuery.clear();
           activateOpenTabsSearchMode();
           input.focus();
           return;
@@ -652,8 +648,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
           }
           if (selectedSuggestion.type === 'commandOpenTabs') {
             input.value = '';
-            overlayState.latestRawInputValue = '';
-            overlayState.latestOverlayQuery = '';
+            searchQuery.clear();
             activateOpenTabsSearchMode();
             input.focus();
             return;
@@ -742,7 +737,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
             return;
           }
         }
-        const currentRawInput = (overlayState.latestRawInputValue || input.value || '').trim();
+        const currentRawInput = (searchQuery.raw || input.value || '').trim();
         const inlineSearch = overlayState.inlineSearchState;
         if (inlineSearch && inlineSearch.isAuto && inlineSearch.rawInput === currentRawInput) {
           if (inlineSearch.provider && inlineSearch.query) {

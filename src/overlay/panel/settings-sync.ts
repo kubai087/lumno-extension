@@ -25,6 +25,7 @@ import {
 import type * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
 import type { OverlaySettings } from '../overlay-settings';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 // Row is a suggestion row, Provider a site search provider and Theme a
 // suggestion theme; this module only passes them along.
@@ -35,7 +36,6 @@ interface SettingsSyncState<Row, Provider> {
   overlayViewportSizeSync: { apply(overlayElement: HTMLElement | null): void };
   overlayNoticeLayer: { sync(overlayElement: HTMLElement | null): void };
   inputModeController: { refreshModeMenu(): void } | null;
-  latestOverlayQuery: string;
   // The rows of the last answer, to rebuild the list when a setting changes.
   lastSuggestionResponse: Row[];
   tabs: OverlayTab[];
@@ -46,6 +46,7 @@ interface SettingsSyncState<Row, Provider> {
 }
 
 interface SettingsSyncDeps<Row, Provider, Theme> {
+  searchQuery: SearchQuery;
   SUGGESTION_NAVIGATION: Pick<typeof SuggestionNavigation, 'cancelNumberShortcuts'>;
   updateSearchSuggestions(rows: Row[], query: string, options?: { forceFullRerender?: boolean }): void;
   requestOverlaySearchSuggestions(query: string): void;
@@ -71,6 +72,7 @@ interface SettingsSyncDeps<Row, Provider, Theme> {
 // applied.
 function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Provider, Theme>): Promise<void> {
   const {
+    searchQuery,
     updateSearchSuggestions,
     applyOverlayTheme,
     searchEngine,
@@ -100,23 +102,23 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   }
 
   function refreshOverlaySuggestionsFromLastResponse(): void {
-    if (overlayState.latestOverlayQuery) {
-      updateSearchSuggestions(overlayState.lastSuggestionResponse, overlayState.latestOverlayQuery);
+    if (searchQuery.text) {
+      updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text);
     }
   }
 
   function showsOpenTabs(): boolean {
     return overlayState.openTabsSearchModeActive ||
-      (!overlayState.latestOverlayQuery && shouldShowOpenTabsForEmptyQuery());
+      (!searchQuery.text && shouldShowOpenTabsForEmptyQuery());
   }
 
   function redrawRows(options?: { forceFullRerender?: boolean }): void {
     if (showsOpenTabs()) {
-      renderTabSuggestions(filterTabsForOverlay(overlayState.tabs, overlayState.latestOverlayQuery));
+      renderTabSuggestions(filterTabsForOverlay(overlayState.tabs, searchQuery.text));
       return;
     }
-    if (overlayState.latestOverlayQuery) {
-      updateSearchSuggestions(overlayState.lastSuggestionResponse, overlayState.latestOverlayQuery, options);
+    if (searchQuery.text) {
+      updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text, options);
     }
   }
 
@@ -130,8 +132,8 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
     if (scope && !settings.get(searchResultSourceTypes).some((type) => type === scope.sourceType)) {
       clearLocalSearchScope();
     }
-    if (overlayState.latestOverlayQuery) {
-      requestOverlaySearchSuggestions(overlayState.latestOverlayQuery);
+    if (searchQuery.text) {
+      requestOverlaySearchSuggestions(searchQuery.text);
     }
   });
   settings.follow(searchResultDisplayLimit, () => redrawRows());
@@ -152,7 +154,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   });
 
   settings.follow(overlayOpenTabsDefaultVisible, () => {
-    if (overlayState.latestOverlayQuery || overlayState.openTabsSearchModeActive) {
+    if (searchQuery.text || overlayState.openTabsSearchModeActive) {
       return;
     }
     if (settings.get(overlayOpenTabsDefaultVisible)) {
@@ -175,7 +177,7 @@ function createSettingsSync<Row, Provider, Theme>(deps: SettingsSyncDeps<Row, Pr
   settings.follow([overlayFontFamily, overlayFontFallback], applyOverlayFontFamily);
 
   settings.follow(tabRankScoreDebug, () => {
-    if (!overlayState.latestOverlayQuery || !overlayState.latestOverlayQuery.trim()) {
+    if (!searchQuery.text || !searchQuery.text.trim()) {
       requestTabsAndRender();
     }
   });

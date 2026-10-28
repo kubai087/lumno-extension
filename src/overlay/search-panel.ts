@@ -77,6 +77,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
+import { SearchQuery } from '../shared/search-panel/search-query';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -152,6 +153,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // They follow storage only once the panel mounts, below.
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
+  const searchQuery = new SearchQuery();
   const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
   const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings.store, searchEngine, openOptions.siteSearchProviders);
 
@@ -325,6 +327,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    searchQuery,
     favicons: faviconRuntime,
     formatMessage: (...args) => formatMessage(...args),
     getPageFaviconCandidateUrl: (...args) => getPageFaviconCandidateUrl(...args),
@@ -383,6 +386,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updatePendingSearchSuggestions,
     requestOverlaySearchSuggestions
   } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
+    searchQuery,
     updateSearchSuggestions,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     getDirectUrlSuggestion,
@@ -401,6 +405,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    searchQuery,
     favicons: faviconRuntime,
     updateSearchSuggestions,
     requestOverlaySearchSuggestions,
@@ -466,6 +471,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    searchQuery,
     cancelPendingOpenTabsPrefixEntry: (...args) => cancelPendingOpenTabsPrefixEntry(...args),
     openSearchModeMenuFromDoubleTab: (...args) => openSearchModeMenuFromDoubleTab(...args),
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
@@ -521,6 +527,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleSearchInputCompositionEnd,
     handleSearchInputEvent
   } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    searchQuery,
     siteSearchCatalog,
     applyNoTranslate: (...args) => applyNoTranslate(...args),
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
@@ -569,6 +576,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode,
     clearOpenTabsSearchMode
   } = PANEL_SEARCH_MODES.createSearchModes({
+    searchQuery,
     t: (...args) => t(...args),
     isAggregateSearchProvider: (...args) => isAggregateSearchProvider(...args),
     formatMessage: (...args) => formatMessage(...args),
@@ -594,6 +602,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     dismissAutocompletePreviewOnNonTabKey,
     applyAutocomplete
   } = PANEL_AUTOCOMPLETE.createAutocomplete({
+    searchQuery,
     getUrlDisplay,
     isEnglishQuery,
     getKeywordSearchSuggestionState,
@@ -633,6 +642,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     openSearchModeMenuFromDoubleTab,
     selectSearchModeMenuItem
   } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
+    searchQuery,
     searchEngine,
     AGGREGATE_SEARCH_STORE,
     t: (...args) => t(...args),
@@ -828,6 +838,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyOverlayCjkFontFace,
     applyLanguageStrings
   } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
+    searchQuery,
     locale,
     updateModeBadge,
     setSiteSearchPrefix,
@@ -1259,8 +1270,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       if (!response || response.ok !== true) {
         return;
       }
-      if (overlayState.latestOverlayQuery) {
-        requestOverlaySearchSuggestions(overlayState.latestOverlayQuery);
+      if (searchQuery.text) {
+        requestOverlaySearchSuggestions(searchQuery.text);
         return;
       }
       requestTabsAndRender();
@@ -1271,7 +1282,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   overlayState.searchInput.addEventListener('focus', function() {
     overlayState.selectedIndex = -1;
     updateSelection();
-    overlayState.suggestionInputPreview.restore(overlayState.searchInput, overlayState.latestRawInputValue);
+    overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
   });
 
   function isImeCompositionEvent(event: KeyboardEvent): boolean {
@@ -1288,6 +1299,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
 
   const settingsApplied = PANEL_SETTINGS_SYNC.createSettingsSync({
+    searchQuery,
     updateSearchSuggestions,
     applyOverlayTheme,
     searchEngine,
@@ -1406,8 +1418,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (overlayState.searchInput && overlayState.searchInput.value) {
       syncSearchTriggerHintFromInput(overlayState.searchInput.value);
     }
-    if (overlayState.latestOverlayQuery) {
-      requestOverlaySearchSuggestions(overlayState.latestOverlayQuery);
+    if (searchQuery.text) {
+      requestOverlaySearchSuggestions(searchQuery.text);
     }
   });
 
@@ -1436,8 +1448,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (overlayState.inputModeController) {
       overlayState.inputModeController.refreshModeMenu();
     }
-    if (overlayState.latestOverlayQuery) {
-      requestOverlaySearchSuggestions(overlayState.latestOverlayQuery);
+    if (searchQuery.text) {
+      requestOverlaySearchSuggestions(searchQuery.text);
     }
   });
 
@@ -1455,8 +1467,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (overlayState.inputModeController) {
       overlayState.inputModeController.refreshModeMenu();
     }
-    if (overlayState.latestOverlayQuery) {
-      requestOverlaySearchSuggestions(overlayState.latestOverlayQuery);
+    if (searchQuery.text) {
+      requestOverlaySearchSuggestions(searchQuery.text);
     }
   });
 
@@ -1643,8 +1655,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
         ? initialLoadingSession.selectionDirection
         : 'none';
       searchInput.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
-      overlayState.latestRawInputValue = initialInputValue;
-      overlayState.latestOverlayQuery = initialInputValue.trim();
+      searchQuery.set(initialInputValue);
       updateModeBadge(initialInputValue);
       overlayState.suppressOverlayLoadingSessionNotification = true;
       try {

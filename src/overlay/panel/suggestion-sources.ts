@@ -36,13 +36,12 @@ import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/ca
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { OverlayFaviconRuntime } from '../favicon-view';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
   searchInput: HTMLInputElement | null;
   suggestionsContainer: HTMLElement | null;
-  latestOverlayQuery: string;
-  latestRawInputValue: string;
   // The rows of the last answer, to rebuild the list when something changes.
   lastSuggestionResponse: OverlaySuggestion[];
   currentSuggestions: OverlaySuggestion[];
@@ -60,6 +59,7 @@ interface SuggestionSourcesState {
 }
 
 interface SuggestionSourcesDeps {
+  searchQuery: SearchQuery;
   favicons: Pick<OverlayFaviconRuntime, 'warmIconCache'>;
   siteSearchCatalog: SiteSearchCatalog;
   formatMessage: FormatMessage;
@@ -130,6 +130,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    searchQuery,
     favicons,
     siteSearchCatalog,
     formatMessage,
@@ -344,8 +345,8 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           }
         },
         onUpdate: (updatedQuery) => {
-          if (updatedQuery === overlayState.latestOverlayQuery) {
-            updateSearchSuggestions(overlayState.lastSuggestionResponse, overlayState.latestOverlayQuery);
+          if (updatedQuery === searchQuery.text) {
+            updateSearchSuggestions(overlayState.lastSuggestionResponse, searchQuery.text);
           }
         }
       });
@@ -364,7 +365,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     if (!helpCenterFeedbackLinksRequested) {
       helpCenterFeedbackLinksRequested = true;
       void COMMUNITY_LINKS.load().then(() => {
-        if (query === overlayState.latestOverlayQuery) {
+        if (query === searchQuery.text) {
           updateSearchSuggestions(overlayState.lastSuggestionResponse, query);
         }
       });
@@ -381,7 +382,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   // search action, commands, direct addresses and site search rows, and
   // ranking them; answers for an older query are dropped.
   function updateSearchSuggestions(suggestions: OverlaySuggestion[], query: string, options?: SuggestionUpdateOptions | null): void {
-    if (query !== overlayState.latestOverlayQuery) {
+    if (query !== searchQuery.text) {
       return;
     }
     const renderOptions: SuggestionUpdateOptions = options && typeof options === 'object' ? options : {};
@@ -391,7 +392,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       ? renderOptions.remoteMixState
       : null;
     overlayState.lastSuggestionResponse = Array.isArray(suggestions) ? suggestions : [];
-    const rawTagInput = (overlayState.latestRawInputValue || query || '').trim();
+    const rawTagInput = (searchQuery.raw || query || '').trim();
     const localSearchQueryModeActive = Boolean(overlayState.localSearchScopeState && String(query || '').trim());
     const slashCommandModeActive = !localSearchQueryModeActive && isSlashCommandInput(rawTagInput);
     const siteSearchQueryModeActive = !localSearchQueryModeActive &&
@@ -423,7 +424,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       };
 
     void getShortcutRules().then((rules) => {
-      if (query !== overlayState.latestOverlayQuery) {
+      if (query !== searchQuery.text) {
         return;
       }
       if (!finalRemoteMix && remoteMixState && remoteMixState.settled) {
@@ -454,14 +455,14 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         pendingProviderReload = true;
         void siteSearchCatalog.loadProviders().then(() => {
           pendingProviderReload = false;
-          if (query !== overlayState.latestOverlayQuery) {
+          if (query !== searchQuery.text) {
             return;
           }
           updateSearchSuggestions(overlayState.lastSuggestionResponse, query);
         });
       }
       const inputValue = overlayState.searchInput ? overlayState.searchInput.value : '';
-      const rawTagInputForInline = (overlayState.latestRawInputValue || inputValue || '').trim();
+      const rawTagInputForInline = (searchQuery.raw || inputValue || '').trim();
       const inlineCandidate = (!localSearchQueryModeActive && !slashCommandModeActive &&
           !siteSearchQueryModeActive && !modeCommandActive && !hasCommand)
         ? getInlineSiteSearchCandidate(rawTagInputForInline, providersForTags)
@@ -552,7 +553,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       if (!localSearchQueryModeActive && !slashCommandModeActive && !modeCommandActive && !hasCommand) {
         const rankedSlate = SearchSuggestionSlate.rankSearchSuggestionSlate(allSuggestions, {
           query,
-          rawQuery: overlayState.latestRawInputValue,
+          rawQuery: searchQuery.raw,
           triggerInput: rawTagInput,
           providers: providersForTags,
           inlineSuggestion,

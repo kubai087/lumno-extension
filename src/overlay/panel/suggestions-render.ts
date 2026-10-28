@@ -35,6 +35,7 @@ import type { OverlaySettings } from '../overlay-settings';
 import type { OverlayFaviconRuntime } from '../favicon-view';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -51,8 +52,6 @@ interface SuggestionsRenderState {
   // Made once the panel has mounted.
   topActionTooltipController: Pick<TooltipController, 'show' | 'hide'> | null;
   overlayCursorTooltipController: Pick<CursorTooltipController, 'bind'> | null;
-  latestOverlayQuery: string;
-  latestRawInputValue: string;
   selectedIndex: number;
   // Dropping the selection puts back what the arrows wrote over.
   suggestionInputPreview: Pick<SuggestionInputPreview, 'restore'>;
@@ -72,6 +71,7 @@ interface SuggestionsRenderState {
 }
 
 interface SuggestionsRenderDeps {
+  searchQuery: SearchQuery;
   favicons: Pick<OverlayFaviconRuntime, 'attachResolvedFaviconWithFallbacks' | 'applyFaviconOpticalAlignment' | 'preloadIcon'>;
   updateSearchSuggestions(rows: never[], query: string): void;
   requestOverlaySearchSuggestions(query: string): void;
@@ -150,6 +150,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    searchQuery,
     favicons,
     updateSearchSuggestions,
     requestOverlaySearchSuggestions,
@@ -249,7 +250,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   function getOverlaySuggestionRefreshQuery(): string {
-    return overlayState.latestOverlayQuery || (overlayState.searchInput ? String(overlayState.searchInput.value || '').trim() : '');
+    return searchQuery.text || (overlayState.searchInput ? String(overlayState.searchInput.value || '').trim() : '');
   }
 
   function refreshOverlaySuggestionsAfterHistoryDelete(): void {
@@ -352,8 +353,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       if (input) {
         input.value = '';
       }
-      overlayState.latestRawInputValue = '';
-      overlayState.latestOverlayQuery = '';
+      searchQuery.clear();
       activateOpenTabsSearchMode();
       if (input) {
         input.focus();
@@ -537,7 +537,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       onSetSelectedIndex: (nextIndex) => {
         overlayState.selectedIndex = nextIndex;
         if (nextIndex < 0) {
-          overlayState.suggestionInputPreview.restore(overlayState.searchInput, overlayState.latestRawInputValue);
+          overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
         }
       },
       getSelectedIndex: () => overlayState.selectedIndex,
@@ -610,7 +610,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     pauseOverlayAntiTranslateObserverForMutationBurst();
     ensureOverlaySuggestionsView().render({
       suggestions: [],
-      query: overlayState.latestOverlayQuery,
+      query: searchQuery.text,
       emptyMessage: message || t('overlay_empty_result', '无匹配结果'),
       emptyArt: art || 'noResults'
     });
@@ -719,7 +719,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       if (requestModeKey !== getOverlaySearchModeKey()) {
         return;
       }
-      const activeQuery = overlayState.latestOverlayQuery;
+      const activeQuery = searchQuery.text;
       if (!overlayState.openTabsSearchModeActive &&
           (activeQuery || !shouldShowOpenTabsForEmptyQuery())) {
         return;

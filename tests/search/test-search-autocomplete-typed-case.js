@@ -20,9 +20,10 @@ function createInput(value) {
 }
 
 const input = createInput('4A');
+const { SearchQuery } = require('../../src/shared/search-panel/search-query.ts');
+const searchQuery = new SearchQuery();
+searchQuery.set('4A');
 const pageState = {
-  latestRawQuery: '4A',
-  lastDeletionAt: 0,
   siteSearchState: null,
   inputParts: { input },
   autocompleteState: null,
@@ -30,6 +31,7 @@ const pageState = {
 };
 const autocomplete = LumnoNewtabSearchAutocomplete.createSearchAutocomplete({
   settings: { get: () => 'autocomplete' },
+  searchQuery,
   pageState,
   getUrlDisplay: (url) => String(url || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
   isEnglishQuery: () => true,

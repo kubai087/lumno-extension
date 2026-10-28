@@ -2,6 +2,7 @@ import type { SuggestionInputPreview } from '../../domain/search/suggestion-inpu
 import type { SuggestionLike } from '../../domain/search/types';
 import { searchResultPriority } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 // What a row offers for completion; command rows complete to their text.
 interface AutocompleteRow extends SuggestionLike {
@@ -30,11 +31,6 @@ interface AutocompleteOverlayState {
   settings: Pick<OverlaySettings, 'get'>;
   autocompleteState: AutocompleteState | null;
   searchInput: HTMLInputElement | null;
-  latestRawInputValue: string;
-  latestOverlayQuery: string;
-  // 'search' keeps the search action first, so nothing is completed.
-  // When the user last deleted text; completing right after would fight it.
-  lastDeletionAt: number;
   // Only whether a site search or a local scope is active.
   siteSearchState: unknown;
   localSearchScopeState: unknown;
@@ -43,6 +39,7 @@ interface AutocompleteOverlayState {
 }
 
 interface AutocompleteDeps {
+  searchQuery: SearchQuery;
   getUrlDisplay(url: string | undefined): string;
   isEnglishQuery(query: string): boolean;
   getKeywordSearchSuggestionState(suggestions: AutocompleteRow[]): { autocompleteSuggestions: AutocompleteRow[] };
@@ -53,6 +50,7 @@ interface AutocompleteDeps {
 // suggestions), showing it in the input and dismissing it.
 function createAutocomplete(deps: AutocompleteDeps) {
   const {
+    searchQuery,
     getUrlDisplay,
     isEnglishQuery,
     getKeywordSearchSuggestionState
@@ -221,13 +219,12 @@ function createAutocomplete(deps: AutocompleteDeps) {
     }
     const rawQuery = typeof overlayState.autocompleteState.rawQuery === 'string'
       ? overlayState.autocompleteState.rawQuery
-      : String(overlayState.latestRawInputValue || '');
+      : String(searchQuery.raw || '');
     if (overlayState.searchInput && overlayState.searchInput.value !== rawQuery) {
       overlayState.searchInput.value = rawQuery;
       overlayState.searchInput.setSelectionRange(rawQuery.length, rawQuery.length);
     }
-    overlayState.latestRawInputValue = rawQuery;
-    overlayState.latestOverlayQuery = rawQuery.trim();
+    searchQuery.set(rawQuery);
     clearAutocomplete();
     return true;
   }
@@ -237,7 +234,7 @@ function createAutocomplete(deps: AutocompleteDeps) {
     primarySuggestion: AutocompleteRow | null,
     primaryHighlightReason: string
   ): void {
-    const rawQuery = overlayState.latestRawInputValue;
+    const rawQuery = searchQuery.raw;
     const trimmedQuery = rawQuery.trim();
     if (overlayState.suggestionInputPreview.isActive()) {
       return;
@@ -250,7 +247,7 @@ function createAutocomplete(deps: AutocompleteDeps) {
       clearAutocomplete();
       return;
     }
-    if (Date.now() - overlayState.lastDeletionAt < 250) {
+    if (Date.now() - searchQuery.lastDeletionAt < 250) {
       clearAutocomplete();
       return;
     }

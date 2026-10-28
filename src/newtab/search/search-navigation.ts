@@ -21,6 +21,7 @@ import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { AppearanceModes } from '../appearance-modes';
 import { newtabZenMode } from '../../domain/settings/newtab-page';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -30,7 +31,6 @@ interface SearchNavigationState {
   currentThemeMode: string;
   currentSuggestions: Suggestion[];
   siteSearchState: SiteSearchProvider | null;
-  latestRawQuery: string;
   inputParts: SearchInputParts | null;
   inlineSearchState: InlineSearchState | null;
   autocompleteState: AutocompleteState | null;
@@ -43,6 +43,7 @@ interface CommandMatch {
 }
 
 interface SearchNavigationDeps {
+  searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'set'>;
   formatMessage: FormatMessage;
   getExtensionResourceUrl(resourcePath: string): string;
@@ -82,6 +83,7 @@ type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    searchQuery,
     settings,
     formatMessage,
     getExtensionResourceUrl,
@@ -516,7 +518,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       }
     }
     const inputValue = pageState.inputParts ? pageState.inputParts.input.value : '';
-    const currentRawInput = (pageState.latestRawQuery || inputValue || '').trim();
+    const currentRawInput = (searchQuery.raw || inputValue || '').trim();
     const inline = pageState.inlineSearchState;
     if (inline && inline.isAuto && inline.rawInput === currentRawInput) {
       if (inline.provider && inline.query) {

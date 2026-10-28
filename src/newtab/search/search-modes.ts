@@ -20,6 +20,7 @@ import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/ca
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import { searchResultSourceTypes, searchSourceOrder } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -45,12 +46,11 @@ interface SearchModesState {
   currentSuggestions: Suggestion[];
   selectedIndex: number;
   suggestionRequestSeq: number;
-  latestQuery: string;
-  latestRawQuery: string;
   suggestionInputPreview: Pick<SuggestionInputPreview, 'commit' | 'editAddress'>;
 }
 
 interface SearchModesDeps {
+  searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'set'>;
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
@@ -90,6 +90,7 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    searchQuery,
     settings,
     siteSearchCatalog,
     searchEngine,
@@ -314,8 +315,7 @@ function createSearchModes(deps: SearchModesDeps) {
   function restoreSearchModeQuery(rawQuery: unknown): void {
     const value = String(rawQuery || '');
     getSearchInput().value = value;
-    pageState.latestRawQuery = value;
-    pageState.latestQuery = value.trim();
+    searchQuery.set(value);
     getSearchInput().dispatchEvent(new Event('input', { bubbles: true }));
   }
 
@@ -392,8 +392,7 @@ function createSearchModes(deps: SearchModesDeps) {
     pageState.siteSearchTriggerState = null;
     pageState.inlineSearchState = null;
     getSearchInput().value = '';
-    pageState.latestRawQuery = '';
-    pageState.latestQuery = '';
+    searchQuery.clear();
     clearAutocomplete();
     setLocalSearchScopePrefix(scope);
     if (options.preserveResults !== true) {
@@ -425,8 +424,7 @@ function createSearchModes(deps: SearchModesDeps) {
     pageState.siteSearchState = provider;
     pageState.inlineSearchState = null;
     getSearchInput().value = '';
-    pageState.latestRawQuery = '';
-    pageState.latestQuery = '';
+    searchQuery.clear();
     clearAutocomplete();
     setSiteSearchPrefix(provider, defaultTheme, {
       animate: options.animatePrefix !== false
@@ -459,8 +457,7 @@ function createSearchModes(deps: SearchModesDeps) {
     const completion = pageState.autocompleteState.completion;
     getSearchInput().value = completion;
     getSearchInput().setSelectionRange(completion.length, completion.length);
-    pageState.latestRawQuery = completion;
-    pageState.latestQuery = completion.trim();
+    searchQuery.set(completion);
     pageState.autocompleteState = null;
     getSearchInput().dispatchEvent(new Event('input', { bubbles: true }));
   }
@@ -497,7 +494,7 @@ function createSearchModes(deps: SearchModesDeps) {
       return true;
     }
     const rawValue = getSearchInput().value;
-    const rawTrigger = pageState.latestRawQuery || rawValue;
+    const rawTrigger = searchQuery.raw || rawValue;
     const triggerInput = (rawTrigger || rawValue).trim();
     if (!triggerInput && controller) {
       const shouldOpenModeMenu = controller.shouldOpenModeMenuOnDoubleTab(event);

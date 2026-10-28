@@ -12,6 +12,7 @@ import type { DefaultSearchEngine } from '../shared/search-panel/default-engine'
 import { newtabOpenInNewTab } from '../domain/settings/newtab-page';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
+import type { SearchQuery } from '../shared/search-panel/search-query';
 
 // A shortcut as the page opens it: a site, or a bookmark folder.
 type OpenableShortcut = ShortcutItem | VisibleShortcutItem;
@@ -29,11 +30,11 @@ interface SelectableSuggestion {
 }
 
 interface PageNavigationState {
-  latestRawQuery: string;
   inputParts: { input: HTMLInputElement } | null;
 }
 
 interface PageNavigationDeps {
+  searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get'>;
   NAVIGATION_DISPOSITION: Pick<typeof NavigationDisposition,
     'isMiddleClick' | 'isBackgroundOpenEvent' | 'getDisposition' | 'getDefaultTabDisposition'>;
@@ -51,6 +52,7 @@ interface PageNavigationDeps {
 
 function createPageNavigation(deps: PageNavigationDeps) {
   const {
+    searchQuery,
     settings,
     NAVIGATION_DISPOSITION,
     getShortcutTileById,
@@ -196,7 +198,7 @@ function createPageNavigation(deps: PageNavigationDeps) {
         !chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
       return;
     }
-    const query = String(rawQuery || pageState.latestRawQuery || (pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '') || '').trim();
+    const query = String(rawQuery || searchQuery.raw || (pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '') || '').trim();
     if (!query) {
       return;
     }

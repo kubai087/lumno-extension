@@ -4,6 +4,7 @@ import type { SuggestionLike } from '../../domain/search/types';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { DirectNavigationSettleController } from './direct-navigation-settle';
 import type { RequestSuggestions } from './search-types';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SearchInputCompositionState {
   inputParts: { input: HTMLInputElement } | null;
@@ -11,11 +12,10 @@ interface SearchInputCompositionState {
   suggestionRequestSeq: number;
   remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
   suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
-  latestQuery: string;
-  latestRawQuery: string;
 }
 
 interface SearchInputCompositionDeps {
+  searchQuery: SearchQuery;
   directNavigationSettleController: Pick<DirectNavigationSettleController<unknown>, 'cancel'>;
   imeKeyGuard: Pick<ReturnType<typeof createImeKeyGuard>, 'markCompositionStart' | 'markCompositionEnd' | 'markKeyUp'>;
   clearAutocomplete(): void;
@@ -29,6 +29,7 @@ interface SearchInputCompositionDeps {
 
 function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
   const {
+    searchQuery,
     directNavigationSettleController,
     imeKeyGuard,
     clearAutocomplete,
@@ -70,8 +71,7 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
     imeKeyGuard.markCompositionEnd(event);
     const rawValue = input.value;
     const query = rawValue.trim();
-    pageState.latestQuery = query;
-    pageState.latestRawQuery = rawValue;
+    searchQuery.set(rawValue, query);
     clearAutocomplete();
     if (!query) {
       if (pageState.remoteSuggestionDebounceTimer) {

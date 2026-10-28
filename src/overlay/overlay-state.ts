@@ -158,10 +158,6 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     overlayThemeMode: 'system',
     defaultPlaceholderText: 'Search or enter URL…',
 
-    // The query and what it shows.
-    latestOverlayQuery: '',
-    latestRawInputValue: '',
-    lastDeletionAt: 0,
     autocompleteState: null,
     inlineSearchState: null,
     siteSearchState: null,

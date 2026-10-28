@@ -133,8 +133,6 @@ function createPageState(): NewtabPageState {
     currentSuggestions: [],
     lastSuggestionResponse: [],
     lastEngineSuggestionResponse: [],
-    latestQuery: '',
-    latestRawQuery: '',
     siteSearchTriggerState: null,
     localSearchScopeTriggerState: null,
     suggestionsView: null,
@@ -195,7 +193,6 @@ function createPageState(): NewtabPageState {
 
     // 使用本地打包字体，避免外链字体依赖。
 
-    lastDeletionAt: 0,
     autocompleteState: null,
     inlineSearchState: null,
     remoteSuggestionDebounceTimer: null,

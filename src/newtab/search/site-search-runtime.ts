@@ -16,16 +16,17 @@ import type { SiteSearchProviders } from './site-search-providers';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import { searchSourceOrder } from '../../domain/settings/search';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 interface SiteSearchRuntimeState extends FocusResumeState {
   // Carries the search across the reload the search shortcut makes.
   focusResume: FocusResume | null;
   inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
-  latestQuery: string;
   siteSearchState: SiteSearchProvider | null;
 }
 
 interface SiteSearchRuntimeDeps {
+  searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   isAggregateSearchProvider: SiteSearchProviders['isAggregateSearchProvider'];
   createAggregateSearchScopeProvider: SiteSearchProviders['createAggregateSearchScopeProvider'];
@@ -44,6 +45,7 @@ interface SiteSearchRuntimeDeps {
 
 function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   const {
+    searchQuery,
     siteSearchCatalog,
     isAggregateSearchProvider,
     createAggregateSearchScopeProvider,
@@ -83,6 +85,7 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   }
 
   const focusResume = LumnoNewtabFocusResume.createFocusResume({
+    searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
     activateSiteSearch,
@@ -122,8 +125,8 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
     if (pageState.inputModeController) {
       pageState.inputModeController.refreshModeMenu();
     }
-    if (pageState.latestQuery) {
-      requestSuggestions(pageState.latestQuery, { immediate: true });
+    if (searchQuery.text) {
+      requestSuggestions(searchQuery.text, { immediate: true });
     }
   });
 }

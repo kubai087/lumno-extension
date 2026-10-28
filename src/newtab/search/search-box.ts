@@ -27,6 +27,7 @@ import { macosCtrlSuggestionNavigationEnabled, tabRankScoreDebug } from '../../d
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import type { SearchQuery } from '../../shared/search-panel/search-query';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -43,9 +44,6 @@ interface SearchBoxState {
   defaultPlaceholderText: string;
   // Hidden from the background; the input's focus shows them again.
   searchSuggestionsDismissed: boolean;
-  lastDeletionAt: number;
-  latestQuery: string;
-  latestRawQuery: string;
   remoteSuggestionDebounceTimer: ReturnType<typeof setTimeout> | null;
   suggestionRequestWatchdogTimer: ReturnType<typeof setTimeout> | null;
   localSearchScopeState: ActiveLocalScope | null;
@@ -57,6 +55,7 @@ interface SearchBoxState {
 }
 
 interface SearchBoxDeps {
+  searchQuery: SearchQuery;
   locale: Pick<SurfaceLocale, 'store'>;
   settings: Pick<SettingsStore, 'get'>;
   suggestionItems: ViewOption<'items'>;
@@ -149,6 +148,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    searchQuery,
     locale,
     settings,
     suggestionItems,
@@ -297,7 +297,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       if (nextIndex < 0) {
         pageState.suggestionInputPreview.restore(
           pageState.inputParts ? pageState.inputParts.input : null,
-          pageState.latestRawQuery
+          searchQuery.raw
         );
       }
     },
@@ -425,16 +425,14 @@ function createSearchBox(deps: SearchBoxDeps) {
       const isPaste = inputType === 'insertFromPaste';
       const isDelete = inputType.startsWith('delete');
       if (isDelete) {
-        pageState.lastDeletionAt = Date.now();
+        searchQuery.markDeletion();
       }
       if (imeKeyGuard.isComposing()) {
-        pageState.latestQuery = query;
-        pageState.latestRawQuery = rawValue;
+        searchQuery.set(rawValue, query);
         return;
       }
       if (!query) {
-        pageState.latestQuery = '';
-        pageState.latestRawQuery = '';
+        searchQuery.clear();
         clearAutocomplete();
         if (pageState.remoteSuggestionDebounceTimer) {
           clearTimeout(pageState.remoteSuggestionDebounceTimer);
@@ -447,10 +445,10 @@ function createSearchBox(deps: SearchBoxDeps) {
         clearSearchSuggestions();
         return;
       }
-      pageState.latestRawQuery = rawValue;
+      searchQuery.setRaw(rawValue);
       clearAutocomplete();
       if (!pageState.localSearchScopeState && isSlashCommandInput(query)) {
-        pageState.latestQuery = query;
+        searchQuery.setText(query);
         renderSuggestions([], query);
         return;
       }
@@ -460,7 +458,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         typeof directUrlSuggestion._xMatchedTabId === 'number'
       );
       if (isPaste || directUrlSuggestion) {
-        pageState.latestQuery = query;
+        searchQuery.setText(query);
         if (!directUrlSuggestion || hasCachedOpenTabMatch) {
           renderPendingSuggestions(query);
         }
@@ -485,8 +483,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       const input = inputParts.input;
       if (event.key !== 'Backspace' && !event.metaKey && !event.ctrlKey && !event.altKey &&
           !pageState.suggestionInputPreview.isActive()) {
-        pageState.latestRawQuery = input.value;
-        pageState.latestQuery = input.value.trim();
+        searchQuery.set(input.value);
       }
       // An open scope menu closes first and leaves the scope as it is.
       if (event.key === 'Escape' && pageState.inputModeController &&
@@ -495,7 +492,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         return;
       }
       // Then the text typed before the arrows showed a suggestion comes back.
-      if (event.key === 'Escape' && pageState.suggestionInputPreview.restore(input, pageState.latestRawQuery)) {
+      if (event.key === 'Escape' && pageState.suggestionInputPreview.restore(input, searchQuery.raw)) {
         event.preventDefault();
         pageState.selectedIndex = -1;
         updateSelection();
@@ -582,7 +579,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         pageState.suggestionInputPreview.show(
           input,
           selectedItem && selectedItem._xIsSearchSuggestion ? pageState.currentSuggestions[next.index] : null,
-          pageState.latestRawQuery
+          searchQuery.raw
         );
         scrollSelectedSuggestionIntoView(
           suggestionNavigationKey === 'ArrowDown' ? 'down' : 'up',
@@ -600,7 +597,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       // A suggestion the arrows show opens as its row; the query stays what
       // was typed.
       const query = (pageState.suggestionInputPreview.isActive()
-        ? pageState.latestRawQuery
+        ? searchQuery.raw
         : readInputValue(event)).trim();
       if (!query) {
         return;
