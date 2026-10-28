@@ -7,28 +7,19 @@ import type * as AggregateSearchStore from '../../domain/search/aggregate-search
 import type { AggregateScopeProvider, AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type * as AggregateSearchSurface from '../../domain/search/aggregate-search-surface';
 import type {
-  LocalSearchScope,
-  LocalSearchScopeRule,
-  SiteSearchProvider,
-  SuggestionLike
+  SiteSearchProvider
 } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { ShowToast, Translate } from '../newtab-types';
 import { getAggregateSearchId } from './search-types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
-import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
-import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
-import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
-import { searchResultSourceTypes } from '../../domain/settings/search';
-import type { SettingsStore } from '../../platform/settings-store';
 import { isInteractiveSiteSearchProvider } from '../../domain/search/utils/site-search-providers';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 
 interface SiteSearchProvidersDeps {
-  settings: Pick<SettingsStore, 'get'>;
   AGGREGATE_SEARCH_STORE: Pick<typeof AggregateSearchStore, 'isAggregateSearchProvider' | 'createScopeProvider'>;
   AGGREGATE_SEARCH_SURFACE: Pick<typeof AggregateSearchSurface, 'createAggregateSearchRequestController'>;
   showToast: ShowToast;
@@ -37,14 +28,11 @@ interface SiteSearchProvidersDeps {
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getProviderFaviconUrl'> | null;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
   getExtensionResourceUrl(resourcePath: string): string;
-  getDirectNavigationUrl: NonNullable<Parameters<typeof SearchNavigationMatching.promoteStrongNavigationMatch>[2]>['getDirectNavigationUrl'];
-  getUrlDisplay(url: string): string;
   getHelpCenterLocale?(): string;
 }
 
 function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
-    settings,
     AGGREGATE_SEARCH_STORE,
     AGGREGATE_SEARCH_SURFACE,
     showToast,
@@ -53,8 +41,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getPageFaviconUrlResolver,
     siteSearchIconCache,
     getExtensionResourceUrl,
-    getDirectNavigationUrl,
-    getUrlDisplay,
     getHelpCenterLocale
   } = deps;
 
@@ -155,117 +141,17 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
 
 
 
-  function getInlineSiteSearchCandidate(
-    ...args: Parameters<typeof SearchSiteSearchMatching.getInlineSiteSearchCandidate>
-  ): ReturnType<typeof SearchSiteSearchMatching.getInlineSiteSearchCandidate> {
-    const [input, providers] = args;
-    return SearchSiteSearchMatching.getInlineSiteSearchCandidate(input, providers);
-  }
 
-  function promoteStrongNavigationMatch<T extends SuggestionLike>(list: T[] | null | undefined, rawQuery: unknown): T | null {
-    return SearchNavigationMatching.promoteStrongNavigationMatch(list, rawQuery, {
-      getDirectNavigationUrl,
-      getUrlDisplay
-    });
-  }
 
-  function getKeywordSearchSuggestionState<T extends SuggestionLike>(list: readonly T[] | null | undefined) {
-    return SearchEngineSuggestions.getKeywordSearchSuggestionState(list);
-  }
 
-  function matchesTopSitePrefix(suggestion: SuggestionLike | null | undefined, input: unknown): boolean {
-    if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
-      return false;
-    }
-    const query = String(input || '').trim().toLowerCase();
-    if (!query) {
-      return false;
-    }
-    const titleText = String(suggestion.title || '').toLowerCase();
-    if (titleText.startsWith(query)) {
-      return true;
-    }
-    const urlText = getUrlDisplay(suggestion.url || '');
-    if (!urlText) {
-      return false;
-    }
-    const host = urlText.split('/')[0] || '';
-    return host.toLowerCase().startsWith(query);
-  }
 
-  function getTopSiteMatchCandidate<T extends SuggestionLike>(list: readonly (T | null | undefined)[] | null | undefined, input: unknown): T | null {
-    if (!list) {
-      return null;
-    }
-    const query = String(input || '').trim();
-    if (!query || /\s/.test(query)) {
-      return null;
-    }
-    let fallback: T | null = null;
-    for (let i = 0; i < list.length; i += 1) {
-      const suggestion = list[i];
-      if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
-        continue;
-      }
-      const urlText = getUrlDisplay(suggestion.url || '');
-      const host = urlText ? (urlText.split('/')[0] || '') : '';
-      if (host && host.toLowerCase().startsWith(query.toLowerCase())) {
-        return suggestion;
-      }
-      if (!fallback && matchesTopSitePrefix(suggestion, query)) {
-        fallback = suggestion;
-      }
-    }
-    return fallback;
-  }
 
-  // Moves the top site the query starts to the front of `list` when it
-  // leads the results; returns it, or null.
-  function promoteTopSiteMatch<T extends SuggestionLike>(list: T[], queryText: unknown): T | null {
-    const match = getTopSiteMatchCandidate(list, queryText);
-    if (!match) {
-      return null;
-    }
-    const matchIndex = list.indexOf(match);
-    const firstResultIndex = list.findIndex((item) => item && item.type !== 'newtab');
-    if (matchIndex !== firstResultIndex) {
-      return null;
-    }
-    if (matchIndex > 0) {
-      const [picked] = list.splice(matchIndex, 1);
-      list.unshift(picked);
-      return picked;
-    }
-    if (matchIndex === 0) {
-      return list[0];
-    }
-    return null;
-  }
 
   function getProviderHost(provider: Partial<SiteSearchProvider> | null | undefined): string {
     return SearchSiteSearchProviders.getSiteSearchProviderHost(provider);
   }
 
-  function getSiteSearchTriggerCandidate(
-    input: unknown,
-    providers: Parameters<typeof SearchSiteSearchMatching.getSiteSearchTriggerCandidate>[1],
-    topSiteMatch?: SuggestionLike | null
-  ): ReturnType<typeof SearchSiteSearchMatching.getSiteSearchTriggerCandidate> {
-    return SearchSiteSearchMatching.getSiteSearchTriggerCandidate(input, providers, topSiteMatch, {
-      matchesTopSitePrefix
-    });
-  }
 
-  function getLocalSearchScopeCandidate(
-    input: unknown,
-    rules: ReadonlyArray<LocalSearchScopeRule | null | undefined> | null | undefined
-  ): LocalSearchScope | null {
-    const scope = SearchSiteSearchProviders.findLocalSearchScope(input, rules);
-    if (!scope || !settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
-      return null;
-    }
-    return scope;
-  }
 
 
 
@@ -275,14 +161,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
-    getInlineSiteSearchCandidate,
-    promoteStrongNavigationMatch,
-    getKeywordSearchSuggestionState,
-    getTopSiteMatchCandidate,
-    promoteTopSiteMatch,
     getProviderHost,
-    getSiteSearchTriggerCandidate,
-    getLocalSearchScopeCandidate,
   };
 }
 

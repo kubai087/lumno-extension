@@ -28,6 +28,7 @@ import { isAiSiteSearchProvider, isSearchEngineSiteSearchProvider } from '../../
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { getLocalSearchScopeIconName, getLocalSearchScopeLabel, getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
+import type { SearchMatching } from '../../shared/search-panel/matching';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -48,6 +49,7 @@ interface SearchModesState {
 }
 
 interface SearchModesDeps {
+  searchMatching: SearchMatching;
   locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
@@ -66,9 +68,6 @@ interface SearchModesDeps {
   setSiteSearchPrefix: SearchModeController['setSiteSearchPrefix'];
   // The theme a provider's icon gives its prefix, once worked out.
   getThemeForProvider(provider: SiteSearchProvider): Promise<InputModeTheme | null | undefined>;
-  getTopSiteMatchCandidate: SiteSearchProviders['getTopSiteMatchCandidate'];
-  getSiteSearchTriggerCandidate: SiteSearchProviders['getSiteSearchTriggerCandidate'];
-  getLocalSearchScopeCandidate: SiteSearchProviders['getLocalSearchScopeCandidate'];
   getShortcutRules(): Promise<ShortcutRule[]>;
   pageState: SearchModesState;
 }
@@ -84,6 +83,7 @@ const LOCAL_SCOPE_SOURCES: readonly SearchSourceType[] = ['topSite', 'bookmark',
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    searchMatching,
     locale,
     searchResults,
     searchMode,
@@ -101,9 +101,6 @@ function createSearchModes(deps: SearchModesDeps) {
     clearSiteSearchPrefix,
     setSiteSearchPrefix,
     getThemeForProvider,
-    getTopSiteMatchCandidate,
-    getSiteSearchTriggerCandidate,
-    getLocalSearchScopeCandidate,
     getShortcutRules,
   } = deps;
   // Undo and redo for the moves made in this page's panel.
@@ -473,14 +470,14 @@ function createSearchModes(deps: SearchModesDeps) {
     if (triggerInput) {
       event.preventDefault();
       const providers = siteSearchCatalog.triggerProviders;
-      const topSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
-      const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
+      const topSiteMatch = searchMatching.getTopSiteMatchCandidate(searchResults.rows, triggerInput);
+      const directProvider = searchMatching.getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
       if (directProvider) {
         activateSiteSearch(directProvider);
         return true;
       }
       const cachedRules = shortcutRulesCache.rules;
-      const directLocalScope = getLocalSearchScopeCandidate(triggerInput, cachedRules);
+      const directLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, cachedRules);
       if (siteSearchCatalog.loadedProviders && directLocalScope) {
         activateLocalSearchScope(directLocalScope);
         return true;
@@ -494,8 +491,8 @@ function createSearchModes(deps: SearchModesDeps) {
             String(getSearchInput().value || '').trim() !== triggerInput) {
           return;
         }
-        const asyncTopSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
-        const asyncProvider = getSiteSearchTriggerCandidate(
+        const asyncTopSiteMatch = searchMatching.getTopSiteMatchCandidate(searchResults.rows, triggerInput);
+        const asyncProvider = searchMatching.getSiteSearchTriggerCandidate(
           triggerInput,
           siteSearchCatalog.triggerProviders,
           asyncTopSiteMatch
@@ -504,7 +501,7 @@ function createSearchModes(deps: SearchModesDeps) {
           activateSiteSearch(asyncProvider);
           return;
         }
-        const asyncLocalScope = getLocalSearchScopeCandidate(triggerInput, rules);
+        const asyncLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, rules);
         if (asyncLocalScope) {
           activateLocalSearchScope(asyncLocalScope);
           return;

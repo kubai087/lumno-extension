@@ -6,7 +6,7 @@ import type { createSearchInputHistoryController } from '../../domain/search/sea
 import type * as SearchInputHistory from '../../domain/search/search-input-history';
 import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
-import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
+import type { LocalSearchScope, SuggestionLike } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionElement } from '../../shared/react/search/suggestion-list/types';
@@ -27,6 +27,7 @@ import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete'
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
+import type { SearchMatching } from '../../shared/search-panel/matching';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -47,6 +48,7 @@ interface PanelKeysState {
 }
 
 interface PanelKeysDeps {
+  searchMatching: SearchMatching;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -57,13 +59,6 @@ interface PanelKeysDeps {
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
   activateSiteSearch(provider: InputModeProvider | null): void;
   activateLocalSearchScope(scope: LocalSearchScope | null): boolean;
-  getTopSiteMatchCandidate(list: OverlaySuggestion[] | null, input: string): OverlaySuggestion | null;
-  getSiteSearchTriggerCandidate(
-    input: string,
-    providers: SiteSearchProvider[] | null,
-    topSiteMatch: SuggestionLike | null
-  ): SiteSearchProvider | null;
-  getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
   getShortcutRules(): Promise<ShortcutRule[]>;
   syncSuggestionActionModifiersFromEvent(event: ActivationEvent | null): void;
   clearSiteSearch(): void;
@@ -114,6 +109,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    searchMatching,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -124,9 +120,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     activateOpenTabsSearchMode,
     activateSiteSearch,
     activateLocalSearchScope,
-    getTopSiteMatchCandidate,
-    getSiteSearchTriggerCandidate,
-    getLocalSearchScopeCandidate,
     getShortcutRules,
     syncSuggestionActionModifiersFromEvent,
     clearSiteSearch,
@@ -247,14 +240,14 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (triggerInput) {
       e.preventDefault();
       const providers = siteSearchCatalog.triggerProviders;
-      const topSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
-      const directProvider = getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
+      const topSiteMatch = searchMatching.getTopSiteMatchCandidate(searchResults.rows, triggerInput);
+      const directProvider = searchMatching.getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
       if (directProvider) {
         activateSiteSearch(directProvider);
         return true;
       }
       const cachedRules = shortcutRulesCache.rules;
-      const directLocalScope = getLocalSearchScopeCandidate(triggerInput, cachedRules);
+      const directLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, cachedRules);
       if (siteSearchCatalog.loadedProviders && directLocalScope) {
         activateLocalSearchScope(directLocalScope);
         return true;
@@ -270,8 +263,8 @@ function createPanelKeys(deps: PanelKeysDeps) {
             searchMode.openTabs || String(liveInput.value || '').trim() !== triggerInput) {
           return;
         }
-        const asyncTopSiteMatch = getTopSiteMatchCandidate(searchResults.rows, triggerInput);
-        const asyncProvider = getSiteSearchTriggerCandidate(
+        const asyncTopSiteMatch = searchMatching.getTopSiteMatchCandidate(searchResults.rows, triggerInput);
+        const asyncProvider = searchMatching.getSiteSearchTriggerCandidate(
           triggerInput,
           siteSearchCatalog.triggerProviders,
           asyncTopSiteMatch
@@ -280,7 +273,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
           activateSiteSearch(asyncProvider);
           return;
         }
-        const asyncLocalScope = getLocalSearchScopeCandidate(triggerInput, rules);
+        const asyncLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, rules);
         if (asyncLocalScope) {
           activateLocalSearchScope(asyncLocalScope);
           return;

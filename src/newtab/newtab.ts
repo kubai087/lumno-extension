@@ -195,6 +195,7 @@ import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons'
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchMatching } from '../shared/search-panel/matching';
 import { SearchResults } from '../shared/search-panel/search-results';
 import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
@@ -515,6 +516,11 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();
+  const searchMatching = new SearchMatching({
+    settings: settings,
+    getUrlDisplay: (url) => getUrlDisplay(url),
+    getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args)
+  });
   const searchResults = new SearchResults<Suggestion>();
   const searchMode = new SearchMode<SiteSearchProvider>();
   const searchAutocomplete = new SearchAutocomplete({
@@ -646,16 +652,8 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
-    getInlineSiteSearchCandidate,
-    promoteStrongNavigationMatch,
-    getKeywordSearchSuggestionState,
-    getTopSiteMatchCandidate,
-    promoteTopSiteMatch,
     getProviderHost,
-    getSiteSearchTriggerCandidate,
-    getLocalSearchScopeCandidate,
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
-    settings,
     AGGREGATE_SEARCH_STORE,
     AGGREGATE_SEARCH_SURFACE,
     showToast,
@@ -664,8 +662,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
     siteSearchIconCache,
     getExtensionResourceUrl,
-    getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args),
-    getUrlDisplay: (...args) => getUrlDisplay(...args),
     getHelpCenterLocale: (...args) => getHelpCenterLocale(...args)
   });
 
@@ -2044,6 +2040,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     clearSiteSearch,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
+    searchMatching,
     locale,
     searchResults,
     searchMode,
@@ -2061,9 +2058,6 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     clearSiteSearchPrefix: (...args) => clearSiteSearchPrefix(...args),
     setSiteSearchPrefix: (...args) => setSiteSearchPrefix(...args),
     getThemeForProvider,
-    getTopSiteMatchCandidate,
-    getSiteSearchTriggerCandidate,
-    getLocalSearchScopeCandidate,
     getShortcutRules: (...args) => getShortcutRules(...args),
     pageState
   });
@@ -2133,6 +2127,7 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    searchMatching,
     locale,
     searchResults,
     searchMode,
@@ -2171,19 +2166,13 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
     buildKeywordSuggestions,
     siteSearchCatalog,
     searchEngine,
-    getInlineSiteSearchCandidate,
     buildSearchUrl,
     getProviderIcon,
     formatMessage,
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
-    getKeywordSearchSuggestionState,
-    promoteStrongNavigationMatch,
-    promoteTopSiteMatch,
-    getSiteSearchTriggerCandidate,
     getUrlDisplay,
     getDirectNavigationUrl,
-    getLocalSearchScopeCandidate,
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
     limitSuggestionsForDisplay,
     t,

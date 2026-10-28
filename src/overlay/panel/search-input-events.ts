@@ -1,10 +1,9 @@
 // Input events in the search box: reading the live value, the trigger
 // hint, IME composition and the main input handler.
-import type { ShortcutRule } from '../../domain/messages';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
-import type { LocalSearchScope, SiteSearchProvider } from '../../domain/search/types';
+import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
@@ -17,6 +16,8 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
 import { getLocalSearchScopeTabHintProvider } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
+import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-search-matching';
+import type { SearchMatching } from '../../shared/search-panel/matching';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -31,6 +32,7 @@ interface SearchInputEventsState {
 }
 
 interface SearchInputEventsDeps {
+  searchMatching: SearchMatching;
   locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
@@ -40,10 +42,7 @@ interface SearchInputEventsDeps {
   applyNoTranslate(element: Element): unknown;
   clearSiteSearchTabHint(): void;
   isSlashCommandInput(input: string): boolean;
-  getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[]): unknown;
-  getSiteSearchTriggerCandidate(input: string, providers: SiteSearchProvider[], options: null): SiteSearchProvider | null;
   setSiteSearchTabHint(provider: SiteSearchProvider | InputModeProvider): void;
-  getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
   cancelPendingOverlaySuggestionRequests(): void;
   notifyOverlayLoadingSession(input: HTMLInputElement | null): void;
   updateModeBadge(rawValue: string): void;
@@ -64,6 +63,7 @@ function readInputType(event: Event | null): string {
 
 function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    searchMatching,
     locale,
     searchResults,
     searchMode,
@@ -73,10 +73,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     applyNoTranslate,
     clearSiteSearchTabHint,
     isSlashCommandInput,
-    getInlineSiteSearchCandidate,
-    getSiteSearchTriggerCandidate,
     setSiteSearchTabHint,
-    getLocalSearchScopeCandidate,
     cancelPendingOverlaySuggestionRequests,
     notifyOverlayLoadingSession,
     updateModeBadge,
@@ -162,7 +159,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     // Resolve every exact configured key, name, alias, domain, or local-scope
     // trigger synchronously so its matching Tab hint does not wait for the
     // asynchronous suggestion request to finish.
-    const provider = getSiteSearchTriggerCandidate(triggerInput, providers, null);
+    const provider = searchMatching.getSiteSearchTriggerCandidate(triggerInput, providers, null);
     if (provider) {
       searchMode.setTriggers({ provider, rawInput: triggerInput }, null);
       setSiteSearchTabHint(provider);
@@ -170,7 +167,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     }
 
     const shortcutRules = shortcutRulesCache.rules;
-    const localScope = getLocalSearchScopeCandidate(triggerInput, shortcutRules);
+    const localScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, shortcutRules);
     if (localScope) {
       searchMode.setTriggers(null, { scope: localScope, rawInput: triggerInput });
       setSiteSearchTabHint(getLocalSearchScopeTabHintProvider(locale, localScope));

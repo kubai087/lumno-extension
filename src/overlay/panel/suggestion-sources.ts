@@ -2,7 +2,7 @@
 // answers, and the update that merges local, tab and remote results.
 import type { ShortcutRule } from '../../domain/messages';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
-import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
+import type { SiteSearchProvider } from '../../domain/search/types';
 import { themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import { readShortcutRules } from '../../domain/shortcut-rules-reader';
@@ -38,6 +38,9 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { getLocalSearchScopeTabHintProvider, getSiteSearchActionTitle } from '../../shared/search-panel/labels';
+import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-search-matching';
+import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engine-suggestions';
+import type { SearchMatching } from '../../shared/search-panel/matching';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -51,6 +54,7 @@ interface SuggestionSourcesState {
 }
 
 interface SuggestionSourcesDeps {
+  searchMatching: SearchMatching;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -75,23 +79,10 @@ interface SuggestionSourcesDeps {
   buildModeSuggestion(): CommandSuggestion;
   buildCommandSuggestion(command: SlashCommand): CommandSuggestion;
   isCurrentOverlayTabUrl(url: string): boolean;
-  getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[] | null): { provider: SiteSearchProvider; query: string } | null;
   buildSearchUrl(template: string, query: string, provider?: SiteSearchProvider | null): string;
   getMatchedOpenTabIdForSuggestion(suggestion: { url?: string } | null): number | null;
   filterOverlayBlacklistedSuggestions(list: OverlaySuggestion[] | null): OverlaySuggestion[];
-  getKeywordSearchSuggestionState(list: OverlaySuggestion[]): {
-    onlyKeywordSuggestions: boolean;
-    autocompleteSuggestions: OverlaySuggestion[];
-  };
-  promoteStrongNavigationMatch(list: OverlaySuggestion[], rawQuery: string): OverlaySuggestion | null;
-  promoteTopSiteMatch(list: OverlaySuggestion[], queryText: string): OverlaySuggestion | null;
-  getSiteSearchTriggerCandidate(
-    input: string,
-    providers: SiteSearchProvider[] | null,
-    topSiteMatch: SuggestionLike | null
-  ): SiteSearchProvider | null;
   getUrlDisplay(url: string | undefined): string;
-  getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null;
   setSiteSearchTabHint(provider: InputModeProvider): void;
   clearSiteSearchTabHint(): void;
   limitOverlaySuggestionsForDisplay(list: OverlaySuggestion[], options?: { uncapped?: boolean } | null): OverlaySuggestion[];
@@ -119,6 +110,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    searchMatching,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -143,16 +135,10 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     buildModeSuggestion,
     buildCommandSuggestion,
     isCurrentOverlayTabUrl,
-    getInlineSiteSearchCandidate,
     buildSearchUrl,
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions,
-    getKeywordSearchSuggestionState,
-    promoteStrongNavigationMatch,
-    promoteTopSiteMatch,
-    getSiteSearchTriggerCandidate,
     getUrlDisplay,
-    getLocalSearchScopeCandidate,
     setSiteSearchTabHint,
     clearSiteSearchTabHint,
     limitOverlaySuggestionsForDisplay,
@@ -556,10 +542,10 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
               }
             : null,
           matchers: {
-            promoteStrongNavigationMatch,
-            promoteTopSiteMatch,
+            promoteStrongNavigationMatch: searchMatching.promoteStrongNavigationMatch,
+            promoteTopSiteMatch: searchMatching.promoteTopSiteMatch,
             getSiteSearchTriggerCandidate: (input, providers, topSiteMatch) => (
-              getSiteSearchTriggerCandidate(String(input || ''), providers || null, topSiteMatch)
+              searchMatching.getSiteSearchTriggerCandidate(String(input || ''), providers || null, topSiteMatch)
             ),
             getAutocompleteCandidate: (rows, rawQuery) => searchAutocomplete.getCandidate(rows || null, rawQuery),
             getUrlDisplay,
@@ -580,7 +566,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
         const resolvedProvider = siteSearchTrigger;
         const resolvedLocalScope = !resolvedProvider
-          ? getLocalSearchScopeCandidate(rawTagInputForInline, rules)
+          ? searchMatching.getLocalSearchScopeCandidate(rawTagInputForInline, rules)
           : null;
         searchMode.setHints(
           inlineSuggestion

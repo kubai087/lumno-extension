@@ -77,6 +77,7 @@ import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
+import { SearchMatching } from '../shared/search-panel/matching';
 import { SearchResults } from '../shared/search-panel/search-results';
 import { SearchMode } from '../shared/search-panel/search-mode';
 import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
@@ -160,6 +161,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
+  const searchMatching = new SearchMatching({
+    settings: overlayState.settings.store,
+    getUrlDisplay: (url) => getUrlDisplay(url),
+    getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args)
+  });
   const searchResults = new SearchResults<OverlaySuggestion>();
   const searchMode = new SearchMode<InputModeProvider>();
   const searchAutocomplete = new SearchAutocomplete({
@@ -342,6 +348,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    searchMatching,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -366,16 +373,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     buildCommandSuggestion: (...args) => buildCommandSuggestion(...args),
     isCurrentOverlayTabUrl,
     siteSearchCatalog,
-    getInlineSiteSearchCandidate: (...args) => getInlineSiteSearchCandidate(...args),
     buildSearchUrl: (...args) => buildSearchUrl(...args),
     getMatchedOpenTabIdForSuggestion,
     filterOverlayBlacklistedSuggestions: (...args) => filterOverlayBlacklistedSuggestions(...args),
-    getKeywordSearchSuggestionState: (...args) => getKeywordSearchSuggestionState(...args),
-    promoteStrongNavigationMatch: (...args) => promoteStrongNavigationMatch(...args),
-    promoteTopSiteMatch: (...args) => promoteTopSiteMatch(...args),
-    getSiteSearchTriggerCandidate: (...args) => getSiteSearchTriggerCandidate(...args),
     getUrlDisplay,
-    getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
     limitOverlaySuggestionsForDisplay: (...args) => limitOverlaySuggestionsForDisplay(...args),
@@ -485,6 +486,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    searchMatching,
     searchResults,
     searchMode,
     searchAutocomplete,
@@ -494,9 +496,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
     activateSiteSearch: (...args) => activateSiteSearch(...args),
     activateLocalSearchScope: (...args) => activateLocalSearchScope(...args),
-    getTopSiteMatchCandidate: (...args) => getTopSiteMatchCandidate(...args),
-    getSiteSearchTriggerCandidate: (...args) => getSiteSearchTriggerCandidate(...args),
-    getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
     siteSearchCatalog,
     getShortcutRules,
     syncSuggestionActionModifiersFromEvent: (...args) => syncSuggestionActionModifiersFromEvent(...args),
@@ -542,6 +541,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleSearchInputCompositionEnd,
     handleSearchInputEvent
   } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    searchMatching,
     locale,
     searchResults,
     searchMode,
@@ -551,10 +551,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyNoTranslate: (...args) => applyNoTranslate(...args),
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    getInlineSiteSearchCandidate: (...args) => getInlineSiteSearchCandidate(...args),
-    getSiteSearchTriggerCandidate: (...args) => getSiteSearchTriggerCandidate(...args),
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
-    getLocalSearchScopeCandidate: (...args) => getLocalSearchScopeCandidate(...args),
     cancelPendingOverlaySuggestionRequests,
     notifyOverlayLoadingSession,
     updateModeBadge: (...args) => updateModeBadge(...args),
@@ -572,13 +569,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSiteSearchPrefixLayout,
     setSiteSearchPrefix,
     cancelPendingOpenTabsPrefixEntry,
-    getInlineSiteSearchCandidate,
-    promoteStrongNavigationMatch,
-    getKeywordSearchSuggestionState,
-    getTopSiteMatchCandidate,
-    promoteTopSiteMatch,
-    getSiteSearchTriggerCandidate,
-    getLocalSearchScopeCandidate,
     setLocalSearchScopePrefix,
     activateLocalSearchScope,
     clearLocalSearchScope,
@@ -593,8 +583,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchAutocomplete,
     searchQuery,
     t: (...args) => t(...args),
-    getDirectNavigationUrl,
-    getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,
     clearSearchSuggestions,
     getImmediateThemeForSuggestion: (...args) => getImmediateThemeForSuggestion(...args),

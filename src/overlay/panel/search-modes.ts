@@ -1,16 +1,11 @@
 // Search modes: site search, local scopes and open tabs, their input
 // prefixes and labels, and the top-site and trigger candidates that suggest
 // switching.
-import type { ShortcutRule } from '../../domain/messages';
-import type { LocalSearchScope, SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
+import type { LocalSearchScope } from '../../domain/search/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { ModeTagOptions } from '../../shared/search/input-mode/tag';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 import type { Translate } from './types';
-import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
-import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
-import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
-import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
@@ -36,8 +31,6 @@ interface SearchModesDeps {
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   t: Translate;
-  getDirectNavigationUrl(rawQuery: string): unknown;
-  getUrlDisplay(url: string | undefined): string;
   cancelPendingOverlaySuggestionRequests(): void;
   clearSearchSuggestions(): void;
   getImmediateThemeForSuggestion(suggestion: { provider: InputModeProvider }): InputModeTheme | null;
@@ -64,8 +57,6 @@ function createSearchModes(deps: SearchModesDeps) {
     searchAutocomplete,
     searchQuery,
     t,
-    getDirectNavigationUrl,
-    getUrlDisplay,
     cancelPendingOverlaySuggestionRequests,
     clearSearchSuggestions,
     getImmediateThemeForSuggestion,
@@ -155,110 +146,13 @@ function createSearchModes(deps: SearchModesDeps) {
 
 
 
-  function getInlineSiteSearchCandidate(input: string, providers: SiteSearchProvider[] | null) {
-    return SearchSiteSearchMatching.getInlineSiteSearchCandidate(input, providers);
-  }
 
-  function promoteStrongNavigationMatch<T extends SuggestionLike>(list: T[], rawQuery: string): T | null {
-    return SearchNavigationMatching.promoteStrongNavigationMatch(list, rawQuery, {
-      getDirectNavigationUrl,
-      getUrlDisplay
-    });
-  }
 
-  function getKeywordSearchSuggestionState<T extends SuggestionLike>(list: T[]) {
-    return SearchEngineSuggestions.getKeywordSearchSuggestionState(list);
-  }
 
-  function matchesTopSitePrefix(suggestion: SuggestionLike | null, input: string): boolean {
-    if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
-      return false;
-    }
-    const query = String(input || '').trim().toLowerCase();
-    if (!query) {
-      return false;
-    }
-    const titleText = String(suggestion.title || '').toLowerCase();
-    if (titleText.startsWith(query)) {
-      return true;
-    }
-    const urlText = getUrlDisplay(suggestion.url || '');
-    if (!urlText) {
-      return false;
-    }
-    const host = urlText.split('/')[0] || '';
-    return host.toLowerCase().startsWith(query);
-  }
 
-  // The top site the query starts, by host first and then by title.
-  function getTopSiteMatchCandidate<T extends SuggestionLike>(list: T[] | null, input: string): T | null {
-    if (!Array.isArray(list)) {
-      return null;
-    }
-    const query = String(input || '').trim();
-    if (!query || /\s/.test(query)) {
-      return null;
-    }
-    let fallback: T | null = null;
-    for (let i = 0; i < list.length; i += 1) {
-      const suggestion = list[i];
-      if (!suggestion || !(suggestion.type === 'topSite' || suggestion.isTopSite)) {
-        continue;
-      }
-      const urlText = getUrlDisplay(suggestion.url || '');
-      const host = urlText ? (urlText.split('/')[0] || '') : '';
-      if (host && host.toLowerCase().startsWith(query.toLowerCase())) {
-        return suggestion;
-      }
-      if (!fallback && matchesTopSitePrefix(suggestion, query)) {
-        fallback = suggestion;
-      }
-    }
-    return fallback;
-  }
 
-  // Moves the matching top site to the top when it is already the first
-  // result besides the search action.
-  function promoteTopSiteMatch<T extends SuggestionLike>(list: T[], queryText: string): T | null {
-    const match = getTopSiteMatchCandidate(list, queryText);
-    if (!match) {
-      return null;
-    }
-    const matchIndex = list.indexOf(match);
-    const firstResultIndex = Array.isArray(list)
-      ? list.findIndex((item) => item && item.type !== 'newtab')
-      : -1;
-    if (matchIndex !== firstResultIndex) {
-      return null;
-    }
-    if (matchIndex > 0) {
-      const [picked] = list.splice(matchIndex, 1);
-      list.unshift(picked);
-      return picked;
-    }
-    if (matchIndex === 0) {
-      return list[0];
-    }
-    return null;
-  }
 
-  function getSiteSearchTriggerCandidate(
-    input: string,
-    providers: SiteSearchProvider[] | null,
-    topSiteMatch: SuggestionLike | null
-  ): SiteSearchProvider | null {
-    return SearchSiteSearchMatching.getSiteSearchTriggerCandidate(input, providers, topSiteMatch, {
-      matchesTopSitePrefix
-    });
-  }
 
-  function getLocalSearchScopeCandidate(input: string, rules: ShortcutRule[] | undefined): LocalSearchScope | null {
-    const scope = SearchSiteSearchProviders.findLocalSearchScope(input, rules);
-    if (!scope || !overlayState.settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
-      return null;
-    }
-    return scope;
-  }
 
 
 
@@ -401,13 +295,6 @@ function createSearchModes(deps: SearchModesDeps) {
     updateSiteSearchPrefixLayout,
     setSiteSearchPrefix,
     cancelPendingOpenTabsPrefixEntry,
-    getInlineSiteSearchCandidate,
-    promoteStrongNavigationMatch,
-    getKeywordSearchSuggestionState,
-    getTopSiteMatchCandidate,
-    promoteTopSiteMatch,
-    getSiteSearchTriggerCandidate,
-    getLocalSearchScopeCandidate,
     setLocalSearchScopePrefix,
     activateLocalSearchScope,
     clearLocalSearchScope,

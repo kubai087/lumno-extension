@@ -44,6 +44,9 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { getLocalSearchScopeTabHintProvider, getSiteSearchActionTitle } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
+import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-search-matching';
+import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engine-suggestions';
+import type { SearchMatching } from '../../shared/search-panel/matching';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -58,6 +61,7 @@ interface SuggestionsControllerState {
 }
 
 interface SuggestionsControllerDeps {
+  searchMatching: SearchMatching;
   locale: SearchLocale;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
@@ -97,20 +101,14 @@ interface SuggestionsControllerDeps {
   buildCommandSuggestion(command: SlashCommand): Suggestion;
   getDirectUrlSuggestion: SearchNavigation['getDirectUrlSuggestion'];
   buildKeywordSuggestions: SearchNavigation['buildKeywordSuggestions'];
-  getInlineSiteSearchCandidate: SiteSearchProviders['getInlineSiteSearchCandidate'];
   buildSearchUrl: SiteSearchProviders['buildSearchUrl'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   formatMessage: FormatMessage;
   getMatchedOpenTabIdForSuggestion: SearchNavigation['getMatchedOpenTabIdForSuggestion'];
   // The suggestions the search blacklist does not leave out.
   filterBlacklistedSuggestions(list: Suggestion[], query: string): Suggestion[];
-  getKeywordSearchSuggestionState: SiteSearchProviders['getKeywordSearchSuggestionState'];
-  promoteStrongNavigationMatch: SiteSearchProviders['promoteStrongNavigationMatch'];
-  promoteTopSiteMatch: SiteSearchProviders['promoteTopSiteMatch'];
-  getSiteSearchTriggerCandidate: SiteSearchProviders['getSiteSearchTriggerCandidate'];
   getUrlDisplay(url: string | undefined): string;
   getDirectNavigationUrl: SearchNavigation['getDirectNavigationUrl'];
-  getLocalSearchScopeCandidate: SiteSearchProviders['getLocalSearchScopeCandidate'];
   setSiteSearchTabHint: SearchModeController['setSiteSearchTabHint'];
   // The rows the list shows; `uncapped` keeps every command.
   limitSuggestionsForDisplay(list: Suggestion[], options: { uncapped: boolean }): Suggestion[];
@@ -142,6 +140,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    searchMatching,
     locale,
     searchResults,
     searchMode,
@@ -180,19 +179,13 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     buildCommandSuggestion,
     getDirectUrlSuggestion,
     buildKeywordSuggestions,
-    getInlineSiteSearchCandidate,
     buildSearchUrl,
     getProviderIcon,
     formatMessage,
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
-    getKeywordSearchSuggestionState,
-    promoteStrongNavigationMatch,
-    promoteTopSiteMatch,
-    getSiteSearchTriggerCandidate,
     getUrlDisplay,
     getDirectNavigationUrl,
-    getLocalSearchScopeCandidate,
     setSiteSearchTabHint,
     limitSuggestionsForDisplay,
     t,
@@ -682,9 +675,9 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
               }
             : null,
           matchers: {
-            promoteStrongNavigationMatch,
-            promoteTopSiteMatch,
-            getSiteSearchTriggerCandidate,
+            promoteStrongNavigationMatch: searchMatching.promoteStrongNavigationMatch,
+            promoteTopSiteMatch: searchMatching.promoteTopSiteMatch,
+            getSiteSearchTriggerCandidate: searchMatching.getSiteSearchTriggerCandidate,
             getAutocompleteCandidate: (list, rawQuery) => searchAutocomplete.getCandidate(list, rawQuery),
             getUrlDisplay,
             filterSuggestions: (list) => filterBlacklistedSuggestions(list, query)
@@ -704,7 +697,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         const inlineAutoHighlight = Boolean(inlineSuggestion && primaryHighlightIndex === 0);
         const resolvedProvider = siteSearchTrigger;
         const resolvedLocalScope = !resolvedProvider
-          ? getLocalSearchScopeCandidate(rawTagInput, rules)
+          ? searchMatching.getLocalSearchScopeCandidate(rawTagInput, rules)
           : null;
         searchMode.setHints(
           inlineSuggestion
