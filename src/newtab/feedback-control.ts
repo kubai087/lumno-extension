@@ -9,6 +9,8 @@ import type { FeedbackControlController, FeedbackControlModel } from './react/fe
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import * as COMMUNITY_LINKS from '../platform/community-links';
 import { createFeedbackControlController } from './react/feedback';
+import type { FeedbackControlState } from './react/feedback';
+import { createViewStore } from '../shared/react/view-store';
 import * as COMMUNITY_QR_DIALOG from '../shared/ui/community-qr-dialog';
 
 
@@ -35,6 +37,8 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   let feedbackControl: HTMLDivElement | null = null;
   let feedbackButton: HTMLElement | null = null;
   let feedbackReactController: FeedbackControlController | null = null;
+  // The control's model, which it draws from.
+  const feedbackModel = createViewStore<FeedbackControlState>({ model: null });
 
   const LUMNO_FEEDBACK_QR_REFRESH_TIMEOUT_MS = 5000;
   let feedbackRefreshResultTooltipTimer = 0;
@@ -164,11 +168,10 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   }
 
   function renderFeedbackControlWithReact(): boolean {
-    if (!feedbackReactController ||
-        typeof feedbackReactController.render !== 'function') {
+    if (!feedbackReactController) {
       return false;
     }
-    feedbackReactController.render(buildFeedbackReactModel());
+    feedbackModel.setState({ model: buildFeedbackReactModel() });
     syncFeedbackReactElementReferences();
     return true;
   }
@@ -277,7 +280,8 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
               placement: 'top'
             });
           }
-        }
+        },
+        feedbackModel
       );
     renderFeedbackControlWithReact();
     return control;

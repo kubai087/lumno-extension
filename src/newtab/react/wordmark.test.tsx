@@ -1,7 +1,9 @@
 import { act } from 'react';
+import { createViewStore } from '../../shared/react/view-store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createTopContentController,
+  type TopContentState,
   type TopContentClockFont,
   type TopContentController,
   type WordmarkAppearance
@@ -29,13 +31,14 @@ function createController(
   const onActivate = vi.fn();
   const onEntryAnimationComplete = vi.fn();
   document.body.appendChild(host);
+  const store = createViewStore<TopContentState>({ model: null });
   const controller = createTopContentController(host, {
     onActivate,
     onEntryAnimationComplete
-  });
+  }, store);
   controllers.push(controller);
   act(() => {
-    controller.render({
+    store.setState({ model: {
       animateEntry,
       ariaLabel: 'Lumno Chrome Web Store',
       appearance: APPEARANCE,
@@ -44,9 +47,9 @@ function createController(
       showSeconds,
       fontWeight,
       font
-    });
+    } });
   });
-  return { controller, host, onActivate, onEntryAnimationComplete };
+  return { controller, host, onActivate, onEntryAnimationComplete, store };
 }
 
 afterEach(() => {
@@ -74,13 +77,14 @@ describe('New Tab top-content React island', () => {
   });
 
   it('takes a new appearance without replaying its entry motion', () => {
-    const { controller, host } = createController(true);
-    act(() => controller.updateAppearance({
+    const { controller, host, store } = createController(true);
+    const { model } = store.getSnapshot();
+    act(() => store.setState({ model: model && { ...model, appearance: {
       imageSrc: '/wordmark-dark.svg',
       imageOpacity: 0,
       solidOpacity: 0.6,
       solidFill: 'rgb(238 240 242)'
-    }));
+    } } }));
 
     expect(host.dataset.enter).toBe('run');
     expect(controller.getImage()?.getAttribute('src')).toBe('/wordmark-dark.svg');
@@ -198,20 +202,21 @@ describe('New Tab top-content React island', () => {
     const render = (locale: string, twelveHour: boolean) => {
       const host = document.createElement('div');
       document.body.appendChild(host);
+      const store = createViewStore<TopContentState>({ model: null });
       const controller = createTopContentController(host, {
         onActivate: vi.fn(),
         onEntryAnimationComplete: vi.fn()
-      });
+      }, store);
       controllers.push(controller);
       act(() => {
-        controller.render({
+        store.setState({ model: {
           animateEntry: false,
           ariaLabel: 'Lumno',
           appearance: APPEARANCE,
           locale,
           mode: 'time',
           twelveHour
-        });
+        } });
       });
       return getElement(host, 'time.x-nt-time-mark');
     };

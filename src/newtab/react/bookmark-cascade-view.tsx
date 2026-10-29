@@ -13,6 +13,8 @@ import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import { getPagePortals } from '../app/portals';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 
 // The menu levels size to their content within these bounds.
 const LEVEL_MIN_WIDTH_PX = 210;
@@ -258,28 +260,24 @@ function CascadeLevel({ handlers, level }: { handlers: CascadeMenuHandlers; leve
 
 export interface CascadeMenuView {
   element: HTMLDivElement;
-  render(model: CascadeMenuModel): void;
   destroy(): void;
 }
 
-export function createCascadeMenu(documentObj: Document, handlers: CascadeMenuHandlers): CascadeMenuView {
+function CascadeLevels({ handlers, store }: { handlers: CascadeMenuHandlers; store: Store<CascadeMenuModel> }) {
+  const { levels } = useStore(store);
+  return <>{levels.map((level) => <CascadeLevel handlers={handlers} key={level.key} level={level} />)}</>;
+}
+
+// Draws the open levels its owner sets in `store`.
+export function createCascadeMenu(documentObj: Document, handlers: CascadeMenuHandlers, store: Store<CascadeMenuModel>): CascadeMenuView {
   const element = documentObj.createElement('div');
   element.className = 'x-nt-bookmark-cascade-menu';
   element.dataset.reactIsland = 'newtab-bookmark-cascade';
   element.setAttribute('role', 'menu');
   let destroyed = false;
+  getPagePortals().show(element, <CascadeLevels handlers={handlers} store={store} />);
   return {
     element,
-    render(model) {
-      if (destroyed) {
-        return;
-      }
-      getPagePortals().show(element, (
-        <>
-          {model.levels.map((level) => <CascadeLevel handlers={handlers} key={level.key} level={level} />)}
-        </>
-      ));
-    },
     destroy() {
       if (destroyed) {
         return;

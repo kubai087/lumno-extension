@@ -1,7 +1,9 @@
 import { act } from 'react';
+import { createViewStore } from '../../shared/react/view-store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createFeedbackControlController,
+  type FeedbackControlState,
   type FeedbackControlController,
   type FeedbackControlModel
 } from './feedback';
@@ -45,10 +47,11 @@ function createController(
     onShowTooltip: vi.fn(),
     ...overrides
   };
-  const controller = createFeedbackControlController(host, options);
+  const store = createViewStore<FeedbackControlState>({ model: null });
+  const controller = createFeedbackControlController(host, options, store);
   controllers.push(controller);
-  act(() => controller.render(model));
-  return { controller, host, options };
+  act(() => store.setState({ model }));
+  return { controller, host, options, store };
 }
 
 afterEach(() => {
@@ -156,19 +159,19 @@ describe('New Tab feedback React island', () => {
   });
 
   it('opens the community of the latest model after a language change', () => {
-    const { controller, host, options } = createController();
-    act(() => controller.render({
+    const { controller, host, options, store } = createController();
+    act(() => store.setState({ model: {
       ...baseModel,
       channel: 'wechat',
       communityLabel: 'WeChat',
       communityTooltip: 'Join WeChat'
-    }));
+    } }));
     act(() => controller.openCommunity());
     expect(options.onOpenExternal).not.toHaveBeenCalled();
     expect(host.dataset.detailOpen).toBe('true');
 
     act(() => controller.close());
-    act(() => controller.render({ ...baseModel, xUrl: 'https://x.com/renamed' }));
+    act(() => store.setState({ model: { ...baseModel, xUrl: 'https://x.com/renamed' } }));
     act(() => controller.openCommunity('backgroundTab'));
     expect(options.onOpenExternal).toHaveBeenCalledWith('https://x.com/renamed', 'backgroundTab');
   });

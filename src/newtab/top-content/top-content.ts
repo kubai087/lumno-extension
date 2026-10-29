@@ -2,6 +2,8 @@
 // it when it shows, hides or changes height is layout-motion.ts's job.
 import { getWordmarkContent } from '../dom/top-content';
 import { createTopContentController } from '../react/wordmark';
+import type { TopContentState } from '../react/wordmark';
+import { createViewStore } from '../../shared/react/view-store';
 import type { WordmarkAppearance } from '../react/wordmark';
 import type { PageNavigation } from '../page-navigation';
 import { WORDMARK_ENTRY_ANIMATION_NAME } from '../newtab-config';
@@ -58,8 +60,9 @@ function createTopContentRuntime(deps: TopContentDeps) {
   } = deps;
 
 
-  // The wordmark or clock, which draws nothing until it is rendered.
-  const topContentController = createTopContentController(topContentContainer, {
+  // What the wordmark or clock shows; nothing until it is first set.
+  const topContentState = createViewStore<TopContentState>({ model: null });
+  createTopContentController(topContentContainer, {
     onActivate(disposition) {
       openExternalNewTabUrl(COMMUNITY_LINKS.getStoreListing().url, disposition);
     },
@@ -68,7 +71,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
         finishWordmarkEntryAnimation();
       }
     }
-  });
+  }, topContentState);
 
   // What the clock area last drew with.
   let shown = readTopContentSettings();
@@ -327,18 +330,16 @@ function createTopContentRuntime(deps: TopContentDeps) {
   }
 
   function applyWordmarkThemeAppearance(resolvedTheme?: string | null): void {
-    if (topContentController) {
-      topContentController.updateAppearance(getWordmarkAppearance(resolvedTheme));
+    // A new appearance leaves the entry motion alone.
+    const { model } = topContentState.getSnapshot();
+    if (model) {
+      topContentState.setState({ model: { ...model, appearance: getWordmarkAppearance(resolvedTheme) } });
     }
   }
 
   function renderNewtabTopContent(animateEntry?: boolean): void {
-    const controller = topContentController;
-    if (!controller) {
-      return;
-    }
     const timeFont = SETTINGS.getNewtabTimeFont(shown.font);
-    controller.render({
+    topContentState.setState({ model: {
       animateEntry: Boolean(animateEntry),
       ariaLabel: `Lumno ${COMMUNITY_LINKS.getStoreListing().name}`,
       font: {
@@ -357,7 +358,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
       opacity: preview.get(newtabTimeOpacity) / 100,
       showSeconds: shown.secondsVisible,
       twelveHour: shown.twelveHour
-    });
+    } });
     adaptiveToneEvents.emit('stale', {});
   }
 

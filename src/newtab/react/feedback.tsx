@@ -2,6 +2,8 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { isNode } from '../../shared/dom-guards';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { getPagePortals } from '../app/portals';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 
 export type FeedbackCommunityChannel = 'wechat' | 'x';
 
@@ -50,8 +52,12 @@ export interface FeedbackControlController {
   openCommunity(
     disposition?: 'newTab' | 'backgroundTab'
   ): void;
-  render(model: FeedbackControlModel): void;
   setOpen(open: boolean): void;
+}
+
+// The control's model as its runtime last set it; null before the first.
+export interface FeedbackControlState {
+  model: FeedbackControlModel | null;
 }
 
 function FeedbackControl({
@@ -395,9 +401,17 @@ function FeedbackControl({
   );
 }
 
+type FeedbackControlProps = Omit<Parameters<typeof FeedbackControl>[0], 'model'>;
+
+function FeedbackControlRoot({ store, ...props }: FeedbackControlProps & { store: Store<FeedbackControlState> }) {
+  const { model } = useStore(store);
+  return model ? <FeedbackControl {...props} model={model} /> : null;
+}
+
 export function createFeedbackControlController(
   host: HTMLElement | null,
-  options: FeedbackControlControllerOptions
+  options: FeedbackControlControllerOptions,
+  store: Store<FeedbackControlState>
 ): FeedbackControlController {
   if (!host) {
     return Object.freeze({
@@ -405,7 +419,6 @@ export function createFeedbackControlController(
       destroy() {},
       isOpen: () => false,
       openCommunity() {},
-      render() {},
       setOpen() {}
     });
   }
@@ -436,6 +449,18 @@ export function createFeedbackControlController(
       void options.onOpen();
     }
   };
+  getPagePortals().show(host, (
+    <FeedbackControlRoot
+      host={host}
+      onHideTooltip={options.onHideTooltip}
+      onOpenChange={onOpenChange}
+      onOpenExternal={options.onOpenExternal}
+      onRefreshQr={options.onRefreshQr}
+      onShowTooltip={options.onShowTooltip}
+      registerControls={registerControls}
+      store={store}
+    />
+  ));
 
   return Object.freeze({
     close(closeOptions?: { restoreFocus?: boolean }) {
@@ -455,23 +480,6 @@ export function createFeedbackControlController(
       disposition: 'newTab' | 'backgroundTab' = 'newTab'
     ) {
       controls.openCommunity(disposition);
-    },
-    render(model: FeedbackControlModel) {
-      if (destroyed) {
-        return;
-      }
-      getPagePortals().show(host, (
-        <FeedbackControl
-          host={host}
-          model={model}
-          onOpenChange={onOpenChange}
-          onOpenExternal={options.onOpenExternal}
-          onHideTooltip={options.onHideTooltip}
-          onRefreshQr={options.onRefreshQr}
-          onShowTooltip={options.onShowTooltip}
-          registerControls={registerControls}
-        />
-      ));
     },
     setOpen(open: boolean) {
       controls.setOpen(open);

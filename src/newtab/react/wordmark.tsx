@@ -1,8 +1,10 @@
 import NumberFlow, { NumberFlowGroup } from '@number-flow/react';
 import type { CSSProperties } from 'react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { getPagePortals } from '../app/portals';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 
 export type NewtabTopContentMode = 'brand' | 'time';
 
@@ -52,9 +54,12 @@ export interface TopContentController {
   getButton(): HTMLButtonElement | null;
   getContent(): HTMLElement | null;
   getImage(): HTMLImageElement | null;
-  render(model: TopContentModel): void;
-  // Draws the last model in a new appearance, leaving its entry motion alone.
-  updateAppearance(appearance: WordmarkAppearance): void;
+}
+
+// What the area shows, as the top content runtime last set it; null draws
+// nothing.
+export interface TopContentState {
+  model: TopContentModel | null;
 }
 
 const containerStyle = `
@@ -517,43 +522,54 @@ function ClockMark({
   );
 }
 
+function TopContent({ host, options, store }: {
+  host: HTMLElement;
+  options: TopContentControllerOptions;
+  store: Store<TopContentState>;
+}) {
+  const { model } = useStore(store);
+  const enter = model ? (model.animateEntry ? 'run' : 'done') : null;
+  useLayoutEffect(() => {
+    if (enter) {
+      host.dataset.enter = enter;
+    }
+  }, [host, enter]);
+  if (!model) {
+    return null;
+  }
+  return model.mode === 'time' ? (
+    <ClockMark
+      key={model.showSeconds === true ? 'seconds' : 'minutes'}
+      model={model}
+      onEntryAnimationComplete={options.onEntryAnimationComplete}
+    />
+  ) : (
+    <Wordmark
+      model={model}
+      onActivate={options.onActivate}
+      onEntryAnimationComplete={options.onEntryAnimationComplete}
+    />
+  );
+}
+
 export function createTopContentController(
   host: HTMLElement | null,
-  options: TopContentControllerOptions
+  options: TopContentControllerOptions,
+  store: Store<TopContentState>
 ): TopContentController {
   if (!host) {
     return Object.freeze({
       destroy() {},
       getButton: () => null,
       getContent: () => null,
-      getImage: () => null,
-      render() {},
-      updateAppearance() {}
+      getImage: () => null
     });
   }
   host.id = '_x_extension_newtab_wordmark_2026_unique_';
   host.dataset.reactIsland = 'newtab-wordmark';
   host.style.cssText = containerStyle;
   let destroyed = false;
-  let current: TopContentModel | null = null;
-  const draw = (model: TopContentModel) => {
-    current = model;
-    getPagePortals().show(host, (
-      model.mode === 'time' ? (
-        <ClockMark
-          key={model.showSeconds === true ? 'seconds' : 'minutes'}
-          model={model}
-          onEntryAnimationComplete={options.onEntryAnimationComplete}
-        />
-      ) : (
-        <Wordmark
-          model={model}
-          onActivate={options.onActivate}
-          onEntryAnimationComplete={options.onEntryAnimationComplete}
-        />
-      )
-    ));
-  };
+  getPagePortals().show(host, <TopContent host={host} options={options} store={store} />);
   return Object.freeze({
     destroy() {
       if (destroyed) {
@@ -570,19 +586,6 @@ export function createTopContentController(
     },
     getImage() {
       return host.querySelector('img');
-    },
-    render(model: TopContentModel) {
-      if (destroyed) {
-        return;
-      }
-      host.dataset.enter = model.animateEntry ? 'run' : 'done';
-      draw(model);
-    },
-    updateAppearance(appearance: WordmarkAppearance) {
-      if (destroyed || !current) {
-        return;
-      }
-      draw({ ...current, appearance });
     }
   });
 }

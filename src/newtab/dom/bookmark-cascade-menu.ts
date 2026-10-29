@@ -5,10 +5,13 @@ import type { BindCursorTooltip, Translate } from '../newtab-types';
 import type {
   CascadeLevelModel,
   CascadeMenuHandlers,
+  CascadeMenuModel,
   CascadeMenuView,
   CascadeRowModel
 } from '../react/bookmark-cascade-view';
 import { createCascadeMenu } from '../react/bookmark-cascade-view';
+import { createViewStore } from '../../shared/react/view-store';
+import type { Store } from '../../shared/state/store';
 import { isHtmlElement, isNode } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import type * as MenuSurface from '../../shared/ui/menu-surface';
@@ -246,6 +249,8 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
 
   let bookmarkCascadeMenu: HTMLElement | null = null;
   let menuView: CascadeMenuView | null = null;
+  // The levels the open menu draws; each opening draws from its own.
+  let menuLevels: Store<CascadeMenuModel> | null = null;
   // The level elements the view has drawn, by level key.
   const levelElements = new Map<string, HTMLElement>();
   let levelSerial = 0;
@@ -380,10 +385,10 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
 
   // Draws the open levels, then measures, places and opens the new ones.
   function renderMenu(): void {
-    if (!menuView || !bookmarkCascadeMenu) {
+    if (!menuLevels || !bookmarkCascadeMenu) {
       return;
     }
-    menuView.render({ levels: bookmarkCascadeLevels.map(buildLevelModel) });
+    menuLevels.setState({ levels: bookmarkCascadeLevels.map(buildLevelModel) });
     bookmarkCascadeLevels.forEach((entry) => {
       entry.levelElement = levelElements.get(entry.key) || null;
       if (!entry.levelElement || entry.surfaceOpened) {
@@ -793,6 +798,7 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
     const viewToRemove = menuView;
     bookmarkCascadeMenu = null;
     menuView = null;
+    menuLevels = null;
     if (menuToRemove && menuToRemove.parentNode && optionsForClose.animate && !prefersReducedMotion()) {
       foldBookmarkCascadeMenuAway(menuToRemove, viewToRemove);
     } else {
@@ -1588,7 +1594,8 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
         close();
         bookmarkCascadeAnchor = anchorElement;
         setAnchorVisualActive(anchorElement, true);
-        menuView = createCascadeMenu(documentObj, viewHandlers);
+        menuLevels = createViewStore<CascadeMenuModel>({ levels: [] });
+        menuView = createCascadeMenu(documentObj, viewHandlers, menuLevels);
         bookmarkCascadeMenu = menuView.element;
         setDocumentListenersAttached(true);
         setBookmarkCascadeDragMode(dragMode);

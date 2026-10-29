@@ -3,10 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createCascadeMenu,
   type CascadeMenuHandlers,
+  type CascadeMenuModel,
   type CascadeMenuView,
   type CascadeRowModel
 } from './bookmark-cascade-view';
 import { getElement, getTag, getTags } from '../../../tests/react/dom';
+import { createViewStore } from '../../shared/react/view-store';
 
 let view: CascadeMenuView | null = null;
 
@@ -71,11 +73,14 @@ const folderRow = row({
 });
 const siteRow = row({ key: 'id:3', title: 'Lumno', bookmarkId: '3', bookmarkIndex: '1' });
 
+let levels = createViewStore<CascadeMenuModel>({ levels: [] });
+
 function mount(handlers: CascadeMenuHandlers, rows: CascadeRowModel[] = [folderRow, siteRow]): CascadeMenuView {
-  const menu = createCascadeMenu(document, handlers);
+  levels = createViewStore<CascadeMenuModel>({ levels: [] });
+  const menu = createCascadeMenu(document, handlers, levels);
   document.body.appendChild(menu.element);
   view = menu;
-  act(() => menu.render({ levels: [{ key: 'level-0', levelIndex: 0, title: 'Design', emptyLabel: 'No content', rows }] }));
+  act(() => levels.setState({ levels: [{ key: 'level-0', levelIndex: 0, title: 'Design', emptyLabel: 'No content', rows }] }));
   return menu;
 }
 
@@ -106,7 +111,7 @@ describe('New Tab React bookmark cascade view', () => {
   it('shows row state and plays the folder icon when its row opens', () => {
     const handlers = createHandlers();
     const menu = mount(handlers);
-    act(() => menu.render({
+    act(() => levels.setState({
       levels: [{
         key: 'level-0',
         levelIndex: 0,
