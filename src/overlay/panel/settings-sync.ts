@@ -1,6 +1,6 @@
+import type { OverlayThemeMode } from './overlay-theme-mode';
 import type { OverlayTab } from '../../domain/messages';
 import { simpleModeEnabled, themeMode } from '../../domain/settings/appearance';
-import type { ThemeMode } from '../../domain/settings/appearance';
 import { documentPipEnabled } from '../../domain/settings/features';
 import {
   overlayFontFallback,
@@ -41,7 +41,7 @@ interface SettingsSyncDeps<Row> {
   searchQuery: SearchQuery;
   updateSearchSuggestions(rows: Row[], query: string, options?: { forceFullRerender?: boolean }): void;
   requestOverlaySearchSuggestions(query: string): void;
-  applyOverlayTheme(mode: ThemeMode): void;
+  overlayThemeChoice: Pick<OverlayThemeMode, 'apply'>;
   applyOverlayFontFamily(): void;
   searchEngine: DefaultSearchEngine;
   shouldShowOpenTabsForEmptyQuery(): boolean;
@@ -77,7 +77,7 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
     searchMode,
     searchQuery,
     updateSearchSuggestions,
-    applyOverlayTheme,
+    overlayThemeChoice,
     searchEngine,
     requestOverlaySearchSuggestions,
     shouldShowOpenTabsForEmptyQuery,
@@ -119,7 +119,7 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
     }
   }
 
-  settings.follow([themeMode, overlayPageThemeAdaptationEnabled], () => applyOverlayTheme(settings.get(themeMode)));
+  settings.follow([themeMode, overlayPageThemeAdaptationEnabled], () => overlayThemeChoice.apply(settings.get(themeMode)));
 
   searchEngine.store.subscribe(refreshOverlaySuggestionsFromLastResponse);
 
@@ -181,7 +181,7 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
 
   return loaded.then(() => {
     readDocumentPip();
-    applyOverlayTheme(settings.get(themeMode));
+    overlayThemeChoice.apply(settings.get(themeMode));
     applyOverlaySize();
     applyOverlayFontFamily();
   });

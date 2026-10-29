@@ -3,7 +3,6 @@
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import { themeMode } from '../../domain/settings/appearance';
-import type { ThemeMode } from '../../domain/settings/appearance';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import { releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
@@ -64,7 +63,6 @@ interface SuggestionSourcesDeps {
   getProviderIcon(provider: SiteSearchProvider): string;
   isSlashCommandInput(input: string): boolean;
   isModeCommand(input: string): boolean;
-  applyOverlayTheme(mode: ThemeMode): void;
   searchEngine: DefaultSearchEngine;
   getCommandMatches(rawInput: string): SlashCommand[];
   buildModeSuggestion(): CommandSuggestion;
@@ -93,7 +91,7 @@ interface SuggestionSourcesDeps {
   prioritizeCurrentPageMatch: boolean;
   elements: Pick<OverlayPanelElements, 'searchInput' | 'suggestionsContainer'>;
   overlayTabs: Pick<OpenTabs, 'currentTabId'>;
-  overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
+  overlayThemeChoice: Pick<OverlayThemeMode, 'mode' | 'apply'>;
   lastRender: LastRender;
 }
 
@@ -130,7 +128,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     t,
     isSlashCommandInput,
     isModeCommand,
-    applyOverlayTheme,
     searchEngine,
     getCommandMatches,
     buildModeSuggestion,
@@ -218,7 +215,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     if (modeCommandActive) {
       const storedMode = settings.get(themeMode);
       if (storedMode !== overlayThemeChoice.mode) {
-        applyOverlayTheme(storedMode);
+        overlayThemeChoice.apply(storedMode);
       }
     }
 

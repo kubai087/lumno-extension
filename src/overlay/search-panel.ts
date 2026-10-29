@@ -573,7 +573,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     t,
     isSlashCommandInput,
     isModeCommand,
-    applyOverlayTheme,
     searchEngine,
     getCommandMatches,
     buildModeSuggestion,
@@ -696,7 +695,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setWebAppearanceState,
     getNextWebAppearanceMode,
     settings,
-    applyOverlayTheme,
+    overlayThemeChoice,
     updateSearchSuggestions,
     elements
   });
@@ -810,8 +809,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // A page that changed its own theme is followed at once.
   panelThemeEvents.on('pageThemeChanged', () => applyOverlayTheme(overlayThemeChoice.mode));
 
+  // The panel draws the mode applied to it.
+  overlayThemeChoice.events.on('applied', ({ mode }) => applyOverlayTheme(mode));
+
   function applyOverlayTheme(mode: ThemeMode): void {
-    overlayThemeChoice.set(mode);
     const previousResolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
     applyOverlayThemeVariables(mode);
     overlayNoticeLayer.sync(elements.overlay);
@@ -1331,7 +1332,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchMode,
     searchQuery,
     updateSearchSuggestions,
-    applyOverlayTheme,
+    overlayThemeChoice,
     searchEngine,
     requestOverlaySearchSuggestions,
     shouldShowOpenTabsForEmptyQuery,

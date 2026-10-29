@@ -2,9 +2,9 @@
 // overlay's theme and save it, ask the background to switch the pages'
 // color scheme, then draw the command row and the badge again; open the
 // web clip picker, or the community QR code.
+import type { OverlayThemeMode } from './overlay-theme-mode';
 import type { WebAppearanceMode } from '../../domain/messages';
 import { themeMode } from '../../domain/settings/appearance';
-import type { ThemeMode } from '../../domain/settings/appearance';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { OverlaySettings } from '../overlay-settings';
 import type { OverlayPanelElements } from './panel-elements';
@@ -17,7 +17,7 @@ interface CommandActionsDeps extends Pick<SlashCommands,
   'isModeCommand' | 'isSlashCommandInput' | 'updateModeBadge' | 'getWebAppearanceMode' | 'setWebAppearanceState' |
   'getNextWebAppearanceMode'> {
   settings: Pick<OverlaySettings, 'set'>;
-  applyOverlayTheme(mode: ThemeMode): void;
+  overlayThemeChoice: Pick<OverlayThemeMode, 'apply'>;
   // Called with no rows: the list rebuilds from the typed command.
   updateSearchSuggestions(suggestions: never[], query: string): void;
   elements: Pick<OverlayPanelElements, 'searchInput' | 'overlay'>;
@@ -34,7 +34,7 @@ function createCommandActions(deps: CommandActionsDeps) {
     setWebAppearanceState,
     getNextWebAppearanceMode,
     settings,
-    applyOverlayTheme,
+    overlayThemeChoice,
     updateSearchSuggestions,
     elements,
     removeOverlay,
@@ -64,7 +64,7 @@ function createCommandActions(deps: CommandActionsDeps) {
   function applyThemeModeChange(mode: string): void {
     const nextMode = themeMode.parse(mode);
     void settings.set(themeMode, nextMode).catch(() => {});
-    applyOverlayTheme(nextMode);
+    overlayThemeChoice.apply(nextMode);
     const input = elements.searchInput;
     if (input && isModeCommand(input.value || '')) {
       updateSearchSuggestions([], (input.value || '').trim());
