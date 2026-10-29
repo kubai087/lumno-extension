@@ -1,10 +1,6 @@
 // The New Tab entry animation and the ready signal once the viewport settles.
 import type { ViewportActivity } from './viewport-activity';
 
-interface EntryMotionState {
-  // When the wallpaper was revealed (performance.now()).
-  wallpaperShownAt: number;
-}
 
 // S is the layout's record of the viewport, which the entry motion only
 // hands back to it.
@@ -20,7 +16,8 @@ interface EntryMotionDeps<S> {
   viewport: Pick<ViewportActivity, 'revision' | 'locked' | 'store'>;
   // Runs once the entry animation finished or was skipped.
   onEntryDone(): void;
-  pageState: EntryMotionState;
+  // When the wallpaper was revealed (performance.now()); 0 until then.
+  getWallpaperShownAt(): number;
 }
 
 function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
@@ -32,16 +29,15 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
     rememberSearchEntryViewport,
     getSearchEntryViewportSnapshot,
     hasSearchEntryViewportChanged,
-    viewport: viewportActivity
+    viewport: viewportActivity,
+    getWallpaperShownAt
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const NEWTAB_INITIAL_VIEWPORT_SETTLE_MS = 32;
   const NEWTAB_ENTRY_ANIMATION_TOTAL_MS = 260;
   // The wallpaper leads: the content starts entering at least this long after the wallpaper
-  // showed (pageState.wallpaperShownAt), so the two never land in the same moment.
+  // showed (getWallpaperShownAt()), so the two never land in the same moment.
   const NEWTAB_WALLPAPER_LEAD_MS = 60;
   // Compared at reveal time: a viewport that never changed while the page loaded has settled.
   const startupViewport = getSearchEntryViewportSnapshot();
@@ -72,7 +68,7 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
   });
 
   function getWallpaperLeadDelay(): number {
-    const shownAt = Number(pageState.wallpaperShownAt) || 0;
+    const shownAt = getWallpaperShownAt();
     // The search shortcut's focus reload keeps the old page on screen until
     // this one is ready, so nothing lands at once and the lead only delays it.
     if (!shownAt || !document.body || document.body.getAttribute('data-wallpaper-active') !== 'true' ||
@@ -206,4 +202,4 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
 type EntryMotion = ReturnType<typeof createEntryMotion>;
 
 export { createEntryMotion };
-export type { EntryMotion, EntryMotionDeps, EntryMotionState };
+export type { EntryMotion, EntryMotionDeps };

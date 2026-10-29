@@ -106,7 +106,6 @@ interface ShortcutsControllerDeps {
   pickShortcutIconPlateColor: ShortcutPageActions['pickShortcutIconPlateColor'];
   applyNewtabShortcutLayoutPreferences(): void;
   applyNewtabShortcutDockMagnification(): void;
-  updateNewtabShortcutPreferencesUi(): void;
   // The column count an older version's width setting stands for.
   inferNewtabShortcutColumnsFromWidth(value: unknown): number;
   loadFolderColors(): Promise<void>;
@@ -265,7 +264,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     pickShortcutIconPlateColor,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
-    updateNewtabShortcutPreferencesUi,
     inferNewtabShortcutColumnsFromWidth,
     loadFolderColors,
     showToast,
@@ -1055,7 +1053,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       applyNewtabShortcutLayoutPreferences();
       applyNewtabShortcutsVisibility();
       applyNewtabShortcutDockMagnification();
-      updateNewtabShortcutPreferencesUi();
     });
   }
 

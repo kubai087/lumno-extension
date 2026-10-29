@@ -13,15 +13,13 @@ interface GlassSurfacesDeps {
   // { resetInk: true } when a setting changed what the glass ink should be.
   scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions): void;
   syncBookmarkTopbarSurfaceAppearance(options: { updateMenu: boolean }): void;
-  updateWallpaperAppearanceSelectionUi(): void;
 }
 
 function createGlassSurfaces(deps: GlassSurfacesDeps) {
   const {
     settings,
     scheduleWallpaperAdaptiveToneUpdate,
-    syncBookmarkTopbarSurfaceAppearance,
-    updateWallpaperAppearanceSelectionUi
+    syncBookmarkTopbarSurfaceAppearance
   } = deps;
 
 
@@ -119,7 +117,6 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     syncNewtabGlassOpenObserver(style !== 'none');
     // The bookmarks bar's "match style" background follows the page's material.
     syncBookmarkTopbarSurfaceAppearance({ updateMenu: false });
-    updateWallpaperAppearanceSelectionUi();
     scheduleWallpaperAdaptiveToneUpdate({ resetInk: true });
   }
 

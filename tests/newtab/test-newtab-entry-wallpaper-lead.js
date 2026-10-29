@@ -70,9 +70,7 @@ function createEntryMotion({ wallpaperActive, wallpaperShownAgoMs, focusResume }
     body.setAttribute('data-wallpaper-active', 'true');
   }
   const clock = createClock();
-  const pageState = {
-    wallpaperShownAt: wallpaperShownAgoMs === null ? 0 : clock.performance.now() - wallpaperShownAgoMs
-  };
+  const wallpaperShownAt = wallpaperShownAgoMs === null ? 0 : clock.performance.now() - wallpaperShownAgoMs;
   const sandbox = {
     document: { body, documentElement },
     window: { setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout },
@@ -85,7 +83,7 @@ function createEntryMotion({ wallpaperActive, wallpaperShownAgoMs, focusResume }
   const viewport = { width: 1280, height: 800 };
   const motion = sandbox.LumnoNewtabEntryMotion.createEntryMotion({
     root,
-    pageState,
+    getWallpaperShownAt: () => wallpaperShownAt,
     shouldSkipNewtabEntryMotion: () => false,
     updateBookmarkSectionPosition() {},
     finishWordmarkEntryAnimation() {},
@@ -95,7 +93,7 @@ function createEntryMotion({ wallpaperActive, wallpaperShownAgoMs, focusResume }
     viewport: { revision: 0, locked: false, store: { getSnapshot: () => ({ revision: 0, locked: false }), subscribe: () => () => {} } },
     onEntryDone() {}
   });
-  return { body, clock, motion, pageState };
+  return { body, clock, motion };
 }
 
 async function testContentWaitsForTheWallpaperLead() {

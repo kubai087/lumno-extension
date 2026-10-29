@@ -54,7 +54,7 @@ import type { WallpaperPanelView } from './panel-view';
 import { getAppearanceModeLabels } from './appearance-labels';
 import { isLinkWallpaperId } from './wallpaper-library';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../../domain/settings/newtab-shortcuts';
-import { newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
+import { newtabInputAutoFocusEnabled, newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -1153,7 +1153,7 @@ function createPanelState(deps: PanelStateDeps) {
   });
   // The settings the panel shows, whoever changed them, and the sliders' previews.
   settings.subscribe(
-    [...NEWTAB_TOP_CONTENT_SETTINGS, ...NEWTAB_SHORTCUT_GRID_SETTINGS, newtabWidthMode, newtabSearchWidth],
+    [...NEWTAB_TOP_CONTENT_SETTINGS, ...NEWTAB_SHORTCUT_GRID_SETTINGS, newtabWidthMode, newtabSearchWidth, newtabInputAutoFocusEnabled],
     () => renderWallpaperPanelState()
   );
   preview.store.subscribe(() => renderWallpaperPanelState());

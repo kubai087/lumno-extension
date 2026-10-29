@@ -1,7 +1,6 @@
 // Requesting, rendering and activating search suggestions.
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
-import type { ThemeMode } from '../../domain/settings';
 import * as LumnoMessaging from '../../platform/messaging';
 import type {
   Suggestion,
@@ -52,10 +51,8 @@ import { loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import type { SearchBoxParts } from './search-box-parts';
 import type { OpenTabs } from '../../shared/search-panel/open-tabs';
+import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 
-interface SuggestionsControllerState {
-  currentThemeMode: ThemeMode;
-}
 
 interface SuggestionsControllerDeps {
   suggestionSource: SuggestionSource;
@@ -107,7 +104,7 @@ interface SuggestionsControllerDeps {
   openCommunityQrDialog?(url: string | undefined): void;
   searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'suggestionsView'>;
   openTabs: Pick<OpenTabs, 'clear' | 'currentTabId' | 'tabs'>;
-  pageState: SuggestionsControllerState;
+  appliedTheme: Pick<AppliedThemeMode, 'mode'>;
 }
 
 // A request that retries once when nothing answers in time.
@@ -127,6 +124,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    appliedTheme,
     searchBox,
     suggestionSource,
     siteSearchRunner,
@@ -175,8 +173,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     openTabs,
   } = deps;
 
-  // Page state still owned by newtab.js; read and written through accessors.
-  const pageState = deps.pageState;
 
   let lastRenderedActionContextKey = '';
   // Hidden from the background; the input's focus or typing shows them again.
@@ -398,7 +394,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       if (modeCommandActive) {
         // The command shows the stored theme, which another page may have changed.
         const storedMode = getScopedThemeMode();
-        if (storedMode !== pageState.currentThemeMode) {
+        if (storedMode !== appliedTheme.mode) {
           applyThemeMode(storedMode);
         }
       }
@@ -836,4 +832,4 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
 type SuggestionsController = ReturnType<typeof createSuggestionsController>;
 
 export { createSuggestionsController };
-export type { SuggestionsController, SuggestionsControllerDeps, SuggestionsControllerState };
+export type { SuggestionsController, SuggestionsControllerDeps };

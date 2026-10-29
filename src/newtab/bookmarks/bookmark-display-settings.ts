@@ -8,6 +8,7 @@ import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import * as BookmarkSettings from '../../domain/settings/bookmarks';
 import * as NEWTAB_BOOKMARKS_TOPBAR from '../react/bookmarks-topbar';
 import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../menu-values';
+import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 
 type BookmarkViewMode = 'folder' | 'list' | 'top';
 type BookmarkTopbarLayout = ReturnType<typeof BookmarksTopbar.normalizeLayout>;
@@ -24,10 +25,10 @@ interface BookmarkDisplaySettingsDeps {
   updateBookmarkModeMenu(): void;
   setNewtabTopLayout(layout: BookmarkTopbarLayout): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
-  initialThemeReadyPromise: Promise<unknown>;
   showToast: ShowToast;
   t: Translate;
   pageState: BookmarkDisplaySettingsState;
+  appliedTheme: Pick<AppliedThemeMode, 'firstApplied'>;
 }
 
 interface SurfaceAppearanceOptions {
@@ -41,9 +42,9 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
     updateBookmarkModeMenu,
     setNewtabTopLayout,
     scheduleWallpaperAdaptiveToneUpdate,
-    initialThemeReadyPromise,
     showToast,
     t,
+    appliedTheme
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -198,10 +199,10 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
       BookmarkSettings.bookmarkTopbarSurfaceColorDark
     ], () => syncBookmarkTopbarSurfaceAppearance());
     settings.subscribe(BookmarkSettings.bookmarkTopbarSurfaceColorLegacy, () => {
-      void initialThemeReadyPromise.then(migrateLegacySurfaceColor);
+      void appliedTheme.firstApplied.then(migrateLegacySurfaceColor);
     });
     const read = settings.include(BAR_SETTINGS);
-    void read.then(() => initialThemeReadyPromise).then(() => {
+    void read.then(() => appliedTheme.firstApplied).then(() => {
       migrateLegacySurfaceColor();
       repairStoredSurface();
       syncBookmarkTopbarSurfaceAppearance();

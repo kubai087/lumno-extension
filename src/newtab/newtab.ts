@@ -171,6 +171,7 @@ import { getPagePortals } from './app/portals';
 import { SearchBoxParts } from './search/search-box-parts';
 import { OpenTabs } from '../shared/search-panel/open-tabs';
 import { PageNoticeControllers } from './notice-controllers';
+import { AppliedThemeMode } from './theme/applied-theme-mode';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
@@ -213,6 +214,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const openTabs = new OpenTabs([], null);
   // The page's notices and feature hints, mounted by the parts that make them.
   const notices = new PageNoticeControllers();
+  // The theme mode the page is drawn in.
+  const appliedTheme = new AppliedThemeMode();
 
 
   const startupRecentSourceReadsAt = Date.now();
@@ -463,9 +466,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     addMediaQueryChangeListener,
     removeMediaQueryChangeListener
   } = NEWTAB_SYSTEM_THEME.createSystemTheme(window);
-  const initialThemeReadyPromise = new Promise<void>((resolve) => {
-    pageState.resolveInitialThemeReady = resolve;
-  });
 
   const {
     followBookmarkTopbar,
@@ -475,11 +475,11 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     syncBookmarkTopbarSurfaceAppearance,
     handleBookmarkModeMenuAction
   } = NEWTAB_BOOKMARK_DISPLAY_SETTINGS.createBookmarkDisplaySettings({
+    appliedTheme,
     settings,
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     setNewtabTopLayout: (...args) => setNewtabTopLayout(...args),
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
-    initialThemeReadyPromise,
     showToast,
     t,
     pageState
@@ -836,6 +836,18 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     recentPointer
   });
 
+  const quoteRuntime = LumnoNewtabQuotes.createRuntime({
+    documentObj: document, windowObj: window,
+    settings, localStorageArea, t, showToast,
+    getLocale: () => locale.store.getSnapshot().locale,
+    getSearchRoot: () => root,
+    getShortcutSection: () => pageState.shortcutSection,
+    getTooltipController: () => topActionTooltipController,
+    onLayout: () => window.requestAnimationFrame(() => {
+      updateBookmarkSectionPosition();
+      scheduleWallpaperAdaptiveToneUpdate();
+    })
+  });
   const {
     getThemeScope,
     setThemeMode,
@@ -850,6 +862,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    quoteRuntime,
+    appliedTheme,
     notices,
     searchBox,
     modeActions,
@@ -863,8 +877,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     renderNewtabTopContent: (...args) => renderNewtabTopContent(...args),
     updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
-    updateWallpaperLanguageStrings: (...args) => updateWallpaperLanguageStrings(...args),
-    updateWallpaperAppearanceSelectionUi: (...args) => updateWallpaperAppearanceSelectionUi(...args),
     updateFeedbackLanguageStrings,
     renderShortcuts: () => renderShortcuts(),
     updateModeBadge: (...args) => updateModeBadge(...args),
@@ -876,7 +888,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     mediaQuery,
     removeMediaQueryChangeListener,
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
-    initialThemeReadyPromise,
     pageState
   });
 
@@ -933,7 +944,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const {
     normalizeNewtabSearchWidth,
     inferNewtabShortcutColumnsFromWidth,
-    updateNewtabShortcutPreferencesUi,
     setNewtabShortcutsVisible,
     setNewtabShortcutAddVisible,
     setNewtabShortcutDockMagnificationEnabled,
@@ -945,23 +955,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
     preview,
     settings,
-    getBookmarkGridColumnCount,
-    pageState
+    getBookmarkGridColumnCount
   });
 
-  pageState.quoteRuntime = LumnoNewtabQuotes.createRuntime({
-    documentObj: document, windowObj: window,
-    settings, localStorageArea, t, showToast,
-    getLocale: () => locale.store.getSnapshot().locale,
-    getSearchRoot: () => root,
-    getShortcutSection: () => pageState.shortcutSection,
-    getTooltipController: () => topActionTooltipController,
-    onLayout: () => window.requestAnimationFrame(() => {
-      updateBookmarkSectionPosition();
-      scheduleWallpaperAdaptiveToneUpdate();
-    })
-  });
-  pageState.sectionPanelSettings = LumnoNewtabSectionPanelSettings.createRuntime({
+  const sectionPanelSettings = LumnoNewtabSectionPanelSettings.createRuntime({
     windowObj: window,
     chromeObj: chrome,
     t,
@@ -1005,20 +1002,16 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   const {
-    updateWallpaperLanguageStrings,
-    updateWallpaperAppearanceSelectionUi,
+    wallpaperRuntime,
     bootstrapInitialWallpaper,
-    bootstrapInitialWallpaperOverlay,
-    bootstrapInitialWallpaperEffect,
-    waitForInitialWallpaperEffectVisual,
-    waitForInitialWallpaperTone,
     markInitialWallpaperVisualReady,
-    bootstrapInitialNewtabFavicon,
-    createWallpaperControls,
-    isWallpaperPanelOpen,
-    closeWallpaperPanel,
+    getWallpaperShownAt,
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
+    locale,
+    appliedTheme,
+    sectionPanelSettings,
+    quoteRuntime,
     getFeedbackButton,
     settings,
     preview,
@@ -1076,20 +1069,20 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   window.addEventListener('blur', hideToast);
   window.addEventListener('pagehide', hideToast);
 
-  const initialWallpaperOverlayReadyTask = bootstrapInitialWallpaperOverlay();
+  const initialWallpaperOverlayReadyTask = wallpaperRuntime.bootstrapInitialWallpaperOverlay();
   const initialWallpaperVisualReadyTask = Promise.all([
     followTheme(),
     initialWallpaperOverlayReadyTask.then(() => bootstrapInitialWallpaper()),
     initialWallpaperOverlayReadyTask,
-    bootstrapInitialWallpaperEffect()
-  ]).then(() => waitForInitialWallpaperEffectVisual()).catch((error) => {
+    wallpaperRuntime.bootstrapInitialWallpaperEffect()
+  ]).then(() => wallpaperRuntime.waitForInitialWallpaperEffectVisual()).catch((error) => {
     console.warn('[Lumno] Initial new tab wallpaper setup failed.', error);
   }).then(() => {
     markInitialWallpaperVisualReady();
   });
   const initialAppearanceReadyTask = Promise.all([
     initialWallpaperVisualReadyTask,
-    bootstrapInitialNewtabFavicon()
+    wallpaperRuntime.bootstrapInitialNewtabFavicon()
   ]).catch((error) => {
     console.warn('[Lumno] Initial new tab appearance setup failed.', error);
   });
@@ -1256,6 +1249,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     finishNewtabEntryAnimation,
     markNewtabReady
   } = NEWTAB_ENTRY_MOTION.createEntryMotion({
+    getWallpaperShownAt,
     root,
     shouldSkipNewtabEntryMotion,
     updateBookmarkSectionPosition,
@@ -1264,8 +1258,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getSearchEntryViewportSnapshot,
     hasSearchEntryViewportChanged,
     viewport: viewportActivity,
-    onEntryDone: () => finishEntryAnimationWait(),
-    pageState
+    onEntryDone: () => finishEntryAnimationWait()
   });
 
   const {
@@ -1426,7 +1419,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     pickShortcutIconPlateColor,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
-    updateNewtabShortcutPreferencesUi,
     inferNewtabShortcutColumnsFromWidth,
     loadFolderColors,
     showToast,
@@ -1652,6 +1644,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bottomDockRuntime,
     bottomDock
   } = NEWTAB_BOTTOM_DOCK_RUNTIME.createBottomDockRuntime({
+    quoteRuntime,
     notices,
     searchLayer,
     suggestionsContainer,
@@ -1804,6 +1797,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleRecentVisibilityChange,
     forceReloadRecentSitesForI18n
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    appliedTheme,
     getHiddenRecentSites,
     settings,
     preview,
@@ -1903,6 +1897,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    appliedTheme,
     openTabs,
     searchBox,
     siteSearchRunner,
@@ -1926,8 +1921,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     setVisibleThemeMode,
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
-    navigateToQuery,
-    pageState
+    navigateToQuery
   });
 
   const {
@@ -1946,6 +1940,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    appliedTheme,
     openTabs,
     searchBox,
     suggestionSource,
@@ -1991,8 +1986,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     t,
     warmIconCache,
     setSuggestionsVisible,
-    openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
-    pageState
+    openCommunityQrDialog: (...args) => openCommunityQrDialog(...args)
   });
 
   const { focusResume } = NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
@@ -2038,6 +2032,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     setWebAppearanceMode,
     followZenMode
   } = NEWTAB_MODE_COMMANDS.createModeCommands({
+    appliedTheme,
     searchBox,
     preview,
     settings,
@@ -2056,7 +2051,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeShortcutContextMenu,
     closeRecentContextMenu,
     closeShortcutDialog,
-    closeWallpaperPanel,
+    closeWallpaperPanel: wallpaperRuntime.closePanel,
     closeFeedbackPopover,
     hideTopActionTooltip,
     hideShortcutTooltip,
@@ -2207,6 +2202,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     updateInputRightPadding,
     followNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
+    getWallpaperControl: wallpaperRuntime.getControlElement,
     getFeedbackControl,
     notices,
     searchBox,
@@ -2223,8 +2219,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getOpenDisposition,
     searchInput,
     closeFeedbackPopover,
-    closeWallpaperPanel,
-    pageState
+    closeWallpaperPanel: wallpaperRuntime.closePanel
   });
 
   const {
@@ -2232,8 +2227,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   } = NEWTAB_GLASS_SURFACES.createGlassSurfaces({
     settings,
     scheduleWallpaperAdaptiveToneUpdate,
-    syncBookmarkTopbarSurfaceAppearance,
-    updateWallpaperAppearanceSelectionUi
+    syncBookmarkTopbarSurfaceAppearance
   });
 
   const {
@@ -2325,7 +2319,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     requestSuggestions
   });
 
-  createWallpaperControls();
+  wallpaperRuntime.createControls();
   const feedbackControl = createFeedbackControls();
   document.addEventListener('pointerdown', function(event) {
     if (!isFeedbackPopoverOpen()) {
@@ -2338,23 +2332,23 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeFeedbackPopover();
   }, true);
   document.addEventListener('pointerdown', function(event) {
-    if (!isWallpaperPanelOpen()) {
+    if (!wallpaperRuntime.isPanelOpen()) {
       return;
     }
     const target = isNode(event.target) ? event.target : null;
-    if (pageState.wallpaperRuntime && pageState.wallpaperRuntime.containsTarget(target)) {
+    if (wallpaperRuntime.containsTarget(target)) {
       return;
     }
-    closeWallpaperPanel();
+    wallpaperRuntime.closePanel();
   }, true);
   dismissStack.register('wallpaper-panel', {
-    isOpen: isWallpaperPanelOpen,
+    isOpen: wallpaperRuntime.isPanelOpen,
     close: () => {
       // Escape dismisses an open filter menu before it closes the whole panel.
-      if (pageState.wallpaperRuntime && pageState.wallpaperRuntime.closeOpenMenu()) {
+      if (wallpaperRuntime.closeOpenMenu()) {
         return;
       }
-      closeWallpaperPanel({ restoreFocus: true });
+      wallpaperRuntime.closePanel({ restoreFocus: true });
     }
   });
 
@@ -2406,11 +2400,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     pageState.bookmarkTopbarRuntime.mount(document.body);
   }
   bottomDockRuntime.mount(document.body);
-  const initialQuoteReadyTask = pageState.quoteRuntime
-    ? pageState.quoteRuntime.mount().catch(() => true)
-    : Promise.resolve(true);
-  if (pageState.wallpaperControl) {
-    document.body.appendChild(pageState.wallpaperControl);
+  const initialQuoteReadyTask = quoteRuntime.mount().catch(() => true);
+  const wallpaperControl = wallpaperRuntime.getControlElement();
+  if (wallpaperControl) {
+    document.body.appendChild(wallpaperControl);
   }
   document.body.appendChild(feedbackControl);
   if (pageState.shortcutDialogController) {
@@ -2543,7 +2536,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     console.warn('[Lumno] Initial new tab content setup failed.', error);
   }).then(() => {
     // The wallpaper leads: content enters once its tones are on the controls.
-    return waitForInitialWallpaperTone();
+    return wallpaperRuntime.waitForInitialWallpaperTone();
   }).then(() => {
     maybeShowFileAccessNotice();
     markNewtabReady();

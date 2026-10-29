@@ -12,9 +12,9 @@ import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingPreview } from './setting-preview';
 import { bookmarkCount } from '../domain/settings/bookmarks';
 import type { SearchBoxParts } from './search/search-box-parts';
+import type { AppliedThemeMode } from './theme/applied-theme-mode';
 
 interface ModeCommandsState {
-  currentThemeMode: ThemeMode;
   bookmarkTopbarRuntime: { setVisible(visible: boolean): void } | null;
 }
 
@@ -45,6 +45,7 @@ interface ModeCommandsDeps {
   updateSearchEntryLayout(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
+  appliedTheme: Pick<AppliedThemeMode, 'mode'>;
   pageState: ModeCommandsState;
 }
 
@@ -53,6 +54,7 @@ const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'da
 
 function createModeCommands(deps: ModeCommandsDeps) {
   const {
+    appliedTheme,
     searchBox,
     preview,
     settings,
@@ -212,7 +214,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
       );
     }
     return formatMessage('mode_badge', '模式：{mode}', {
-      mode: getThemeModeLabel(pageState.currentThemeMode)
+      mode: getThemeModeLabel(appliedTheme.mode)
     });
   }
 
@@ -274,7 +276,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
   }
 
   function buildModeSuggestion(): Suggestion {
-    const nextMode = getNextThemeMode(pageState.currentThemeMode);
+    const nextMode = getNextThemeMode(appliedTheme.mode);
     return {
       type: 'modeSwitch',
       title: formatMessage('mode_switch_title', `Lumno：切换到${getThemeModeLabel(nextMode)}模式`, {

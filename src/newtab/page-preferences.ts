@@ -2,7 +2,6 @@
 // auto-focus, simple mode and search result settings.
 import type * as LumnoSettings from '../domain/settings';
 import type { PageLayout } from './page-layout';
-import type { WallpaperRuntime } from './wallpaper/wallpaper';
 import * as SettingsStorage from '../platform/settings-storage';
 import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
@@ -14,15 +13,11 @@ import { SEARCH_WIDTH_CONFIG } from './layout';
 // Whether a change is only shown or also saved.
 type PersistOptions = { persist?: boolean } | null | undefined;
 
-interface PagePreferencesState {
-  wallpaperRuntime: Pick<WallpaperRuntime, 'updateInputAutoFocusUi' | 'updateShortcutsUi'> | null;
-}
 
 interface PagePreferencesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'set'>;
   getBookmarkGridColumnCount: PageLayout['getBookmarkGridColumnCount'];
-  pageState: PagePreferencesState;
 }
 
 function createPagePreferences(deps: PagePreferencesDeps) {
@@ -32,8 +27,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     getBookmarkGridColumnCount
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function normalizeNewtabWidthMode(value: unknown) {
     return SETTINGS.newtabWidthMode.parse(value);
@@ -95,18 +88,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     return SETTINGS.newtabAppearanceButtonVisible.parse(value);
   }
 
-  function updateNewtabInputAutoFocusUi(): void {
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.updateInputAutoFocusUi();
-    }
-  }
-
-  function updateNewtabShortcutPreferencesUi(): void {
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.updateShortcutsUi();
-    }
-  }
-
   function setNewtabShortcutsVisible(enabled: unknown, options?: PersistOptions): boolean {
     return preview.set(newtabShortcutsVisible, enabled, options);
   }
@@ -136,7 +117,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
   function followNewtabInputAutoFocus(): Promise<boolean> {
     const apply = () => {
       cacheNewtabInputAutoFocusEnabled(settings.get(newtabInputAutoFocusEnabled));
-      updateNewtabInputAutoFocusUi();
       return settings.get(newtabInputAutoFocusEnabled);
     };
     settings.subscribe(newtabInputAutoFocusEnabled, apply);
@@ -174,8 +154,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     normalizeNewtabInputAutoFocusEnabled,
     normalizeNewtabFeedbackButtonVisible,
     normalizeNewtabAppearanceButtonVisible,
-    updateNewtabInputAutoFocusUi,
-    updateNewtabShortcutPreferencesUi,
     setNewtabShortcutsVisible,
     setNewtabShortcutAddVisible,
     setNewtabShortcutDockMagnificationEnabled,
@@ -191,4 +169,4 @@ function createPagePreferences(deps: PagePreferencesDeps) {
 type PagePreferences = ReturnType<typeof createPagePreferences>;
 
 export { createPagePreferences };
-export type { PagePreferences, PagePreferencesDeps, PagePreferencesState };
+export type { PagePreferences, PagePreferencesDeps };

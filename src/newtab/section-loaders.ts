@@ -26,6 +26,7 @@ import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 import { recentMode } from '../domain/settings/recent-sites';
 import { isRecord } from '../platform/storage-call';
 import { FAVICON_CACHE_BOOT_WAIT_MS, MAX_PINNED_RECENT_SITES } from './newtab-config';
+import type { AppliedThemeMode } from './theme/applied-theme-mode';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -38,7 +39,6 @@ interface SectionLoadersState {
   // Goes up whenever the section data is replaced, so loads asked for
   // before then land nowhere.
   sectionDataRevision: number;
-  initialThemeApplied: boolean;
   bookmarkDragState: BookmarkDragSession | null;
   shortcutDragState: ShortcutDragSession | null;
   bookmarkGrid: HTMLElement | null;
@@ -87,11 +87,13 @@ interface SectionLoadersDeps extends
   updateBookmarkHeader: SectionHeaders['updateBookmarkHeader'];
   recentSection: HTMLElement | null;
   bookmarksRuntime: Pick<BookmarksRuntime, 'invalidate'>;
+  appliedTheme: Pick<AppliedThemeMode, 'applied'>;
   pageState: SectionLoadersState;
 }
 
 function createSectionLoaders(deps: SectionLoadersDeps) {
   const {
+    appliedTheme,
     settings,
     preview,
     isShortcutDragActive,
@@ -341,7 +343,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     const requestedSectionDataRevision = Number.isFinite(Number(config.sectionDataRevision))
       ? Number(config.sectionDataRevision)
       : pageState.sectionDataRevision;
-    if (!pageState.initialThemeApplied) {
+    if (!appliedTheme.applied) {
       return followTheme().then(() => loadBookmarks({
         ...config,
         sectionDataRevision: requestedSectionDataRevision
@@ -427,7 +429,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     const requestedSectionDataRevision = Number.isFinite(Number(config.sectionDataRevision))
       ? Number(config.sectionDataRevision)
       : pageState.sectionDataRevision;
-    if (!pageState.initialThemeApplied) {
+    if (!appliedTheme.applied) {
       return followTheme().then(() => loadRecentSites({
         ...config,
         sectionDataRevision: requestedSectionDataRevision

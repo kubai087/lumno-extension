@@ -22,10 +22,8 @@ import type { ResultActivation } from '../../shared/search-panel/result-activati
 import { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import type { SearchBoxParts } from './search-box-parts';
 import type { OpenTabs } from '../../shared/search-panel/open-tabs';
+import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 
-interface SearchNavigationState {
-  currentThemeMode: string;
-}
 
 // A slash command the typed text names, and the text that completes it.
 interface CommandMatch {
@@ -60,13 +58,14 @@ interface SearchNavigationDeps {
   navigateToQuery(query: string, forceSearch: boolean, disposition: Disposition): void;
   searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts'>;
   openTabs: Pick<OpenTabs, 'currentTabId' | 'received' | 'tabs'>;
-  pageState: SearchNavigationState;
+  appliedTheme: Pick<AppliedThemeMode, 'mode'>;
 }
 
 
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    appliedTheme,
     openTabs,
     searchBox,
     siteSearchRunner,
@@ -93,8 +92,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     navigateToQuery
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const quickNavigation = new QuickNavigation({ locale: { formatMessage }, getFaviconUrl: getPageFaviconCandidateUrl });
 
@@ -222,7 +219,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       }
     }
     if (!searchMode.local && isModeCommand(query)) {
-      setVisibleThemeMode(getNextThemeMode(pageState.currentThemeMode));
+      setVisibleThemeMode(getNextThemeMode(appliedTheme.mode));
       return;
     }
     if (!searchMode.local && isZenCommand(query)) {
@@ -414,4 +411,4 @@ function getNextSuggestionIndex(
 type SearchNavigation = ReturnType<typeof createSearchNavigation>;
 
 export { createSearchNavigation, getNextSuggestionIndex };
-export type { CommandMatch, SearchNavigation, SearchNavigationDeps, SearchNavigationState };
+export type { CommandMatch, SearchNavigation, SearchNavigationDeps };

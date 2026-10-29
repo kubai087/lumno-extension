@@ -18,8 +18,6 @@ import type { SuggestionsController } from './search/suggestions-controller';
 import type { FaviconViewRuntime } from './theme/favicon-view';
 import type { QuoteRuntime } from './top-content/quotes';
 import type { TopContentRuntime } from './top-content/top-content';
-import type { WallpaperRuntime } from './wallpaper/wallpaper';
-import type { WallpaperPage } from './wallpaper/wallpaper-page';
 import type { ToneScheduleOptions } from './wallpaper/wallpaper-adaptive-tone';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabTopContentMode } from '../domain/settings/newtab-time';
@@ -32,25 +30,19 @@ import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { pageColorScheme } from './theme/page-color-scheme';
 import type { SearchBoxParts } from './search/search-box-parts';
 import type { PageNoticeControllers } from './notice-controllers';
+import type { AppliedThemeMode } from './theme/applied-theme-mode';
 
 type ResolvedTheme = 'light' | 'dark';
 
 interface AppearanceModesState {
-  // The mode applied to the page, after scope and glass material are settled.
-  currentThemeMode: ThemeMode;
-  initialThemeApplied: boolean;
-  resolveInitialThemeReady: (() => void) | null;
   topContentController: TopContentController | null;
   bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'updateLanguage'> | null;
-  quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'> | null;
   faviconViewRuntime: Pick<FaviconViewRuntime,
     'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
-  wallpaperRuntime: Pick<WallpaperRuntime, 'handleThemeModeChange'> | null;
 }
 
 interface AppearanceModesDeps extends
   Pick<TopContentRuntime, 'renderNewtabTopContent' | 'applyWordmarkThemeAppearance'>,
-  Pick<WallpaperPage, 'updateWallpaperLanguageStrings' | 'updateWallpaperAppearanceSelectionUi'>,
   Pick<FeedbackControlRuntime, 'updateFeedbackLanguageStrings'>,
   Pick<ModeCommands, 'updateModeBadge'>,
   Pick<SuggestionsController, 'renderSuggestions'>,
@@ -74,15 +66,17 @@ interface AppearanceModesDeps extends
   // Reports whether the listener was attached.
   addMediaQueryChangeListener(queryList: MediaQueryList, listener: (event: MediaQueryListEvent) => void): boolean;
   removeMediaQueryChangeListener(queryList: MediaQueryList, listener: (event: MediaQueryListEvent) => void): void;
-  // Settle once the first theme and the first language are applied.
-  initialThemeReadyPromise: Promise<unknown>;
   searchBox: Pick<SearchBoxParts, 'inputParts' | 'modeController'>;
   notices: Pick<PageNoticeControllers, 'updateLanguage'>;
+  appliedTheme: Pick<AppliedThemeMode, 'firstApplied' | 'markApplied' | 'mode' | 'set'>;
+  quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'>;
   pageState: AppearanceModesState;
 }
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    quoteRuntime,
+    appliedTheme,
     notices,
     searchBox,
     modeActions,
@@ -95,8 +89,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     renderNewtabTopContent,
     updateRecentModeMenu,
     updateBookmarkModeMenu,
-    updateWallpaperLanguageStrings,
-    updateWallpaperAppearanceSelectionUi,
     updateFeedbackLanguageStrings,
     renderShortcuts,
     updateModeBadge,
@@ -108,8 +100,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     addMediaQueryChangeListener,
     mediaQuery,
     removeMediaQueryChangeListener,
-    scheduleWallpaperAdaptiveToneUpdate,
-    initialThemeReadyPromise
+    scheduleWallpaperAdaptiveToneUpdate
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -128,9 +119,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     updateRecentModeMenu();
     // Also draws the bookmark header with the new language.
     updateBookmarkModeMenu();
-    updateWallpaperLanguageStrings();
-    if (pageState.quoteRuntime) pageState.quoteRuntime.updateLanguage();
-    updateWallpaperAppearanceSelectionUi();
+    quoteRuntime.updateLanguage();
     updateFeedbackLanguageStrings();
     // Draws the tiles' labels and the shortcut menus in the new language.
     renderShortcuts();
@@ -171,8 +160,8 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
   }
 
   function applyThemeMode(mode: ThemeMode, options?: { mediaMatches?: boolean }): void {
-    const previousThemeMode = pageState.currentThemeMode;
-    pageState.currentThemeMode = themeMode.parse(mode);
+    const previousThemeMode = appliedTheme.mode;
+    appliedTheme.set(themeMode.parse(mode));
     const mediaMatchesOverride = options && typeof options.mediaMatches === 'boolean'
       ? options.mediaMatches
       : null;
@@ -198,16 +187,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
       refreshThemeAwareFavicons();
       scheduleThemeAwareFaviconRescue();
     }
-    if ((didResolvedThemeChange || previousThemeMode !== pageState.currentThemeMode) &&
-        pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.handleThemeModeChange();
-    }
-    if (!pageState.initialThemeApplied) {
-      pageState.initialThemeApplied = true;
-      if (pageState.resolveInitialThemeReady) {
-        pageState.resolveInitialThemeReady();
-      }
-    }
+    appliedTheme.markApplied(didResolvedThemeChange || previousThemeMode !== appliedTheme.mode);
     if (mode === 'system' && !mediaListenerAttached) {
       mediaListenerAttached = addMediaQueryChangeListener(mediaQuery, handleMediaChange);
     }
@@ -285,11 +265,11 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
       settings.subscribe(NEWTAB_THEME_SETTINGS, () => applyScopedThemeMode());
       void settings.include(NEWTAB_THEME_SETTINGS).then(() => applyScopedThemeMode());
     }
-    return initialThemeReadyPromise;
+    return appliedTheme.firstApplied;
   }
 
   function handleMediaChange(event: MediaQueryListEvent): void {
-    if (pageState.currentThemeMode !== 'system') {
+    if (appliedTheme.mode !== 'system') {
       return;
     }
     // 仅更新 data-theme 会遗漏依赖 JS 混色的卡片；系统主题切换时需完整重算。
@@ -300,7 +280,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
   }
 
   function syncSystemThemeMode(): void {
-    if (pageState.currentThemeMode !== 'system') {
+    if (appliedTheme.mode !== 'system') {
       return;
     }
     const resolved = resolveTheme('system');

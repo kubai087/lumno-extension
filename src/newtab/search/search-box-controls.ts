@@ -16,10 +16,6 @@ import { getPagePortals } from '../app/portals';
 import type { SearchBoxParts } from './search-box-parts';
 import type { PageNoticeControllers } from '../notice-controllers';
 
-interface SearchBoxControlsState {
-  wallpaperRuntime: unknown;
-  wallpaperControl: HTMLElement | null;
-}
 
 interface SearchBoxControlsDeps {
   searchMode: SearchMode<SiteSearchProvider>;
@@ -39,8 +35,8 @@ interface SearchBoxControlsDeps {
   closeWallpaperPanel(): void;
   searchBox: Pick<SearchBoxParts, 'inputParts' | 'modeController'>;
   notices: Pick<PageNoticeControllers, 'engagement' | 'mountWebdavHint' | 'webdavHint'>;
-  pageState: SearchBoxControlsState;
   getFeedbackControl(): HTMLElement | null;
+  getWallpaperControl(): HTMLElement | null;
 }
 
 function createSearchBoxControls(deps: SearchBoxControlsDeps) {
@@ -61,11 +57,10 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
     searchInput,
     closeFeedbackPopover,
     closeWallpaperPanel,
-    getFeedbackControl
+    getFeedbackControl,
+    getWallpaperControl
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // The search box exists before this module is created.
   const inputParts = searchBox.inputParts;
@@ -197,11 +192,11 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
     if (!settings.get(newtabFeedbackButtonVisible) && getFeedbackControl()) {
       closeFeedbackPopover();
     }
-    if (!settings.get(newtabAppearanceButtonVisible) && pageState.wallpaperRuntime) {
+    if (!settings.get(newtabAppearanceButtonVisible)) {
       closeWallpaperPanel();
     }
     setNewtabActionControlVisibility(getFeedbackControl(), settings.get(newtabFeedbackButtonVisible));
-    setNewtabActionControlVisibility(pageState.wallpaperControl, settings.get(newtabAppearanceButtonVisible));
+    setNewtabActionControlVisibility(getWallpaperControl(), settings.get(newtabAppearanceButtonVisible));
   }
 
   // Shows or hides the buttons once their settings are read, and on every change.
@@ -220,4 +215,4 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
 type SearchBoxControls = ReturnType<typeof createSearchBoxControls>;
 
 export { createSearchBoxControls };
-export type { SearchBoxControls, SearchBoxControlsDeps, SearchBoxControlsState };
+export type { SearchBoxControls, SearchBoxControlsDeps };

@@ -10,8 +10,9 @@ import type { TopContentController } from '../react/wordmark';
 import type { QuoteRuntime } from '../top-content/quotes';
 import type { AdaptiveToneTarget, ToneScheduleOptions } from './wallpaper-adaptive-tone';
 import * as NEWTAB_WALLPAPER from './wallpaper';
-import type { WallpaperRuntime } from './wallpaper';
 import type { SectionPanelSettings } from './runtime/panel-actions';
+import type { AppliedThemeMode } from '../theme/applied-theme-mode';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import { readBootValue } from '../../platform/boot-handoff';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SettingPreview } from '../setting-preview';
@@ -39,14 +40,8 @@ interface WallpaperPageState {
   topContentController: TopContentController | null;
   topContentContainer: HTMLElement | null;
   wordmarkImageEl: HTMLImageElement | null;
-  quoteRuntime: Pick<QuoteRuntime, 'element' | 'getTextElement' | 'bindSettings' | 'getProviderLabel' | 'updateLanguage'> | null;
-  sectionPanelSettings: (SectionPanelSettings & { updateLanguage(): void }) | null;
   recentHeader: HTMLElement | null;
   bottomDockScroller: HTMLElement | null;
-  wallpaperRuntime: WallpaperRuntime | null;
-  wallpaperControl: HTMLDivElement | null;
-  // When the wallpaper was revealed (performance.now()).
-  wallpaperShownAt: number;
 }
 
 interface WallpaperPageDeps {
@@ -86,12 +81,17 @@ interface WallpaperPageDeps {
   // Settles once the auto-focus setting is read.
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
   followTheme(): PromiseLike<unknown>;
+  quoteRuntime: Pick<QuoteRuntime, 'element' | 'getTextElement' | 'bindSettings' | 'getProviderLabel' | 'updateLanguage'>;
   pageState: WallpaperPageState;
   getFeedbackButton(): HTMLElement | null;
+  sectionPanelSettings: SectionPanelSettings & { updateLanguage(): void };
+  appliedTheme: Pick<AppliedThemeMode, 'events'>;
+  locale: Pick<SurfaceLocale, 'store'>;
 }
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
+    quoteRuntime,
     settings,
     preview,
     shortcutTiles,
@@ -124,11 +124,15 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
     followTheme,
-    getFeedbackButton
+    getFeedbackButton,
+    sectionPanelSettings,
+    appliedTheme,
+    locale
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
+  let wallpaperShownAt = 0;
 
 
   function createWallpaperAdaptiveToneTargets(): AdaptiveToneTarget[] {
@@ -175,8 +179,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     const topContentSample: HTMLElement | null = pageState.topContentController && typeof pageState.topContentController.getContent === 'function'
       ? (pageState.topContentController.getContent() || pageState.topContentContainer)
       : (pageState.wordmarkImageEl || pageState.topContentContainer);
-    const quoteElement = pageState.quoteRuntime && pageState.quoteRuntime.element;
-    const quoteSample = pageState.quoteRuntime && (pageState.quoteRuntime.getTextElement() || quoteElement);
+    const quoteElement = quoteRuntime.element;
+    const quoteSample = quoteRuntime.getTextElement() || quoteElement;
     // A quote at the top is the wordmark's caption: both read the wallpaper under
     // the pair and share one ink, so the line never flips against the mark above it.
     const quoteIsCaption = Boolean(quoteElement && !quoteElement.hidden &&
@@ -389,14 +393,14 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       };
     }
   };
-  pageState.wallpaperRuntime = NEWTAB_WALLPAPER.createWallpaperRuntime({
+  const wallpaperRuntime = NEWTAB_WALLPAPER.createWallpaperRuntime({
     documentObj: document,
     windowObj: window,
     chromeObj: chrome,
     extensionRoutes: EXTENSION_ROUTES,
     localWallpaperStorageArea: localStorageArea,
-    getQuoteRuntime: () => pageState.quoteRuntime,
-    getSectionPanelSettings: () => pageState.sectionPanelSettings,
+    getQuoteRuntime: () => quoteRuntime,
+    getSectionPanelSettings: () => sectionPanelSettings,
     searchWidthConfig: SEARCH_WIDTH_CONFIG,
     t,
     formatMessage,
@@ -456,44 +460,11 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     getAdaptiveToneTargets: createWallpaperAdaptiveToneTargets
   });
 
-  function updateWallpaperLanguageStrings(): void {
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.updateLanguageStrings();
-    }
-  }
-
-  function updateWallpaperAppearanceSelectionUi(): void {
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.updateAppearanceSelectionUi();
-    }
-  }
+  // The panel draws the theme it shows, and the wallpapers follow the page's theme.
+  appliedTheme.events.on('changed', () => wallpaperRuntime.handleThemeModeChange());
 
   function bootstrapInitialWallpaper(): Promise<void> {
-    const runtime = pageState.wallpaperRuntime;
-    if (!runtime) {
-      return Promise.resolve();
-    }
-    return Promise.resolve(followTheme()).then(() => runtime.bootstrapInitialWallpaper());
-  }
-
-  function bootstrapInitialWallpaperOverlay(): Promise<void> {
-    return pageState.wallpaperRuntime ? pageState.wallpaperRuntime.bootstrapInitialWallpaperOverlay() : Promise.resolve();
-  }
-
-  function bootstrapInitialWallpaperEffect(): Promise<void> {
-    return pageState.wallpaperRuntime ? pageState.wallpaperRuntime.bootstrapInitialWallpaperEffect() : Promise.resolve();
-  }
-
-  function waitForInitialWallpaperEffectVisual(): Promise<void> {
-    return pageState.wallpaperRuntime && typeof pageState.wallpaperRuntime.waitForInitialWallpaperEffectVisual === 'function'
-      ? pageState.wallpaperRuntime.waitForInitialWallpaperEffectVisual()
-      : Promise.resolve();
-  }
-
-  function waitForInitialWallpaperTone(): Promise<void> {
-    return pageState.wallpaperRuntime && typeof pageState.wallpaperRuntime.waitForInitialWallpaperTone === 'function'
-      ? pageState.wallpaperRuntime.waitForInitialWallpaperTone()
-      : Promise.resolve();
+    return Promise.resolve(followTheme()).then(() => wallpaperRuntime.bootstrapInitialWallpaper());
   }
 
   function markInitialWallpaperVisualReady(): void {
@@ -502,68 +473,38 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     }
     if (document.body.getAttribute('data-nt-wallpaper-ready') !== '1') {
       document.body.setAttribute('data-nt-wallpaper-ready', '1');
-      pageState.wallpaperShownAt = performance.now();
+      wallpaperShownAt = performance.now();
       return;
     }
     // The preload revealed it already.
     const effectPreload = readBootValue('wallpaperEffectPreload');
-    if (!pageState.wallpaperShownAt && effectPreload && effectPreload.wallpaperShownAt) {
-      pageState.wallpaperShownAt = effectPreload.wallpaperShownAt;
+    if (!wallpaperShownAt && effectPreload && effectPreload.wallpaperShownAt) {
+      wallpaperShownAt = effectPreload.wallpaperShownAt;
     }
   }
 
-  function bootstrapInitialNewtabFavicon(): Promise<void> {
-    return pageState.wallpaperRuntime && typeof pageState.wallpaperRuntime.bootstrapInitialNewtabFavicon === 'function'
-      ? pageState.wallpaperRuntime.bootstrapInitialNewtabFavicon()
-      : Promise.resolve();
-  }
-
-  function createWallpaperControls(): void {
-    if (!pageState.wallpaperRuntime) {
-      return;
-    }
-    pageState.wallpaperRuntime.createControls();
-    pageState.wallpaperControl = pageState.wallpaperRuntime.getControlElement();
-  }
-
-  function isWallpaperPanelOpen(): boolean {
-    return pageState.wallpaperRuntime ? pageState.wallpaperRuntime.isPanelOpen() : false;
-  }
-
-  function closeWallpaperPanel(options?: { restoreFocus?: boolean } | null): void {
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.closePanel(options);
-    }
+  // When the wallpaper was revealed (performance.now()); 0 until then.
+  function getWallpaperShownAt(): number {
+    return wallpaperShownAt;
   }
 
   function scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions | Event | null): void {
-    if (pageState.wallpaperRuntime) {
-      pageState.wallpaperRuntime.scheduleAdaptiveToneUpdate(options);
-    }
+    wallpaperRuntime.scheduleAdaptiveToneUpdate(options);
   }
 
   // The dock's magnification changes what the glass behind it samples.
   settings.subscribe(newtabShortcutDockMagnificationEnabled, () => scheduleWallpaperAdaptiveToneUpdate());
 
+  // The panel draws in the page's language.
+  locale.store.subscribe(() => wallpaperRuntime.updateLanguageStrings());
   // The panel's theme controls show the theme settings as they are.
-  settings.subscribe(NEWTAB_THEME_SETTINGS, () => {
-    updateWallpaperLanguageStrings();
-    updateWallpaperAppearanceSelectionUi();
-  });
+  settings.subscribe(NEWTAB_THEME_SETTINGS, () => wallpaperRuntime.updateLanguageStrings());
 
   return {
-    updateWallpaperLanguageStrings,
-    updateWallpaperAppearanceSelectionUi,
+    wallpaperRuntime,
     bootstrapInitialWallpaper,
-    bootstrapInitialWallpaperOverlay,
-    bootstrapInitialWallpaperEffect,
-    waitForInitialWallpaperEffectVisual,
-    waitForInitialWallpaperTone,
     markInitialWallpaperVisualReady,
-    bootstrapInitialNewtabFavicon,
-    createWallpaperControls,
-    isWallpaperPanelOpen,
-    closeWallpaperPanel,
+    getWallpaperShownAt,
     scheduleWallpaperAdaptiveToneUpdate
   };
 }

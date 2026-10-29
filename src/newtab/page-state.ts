@@ -11,21 +11,17 @@ import type { BookmarkDragControllerState } from './bookmarks/bookmark-drag-cont
 import type { BookmarkPagerState } from './bookmarks/bookmark-pager';
 import type { BookmarkSectionState } from './bookmarks/bookmark-section';
 import type { BottomDockRuntimeState } from './shortcuts/bottom-dock-runtime';
-import type { EntryMotionState } from './entry-motion';
 import type { FolderColorsState } from './bookmarks/folder-colors';
 import type { InputFocusState } from './input-focus';
 import type { ModeCommandsState } from './mode-commands';
 import type { PageFaviconsState } from './theme/page-favicons';
 import type { PageKeyboardState } from './page-keyboard';
 import type { PageLayoutState } from './page-layout';
-import type { PagePreferencesState } from './page-preferences';
 import type { PageResizeState } from './page-resize';
 import type { RecentCardDrag, RecentCardDragState } from './recent/recent-card-drag';
 import type { RecentSectionState } from './recent/recent-section';
 import type { RecentSitesControllerState } from './recent/recent-sites-controller';
 import type { RecentSourcesState } from './recent/recent-sources';
-import type { SearchBoxControlsState } from './search/search-box-controls';
-import type { SearchNavigationState } from './search/search-navigation';
 import type { SearchSettingsSyncState } from './search/search-settings-sync';
 import type { SectionHeadersState } from './section-headers';
 import type { SectionLoadersState } from './section-loaders';
@@ -37,10 +33,8 @@ import type { ShortcutPageActionsState } from './shortcuts/shortcut-page-actions
 import type { ShortcutsControllerState } from './shortcuts/shortcuts-controller';
 import type { StartupPreferencesState } from './startup-preferences';
 import type { SiteThemeResolverState } from './theme/site-theme-resolver';
-import type { SuggestionsControllerState } from './search/suggestions-controller';
 import type { SuggestionsLayoutState } from './search/suggestions-layout';
 import type { TooltipBindingsState } from './tooltip-bindings';
-import type { QuoteRuntime } from './top-content/quotes';
 import type { TopContentState } from './top-content/top-content';
 import type { WallpaperPageState } from './wallpaper/wallpaper-page';
 
@@ -48,7 +42,6 @@ import type { WallpaperPageState } from './wallpaper/wallpaper-page';
 // the modules.
 interface PageCoreState {
   recentCardDragRuntime: RecentCardDrag | null;
-  quoteRuntime: QuoteRuntime | null;
 }
 
 // Every module's view of the page state, together.
@@ -63,21 +56,17 @@ type NewtabPageState =
   BookmarkPagerState &
   BookmarkSectionState &
   BottomDockRuntimeState &
-  EntryMotionState &
   FolderColorsState &
   InputFocusState &
   ModeCommandsState &
   PageFaviconsState &
   PageKeyboardState &
   PageLayoutState &
-  PagePreferencesState &
   PageResizeState &
   RecentCardDragState &
   RecentSectionState &
   RecentSitesControllerState &
   RecentSourcesState &
-  SearchBoxControlsState &
-  SearchNavigationState &
   SearchSettingsSyncState &
   SectionHeadersState &
   SectionLoadersState &
@@ -89,7 +78,6 @@ type NewtabPageState =
   ShortcutsControllerState &
   StartupPreferencesState &
   SiteThemeResolverState &
-  SuggestionsControllerState &
   SuggestionsLayoutState &
   TooltipBindingsState &
   TopContentState &
@@ -97,9 +85,6 @@ type NewtabPageState =
 
 function createPageState(): NewtabPageState {
   return {
-    currentThemeMode: 'system',
-    initialThemeApplied: false,
-    resolveInitialThemeReady: null,
 
     recentSourceItems: [],
     layoutController: null,
@@ -107,15 +92,9 @@ function createPageState(): NewtabPageState {
     bottomDockScroller: null,
     faviconViewRuntime: null,
 
-    // When the wallpaper was revealed (performance.now()); entry-motion.ts lets it lead the content.
-    wallpaperShownAt: 0,
     topContentContainer: null,
     topContentController: null,
     wordmarkImageEl: null,
-    wallpaperControl: null,
-    wallpaperRuntime: null,
-    quoteRuntime: null,
-    sectionPanelSettings: null,
     bookmarkCurrentPage: 0,
     bookmarkAllItems: [],
     bookmarkCurrentFolderId: '1',

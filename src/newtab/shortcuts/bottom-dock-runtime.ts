@@ -10,12 +10,10 @@ import type { SearchBoxParts } from '../search/search-box-parts';
 import type { PageNoticeControllers } from '../notice-controllers';
 
 // A part of the page that may show an element of its own.
-type ElementOwner = { element?: HTMLElement | null } | null;
 
 interface BottomDockRuntimeState {
   topContentContainer: HTMLElement | null;
   shortcutSection: HTMLElement | null;
-  quoteRuntime: ElementOwner;
   recentSection: HTMLElement | null;
   bottomDockScroller: HTMLElement | null;
   layoutController: LayoutController | null;
@@ -36,11 +34,13 @@ interface BottomDockRuntimeDeps {
   suggestionsContainer: HTMLElement;
   searchLayer: HTMLElement;
   notices: Pick<PageNoticeControllers, 'engagement' | 'update'>;
+  quoteRuntime: { element: HTMLElement | null };
   pageState: BottomDockRuntimeState;
 }
 
 function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const {
+    quoteRuntime,
     searchLayer,
     suggestionsContainer,
     searchBox,
@@ -84,7 +84,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     inputParts: () => searchBox.inputParts,
     topContentContainer: () => pageState.topContentContainer,
     shortcutSection: () => pageState.shortcutSection,
-    quoteSection: () => pageState.quoteRuntime && pageState.quoteRuntime.element,
+    quoteSection: () => quoteRuntime.element,
     bookmarkSection,
     recentSection,
     suggestionsContainer: suggestionsContainer,
@@ -119,7 +119,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
       { key: 'topContent', element: pageState.topContentContainer },
       { key: 'search', element: root },
       { key: 'shortcuts', element: pageState.shortcutSection },
-      { key: 'quote', element: pageState.quoteRuntime && pageState.quoteRuntime.element },
+      { key: 'quote', element: quoteRuntime.element },
       { key: 'updateNotice', element: notices.update && notices.update.element },
       {
         key: 'engagementNotice',
