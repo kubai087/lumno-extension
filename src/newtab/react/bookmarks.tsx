@@ -7,8 +7,8 @@ import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlTags } from '../../shared/dom-lookup';
 import { EmptyStateArt } from '../../shared/react/empty-state-art';
 import { FaviconFallback, FolderPreviewFaviconFallback } from '../../shared/react/favicon-fallback';
-import { createViewStore } from '../../shared/react/view-store';
 import { useStore } from '../../shared/react/use-store';
+import { createStore } from '../../shared/state/store';
 import type { Store } from '../../shared/state/store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
@@ -67,11 +67,25 @@ interface OpenUrlOptions {
   openInOtherTab: boolean;
 }
 
+// What the grid shows, as its owner set it: a page of cards, the note of an
+// empty folder, or nothing.
+export type BookmarkGridContent =
+  | { kind: 'cards'; items: BookmarkItem[]; viewMode: 'folder' | 'list' | 'top'; menuMode: boolean }
+  | { kind: 'empty' }
+  | null;
+
+export interface BookmarkGridState {
+  content: BookmarkGridContent;
+}
+
 export interface BookmarksViewOptions {
   documentObj?: Document;
   windowObj?: Window;
   grid?: HTMLElement | null;
   cards?: BookmarkCardElement[];
+  content?: Store<BookmarkGridState>;
+  // The bookmark whose context menu is open, as the menu sets it.
+  contextMenuBookmark?: Store<{ id: string | null }>;
   cardElementCache?: Map<string, BookmarkCardElement>;
   folderIconsVisible?: boolean;
   t?: (key: string, fallback: string) => string;
@@ -155,6 +169,7 @@ interface NormalizedBookmarksOptions {
   grid: HTMLElement;
   cards: BookmarkCardElement[];
   cardElementCache: Map<string, BookmarkCardElement>;
+  content: Store<BookmarkGridState>;
   contextMenuBookmark: Store<{ id: string | null }>;
   folderIconsVisible: { current: boolean };
   t: NonNullable<BookmarksViewOptions['t']>;
@@ -219,34 +234,10 @@ interface NormalizedBookmarksOptions {
   >;
 }
 
-export interface BookmarksRenderState {
-  signature?: string;
-  folderId?: string;
-  rootFolderId?: string;
-  viewMode?: string;
-  menuMode?: boolean;
-}
-
-export interface BookmarksRenderResult {
-  changed: boolean;
-  count: number;
-  isAtRoot: boolean;
-  signature: string;
-}
-
 export interface BookmarksViewController {
-  appendEmptyFolderState(): void;
-  clear(): void;
-  render(
-    items: BookmarkItem[],
-    state?: BookmarksRenderState
-  ): BookmarksRenderResult;
-  getSignature(items: BookmarkItem[]): string;
   getCacheKey(item: BookmarkItem): string;
   setFolderIconsVisible(value: boolean): boolean;
   getCards(): BookmarkCardElement[];
-  // Marks the card of the bookmark whose context menu is open, or none.
-  setContextMenuBookmark(id: string | null): void;
 }
 
 function fallbackFormatMessage(
@@ -272,20 +263,6 @@ function fallbackStableHashCode(value: string): number {
     hash |= 0;
   }
   return hash;
-}
-
-export function getBookmarksSignature(items: BookmarkItem[]): string {
-  if (!Array.isArray(items) || items.length === 0) {
-    return '';
-  }
-  return items.map((item, index) => {
-    const id = item?.id ? String(item.id) : '';
-    const type = item?.type ? String(item.type) : '';
-    const title = item?.title ? String(item.title) : '';
-    const url = item?.url ? String(item.url) : '';
-    const themeUrl = item?.themeUrl ? String(item.themeUrl) : '';
-    return `${index}::${id}::${type}::${title}::${url}::${themeUrl}`;
-  }).join('\n');
 }
 
 export function getBookmarkCacheKey(item: BookmarkItem): string {
@@ -317,7 +294,8 @@ function normalizeOptions(
     windowObj,
     grid,
     cards: Array.isArray(rawOptions.cards) ? rawOptions.cards : [],
-    contextMenuBookmark: createViewStore<{ id: string | null }>({ id: null }),
+    content: rawOptions.content || createStore<BookmarkGridState>({ content: null }),
+    contextMenuBookmark: rawOptions.contextMenuBookmark || createStore<{ id: string | null }>({ id: null }),
     cardElementCache:
       rawOptions.cardElementCache instanceof Map
         ? rawOptions.cardElementCache
@@ -1123,43 +1101,44 @@ function EmptyFolderState({
   );
 }
 
+// The grid's content from its owner's store. After each new content the
+// cursor tooltip of the old cards goes away and the page gets the new cards,
+// their pressed and hover state reset.
+function BookmarkGrid({ options }: { options: NormalizedBookmarksOptions }) {
+  const { content } = useStore(options.content);
+  useLayoutEffect(() => {
+    options.hideCursorTooltip();
+    options.cards.length = 0;
+    queryHtmlTags(options.grid, '.x-nt-bookmark-card', 'div')
+      .forEach((element) => {
+        const card: BookmarkCardElement = element;
+        options.cards.push(card);
+        if (typeof card._xResetBookmarkInteractionState === 'function') {
+          card._xResetBookmarkInteractionState();
+        }
+      });
+  }, [content, options]);
+  if (!content) {
+    return null;
+  }
+  if (content.kind === 'empty') {
+    return <EmptyFolderState options={options} />;
+  }
+  return <BookmarksList items={content.items} menuMode={content.menuMode} options={options} viewMode={content.viewMode} />;
+}
+
 function createNoopController(
   rawOptions: BookmarksViewOptions
 ): BookmarksViewController {
   const cards = Array.isArray(rawOptions.cards) ? rawOptions.cards : [];
   return {
-    appendEmptyFolderState() {},
-    clear() {
-      cards.length = 0;
-    },
-    render(items, state = {}) {
-      const normalizedItems = Array.isArray(items) ? items : [];
-      const folderId = state.folderId ? String(state.folderId) : '';
-      const rootFolderId = state.rootFolderId
-        ? String(state.rootFolderId)
-        : '1';
-      const viewMode =
-        state.viewMode === 'list' || state.viewMode === 'top'
-          ? state.viewMode
-          : 'folder';
-      return {
-        changed: false,
-        count: normalizedItems.length,
-        isAtRoot: folderId === rootFolderId,
-        signature: `${folderId}##${viewMode}##${getBookmarksSignature(
-          normalizedItems
-        )}`
-      };
-    },
-    getSignature: getBookmarksSignature,
     getCacheKey: getBookmarkCacheKey,
     setFolderIconsVisible(value) {
       return value !== false;
     },
     getCards() {
       return cards;
-    },
-    setContextMenuBookmark() {}
+    }
   };
 }
 
@@ -1173,94 +1152,9 @@ export function createBookmarksView(
   const options: NormalizedBookmarksOptions = normalizedOptions;
   options.grid.setAttribute('data-react-island', 'bookmarks');
 
-  function syncCards(resetInteraction = false): void {
-    options.cards.length = 0;
-    queryHtmlTags(options.grid, '.x-nt-bookmark-card', 'div')
-      .forEach((element) => {
-        const card: BookmarkCardElement = element;
-        options.cards.push(card);
-        if (
-          resetInteraction &&
-          typeof card._xResetBookmarkInteractionState === 'function'
-        ) {
-          card._xResetBookmarkInteractionState();
-        }
-      });
-  }
-
-  function clear(): void {
-    options.hideCursorTooltip();
-    getPagePortals().show(options.grid, null);
-    options.cards.length = 0;
-  }
-
-  function appendEmptyFolderState(): void {
-    options.hideCursorTooltip();
-    getPagePortals().show(options.grid, <EmptyFolderState options={options} />);
-    options.cards.length = 0;
-  }
-
-  function render(
-    items: BookmarkItem[],
-    state: BookmarksRenderState = {}
-  ): BookmarksRenderResult {
-    const normalizedItems = Array.isArray(items) ? items : [];
-    const previousSignature =
-      typeof state.signature === 'string' ? state.signature : '';
-    const folderId = state.folderId ? String(state.folderId) : '';
-    const rootFolderId = state.rootFolderId
-      ? String(state.rootFolderId)
-      : '1';
-    const viewMode =
-      state.viewMode === 'list' || state.viewMode === 'top'
-        ? state.viewMode
-        : 'folder';
-    const menuMode = Boolean(state.menuMode);
-    const isAtRoot = folderId === rootFolderId;
-    const nextSignature =
-      `${folderId}##${viewMode}##${getBookmarksSignature(
-        normalizedItems
-      )}`;
-
-    if (nextSignature === previousSignature) {
-      if (normalizedItems.length === 0 && !isAtRoot) {
-        appendEmptyFolderState();
-      }
-      return {
-        changed: false,
-        count: normalizedItems.length,
-        isAtRoot,
-        signature: nextSignature
-      };
-    }
-
-    options.hideCursorTooltip();
-    getPagePortals().show(options.grid, (
-      normalizedItems.length > 0 ? (
-        <BookmarksList
-          items={normalizedItems}
-          viewMode={viewMode}
-          menuMode={menuMode}
-          options={options}
-        />
-      ) : (
-        isAtRoot ? null : <EmptyFolderState options={options} />
-      )
-    ));
-    syncCards(true);
-    return {
-      changed: true,
-      count: normalizedItems.length,
-      isAtRoot,
-      signature: nextSignature
-    };
-  }
+  getPagePortals().show(options.grid, <BookmarkGrid options={options} />);
 
   return {
-    appendEmptyFolderState,
-    clear,
-    render,
-    getSignature: getBookmarksSignature,
     getCacheKey: getBookmarkCacheKey,
     setFolderIconsVisible(value) {
       options.folderIconsVisible.current = value !== false;
@@ -1271,9 +1165,6 @@ export function createBookmarksView(
     },
     getCards() {
       return options.cards;
-    },
-    setContextMenuBookmark(id) {
-      options.contextMenuBookmark.setState({ id });
     }
   };
 }

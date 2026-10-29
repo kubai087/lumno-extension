@@ -158,6 +158,7 @@ function createSectionViewsPart(ctx: PageContext, deps: SectionViewsPartDeps) {
     navigateBookmarkFolder,
     dragSessions,
     bookmarkParts,
+    bookmarksShown,
     settings,
     preview,
     setContentSectionVisible,

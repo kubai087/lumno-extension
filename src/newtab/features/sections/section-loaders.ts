@@ -4,7 +4,6 @@ import type { BookmarkCascadeActions } from '../../bookmarks/bookmark-cascade-ac
 import type { BookmarkPager } from '../../bookmarks/bookmark-pager';
 import type { BookmarksRuntime } from '../../bookmarks/bookmarks-runtime';
 import type { PageLayout } from '../../page-layout';
-import type { BookmarksViewController } from '../../react/bookmarks';
 import type { RecentSitesController } from '../../recent/recent-sites-controller';
 import type { RecentSources } from '../../recent/recent-sources';
 import type { SectionHeaders } from '../../section-headers';
@@ -59,7 +58,7 @@ interface SectionLoadersDeps extends
   appliedTheme: Pick<AppliedThemeMode, 'applied'>;
   shortcutList: Pick<ShortcutList, 'items'>;
   recentShown: Pick<RecentSitesShown, 'draw' | 'clear' | 'forgetSignature' | 'items' | 'loadedOnce' | 'markLoaded' | 'setItems'>;
-  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'renderSignature' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
+  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'draw' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'view' | 'cascade'>;
   bookmarkGrid: HTMLElement;
   dragSessions: Pick<DragSessions, 'bookmark' | 'recentCardDragging' | 'shortcut' | 'shortcutDragging'>;
@@ -114,13 +113,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
   // holds still meanwhile, so the dock grows over free space, and the bar
   // stays hidden when it would cover shortcuts: the shortcut area would
   // then shrink and scroll under the pointer.
-  function getBookmarksView(): Pick<BookmarksViewController, 'render' | 'clear'> {
-    if (!bookmarkParts.view) {
-      throw new Error('Bookmarks view unavailable');
-    }
-    return bookmarkParts.view;
-  }
-
   function renderRecentSites(items: RecentSite[] | null | undefined): void {
     const sourceItems = Array.isArray(items) ? items : [];
     const resolvedHiddenUrls = new Set<string>();
@@ -222,7 +214,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     if (!preview.get(bookmarkCount) || preview.get(bookmarkCount) <= 0) {
       closeBookmarkCascadeMenu();
       bookmarksShown.clear();
-      getBookmarksView().clear();
       setBookmarkSurfaceVisible(false);
       bookmarkDataDirty = false;
       bookmarksShown.markLoaded();
@@ -237,8 +228,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       if (!preview.get(bookmarkCount) || preview.get(bookmarkCount) <= 0) {
         closeBookmarkCascadeMenu();
         bookmarksShown.clear();
-        getBookmarksView().clear();
-        setBookmarkSurfaceVisible(false);
+          setBookmarkSurfaceVisible(false);
         bookmarkDataDirty = false;
         bookmarksShown.markLoaded();
         updateBookmarkSectionPosition();

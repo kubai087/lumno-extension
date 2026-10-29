@@ -3,16 +3,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createBookmarksView,
   getBookmarkCacheKey,
-  getBookmarksSignature,
   type BookmarkCardElement,
   type BookmarkItem,
   type BookmarksViewController,
   type BookmarksViewOptions
 } from './bookmarks';
+import { BookmarksShown } from '../bookmarks/bookmarks-shown';
+import { createViewStore } from '../../shared/react/view-store';
+import type { Store } from '../../shared/state/store';
 import { expectElement, required } from '../../../tests/react/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
-let views: BookmarksViewController[] = [];
+// A view with the owner that draws its grid and the context menu mark the
+// menu sets.
+interface BookmarksHarness {
+  controller: BookmarksViewController;
+  shown: BookmarksShown;
+  contextMenuBookmark: Store<{ id: string | null }>;
+}
+
+let views: BookmarksHarness[] = [];
 
 function createOptions(
   overrides: Partial<BookmarksViewOptions> = {}
@@ -64,69 +74,54 @@ function createOptions(
 function createView(
   overrides: Partial<BookmarksViewOptions> = {}
 ): {
-  view: BookmarksViewController;
+  view: BookmarksHarness;
   options: BookmarksViewOptions;
 } {
-  const options = createOptions(overrides);
-  const view = createBookmarksView(options);
+  const shown = new BookmarksShown();
+  const contextMenuBookmark = createViewStore<{ id: string | null }>({ id: null });
+  const options = createOptions({ content: shown.grid, contextMenuBookmark, ...overrides });
+  const view = { controller: createBookmarksView(options), shown, contextMenuBookmark };
   views.push(view);
   return { view, options };
 }
 
+// Draws a page as the pager does; `redraw` forgets what was drawn first.
 function renderItems(
-  view: BookmarksViewController,
+  view: BookmarksHarness,
   items: BookmarkItem[],
-  state: {
-    signature?: string;
-    folderId?: string;
-    rootFolderId?: string;
-    viewMode?: string;
-    menuMode?: boolean;
-  } = {}
+  state: { folderId?: string; rootFolderId?: string; viewMode?: string; redraw?: boolean } = {}
 ) {
-  let result = {
-    changed: false,
-    count: 0,
-    isAtRoot: true,
-    signature: ''
-  };
+  const folderId = state.folderId || '1';
+  const rootFolderId = state.rootFolderId || '1';
+  let changed = false;
   act(() => {
-    result = view.render(items, {
-      folderId: '1',
-      rootFolderId: '1',
-      viewMode: 'folder',
-      ...state
-    });
+    view.shown.located(rootFolderId, folderId, []);
+    if (state.redraw) {
+      view.shown.forgetSignature();
+    }
+    changed = view.shown.draw(items, state.viewMode || 'folder');
   });
-  return result;
+  return { changed, isAtRoot: folderId === rootFolderId };
 }
 
 afterEach(() => {
   act(() => {
-    views.forEach((view) => view.clear());
+    views.forEach((view) => view.shown.clear());
   });
   views = [];
 });
 
 describe('Bookmarks React island', () => {
-  it('preserves signatures through the React API', () => {
+  it('keys a card by what it shows', () => {
     const item = {
       id: 'docs',
       type: 'bookmark',
       title: 'Docs',
       url: 'https://example.com/docs'
     };
-    expect(getBookmarksSignature([item])).toBe(
-      '0::docs::bookmark::Docs::https://example.com/docs::'
-    );
     expect(getBookmarkCacheKey(item)).toBe(
       'docs::bookmark::Docs::https://example.com/docs::'
     );
-
-    const options = createOptions();
-    const view = createBookmarksView(options);
-    views.push(view);
-
   });
 
   it('leaves a card alone when the grid renders again with the same bookmark', () => {
@@ -143,11 +138,11 @@ describe('Bookmarks React island', () => {
       { id: 'site', parentId: '1', index: 0, type: 'bookmark', title: 'Site', url: 'https://example.com/' },
       { id: 'folder', parentId: '1', index: 1, type: 'folder', title: 'Folder', previewUrls: ['https://a.example/'] }
     ];
-    renderItems(view, items, { signature: 'first' });
+    renderItems(view, items, { redraw: true });
     const themed = applyTheme.mock.calls.length;
     const attached = attachFavicon.mock.calls.length;
 
-    renderItems(view, items, { signature: 'second' });
+    renderItems(view, items, { redraw: true });
     expect(applyTheme.mock.calls.length).toBe(themed);
     expect(attachFavicon.mock.calls.length).toBe(attached);
   });
@@ -163,11 +158,11 @@ describe('Bookmarks React island', () => {
       url: `https://example.com/${id}`
     });
     renderItems(view, [bookmark('first', 0), bookmark('second', 1)]);
-    const marked = () => view.getCards().map((card) => card.getAttribute('data-bookmark-context-menu-open'));
+    const marked = () => view.controller.getCards().map((card) => card.getAttribute('data-bookmark-context-menu-open'));
 
-    act(() => view.setContextMenuBookmark('first'));
+    act(() => view.contextMenuBookmark.setState({ id: 'first' }));
     expect(marked()).toEqual(['true', null]);
-    act(() => view.setContextMenuBookmark(null));
+    act(() => view.contextMenuBookmark.setState({ id: null }));
     expect(marked()).toEqual([null, null]);
   });
 
@@ -200,7 +195,7 @@ describe('Bookmarks React island', () => {
     };
 
     const initial = renderItems(view, [first, second]);
-    const initialCards = view.getCards().slice();
+    const initialCards = view.controller.getCards().slice();
     const grid = expectElement(options.grid);
 
     expect(initial.changed).toBe(true);
@@ -215,21 +210,17 @@ describe('Bookmarks React island', () => {
     expect(bindTooltip).toHaveBeenCalledTimes(2);
     expect(applyTheme).toHaveBeenCalledTimes(2);
 
-    const next = renderItems(view, [second, first], {
-      signature: initial.signature
-    });
-    const reorderedCards = view.getCards();
+    const next = renderItems(view, [second, first]);
+    const reorderedCards = view.controller.getCards();
     expect(next.changed).toBe(true);
     expect(reorderedCards[0]).toBe(initialCards[1]);
     expect(reorderedCards[1]).toBe(initialCards[0]);
     expect(reorderedCards[0]._xBookmarkPageIndex).toBe(0);
     expect(reorderedCards[1]._xBookmarkPageIndex).toBe(1);
 
-    const unchanged = renderItems(view, [second, first], {
-      signature: next.signature
-    });
+    const unchanged = renderItems(view, [second, first]);
     expect(unchanged.changed).toBe(false);
-    expect(view.getCards()[0]).toBe(initialCards[1]);
+    expect(view.controller.getCards()[0]).toBe(initialCards[1]);
   });
 
   it('keeps folder hover, menu locking, and live icon visibility hooks', () => {
@@ -257,10 +248,9 @@ describe('Bookmarks React island', () => {
       previewUrls: ['https://example.com/one']
     };
     renderItems(view, [folder], {
-      viewMode: 'list',
-      menuMode: true
+      viewMode: 'list'
     });
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
 
     act(() => {
       card.dispatchEvent(new PointerEvent('pointerover', {
@@ -279,7 +269,7 @@ describe('Bookmarks React island', () => {
     expect(card.dataset.bookmarkViewMode).toBe('grid');
 
     act(() => {
-      view.setFolderIconsVisible(false);
+      view.controller.setFolderIconsVisible(false);
     });
     expect(
       card.classList.contains(
@@ -322,15 +312,15 @@ describe('Bookmarks React island', () => {
       playFolderPathMorph: morph
     });
     const folder: BookmarkItem = { id: 'design', parentId: '1', index: 0, type: 'folder', title: 'Design' };
-    renderItems(view, [folder], { viewMode: 'top', menuMode: true });
-    const card = view.getCards()[0];
+    renderItems(view, [folder], { viewMode: 'top' });
+    const card = view.controller.getCards()[0];
     const path = required(card.querySelector('path'), 'path');
     card._xSetBookmarkMenuVisualActive?.(true);
     expect(card.getAttribute('aria-expanded')).toBe('true');
     path.setAttribute('d', 'M9 13');
     morph.mockClear();
-    renderItems(view, [{ id: 'link', parentId: '1', index: 0, title: 'Link', url: 'https://example.com/' }, { ...folder, title: 'Renamed', index: 1 }], { viewMode: 'top', menuMode: true });
-    expect(view.getCards()[1]).toBe(card);
+    renderItems(view, [{ id: 'link', parentId: '1', index: 0, title: 'Link', url: 'https://example.com/' }, { ...folder, title: 'Renamed', index: 1 }], { viewMode: 'top' });
+    expect(view.controller.getCards()[1]).toBe(card);
     expect(card.querySelector('path')).toBe(path);
     expect(path.getAttribute('d')).toBe('M9 13');
     expect(card.getAttribute('aria-expanded')).toBe('true');
@@ -352,11 +342,10 @@ describe('Bookmarks React island', () => {
       type: 'folder',
       title: '设计规范分布'
     }], {
-      viewMode: 'top',
-      menuMode: true
+      viewMode: 'top'
     });
 
-    expect(view.getCards()[0].dataset.bookmarkViewMode).toBe('top');
+    expect(view.controller.getCards()[0].dataset.bookmarkViewMode).toBe('top');
   });
 
   it.each(['folder', 'list', 'top'] as const)(
@@ -381,15 +370,14 @@ describe('Bookmarks React island', () => {
           url: 'https://same.example/'
         }
       ], {
-        viewMode,
-        menuMode: viewMode !== 'folder'
+        viewMode
       });
 
       expect(
-        view.getCards().map((card) => card.dataset.bookmarkId)
+        view.controller.getCards().map((card) => card.dataset.bookmarkId)
       ).toEqual(['existing', 'moved']);
       expect(
-        view.getCards().every(
+        view.controller.getCards().every(
           (card) => card.dataset.bookmarkDraggable === 'true'
         )
       ).toBe(true);
@@ -419,7 +407,7 @@ describe('Bookmarks React island', () => {
       title: 'Docs',
       url: 'https://example.com/docs'
     }]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
     const copyButton = queryHtmlTag(card, '.x-nt-bookmark-copy-action', 'button');
 
     act(() => {
@@ -485,7 +473,7 @@ describe('Bookmarks React island', () => {
       title: 'Docs',
       url: 'https://example.com/docs'
     }]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
     const press = () => {
       act(() => {
         card.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
@@ -502,10 +490,7 @@ describe('Bookmarks React island', () => {
   });
 
   it('renders the non-root empty state without a legacy cache', () => {
-    const options = createOptions();
-    const view = createBookmarksView(options);
-    views.push(view);
-
+    const { view, options } = createView();
     const result = renderItems(view, [], {
       folderId: 'child',
       rootFolderId: '1'
@@ -514,7 +499,7 @@ describe('Bookmarks React island', () => {
     expect(
       options.grid?.querySelector('.x-nt-bookmark-empty')
     ).not.toBeNull();
-    expect(view.getCards()).toEqual([]);
+    expect(view.controller.getCards()).toEqual([]);
 
   });
 });

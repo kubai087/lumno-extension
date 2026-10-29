@@ -18,7 +18,7 @@ interface BookmarkPagerDeps {
   getBookmarkGridColumnCount(): number;
   updateBookmarkSectionPosition(options?: { preserveSearchEntryLayout?: boolean }): void;
   now?: () => number;
-  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'currentFolderId' | 'currentPage' | 'drawn' | 'pageAnimating' | 'pagerAvailability' | 'renderSignature' | 'rootFolderId' | 'rootTotalCount' | 'rootVisibleCount' | 'setPageAnimating' | 'setPagerAvailability' | 'showPage'>;
+  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'currentFolderId' | 'currentPage' | 'draw' | 'pageAnimating' | 'pagerAvailability' | 'rootFolderId' | 'rootTotalCount' | 'rootVisibleCount' | 'setPageAnimating' | 'setPagerAvailability' | 'showPage'>;
   bookmarkGrid: HTMLElement;
   settings: Pick<SettingsStore, 'get'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
@@ -384,15 +384,9 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
         bookmarkGrid.removeAttribute('data-bookmark-empty-drop-surface');
       }
     }
-    const renderResult = bookmarkParts.view.render(normalizedItems, {
-      signature: bookmarksShown.renderSignature,
-      folderId: bookmarksShown.currentFolderId,
-      rootFolderId: bookmarksShown.rootFolderId,
-      viewMode: settings.get(bookmarkViewMode),
-      menuMode: settings.get(bookmarkViewMode) === 'list' || settings.get(bookmarkViewMode) === 'top'
-    });
+    const changed = bookmarksShown.draw(normalizedItems, settings.get(bookmarkViewMode));
     bookmarkSectionEvents.emit('drawn', { folderId: String(bookmarksShown.currentFolderId || '') });
-    if (!renderResult.changed) {
+    if (!changed) {
       if (normalizedItems.length === 0) {
         showEmptyBookmarkRoot(!isAtRoot || keepEmptyRootVisibleForDrag, keepEmptyRootVisibleForDrag);
       } else {
@@ -403,7 +397,6 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
       updateBookmarkPagerState();
       return;
     }
-    bookmarksShown.drawn(renderResult.signature);
     if (normalizedItems.length === 0) {
       showEmptyBookmarkRoot(!isAtRoot || keepEmptyRootVisibleForDrag, keepEmptyRootVisibleForDrag);
       updateBookmarkPagerState();

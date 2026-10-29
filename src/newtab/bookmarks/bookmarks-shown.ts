@@ -4,6 +4,22 @@
 // the pager and the folder navigation change it; the drag and layout parts
 // read it.
 import type { BookmarkItem, BookmarkPathEntry } from './bookmarks-store';
+import { createViewStore } from '../../shared/react/view-store';
+import type { BookmarkGridState, BookmarkItem as BookmarkCardItem } from '../react/bookmarks';
+
+function getBookmarksSignature(items: BookmarkCardItem[]): string {
+  if (!Array.isArray(items) || items.length === 0) {
+    return '';
+  }
+  return items.map((item, index) => {
+    const id = item?.id ? String(item.id) : '';
+    const type = item?.type ? String(item.type) : '';
+    const title = item?.title ? String(item.title) : '';
+    const url = item?.url ? String(item.url) : '';
+    const themeUrl = item?.themeUrl ? String(item.themeUrl) : '';
+    return `${index}::${id}::${type}::${title}::${url}::${themeUrl}`;
+  }).join('\n');
+}
 
 interface PagerAvailability {
   previous: boolean;
@@ -22,6 +38,8 @@ class BookmarksShown {
   private availability: PagerAvailability = { previous: false, next: false };
   private drawnSignature = '';
   private loaded = false;
+  // What the grid draws.
+  readonly grid = createViewStore<BookmarkGridState>({ content: null });
 
   get currentFolderId(): string {
     return this.folderId;
@@ -59,10 +77,6 @@ class BookmarksShown {
 
   get pagerAvailability(): PagerAvailability {
     return this.availability;
-  }
-
-  get renderSignature(): string {
-    return this.drawnSignature;
   }
 
   get loadedOnce(): boolean {
@@ -103,6 +117,7 @@ class BookmarksShown {
     this.visibleCount = 0;
     this.page = 0;
     this.drawnSignature = '';
+    this.grid.setState({ content: null });
   }
 
   setPageAnimating(animating: boolean): void {
@@ -113,8 +128,25 @@ class BookmarksShown {
     this.availability = availability;
   }
 
-  drawn(signature: string): void {
+  // Draws the page's items, or an empty folder's note, unless they are what
+  // is drawn; true when it drew.
+  draw(items: BookmarkCardItem[], viewMode: string): boolean {
+    const mode = viewMode === 'list' || viewMode === 'top' ? viewMode : 'folder';
+    const isAtRoot = this.folderId === this.rootId;
+    const signature = `${this.folderId}##${mode}##${getBookmarksSignature(items)}`;
+    if (signature === this.drawnSignature) {
+      if (items.length === 0 && !isAtRoot) {
+        this.grid.setState({ content: { kind: 'empty' } });
+      }
+      return false;
+    }
     this.drawnSignature = signature;
+    this.grid.setState({
+      content: items.length > 0
+        ? { kind: 'cards', items: items.slice(), viewMode: mode, menuMode: mode !== 'folder' }
+        : (isAtRoot ? null : { kind: 'empty' })
+    });
+    return true;
   }
 
   // The next draw redraws every card.

@@ -52,7 +52,7 @@ interface BookmarkContextMenuDeps {
   addBookmarkFolderToShortcuts(bookmarkId: string): Promise<boolean>;
   hideCursorTooltip(): void;
   bookmarkContextMenuSelectController: SelectMenuController;
-  bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'view'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'contextMenuBookmark'>;
   dragSessions: Pick<DragSessions, 'bookmark'>;
   locale: Pick<SurfaceLocale, 'store'>;
   // The other context menus' select menus; this menu closes as one opens.
@@ -187,9 +187,7 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   function setBookmarkContextMenuMark(target: BookmarkContextTarget | null): void {
     const cardId = target && target.sourceKind === 'card' ? target.bookmarkId : null;
     const rowId = target && target.sourceKind === 'cascade' ? target.bookmarkId : null;
-    if (bookmarkParts.view) {
-      bookmarkParts.view.setContextMenuBookmark(cardId);
-    }
+    bookmarkParts.contextMenuBookmark.setState({ id: cardId });
     if (bookmarkParts.cascade) {
       bookmarkParts.cascade.setContextMenuBookmark(rowId);
     }

@@ -20,6 +20,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import { createBookmarksTopbar } from '../react/bookmarks-topbar';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
+import type { BookmarksShown } from './bookmarks-shown';
 import { isBookmarkHoverSuppressed } from '../dom/drag-hover';
 import type { DragSessions } from '../drag-sessions';
 import { getBookmarkCascadeViewportTopPaddingPx } from '../dom/top-inset';
@@ -80,7 +81,8 @@ interface BookmarkSectionDeps {
   setNewtabTopOccupied(occupied: boolean): void;
   syncBookmarkTopbarSurfaceAppearance(options?: { updateMenu?: boolean; scheduleTone?: boolean }): unknown;
   syncBookmarkSurfaceMode(): void;
-  bookmarkParts: Pick<BookmarkSectionParts, 'mount'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'mount' | 'contextMenuBookmark'>;
+  bookmarksShown: Pick<BookmarksShown, 'grid'>;
   dragSessions: Pick<DragSessions, 'bookmark' | 'shortcutDragging'>;
   navigateBookmarkFolder(targetId: unknown): void;
 }
@@ -131,6 +133,7 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     syncBookmarkTopbarSurfaceAppearance,
     syncBookmarkSurfaceMode,
     bookmarkParts,
+    bookmarksShown,
     dragSessions,
     navigateBookmarkFolder
   } = deps;
@@ -149,6 +152,8 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     windowObj: window,
     grid: bookmarkGrid,
     cards: bookmarkCards,
+    content: bookmarksShown.grid,
+    contextMenuBookmark: bookmarkParts.contextMenuBookmark,
     cardElementCache: bookmarkCardElementCache,
     folderIconsVisible: preview.get(bookmarkFolderIconsVisible),
     t,

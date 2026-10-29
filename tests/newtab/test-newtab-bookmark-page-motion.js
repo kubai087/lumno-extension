@@ -28,22 +28,25 @@ function setup() {
   }));
   env.state = new BookmarksShown();
   env.state.setItems(Array.from({ length: 8 }, (_, id) => ({ id })));
+  // The bookmarks view: like React, it draws the cards of the page the state
+  // holds, removing only owned cards and leaving foreign nodes alone.
+  env.state.grid.subscribe(() => {
+    const { content } = env.state.grid.getSnapshot();
+    const items = content && content.kind === 'cards' ? content.items : [];
+    [...grid.children].filter(child => child.tagName === 'BUTTON').forEach(card => card.remove());
+    grid.append(...items.map(item => {
+      const card = window.document.createElement('button');
+      card.id = `card-${item.id}`;
+      card.textContent = String(item.id);
+      card.style.setProperty('--x-nt-glass-refraction', `url(#lens-${item.id})`);
+      return card;
+    }));
+  });
   env.pager = window.LumnoNewtabBookmarkPager.createBookmarkPager({ bookmarksShown: env.state, bookmarkGrid: grid, now: () => env.clock,
     settings: { get: () => 'grid' }, getBookmarkLimit: () => 2,
     NEWTAB_BOOKMARKS_STORE: { getBookmarkPageItems: (items, page, limit) => items.slice(page * limit, (page + 1) * limit) },
     updateBookmarkHeader() {}, getBookmarkGridColumnCount: () => 2, updateBookmarkSectionPosition() {},
-    // The bookmarks view: like React, it removes only owned cards, leaving foreign nodes alone.
-    bookmarkParts: { view: { render(items) {
-      [...grid.children].filter(child => child.tagName === 'BUTTON').forEach(card => card.remove());
-      grid.append(...items.map(item => {
-        const card = window.document.createElement('button');
-        card.id = `card-${item.id}`;
-        card.textContent = String(item.id);
-        card.style.setProperty('--x-nt-glass-refraction', `url(#lens-${item.id})`);
-        return card;
-      }));
-      return { changed: true, signature: '' };
-    } } },
+    bookmarkParts: { view: {} },
     dragSessions: { bookmark: null, shortcutDragging: false, recentCardDragging: false },
     shortcutSection: window.document.createElement('section'),
     setBookmarkSurfaceVisible() {}
