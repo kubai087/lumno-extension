@@ -349,7 +349,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       getSiteSearchDisplayName: (provider) => getSiteSearchDisplayName(locale, provider),
       getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
       getBrandAccentForUrl,
-      buildThemeFromAccent: (accent) => buildTheme(accent),
+      buildThemeFromAccent: buildTheme,
       actionModel: resultActivation.actionModel,
       shouldSwitchMatchedTabSuggestion,
       defaultTheme: defaultTheme,

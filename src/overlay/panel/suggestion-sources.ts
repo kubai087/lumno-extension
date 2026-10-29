@@ -390,7 +390,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
             ),
             getAutocompleteCandidate: (rows, rawQuery) => searchAutocomplete.getCandidate(rows || null, rawQuery),
             getUrlDisplay,
-            filterSuggestions: (list) => filterOverlayBlacklistedSuggestions(list)
+            filterSuggestions: filterOverlayBlacklistedSuggestions
           }
         });
         allSuggestions = rankedSlate.suggestions;
@@ -558,7 +558,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   }
 
   // A new mode's rows replace the ones shown.
-  modeActions.events.on('resultsCleared', () => clearSearchSuggestions());
+  modeActions.events.on('resultsCleared', clearSearchSuggestions);
 
   return {
     quickNavigation,

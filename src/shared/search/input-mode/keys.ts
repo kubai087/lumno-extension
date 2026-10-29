@@ -23,7 +23,6 @@ interface TimerWindow {
 }
 
 interface ModeTabKeysConfig {
-  modeMenuDoubleTabDuration?: number;
   modeTagRemovalConfirmationDuration?: number;
   onModeTagRemovalConfirmation?: (details: { duration: number }) => void;
   onModeTagRemovalConfirmationReset?: () => void;
@@ -38,7 +37,8 @@ interface ModeTabKeysQueries {
   hasModeTag(): boolean;
 }
 
-const DEFAULT_DOUBLE_TAB_DURATION = 700;
+// How long a first Tab waits for the second that opens the mode menu.
+const DOUBLE_TAB_DURATION = 700;
 const DEFAULT_REMOVAL_CONFIRMATION_DURATION = 2200;
 
 function hasModifier(event: ModeKeyEvent): boolean {
@@ -140,7 +140,7 @@ class ModeTabKeys {
       this.doubleTab.reset();
       return true;
     }
-    this.doubleTab.arm(readDuration(this.config.modeMenuDoubleTabDuration, DEFAULT_DOUBLE_TAB_DURATION), () => {
+    this.doubleTab.arm(DOUBLE_TAB_DURATION, () => {
       this.doubleTab.reset();
     });
     return false;

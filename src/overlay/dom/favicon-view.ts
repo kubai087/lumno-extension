@@ -172,17 +172,41 @@ function createOverlayFaviconViewRuntime(options?: OverlayFaviconViewOptions | n
     ...faviconResolverOptions,
     shouldBlockFaviconForHost: shouldBlockOverlayFaviconForHost
   });
+  function setFaviconVisibility(img: FaviconImage | null, visibility: string): void {
+    if (!img) {
+      return;
+    }
+    if (visibility) {
+      img.setAttribute('data-favicon-visibility', visibility);
+    } else {
+      img.removeAttribute('data-favicon-visibility');
+    }
+  }
+
+  const {
+    hideFallbackIconNode,
+    showResolvedFavicon,
+    showPendingFallbackIcon,
+    applyFallbackIcon
+  } = LumnoFaviconViewCore.createFallbackIconPresenter({
+    fallbackClassName: '_x_extension_overlay_favicon_fallback_2026_unique_',
+    // The suggestion row draws the fallback right after its image.
+    getFallbackSibling: (img) => img.nextElementSibling,
+    setImageVisible: (img, visible) => setFaviconVisibility(img, visible ? 'visible' : 'hidden'),
+    clearCandidateTimer: clearOverlayCandidateLoadTimer,
+    setTimer
+  });
+
   const faviconDataSourceResolver = FaviconResolver.createFaviconUrlResolver(faviconResolverOptions);
-  const faviconViewCoreApi = LumnoFaviconViewCore;
-  const faviconViewCore = faviconViewCoreApi.createFaviconViewCore({
+  const faviconViewCore = LumnoFaviconViewCore.createFaviconViewCore({
     document: doc,
     windowObj: win,
     chromeApi,
     getHostFromUrl,
     shouldBlockFaviconForHost: shouldBlockOverlayFaviconForHost,
     isBlockedLocalFaviconUrl: isBlockedOverlayFaviconUrl,
-    showResolvedFavicon: (img) => showResolvedFavicon(img),
-    showPendingFallbackIcon: (img) => showPendingFallbackIcon(img),
+    showResolvedFavicon,
+    showPendingFallbackIcon,
     getPersistCacheKey: (img) => img.getAttribute('data-x-ov-favicon-cache-key') || '',
     setPersistedFaviconUrl,
     setPersistedFaviconData,
@@ -202,31 +226,6 @@ function createOverlayFaviconViewRuntime(options?: OverlayFaviconViewOptions | n
     setFaviconSrcWithAnimation,
     canReuseCurrentFavicon
   } = faviconViewCore;
-
-  function setFaviconVisibility(img: FaviconImage | null, visibility: string): void {
-    if (!img) {
-      return;
-    }
-    if (visibility) {
-      img.setAttribute('data-favicon-visibility', visibility);
-    } else {
-      img.removeAttribute('data-favicon-visibility');
-    }
-  }
-
-  const {
-    hideFallbackIconNode,
-    showResolvedFavicon,
-    showPendingFallbackIcon,
-    applyFallbackIcon
-  } = faviconViewCoreApi.createFallbackIconPresenter({
-    fallbackClassName: '_x_extension_overlay_favicon_fallback_2026_unique_',
-    // The suggestion row draws the fallback right after its image.
-    getFallbackSibling: (img) => img.nextElementSibling,
-    setImageVisible: (img, visible) => setFaviconVisibility(img, visible ? 'visible' : 'hidden'),
-    clearCandidateTimer: clearOverlayCandidateLoadTimer,
-    setTimer
-  });
 
   function getSafeOverlayFaviconCandidateUrl(
     value: unknown,

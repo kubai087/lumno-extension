@@ -83,7 +83,7 @@ function createSearchPart(ctx: OverlayContext, deps: SearchPartDeps) {
         'Release to show numbers'
       ), false, { duration: 0 });
     },
-    onHoldEnd: () => overlayToast.hide(),
+    onHoldEnd: overlayToast.hide,
     instantActive: () => settings.get(numberShortcutInstantEnabled)
   };
 

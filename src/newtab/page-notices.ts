@@ -161,7 +161,6 @@ function createPageNotices(deps: PageNoticesDeps) {
   notices.mountUpdate(UPDATE_NOTICE.createUpdateNotice({
     portals: getPagePortals(),
     documentObj: document,
-    featureHints: FEATURE_HINTS,
     chromeApi: chrome,
     surface: 'newtab',
     t,
@@ -209,7 +208,6 @@ function createPageNotices(deps: PageNoticesDeps) {
     return ENGAGEMENT_NOTICE.createEngagementNotice({
       portals: getPagePortals(),
       documentObj: document,
-      featureHints: FEATURE_HINTS,
       chromeApi: chrome,
       surface: 'newtab',
       locale: getFeedbackWebLocale(),

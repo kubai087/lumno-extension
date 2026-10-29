@@ -17,7 +17,6 @@ import { themeMode } from '../../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme, newtabInputAutoFocusEnabled } from '../../domain/settings/newtab-page';
 import { NEWTAB_SHORTCUT_COLUMNS_DEFAULT, NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SHORTCUT_COLUMNS_MIN, NEWTAB_SHORTCUT_GAP_DEFAULT, NEWTAB_SHORTCUT_GAP_MAX, NEWTAB_SHORTCUT_GAP_MIN, NEWTAB_SHORTCUT_SIZE_DEFAULT, NEWTAB_SHORTCUT_SIZE_MAX, NEWTAB_SHORTCUT_SIZE_MIN, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../domain/settings/newtab-shortcuts';
 import * as EXTENSION_ROUTES from '../../domain/extension-routes';
-import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import { SEARCH_WIDTH_CONFIG } from '../dom/layout';
 import { adaptiveToneEvents } from './tone-requests';
 
@@ -157,7 +156,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     setShortcutSize: setNewtabShortcutSize,
     getShortcutGap: () => preview.get(newtabShortcutGap),
     setShortcutGap: setNewtabShortcutGap,
-    featureHints: FEATURE_HINTS,
     featureHintVisibilityGate: newtabEntryAnimationReadyPromise,
     inputAutoFocusReady: initialNewtabInputAutoFocusReadyTask,
     getInputAutoFocusEnabled: () => settings.get(newtabInputAutoFocusEnabled),

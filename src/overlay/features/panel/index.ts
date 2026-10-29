@@ -96,7 +96,7 @@ function createPanelFeature(ctx: OverlayContext, deps: PanelFeatureDeps) {
     hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
   });
   // Themed icons follow the scheme the panel is drawn in.
-  colorScheme.subscribe(() => faviconRuntime.refreshOverlayThemeAwareFavicons());
+  colorScheme.subscribe(faviconRuntime.refreshOverlayThemeAwareFavicons);
 
   const {
     attachKeyRouter,

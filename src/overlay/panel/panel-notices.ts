@@ -4,7 +4,6 @@
 import type { Disposition } from '../../domain/navigation-disposition';
 import * as ENGAGEMENT_NOTICE from '../../shared/engagement-notice';
 import * as GRAPHICS_NOTICE from '../../shared/graphics-acceleration-notice';
-import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import * as UPDATE_NOTICE from '../../shared/update-notice';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
@@ -49,7 +48,6 @@ function createPanelNotices(deps: PanelNoticesDeps): void {
   notices.setUpdate(UPDATE_NOTICE.createUpdateNotice({
     portals,
     documentObj: document,
-    featureHints: FEATURE_HINTS,
     chromeApi: chrome,
     surface: 'overlay',
     t,
@@ -102,7 +100,6 @@ function createPanelNotices(deps: PanelNoticesDeps): void {
   notices.setEngagement(ENGAGEMENT_NOTICE.createEngagementNotice({
       portals,
       documentObj: document,
-      featureHints: FEATURE_HINTS,
       chromeApi: chrome,
       surface: 'overlay',
       locale: locale.store.getSnapshot().locale,

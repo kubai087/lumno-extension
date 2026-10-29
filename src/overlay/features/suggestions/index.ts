@@ -103,7 +103,7 @@ function createSuggestionsFeature(ctx: OverlayContext, deps: SuggestionsFeatureD
       getModeController: () => elements.inputModeController,
       defaultTheme: defaultTheme,
       getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || defaultTheme,
-      getThemeForProvider: (provider) => getThemeForProvider(provider)
+      getThemeForProvider
     }
   });
   const {
@@ -319,7 +319,7 @@ function createSuggestionsFeature(ctx: OverlayContext, deps: SuggestionsFeatureD
       beforeDoubleTab: () => {
         cancelPendingOpenTabsPrefixEntry();
       },
-      getProviderIcon: (provider) => getPageRenderableProviderIcon(provider),
+      getProviderIcon: getPageRenderableProviderIcon,
       // The open tabs lead the browser content and do not move.
       getOwnItem: (localGroup) => ({
         id: 'openTabs',

@@ -131,7 +131,6 @@ function createInputPart(ctx: OverlayContext, deps: InputPartDeps) {
   } = deps.controls;
   const { copySearchResultUrl, overlayHost, overlayMount, overlayStyleRoot } = deps.mount;
 
-  const OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS = 700;
   // The search icon opens the scope panel, except while a scope is set.
   let searchScopeIconEnabled = true;
 
@@ -489,7 +488,6 @@ function createInputPart(ctx: OverlayContext, deps: InputPartDeps) {
     getSiteSearchDisplayName: (provider) => getSiteSearchDisplayName(locale, provider),
     attachFaviconData: attachInputModeFaviconData,
     formatMessage,
-    modeMenuDoubleTabDuration: OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS,
     modeMenuCursorTooltipController: overlayModeMenuCursorTooltipController,
     getModeMenuItems: modeMenu.getItems,
     onModeMenuSelect: modeMenu.select,
@@ -502,7 +500,7 @@ function createInputPart(ctx: OverlayContext, deps: InputPartDeps) {
         'Press Backspace again to remove the scope.'
       ));
     },
-    onModeTagRemovalConfirmationReset: () => overlayToast.hide(),
+    onModeTagRemovalConfirmationReset: overlayToast.hide,
     onModeTagActiveChange: (active) => {
       setSearchScopeIconEnabled(!active);
     },
@@ -668,7 +666,7 @@ function createInputPart(ctx: OverlayContext, deps: InputPartDeps) {
       return true;
     },
     isImeComposition: imeKeyGuard.shouldIgnoreKeydown,
-    onKeyUp: () => imeKeyGuard.markKeyUp(),
+    onKeyUp: imeKeyGuard.markKeyUp,
     syncModifiers: suggestionModifiers.syncFromEvent,
     handleNumberShortcut: (e) => SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       e,
