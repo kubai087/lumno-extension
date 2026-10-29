@@ -12,15 +12,19 @@ function createSources(overrides) {
   const wallpaperNetworkImageStates = new Map();
   const remoteWallpapers = new Map();
   const linkWallpapers = new Map();
+  const uploads = [
+    { id: 'custom-wallpaper-a', imageDataUrl: 'data:image/webp;base64,ZnVsbA==', thumbnailDataUrl: 'data:image/webp;base64,c21hbGw=', width: 2560, height: 1440 },
+    { id: 'custom-wallpaper-b', imageDataUrl: 'data:image/webp;base64,ZnVsbC1i', thumbnailDataUrl: 'data:image/webp;base64,dGh1bWItYg==', sampleDataUrl: 'data:image/webp;base64,c2FtcGxlLWI=', width: 2560, height: 1440 },
+    // Records saved before thumbnails existed carry the full image as their thumbnail.
+    { id: 'custom-wallpaper-old', imageDataUrl: 'data:image/webp;base64,b2xk', thumbnailDataUrl: 'data:image/webp;base64,b2xk' }
+  ];
   const deps = Object.assign({
     NEWTAB_WALLPAPER_MODE_DARK: 'dark',
     NEWTAB_WALLPAPER_MODE_LIGHT: 'light',
     NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION: 2,
     NEWTAB_WALLPAPER_DEFAULT_ID: 'monet-coastal-white',
     localWallpaperStore: { isCustomWallpaperId: (id) => /^custom-wallpaper-/.test(id) },
-    isLinkWallpaperId: (id) => /^link-/.test(id),
-    getLinkWallpaperById: (id) => linkWallpapers.get(id) || null,
-    getDailyWallpaperPick: () => '',
+    online: { getDailyPick: () => '' },
     remoteClient: { getWallpaper: (id) => remoteWallpapers.get(id) || null },
     NEWTAB_WALLPAPER_OPTIONS: [
       { id: 'monet-coastal-white', file: 'lumno-newtab-monet-coastal-white.webp' }
@@ -35,13 +39,10 @@ function createSources(overrides) {
     chrome: { runtime: { getURL: (path) => `chrome-extension://abc/${path}` } },
     wallpaperNetworkImageStates,
     t: (_key, fallback) => fallback,
-    wallpaperState: {
-      customWallpapers: [
-        { id: 'custom-wallpaper-a', imageDataUrl: 'data:image/webp;base64,ZnVsbA==', thumbnailDataUrl: 'data:image/webp;base64,c21hbGw=', width: 2560, height: 1440 },
-        { id: 'custom-wallpaper-b', imageDataUrl: 'data:image/webp;base64,ZnVsbC1i', thumbnailDataUrl: 'data:image/webp;base64,dGh1bWItYg==', sampleDataUrl: 'data:image/webp;base64,c2FtcGxlLWI=', width: 2560, height: 1440 },
-        // Records saved before thumbnails existed carry the full image as their thumbnail.
-        { id: 'custom-wallpaper-old', imageDataUrl: 'data:image/webp;base64,b2xk', thumbnailDataUrl: 'data:image/webp;base64,b2xk' }
-      ]
+    library: {
+      state: { uploads },
+      getUpload: (id) => uploads.find((item) => item.id === id) || null,
+      getLink: (id) => linkWallpapers.get(id) || null
     }
   }, overrides);
   return { api: sources.createWallpaperSources(deps), cachedWallpaperImages, wallpaperNetworkImageStates, remoteWallpapers, linkWallpapers };
@@ -93,10 +94,10 @@ function testSampleNamesTheShownImagesSmallCopyAndFullSize() {
   assert.deepStrictEqual(sample('picsum-2'), bundledSample,
     'a network photo that failed samples the default it shows instead');
 
-  linkWallpapers.set('link-1', { id: 'link-1', url: 'https://example.test/link.jpg', imageDataUrl: '', thumbnailDataUrl: '' });
-  assert.strictEqual(sample('link-1'), null, 'a link shown from the network has no local small copy');
-  linkWallpapers.set('link-1', { id: 'link-1', url: 'https://example.test/link.jpg', imageDataUrl: 'data:image/webp;base64,bGluaw==', thumbnailDataUrl: 'data:image/webp;base64,bGluay1zbWFsbA==', width: 1600, height: 900 });
-  assert.deepStrictEqual(sample('link-1'), { url: 'data:image/webp;base64,bGluay1zbWFsbA==', width: 1600, height: 900 });
+  linkWallpapers.set('link-abcd', { id: 'link-abcd', url: 'https://example.test/link.jpg', addedAt: 1 });
+  assert.strictEqual(sample('link-abcd'), null, 'a link shown from the network has no local small copy');
+  cachedWallpaperImages.set('link-abcd', { id: 'link-abcd', url: 'https://example.test/link.jpg', imageDataUrl: 'data:image/webp;base64,bGluaw==', thumbnailDataUrl: 'data:image/webp;base64,bGluay1zbWFsbA==', sampleDataUrl: '', width: 1600, height: 900 });
+  assert.deepStrictEqual(sample('link-abcd'), { url: 'data:image/webp;base64,bGluay1zbWFsbA==', width: 1600, height: 900 });
 
   assert.strictEqual(api.getWallpaperSample(null), null);
 }

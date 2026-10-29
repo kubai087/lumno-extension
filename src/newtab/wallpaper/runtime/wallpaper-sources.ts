@@ -12,9 +12,11 @@ import type {
   LocalWallpaperOverrides,
   WallpaperItem,
   WallpaperMode,
-  WallpaperPrefs,
-  WallpaperState
+  WallpaperPrefs
 } from './wallpaper-runtime-types';
+import type { OnlineWallpapers } from './online-wallpapers';
+import { getWallpaperUrlName, isLinkWallpaperId } from './wallpaper-library';
+import type { WallpaperLibrary } from './wallpaper-library';
 
 // The extension API part that resolves bundled files.
 interface RuntimeUrlApi {
@@ -23,10 +25,7 @@ interface RuntimeUrlApi {
 
 interface WallpaperSourcesDeps {
   localWallpaperStore: Pick<WallpaperLocalStore, 'isCustomWallpaperId'>;
-  isLinkWallpaperId(id: unknown): boolean;
-  getLinkWallpaperById(id: string): WallpaperItem | null;
   // The photo picked for a daily slot today, or ''.
-  getDailyWallpaperPick(dailyId: string): string;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'> | null;
   cachedWallpaperImages: ReadonlyMap<string, CachedWallpaperImage>;
   // Per daily slot, the cached copy it last showed.
@@ -35,7 +34,8 @@ interface WallpaperSourcesDeps {
   // Whether each network image loaded on this page.
   wallpaperNetworkImageStates: ReadonlyMap<string, 'loaded' | 'failed'>;
   t: Translate;
-  wallpaperState: Pick<WallpaperState, 'customWallpapers'>;
+  online: Pick<OnlineWallpapers, 'getDailyPick'>;
+  library: Pick<WallpaperLibrary, 'state' | 'getUpload' | 'getLink'>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,10 +44,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createWallpaperSources(deps: WallpaperSourcesDeps) {
   const {
+    library,
+    online,
     localWallpaperStore,
-    isLinkWallpaperId,
-    getLinkWallpaperById,
-    getDailyWallpaperPick,
     remoteClient,
     cachedWallpaperImages,
     dailyWallpaperStandIns,
@@ -55,9 +54,6 @@ function createWallpaperSources(deps: WallpaperSourcesDeps) {
     wallpaperNetworkImageStates,
     t
   } = deps;
-
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
 
   const NEWTAB_WALLPAPER_DEFAULT_DIRECTORY = 'assets/wallpapers';
 
@@ -113,7 +109,24 @@ function createWallpaperSources(deps: WallpaperSourcesDeps) {
     if (!normalizedId) {
       return null;
     }
-    return wallpaperState.customWallpapers.find((item) => item && item.id === normalizedId) || null;
+    return library.getUpload(normalizedId);
+  }
+
+  function getLinkWallpaperById(id: string): WallpaperItem | null {
+    const entry = library.getLink(id);
+    if (!entry) return null;
+    const cached = getCachedWallpaperImage(id, entry.url);
+    return {
+      id,
+      url: entry.url,
+      name: getWallpaperUrlName(entry.url),
+      imageDataUrl: cached ? cached.imageDataUrl : '',
+      thumbnailDataUrl: cached ? cached.thumbnailDataUrl : '',
+      sampleDataUrl: cached && cached.sampleDataUrl || '',
+      width: cached ? cached.width : 0,
+      height: cached ? cached.height : 0,
+      updatedAt: entry.addedAt
+    };
   }
 
   function getWallpaperById(id: unknown): WallpaperItem | null {
@@ -128,7 +141,7 @@ function createWallpaperSources(deps: WallpaperSourcesDeps) {
       return getLinkWallpaperById(normalizedId);
     }
     if (REMOTE_CONTENT.wallpaperFromId(normalizedId)) {
-      const pickId = getDailyWallpaperPick(normalizedId);
+      const pickId = online.getDailyPick(normalizedId);
       const pick = pickId && remoteClient ? remoteClient.getWallpaper(pickId) : null;
       if (pick) {
         return { ...pick, id: normalizedId, daily: true, dailyId: pickId, picked: true };
@@ -144,7 +157,7 @@ function createWallpaperSources(deps: WallpaperSourcesDeps) {
       : value;
     const id = String(raw || '').trim();
     if (id === NEWTAB_CUSTOM_WALLPAPER_ID) {
-      const firstCustomWallpaper = wallpaperState.customWallpapers[0];
+      const firstCustomWallpaper = library.state.uploads[0];
       return firstCustomWallpaper ? firstCustomWallpaper.id : '';
     }
     // Move existing online selections to the daily Bing source without contacting the old provider.
@@ -346,6 +359,7 @@ function createWallpaperSources(deps: WallpaperSourcesDeps) {
   }
 
   return {
+    getLinkWallpaperById,
     normalizeWallpaperMode,
     getDefaultWallpaperPrefs,
     getDefaultLocalWallpaperOverrides,

@@ -1,8 +1,6 @@
 // Settings the appearance panel edits besides the wallpaper: top content
 // and the clock, search width and the shortcut grid sliders.
 import { queryHtmlElement, queryHtmlElements } from '../../../shared/dom-lookup';
-import type { WallpaperState } from './wallpaper-runtime-types';
-import { readBootValue } from '../../../platform/boot-handoff';
 import type { SettingsStore } from '../../../platform/settings-store';
 import type { SettingPreview } from '../../setting-preview';
 import {
@@ -16,6 +14,7 @@ import {
   newtabTimeSecondsVisible,
   newtabTopContentMode
 } from '../../../domain/settings/newtab-time';
+import { createDebouncedSaver } from './debounced-saver';
 
 // A slider's range and its value when none is saved.
 interface SliderConfig {
@@ -50,8 +49,6 @@ interface PanelSettingsDeps {
   shortcutGapConfig: SliderConfig;
   setShortcutSize(size: number, options: PersistOptions): void;
   setShortcutGap(gap: number, options: PersistOptions): void;
-  wallpaperState: Pick<WallpaperState,
-    'initialWallpaperApplied' | 'resolveInitialWallpaperReady' | 'saveSliderSetting'>;
 }
 
 function createPanelSettings(deps: PanelSettingsDeps) {
@@ -70,23 +67,7 @@ function createPanelSettings(deps: PanelSettingsDeps) {
     setShortcutGap
   } = deps;
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
-
-  function finalizeInitialWallpaper(): void {
-    if (wallpaperState.initialWallpaperApplied) {
-      return;
-    }
-    wallpaperState.initialWallpaperApplied = true;
-    // The first sample has taken the preload's decoded image if it showed the same wallpaper.
-    const wallpaperPreload = readBootValue('wallpaperPreload');
-    if (wallpaperPreload && wallpaperPreload.decodedImage) {
-      wallpaperPreload.decodedImage = null;
-    }
-    if (typeof wallpaperState.resolveInitialWallpaperReady === 'function') {
-      wallpaperState.resolveInitialWallpaperReady();
-    }
-  }
+  const saveSliderSetting = createDebouncedSaver(window, 140);
 
   function persistTopContentMode(value: unknown): void {
     void settings.set(newtabTopContentMode, newtabTopContentMode.parse(value));
@@ -101,14 +82,14 @@ function createPanelSettings(deps: PanelSettingsDeps) {
     const size = newtabTimeFontSize.parse(value);
     preview.show(newtabTimeFontSize, size);
     renderWallpaperPanelState();
-    wallpaperState.saveSliderSetting('timeFontSize', () => void settings.set(newtabTimeFontSize, size), change);
+    saveSliderSetting('timeFontSize', () => void settings.set(newtabTimeFontSize, size), change);
   }
 
   function persistTimeOpacityFromSlider(value: unknown, change?: SliderSaveOptions): void {
     const opacity = newtabTimeOpacity.parse(value);
     preview.show(newtabTimeOpacity, opacity);
     renderWallpaperPanelState();
-    wallpaperState.saveSliderSetting('timeOpacity', () => void settings.set(newtabTimeOpacity, opacity), change);
+    saveSliderSetting('timeOpacity', () => void settings.set(newtabTimeOpacity, opacity), change);
   }
 
   function persistTimeInk(value: unknown): void {
@@ -199,7 +180,7 @@ function createPanelSettings(deps: PanelSettingsDeps) {
     const width = snapSearchWidthValue(value, threshold);
     setSearchWidth(width, { persist: false });
     renderWallpaperPanelState();
-    wallpaperState.saveSliderSetting('searchWidth', () => setSearchWidth(width, { persist: true }), { final });
+    saveSliderSetting('searchWidth', () => setSearchWidth(width, { persist: true }), { final });
   }
   function getShortcutColumnsMin(): number {
     return Number.isFinite(Number(shortcutColumnsConfig.min))
@@ -247,7 +228,7 @@ function createPanelSettings(deps: PanelSettingsDeps) {
     const columns = normalizeShortcutColumnsValue(value);
     setShortcutColumns(columns, { persist: false });
     renderWallpaperPanelState();
-    wallpaperState.saveSliderSetting('shortcutColumns', () => setShortcutColumns(columns, { persist: true }), options);
+    saveSliderSetting('shortcutColumns', () => setShortcutColumns(columns, { persist: true }), options);
   }
   function getShortcutLayoutMin(config: SliderConfig | null | undefined, fallback: number): number {
     const min = Number(config && config.min);
@@ -330,17 +311,16 @@ function createPanelSettings(deps: PanelSettingsDeps) {
     const size = normalizeShortcutSizeValue(value);
     setShortcutSize(size, { persist: false });
     renderWallpaperPanelState();
-    wallpaperState.saveSliderSetting('shortcutSize', () => setShortcutSize(size, { persist: true }), options);
+    saveSliderSetting('shortcutSize', () => setShortcutSize(size, { persist: true }), options);
   }
   function persistShortcutGapFromSlider(value: unknown, options?: SliderSaveOptions): void {
     const gap = normalizeShortcutGapValue(value);
     setShortcutGap(gap, { persist: false });
     renderWallpaperPanelState();
-    wallpaperState.saveSliderSetting('shortcutGap', () => setShortcutGap(gap, { persist: true }), options);
+    saveSliderSetting('shortcutGap', () => setShortcutGap(gap, { persist: true }), options);
   }
 
   return {
-    finalizeInitialWallpaper,
     persistTopContentMode,
     persistTimeFontWeight,
     persistTimeFontSizeFromSlider,

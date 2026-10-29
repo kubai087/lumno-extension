@@ -8,10 +8,13 @@ import type { RemoteWallpaper } from '../../remote-content-types';
 import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
-import type { DailyWallpaperPicks, WallpaperItem, WallpaperState } from './wallpaper-runtime-types';
+import type { WallpaperItem, WallpaperState } from './wallpaper-runtime-types';
 import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks } from '../../../domain/settings/newtab-wallpaper';
 import * as REMOTE_CONTENT from '../../remote-content';
 import { NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_MODES } from '../wallpaper-options';
+import type { OnlineWallpapers } from './online-wallpapers';
+import type { WallpaperChoice } from './wallpaper-choice';
+import type { WallpaperPanelView } from './panel-view';
 
 interface DailyWallpapersDeps extends
   Pick<WallpaperStorage,
@@ -33,9 +36,10 @@ interface DailyWallpapersDeps extends
   // Shows a toast that follows a task to its end.
   beginToast(message: string): ToastTask;
   wallpaperState: Pick<WallpaperState,
-    'wallpaperViewController' | 'bingLoading' | 'bingStatus' | 'bingItems' | 'hasStoredWallpaperStateLoaded' |
-    'wallpaperEffects' | 'dailyWallpaperPicks' | 'curatedCategory' | 'bingSelecting' | 'bingSelectionSeq' |
-    'currentWallpaperPrefs'>;
+    'wallpaperEffects'>;
+  online: OnlineWallpapers;
+  choice: WallpaperChoice;
+  panelView: WallpaperPanelView;
 }
 
 // Category names when their messages are missing.
@@ -48,12 +52,11 @@ const CURATED_CATEGORY_FALLBACKS: Readonly<Record<string, string>> = {
   art: 'Art'
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
-
 function createDailyWallpapers(deps: DailyWallpapersDeps) {
   const {
+    panelView,
+    choice,
+    online,
     renderWallpaperPanelState,
     remoteClient,
     getEffectiveWallpaperIdForMode,
@@ -102,16 +105,13 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   }
 
   async function loadBingCatalog(refresh?: boolean): Promise<void> {
-    if (!wallpaperState.wallpaperViewController) return;
+    if (!panelView.controller) return;
     const seq = ++bingCatalogSeq;
-    wallpaperState.bingLoading = true;
-    wallpaperState.bingStatus = 'loading';
-    renderWallpaperPanelState();
+    online.startLoadingCatalog();
     try {
       const items = await remoteClient.getCatalog(Boolean(refresh));
       if (seq !== bingCatalogSeq) return;
-      wallpaperState.bingItems = items;
-      wallpaperState.bingStatus = '';
+      online.catalogLoaded(items);
       if (NEWTAB_WALLPAPER_MODES.some((mode) => getEffectiveWallpaperIdForMode(mode) === REMOTE_CONTENT.BING_DAILY_ID)) {
         await remoteClient.ensureWallpaper(REMOTE_CONTENT.BING_DAILY_ID).catch(() => {
           // The list loaded; if the daily photo still fails, the current wallpaper simply stays.
@@ -123,18 +123,17 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
       }
     } catch {
       if (seq !== bingCatalogSeq) return;
-      wallpaperState.bingStatus = 'error';
+      online.catalogFailed();
     } finally {
       if (seq === bingCatalogSeq) {
-        wallpaperState.bingLoading = false;
-        renderWallpaperPanelState();
+        online.stopLoadingCatalog();
       }
     }
   }
 
   // A New Tab can stay open past midnight; pick up the new daily photo when it is shown again.
   function refreshDailyWallpapersIfStale(): void {
-    if (!wallpaperState.hasStoredWallpaperStateLoaded || document.visibilityState === 'hidden') return;
+    if (!choice.state.loaded || document.visibilityState === 'hidden') return;
     const day = REMOTE_CONTENT.localDay(Date.now());
     if (day === dailyWallpaperCheckedDay) return;
     const dailyIds = NEWTAB_WALLPAPER_MODES.map((mode) => getEffectiveWallpaperIdForMode(mode))
@@ -185,28 +184,6 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     }
   }
 
-  function normalizeDailyWallpaperPicks(value: unknown): DailyWallpaperPicks {
-    const picks: Record<string, string> = {};
-    const stored = isRecord(value) ? value : {};
-    const source = isRecord(stored.picks) ? stored.picks : {};
-    Object.keys(source).forEach((dailyId) => {
-      const pickId = String(source[dailyId] || '');
-      if (REMOTE_CONTENT.isDailyWallpaperId(dailyId) && !REMOTE_CONTENT.isDailyWallpaperId(pickId) &&
-          REMOTE_CONTENT.getWallpaperProvider(pickId) === REMOTE_CONTENT.getWallpaperProvider(dailyId)) {
-        picks[dailyId] = pickId;
-      }
-    });
-    return { day: typeof stored.day === 'string' ? stored.day : '', picks };
-  }
-
-  function getDailyWallpaperPick(dailyId: string): string {
-    if (!REMOTE_CONTENT.isDailyWallpaperId(dailyId) ||
-        wallpaperState.dailyWallpaperPicks.day !== REMOTE_CONTENT.localDay(Date.now())) {
-      return '';
-    }
-    return wallpaperState.dailyWallpaperPicks.picks[dailyId] || '';
-  }
-
   function getActiveDailyWallpaperId(provider: string): string {
     const id = getWallpaperSelectionIdForUi();
     return REMOTE_CONTENT.isDailyWallpaperId(id) && REMOTE_CONTENT.getWallpaperProvider(id) === provider ? id : '';
@@ -215,15 +192,15 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   // Choosing today's own photo, or restoring it, simply drops the pick.
   function setDailyWallpaperPick(dailyId: string, pickId: string): void {
     const today = REMOTE_CONTENT.localDay(Date.now());
-    const picks: Record<string, string> = wallpaperState.dailyWallpaperPicks.day === today
-      ? { ...wallpaperState.dailyWallpaperPicks.picks }
-      : {};
+    const current = online.state.dailyPicks;
+    const picks: Record<string, string> = current.day === today ? { ...current.picks } : {};
     const scheduled = remoteClient.getWallpaper(dailyId);
     if (!pickId || scheduled && scheduled.dailyId === pickId) delete picks[dailyId];
     else picks[dailyId] = pickId;
-    wallpaperState.dailyWallpaperPicks = { day: today, picks };
+    const dailyPicks = { day: today, picks };
+    online.setDailyPicks(dailyPicks);
     writeSetting(newtabDailyWallpaperPicks,
-      Object.keys(picks).length ? wallpaperState.dailyWallpaperPicks : '', () => {
+      Object.keys(picks).length ? dailyPicks : '', () => {
         showToast(t('newtab_wallpaper_save_error', 'Failed to save wallpaper'), true);
       });
     applyResolvedNewtabWallpaper();
@@ -231,11 +208,11 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   }
 
   function clearDailyWallpaperPick(dailyId: string): void {
-    if (getDailyWallpaperPick(dailyId)) setDailyWallpaperPick(dailyId, '');
+    if (online.getDailyPick(dailyId)) setDailyWallpaperPick(dailyId, '');
   }
 
   function getCuratedTileItems(): RemoteWallpaper[] {
-    const items = REMOTE_CONTENT.getCuratedWallpapers(wallpaperState.curatedCategory);
+    const items = REMOTE_CONTENT.getCuratedWallpapers(online.state.curatedCategory);
     if (!items.length) return [];
     // Wrap around the end of the category so every page fills both rows.
     const start = (curatedPage * CURATED_TILE_LIMIT) % items.length;
@@ -247,7 +224,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   // opens on the page that holds the chosen or daily photo.
   function showCuratedPageOfSelection(): void {
     const selectedId = getWallpaperTileSelectionId(getWallpaperSelectionIdForUi());
-    const index = REMOTE_CONTENT.getCuratedWallpapers(wallpaperState.curatedCategory).findIndex((item) => item.id === selectedId);
+    const index = REMOTE_CONTENT.getCuratedWallpapers(online.state.curatedCategory).findIndex((item) => item.id === selectedId);
     curatedPage = index >= 0 ? Math.floor(index / CURATED_TILE_LIMIT) : 0;
   }
 
@@ -277,8 +254,8 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   }
 
   function selectCuratedCategory(category: string): void {
-    if (!REMOTE_CONTENT.CURATED_CATEGORIES.includes(category) || category === wallpaperState.curatedCategory) return;
-    wallpaperState.curatedCategory = category;
+    if (!REMOTE_CONTENT.CURATED_CATEGORIES.includes(category) || category === online.state.curatedCategory) return;
+    online.setCuratedCategory(category);
     showCuratedPageOfSelection();
     renderWallpaperPanelState();
     playWallpaperEnterMotion(getWallpaperPanelRefs().curatedItemsHost, 'enter');
@@ -307,7 +284,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   }
   function setCuratedDailyWallpaper(enabled: boolean): void {
     if (enabled) {
-      const dailyId = REMOTE_CONTENT.curatedDailyId(wallpaperState.curatedCategory);
+      const dailyId = REMOTE_CONTENT.curatedDailyId(online.state.curatedCategory);
       clearDailyWallpaperPick(dailyId);
       persistNewtabWallpaper(dailyId);
       showCuratedPageOfSelection();
@@ -321,34 +298,32 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
 
   // Whether the two modes share one wallpaper.
   function isSameForModes(): boolean {
-    return wallpaperState.currentWallpaperPrefs ? wallpaperState.currentWallpaperPrefs.sameForModes : true;
+    return choice.state.prefs ? choice.state.prefs.sameForModes : true;
   }
 
   async function selectBingWallpaper(id: string, options?: { asDailyPick?: boolean } | null): Promise<void> {
-    if (wallpaperState.bingSelecting) return;
+    if (online.state.bingSelecting) return;
     // A tile chosen while the daily photo is on replaces it for today only.
     const dailyId = options && options.asDailyPick ? getActiveDailyWallpaperId('bing') : '';
-    const seq = ++wallpaperState.bingSelectionSeq;
+    const seq = online.beginSelection();
     const mode = getWallpaperEditMode();
     const sameForModes = isSameForModes();
-    wallpaperState.bingSelecting = true;
-    renderWallpaperPanelState();
+    online.setBingSelecting(true);
     // The new wallpaper is its own success signal, so only a failure leaves a message.
     const toastTask = beginToast(t('newtab_bing_saving', 'Saving wallpaper…'));
     try {
       await remoteClient.ensureWallpaper(id);
       toastTask.done();
-      if (seq !== wallpaperState.bingSelectionSeq || mode !== getWallpaperEditMode() ||
+      if (!online.isLatestSelection(seq) || mode !== getWallpaperEditMode() ||
           sameForModes !== isSameForModes()) return;
       if (dailyId) setDailyWallpaperPick(dailyId, id);
       else persistNewtabWallpaper(id);
     } catch {
-      toastTask.fail(seq === wallpaperState.bingSelectionSeq
+      toastTask.fail(online.isLatestSelection(seq)
         ? t('newtab_bing_save_error', 'Could not save wallpaper. Please try again.')
         : '');
     } finally {
-      wallpaperState.bingSelecting = false;
-      renderWallpaperPanelState();
+      online.setBingSelecting(false);
     }
   }
 
@@ -357,8 +332,6 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     getBingWallpaperLabel,
     loadBingCatalog,
     bindWallpaperPageShownListeners,
-    normalizeDailyWallpaperPicks,
-    getDailyWallpaperPick,
     getActiveDailyWallpaperId,
     setDailyWallpaperPick,
     clearDailyWallpaperPick,

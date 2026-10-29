@@ -3,14 +3,16 @@
 // applies the current wallpaper, overlay and effect.
 import type { AdaptiveToneTarget } from '../wallpaper-adaptive-tone';
 import type { PreloadObjectUrl, WallpaperEffectPreloadRuntime } from '../wallpaper-preload-types';
+import { getWallpaperOverlayStopPercent } from './wallpaper-overlay';
 import type { WallpaperOverlay } from './wallpaper-overlay';
+import { clampNumber } from '../wallpaper-effect-pixels';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperItem, WallpaperState } from './wallpaper-runtime-types';
 import { readBootValue } from '../../../platform/boot-handoff';
 import { NEWTAB_WALLPAPER_OVERLAY_STOPS } from '../wallpaper-options';
+import type { WallpaperPanelView } from './panel-view';
 
 interface WallpaperVisualDeps extends
-  Pick<WallpaperOverlay, 'getResolvedWallpaperOverlayMode' | 'getWallpaperOverlayOpacityForCurrentMode' | 'getWallpaperOverlayStopPercent'>,
   Pick<WallpaperSources, 'isNetworkWallpaperImageUrl' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperSample'> {
   document: Document;
   window: Window;
@@ -24,17 +26,17 @@ interface WallpaperVisualDeps extends
   refreshWallpaperAdaptiveSampler(): void;
   afterNextPaint(windowObj: Window, callback: () => void): void;
   wallpaperState: Pick<WallpaperState,
-    'wallpaperButton' | 'wallpaperEffects' | 'appliedWallpaperVisualUrl' | 'appliedWallpaperVisualActive' |
-    'wallpaperVisualSeq'>;
+    'wallpaperEffects'>;
+  overlay: Pick<WallpaperOverlay, 'getResolvedMode' | 'getOpacityForCurrentMode'>;
+  panelView: WallpaperPanelView;
 }
 
 function createWallpaperVisual(deps: WallpaperVisualDeps) {
   const {
+    panelView,
+    overlay,
     document,
     window,
-    getResolvedWallpaperOverlayMode,
-    getWallpaperOverlayOpacityForCurrentMode,
-    getWallpaperOverlayStopPercent,
     getAdaptiveToneTargets,
     chrome,
     windowObj,
@@ -59,15 +61,6 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
   let wallpaperVisualRefreshTimer = 0;
   const wallpaperImageReadyCache = new Map<string, Promise<void>>();
 
-  // Used by overlay math; adaptive image sampling lives in wallpaper-adaptive-tone.ts.
-  function clampNumber(value: unknown, min: number, max: number): number {
-    const number = Number(value);
-    if (!Number.isFinite(number)) {
-      return min;
-    }
-    return Math.min(max, Math.max(min, number));
-  }
-
   function getViewportSize(): { width: number; height: number } {
     const docEl = document.documentElement;
     return {
@@ -77,9 +70,9 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
   }
 
   function getWallpaperOverlayAlphaAtViewportY(viewportY: number): number {
-    const mode = getResolvedWallpaperOverlayMode();
+    const mode = overlay.getResolvedMode();
     const stops = NEWTAB_WALLPAPER_OVERLAY_STOPS[mode] || NEWTAB_WALLPAPER_OVERLAY_STOPS.light;
-    const opacity = getWallpaperOverlayOpacityForCurrentMode();
+    const opacity = overlay.getOpacityForCurrentMode();
     const topAlpha = getWallpaperOverlayStopPercent(stops.top, opacity) / 100;
     const midAlpha = getWallpaperOverlayStopPercent(stops.mid, opacity) / 100;
     const bottomAlpha = getWallpaperOverlayStopPercent(stops.bottom, opacity) / 100;
@@ -97,8 +90,8 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
       : [];
     const targets = (externalTargets || []).slice();
     targets.push({
-      element: wallpaperState.wallpaperButton,
-      sampleElement: wallpaperState.wallpaperButton,
+      element: panelView.button,
+      sampleElement: panelView.button,
       minWidth: 54,
       minHeight: 54,
       iconButton: true
@@ -359,6 +352,9 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
     });
   }
 
+  let visualSeq = 0;
+  let appliedVisual = { url: '', active: false };
+
   function applyWallpaperVisualState(wallpaper: WallpaperItem | null | undefined): string {
     const target = document.documentElement;
     const imageUrl = wallpaper ? getDisplayedWallpaperImageUrl(wallpaper) : '';
@@ -367,8 +363,7 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
       // A copy the preload is still reading must not paint over the runtime's choice.
       wallpaperPreload.runtimeApplied = true;
     }
-    wallpaperState.appliedWallpaperVisualUrl = imageUrl;
-    wallpaperState.appliedWallpaperVisualActive = Boolean(wallpaper);
+    appliedVisual = { url: imageUrl, active: Boolean(wallpaper) };
     if (target) {
       target.style.setProperty('--x-nt-wallpaper-image',
         imageUrl ? getCssUrlValue(getCssSafeWallpaperUrl(imageUrl)) : 'none');
@@ -386,11 +381,27 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
   }
 
   function runWallpaperVisualRefresh(seq: number): void {
-    if (seq !== wallpaperState.wallpaperVisualSeq) {
+    if (seq !== visualSeq) {
       return;
     }
     refreshWallpaperAdaptiveSampler();
     void refreshWallpaperEffects();
+  }
+
+  // Starts showing another wallpaper; returns its token. A change started
+  // later supersedes it.
+  function beginVisualChange(): number {
+    visualSeq += 1;
+    return visualSeq;
+  }
+
+  function isLatestVisualChange(seq: number): boolean {
+    return seq === visualSeq;
+  }
+
+  // The image on screen, and whether a wallpaper shows at all.
+  function getAppliedVisual(): { url: string; active: boolean } {
+    return appliedVisual;
   }
 
   function scheduleWallpaperVisualRefresh(seq: number): void {
@@ -405,7 +416,6 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
   }
 
   return {
-    clampNumber,
     getWallpaperOverlayAlphaAtViewportY,
     getWallpaperAdaptiveToneTargets,
     getRuntimeAssetUrl,
@@ -415,6 +425,9 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
     createWallpaperTransitionLayer,
     releaseWallpaperTransitionLayer,
     applyWallpaperVisualState,
+    beginVisualChange,
+    isLatestVisualChange,
+    getAppliedVisual,
     scheduleWallpaperVisualRefresh
   };
 }

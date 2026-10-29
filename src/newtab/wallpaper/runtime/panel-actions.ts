@@ -19,13 +19,16 @@ import type { WallpaperOverlay } from './wallpaper-overlay';
 import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
-import type { WallpaperState } from './wallpaper-runtime-types';
 import type { SettingsStore } from '../../../platform/settings-store';
 import { newtabTimeFont } from '../../../domain/settings/newtab-time';
 import * as REMOTE_CONTENT from '../../remote-content';
 import * as SETTINGS from '../../../domain/settings';
 import { CRT_PARAMETER_PHYSICAL_MAX, NEWTAB_WALLPAPER_DEFAULT_ID } from '../wallpaper-options';
 import { getPagePortals } from '../../app/portals';
+import type { WallpaperPanelUi } from './panel-ui';
+import type { WallpaperLibrary } from './wallpaper-library';
+import type { WallpaperChoice } from './wallpaper-choice';
+import type { WallpaperPanelView } from './panel-view';
 
 // Whether a layout change is only shown or also saved.
 type PersistOptions = { persist: boolean };
@@ -51,12 +54,10 @@ interface PanelActionsDeps extends
     'persistTimeFontSizeFromSlider' | 'persistTimeOpacityFromSlider' | 'persistTimeInk' | 'persistTimeFont' |
     'persistTimeSecondsVisible' | 'persistTime12Hour' | 'persistShortcutColumnsFromSlider' |
     'persistShortcutSizeFromSlider' | 'persistShortcutGapFromSlider' | 'getShortcutLayoutDefault'>,
-  Pick<CustomWallpapers, 'deleteCustomWallpaper' | 'importCustomWallpaperFile' | 'isLocalWallpaperLibraryFull' |
+  Pick<CustomWallpapers, 'deleteCustomWallpaper' | 'importCustomWallpaperFile' | 
     'showLocalWallpaperLimitToast' | 'setCustomWallpaperUrlFormOpen' | 'openOnlineWallpaperMenu' |
     'submitCustomWallpaperUrl'>,
   Pick<WallpaperStorage, 'getWallpaperSelectionIdForUi' | 'getResolvedWallpaperMode'>,
-  Pick<WallpaperOverlay, 'getResolvedWallpaperOverlayMode' | 'persistWallpaperOverlayOpacity' |
-    'getWallpaperOverlayOpacityForCurrentMode'>,
   Pick<FaviconChooser, 'persistNewtabFavicon'> {
   settings: Pick<SettingsStore, 'get'>;
   getCrtParameterPercent(key: CrtParameterKey, value: unknown): number;
@@ -84,10 +85,11 @@ interface PanelActionsDeps extends
   featureHintVisibilityGate: PromiseLike<unknown> | null;
   t: Translate;
   closeWallpaperPanel(): void;
-  wallpaperState: Pick<WallpaperState,
-    'customWallpaperImporting' | 'customWallpaperUrlFormOpen' | 'customWallpaperUrlInvalid' |
-    'wallpaperViewController' | 'wallpaperSourcesHintController' | 'wallpaperControl' | 'wallpaperPanel' |
-    'wallpaperButton' | 'wallpaperPanelOpen' | 'activeWallpaperTab' | 'activeWallpaperMode'>;
+  panelUi: WallpaperPanelUi;
+  library: Pick<WallpaperLibrary, 'isFull'>;
+  choice: WallpaperChoice;
+  overlay: Pick<WallpaperOverlay, 'getResolvedMode' | 'persist' | 'getOpacityForCurrentMode'>;
+  panelView: WallpaperPanelView;
 }
 
 // The effect settings an effect slider writes to.
@@ -99,6 +101,11 @@ function isCrtParameterKey(key: EffectParameterKey): key is CrtParameterKey {
 
 function createPanelActions(deps: PanelActionsDeps) {
   const {
+    panelView,
+    overlay,
+    choice,
+    library,
+    panelUi,
     settings,
     getWallpaperEffectPrefsForEditMode,
     getCrtParameterPercent,
@@ -145,7 +152,6 @@ function createPanelActions(deps: PanelActionsDeps) {
     primeWallpaperImage,
     deleteCustomWallpaper,
     importCustomWallpaperFile,
-    isLocalWallpaperLibraryFull,
     showLocalWallpaperLimitToast,
     setCustomWallpaperUrlFormOpen,
     openOnlineWallpaperMenu,
@@ -159,9 +165,6 @@ function createPanelActions(deps: PanelActionsDeps) {
     showMoreCuratedWallpapers,
     getActiveDailyWallpaperId,
     setDailyWallpaperPick,
-    getResolvedWallpaperOverlayMode,
-    persistWallpaperOverlayOpacity,
-    getWallpaperOverlayOpacityForCurrentMode,
     persistNewtabFavicon,
     options,
     document,
@@ -177,8 +180,6 @@ function createPanelActions(deps: PanelActionsDeps) {
     closeWallpaperPanel
   } = deps;
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
 
   let wallpaperPanelRendered = false;
 
@@ -282,25 +283,24 @@ function createPanelActions(deps: PanelActionsDeps) {
       deleteWallpaper: (id) => deleteCustomWallpaper(id),
       importWallpaperFile: (file) => importCustomWallpaperFile(file),
       toggleUrlForm() {
-        if (wallpaperState.customWallpaperImporting) {
+        if (panelUi.state.importing) {
           return;
         }
-        if (!wallpaperState.customWallpaperUrlFormOpen && isLocalWallpaperLibraryFull()) {
+        if (!panelUi.state.urlFormOpen && library.isFull()) {
           showLocalWallpaperLimitToast();
           return;
         }
-        setCustomWallpaperUrlFormOpen(!wallpaperState.customWallpaperUrlFormOpen);
+        setCustomWallpaperUrlFormOpen(!panelUi.state.urlFormOpen);
       },
       openOnlineWallpaperMenu: (id, element, point) => openOnlineWallpaperMenu(id, element, point),
       showLocalWallpaperLimit: () => showLocalWallpaperLimitToast(),
       submitWallpaperUrl(url) {
-        if (!wallpaperState.customWallpaperImporting) {
+        if (!panelUi.state.importing) {
           submitCustomWallpaperUrl(url);
         }
       },
       clearUrlInvalid() {
-        wallpaperState.customWallpaperUrlInvalid = false;
-        renderWallpaperPanelState();
+        panelUi.setUrlInvalid(false);
       },
       setBingDaily: setBingDailyWallpaper,
       restoreDailyWallpaper() {
@@ -329,10 +329,10 @@ function createPanelActions(deps: PanelActionsDeps) {
         else persistNewtabWallpaper(id);
       },
       setOverlay(value, change) {
-        const mode = getResolvedWallpaperOverlayMode();
-        persistWallpaperOverlayOpacity(mode, getWallpaperStyleSliderValue(
+        const mode = overlay.getResolvedMode();
+        overlay.persist(mode, getWallpaperStyleSliderValue(
           value,
-          getWallpaperOverlayOpacityForCurrentMode(),
+          overlay.getOpacityForCurrentMode(),
           change,
           true
         ));
@@ -353,10 +353,10 @@ function createPanelActions(deps: PanelActionsDeps) {
     }
     wallpaperPanelRendered = true;
     const quoteRuntime = options.getQuoteRuntime && options.getQuoteRuntime();
-    if (quoteRuntime) quoteRuntime.bindSettings(wallpaperState.wallpaperViewController);
+    if (quoteRuntime) quoteRuntime.bindSettings(panelView.controller);
     const sectionSettings = options.getSectionPanelSettings && options.getSectionPanelSettings();
     if (sectionSettings) {
-      sectionSettings.bindSettings(wallpaperState.wallpaperViewController);
+      sectionSettings.bindSettings(panelView.controller);
     }
   }
 
@@ -367,15 +367,17 @@ function createPanelActions(deps: PanelActionsDeps) {
     );
   }
 
+  let sourcesHint: FeatureHintController | null = null;
+
   // Points at the appearance button until the panel is opened once.
   function createWallpaperSourcesFeatureHint(): FeatureHintController | null {
-    const control = wallpaperState.wallpaperControl;
-    if (wallpaperState.wallpaperSourcesHintController ||
+    const control = panelView.control;
+    if (sourcesHint ||
         isFocusRoutePending() ||
         !control ||
         !featureHints ||
         typeof featureHints.createFeatureHint !== 'function') {
-      return wallpaperState.wallpaperSourcesHintController;
+      return sourcesHint;
     }
     const controller = featureHints.createFeatureHint({
       portals: getPagePortals(),
@@ -389,20 +391,26 @@ function createPanelActions(deps: PanelActionsDeps) {
     if (!controller || !controller.element) {
       return null;
     }
-    wallpaperState.wallpaperSourcesHintController = controller;
+    sourcesHint = controller;
     control.appendChild(controller.element);
     return controller;
   }
 
+  function updateWallpaperSourcesHintLanguage(): void {
+    if (sourcesHint && typeof sourcesHint.updateLanguage === 'function') {
+      sourcesHint.updateLanguage();
+    }
+  }
+
   function dismissWallpaperSourcesFeatureHint(): void {
-    if (wallpaperState.wallpaperSourcesHintController &&
-        typeof wallpaperState.wallpaperSourcesHintController.dismiss === 'function') {
-      wallpaperState.wallpaperSourcesHintController.dismiss();
+    if (sourcesHint &&
+        typeof sourcesHint.dismiss === 'function') {
+      sourcesHint.dismiss();
     }
   }
 
   function openWallpaperPanel(): void {
-    if (!wallpaperState.wallpaperPanel || !wallpaperState.wallpaperButton) {
+    if (!panelView.panel || !panelView.button) {
       return;
     }
     // The panel opens on the wallpaper the page shows. With light and dark
@@ -410,8 +418,8 @@ function createPanelActions(deps: PanelActionsDeps) {
     // a page starts with) would leave every change to the other mode's
     // wallpaper and filter, out of sight.
     const shownMode = getResolvedWallpaperMode();
-    const modeChanged = wallpaperState.activeWallpaperMode !== shownMode;
-    wallpaperState.activeWallpaperMode = shownMode;
+    const modeChanged = choice.state.editMode !== shownMode;
+    choice.setEditMode(shownMode);
     if (!wallpaperPanelRendered) {
       bindWallpaperPanelSectionRuntimes();
     }
@@ -420,13 +428,12 @@ function createPanelActions(deps: PanelActionsDeps) {
       syncWallpaperSourceTabToEditMode({ force: true });
     }
     dismissWallpaperSourcesFeatureHint();
-    wallpaperState.wallpaperPanelOpen = true;
-    renderWallpaperPanelState();
+    panelUi.setOpen(true);
     setWallpaperPanelOpenState(true);
-    if (wallpaperState.activeWallpaperTab === 'local') {
+    if (panelUi.state.tab === 'local') {
       void loadCustomWallpapers();
     }
-    if (wallpaperState.activeWallpaperTab === 'bing') void loadBingCatalog();
+    if (panelUi.state.tab === 'bing') void loadBingCatalog();
   }
   function toggleWallpaperPanel(): void {
     if (isWallpaperPanelOpen()) {
@@ -437,6 +444,7 @@ function createPanelActions(deps: PanelActionsDeps) {
   }
 
   return {
+    updateWallpaperSourcesHintLanguage,
     createWallpaperPanelActions,
     createWallpaperSourcesFeatureHint
   };

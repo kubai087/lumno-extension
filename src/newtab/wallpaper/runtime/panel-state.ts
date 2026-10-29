@@ -16,6 +16,7 @@ import type {
   ThemeScope,
   TimeInk,
   TopContentMode,
+  WallpaperPanelActions,
   WallpaperPanelModel,
   WallpaperPanelState,
   WallpaperSourceTab
@@ -28,13 +29,14 @@ import type { DailyWallpapers } from './daily-wallpapers';
 import type { FaviconChooser } from './favicon-chooser';
 import type { PanelSettings, SliderConfig } from './panel-settings';
 import type { WallpaperEffectPrefsRuntime } from './wallpaper-effect-prefs';
+import { normalizeWallpaperOverlayOpacity, snapWallpaperOverlaySliderValue } from './wallpaper-overlay';
 import type { WallpaperOverlay } from './wallpaper-overlay';
+import { clampNumber } from '../wallpaper-effect-pixels';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
 import type {
   AppearanceMode,
-  WallpaperItem,
-  WallpaperState
+  WallpaperItem
 } from './wallpaper-runtime-types';
 import type { SvgNode } from '../../../shared/ui/svg-tree';
 import type { SettingsStore } from '../../../platform/settings-store';
@@ -43,6 +45,12 @@ import { newtabTime12Hour, newtabTimeFont, newtabTimeFontSize, newtabTimeFontWei
 import * as SETTINGS from '../../../domain/settings';
 import * as REMOTE_CONTENT from '../../remote-content';
 import { BLOCK_PARAMETER_MAX, NEWTAB_FAVICON_OPTIONS, NEWTAB_FAVICON_SVG_MAIN_PATH, NEWTAB_FAVICON_SVG_SHADOW_PATH, NEWTAB_WALLPAPER_EFFECT_INK_TONES, NEWTAB_WALLPAPER_EFFECT_TYPES, NEWTAB_WALLPAPER_MODES, NEWTAB_WALLPAPER_MODE_DARK, NEWTAB_WALLPAPER_OPTIONS } from '../wallpaper-options';
+import type { WallpaperPanelUi } from './panel-ui';
+import type { OnlineWallpapers } from './online-wallpapers';
+import type { WallpaperLibrary } from './wallpaper-library';
+import type { WallpaperChoice } from './wallpaper-choice';
+import { createWallpaperViewController } from '../../react/wallpaper-view';
+import type { WallpaperPanelView } from './panel-view';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -57,7 +65,8 @@ interface PanelStateDeps extends
   Pick<WallpaperSources,
     'getWallpaperThumbnailUrl' | 'getWallpaperDisplayName' | 'getWallpaperById' | 'normalizeWallpaperMode' |
     'getWallpaperLocalPath'>,
-  Pick<CustomWallpapers, 'getLinkWallpaperById' | 'isLocalWallpaperLibraryFull' | 'fetchCustomWallpaperFile'>,
+  Pick<CustomWallpapers, 'fetchCustomWallpaperFile'>,
+  Pick<WallpaperSources, 'getLinkWallpaperById'>,
   Pick<DailyWallpapers,
     'formatBingCopyright' | 'getBingWallpaperLabel' | 'getCuratedPhotoLabel' | 'isCuratedDailyWallpaperActive' |
     'getCuratedCategoryLabel' | 'getCuratedPhotoMeta' | 'getCuratedTileItems'>,
@@ -67,8 +76,6 @@ interface PanelStateDeps extends
     'getWallpaperEffectSizeLabel' | 'getWallpaperEffectSpacingLabel' | 'getWallpaperEffectTextureLabel'>,
   Pick<WallpaperStorage,
     'hasAnyWallpaperEnabled' | 'getWallpaperSelectionIdForUi' | 'getWallpaperTileSelectionId' | 'getWallpaperModeLabel'>,
-  Pick<WallpaperOverlay,
-    'getWallpaperOverlayOpacityForCurrentMode' | 'snapWallpaperOverlaySliderValue' | 'normalizeWallpaperOverlayOpacity'>,
   Pick<FaviconChooser, 'getNewtabFaviconUrl' | 'buildNewtabFaviconState'> {
   t: Translate;
   formatMessage: FormatMessage;
@@ -98,20 +105,18 @@ interface PanelStateDeps extends
   localWallpaperStore: Pick<WallpaperLocalStore, 'buildTileThumbnail'>;
   warnWallpaperStoreFailure(message: string): (error: unknown) => void;
   getCrtParameterPercent(key: CrtParameterKey, value: unknown): number;
-  clampNumber(value: unknown, min: number, max: number): number;
   // Runs a change to the open panel while animating its height.
   animateWallpaperPanelResize(mutate: () => void): void;
   document: Document;
   extensionRoutes: Pick<typeof LumnoExtensionRoutes, 'buildOptionsUrl'> | null | undefined;
   chrome: { runtime?: { getURL?: (path: string) => string } } | null | undefined;
   window: Window;
-  wallpaperState: Pick<WallpaperState,
-    'pendingThemeScope' | 'heldAppearanceModeLabels' | 'customWallpapers' | 'linkWallpapers' |
-    'customWallpaperImporting' | 'customWallpaperUrlFormOpen' | 'customWallpaperUrlInvalid' |
-    'customWallpaperUrlClearToken' | 'bingLoading' | 'bingSelecting' | 'bingItems' | 'bingStatus' |
-    'wallpaperPanelOpen' | 'activeWallpaperTab' | 'curatedCategory' | 'currentWallpaperPrefs' |
-    'activeWallpaperMode' | 'wallpaperPanelActions' | 'currentWallpaperId' | 'wallpaperViewController' |
-    'wallpaperButton' | 'wallpaperPanelState' | 'wallpaperPanelLayoutKey' | 'onlineWallpaperMenuId'>;
+  panelUi: WallpaperPanelUi;
+  online: OnlineWallpapers;
+  library: WallpaperLibrary;
+  choice: WallpaperChoice;
+  overlay: Pick<WallpaperOverlay, 'store' | 'getOpacityForCurrentMode'>;
+  panelView: WallpaperPanelView;
 }
 
 const WALLPAPER_APPEARANCE_MODES: readonly AppearanceMode[] = ['system', 'light', 'dark'];
@@ -137,6 +142,12 @@ function readTileThumbnailRecord(value: unknown): TileThumbnailRecord | null {
 
 function createPanelState(deps: PanelStateDeps) {
   const {
+    panelView,
+    overlay,
+    choice,
+    library,
+    online,
+    panelUi,
     t,
     getNewtabFaviconUrl,
     getSearchWidthSnapPoints,
@@ -177,7 +188,6 @@ function createPanelState(deps: PanelStateDeps) {
     getWallpaperThumbnailUrl,
     getWallpaperDisplayName,
     getLinkWallpaperById,
-    isLocalWallpaperLibraryFull,
     getWallpaperById,
     formatBingCopyright,
     getBingWallpaperLabel,
@@ -200,7 +210,6 @@ function createPanelState(deps: PanelStateDeps) {
     getWallpaperEffectStrengthLabel,
     getWallpaperEffectSizeLabel,
     getWallpaperEffectSpacingLabel,
-    clampNumber,
     getWallpaperEffectTextureLabel,
     hasAnyWallpaperEnabled,
     getWallpaperSelectionIdForUi,
@@ -208,21 +217,16 @@ function createPanelState(deps: PanelStateDeps) {
     normalizeWallpaperMode,
     getWallpaperModeLabel,
     getWallpaperLocalPath,
-    getWallpaperOverlayOpacityForCurrentMode,
     getGlassStyle,
     getGlassTheme,
     buildNewtabFaviconState,
     animateWallpaperPanelResize,
-    snapWallpaperOverlaySliderValue,
-    normalizeWallpaperOverlayOpacity,
     document,
     extensionRoutes,
     chrome,
     window
   } = deps;
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
 
   // A closed panel is drawn again only when it next opens; meanwhile this records that its
   // drawn state is out of date.
@@ -325,10 +329,10 @@ function createPanelState(deps: PanelStateDeps) {
   }
 
   function buildWallpaperThemeState(): WallpaperPanelState['theme'] {
-    const scope: ThemeScope = wallpaperState.pendingThemeScope || (getThemeScope() === 'home' ? 'home' : 'global');
+    const scope: ThemeScope = panelUi.state.pendingThemeScope || (getThemeScope() === 'home' ? 'home' : 'global');
     const themeMode = getThemeMode();
     // While the options slide between scopes they keep the labels they left with.
-    const modeLabels = wallpaperState.heldAppearanceModeLabels || getWallpaperAppearanceModeLabels();
+    const modeLabels = panelUi.state.heldModeLabels || getWallpaperAppearanceModeLabels();
     return {
       title: t('settings_theme_title', 'Theme mode'),
       infoLabel: t('newtab_theme_scope_help_label', 'Theme scope info'),
@@ -567,8 +571,8 @@ function createPanelState(deps: PanelStateDeps) {
   }
 
   function getLocalWallpaperItems(): WallpaperItem[] {
-    const links = wallpaperState.linkWallpapers.map((item) => getLinkWallpaperById(item.id));
-    return [...wallpaperState.customWallpapers, ...links]
+    const { uploads, links } = library.state;
+    return [...uploads, ...links.map((item) => getLinkWallpaperById(item.id))]
       .filter((item): item is WallpaperItem => Boolean(item))
       .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
   }
@@ -580,14 +584,14 @@ function createPanelState(deps: PanelStateDeps) {
       deleteLabel: t('newtab_wallpaper_delete_local', 'Delete imported wallpaper'),
       upload: {
         label: t('newtab_wallpaper_add_local', 'Add local wallpaper'),
-        loading: wallpaperState.customWallpaperImporting,
-        full: isLocalWallpaperLibraryFull()
+        loading: panelUi.state.importing,
+        full: library.isFull()
       },
       url: {
-        open: wallpaperState.customWallpaperUrlFormOpen,
-        invalid: wallpaperState.customWallpaperUrlInvalid,
-        clearToken: wallpaperState.customWallpaperUrlClearToken,
-        disabled: wallpaperState.customWallpaperImporting,
+        open: panelUi.state.urlFormOpen,
+        invalid: panelUi.state.urlInvalid,
+        clearToken: panelUi.state.urlClearToken,
+        disabled: panelUi.state.importing,
         tileLabel: urlLabel,
         inputLabel: urlLabel,
         placeholder: t('newtab_wallpaper_url_placeholder', 'Paste an image link (https://…)'),
@@ -601,11 +605,11 @@ function createPanelState(deps: PanelStateDeps) {
     const selected = REMOTE_CONTENT.getWallpaperProvider(selectedId) === 'bing'
       ? getWallpaperById(selectedId)
       : null;
-    const busy = wallpaperState.bingLoading || wallpaperState.bingSelecting;
+    const busy = online.state.bingLoading || online.state.bingSelecting;
     // Bing skips some days, so cap the list to two full rows instead of leaving a ragged last row.
-    const recent: WallpaperItem[] = wallpaperState.bingItems;
+    const recent: WallpaperItem[] = online.state.bingItems;
     const items = (selected && selectedId !== REMOTE_CONTENT.BING_DAILY_ID &&
-      !wallpaperState.bingItems.some((item) => item.id === selectedId)
+      !online.state.bingItems.some((item) => item.id === selectedId)
       ? [selected, ...recent]
       : recent).slice(0, BING_RECENT_TILE_LIMIT);
     const daily = buildDailyState(
@@ -616,13 +620,13 @@ function createPanelState(deps: PanelStateDeps) {
     return {
       label: 'Bing',
       busy,
-      loading: wallpaperState.bingLoading && !wallpaperState.bingItems.length,
-      daily: Object.assign(daily, { busy: wallpaperState.bingSelecting }),
+      loading: online.state.bingLoading && !online.state.bingItems.length,
+      daily: Object.assign(daily, { busy: online.state.bingSelecting }),
       recentLabel: t('newtab_bing_recent', 'Recent wallpapers'),
-      refresh: { label: t('newtab_bing_refresh', 'Refresh'), busy: wallpaperState.bingLoading, disabled: busy },
-      status: wallpaperState.bingStatus === 'loading' && !wallpaperState.bingItems.length
+      refresh: { label: t('newtab_bing_refresh', 'Refresh'), busy: online.state.bingLoading, disabled: busy },
+      status: online.state.bingStatus === 'loading' && !online.state.bingItems.length
         ? t('newtab_bing_loading', 'Loading wallpapers…')
-        : wallpaperState.bingStatus === 'error'
+        : online.state.bingStatus === 'error'
           ? t('newtab_bing_error', 'Could not load wallpapers. Please try again.') : '',
       selected: selected && selected.date
         ? Object.assign(buildSelectedSourceState(selected.name || '', formatBingCopyright(selected.copyright),
@@ -637,8 +641,8 @@ function createPanelState(deps: PanelStateDeps) {
           id: item.id,
           thumbnailUrl: getWallpaperThumbnailUrl(wallpaper),
           selected: item.id === selectedTileId,
-          contextMenuOpen: item.id === wallpaperState.onlineWallpaperMenuId,
-          disabled: wallpaperState.bingSelecting,
+          contextMenuOpen: item.id === panelUi.state.onlineMenuId,
+          disabled: online.state.bingSelecting,
           tooltip: label,
           label: getWallpaperSelectLabel(label)
         };
@@ -660,7 +664,7 @@ function createPanelState(deps: PanelStateDeps) {
   // first time downloads once and is kept, so reopening the panel, even days later, asks Picsum
   // only for photos it has not shown before.
   function loadCuratedTileThumbnails(items: RemoteWallpaper[]): RemoteWallpaper[] {
-    if (!wallpaperThumbnailCache || !wallpaperState.wallpaperPanelOpen || wallpaperState.activeWallpaperTab !== 'curated') return items;
+    if (!wallpaperThumbnailCache || !panelUi.state.open || panelUi.state.tab !== 'curated') return items;
     const pending = items.filter((item) => item.thumbnailUrl && !curatedTileThumbnails.has(item.id) &&
       getWallpaperThumbnailUrl(item) === item.thumbnailUrl);
     if (!pending.length) return items;
@@ -721,7 +725,7 @@ function createPanelState(deps: PanelStateDeps) {
       category: {
         label: categoryLabel,
         tabs: {
-          active: wallpaperState.curatedCategory,
+          active: online.state.curatedCategory,
           label: categoryLabel,
           options: REMOTE_CONTENT.CURATED_CATEGORIES.map((value) => ({
             value,
@@ -744,7 +748,7 @@ function createPanelState(deps: PanelStateDeps) {
           id: item.id,
           thumbnailUrl: getCuratedTileThumbnailUrl(item),
           selected: item.id === selectedTileId,
-          contextMenuOpen: item.id === wallpaperState.onlineWallpaperMenuId,
+          contextMenuOpen: item.id === panelUi.state.onlineMenuId,
           tooltip: tileLabel,
           label: getWallpaperSelectLabel(tileLabel)
         };
@@ -764,7 +768,7 @@ function createPanelState(deps: PanelStateDeps) {
         : formatMessage('newtab_curated_mix_count', '{count} categories', { count: included.length });
     }
     return {
-      visible: wallpaperState.curatedCategory === REMOTE_CONTENT.RANDOM_CATEGORY,
+      visible: online.state.curatedCategory === REMOTE_CONTENT.RANDOM_CATEGORY,
       label,
       ariaLabel: t('newtab_curated_mix_aria', 'Categories in the mix'),
       options: categories.map((value) => {
@@ -885,7 +889,7 @@ function createPanelState(deps: PanelStateDeps) {
     const enabled = hasAnyWallpaperEnabled();
     const selectedId = getWallpaperSelectionIdForUi();
     const selectedTileId = getWallpaperTileSelectionId(selectedId);
-    const split = Boolean(wallpaperState.currentWallpaperPrefs && wallpaperState.currentWallpaperPrefs.sameForModes === false);
+    const split = Boolean(choice.state.prefs && choice.state.prefs.sameForModes === false);
     const builtInLabel = t('newtab_wallpaper_builtin_section', 'Built-in');
     const localLabel = t('newtab_wallpaper_local_section', 'Local');
     const curatedLabel = t('newtab_wallpaper_curated_section', 'Curated');
@@ -894,7 +898,7 @@ function createPanelState(deps: PanelStateDeps) {
       title: t('newtab_wallpaper_title', 'Wallpaper'),
       enabled,
       toggle: buildPanelToggle(enabled, t('newtab_wallpaper_toggle_label', 'Toggle wallpaper')),
-      activeTab: wallpaperState.activeWallpaperTab,
+      activeTab: panelUi.state.tab,
       modeSync: {
         title: t('newtab_wallpaper_mode_sync_title', 'Match light and dark mode'),
         toggle: buildPanelToggle(
@@ -906,7 +910,7 @@ function createPanelState(deps: PanelStateDeps) {
         visible: split,
         label: t('newtab_wallpaper_mode_row_title', 'Mode'),
         tabs: {
-          active: normalizeWallpaperMode(wallpaperState.activeWallpaperMode),
+          active: normalizeWallpaperMode(choice.state.editMode),
           label: t('newtab_wallpaper_mode_tabs_label', 'Wallpaper color mode'),
           options: NEWTAB_WALLPAPER_MODES.map((mode) => ({
             value: mode,
@@ -924,7 +928,7 @@ function createPanelState(deps: PanelStateDeps) {
       source: {
         label: sourceLabel,
         tabs: {
-          active: wallpaperState.activeWallpaperTab,
+          active: panelUi.state.tab,
           label: sourceLabel,
           options: withAriaLabels<WallpaperSourceTab>([
             { value: 'built-in', label: builtInLabel },
@@ -946,7 +950,7 @@ function createPanelState(deps: PanelStateDeps) {
       curated: buildCuratedWallpaperState(curatedLabel, selectedId, selectedTileId),
       overlay: {
         label: t('newtab_wallpaper_overlay_opacity', 'Mask effect'),
-        value: getWallpaperOverlayOpacityForCurrentMode(),
+        value: overlay.getOpacityForCurrentMode(),
         min: 0,
         max: 100
       },
@@ -956,7 +960,7 @@ function createPanelState(deps: PanelStateDeps) {
 
   // The panel's state, once its actions exist.
   function buildWallpaperPanelState(): WallpaperPanelState | null {
-    const actions = wallpaperState.wallpaperPanelActions;
+    const actions = panelActions;
     if (!actions) {
       return null;
     }
@@ -964,9 +968,9 @@ function createPanelState(deps: PanelStateDeps) {
     const glassThemeTitle = t('settings_newtab_glass_theme_title', 'Material theme');
     return {
       actions,
-      open: wallpaperState.wallpaperPanelOpen,
+      open: panelUi.state.open,
       panelLabel: t('settings_tab_appearance', 'Appearance'),
-      button: { active: Boolean(wallpaperState.currentWallpaperId), label: getWallpaperButtonLabel() },
+      button: { active: Boolean(choice.state.shownId), label: getWallpaperButtonLabel() },
       header: buildWallpaperPanelHeaderState(),
       theme: buildWallpaperThemeState(),
       glassStyle: {
@@ -1013,15 +1017,36 @@ function createPanelState(deps: PanelStateDeps) {
     ]);
   }
 
+  // The panel's actions, and the state and layout last drawn.
+  let panelActions: WallpaperPanelActions | null = null;
+  let drawnState: WallpaperPanelState | null = null;
+  let drawnLayoutKey = '';
+
+  // Draws the panel for the first time, with the actions its controls call.
+  function mountWallpaperPanel(actions: WallpaperPanelActions): void {
+    panelActions = actions;
+    const state = buildWallpaperPanelState();
+    if (!state) {
+      return;
+    }
+    drawnState = state;
+    drawnLayoutKey = getWallpaperPanelLayoutKey(state);
+    panelView.mount(createWallpaperViewController({
+      documentObj: document,
+      model: createWallpaperPanelModel(),
+      state
+    }));
+  }
+
   // Rebuilds the panel state and renders it; while the panel is open the DOM is current when
   // this returns. A closed panel waits for its next open, and only its button, which stays on
   // the page, follows the state at once: the New Tab start-up changes the state many times,
   // and drawing the whole hidden panel for each change held the page back.
   function renderWallpaperPanelState(): void {
-    if (!wallpaperState.wallpaperViewController) {
+    if (!panelView.controller) {
       return;
     }
-    if (!wallpaperState.wallpaperPanelOpen) {
+    if (!panelUi.state.open) {
       wallpaperPanelDrawPending = true;
       syncClosedWallpaperButton();
       return;
@@ -1032,32 +1057,32 @@ function createPanelState(deps: PanelStateDeps) {
   // The button's attributes as the view draws them; React leaves an attribute alone while its
   // value matches the last render, so the DOM set here stays right until the next draw.
   function syncClosedWallpaperButton(): void {
-    if (!wallpaperState.wallpaperButton) {
+    if (!panelView.button) {
       return;
     }
     const label = getWallpaperButtonLabel();
-    const active = wallpaperState.currentWallpaperId ? 'true' : 'false';
+    const active = choice.state.shownId ? 'true' : 'false';
     if (label) {
-      wallpaperState.wallpaperButton.setAttribute('aria-label', label);
+      panelView.button.setAttribute('aria-label', label);
     } else {
-      wallpaperState.wallpaperButton.removeAttribute('aria-label');
+      panelView.button.removeAttribute('aria-label');
     }
-    wallpaperState.wallpaperButton.setAttribute('aria-pressed', active);
-    wallpaperState.wallpaperButton.setAttribute('data-active', active);
+    panelView.button.setAttribute('aria-pressed', active);
+    panelView.button.setAttribute('data-active', active);
   }
 
   function drawWallpaperPanelState(): void {
-    const controller = wallpaperState.wallpaperViewController;
+    const controller = panelView.controller;
     const state = controller ? buildWallpaperPanelState() : null;
     if (!controller || !state) {
       return;
     }
-    const previous = wallpaperPanelDrawPending ? null : wallpaperState.wallpaperPanelState;
+    const previous = wallpaperPanelDrawPending ? null : drawnState;
     wallpaperPanelDrawPending = false;
     const layoutKey = getWallpaperPanelLayoutKey(state);
-    const layoutChanged = Boolean(previous) && layoutKey !== wallpaperState.wallpaperPanelLayoutKey;
-    wallpaperState.wallpaperPanelState = state;
-    wallpaperState.wallpaperPanelLayoutKey = layoutKey;
+    const layoutChanged = Boolean(previous) && layoutKey !== drawnLayoutKey;
+    drawnState = state;
+    drawnLayoutKey = layoutKey;
     // Rows that show or hide (mode, link form, effect controls) animate their own height
     // through .x-nt-panel-collapsible.
     const apply = () => controller.render(state);
@@ -1069,7 +1094,7 @@ function createPanelState(deps: PanelStateDeps) {
   }
 
   function getWallpaperPanelRefs(): Readonly<Partial<Record<string, HTMLElement>>> {
-    return wallpaperState.wallpaperViewController ? wallpaperState.wallpaperViewController.getRefs() : {};
+    return panelView.controller ? panelView.controller.getRefs() : {};
   }
 
   function isWallpaperTileSelected(id: string): boolean {
@@ -1111,7 +1136,16 @@ function createPanelState(deps: PanelStateDeps) {
     }
   }
 
+
+  // The panel draws whatever it shows as soon as that changes.
+  panelUi.store.subscribe(() => renderWallpaperPanelState());
+  online.store.subscribe(() => renderWallpaperPanelState());
+  library.store.subscribe(() => renderWallpaperPanelState());
+  choice.store.subscribe(() => renderWallpaperPanelState());
+  overlay.store.subscribe(() => renderWallpaperPanelState());
+
   return {
+    mountWallpaperPanel,
     getWallpaperButtonLabel,
     createWallpaperPanelModel,
     getWallpaperAppearanceModeLabels,

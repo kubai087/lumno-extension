@@ -19,11 +19,15 @@ import type {
   LocalWallpaperOverrides,
   WallpaperItem,
   WallpaperMode,
-  WallpaperPrefs,
-  WallpaperState
+  WallpaperPrefs
 } from './wallpaper-runtime-types';
 import { PRELOAD_STORAGE_VERSION } from '../wallpaper-preload-types';
 import { newtabWallpaperPreload } from '../../../domain/settings/newtab-wallpaper';
+import { isLinkWallpaperId } from './wallpaper-library';
+import type { WallpaperLibrary } from './wallpaper-library';
+import type { WallpaperChoice } from './wallpaper-choice';
+import { getWallpaperOverlayStopPercent } from './wallpaper-overlay';
+import type { WallpaperOverlay } from './wallpaper-overlay';
 
 // A value read from storage, and whether the key held one.
 interface StoredValue {
@@ -81,7 +85,6 @@ interface WallpaperStorageDeps extends Pick<WallpaperSources,
   'cloneLocalWallpaperOverrides' | 'normalizeNewtabWallpaperId' | 'getDefaultLocalWallpaperOverrides' |
   'getDefaultWallpaperPrefs' | 'getWallpaperById' | 'getCachedWallpaperImage' | 'getShownWallpaperCopy' |
   'getWallpaperRuntimePath' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperImageUrl' | 'getWallpaperSample'> {
-  isLinkWallpaperId(id: unknown): boolean;
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'set' | 'setMany'>;
   showToast: ShowToast;
   t: Translate;
@@ -90,14 +93,13 @@ interface WallpaperStorageDeps extends Pick<WallpaperSources,
   getNextLocalDayTimestamp(timestamp: number): number;
   remoteClient: RemoteContentClient | null;
   window: Window;
-  getWallpaperOverlayStopPercent(base: number, opacity: number): number;
   getEffectiveThemeMode(): string;
   getWallpaperEffectStorageValue(): WallpaperEffectStoragePrefs;
   localWallpaperStore: Pick<WallpaperLocalStore,
     'normalizeRecord' | 'readAll' | 'readByIds' | 'write' | 'remove' | 'buildRecordFromFile'>;
-  wallpaperState: Pick<WallpaperState,
-    'customWallpapers' | 'currentLocalWallpaperOverrides' | 'currentWallpaperPrefs' | 'activeWallpaperMode' |
-    'wallpaperLuminances' | 'currentWallpaperId' | 'currentWallpaperOverlayOpacity'>;
+  library: Pick<WallpaperLibrary, 'state'>;
+  choice: WallpaperChoice;
+  overlay: Pick<WallpaperOverlay, 'opacity'>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -106,7 +108,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createWallpaperStorage(deps: WallpaperStorageDeps) {
   const {
-    isLinkWallpaperId,
+    overlay,
+    choice,
+    library,
     settings,
     showToast,
     t,
@@ -130,14 +134,11 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
     getDisplayedWallpaperImageUrl,
     getWallpaperImageUrl,
     getWallpaperSample,
-    getWallpaperOverlayStopPercent,
     getEffectiveThemeMode,
     getWallpaperEffectStorageValue,
     localWallpaperStore
   } = deps;
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
 
   // A stored wallpaper value's ID: the value itself, or an object's id.
   function getRawWallpaperId(value: unknown): unknown {
@@ -265,7 +266,7 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
 
   function hasLoadedStoredCustomWallpaper(id: string): boolean {
     if (id === NEWTAB_CUSTOM_WALLPAPER_ID) {
-      return wallpaperState.customWallpapers.length > 0;
+      return library.state.uploads.length > 0;
     }
     return Boolean(getCustomWallpaperById(id));
   }
@@ -461,13 +462,13 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
 
   function getWallpaperLocalOverrideForMode(mode: unknown): string | null {
     const normalizedMode = normalizeWallpaperMode(mode);
-    const overrides = wallpaperState.currentLocalWallpaperOverrides || getDefaultLocalWallpaperOverrides();
+    const overrides = choice.state.overrides || getDefaultLocalWallpaperOverrides();
     return overrides[normalizedMode] || null;
   }
 
   function getSyncedWallpaperIdForMode(mode: unknown): string {
     const normalizedMode = normalizeWallpaperMode(mode);
-    const prefs = wallpaperState.currentWallpaperPrefs || getDefaultWallpaperPrefs();
+    const prefs = choice.state.prefs || getDefaultWallpaperPrefs();
     const id = prefs.sameForModes ? prefs.light : prefs[normalizedMode];
     return normalizeNewtabWallpaperId(id) || '';
   }
@@ -490,10 +491,10 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
   }
 
   function getWallpaperEditMode(): WallpaperMode {
-    if (wallpaperState.currentWallpaperPrefs && wallpaperState.currentWallpaperPrefs.sameForModes) {
+    if (choice.state.prefs && choice.state.prefs.sameForModes) {
       return getResolvedWallpaperMode();
     }
-    return normalizeWallpaperMode(wallpaperState.activeWallpaperMode);
+    return normalizeWallpaperMode(choice.state.editMode);
   }
 
   // Daily mode highlights the photo it currently resolves to.
@@ -571,21 +572,16 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
 
   function setWallpaperPrefs(nextPrefs: unknown, nextOverrides: unknown): void {
     const prefs = cloneWallpaperPrefs(nextPrefs);
-    wallpaperState.currentWallpaperPrefs = prefs;
-    wallpaperState.currentLocalWallpaperOverrides = cloneLocalWallpaperOverrides(nextOverrides);
-    if (prefs.sameForModes) {
-      wallpaperState.activeWallpaperMode = getResolvedWallpaperMode();
-    } else {
-      wallpaperState.activeWallpaperMode = normalizeWallpaperMode(wallpaperState.activeWallpaperMode);
-    }
+    choice.setPrefs(prefs, cloneLocalWallpaperOverrides(nextOverrides),
+      prefs.sameForModes ? getResolvedWallpaperMode() : normalizeWallpaperMode(choice.state.editMode));
   }
 
   function getWritableWallpaperPrefs(): WallpaperPrefs {
-    return cloneWallpaperPrefs(wallpaperState.currentWallpaperPrefs);
+    return cloneWallpaperPrefs(choice.state.prefs);
   }
 
   function getWritableLocalWallpaperOverrides(): LocalWallpaperOverrides {
-    return cloneLocalWallpaperOverrides(wallpaperState.currentLocalWallpaperOverrides);
+    return cloneLocalWallpaperOverrides(choice.state.overrides);
   }
 
   function applyLocalWallpaperMigrations(
@@ -607,10 +603,10 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
 
   function writeCurrentWallpaperPrefs(options?: { showError?: boolean } | null): void {
     const config = options || {};
-    const prefs = wallpaperState.currentWallpaperPrefs;
+    const prefs = choice.state.prefs;
     writeSyncedWallpaperValue(buildSyncedWallpaperStorageValue(prefs), config);
     writeLocalWallpaperValue(
-      buildLocalWallpaperStorageValue(wallpaperState.currentLocalWallpaperOverrides, prefs ? prefs.sameForModes : true),
+      buildLocalWallpaperStorageValue(choice.state.overrides, prefs ? prefs.sameForModes : true),
       config
     );
   }
@@ -619,7 +615,7 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
     const wallpaper = getWallpaperById(getEffectiveWallpaperIdForMode(mode));
     const entry = getWallpaperPreloadImageEntry(wallpaper);
     const luminanceKey = getWallpaperLuminanceKey(wallpaper);
-    const luminance = wallpaperState.wallpaperLuminances.get(luminanceKey);
+    const luminance = wallpaperLuminances.get(luminanceKey);
     if (!entry || !isWallpaperLuminance(luminance)) {
       return entry;
     }
@@ -704,27 +700,27 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
 
   // Measured from the adaptive-tone sample, which already holds the shown image at a few hundred pixels.
   function rememberWallpaperLuminance(sampler: AdaptiveToneSampler | null | undefined): void {
-    const wallpaper = getWallpaperById(wallpaperState.currentWallpaperId);
+    const wallpaper = getWallpaperById(choice.state.shownId);
     const key = getWallpaperLuminanceKey(wallpaper);
     const displayedUrl = getDisplayedWallpaperImageUrl(wallpaper);
     // A failed network photo shows the bundled default instead, whose luminance is not the photo's.
     if (!key || !sampler || !sampler.imageData || sampler.url !== displayedUrl ||
         displayedUrl !== getWallpaperImageUrl(wallpaper) ||
-        wallpaperState.wallpaperLuminances.has(key) || typeof WALLPAPER_EFFECTS.analyzeImageData !== 'function') {
+        wallpaperLuminances.has(key) || typeof WALLPAPER_EFFECTS.analyzeImageData !== 'function') {
       return;
     }
     const luminance = WALLPAPER_EFFECTS.analyzeImageData(sampler.imageData).averageLuminance;
     if (!isWallpaperLuminance(luminance)) {
       return;
     }
-    wallpaperState.wallpaperLuminances.set(key, Math.round(luminance * 1000) / 1000);
+    wallpaperLuminances.set(key, Math.round(luminance * 1000) / 1000);
     // Previews in the wallpaper panel sample too; keep only the wallpapers a New Tab can open with.
     const shownKeys = NEWTAB_WALLPAPER_MODES.map((mode) => {
       return getWallpaperLuminanceKey(getWallpaperById(getEffectiveWallpaperIdForMode(mode)));
     });
-    Array.from(wallpaperState.wallpaperLuminances.keys()).forEach((cachedKey) => {
+    Array.from(wallpaperLuminances.keys()).forEach((cachedKey) => {
       if (!shownKeys.includes(cachedKey)) {
-        wallpaperState.wallpaperLuminances.delete(cachedKey);
+        wallpaperLuminances.delete(cachedKey);
       }
     });
     if (shownKeys.includes(key)) {
@@ -735,7 +731,7 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
   function getWallpaperPreloadOverlayStops(): Record<WallpaperMode, { top: number; mid: number; bottom: number }> {
     const stopsFor = (mode: WallpaperMode) => {
       const stops = NEWTAB_WALLPAPER_OVERLAY_STOPS[mode];
-      const opacity = wallpaperState.currentWallpaperOverlayOpacity[mode];
+      const opacity = overlay.opacity[mode];
       return {
         top: Number(getWallpaperOverlayStopPercent(stops.top, opacity).toFixed(1)),
         mid: Number(getWallpaperOverlayStopPercent(stops.mid, opacity).toFixed(1)),
@@ -792,6 +788,10 @@ function createWallpaperStorage(deps: WallpaperStorageDeps) {
     return localWallpaperStore.buildRecordFromFile(file);
   }
 
+
+  // Per wallpaper (getWallpaperLuminanceKey): its average luminance (0–1), kept in the preload cache
+  // so the next page's blur frost blends by it without decoding the full image first.
+  const wallpaperLuminances = readWallpaperPreloadLuminances();
   return {
     readStoredSetting,
     writeSetting,

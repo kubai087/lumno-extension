@@ -9,9 +9,12 @@ import type { PanelState } from './panel-state';
 import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
-import type { WallpaperState } from './wallpaper-runtime-types';
 import * as REMOTE_CONTENT from '../../remote-content';
 import { WALLPAPER_SOURCE_TABS } from '../wallpaper-options';
+import type { WallpaperPanelUi } from './panel-ui';
+import type { OnlineWallpapers } from './online-wallpapers';
+import type { WallpaperChoice } from './wallpaper-choice';
+import type { WallpaperPanelView } from './panel-view';
 
 interface PanelMotionDeps extends
   Pick<WallpaperStorage, 'normalizeWallpaperSourceTab' | 'getWallpaperSelectionIdForUi' | 'getWallpaperSourceTabForId'>,
@@ -26,13 +29,18 @@ interface PanelMotionDeps extends
   getThemeScope(): string;
   afterNextPaint(windowObj: Window, callback: () => void): void;
   setThemeScope(scope: ThemeScope): void;
-  wallpaperState: Pick<WallpaperState,
-    'wallpaperPanel' | 'activeWallpaperTab' | 'curatedCategory' | 'bingSelectionSeq' | 'activeWallpaperMode' |
-    'wallpaperPanelOpen' | 'heldAppearanceModeLabels' | 'pendingThemeScope'>;
+  panelUi: WallpaperPanelUi;
+  online: OnlineWallpapers;
+  choice: WallpaperChoice;
+  panelView: WallpaperPanelView;
 }
 
 function createPanelMotion(deps: PanelMotionDeps) {
   const {
+    panelView,
+    choice,
+    online,
+    panelUi,
     window,
     normalizeWallpaperSourceTab,
     renderWallpaperPanelState,
@@ -54,8 +62,6 @@ function createPanelMotion(deps: PanelMotionDeps) {
     getWallpaperAppearanceModeLabels
   } = deps;
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
 
   const WALLPAPER_PANEL_RESIZE_DURATION_MS = 260;
   const WALLPAPER_PANEL_RESIZE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -77,7 +83,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
   }
 
   function measureWallpaperPanelOpenHeight(): number {
-    const panel = wallpaperState.wallpaperPanel;
+    const panel = panelView.panel;
     if (!panel) {
       return 0;
     }
@@ -100,7 +106,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
       mutate();
       return;
     }
-    const resizingPanel = wallpaperState.wallpaperPanel;
+    const resizingPanel = panelView.panel;
     const canAnimate = resizingPanel &&
       isWallpaperPanelOpen() &&
       !shouldReduceMotion();
@@ -168,9 +174,9 @@ function createPanelMotion(deps: PanelMotionDeps) {
 
   function setWallpaperActiveTab(tab: unknown): void {
     const nextTab = normalizeWallpaperSourceTab(tab);
-    const previousTab = wallpaperState.activeWallpaperTab;
+    const previousTab = panelUi.state.tab;
     if (previousTab !== nextTab) {
-      wallpaperState.activeWallpaperTab = nextTab;
+      panelUi.setTab(nextTab);
       if (nextTab === 'curated') showCuratedCategoryOfSelection();
       renderWallpaperPanelState();
       playWallpaperEnterMotion(
@@ -196,7 +202,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
     if (!category) {
       return;
     }
-    wallpaperState.curatedCategory = category;
+    online.setCuratedCategory(category);
     showCuratedPageOfSelection();
   }
   // Follow the selection only when it moves, so storage reloads (deleting a
@@ -214,20 +220,20 @@ function createPanelMotion(deps: PanelMotionDeps) {
   }
 
   function setWallpaperActiveMode(mode: unknown): void {
-    wallpaperState.bingSelectionSeq += 1;
+    online.dropSelections();
     const nextMode = normalizeWallpaperMode(mode);
-    if (wallpaperState.activeWallpaperMode === nextMode) {
+    if (choice.state.editMode === nextMode) {
       renderWallpaperPanelState();
       return;
     }
-    wallpaperState.activeWallpaperMode = nextMode;
+    choice.setEditMode(nextMode);
     syncWallpaperSourceTabToEditMode({ force: true });
     renderWallpaperPanelState();
-    playWallpaperEnterMotion(getWallpaperGridForTab(wallpaperState.activeWallpaperTab), 'enter');
+    playWallpaperEnterMotion(getWallpaperGridForTab(panelUi.state.tab), 'enter');
   }
 
   function isWallpaperPanelOpen(): boolean {
-    return wallpaperState.wallpaperPanelOpen;
+    return panelUi.state.open;
   }
   function setWallpaperPanelOpenState(open: boolean): void {
     if (!document.body) {
@@ -258,8 +264,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
       window.clearTimeout(timerId);
     });
     wallpaperAppearanceAnimationTimers = [];
-    wallpaperState.heldAppearanceModeLabels = null;
-    wallpaperState.pendingThemeScope = null;
+    panelUi.releaseModeLabels();
     getWallpaperAppearanceOptionButtons().forEach((button) => {
       const motionElement = getWallpaperAppearanceOptionMotionElement(button);
       if (!motionElement) {
@@ -329,8 +334,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
     const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
     const options = getWallpaperPanelRefs().appearanceOptions;
     // The tabs move to the new scope at once; the options keep their labels until they swap.
-    wallpaperState.heldAppearanceModeLabels = getWallpaperAppearanceModeLabels();
-    wallpaperState.pendingThemeScope = targetScope;
+    panelUi.holdModeLabels(getWallpaperAppearanceModeLabels(), targetScope);
     if (options) {
       options.setAttribute('data-scope-animating', 'true');
     }
@@ -357,9 +361,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
     const handoffTimer = window.setTimeout(() => {
       wallpaperAppearanceAnimationTimers = wallpaperAppearanceAnimationTimers.filter((timerId) => timerId !== handoffTimer);
       setThemeScope(targetScope);
-      wallpaperState.pendingThemeScope = null;
-      wallpaperState.heldAppearanceModeLabels = null;
-      renderWallpaperPanelState();
+      panelUi.releaseModeLabels();
       buttons.forEach((button) => {
         const motionElement = getWallpaperAppearanceOptionMotionElement(button);
         if (!motionElement) {
