@@ -13,7 +13,7 @@ import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { RecentSitesViewOptions } from '../react/recent-sites';
 import type { ShortcutDrag } from '../shortcuts/shortcut-drag';
-import type { ShortcutsController } from '../shortcuts/shortcuts-controller';
+import type { ShortcutData } from '../shortcuts/shortcut-data';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutLink } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
@@ -32,9 +32,9 @@ import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 
 
 interface RecentCardDragDeps {
-  getShortcutStoreOptions: ShortcutsController['getShortcutStoreOptions'];
-  getShortcutFolderId: ShortcutsController['getShortcutFolderId'];
-  persistShortcuts: ShortcutsController['persistShortcuts'];
+  getShortcutStoreOptions: ShortcutData['getShortcutStoreOptions'];
+  getShortcutFolderId: ShortcutData['getShortcutFolderId'];
+  persistShortcuts: ShortcutData['persistShortcuts'];
   bookmarkMoveHistory: Pick<BookmarkMoveHistory, 'push'>;
   bookmarksRuntime: Pick<BookmarksRuntime, 'getNode' | 'getFolderItems'>;
   isBookmarkCascadeSurfaceAtPoint: BookmarkDragController['isBookmarkCascadeSurfaceAtPoint'];

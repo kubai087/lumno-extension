@@ -182,6 +182,7 @@ import { DragSessions } from './drag-sessions';
 import { FaviconParts } from './theme/favicon-parts';
 import { createPageFaviconCache } from './theme/page-favicon-cache';
 import { createShortcutFavicons } from './shortcuts/shortcut-favicons';
+import { createShortcutData } from './shortcuts/shortcut-data';
 import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
@@ -477,6 +478,56 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     t,
     toastController: createToastController(document.getElementById('_x_extension_toast_2024_unique_'), getPagePortals(), { windowObj: window })
   });
+
+  const shortcutFolderRuntime = FOLDER_BINDINGS.createRuntime({
+    settingsStore: createSettingsStore({ chromeApi: chrome, settings: [shortcutFolderBindings] })
+  });
+  shortcutFolderRuntime.ready.catch((error) => {
+    console.warn('[Lumno] Could not load shortcut folder bindings.', error);
+  });
+  const bookmarkMoveHistory = NEWTAB_BOOKMARK_MOVE_HISTORY.createBookmarkMoveHistory({ maxEntries: 30 });
+
+  // The shortcuts and their groups, loaded, saved and kept in step with other pages.
+  const shortcutData = createShortcutData({
+    settings,
+    storageArea,
+    providerStorageRuntime,
+    shortcutList,
+    shortcutIconStore,
+    shortcutFavicons,
+    shortcutFolderRuntime,
+    bookmarksRuntime,
+    bookmarkMoveHistory,
+    historyLock,
+    dragSessions,
+    normalizeHost,
+    sanitizeDisplayText,
+    t,
+    formatMessage,
+    showToast
+  });
+  const {
+    getShortcutFolderId,
+    getVisibleShortcuts,
+    getShortcutTitle,
+    getShortcutIconDataUrl,
+    getShortcutStoreOptions,
+    refreshShortcutFolderReferences,
+    followStoredShortcutData,
+    loadVisibleShortcuts,
+    persistShortcuts,
+    isWebDavBackingUpShortcuts,
+    getShortcutGroups,
+    moveShortcutGroup,
+    moveShortcutGroupToIndex,
+    deleteShortcutGroup,
+    applyShortcutGroupDeleteRecord,
+    hasShortcutForSite,
+    addSiteToShortcuts,
+    removeShortcutById,
+    getShortcutById
+  } = shortcutData;
+  followStoredShortcutData();
   // The default search engine, which the page's search and navigation follow.
   const searchEngine = new DefaultSearchEngine(settings);
   searchEngine.follow();
@@ -527,14 +578,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     formatMessage,
     showToast,
     isShortcutFolderAnchor: (...args) => isShortcutFolderAnchor(...args),
-    getFolderItemIcon: (...args) => getFolderItemIcon(...args),
-    getFolderItemIconUrl: (...args) => getFolderItemIconUrl(...args),
-    getBrowserPageFaviconUrl: (...args) => getBrowserPageFaviconUrl(...args)
+    getFolderItemIcon,
+    getFolderItemIconUrl,
+    getBrowserPageFaviconUrl
   });
 
   const {
     setShortcutError,
-    setShortcutIconError,
     pickShortcutIconPlateColor,
     getShortcutContextMenuOptions,
     updateShortcutLanguageStrings,
@@ -544,7 +594,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutTileId,
     refreshShortcutTileCacheFromDom,
     getShortcutReorderTiles,
-    getShortcutById,
     getShortcutTileById,
     handleShortcutNativeDragStart,
     openShortcutEditor,
@@ -557,15 +606,16 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     t,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
-    getShortcutGroups: (...args) => getShortcutGroups(...args),
+    getShortcutGroups,
     bookmarksRuntime,
-    getShortcutFolderId: (...args) => getShortcutFolderId(...args),
+    getShortcutFolderId,
+    getShortcutById,
     createShortcutDialogComponent: (...args) => createShortcutDialogComponent(...args),
     showToast,
     shortcutTiles,
     openBookmarkEditor,
-    getShortcutTitle: (...args) => getShortcutTitle(...args),
-    getShortcutIconDataUrl: (...args) => getShortcutIconDataUrl(...args)
+    getShortcutTitle,
+    getShortcutIconDataUrl
   });
 
   const {
@@ -617,19 +667,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openBookmarkEditor,
     openBookmarkFolderTabGroupConfirmation,
     deleteBookmarkFromContextTarget: (...args) => deleteBookmarkFromContextTarget(...args),
-    hasShortcutForSite: (...args) => hasShortcutForSite(...args),
-    addSiteToShortcuts: (...args) => addSiteToShortcuts(...args),
+    hasShortcutForSite,
+    addSiteToShortcuts,
     hasShortcutForBookmarkFolder: (...args) => hasShortcutForBookmarkFolder(...args),
     addBookmarkFolderToShortcuts: (...args) => addBookmarkFolderToShortcuts(...args),
     hideCursorTooltip
   });
 
-  const shortcutFolderRuntime = FOLDER_BINDINGS.createRuntime({
-    settingsStore: createSettingsStore({ chromeApi: chrome, settings: [shortcutFolderBindings] })
-  });
-  shortcutFolderRuntime.ready.catch((error) => {
-    console.warn('[Lumno] Could not load shortcut folder bindings.', error);
-  });
   const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
     chromeApi: typeof chrome !== 'undefined' ? chrome : null,
     storageArea: localStorageArea,
@@ -705,7 +749,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const viewportActivity = new ViewportActivity();
   viewportActivity.follow(window);
   const recentPointer = new RecentPointer();
-  const bookmarkMoveHistory = NEWTAB_BOOKMARK_MOVE_HISTORY.createBookmarkMoveHistory({ maxEntries: 30 });
 
   const {
     getShortcutContextMenuTile,
@@ -730,11 +773,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutById,
     hideShortcutAddFromContextMenu: (...args) => hideShortcutAddFromContextMenu(...args),
     openFolderColorPicker,
-    getShortcutFolderId: (...args) => getShortcutFolderId(...args),
+    getShortcutFolderId,
     openShortcutEditor,
     openShortcutUrl: (...args) => openShortcutUrl(...args),
     openExternalNewTabUrl,
-    removeShortcutById: (...args) => removeShortcutById(...args),
+    removeShortcutById,
     openBookmarkFolderTabGroupConfirmation,
     t,
     getShortcutContextMenuOptions,
@@ -742,8 +785,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutTileId,
     openShortcutGroupDialog: (...args) => openShortcutGroupDialog(...args),
     openShortcutAddDialog: (...args) => openShortcutAddDialog(...args),
-    moveShortcutGroup: (...args) => moveShortcutGroup(...args),
-    deleteShortcutGroup: (...args) => deleteShortcutGroup(...args),
+    moveShortcutGroup,
+    deleteShortcutGroup,
     confirmDeleteShortcutGroupWithSites: (...args) => confirmDeleteShortcutGroupWithSites(...args)
   });
 
@@ -891,8 +934,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     t,
     showToast,
     openExternalNewTabUrl,
-    hasShortcutForSite: (...args) => hasShortcutForSite(...args),
-    addSiteToShortcuts: (...args) => addSiteToShortcuts(...args),
+    hasShortcutForSite,
+    addSiteToShortcuts,
     hideCursorTooltip,
     hideTopActionTooltip,
     normalizeHost,
@@ -1021,7 +1064,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     settings,
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
-    getVisibleShortcuts: (...args) => getVisibleShortcuts(...args),
+    getVisibleShortcuts,
     resetShortcutDockHover,
     closeShortcutContextMenu,
     closeShortcutDialog,
@@ -1339,53 +1382,31 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openShortcutUrl,
     getAddShortcutButton,
     setShortcutContextMenuMark,
-    getShortcutFolderId,
-    getVisibleShortcuts,
-    refreshShortcutFolderReferences,
-    getShortcutStoreOptions,
-    getShortcutIconDataUrl,
-    getShortcutTitle,
     renderShortcuts,
     flushDeferredShortcutRender,
     followNewtabShortcutPreferences,
-    followStoredShortcutData,
-    loadVisibleShortcuts,
-    persistShortcuts,
-    removeShortcutById,
-    hasShortcutForSite,
-    addSiteToShortcuts,
     hideShortcutAddFromContextMenu,
     createShortcutsSection,
     createShortcutDialogComponent,
-    getShortcutGroups,
-    isWebDavBackingUpShortcuts,
     fitShortcutGroupColumns,
     openShortcutAddDialog,
     openShortcutGroupDialog,
-    moveShortcutGroup,
-    moveShortcutGroupToIndex,
-    deleteShortcutGroup,
-    confirmDeleteShortcutGroupWithSites,
-    applyShortcutGroupDeleteRecord
+    confirmDeleteShortcutGroupWithSites
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    shortcutData,
     shortcutFavicons,
     locale,
     openUrlFromNewtabCard,
     openBookmarkCascadeMenu,
     getShortcutTileById,
     dragSessions,
-    historyLock,
     bookmarkParts,
-    setShortcutIconError,
     setShortcutError,
     shortcutList,
     settings,
     shortcutFolderRuntime,
     bookmarksRuntime,
     moveShortcutByKeyboard: (...args) => moveShortcutByKeyboard(...args),
-    normalizeHost,
-    sanitizeDisplayText,
-    providerStorageRuntime,
     shortcutIconStore,
     t,
     hideShortcutTooltip,
@@ -1394,17 +1415,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     applyNewtabShortcutsVisibility,
     updateShortcutLanguageStrings,
     updateBookmarkSectionPosition,
-    storageArea,
     pickShortcutIconPlateColor,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
     inferNewtabShortcutColumnsFromWidth,
-    loadFolderColors,
     showToast,
     formatMessage,
-    getShortcutById,
     refreshOpenBookmarkCascadeMenu: (...args) => refreshOpenBookmarkCascadeMenu(...args),
-    bookmarkMoveHistory,
     resetShortcutDockHover,
     pageStructureRuntime,
     shortcutTiles,
@@ -1432,7 +1449,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     handleShortcutGroupMenu: openShortcutGroupMenu,
     animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args)
   });
-  followStoredShortcutData();
 
   const {
     queueBookmarkLayoutAnimation,
@@ -2418,7 +2434,10 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   followShortcutGridLayout();
   followNewtabSearchWidth();
   followShortcutDockMagnification();
-  const shortcutsReadyPromise = shortcutPreferencesReadyPromise.then(loadVisibleShortcuts);
+  const shortcutsReadyPromise = shortcutPreferencesReadyPromise.then(() => {
+    void loadFolderColors();
+    return loadVisibleShortcuts();
+  });
   const initialShortcutsReadyTask = shortcutsReadyPromise.catch((error) => {
     console.warn('[Lumno] Deferred shortcut loading failed.', error);
     return [];

@@ -38,11 +38,16 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   NEWTAB_SHORTCUT_ICON_PLATE: require(path.join(repoRoot, 'src/newtab/shortcuts/shortcut-icon-plate.ts')),
   // A shortcut drag runs while `dragActive` is set.
   dragSessions: { get shortcutDragging() { return dragActive; } },
-  shortcutFolderRuntime: { visibleItems: (items) => items, flush: () => Promise.resolve() },
-  bookmarksRuntime: { getNodeMap: () => new Map(), getSnapshot: () => ({ ready: true, nodeMap: new Map() }) },
+  shortcutFolderRuntime: { flush: () => Promise.resolve() },
   pageStructureRuntime: { shortcut: { section: createElementStub(), grid: createElementStub() } },
   locale: { store: { subscribe: () => () => {} } },
   shortcutFavicons: {},
+  shortcutData: {
+    getVisibleShortcuts: () => shortcutList.items,
+    getShortcutGroups: () => [],
+    isShortcutGroupLayoutActive: () => false,
+    getShortcutStoreOptions: () => ({})
+  },
   t: (key, fallback) => fallback,
   formatMessage: (key, fallback) => fallback,
   hideShortcutTooltip: noop,

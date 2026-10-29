@@ -13,7 +13,7 @@ import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
 import type { ShortcutPageActions } from './shortcut-page-actions';
 import type { PersistShortcuts, ShortcutInsertionSlot } from './shortcut-types';
-import type { ShortcutsController } from './shortcuts-controller';
+import type { ShortcutData } from './shortcut-data';
 import type { ShortcutFavicons } from './shortcut-favicons';
 import { getShortcutUrl, isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem } from '../../domain/shortcuts/types';
@@ -60,7 +60,7 @@ interface ShortcutDragDeps {
   getShortcutById(shortcutId: unknown): ShortcutItem | null;
   isValidExternalBookmarkDropTarget: BookmarkDragController['isValidExternalBookmarkDropTarget'];
   bookmarksRuntime: Pick<BookmarksRuntime, 'getNode' | 'getFolderItems'>;
-  getShortcutFolderId: ShortcutsController['getShortcutFolderId'];
+  getShortcutFolderId: ShortcutData['getShortcutFolderId'];
   queueBookmarkLayoutAnimation: BookmarkDragController['queueBookmarkLayoutAnimation'];
   applyBookmarkShortcutTransfer: BookmarkDragController['applyBookmarkShortcutTransfer'];
   applyShortcutStack: BookmarkDragController['applyShortcutStack'];

@@ -23,6 +23,8 @@ import * as NEWTAB_BOOKMARKS_STORE from '../bookmarks/bookmarks-store';
 import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_CONTEXT_MENU_EDIT_VALUE, SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE, SHORTCUT_CONTEXT_MENU_REMOVE_VALUE, SHORTCUT_GROUP_MENU_VALUES } from '../menu-values';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from './shortcut-list';
+import type { ShortcutData } from './shortcut-data';
+import { shortcutEvents } from './shortcut-events';
 import type { SettingsStore } from '../../platform/settings-store';
 import { bookmarkFolderColorPresets } from '../../domain/settings/bookmarks';
 
@@ -34,6 +36,7 @@ interface ShortcutPageActionsDeps {
   getShortcutGroups(): ShortcutGroup[];
   bookmarksRuntime: BookmarksRuntime;
   getShortcutFolderId(shortcut: ShortcutItem): string;
+  getShortcutById: ShortcutData['getShortcutById'];
   createShortcutDialogComponent(): Promise<ShortcutDialogController | null>;
   showToast: ShowToast;
   // The tiles drawn now, kept in DOM order.
@@ -58,6 +61,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     getShortcutGroups,
     bookmarksRuntime,
     getShortcutFolderId,
+    getShortcutById,
     createShortcutDialogComponent,
     showToast,
     shortcutTiles,
@@ -236,6 +240,13 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     }
   }
 
+  shortcutEvents.on('iconSaveFailed', () => {
+    setShortcutIconError(t(
+      'newtab_shortcuts_icon_storage_error',
+      'The local icon could not be saved. Try another image.'
+    ));
+  });
+
   function closeShortcutDialog(options?: ShortcutDialogCloseOptions): void {
     shortcutDialogOpenRevision += 1;
     if (shortcutDialogController) {
@@ -296,13 +307,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
       : [];
   }
 
-  function getShortcutById(shortcutId: unknown): ShortcutItem | null {
-    const id = String(shortcutId || '');
-    if (!id) {
-      return null;
-    }
-    return shortcutList.items.find((item) => item && item.id === id) || null;
-  }
 
   function getShortcutTileById(shortcutId: unknown): HTMLElement | null {
     const id = String(shortcutId || '');
@@ -343,7 +347,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
 
   return {
     setShortcutError,
-    setShortcutIconError,
     pickShortcutIconPlateColor,
     getShortcutContextMenuOptions,
     updateShortcutLanguageStrings,
@@ -353,7 +356,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     getShortcutTileId,
     refreshShortcutTileCacheFromDom,
     getShortcutReorderTiles,
-    getShortcutById,
     getShortcutTileById,
     handleShortcutNativeDragStart,
     openShortcutEditor,

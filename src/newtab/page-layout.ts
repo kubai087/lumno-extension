@@ -7,7 +7,7 @@ import type { SuggestionsLayout } from './search/suggestions-layout';
 import type { ShortcutContextMenu } from './shortcuts/shortcut-context-menu';
 import type { ShortcutDock } from './shortcuts/shortcut-dock';
 import type { ShortcutPageActions } from './shortcuts/shortcut-page-actions';
-import type { ShortcutsController } from './shortcuts/shortcuts-controller';
+import type { ShortcutData } from './shortcuts/shortcut-data';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
@@ -42,7 +42,7 @@ interface ViewportSnapshot {
 interface PageLayoutDeps extends
   Pick<SuggestionsLayout, 'updateSuggestionsFloatingLayout'>,
   Pick<RecentSitesController, 'closeRecentContextMenu'>,
-  Pick<ShortcutsController, 'getVisibleShortcuts'>,
+  Pick<ShortcutData, 'getVisibleShortcuts'>,
   Pick<ShortcutDock, 'resetShortcutDockHover'>,
   Pick<ShortcutContextMenu, 'closeShortcutContextMenu'>,
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
