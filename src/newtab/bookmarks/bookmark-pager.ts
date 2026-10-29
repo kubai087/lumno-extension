@@ -1,6 +1,6 @@
 // Bookmark grid paging: page slicing, pager buttons, grid height lock and
 // animated page switches.
-import { isHtmlElement, isSvgElement } from '../../shared/dom-guards';
+import { createOutgoingBookmarkPage, measureBookmarkRow } from '../dom/bookmark-cards';
 import * as LumnoNewtabCrossSurfaceDrag from '../cross-surface-drag';
 import type { BookmarkItem } from './bookmarks-store';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
@@ -105,10 +105,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     }
     const total = Array.isArray(bookmarksShown.allItems) ? bookmarksShown.allItems.length : 0;
     const cols = getBookmarkGridColumnCount();
-    const firstCard = bookmarkGrid.querySelector('.x-nt-bookmark-card');
-    const cardHeight = firstCard ? firstCard.getBoundingClientRect().height : 51;
-    const gridStyle = window.getComputedStyle(bookmarkGrid);
-    const rowGap = Number.parseFloat(gridStyle.rowGap) || 16;
+    const { cardHeight, rowGap } = measureBookmarkRow(bookmarkGrid);
     const isAtRoot = String(bookmarksShown.currentFolderId || '') === String(bookmarksShown.rootFolderId || '1');
     const pageLimit = getBookmarkLimit();
     let targetItemCount = 0;
@@ -224,27 +221,10 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     const direction = targetPage > bookmarksShown.currentPage ? 1 : -1;
     const gridStyle = window.getComputedStyle(grid);
     const distance = grid.getBoundingClientRect().width + (Number.parseFloat(gridStyle.columnGap) || 0);
-    const outgoing = grid.cloneNode(true);
-    if (!isHtmlElement(outgoing)) {
+    const outgoing = createOutgoingBookmarkPage(grid, gridStyle);
+    if (!outgoing) {
       return;
     }
-    outgoing.removeAttribute('id');
-    outgoing.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
-    outgoing.setAttribute('aria-hidden', 'true');
-    outgoing.inert = true;
-    // The copied cards still name lenses that go with the cards React is about to replace, and a
-    // missing filter voids a backdrop-filter, so they slide out with their blur alone. The marker
-    // keeps the liquid surfaces from building lenses for a page that is leaving.
-    outgoing.setAttribute('data-bookmark-page-outgoing', 'true');
-    outgoing.querySelectorAll('*').forEach((element) => {
-      if (isHtmlElement(element) || isSvgElement(element)) element.style.removeProperty('--x-nt-glass-refraction');
-    });
-    Object.assign(outgoing.style, {
-      position: 'absolute', inset: '0', width: '100%', display: 'grid',
-      gridTemplateColumns: gridStyle.gridTemplateColumns,
-      columnGap: gridStyle.columnGap, rowGap: gridStyle.rowGap,
-      alignContent: 'start', pointerEvents: 'none'
-    });
     bookmarksShown.showPage(targetPage);
     renderCurrentBookmarkPage();
     updateBookmarkSectionPosition();

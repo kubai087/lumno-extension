@@ -1,12 +1,13 @@
 // Bookmark card layout animation, drag and drop (within the grid, across
 // folders and onto shortcuts) and the bookmark move undo history.
+import { getBookmarkElementDropTarget, isBookmarkCascadeSurfaceAtPoint, isBookmarkCopyAction } from '../dom/bookmark-drop-targets';
 import type { ShortcutAreaScroll } from '../dom/shortcut-area-scroll';
 import type { BookmarkCascadeActions } from './bookmark-cascade-actions';
 import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileId, getShortcutTileLayoutRect, placeShortcutDragTile } from '../dom/shortcut-tiles';
 import { getBookmarkCardFromNode, getBookmarkCardId, getBookmarkCardLayoutRect, getBookmarkReorderCards } from '../dom/bookmark-cards';
 import { BOOKMARK_REORDER_EASING } from '../dom/bookmark-layout-animation';
 import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
-import { isElementNode, isHtmlElement, isHtmlTag, isEditableElement } from '../../shared/dom-guards';
+import { isHtmlElement, isEditableElement } from '../../shared/dom-guards';
 import { createSvgElement } from '../../shared/ui/svg-tree';
 import type { BlockedDropTarget, DragDropTarget, FolderDropTarget, GridInsertionTarget, ShortcutInsertionTarget, SurfaceDragState } from '../cross-surface-drag';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
@@ -604,38 +605,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     );
   }
 
-  function getBookmarkElementDropTarget(pointerX: number, pointerY: number): FolderDropTarget | null {
-    const element = document.elementFromPoint(pointerX, pointerY);
-    if (!element) {
-      return null;
-    }
-    const breadcrumbTarget = element.closest('[data-bookmark-drop-folder-id]');
-    if (isHtmlElement(breadcrumbTarget) && !breadcrumbTarget.classList.contains('x-nt-bookmark-card')) {
-      return {
-        folderId: breadcrumbTarget.getAttribute('data-bookmark-drop-folder-id') || '',
-        title: breadcrumbTarget.getAttribute('data-bookmark-drop-folder-title') || '',
-        element: breadcrumbTarget,
-        kind: breadcrumbTarget.classList.contains('x-nt-shortcut-tile') ? 'shortcut-folder' : 'breadcrumb'
-      };
-    }
-    const folderCardElement = element.closest('.x-nt-bookmark-card--folder[data-bookmark-id]');
-    const folderCard: BookmarkCardElement | null = isHtmlTag(folderCardElement, 'div') ? folderCardElement : null;
-    if (!folderCard) {
-      return null;
-    }
-    const item = folderCard._xBookmarkItem || null;
-    return {
-      folderId: getBookmarkCardId(folderCard),
-      title: String((item && item.title) || folderCard._xTitleText || ''),
-      element: folderCard,
-      kind: 'card'
-    };
-  }
 
-  function isBookmarkCascadeSurfaceAtPoint(pointerX: number, pointerY: number): boolean {
-    const element = document.elementFromPoint(pointerX, pointerY);
-    return Boolean(element && element.closest('.x-nt-bookmark-cascade-menu'));
-  }
 
   // Where a bookmark drag would drop across levels: the open cascade
   // menu, a folder, or a line in the grid.
@@ -1272,7 +1242,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     if (bookmarksShown.pageAnimating || dragSessions.bookmark) {
       return;
     }
-    if (isElementNode(event.target) && event.target.closest('.x-nt-bookmark-copy-action')) {
+    if (isBookmarkCopyAction(event.target)) {
       return;
     }
     const card = getBookmarkCardFromNode(event.target);
@@ -1353,7 +1323,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getExternalBookmarkDropTarget,
     isPointOverShortcutDropSurface,
     clearDragDropTarget,
-    isBookmarkCascadeSurfaceAtPoint,
     setDragDropTarget,
     getBookmarkDragPageSwitchDirection,
     clearBookmarkDragPageSwitch,

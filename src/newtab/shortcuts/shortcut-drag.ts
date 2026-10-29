@@ -1,4 +1,6 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
+import { isBookmarkCascadeSurfaceAtPoint } from '../dom/bookmark-drop-targets';
+import { createShortcutDragPlaceholder, createShortcutGroupDropLine, createShortcutGroupGhost, getDraggableShortcutGroupHeader, getShortcutGroupHeader, getShortcutGroupHeaders } from '../dom/shortcut-groups';
 import type { ShortcutAreaScroll } from '../dom/shortcut-area-scroll';
 import { SHORTCUT_REORDER_EASING } from '../dom/shortcut-layout-animation';
 import type { ShortcutLayoutAnimation } from '../dom/shortcut-layout-animation';
@@ -7,8 +9,6 @@ import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileByI
 import type { BookmarkShortcutTransfer } from '../bookmarks/bookmark-shortcut-transfer';
 import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import { getUndoShortcutLabels } from '../bookmarks/bookmark-drag-rules';
-import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
-import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import type { BookmarkDragController } from '../bookmarks/bookmark-drag-controller';
 import type { BookmarkMoveHistory } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
@@ -51,7 +51,6 @@ interface ShortcutDragDeps {
   hideShortcutTooltip(): void;
   isEmptyBookmarkRootHidden: BookmarkDragController['isEmptyBookmarkRootHidden'];
   renderCurrentBookmarkPage(): void;
-  isBookmarkCascadeSurfaceAtPoint: BookmarkDragController['isBookmarkCascadeSurfaceAtPoint'];
   getExternalBookmarkSurfacePoint: BookmarkDragController['getExternalBookmarkSurfacePoint'];
   isPointOverShortcutDropSurface: BookmarkDragController['isPointOverShortcutDropSurface'];
   clearBookmarkDragPageSwitch: BookmarkDragController['clearBookmarkDragPageSwitch'];
@@ -169,7 +168,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     hideShortcutTooltip,
     isEmptyBookmarkRootHidden,
     renderCurrentBookmarkPage,
-    isBookmarkCascadeSurfaceAtPoint,
     getExternalBookmarkSurfacePoint,
     isPointOverShortcutDropSurface,
     clearBookmarkDragPageSwitch,
@@ -222,9 +220,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       return;
     }
     const rect = tile.getBoundingClientRect();
-    const placeholder = document.createElement('span');
-    placeholder.className = 'x-nt-shortcut-drag-placeholder';
-    placeholder.setAttribute('aria-hidden', 'true');
+    const placeholder = createShortcutDragPlaceholder(document);
     tile.parentNode.insertBefore(placeholder, tile);
     dragLifts.set(tile, { placeholder });
     tile.setAttribute('data-shortcut-lifted', 'true');
@@ -312,12 +308,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const placeholder = getDragPlaceholder(tile);
     return getShortcutInsertionSlotAt(shortcutGrid, pointerX, pointerY, tile,
       placeholder && placeholder.isConnected ? placeholder : tile);
-  }
-
-  function getShortcutGroupHeader(groupId: string | undefined): HTMLElement | null {
-    return shortcutGrid && groupId
-      ? queryHtmlElement(shortcutGrid, `.x-nt-shortcut-group-header[data-shortcut-group-id="${groupId}"]`)
-      : null;
   }
 
 
@@ -415,7 +405,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       if (!tile) return;
       const anchor = previousTile && previousGroupId === shortcut.groupId
         ? previousTile
-        : getShortcutGroupHeader(shortcut.groupId);
+        : getShortcutGroupHeader(shortcutGrid, shortcut.groupId);
       moveShortcutTileElement(tile, visibleIndex++, anchor ? { anchorTile: anchor, markerPosition: 'after' } : null);
       previousTile = tile;
       previousGroupId = shortcut.groupId;
@@ -948,20 +938,12 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     close: () => finishShortcutGroupDrag(false, null)
   });
 
-  function getShortcutGroupHeaders(): HTMLElement[] {
-    return shortcutGrid
-      ? queryHtmlElements(shortcutGrid, '.x-nt-shortcut-group-header')
-      : [];
-  }
-
   function handleShortcutGroupDragPointerDown(event: PointerEvent): void {
-    const target = isElementNode(event.target) ? event.target : null;
-    const header = target ? target.closest('.x-nt-shortcut-group-header') : null;
-    if (!target || !isHtmlElement(header) || shortcutGroupDragState ||
+    const header = getDraggableShortcutGroupHeader(event.target);
+    if (!header || shortcutGroupDragState ||
         (event.pointerType === 'mouse' && event.button !== 0) ||
         header.hasAttribute('data-shortcut-group-editing') ||
-        target.closest('.x-nt-shortcut-group-more, .x-nt-shortcut-group-input') ||
-        getShortcutGroupHeaders().length < 2) {
+        getShortcutGroupHeaders(shortcutGrid).length < 2) {
       return;
     }
     const rect = header.getBoundingClientRect();
@@ -993,21 +975,11 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     resetShortcutDockHover();
     document.body.setAttribute('data-drag-source', 'shortcut-group');
     state.header.setAttribute('data-shortcut-group-dragging', 'true');
-    const rect = state.header.getBoundingClientRect();
-    const ghost = state.header.cloneNode(true);
-    if (!isHtmlElement(ghost)) {
+    const ghost = createShortcutGroupGhost(state.header);
+    if (!ghost) {
       return;
     }
-    ghost.querySelectorAll('button.x-nt-shortcut-group-more').forEach((button) => button.remove());
-    ghost.classList.add('x-nt-shortcut-group-ghost');
-    ghost.removeAttribute('data-shortcut-group-id');
-    ghost.removeAttribute('data-shortcut-group-dragging');
-    ghost.setAttribute('aria-hidden', 'true');
-    ghost.style.left = `${rect.left}px`;
-    ghost.style.top = `${rect.top}px`;
-    const line = document.createElement('div');
-    line.className = 'x-nt-shortcut-group-drop-line';
-    line.setAttribute('aria-hidden', 'true');
+    const line = createShortcutGroupDropLine(document);
     document.body.appendChild(ghost);
     document.body.appendChild(line);
     state.ghost = ghost;
@@ -1026,7 +998,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (shortcutAreaScroll.step(pointerX, pointerY)) {
       scheduleShortcutGroupDragMove(state, pointerX, pointerY);
     }
-    const headers = getShortcutGroupHeaders();
+    const headers = getShortcutGroupHeaders(shortcutGrid);
     const gridRect = grid.getBoundingClientRect();
     const blocks = headers.map((header, index) => {
       const rect = header.getBoundingClientRect();

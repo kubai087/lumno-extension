@@ -1,6 +1,7 @@
 // The wallpaper and what follows its reveal: the section panel settings,
 // the wallpaper page and its first image, the appearance ready once both
 // are in, and the page's entry motion.
+import { createAdaptiveToneTargets } from '../dom/adaptive-tone-targets';
 import * as NEWTAB_ENTRY_MOTION from '../entry-motion';
 import * as LumnoNewtabSectionPanelSettings from '../section-panel-settings';
 import * as NEWTAB_WALLPAPER_PAGE from '../wallpaper/wallpaper-page';
@@ -114,30 +115,36 @@ function createWallpaperFeature(ctx: PageContext, deps: WallpaperFeatureDeps) {
     }
   });
 
+  // The surfaces that follow the wallpaper's tone, collected when it is applied.
+  const getAdaptiveToneTargets = createAdaptiveToneTargets({
+    settings,
+    root,
+    shortcutGrid,
+    shortcutTiles,
+    shortcutGroupHeaders,
+    topContentContainer,
+    quoteRuntime,
+    bookmarkParts,
+    bookmarkTitleWrap: pageStructureRuntime.bookmark.titleWrap,
+    bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
+    recentHeader: pageStructureRuntime.recent.header,
+    bottomDockParts,
+    getEffectiveBookmarkTopbarSurfaceMode,
+    getFeedbackButton
+  });
   const {
     wallpaperRuntime,
     bootstrapInitialWallpaper,
     markInitialWallpaperVisualReady,
     getWallpaperShownAt
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
-    topContentContainer,
-    bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
-    bookmarkTitleWrap: pageStructureRuntime.bookmark.titleWrap,
-    bookmarkParts,
-    recentHeader: pageStructureRuntime.recent.header,
-    bottomDockParts,
-    shortcutGrid,
+    getAdaptiveToneTargets,
     locale,
     appliedTheme,
     sectionPanelSettings,
     quoteRuntime,
-    getFeedbackButton,
     settings,
     preview,
-    shortcutTiles,
-    shortcutGroupHeaders,
-    getEffectiveBookmarkTopbarSurfaceMode,
-    root,
     localStorageArea,
     t,
     formatMessage,

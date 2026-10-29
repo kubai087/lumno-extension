@@ -1,8 +1,8 @@
 // The feedback button and popover: community links, QR code refresh and
 // the React-rendered control.
+import { createFeedbackControlHost, getFeedbackButtonElement } from './dom/feedback-control';
 import type { CommunityLinks } from '../domain/community-links';
 import type { Disposition } from '../domain/navigation-disposition';
-import { queryHtmlElement } from '../shared/dom-lookup';
 import * as LumnoNewtabDismissStack from './dismiss-stack';
 import type { Translate } from './newtab-types';
 import type { FeedbackControlController, FeedbackControlModel } from './react/feedback';
@@ -160,7 +160,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
     if (!feedbackControl) {
       return;
     }
-    feedbackButton = queryHtmlElement(feedbackControl, '.x-nt-feedback-button');
+    feedbackButton = getFeedbackButtonElement(feedbackControl);
   }
 
   function renderFeedbackControlWithReact(): boolean {
@@ -215,7 +215,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   });
 
   function createFeedbackControls(): HTMLDivElement {
-    const control = document.createElement('div');
+    const control = createFeedbackControlHost(document);
     feedbackControl = control;
     feedbackReactController =
       createFeedbackControlController(
