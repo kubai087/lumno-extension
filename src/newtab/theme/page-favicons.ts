@@ -3,13 +3,11 @@
 // favicon sources suggestions and themes resolve from.
 import type { FaviconDataEntry, FaviconUrlEntry, SiteThemeEntry } from '../../domain/favicon/favicon-cache';
 import * as NEWTAB_FAVICON_CACHE from '../../platform/favicon-cache';
-import type { FaviconCacheRuntime } from '../../platform/favicon-cache';
 import type * as Color from '../../domain/color';
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import type { SiteSearchProviders } from '../search/site-search-providers';
 import type { ShortcutsController } from '../shortcuts/shortcuts-controller';
 import * as NEWTAB_FAVICON_VIEW from './favicon-view';
-import type { FaviconViewRuntime } from './favicon-view';
 import type { SiteThemeResolver } from './site-theme-resolver';
 import type { ThemeSubject } from './theme-types';
 import * as FaviconDecisionLog from '../../domain/favicon/decision-log';
@@ -20,13 +18,8 @@ import * as FaviconThemeColor from '../../domain/favicon/theme-color';
 import type { ThemeRgb } from '../../domain/favicon/types';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import { FAVICON_CACHE_BOOT_WAIT_MS } from '../newtab-config';
+import type { FaviconParts } from './favicon-parts';
 
-interface PageFaviconsState {
-  faviconDataCache: Map<string, string>;
-  faviconCacheRuntime: FaviconCacheRuntime | null;
-  faviconViewRuntime: FaviconViewRuntime | null;
-  requestFaviconData: FaviconViewRuntime['requestFaviconData'] | null;
-}
 
 interface PageFaviconsDeps {
   normalizeFaviconHost(hostname: unknown): string;
@@ -59,7 +52,7 @@ interface PageFaviconsDeps {
   getShortcutFaviconDataUrl: ShortcutsController['getShortcutFaviconDataUrl'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   getProviderFaviconPageUrl: SiteSearchProviders['getProviderFaviconPageUrl'];
-  pageState: PageFaviconsState;
+  faviconParts: Pick<FaviconParts, 'dataCache' | 'mount'>;
 }
 
 function createPageFavicons(deps: PageFaviconsDeps) {
@@ -92,14 +85,12 @@ function createPageFavicons(deps: PageFaviconsDeps) {
     getShortcutFaviconCandidateUrl,
     getShortcutFaviconDataUrl,
     getProviderIcon,
-    getProviderFaviconPageUrl
+    getProviderFaviconPageUrl,
+    faviconParts
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
 
-  pageState.faviconDataCache = new Map<string, string>();
   const faviconDataPending = new Map<string, Promise<string | null>>();
   const faviconCacheRuntime = NEWTAB_FAVICON_CACHE.createFaviconCache({
     storageArea: (chrome && chrome.storage && chrome.storage.local) ? chrome.storage.local : null,
@@ -109,7 +100,6 @@ function createPageFavicons(deps: PageFaviconsDeps) {
     isChromeMonogramFaviconUrl,
     faviconCacheBootWaitMs: FAVICON_CACHE_BOOT_WAIT_MS
   });
-  pageState.faviconCacheRuntime = faviconCacheRuntime;
 
   function isFaviconPersistLoaded(): boolean {
     return faviconCacheRuntime.isFaviconPersistLoaded();
@@ -200,15 +190,14 @@ function createPageFavicons(deps: PageFaviconsDeps) {
     setPersistedFaviconUrl,
     setPersistedFaviconData,
     preloadThemeFromFavicon,
-    faviconDataCache: pageState.faviconDataCache,
+    faviconDataCache: faviconParts.dataCache,
     faviconDataPending,
     hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
   });
-  pageState.faviconViewRuntime = faviconViewRuntime;
+  faviconParts.mount({ cache: faviconCacheRuntime, view: faviconViewRuntime });
   const applyFaviconOpticalShift = faviconViewRuntime.applyFaviconOpticalShift;
   const applyFaviconOpticalAlignment = faviconViewRuntime.applyFaviconOpticalAlignment;
   const applyFallbackIcon = faviconViewRuntime.applyFallbackIcon;
-  pageState.requestFaviconData = faviconViewRuntime.requestFaviconData;
   const setFaviconSrcWithAnimation = faviconViewRuntime.setFaviconSrcWithAnimation;
   const attachFaviconData = faviconViewRuntime.attachFaviconData;
   const preloadIcon = faviconViewRuntime.preloadIcon;
@@ -319,4 +308,4 @@ function createPageFavicons(deps: PageFaviconsDeps) {
 type PageFavicons = ReturnType<typeof createPageFavicons>;
 
 export { createPageFavicons };
-export type { PageFavicons, PageFaviconsDeps, PageFaviconsState };
+export type { PageFavicons, PageFaviconsDeps };

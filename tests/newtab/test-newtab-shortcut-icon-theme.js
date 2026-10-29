@@ -72,9 +72,11 @@ const resolver = sandbox.LumnoNewtabSiteThemeResolver.createSiteThemeResolver({
   stableHashCode: COLOR.stableHashCode,
   getThemeSourceForSuggestion: (suggestion) => shortcutIconSources.get(suggestion && suggestion.url) || '',
   areFaviconRenderCachesReady: () => true,
-  pageState: {
-    faviconDataCache: new Map(),
-    requestFaviconData: () => Promise.resolve(null)
+  // No icon data cached or fetched: themes come from the icons' own colors.
+  faviconParts: {
+    dataCache: new Map(),
+    cache: null,
+    view: { requestFaviconData: () => Promise.resolve(null) }
   }
 });
 

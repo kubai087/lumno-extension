@@ -77,8 +77,7 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   scheduleWallpaperAdaptiveToneUpdate: noop,
   shortcutList,
   // Only followed here: no setting changes in these tests.
-  settings: { subscribe: () => () => {} },
-  pageState: {}
+  settings: { subscribe: () => () => {} }
 });
 
 (async () => {

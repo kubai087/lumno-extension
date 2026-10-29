@@ -28,8 +28,7 @@ function setup() {
   }));
   env.state = new BookmarksShown();
   env.state.setItems(Array.from({ length: 8 }, (_, id) => ({ id })));
-  env.pager = window.LumnoNewtabBookmarkPager.createBookmarkPager({ bookmarksShown: env.state, bookmarkGrid: grid,
-    pageState: {}, now: () => env.clock,
+  env.pager = window.LumnoNewtabBookmarkPager.createBookmarkPager({ bookmarksShown: env.state, bookmarkGrid: grid, now: () => env.clock,
     isBookmarkTopbarMode: () => false, getBookmarkLimit: () => 2,
     NEWTAB_BOOKMARKS_STORE: { getBookmarkPageItems: (items, page, limit) => items.slice(page * limit, (page + 1) * limit) },
     updateBookmarkHeader() {}, getBookmarkGridColumnCount: () => 2, updateBookmarkSectionPosition() {},

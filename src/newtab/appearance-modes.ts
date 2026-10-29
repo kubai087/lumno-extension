@@ -14,7 +14,6 @@ import type { TopContentController } from './react/wordmark';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
 import type { SuggestionsController } from './search/suggestions-controller';
-import type { FaviconViewRuntime } from './theme/favicon-view';
 import type { QuoteRuntime } from './top-content/quotes';
 import type { TopContentRuntime } from './top-content/top-content';
 import type { ToneScheduleOptions } from './wallpaper/wallpaper-adaptive-tone';
@@ -31,13 +30,10 @@ import type { SearchBoxParts } from './search/search-box-parts';
 import type { PageNoticeControllers } from './notice-controllers';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
+import type { FaviconParts } from './theme/favicon-parts';
 
 type ResolvedTheme = 'light' | 'dark';
 
-interface AppearanceModesState {
-  faviconViewRuntime: Pick<FaviconViewRuntime,
-    'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
-}
 
 interface AppearanceModesDeps extends
   Pick<TopContentRuntime, 'renderNewtabTopContent' | 'applyWordmarkThemeAppearance'>,
@@ -69,11 +65,12 @@ interface AppearanceModesDeps extends
   quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
   topContentController: TopContentController;
-  pageState: AppearanceModesState;
+  faviconParts: Pick<FaviconParts, 'view'>;
 }
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    faviconParts,
     bookmarkParts,
     quoteRuntime,
     appliedTheme,
@@ -102,8 +99,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     scheduleWallpaperAdaptiveToneUpdate
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   let mediaListenerAttached = false;
 
@@ -140,20 +135,20 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
   }
 
   function refreshFallbackIcons(): void {
-    if (pageState.faviconViewRuntime) {
-      pageState.faviconViewRuntime.refreshFallbackIcons();
+    if (faviconParts.view) {
+      faviconParts.view.refreshFallbackIcons();
     }
   }
 
   function refreshThemeAwareFavicons(): void {
-    if (pageState.faviconViewRuntime) {
-      pageState.faviconViewRuntime.refreshThemeAwareFavicons();
+    if (faviconParts.view) {
+      faviconParts.view.refreshThemeAwareFavicons();
     }
   }
 
   function scheduleThemeAwareFaviconRescue(): void {
-    if (pageState.faviconViewRuntime) {
-      pageState.faviconViewRuntime.scheduleThemeAwareFaviconRescue();
+    if (faviconParts.view) {
+      faviconParts.view.scheduleThemeAwareFaviconRescue();
     }
   }
 
@@ -331,4 +326,4 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
 type AppearanceModes = ReturnType<typeof createAppearanceModes>;
 
 export { createAppearanceModes };
-export type { AppearanceModes, AppearanceModesDeps, AppearanceModesState };
+export type { AppearanceModes, AppearanceModesDeps };

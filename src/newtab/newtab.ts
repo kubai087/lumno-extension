@@ -39,7 +39,6 @@ import * as NEWTAB_PAGE_NAVIGATION from './page-navigation';
 import * as NEWTAB_PAGE_NOTICES from './page-notices';
 import * as NEWTAB_PAGE_PREFERENCES from './page-preferences';
 import * as NEWTAB_PAGE_RESIZE from './page-resize';
-import * as LumnoNewtabPageState from './page-state';
 import * as NEWTAB_RECENT_CARD_DRAG from './recent/recent-card-drag';
 import * as NEWTAB_RECENT_SECTION from './recent/recent-section';
 import * as NEWTAB_RECENT_SITES_CONTROLLER from './recent/recent-sites-controller';
@@ -177,14 +176,11 @@ import { RecentSitesShown } from './recent/recent-sites-shown';
 import { BookmarksShown } from './bookmarks/bookmarks-shown';
 import { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import { DragSessions } from './drag-sessions';
+import { FaviconParts } from './theme/favicon-parts';
 import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
-  // Page state shared with the modules split out of this file: each module
-  // receives this one object as `pageState` and reads and writes the same
-  // properties this file does. page-state.ts lists its initial values.
-  const pageState = LumnoNewtabPageState.createPageState();
   const {
     providerStorageRuntime,
     storageArea,
@@ -248,6 +244,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const bookmarksShown = new BookmarksShown();
   // The bookmark section's view, folder menu and top bar, mounted with the section.
   const bookmarkParts = new BookmarkSectionParts();
+  // The page's favicon data and the favicon cache and view, mounted by the page favicons.
+  const faviconParts = new FaviconParts();
   // The drags running on the page, and the lock an undoable change holds.
   const dragSessions = new DragSessions();
   const historyLock = new MoveHistoryLock();
@@ -704,6 +702,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     applyThemeVariables,
     applyMarkVariables
   } = NEWTAB_SITE_THEME_RESOLVER.createSiteThemeResolver({
+    faviconParts,
     modeActions,
     searchMode,
     normalizeHost,
@@ -720,8 +719,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isHostFaviconVisitDirty: (...args) => isHostFaviconVisitDirty(...args),
     stableHashCode,
     getThemeSourceForSuggestion: (...args) => getThemeSourceForSuggestion(...args),
-    areFaviconRenderCachesReady: (...args) => areFaviconRenderCachesReady(...args),
-    pageState
+    areFaviconRenderCachesReady: (...args) => areFaviconRenderCachesReady(...args)
   });
 
   const {
@@ -899,6 +897,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    faviconParts,
     topContentController,
     bookmarkParts,
     quoteRuntime,
@@ -925,8 +924,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     addMediaQueryChangeListener,
     mediaQuery,
     removeMediaQueryChangeListener,
-    scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
-    pageState
+    scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args)
   });
 
   const {
@@ -1208,6 +1206,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getPageFaviconUrlResolver,
     getThemeSourceForSuggestion
   } = NEWTAB_PAGE_FAVICONS.createPageFavicons({
+    faviconParts,
     normalizeFaviconHost,
     isPersistableTheme,
     normalizeAccentRgb,
@@ -1236,8 +1235,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getShortcutFaviconCandidateUrl: (...args) => getShortcutFaviconCandidateUrl(...args),
     getShortcutFaviconDataUrl: (...args) => getShortcutFaviconDataUrl(...args),
     getProviderIcon,
-    getProviderFaviconPageUrl,
-    pageState
+    getProviderFaviconPageUrl
   });
 
   const {

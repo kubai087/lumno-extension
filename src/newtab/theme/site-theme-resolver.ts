@@ -6,7 +6,6 @@ import { buildTheme, getHoverColors as getModeHoverColors, getThemeFingerprint, 
 import { getBrandAccentForHost } from '../../domain/favicon/brand-accents';
 import type * as Color from '../../domain/color';
 import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
-import type { FaviconCacheRuntime } from '../../platform/favicon-cache';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SiteSearchProviders } from '../search/site-search-providers';
 import type { ThemeConfidence, ThemeSource, ThemeSubject } from './theme-types';
@@ -19,15 +18,8 @@ import type { ThemeRgb } from '../../domain/favicon/types';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { FaviconParts } from './favicon-parts';
 
-interface SiteThemeResolverState {
-  // Favicon data URLs by icon address.
-  faviconDataCache: Map<string, string>;
-  // Fetches an icon's data URL; null when it cannot.
-  // Set once the page's favicon runtime exists.
-  requestFaviconData: ((url: string) => Promise<string | null>) | null;
-  faviconCacheRuntime: Pick<FaviconCacheRuntime, 'ensureCachesReady'> | null;
-}
 
 // A theme as the card and suggestion views hold it: possibly partial, where
 // a missing color clears its variable.
@@ -53,7 +45,7 @@ interface SiteThemeResolverDeps {
   // The icon a subject's theme is read from; '' for none.
   getThemeSourceForSuggestion(subject: ThemeSubject): string;
   areFaviconRenderCachesReady(): boolean;
-  pageState: SiteThemeResolverState;
+  faviconParts: Pick<FaviconParts, 'cache' | 'dataCache' | 'view'>;
 }
 
 // A theme read from a page's declared color, or a stored one.
@@ -110,11 +102,10 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     isHostFaviconVisitDirty,
     stableHashCode,
     getThemeSourceForSuggestion,
-    areFaviconRenderCachesReady
+    areFaviconRenderCachesReady,
+    faviconParts
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const THEME_ICON_LOAD_TIMEOUT_MS = 2400;
   const THEME_RESOLUTION_BATCH_SIZE = 2;
@@ -497,12 +488,12 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
       }
       return Promise.resolve(brandTheme);
     }
-    const cachedFaviconData = pageState.faviconDataCache.get(url);
+    const cachedFaviconData = faviconParts.dataCache.get(url);
     if (cachedFaviconData) {
       return loadThemeFromImageSource(url, cachedFaviconData, hostKey, Boolean(useHostCache), { preferIconTheme });
     }
-    const requestFaviconData = pageState.requestFaviconData;
-    const faviconData = requestFaviconData ? requestFaviconData(url) : Promise.resolve(null);
+    const faviconView = faviconParts.view;
+    const faviconData = faviconView ? faviconView.requestFaviconData(url) : Promise.resolve(null);
     return withThemeTimeout(faviconData, THEME_ICON_LOAD_TIMEOUT_MS, null).then((dataUrl) => {
       if (dataUrl) {
         return loadThemeFromImageSource(url, dataUrl, hostKey, Boolean(useHostCache), { preferIconTheme });
@@ -886,7 +877,7 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
       return;
     }
     if (!areFaviconRenderCachesReady()) {
-      const faviconCacheRuntime = pageState.faviconCacheRuntime;
+      const faviconCacheRuntime = faviconParts.cache;
       if (!themeResolutionCacheWaitStarted && faviconCacheRuntime) {
         themeResolutionCacheWaitStarted = true;
         void faviconCacheRuntime.ensureCachesReady().then(() => {
@@ -1070,4 +1061,4 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
 type SiteThemeResolver = ReturnType<typeof createSiteThemeResolver>;
 
 export { createSiteThemeResolver };
-export type { SiteThemeResolver, SiteThemeResolverDeps, SiteThemeResolverState };
+export type { SiteThemeResolver, SiteThemeResolverDeps };

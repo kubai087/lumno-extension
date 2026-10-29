@@ -28,8 +28,7 @@ const menu = BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
     setOpen() {},
     setOptions() {}
   },
-  locale: { store: { subscribe: () => () => {} } },
-  pageState: {}
+  locale: { store: { subscribe: () => () => {} } }
 });
 
 const site = { bookmarkId: '7', title: 'Example', url: 'https://example.com/', isFolder: false };
