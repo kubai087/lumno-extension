@@ -10,6 +10,8 @@ import type { RecentSitesController } from './recent-sites-controller';
 import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
 import type { RecentPointer } from './recent-pointer';
 import { recentEvents } from './recent-events';
+import type { RecentSitesShown } from './recent-sites-shown';
+import { createViewStore } from '../../shared/react/view-store';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 // An option the recent sites view is handed as it is.
@@ -52,6 +54,7 @@ interface RecentSectionDeps {
   getRecentProgressState: ViewOption<'getProgressState'>;
   toggleRecentProgressTracking: ViewOption<'toggleProgressTracking'>;
   recentPointer: RecentPointer;
+  recentShown: Pick<RecentSitesShown, 'cards'>;
   locale: Pick<SurfaceLocale, 'store'>;
 }
 
@@ -91,6 +94,7 @@ function createRecentSection(deps: RecentSectionDeps) {
     getRecentProgressState,
     toggleRecentProgressTracking,
     recentPointer,
+    recentShown,
     locale
   } = deps;
 
@@ -134,11 +138,16 @@ function createRecentSection(deps: RecentSectionDeps) {
   locale.store.subscribe(renderRecentHeader);
   settings.subscribe(recentMode, renderRecentHeader);
   applyRecentGridColumns();
-  const recentSitesView = createRecentSitesView({
+  // The card a context menu is open on shows as its target.
+  const contextMenuSite = createViewStore<{ url: string | null }>({ url: null });
+  recentEvents.on('contextMenuSite', (url) => contextMenuSite.setState({ url }));
+  createRecentSitesView({
     documentObj: document,
     windowObj: window,
     grid: pageStructureRuntime.recent.grid,
     cards: recentCards,
+    sites: recentShown.cards,
+    contextMenuSite,
     t,
     formatMessage,
     sanitizeDisplayText,
@@ -170,9 +179,6 @@ function createRecentSection(deps: RecentSectionDeps) {
     getProgressState: getRecentProgressState,
     toggleProgressTracking: toggleRecentProgressTracking
   });
-  // The card a context menu is open on shows as its target.
-  recentEvents.on('contextMenuSite', (url) => recentSitesView.setContextMenuSite(url));
-  return { recentSitesView };
 }
 
 export { createRecentSection };

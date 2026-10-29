@@ -2,12 +2,14 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createRecentSitesView,
-  getRecentSitesSignature,
   type RecentCardElement,
   type RecentSite,
   type RecentSitesViewController,
   type RecentSitesViewOptions
 } from './recent-sites';
+import { RecentSitesShown } from '../recent/recent-sites-shown';
+import { createViewStore } from '../../shared/react/view-store';
+import type { Store } from '../../shared/state/store';
 import { expectElement, getTag } from '../../../tests/react/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
@@ -15,7 +17,15 @@ function pinButtonOf(card: HTMLElement): HTMLButtonElement {
   return getTag(card, '.x-nt-recent-pin', 'button');
 }
 
-let views: RecentSitesViewController[] = [];
+// A view with the owner that draws its cards and the context menu mark the
+// section sets.
+interface RecentSitesHarness {
+  controller: RecentSitesViewController;
+  shown: RecentSitesShown;
+  contextMenuSite: Store<{ url: string | null }>;
+}
+
+let views: RecentSitesHarness[] = [];
 
 // A recent site; fields left out are empty, as the store leaves them for
 // a site it knows little about.
@@ -70,52 +80,45 @@ function createOptions(
 function createView(
   overrides: Partial<RecentSitesViewOptions> = {}
 ): {
-  view: RecentSitesViewController;
+  view: RecentSitesHarness;
   options: RecentSitesViewOptions;
 } {
-  const options = createOptions(overrides);
-  const view = createRecentSitesView(options);
+  const shown = new RecentSitesShown();
+  const contextMenuSite = createViewStore<{ url: string | null }>({ url: null });
+  const options = createOptions({ sites: shown.cards, contextMenuSite, ...overrides });
+  const view = { controller: createRecentSitesView(options), shown, contextMenuSite };
   views.push(view);
   return { view, options };
 }
 
-function renderItems(
-  view: RecentSitesViewController,
-  items: RecentSite[],
-  signature = ''
-) {
-  let result = {
-    changed: false,
-    count: 0,
-    signature: ''
-  };
+// Draws the items as the section loaders do; `changed` is false when they
+// are the cards drawn.
+function renderItems(view: RecentSitesHarness, items: RecentSite[]) {
+  let changed = false;
   act(() => {
-    result = view.render(items, { signature });
+    changed = view.shown.draw(items);
   });
-  return result;
+  return { changed, count: items.length };
 }
 
 afterEach(() => {
   act(() => {
-    views.forEach((view) => view.clear());
+    views.forEach((view) => view.shown.clear());
   });
   views = [];
 });
 
 describe('Recent Sites React island', () => {
-  it('preserves signatures without a legacy renderer', () => {
+  it('draws the same sites only once', () => {
+    const { view } = createView();
     const items = [site({
       title: 'Example',
       url: 'https://example.com/',
       visitCount: 2
     })];
-    expect(getRecentSitesSignature(items)).toBe(
-      '0::https://example.com/::Example::::::2'
-    );
-
-    const options = createOptions();
-    const view = createRecentSitesView(options);
-    views.push(view);
+    expect(renderItems(view, items).changed).toBe(true);
+    expect(renderItems(view, items.slice()).changed).toBe(false);
+    expect(renderItems(view, [{ ...items[0], visitCount: 3 }]).changed).toBe(true);
   });
 
   it('renders cards synchronously and keeps external card metadata intact', () => {
@@ -140,13 +143,9 @@ describe('Recent Sites React island', () => {
     const grid = expectElement(options.grid);
     const card: RecentCardElement | null = queryHtmlTag(grid, '.x-nt-recent-card', 'div');
 
-    expect(result).toEqual({
-      changed: true,
-      count: 1,
-      signature: getRecentSitesSignature(items)
-    });
+    expect(result).toEqual({ changed: true, count: 1 });
     expect(grid.dataset.reactIsland).toBe('recent-sites');
-    expect(view.getCards()).toEqual([card]);
+    expect(view.controller.getCards()).toEqual([card]);
     expect(card?._xTitleText).toBe('Example Docs');
     expect(card?.querySelector('.x-nt-recent-action')?.textContent).toContain('前往');
     const pin = card ? pinButtonOf(card) : null;
@@ -161,7 +160,7 @@ describe('Recent Sites React island', () => {
     expect(applyTheme).toHaveBeenCalledOnce();
     expect(bindTooltip).toHaveBeenCalledOnce();
 
-    const unchanged = renderItems(view, items, result.signature);
+    const unchanged = renderItems(view, items);
     expect(unchanged.changed).toBe(false);
     expect(attachFavicon).toHaveBeenCalledOnce();
   });
@@ -180,9 +179,9 @@ describe('Recent Sites React island', () => {
       lastVisitTime: 20,
       visitCount: 2
     });
-    const initial = renderItems(view, [first, second]);
-    const firstCard = view.getCards()[0];
-    const secondCard = view.getCards()[1];
+    renderItems(view, [first, second]);
+    const firstCard = view.controller.getCards()[0];
+    const secondCard = view.controller.getCards()[1];
 
     renderItems(view, [
       {
@@ -195,11 +194,11 @@ describe('Recent Sites React island', () => {
         lastVisitTime: 40,
         visitCount: 4
       }
-    ], initial.signature);
+    ]);
 
-    expect(view.getCards()).toEqual([secondCard, firstCard]);
-    expect(view.getCards()[0]._xTitleText).toBe('Second');
-    expect(view.getCards()[1]._xTitleText).toBe('First');
+    expect(view.controller.getCards()).toEqual([secondCard, firstCard]);
+    expect(view.controller.getCards()[0]._xTitleText).toBe('Second');
+    expect(view.controller.getCards()[1]._xTitleText).toBe('First');
   });
 
   it('shows a stable fallback before a browser-page favicon attaches', () => {
@@ -252,7 +251,7 @@ describe('Recent Sites React island', () => {
       title: 'Example',
       url: 'https://example.com/'
     })]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
 
     act(() => {
       card.dispatchEvent(new MouseEvent('pointerdown', {
@@ -294,7 +293,7 @@ describe('Recent Sites React island', () => {
     const opened = vi.fn();
     const { view } = createView({ openUrl: opened });
     renderItems(view, [site({ title: 'Example', url: 'https://example.com/' })]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
     act(() => {
       card.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, altKey: true }));
       card.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, altKey: true }));
@@ -316,7 +315,7 @@ describe('Recent Sites React island', () => {
       title: 'Example',
       url: 'https://example.com/'
     })]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
     const press = () => {
       act(() => {
         card.dispatchEvent(new MouseEvent('pointerdown', {
@@ -351,7 +350,7 @@ describe('Recent Sites React island', () => {
       title: 'Example',
       url: 'https://example.com/'
     })]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
 
     const controlPress = () => {
       act(() => {
@@ -390,7 +389,7 @@ describe('Recent Sites React island', () => {
       title: 'Example',
       url: 'https://example.com/'
     })]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
 
     act(() => {
       card.dispatchEvent(new MouseEvent('pointerdown', {
@@ -435,7 +434,7 @@ describe('Recent Sites React island', () => {
       site({ title: 'Docs', url: 'https://example.com/docs' }),
       site({ title: 'Example', url: 'https://example.com/' })
     ]);
-    const [tracked, available, plain] = view.getCards();
+    const [tracked, available, plain] = view.controller.getCards();
     const trackedButton = queryHtmlTag(tracked, '.x-nt-recent-track', 'button');
     expect(trackedButton?.getAttribute('aria-pressed')).toBe('true');
     expect(trackedButton?.classList.contains('x-nt-recent-track--active')).toBe(true);
@@ -458,11 +457,12 @@ describe('Recent Sites React island', () => {
     expect(toggled).toEqual(['https://example.com/docs']);
   });
 
-  it('includes tracking in the signature only for tracked cards', () => {
-    expect(getRecentSitesSignature([site({ url: 'https://a.com/', title: 'A' })])).not.toContain('tracking');
-    expect(getRecentSitesSignature([
-      site({ url: 'https://a.com/', title: 'A', progressTracking: true })
-    ])).toContain('::tracking');
+  it('draws a card again when only its tracking changes', () => {
+    const { view } = createView();
+    const untracked = site({ url: 'https://a.com/', title: 'A' });
+    renderItems(view, [untracked]);
+    expect(renderItems(view, [{ ...untracked }]).changed).toBe(false);
+    expect(renderItems(view, [{ ...untracked, progressTracking: true }]).changed).toBe(true);
   });
 
   it('cleans foreground navigation listeners when the view clears', () => {
@@ -477,7 +477,7 @@ describe('Recent Sites React island', () => {
     })]);
 
     act(() => {
-      view.getCards()[0].dispatchEvent(new MouseEvent('click', {
+      view.controller.getCards()[0].dispatchEvent(new MouseEvent('click', {
         bubbles: true,
         button: 0
       }));
@@ -490,7 +490,7 @@ describe('Recent Sites React island', () => {
     ).toBe(true);
 
     act(() => {
-      view.clear();
+      view.shown.clear();
     });
     expect(
       documentRemove.mock.calls.some(([type]) => type === 'visibilitychange')
@@ -498,7 +498,7 @@ describe('Recent Sites React island', () => {
     expect(
       windowRemove.mock.calls.some(([type]) => type === 'pagehide')
     ).toBe(true);
-    expect(view.getCards()).toEqual([]);
+    expect(view.controller.getCards()).toEqual([]);
   });
 
   it('keeps pin-limit activation inside the action button', () => {
@@ -514,7 +514,7 @@ describe('Recent Sites React island', () => {
       title: 'Example',
       url: 'https://example.com/'
     })]);
-    const pinButton = pinButtonOf(view.getCards()[0]);
+    const pinButton = pinButtonOf(view.controller.getCards()[0]);
     expect(pinButton.classList.contains('x-nt-recent-pin--limit')).toBe(true);
     expect(pinButton.getAttribute('aria-label')).toBe('最多置顶 3 个');
 
@@ -542,7 +542,7 @@ describe('Recent Sites React island', () => {
       onItemContextMenu
     });
     renderItems(view, [item]);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
     const event = new MouseEvent('contextmenu', {
       bubbles: true,
       cancelable: true,
@@ -570,11 +570,11 @@ describe('Recent Sites React island', () => {
       site({ title: 'First', url: 'https://first.example/' }),
       site({ title: 'Second', url: 'https://second.example/' })
     ]);
-    const marked = () => view.getCards().map((card) => card.getAttribute('data-recent-context-menu-open'));
+    const marked = () => view.controller.getCards().map((card) => card.getAttribute('data-recent-context-menu-open'));
 
-    act(() => view.setContextMenuSite('https://second.example/'));
+    act(() => view.contextMenuSite.setState({ url: 'https://second.example/' }));
     expect(marked()).toEqual([null, 'true']);
-    act(() => view.setContextMenuSite(null));
+    act(() => view.contextMenuSite.setState({ url: null }));
     expect(marked()).toEqual([null, null]);
   });
 
@@ -587,8 +587,10 @@ describe('Recent Sites React island', () => {
     const items = [site({ title: 'Example', url: 'https://example.com/' })];
     renderItems(view, items);
     english = true;
+    // A new language forgets what was drawn, as the section loaders do.
+    view.shown.forgetSignature();
     renderItems(view, items);
-    const card = view.getCards()[0];
+    const card = view.controller.getCards()[0];
 
     expect(card.getAttribute('aria-label')).toBe('en:open_prefix:Example');
     expect(card.querySelector('.x-nt-recent-action')?.textContent).toContain('en:action_go_current_tab');
@@ -610,7 +612,7 @@ describe('Recent Sites React island', () => {
       title: 'Example',
       url: 'https://example.com/'
     })]);
-    const pinButton = pinButtonOf(view.getCards()[0]);
+    const pinButton = pinButtonOf(view.controller.getCards()[0]);
 
     act(() => {
       pinButton.click();

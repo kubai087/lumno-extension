@@ -4,8 +4,8 @@ import { isElementTextTruncated } from '../../shared/react/text-overflow';
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
-import { createViewStore } from '../../shared/react/view-store';
 import { useStore } from '../../shared/react/use-store';
+import { createStore } from '../../shared/state/store';
 import type { Store } from '../../shared/state/store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RecentSite } from '../../domain/recent-sites-store';
@@ -41,11 +41,19 @@ export interface RecentCardElement extends HTMLDivElement {
   // Set while a drag of the card ends, so its click does not open the site.
 }
 
+// The sites the section draws, as its owner set them; null draws none.
+export interface RecentCardsState {
+  items: RecentSite[] | null;
+}
+
 export interface RecentSitesViewOptions {
   documentObj?: Document;
   windowObj?: Window;
   grid?: HTMLElement | null;
   cards?: RecentCardElement[];
+  sites?: Store<RecentCardsState>;
+  // The site whose context menu is open, as the section sets it.
+  contextMenuSite?: Store<{ url: string | null }>;
   t?: Translate;
   formatMessage?: (
     key: string,
@@ -134,26 +142,8 @@ export interface RecentSitesViewOptions {
 
 export type RecentProgressState = 'tracking' | 'available' | '';
 
-export interface RecentSitesRenderState {
-  signature?: string;
-}
-
-export interface RecentSitesRenderResult {
-  changed: boolean;
-  count: number;
-  signature: string;
-}
-
 export interface RecentSitesViewController {
-  clear(): void;
-  render(
-    items: RecentSite[],
-    state?: RecentSitesRenderState
-  ): RecentSitesRenderResult;
-  getSignature(items: RecentSite[]): string;
   getCards(): RecentCardElement[];
-  // Marks the card of the site whose context menu is open, or none.
-  setContextMenuSite(url: string | null): void;
 }
 
 interface NormalizedRecentSitesOptions {
@@ -161,6 +151,7 @@ interface NormalizedRecentSitesOptions {
   windowObj: Window;
   grid: HTMLElement;
   cards: RecentCardElement[];
+  sites: Store<RecentCardsState>;
   contextMenuSite: Store<{ url: string | null }>;
   t: Translate;
   formatMessage: NonNullable<RecentSitesViewOptions['formatMessage']>;
@@ -248,23 +239,6 @@ function fallbackFormatMessage(
   return text;
 }
 
-export function getRecentSitesSignature(items: RecentSite[]): string {
-  if (!Array.isArray(items) || items.length === 0) {
-    return '';
-  }
-  return items.map((item, index) => {
-    const url = item?.url ? String(item.url) : '';
-    const title = item?.title ? String(item.title) : '';
-    const siteName = item?.siteName ? String(item.siteName) : '';
-    const lastVisitTime = item?.lastVisitTime
-      ? String(item.lastVisitTime)
-      : '';
-    const visitCount = item?.visitCount ? String(item.visitCount) : '';
-    const base = `${index}::${url}::${title}::${siteName}::${lastVisitTime}::${visitCount}`;
-    return item?.progressTracking === true ? `${base}::tracking` : base;
-  }).join('\n');
-}
-
 function shouldOpenUrlInBackground(event: ActivationEvent | null): boolean {
   return Boolean(
     event &&
@@ -307,7 +281,8 @@ function normalizeOptions(
     windowObj,
     grid,
     cards: Array.isArray(rawOptions.cards) ? rawOptions.cards : [],
-    contextMenuSite: createViewStore<{ url: string | null }>({ url: null }),
+    sites: rawOptions.sites || createStore<RecentCardsState>({ items: null }),
+    contextMenuSite: rawOptions.contextMenuSite || createStore<{ url: string | null }>({ url: null }),
     t: typeof rawOptions.t === 'function'
       ? rawOptions.t
       : (_key, fallback) => fallback || '',
@@ -1019,27 +994,28 @@ function RecentSitesList({
   });
 }
 
+// The cards the section's store holds. A new set takes away the tooltips the
+// old cards showed and hands the page the new cards.
+function RecentCards({ options }: { options: NormalizedRecentSitesOptions }) {
+  const { items } = useStore(options.sites);
+  useLayoutEffect(() => {
+    options.hideTopActionTooltip();
+    options.hideCursorTooltip();
+    options.cards.length = 0;
+    queryHtmlTags(options.grid, '.x-nt-recent-card', 'div')
+      .forEach((card) => options.cards.push(card));
+  }, [items, options]);
+  return items ? <RecentSitesList items={items} options={options} /> : null;
+}
+
 function createNoopController(
   rawOptions: RecentSitesViewOptions
 ): RecentSitesViewController {
   const cards = Array.isArray(rawOptions.cards) ? rawOptions.cards : [];
   return {
-    clear() {
-      cards.length = 0;
-    },
-    render(items) {
-      const normalizedItems = Array.isArray(items) ? items : [];
-      return {
-        changed: false,
-        count: normalizedItems.length,
-        signature: getRecentSitesSignature(normalizedItems)
-      };
-    },
-    getSignature: getRecentSitesSignature,
     getCards() {
       return cards;
-    },
-    setContextMenuSite() {}
+    }
   };
 }
 
@@ -1053,54 +1029,10 @@ export function createRecentSitesView(
   const options: NormalizedRecentSitesOptions = normalizedOptions;
   options.grid.setAttribute('data-react-island', 'recent-sites');
 
-  function syncCards(): void {
-    options.cards.length = 0;
-    queryHtmlTags(options.grid, '.x-nt-recent-card', 'div')
-      .forEach((card) => options.cards.push(card));
-  }
-
-  function clear(): void {
-    options.hideTopActionTooltip();
-    options.hideCursorTooltip();
-    getPagePortals().show(options.grid, null);
-    options.cards.length = 0;
-  }
-
-  function render(
-    items: RecentSite[],
-    state: RecentSitesRenderState = {}
-  ): RecentSitesRenderResult {
-    const normalizedItems = Array.isArray(items) ? items : [];
-    const previousSignature =
-      typeof state.signature === 'string' ? state.signature : '';
-    const nextSignature = getRecentSitesSignature(normalizedItems);
-    if (nextSignature === previousSignature) {
-      return {
-        changed: false,
-        count: normalizedItems.length,
-        signature: nextSignature
-      };
-    }
-    options.hideTopActionTooltip();
-    options.hideCursorTooltip();
-    getPagePortals().show(options.grid, <RecentSitesList items={normalizedItems} options={options} />);
-    syncCards();
-    return {
-      changed: true,
-      count: normalizedItems.length,
-      signature: nextSignature
-    };
-  }
-
+  getPagePortals().show(options.grid, <RecentCards options={options} />);
   return {
-    clear,
-    render,
-    getSignature: getRecentSitesSignature,
     getCards() {
       return options.cards;
-    },
-    setContextMenuSite(url) {
-      options.contextMenuSite.setState({ url });
     }
   };
 }

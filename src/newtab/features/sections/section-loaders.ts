@@ -5,7 +5,6 @@ import type { BookmarkPager } from '../../bookmarks/bookmark-pager';
 import type { BookmarksRuntime } from '../../bookmarks/bookmarks-runtime';
 import type { PageLayout } from '../../page-layout';
 import type { BookmarksViewController } from '../../react/bookmarks';
-import type { RecentSitesViewController } from '../../react/recent-sites';
 import type { RecentSitesController } from '../../recent/recent-sites-controller';
 import type { RecentSources } from '../../recent/recent-sources';
 import type { SectionHeaders } from '../../section-headers';
@@ -59,12 +58,11 @@ interface SectionLoadersDeps extends
   bookmarksRuntime: Pick<BookmarksRuntime, 'invalidate'>;
   appliedTheme: Pick<AppliedThemeMode, 'applied'>;
   shortcutList: Pick<ShortcutList, 'items'>;
-  recentShown: Pick<RecentSitesShown, 'drawn' | 'forgetSignature' | 'items' | 'loadedOnce' | 'markLoaded' | 'setItems' | 'signature'>;
+  recentShown: Pick<RecentSitesShown, 'draw' | 'clear' | 'forgetSignature' | 'items' | 'loadedOnce' | 'markLoaded' | 'setItems'>;
   bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'renderSignature' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'view' | 'cascade'>;
   bookmarkGrid: HTMLElement;
   dragSessions: Pick<DragSessions, 'bookmark' | 'recentCardDragging' | 'shortcut' | 'shortcutDragging'>;
-  recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'>;
   locale: Pick<SurfaceLocale, 'store'>;
 }
 
@@ -101,7 +99,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     getRecentSourceLimit,
     getRecentSites,
     beginSearchEntryRestoreLayoutLock,
-    recentSitesView,
     locale
   } = deps;
 
@@ -156,10 +153,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       });
     recentShown.setItems(normalizedSourceItems.slice());
     const mergedItems = mergeRecentSitesWithPinned(normalizedSourceItems, getRecentLimit());
-    const renderResult = recentSitesView.render(mergedItems, {
-      signature: recentShown.signature
-    });
-    if (!renderResult.changed) {
+    if (!recentShown.draw(mergedItems)) {
       if (mergedItems.length === 0) {
         setContentSectionVisible(recentSection, false);
       } else {
@@ -168,7 +162,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       updateBookmarkSectionPosition();
       return;
     }
-    recentShown.drawn(renderResult.signature);
     if (mergedItems.length === 0) {
       setContentSectionVisible(recentSection, false);
       updateBookmarkSectionPosition();
@@ -307,7 +300,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     if (!recentSourceLimit || recentSourceLimit <= 0) {
       recentShown.forgetSignature();
       recentShown.setItems([]);
-      recentSitesView.clear();
+      recentShown.clear();
       setContentSectionVisible(recentSection, false);
       recentDataDirty = false;
       recentShown.markLoaded();

@@ -203,7 +203,7 @@ function createSectionViewsPart(ctx: PageContext, deps: SectionViewsPartDeps) {
     syncBookmarkSurfaceMode
   });
 
-  const { recentSitesView } = NEWTAB_RECENT_SECTION.createRecentSection({
+  NEWTAB_RECENT_SECTION.createRecentSection({
     locale,
     getPinnedRecentSites,
     settings,
@@ -238,7 +238,8 @@ function createSectionViewsPart(ctx: PageContext, deps: SectionViewsPartDeps) {
     isCardActivationSuppressed,
     getRecentProgressState,
     toggleRecentProgressTracking,
-    recentPointer
+    recentPointer,
+    recentShown
   });
 
   const {
@@ -278,7 +279,6 @@ function createSectionViewsPart(ctx: PageContext, deps: SectionViewsPartDeps) {
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarkParts,
     bookmarksShown,
-    recentSitesView,
     recentShown,
     shortcutList,
     appliedTheme,

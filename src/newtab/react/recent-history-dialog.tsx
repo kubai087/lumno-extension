@@ -31,7 +31,6 @@ export interface RecentHistoryDialogController {
   element: HTMLDivElement;
   open(options: { item: RecentHistoryItem; sourceElement?: HTMLElement | null }): boolean;
   close(options?: { restoreFocus?: boolean }): boolean;
-  update(item: RecentHistoryItem): void;
   mount(parentNode: Node, beforeNode?: Node | null): HTMLDivElement;
   destroy(): void;
 }
@@ -229,11 +228,6 @@ export function createRecentHistoryDialog(
     return true;
   }
 
-  function update(nextItem: RecentHistoryItem): void {
-    item = nextItem;
-    if (!host.hidden) render();
-  }
-
   function mount(parentNode: Node, beforeNode?: Node | null): HTMLDivElement {
     if (beforeNode) parentNode.insertBefore(host, beforeNode);
     else parentNode.appendChild(host);
@@ -278,5 +272,5 @@ export function createRecentHistoryDialog(
   host.addEventListener('pointerdown', handlePointerDown);
   host.addEventListener('keydown', handleKeydown);
   render();
-  return Object.freeze({ element: host, open, close, update, mount, destroy });
+  return Object.freeze({ element: host, open, close, mount, destroy });
 }
