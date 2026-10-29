@@ -1,8 +1,8 @@
 import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { SelectMenu, type SelectMenuConfig, type SelectMenuControls } from '../../shared/react/select-menu';
 import { toCssLength, type SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import { queryHtmlElement, queryHtmlElements, queryHtmlTag } from '../../shared/dom-lookup';
+import { getPagePortals } from '../app/portals';
 
 export interface SelectMenuControllerOptions {
   documentObj?: Document;
@@ -28,7 +28,6 @@ export function createSelectMenuController(
     {
       config: SelectMenuConfig;
       controls: SelectMenuControls;
-      root: Root;
     }
   >();
 
@@ -37,21 +36,20 @@ export function createSelectMenuController(
     if (!instance) {
       return;
     }
-    flushSync(() => {
-      instance.root.render(
-        <SelectMenu
-          config={instance.config}
-          documentObj={documentObj}
-          getViewportTopInset={options.getViewportTopInset}
-          host={host}
-          onBeforeOpen={options.onBeforeOpen}
-          registerControls={(controls) => {
-            instance.controls = controls;
-          }}
-          windowObj={windowObj}
-        />
-      );
-    });
+    getPagePortals().show(host, (
+      <SelectMenu
+        config={instance.config}
+        documentObj={documentObj}
+        getViewportTopInset={options.getViewportTopInset}
+        host={host}
+        onBeforeOpen={options.onBeforeOpen}
+        registerControls={(controls) => {
+          instance.controls = controls;
+        }}
+        windowObj={windowObj}
+      />
+
+    ));
   };
 
   return Object.freeze({
@@ -84,7 +82,6 @@ export function createSelectMenuController(
       host.dataset.open = 'false';
       host.dataset.reactIsland = 'newtab-select-menu';
       host.dataset.select = config.selectId || '';
-      const root = createRoot(host);
       instances.set(host, {
         config: {
           ...config,
@@ -94,8 +91,7 @@ export function createSelectMenuController(
           isOpen: () => false,
           setOpen() {},
           syncValue() {}
-        },
-        root
+        }
       });
       renderInstance(host);
       const select = host.querySelector('select');
@@ -109,7 +105,7 @@ export function createSelectMenuController(
           queryHtmlElements(documentObj, 'body > ._x_extension_select_menu_2024_unique_')
         ).find((candidate) => !candidate.dataset.reactSelectClaimed);
       if (!select || !trigger || !portalMenu) {
-        root.unmount();
+        getPagePortals().remove(host);
         return null;
       }
       portalMenu.dataset.reactSelectClaimed = 'true';
@@ -127,7 +123,7 @@ export function createSelectMenuController(
       if (!instance) {
         return;
       }
-      flushSync(() => instance.root.unmount());
+      getPagePortals().remove(host);
       instances.delete(host);
     },
     isOpen(host: HTMLElement) {

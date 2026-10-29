@@ -1,6 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
 import { HexColorPicker } from 'react-colorful';
 import { SelectMenu } from '../../shared/react/select-menu';
 import { DEFAULT_CLOSE_DELAY_MS, getEnterOffset } from './shortcut-dialog-helpers';
@@ -8,6 +6,7 @@ import { DEFAULT_FOLDER_COLOR, MAX_SAVED_FOLDER_COLORS, normalizeSavedFolderColo
 import { queryHtmlElement, queryHtmlElements, queryHtmlTags } from '../../shared/dom-lookup';
 import { FolderIcon } from './folder-icon';
 import { RemixIcon } from '../../shared/react/remix-icon';
+import { getPagePortals } from '../app/portals';
 
 interface OpenOptions {
   folderId: string;
@@ -335,7 +334,6 @@ function FolderColorForm({ initial, options, initialSavedColors, updateSavedColo
 export function createFolderColorPicker(options: PickerOptions = {}) {
   const doc = options.documentObj || document;
   const host = doc.createElement('div');
-  const root = createRoot(host);
   let initial: OpenOptions | null = null;
   let savedColors: string[] = [];
   const updateSavedColors = (colors: string[]) => { savedColors = colors; };
@@ -351,7 +349,7 @@ export function createFolderColorPicker(options: PickerOptions = {}) {
   function unmount() {
     cancelMotion();
     host.inert = false;
-    flushSync(() => root.render(null));
+    getPagePortals().show(host, null);
     host.remove();
   }
   // Drift in from the source tile the same way the shortcut dialog does.
@@ -404,8 +402,10 @@ export function createFolderColorPicker(options: PickerOptions = {}) {
       host.inert = false;
       doc.body.append(host);
       doc.body.setAttribute('data-folder-color-open', 'true');
-      flushSync(() => root.render(<FolderColorForm key={revision} initial={next} options={options}
-        initialSavedColors={savedColors} updateSavedColors={updateSavedColors} close={close} />));
+      getPagePortals().show(host, (
+        <FolderColorForm key={revision} initial={next} options={options}
+          initialSavedColors={savedColors} updateSavedColors={updateSavedColors} close={close} />
+      ));
       const backdrop = getBackdrop();
       if (!backdrop) return;
       backdrop.setAttribute('data-open', 'false');
@@ -419,6 +419,6 @@ export function createFolderColorPicker(options: PickerOptions = {}) {
     },
     close,
     isOpen: () => Boolean(initial),
-    destroy() { close(); unmount(); root.unmount(); host.removeEventListener('keydown', onKeyDown); }
+    destroy() { close(); unmount(); getPagePortals().remove(host); host.removeEventListener('keydown', onKeyDown); }
   };
 }

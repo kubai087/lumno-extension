@@ -3,7 +3,7 @@
 // (newtab/top-content/quotes.ts) owns the line's host element and where it
 // sits on the page, and hands this view a model.
 import { useState } from 'react';
-import { createReactRootController } from '../../shared/react/root-controller';
+import { getPagePortals } from '../app/portals';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
@@ -106,12 +106,9 @@ export interface QuoteLineView {
 }
 
 export function createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers): QuoteLineView {
-  const controller = createReactRootController(host, (model: QuoteLineModel) => (
-    <QuoteLine handlers={handlers} model={model} />
-  ));
   return {
-    render: (model) => controller.render(model),
+    render: (model) => getPagePortals().show(host, <QuoteLine handlers={handlers} model={model} />),
     getTextElement: () => queryHtmlElement(host, '.x-nt-quote-line'),
-    destroy: () => controller.destroy()
+    destroy: () => getPagePortals().remove(host)
   };
 }

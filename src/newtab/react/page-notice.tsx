@@ -1,5 +1,4 @@
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
+import { getPagePortals } from '../app/portals';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { MessageRuntime } from '../../platform/messaging';
 import { RemixIcon } from '../../shared/react/remix-icon';
@@ -169,7 +168,6 @@ export function renderPageNotice(
   const element = documentObj.createElement('div');
   element.id = PAGE_NOTICE_ID;
   element.dataset.reactIsland = 'newtab-page-notice';
-  const root: Root = createRoot(element);
   let dismissed = false;
   const controller: PageNoticeController = {
     dismiss() {
@@ -177,30 +175,28 @@ export function renderPageNotice(
         return;
       }
       dismissed = true;
-      flushSync(() => root.unmount());
+      getPagePortals().remove(element);
       element.remove();
       options.onClose?.();
     },
     element
   };
-  flushSync(() =>
-    root.render(
-      <PageNotice
-        detailsUrl={String(options.detailsUrl || messages.detailsUrl || '')}
-        messages={messages}
-        onClose={() => controller.dismiss()}
-        onDetails={(detailsUrl) =>
-          openDetailsPage(
-            {
-              ...options,
-              windowObj: options.windowObj || window
-            },
-            detailsUrl
-          )
-        }
-      />
-    )
-  );
+  getPagePortals().show(element, (
+    <PageNotice
+      detailsUrl={String(options.detailsUrl || messages.detailsUrl || '')}
+      messages={messages}
+      onClose={() => controller.dismiss()}
+      onDetails={(detailsUrl) =>
+        openDetailsPage(
+          {
+            ...options,
+            windowObj: options.windowObj || window
+          },
+          detailsUrl
+        )
+      }
+    />
+  ));
   const bottomDock: HTMLElement | null =
     options.bottomDock || messages.bottomDock || null;
   const referenceNode =

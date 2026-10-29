@@ -8,8 +8,6 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { useExclusiveAsyncAction } from '../../shared/react/use-exclusive-async-action';
 import { isElementTextTruncated } from '../../shared/react/text-overflow';
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
@@ -18,6 +16,7 @@ import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RecentSite } from '../../domain/recent-sites-store';
+import { getPagePortals } from '../app/portals';
 
 type Translate = (key: string, fallback: string) => string;
 // A site's theme as the page resolves it; the view passes it through.
@@ -1075,7 +1074,6 @@ export function createRecentSitesView(
     return createNoopController(rawOptions);
   }
   const options: NormalizedRecentSitesOptions = normalizedOptions;
-  const reactRoot: Root = createRoot(options.grid);
   options.grid.setAttribute('data-react-island', 'recent-sites');
 
   function syncCards(): void {
@@ -1087,9 +1085,7 @@ export function createRecentSitesView(
   function clear(): void {
     options.hideTopActionTooltip();
     options.hideCursorTooltip();
-    flushSync(() => {
-      reactRoot.render(null);
-    });
+    getPagePortals().show(options.grid, null);
     options.cards.length = 0;
   }
 
@@ -1110,11 +1106,7 @@ export function createRecentSitesView(
     }
     options.hideTopActionTooltip();
     options.hideCursorTooltip();
-    flushSync(() => {
-      reactRoot.render(
-        <RecentSitesList items={normalizedItems} options={options} />
-      );
-    });
+    getPagePortals().show(options.grid, <RecentSitesList items={normalizedItems} options={options} />);
     syncCards();
     return {
       changed: true,

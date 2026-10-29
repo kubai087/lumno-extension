@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { isNode } from '../../shared/dom-guards';
 import { RemixIcon } from '../../shared/react/remix-icon';
+import { getPagePortals } from '../app/portals';
 
 export type FeedbackCommunityChannel = 'wechat' | 'x';
 
@@ -414,7 +413,6 @@ export function createFeedbackControlController(
   host.dataset.detailOpen = 'false';
   host.dataset.menuOpen = 'false';
   host.dataset.reactIsland = 'newtab-feedback-control';
-  const root: Root = createRoot(host);
   let controls: {
     close(options?: { restoreFocus?: boolean }): void;
     isOpen(): boolean;
@@ -448,7 +446,7 @@ export function createFeedbackControlController(
         return;
       }
       destroyed = true;
-      flushSync(() => root.unmount());
+      getPagePortals().remove(host);
     },
     isOpen() {
       return controls.isOpen();
@@ -462,20 +460,18 @@ export function createFeedbackControlController(
       if (destroyed) {
         return;
       }
-      flushSync(() => {
-        root.render(
-          <FeedbackControl
-            host={host}
-            model={model}
-            onOpenChange={onOpenChange}
-            onOpenExternal={options.onOpenExternal}
-            onHideTooltip={options.onHideTooltip}
-            onRefreshQr={options.onRefreshQr}
-            onShowTooltip={options.onShowTooltip}
-            registerControls={registerControls}
-          />
-        );
-      });
+      getPagePortals().show(host, (
+        <FeedbackControl
+          host={host}
+          model={model}
+          onOpenChange={onOpenChange}
+          onOpenExternal={options.onOpenExternal}
+          onHideTooltip={options.onHideTooltip}
+          onRefreshQr={options.onRefreshQr}
+          onShowTooltip={options.onShowTooltip}
+          registerControls={registerControls}
+        />
+      ));
     },
     setOpen(open: boolean) {
       controls.setOpen(open);

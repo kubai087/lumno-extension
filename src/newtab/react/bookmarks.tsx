@@ -11,7 +11,6 @@ import {
   type PointerEvent as ReactPointerEvent
 } from 'react';
 import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { isElementTextTruncated } from '../../shared/react/text-overflow';
 import { followEmptyStateArtTheme } from '../../shared/ui/empty-state-art';
 import type { CursorTooltipOptions } from '../../shared/ui/cursor-tooltip-model';
@@ -22,6 +21,7 @@ import { FaviconFallback, FolderPreviewFaviconFallback } from '../../shared/reac
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
+import { getPagePortals } from '../app/portals';
 
 // A site's theme as the page resolves it; the view passes it through.
 type ThemeValue = Partial<ThemeVariant> | null;
@@ -1196,7 +1196,6 @@ export function createBookmarksView(
     return createNoopController(rawOptions);
   }
   const options: NormalizedBookmarksOptions = normalizedOptions;
-  const reactRoot: Root = createRoot(options.grid);
   options.grid.setAttribute('data-react-island', 'bookmarks');
 
   function syncCards(resetInteraction = false): void {
@@ -1216,17 +1215,13 @@ export function createBookmarksView(
 
   function clear(): void {
     options.hideCursorTooltip();
-    flushSync(() => {
-      reactRoot.render(null);
-    });
+    getPagePortals().show(options.grid, null);
     options.cards.length = 0;
   }
 
   function appendEmptyFolderState(): void {
     options.hideCursorTooltip();
-    flushSync(() => {
-      reactRoot.render(<EmptyFolderState options={options} />);
-    });
+    getPagePortals().show(options.grid, <EmptyFolderState options={options} />);
     options.cards.length = 0;
   }
 
@@ -1265,20 +1260,18 @@ export function createBookmarksView(
     }
 
     options.hideCursorTooltip();
-    flushSync(() => {
-      reactRoot.render(
-        normalizedItems.length > 0 ? (
-          <BookmarksList
-            items={normalizedItems}
-            viewMode={viewMode}
-            menuMode={menuMode}
-            options={options}
-          />
-        ) : (
-          isAtRoot ? null : <EmptyFolderState options={options} />
-        )
-      );
-    });
+    getPagePortals().show(options.grid, (
+      normalizedItems.length > 0 ? (
+        <BookmarksList
+          items={normalizedItems}
+          viewMode={viewMode}
+          menuMode={menuMode}
+          options={options}
+        />
+      ) : (
+        isAtRoot ? null : <EmptyFolderState options={options} />
+      )
+    ));
     syncCards(true);
     return {
       changed: true,

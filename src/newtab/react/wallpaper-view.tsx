@@ -1,5 +1,4 @@
 import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import type { SelectMenuControls } from '../../shared/react/select-menu';
 import { LinkButton } from '../../shared/react/link-button';
 import { RemixIcon } from '../../shared/react/remix-icon';
@@ -23,6 +22,7 @@ import { QuoteSection } from './wallpaper-panel/quote-section';
 import { WallpaperSection } from './wallpaper-panel/wallpaper-section';
 import { FaviconSection } from './wallpaper-panel/favicon-section';
 import { queryHtmlElement, queryHtmlElements, queryHtmlTag } from '../../shared/dom-lookup';
+import { getPagePortals } from '../app/portals';
 export { EFFECT_SLIDER_KEYS } from './wallpaper-panel/panel-model';
 export type { WallpaperSourceTab, WallpaperMode, ThemeScope, TopContentMode, TimeInk, GlassTheme, EffectSliderKey, WallpaperPanelModel, TileState, OnlineTileState, SelectedSourceState, DailyState, PanelSelectModel, CuratedMixState, WallpaperPanelActions, WallpaperPanelState, SectionSettingsActions, SectionSettingsModel, QuoteSettingsActions, QuoteSettingsModel } from './wallpaper-panel/panel-model';
 
@@ -169,11 +169,10 @@ export function createWallpaperViewController(
   const control = documentObj.createElement('div');
   control.className = 'x-nt-wallpaper-control';
   control.dataset.reactIsland = 'newtab-wallpaper';
-  const root: Root = createRoot(control);
   let destroyed = false;
   const renderRoot = () => {
     control.dataset.panelOpen = state.open ? 'true' : 'false';
-    flushSync(() => root.render(
+    getPagePortals().show(control, (
       <WallpaperPanel
         documentObj={documentObj}
         model={model}
@@ -188,7 +187,7 @@ export function createWallpaperViewController(
   const panel = queryHtmlTag(control, '[data-wallpaper-ref="panel"]', 'div');
   const button = queryHtmlTag(control, '[data-wallpaper-ref="button"]', 'button');
   if (!panel || !button) {
-    flushSync(() => root.unmount());
+    getPagePortals().remove(control);
     throw new Error('Lumno React wallpaper view did not mount.');
   }
   const getRefs = () => {
@@ -211,7 +210,7 @@ export function createWallpaperViewController(
         return;
       }
       destroyed = true;
-      flushSync(() => root.unmount());
+      getPagePortals().remove(control);
     },
     focus(name: string) {
       const element = queryHtmlElement(control, `[data-wallpaper-ref="${name}"]`);

@@ -9,11 +9,10 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
 } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
+import { getPagePortals } from '../app/portals';
 
 // The menu levels size to their content within these bounds.
 const LEVEL_MIN_WIDTH_PX = 210;
@@ -268,7 +267,6 @@ export function createCascadeMenu(documentObj: Document, handlers: CascadeMenuHa
   element.className = 'x-nt-bookmark-cascade-menu';
   element.dataset.reactIsland = 'newtab-bookmark-cascade';
   element.setAttribute('role', 'menu');
-  const root: Root = createRoot(element);
   let destroyed = false;
   return {
     element,
@@ -276,7 +274,7 @@ export function createCascadeMenu(documentObj: Document, handlers: CascadeMenuHa
       if (destroyed) {
         return;
       }
-      flushSync(() => root.render(
+      getPagePortals().show(element, (
         <>
           {model.levels.map((level) => <CascadeLevel handlers={handlers} key={level.key} level={level} />)}
         </>
@@ -287,7 +285,7 @@ export function createCascadeMenu(documentObj: Document, handlers: CascadeMenuHa
         return;
       }
       destroyed = true;
-      flushSync(() => root.unmount());
+      getPagePortals().remove(element);
     }
   };
 }

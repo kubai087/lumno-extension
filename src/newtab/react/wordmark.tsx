@@ -1,9 +1,8 @@
 import NumberFlow, { NumberFlowGroup } from '@number-flow/react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import type { CSSProperties } from 'react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { queryHtmlElement } from '../../shared/dom-lookup';
+import { getPagePortals } from '../app/portals';
 
 export type NewtabTopContentMode = 'brand' | 'time';
 
@@ -535,13 +534,12 @@ export function createTopContentController(
   host.id = '_x_extension_newtab_wordmark_2026_unique_';
   host.dataset.reactIsland = 'newtab-wordmark';
   host.style.cssText = containerStyle;
-  const root: Root = createRoot(host);
   let destroyed = false;
   let current: TopContentModel | null = null;
   const draw = (model: TopContentModel) => {
     current = model;
-    flushSync(() => {
-      root.render(model.mode === 'time' ? (
+    getPagePortals().show(host, (
+      model.mode === 'time' ? (
         <ClockMark
           key={model.showSeconds === true ? 'seconds' : 'minutes'}
           model={model}
@@ -553,8 +551,8 @@ export function createTopContentController(
           onActivate={options.onActivate}
           onEntryAnimationComplete={options.onEntryAnimationComplete}
         />
-      ));
-    });
+      )
+    ));
   };
   return Object.freeze({
     destroy() {
@@ -562,7 +560,7 @@ export function createTopContentController(
         return;
       }
       destroyed = true;
-      flushSync(() => root.unmount());
+      getPagePortals().remove(host);
     },
     getButton() {
       return host.querySelector('button');

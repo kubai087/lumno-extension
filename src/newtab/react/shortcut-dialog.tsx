@@ -10,7 +10,6 @@ import {
   type MutableRefObject,
 } from 'react';
 import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { SelectMenu } from '../../shared/react/select-menu';
 import {
   DEFAULT_CLOSE_DELAY_MS,
@@ -32,6 +31,7 @@ import {
 import { isNode } from '../../shared/dom-guards';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 import { RemixIcon } from '../../shared/react/remix-icon';
+import { getPagePortals } from '../app/portals';
 
 type Translate = (key: string, fallback: string) => string;
 type IconAction = 'keep' | 'replace' | 'remove';
@@ -1399,7 +1399,6 @@ export function createShortcutDialog(
   const viewRef: MutableRefObject<ShortcutDialogViewHandle | null> = {
     current: null
   };
-  const reactRoot: Root = createRoot(host);
   let previousFocus: HTMLElement | null = null;
   let inertSnapshots: InertSnapshot[] = [];
   let modalActive = false;
@@ -1519,7 +1518,7 @@ export function createShortcutDialog(
   }
 
   function renderView(openOptions?: ShortcutDialogOpenOptions): void {
-    reactRoot.render(
+    getPagePortals().update(host, (
       <ShortcutDialogView
         key={++viewRevision}
         ref={viewRef}
@@ -1529,7 +1528,7 @@ export function createShortcutDialog(
           close({ restoreFocus: true, force: true });
         }}
       />
-    );
+    ));
   }
 
   flushSync(() => renderView());
@@ -1681,9 +1680,7 @@ export function createShortcutDialog(
     host.removeEventListener('pointerdown', handleBackdropPointerDown);
     host.removeEventListener('keydown', handleKeydown);
     options.documentObj.removeEventListener('focusin', handleDocumentFocusIn, true);
-    flushSync(() => {
-      reactRoot.unmount();
-    });
+    getPagePortals().remove(host);
     host.remove();
   }
 

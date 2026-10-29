@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
+import { getPagePortals } from '../app/portals';
 import type {
   BottomDockLayoutOptions,
   ElementSource,
@@ -93,12 +92,11 @@ export function createDock(
   const bottomDock = documentObj.createElement('div');
   bottomDock.id = DOCK_IDS.bottomDock;
   bottomDock.dataset.reactIsland = 'newtab-bottom-dock';
-  const root: Root = createRoot(bottomDock);
   const mounted: { elements: DockElements | null } = { elements: null };
   const register = (nextElements: DockElements) => {
     mounted.elements = nextElements;
   };
-  flushSync(() => root.render(<Dock register={register} />));
+  getPagePortals().show(bottomDock, <Dock register={register} />);
   if (!mounted.elements) {
     throw new Error('Lumno New Tab React dock did not mount.');
   }
@@ -138,7 +136,7 @@ export function createDock(
         return;
       }
       destroyed = true;
-      flushSync(() => root.unmount());
+      getPagePortals().remove(bottomDock);
     },
     element: bottomDock,
     layoutController,

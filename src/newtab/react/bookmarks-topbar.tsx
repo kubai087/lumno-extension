@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { TopbarBookmarkActions, type BookmarkHeaderStore } from './bookmark-header';
 import { createLiquidGlass } from './liquid-glass';
+import { getPagePortals } from '../app/portals';
 
 export const BOOKMARK_TOPBAR_IDS = Object.freeze({
   topbar: '_x_extension_newtab_bookmarks_topbar_2026_unique_',
@@ -245,16 +244,13 @@ export function createBookmarksTopbar(
   element.dataset.layout = 'docked';
   element.dataset.visible = 'false';
   element.setAttribute('aria-label', String(options.ariaLabel || 'Bookmarks'));
-  const reactRoot: Root = createRoot(element);
   const mounted: { elements: TopbarElements | null } = { elements: null };
   const register = (nextElements: TopbarElements) => {
     mounted.elements = nextElements;
   };
-  flushSync(() => reactRoot.render(
-    <TopbarStructure headerStore={options.headerStore || null} register={register} />
-  ));
+  getPagePortals().show(element, <TopbarStructure headerStore={options.headerStore || null} register={register} />);
   if (!mounted.elements) {
-    flushSync(() => reactRoot.unmount());
+    getPagePortals().remove(element);
     throw new Error('Lumno New Tab React bookmarks topbar did not mount.');
   }
   const { actions, edgeFade, itemsHost, viewport } = mounted.elements;
@@ -523,7 +519,7 @@ export function createBookmarksTopbar(
       if (element.parentNode) {
         element.parentNode.removeChild(element);
       }
-      flushSync(() => reactRoot.unmount());
+      getPagePortals().remove(element);
     },
     edgeFade,
     element,

@@ -10,7 +10,6 @@ import {
   type MouseEvent as ReactMouseEvent
 } from 'react';
 import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import {
   getIconPlateStyle,
   normalizeIconPlateMode,
@@ -25,6 +24,7 @@ import { createRenderStore, type RenderStore } from '../../shared/react/render-s
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import type { ShortcutGroup, ShortcutLink, VisibleShortcutFolder, VisibleShortcutItem } from '../../domain/shortcuts/types';
+import { getPagePortals } from '../app/portals';
 
 // A site's theme as the page resolves it; the view passes it through.
 type ThemeValue = Partial<ThemeVariant> | null;
@@ -787,7 +787,6 @@ export function createShortcutsView(
     return createNoopController(rawOptions);
   }
   const options: NormalizedOptions = normalizedOptions;
-  const reactRoot: Root = createRoot(options.grid);
   const addButtonRef: { current: HTMLButtonElement | null } = { current: null };
   options.grid.setAttribute('data-react-island', 'shortcuts');
 
@@ -827,16 +826,14 @@ export function createShortcutsView(
       options.grid.removeAttribute('data-shortcut-grouped');
       options.grid.style.removeProperty('--x-nt-shortcut-grouped-columns');
     }
-    flushSync(() => {
-      reactRoot.render(
-        <ShortcutsList
-          items={normalizedItems}
-          layout={{ ...layout, grouped }}
-          options={options}
-          addButtonRef={addButtonRef}
-        />
-      );
-    });
+    getPagePortals().show(options.grid, (
+      <ShortcutsList
+        items={normalizedItems}
+        layout={{ ...layout, grouped }}
+        options={options}
+        addButtonRef={addButtonRef}
+      />
+    ));
     refreshElements();
     const addButton = addButtonRef.current;
     if (addButton) {
@@ -880,9 +877,7 @@ export function createShortcutsView(
     fitGroupedColumns,
     clear() {
       options.hideTooltip();
-      flushSync(() => {
-        reactRoot.render(null);
-      });
+      getPagePortals().show(options.grid, null);
       options.tiles.length = 0;
       options.groupHeaders.length = 0;
       addButtonRef.current = null;

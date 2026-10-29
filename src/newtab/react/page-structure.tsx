@@ -1,11 +1,10 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
 import { BookmarkHeader, type BookmarkHeaderElements, type BookmarkHeaderModel, type BookmarkHeaderStore } from './bookmark-header';
 import { RecentModeSwitch, type RecentModeSwitchModel } from './recent-mode-switch';
 import { newtabShortcutsLegacy } from '../../domain/settings/newtab-shortcuts';
+import { getPagePortals } from '../app/portals';
 
 export const PAGE_STRUCTURE_IDS = Object.freeze({
   suggestionsContainer:
@@ -108,13 +107,12 @@ function renderStatic<T>(
   const register = (nextElements: T) => {
     mounted.elements = nextElements;
   };
-  const root = createRoot(host);
-  flushSync(() => root.render(render(register)));
+  getPagePortals().show(host, render(register));
   if (!mounted.elements) {
-    flushSync(() => root.unmount());
+    getPagePortals().remove(host);
     throw new Error('Lumno New Tab React page structure did not mount.');
   }
-  return { elements: mounted.elements, root };
+  return mounted.elements;
 }
 
 export interface PageStructureRuntime {
@@ -143,7 +141,6 @@ export function createPageStructure(config: {
   documentObj?: Document;
 } = {}): PageStructureRuntime {
   const documentObj = config.documentObj || document;
-  const roots: Root[] = [];
 
   const shortcutSection = createHost(documentObj, 'section', {
     className: 'x-nt-shortcuts-section',
@@ -154,7 +151,6 @@ export function createPageStructure(config: {
     shortcutSection,
     (register) => <ShortcutStructure register={register} />
   );
-  roots.push(shortcutRender.root);
 
   const bookmarkSection = createHost(documentObj, 'section', {
     id: PAGE_STRUCTURE_IDS.bookmarkSection,
@@ -171,7 +167,6 @@ export function createPageStructure(config: {
     bookmarkHeader,
     (register) => <BookmarkHeader register={register} store={bookmarkHeaderStore} />
   );
-  roots.push(bookmarkRender.root);
 
   const recentSection = createHost(documentObj, 'section', {
     id: PAGE_STRUCTURE_IDS.recentSection,
@@ -183,7 +178,6 @@ export function createPageStructure(config: {
     recentSection,
     (register) => <RecentStructure register={register} store={recentHeaderStore} />
   );
-  roots.push(recentRender.root);
 
   const suggestionsContainer = createHost(documentObj, 'div', {
     id: PAGE_STRUCTURE_IDS.suggestionsContainer,
@@ -208,7 +202,7 @@ export function createPageStructure(config: {
   let destroyed = false;
   return Object.freeze({
     bookmark: {
-      ...bookmarkRender.elements,
+      ...bookmarkRender,
       section: bookmarkSection,
       grid: bookmarkGrid,
       headerStore: bookmarkHeaderStore,
@@ -221,10 +215,10 @@ export function createPageStructure(config: {
         return;
       }
       destroyed = true;
-      roots.forEach((root) => flushSync(() => root.unmount()));
+      [shortcutSection, bookmarkSection, recentSection].forEach((section) => getPagePortals().remove(section));
     },
     recent: {
-      ...recentRender.elements,
+      ...recentRender,
       section: recentSection,
       renderHeader: (model: RecentHeaderModel) => {
         if (!destroyed) recentHeaderStore.render(model);
@@ -232,7 +226,7 @@ export function createPageStructure(config: {
     },
     searchLayer,
     shortcut: {
-      ...shortcutRender.elements,
+      ...shortcutRender,
       section: shortcutSection
     },
     suggestions: {

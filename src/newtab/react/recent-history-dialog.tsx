@@ -1,7 +1,6 @@
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { queryHtmlTag, queryHtmlTags } from '../../shared/dom-lookup';
 import { RemixIcon } from '../../shared/react/remix-icon';
+import { getPagePortals } from '../app/portals';
 
 export interface RecentHistoryVersion {
   title: string;
@@ -137,7 +136,6 @@ export function createRecentHistoryDialog(
   host.hidden = true;
   host.dataset.open = 'false';
   host.dataset.reactIsland = 'recent-history-dialog';
-  const reactRoot: Root = createRoot(host);
   let item: RecentHistoryItem | null = null;
   let busyIndex = -1;
   let previousFocus: HTMLElement | null = null;
@@ -148,9 +146,7 @@ export function createRecentHistoryDialog(
   function render(): void {
     if (destroyed) return;
     const model: ViewModel = { item, busyIndex, t, onClose: () => close({ restoreFocus: true }), onRestore: restore };
-    flushSync(() => {
-      reactRoot.render(<RecentHistoryDialogView {...model} />);
-    });
+    getPagePortals().show(host, <RecentHistoryDialogView {...model} />);
   }
 
   function clearTransitionTimers(): void {
@@ -275,9 +271,7 @@ export function createRecentHistoryDialog(
     destroyed = true;
     host.removeEventListener('pointerdown', handlePointerDown);
     host.removeEventListener('keydown', handleKeydown);
-    flushSync(() => {
-      reactRoot.unmount();
-    });
+    getPagePortals().remove(host);
     host.remove();
   }
 
