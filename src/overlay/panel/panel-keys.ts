@@ -1,5 +1,6 @@
 // Keys inside the panel: Tab into modes and autocomplete, the input's
 // keydown, and navigating, opening and deleting results.
+import type { ImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { WebAppearanceMode } from '../../domain/messages';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
@@ -45,7 +46,8 @@ interface PanelKeysDeps {
   requestOverlaySearchSuggestions(query: string): void;
   clearSearchSuggestions(): void;
   clearOpenTabsSearchMode(): void;
-  isImeCompositionEvent(event: KeyboardEvent): boolean;
+  // Whether a key belongs to an IME composition and is not the page's.
+  imeKeyGuard: Pick<ImeKeyGuard, 'shouldIgnoreKeydown'>;
   // The rendered rows, in list order.
   suggestionItems: SuggestionElement[];
   numberShortcutOptions: NumberShortcutOptions;
@@ -100,7 +102,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode,
-    isImeCompositionEvent,
+    imeKeyGuard,
     suggestionItems,
     numberShortcutOptions,
     removeOverlay,
@@ -241,7 +243,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       clearOpenTabsSearchMode();
       return;
     }
-    if (isImeCompositionEvent(e)) {
+    if (imeKeyGuard.shouldIgnoreKeydown(e)) {
       return;
     }
     const inputHistoryDirection =
@@ -329,7 +331,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     )) {
       return;
     }
-    if (isImeCompositionEvent(e)) {
+    if (imeKeyGuard.shouldIgnoreKeydown(e)) {
       return;
     }
     const suggestionNavigationKey = getSuggestionNavigationKey(e);

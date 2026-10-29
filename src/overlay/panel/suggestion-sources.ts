@@ -1,5 +1,6 @@
 // Building suggestions: keywords, direct navigation, help center
 // answers, and the update that merges local, tab and remote results.
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import { themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
@@ -83,7 +84,8 @@ interface SuggestionSourcesDeps {
   setOverlayResultsCollapsed(collapsed: boolean, options?: { deferLayoutSync?: boolean } | null): void;
   syncSuggestionLastState(): void;
   commitSuggestionsNaturalHeightAfterRender(): void;
-  cancelPendingOverlaySuggestionRequests(): void;
+  // Stops the answers on their way.
+  suggestionSource: Pick<SuggestionSource, 'cancel'>;
   shouldShowOpenTabsForEmptyQuery(): boolean;
   requestTabsAndRender(query?: string): void;
   clearDefaultOpenTabsSuggestions(): void;
@@ -147,7 +149,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     setOverlayResultsCollapsed,
     syncSuggestionLastState,
     commitSuggestionsNaturalHeightAfterRender,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     shouldShowOpenTabsForEmptyQuery,
     requestTabsAndRender,
     clearDefaultOpenTabsSuggestions
@@ -546,7 +548,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     });
   }
   function clearSearchSuggestions(): void {
-    cancelPendingOverlaySuggestionRequests();
+    suggestionSource.cancel();
     releaseSuggestionsHeight(elements.suggestionsContainer, window);
     searchMode.clearHints();
     clearSiteSearchTabHint();

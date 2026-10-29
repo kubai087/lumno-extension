@@ -1,6 +1,7 @@
 // Search modes: site search, local scopes and open tabs, their input
 // prefixes and labels, and the top-site and trigger candidates that suggest
 // switching.
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 import type { Translate } from './types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
@@ -15,7 +16,8 @@ interface SearchModesDeps {
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   t: Translate;
-  cancelPendingOverlaySuggestionRequests(): void;
+  // Stops the answers on their way.
+  suggestionSource: Pick<SuggestionSource, 'cancel'>;
   clearSearchSuggestions(): void;
   renderCachedTabsForOverlay(query: string): void;
   requestTabsAndRender(query?: string): void;
@@ -41,7 +43,7 @@ function createSearchModes(deps: SearchModesDeps) {
     searchAutocomplete,
     searchQuery,
     t,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     clearSearchSuggestions,
     renderCachedTabsForOverlay,
     requestTabsAndRender,
@@ -105,7 +107,7 @@ function createSearchModes(deps: SearchModesDeps) {
   ): void {
     const prefixOptions = options || {};
     cancelPendingOpenTabsPrefixEntry();
-    cancelPendingOverlaySuggestionRequests();
+    suggestionSource.cancel();
     searchMode.enterOpenTabs();
     searchAutocomplete.clear();
     if (prefixOptions.deferPrefixEntry === true) {

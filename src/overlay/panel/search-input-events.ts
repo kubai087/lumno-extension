@@ -1,5 +1,6 @@
 // Input events in the search box: reading the live value, the trigger
 // hint, IME composition and the main input handler.
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SiteSearchProvider } from '../../domain/search/types';
@@ -30,7 +31,8 @@ interface SearchInputEventsDeps {
   clearSiteSearchTabHint(): void;
   isSlashCommandInput(input: string): boolean;
   setSiteSearchTabHint(provider: SiteSearchProvider | InputModeProvider): void;
-  cancelPendingOverlaySuggestionRequests(): void;
+  // Stops the answers on their way.
+  suggestionSource: Pick<SuggestionSource, 'cancel'>;
   notifyOverlayLoadingSession(input: HTMLInputElement | null): void;
   updateModeBadge(rawValue: string): void;
   // Called with no rows: the list rebuilds from the typed command.
@@ -71,7 +73,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     clearSiteSearchTabHint,
     isSlashCommandInput,
     setSiteSearchTabHint,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     notifyOverlayLoadingSession,
     updateModeBadge,
     updateSearchSuggestions,
@@ -170,7 +172,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
   function handleSearchInputCompositionStart(event: Event | null): void {
     runSearchInputEventOnce(event, () => {
       suggestionInputPreview.commit();
-      cancelPendingOverlaySuggestionRequests();
+      suggestionSource.cancel();
       syncLiveSearchInputFromEvent(event);
       imeKeyGuard.markCompositionStart(event);
       searchAutocomplete.clear();

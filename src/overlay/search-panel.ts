@@ -404,7 +404,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     pauseOverlayAntiTranslateObserverForScroll,
     clearOverlayEnterAnimationFrames,
     clearOverlayPanelEnterCleanup,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     stopOverlayAntiTranslateObserver,
     overlayShell,
     overlayLifecycle
@@ -635,7 +635,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setOverlayResultsCollapsed,
     syncSuggestionLastState,
     commitSuggestionsNaturalHeightAfterRender,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     shouldShowOpenTabsForEmptyQuery,
     requestTabsAndRender,
     clearDefaultOpenTabsSuggestions
@@ -669,7 +669,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchAutocomplete,
     searchQuery,
     t,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     clearSearchSuggestions,
     renderCachedTabsForOverlay,
     requestTabsAndRender,
@@ -726,7 +726,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode,
-    isImeCompositionEvent,
+    imeKeyGuard,
     suggestionItems,
     numberShortcutOptions,
     removeOverlay,
@@ -771,7 +771,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     clearSiteSearchTabHint,
     isSlashCommandInput,
     setSiteSearchTabHint,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     notifyOverlayLoadingSession,
     updateModeBadge,
     updateSearchSuggestions,
@@ -802,9 +802,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyInputActionLabels
   });
 
-  function cancelPendingOverlaySuggestionRequests() {
-    suggestionSource.cancel();
-  }
 
   // Follows the system's scheme while the theme follows the system.
   let overlayThemeMediaListener: (() => void) | null = null;
@@ -1312,9 +1309,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     suggestionInputPreview.restore(elements.searchInput, searchQuery.raw);
   });
 
-  function isImeCompositionEvent(event: KeyboardEvent): boolean {
-    return imeKeyGuard.shouldIgnoreKeydown(event);
-  }
   const defaultPlaceholder = inputParts.input.placeholder;
   const attachFaviconData = faviconRuntime.attachFaviconData;
   const attachInputModeFaviconData =
@@ -1571,7 +1565,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       elements.inputModeController.handleModeMenuKeyEvent(e);
       return true;
     },
-    isImeComposition: isImeCompositionEvent,
+    isImeComposition: imeKeyGuard.shouldIgnoreKeydown,
     onKeyUp: () => imeKeyGuard.markKeyUp(),
     syncModifiers: suggestionModifiers.syncFromEvent,
     handleNumberShortcut: (e) => SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(

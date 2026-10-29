@@ -2,6 +2,7 @@
 // session's panel from a stale one, the mount host and its visibility, wheel
 // isolation, telling the background about loading and closing, and removing
 // the panel.
+import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import * as LumnoMessaging from '../../platform/messaging';
 import type * as OverlayLifecycle from '../lifecycle';
 import type { createNoticeLayer } from '../notices';
@@ -17,7 +18,8 @@ interface PanelSessionDeps {
   pauseOverlayAntiTranslateObserverForScroll(): void;
   clearOverlayEnterAnimationFrames(): void;
   clearOverlayPanelEnterCleanup(): void;
-  cancelPendingOverlaySuggestionRequests(): void;
+  // Stops the answers on their way.
+  suggestionSource: Pick<SuggestionSource, 'cancel'>;
   stopOverlayAntiTranslateObserver(): void;
   overlayShell: { destroyOverlayMount(host: HTMLElement | null): void };
   overlayLifecycle: Pick<typeof OverlayLifecycle, 'requestSessionDestroy'>;
@@ -69,7 +71,7 @@ function createPanelSession(deps: PanelSessionDeps) {
     pauseOverlayAntiTranslateObserverForScroll,
     clearOverlayEnterAnimationFrames,
     clearOverlayPanelEnterCleanup,
-    cancelPendingOverlaySuggestionRequests,
+    suggestionSource,
     stopOverlayAntiTranslateObserver,
     overlayShell,
     overlayLifecycle
@@ -414,7 +416,7 @@ function createPanelSession(deps: PanelSessionDeps) {
     }
     clearOverlayEnterAnimationFrames();
     clearOverlayPanelEnterCleanup();
-    cancelPendingOverlaySuggestionRequests();
+    suggestionSource.cancel();
     if (revealGate && typeof revealGate.cancel === 'function') {
       revealGate.cancel();
       revealGate = null;

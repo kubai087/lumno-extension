@@ -101,5 +101,8 @@ function createImeKeyGuard(options?: ImeKeyGuardOptions) {
   });
 }
 
+type ImeKeyGuard = ReturnType<typeof createImeKeyGuard>;
+
 export { createImeKeyGuard };
+export type { ImeKeyGuard };
 export type { ImeKeyEvent, ImeKeyGuardOptions };
