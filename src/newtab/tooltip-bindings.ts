@@ -6,7 +6,9 @@ import type { Translate } from './newtab-types';
 import { newtabShortcutDockMagnificationEnabled } from '../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from './setting-preview';
 import type { SearchBoxParts } from './search/search-box-parts';
-
+import type { DragSessions } from './drag-sessions';
+import { isBookmarkHoverSuppressed } from './dom/drag-hover';
+import type { SelectMenuController } from './newtab-types';
 
 interface TooltipBindingsDeps {
   preview: Pick<SettingPreview, 'get'>;
@@ -14,15 +16,16 @@ interface TooltipBindingsDeps {
   searchInputCursorTooltipController: CursorTooltipController;
   shortcutTooltipController: TooltipController;
   t: Translate;
-  isShortcutDragActive(): boolean;
-  isBookmarkDragActive(): boolean;
-  isShortcutContextMenuOpen(): boolean;
   shortcutDialogTooltipController: TooltipController;
   bookmarkCursorTooltipController: CursorTooltipController;
-  // Whether bookmark hover feedback is off for this target, as during a drag.
-  shouldSuppressBookmarkHover(target: HTMLElement): boolean;
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
   shortcutGrid: HTMLElement;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'bookmarkDragging' | 'recentCardDragging' | 'shortcutDragging'>;
+  // The context menus' select menus: tooltips hide as one opens, and tiles
+  // show none while the shortcut menu is open.
+  shortcutContextMenuSelectController: Pick<SelectMenuController, 'events' | 'isAnyOpen'>;
+  bookmarkContextMenuSelectController: Pick<SelectMenuController, 'events'>;
+  recentContextMenuSelectController: Pick<SelectMenuController, 'events'>;
 }
 
 function createTooltipBindings(deps: TooltipBindingsDeps) {
@@ -34,14 +37,13 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
     searchInputCursorTooltipController,
     shortcutTooltipController,
     t,
-    isShortcutDragActive,
-    isBookmarkDragActive,
-    isShortcutContextMenuOpen,
     shortcutDialogTooltipController,
     bookmarkCursorTooltipController,
-    shouldSuppressBookmarkHover
+    dragSessions,
+    shortcutContextMenuSelectController,
+    bookmarkContextMenuSelectController,
+    recentContextMenuSelectController
   } = deps;
-
 
   function showTopActionTooltip(
     button: HTMLElement | null | undefined,
@@ -123,10 +125,10 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
 
   function isShortcutTooltipSuppressed(): boolean {
     return Boolean(
-      isShortcutDragActive() ||
-      isBookmarkDragActive() ||
+      dragSessions.shortcutDragging ||
+      (dragSessions.bookmarkDragging || dragSessions.recentCardDragging) ||
       (shortcutGrid && shortcutGrid.getAttribute('data-shortcut-dragging') === 'true') ||
-      isShortcutContextMenuOpen()
+      shortcutContextMenuSelectController.isAnyOpen()
     );
   }
 
@@ -178,13 +180,24 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
   }
 
   function isBookmarkCursorTooltipSuppressed(target: HTMLElement): boolean {
-    return shouldSuppressBookmarkHover(target);
+    return isBookmarkHoverSuppressed(dragSessions, target);
   }
 
   function hideCursorTooltip(): void {
     bookmarkCursorTooltipController.hide();
   }
 
+
+  shortcutContextMenuSelectController.events.on('opening', () => {
+    hideShortcutTooltip();
+    hideTopActionTooltip();
+  });
+  [bookmarkContextMenuSelectController, recentContextMenuSelectController].forEach((controller) => {
+    controller.events.on('opening', () => {
+      hideCursorTooltip();
+      hideTopActionTooltip();
+    });
+  });
   return {
     showTopActionTooltip,
     hideTopActionTooltip,

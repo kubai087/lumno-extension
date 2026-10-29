@@ -9,6 +9,7 @@ import * as NEWTAB_BOOKMARKS_TOPBAR from '../react/bookmarks-topbar';
 import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../menu-values';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 type BookmarkViewMode = 'folder' | 'list' | 'top';
 type BookmarkTopbarLayout = ReturnType<typeof BookmarksTopbar.normalizeLayout>;
@@ -21,7 +22,6 @@ interface BookmarkDisplaySettingsDeps {
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'remove' | 'set' | 'subscribe'>;
   updateBookmarkModeMenu(): void;
   setNewtabTopLayout(layout: BookmarkTopbarLayout): void;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   showToast: ShowToast;
   t: Translate;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
@@ -39,7 +39,6 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
     settings,
     updateBookmarkModeMenu,
     setNewtabTopLayout,
-    scheduleWallpaperAdaptiveToneUpdate,
     showToast,
     t,
     appliedTheme
@@ -139,7 +138,7 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
       updateBookmarkModeMenu();
     }
     if (config.scheduleTone !== false) {
-      scheduleWallpaperAdaptiveToneUpdate();
+      adaptiveToneEvents.emit('stale', {});
     }
     return effectiveMode;
   }

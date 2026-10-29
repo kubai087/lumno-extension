@@ -9,7 +9,6 @@ import type { PageStructureRuntime } from '../react/page-structure';
 import * as NEWTAB_BOOKMARK_CASCADE_MENU from './bookmark-cascade-menu';
 import type { CascadeItemEventDetail } from './bookmark-cascade-menu';
 import * as NEWTAB_BOOKMARK_CASCADE_POSITION from './bookmark-cascade-position';
-import type { PointLike } from './bookmark-cascade-position';
 import type { BookmarkItemContextMenuEvent } from './bookmark-context-menu';
 import type * as FolderIcon from './bookmark-folder-icon';
 import type { BookmarksRuntime } from './bookmarks-runtime';
@@ -20,6 +19,9 @@ import type { SettingsStore } from '../../platform/settings-store';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import { createBookmarksTopbar } from '../react/bookmarks-topbar';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
+import { isBookmarkHoverSuppressed } from '../dom/drag-hover';
+import type { DragSessions } from '../drag-sessions';
+import { getBookmarkCascadeViewportTopPaddingPx } from '../dom/top-inset';
 
 type ViewOption<K extends keyof BookmarksViewOptions> = NonNullable<BookmarksViewOptions[K]>;
 
@@ -56,7 +58,6 @@ interface BookmarkSectionDeps {
   queueThemeForTarget: ViewOption<'queueThemeForTarget'>;
   applyBookmarkCardTheme: ViewOption<'applyCardTheme'>;
   shouldDelayBookmarkHoverFromRecent: ViewOption<'shouldDelayHoverFromRecent'>;
-  shouldSuppressBookmarkHover(target: Element, event?: Event | PointLike | null): boolean;
   bindCursorTooltip: BindCursorTooltip;
   hideCursorTooltip(): void;
   openBookmarkFolder: ViewOption<'openFolder'>;
@@ -77,11 +78,11 @@ interface BookmarkSectionDeps {
   hideTopActionTooltip(): void;
   handleBookmarkCascadeItemPointerDown(detail: CascadeItemEventDetail<PointerEvent>): void;
   isBookmarkContextMenuNode(node: EventTarget | null): boolean;
-  getBookmarkCascadeViewportTopPaddingPx(): number;
   setNewtabTopOccupied(occupied: boolean): void;
   syncBookmarkTopbarSurfaceAppearance(options?: { updateMenu?: boolean; scheduleTone?: boolean }): unknown;
   syncBookmarkSurfaceMode(): void;
   bookmarkParts: Pick<BookmarkSectionParts, 'mount'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'shortcutDragging'>;
 }
 
 function createBookmarkSection(deps: BookmarkSectionDeps) {
@@ -112,7 +113,6 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     queueThemeForTarget,
     applyBookmarkCardTheme,
     shouldDelayBookmarkHoverFromRecent,
-    shouldSuppressBookmarkHover,
     bindCursorTooltip,
     hideCursorTooltip,
     openBookmarkFolder,
@@ -130,11 +130,11 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     hideTopActionTooltip,
     handleBookmarkCascadeItemPointerDown,
     isBookmarkContextMenuNode,
-    getBookmarkCascadeViewportTopPaddingPx,
     setNewtabTopOccupied,
     syncBookmarkTopbarSurfaceAppearance,
     syncBookmarkSurfaceMode,
-    bookmarkParts
+    bookmarkParts,
+    dragSessions
   } = deps;
 
 
@@ -172,7 +172,7 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     applyCardTheme: applyBookmarkCardTheme,
     shouldDelayHoverFromRecent: shouldDelayBookmarkHoverFromRecent,
     hoverDelayFromRecentMs: BOOKMARK_HOVER_DELAY_FROM_RECENT_MS,
-    shouldSuppressHover: shouldSuppressBookmarkHover,
+    shouldSuppressHover: (target) => isBookmarkHoverSuppressed(dragSessions, target),
     bindCursorTooltip,
     hideCursorTooltip,
     openFolder: openBookmarkFolder,
@@ -213,7 +213,7 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
       ...options,
       surface: isShortcutFolderAnchor(options && options.anchor) ? 'shortcuts' : 'bookmarks'
     }),
-    shouldSuppressHover: shouldSuppressBookmarkHover,
+    shouldSuppressHover: (target) => isBookmarkHoverSuppressed(dragSessions, target),
     bindCursorTooltip,
     hideCursorTooltip,
     copyUrl: copyBookmarkUrl,

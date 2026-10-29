@@ -3,6 +3,7 @@ import { SelectMenu, type SelectMenuConfig, type SelectMenuControls } from '../.
 import { toCssLength, type SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import { queryHtmlElement, queryHtmlElements, queryHtmlTag } from '../../shared/dom-lookup';
 import { getPagePortals } from '../app/portals';
+import { createEventBus } from '../../shared/state/events';
 
 export interface SelectMenuControllerOptions {
   documentObj?: Document;
@@ -30,6 +31,16 @@ export function createSelectMenuController(
       controls: SelectMenuControls;
     }
   >();
+  // The hosts made and not destroyed, which isAnyOpen asks.
+  const hosts = new Set<HTMLElement>();
+  // `opening`: one of the menus is about to open.
+  const events = createEventBus<{ opening: null }>();
+  const announceOpening = () => {
+    if (options.onBeforeOpen) {
+      options.onBeforeOpen();
+    }
+    events.emit('opening', null);
+  };
 
   const renderInstance = (host: HTMLElement) => {
     const instance = instances.get(host);
@@ -42,17 +53,17 @@ export function createSelectMenuController(
         documentObj={documentObj}
         getViewportTopInset={options.getViewportTopInset}
         host={host}
-        onBeforeOpen={options.onBeforeOpen}
+        onBeforeOpen={announceOpening}
         registerControls={(controls) => {
           instance.controls = controls;
         }}
         windowObj={windowObj}
       />
-
     ));
   };
 
   return Object.freeze({
+    events,
     createSelect(config: SelectMenuConfig): SelectMenuInstance | null {
       const host = documentObj.createElement('div');
       host.id = config.id || '';
@@ -82,6 +93,7 @@ export function createSelectMenuController(
       host.dataset.open = 'false';
       host.dataset.reactIsland = 'newtab-select-menu';
       host.dataset.select = config.selectId || '';
+      hosts.add(host);
       instances.set(host, {
         config: {
           ...config,
@@ -125,9 +137,14 @@ export function createSelectMenuController(
       }
       getPagePortals().remove(host);
       instances.delete(host);
+      hosts.delete(host);
     },
     isOpen(host: HTMLElement) {
       return instances.get(host)?.controls.isOpen() || false;
+    },
+    // Whether any menu this controller made is open.
+    isAnyOpen() {
+      return Array.from(hosts).some((host) => instances.get(host)?.controls.isOpen() || false);
     },
     setMenuTitle(host: HTMLElement, title: string) {
       const instance = instances.get(host);

@@ -23,6 +23,19 @@ class DragSessions {
     return this.recentCardSession;
   }
 
+  // Whether a drag has left its threshold and moves its card or tile.
+  get bookmarkDragging(): boolean {
+    return Boolean(this.bookmarkSession && this.bookmarkSession.isDragging);
+  }
+
+  get shortcutDragging(): boolean {
+    return Boolean(this.shortcutSession && this.shortcutSession.isDragging);
+  }
+
+  get recentCardDragging(): boolean {
+    return Boolean(this.recentCardSession && this.recentCardSession.isDragging);
+  }
+
   setBookmark(session: BookmarkDragSession | null): void {
     this.bookmarkSession = session;
   }

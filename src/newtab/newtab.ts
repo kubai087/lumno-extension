@@ -81,7 +81,8 @@ import * as NEWTAB_TOOLTIP_CONTROLLERS from './tooltip-controllers';
 import * as LumnoNewtabQuotes from './top-content/quotes';
 import * as NEWTAB_TOP_CONTENT_RUNTIME from './top-content/top-content';
 import * as NEWTAB_URL_POLICY from './url-policy';
-import * as NEWTAB_VIEWPORT_INSETS from './viewport-insets';
+import { followNewtabVisualViewportInsets } from './viewport-insets';
+import { getNewtabViewportTopPaddingPx } from './dom/top-inset';
 import * as NEWTAB_WALLPAPER_PAGE from './wallpaper/wallpaper-page';
 import * as LumnoMessaging from '../platform/messaging';
 import { isNode } from '../shared/dom-guards';
@@ -179,6 +180,7 @@ import { DragSessions } from './drag-sessions';
 import { FaviconParts } from './theme/favicon-parts';
 import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
+import { adaptiveToneEvents } from './wallpaper/tone-requests';
 
 (function() {
   const {
@@ -306,9 +308,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     }
   }
 
-  const {
-    getNewtabVisualViewportInsets
-  } = NEWTAB_VIEWPORT_INSETS.createViewportInsets();
+  followNewtabVisualViewportInsets();
 
   // Escape closes only the top open layer (menus, popovers, panels, drags).
   // The folder color dialog handles its own Escape.
@@ -355,29 +355,53 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const shortcutContextMenuSelectController = createSelectMenuController({
     documentObj: document,
     windowObj: window,
-    onBeforeOpen: () => {
-      hideShortcutTooltip();
-      hideTopActionTooltip();
-    },
-    getViewportTopInset: () => getNewtabViewportTopPaddingPx()
+    getViewportTopInset: getNewtabViewportTopPaddingPx
   });
   const bookmarkContextMenuSelectController = createSelectMenuController({
     documentObj: document,
     windowObj: window,
-    onBeforeOpen: () => {
-      hideCursorTooltip();
-      hideTopActionTooltip();
-    },
-    getViewportTopInset: () => getNewtabViewportTopPaddingPx()
+    getViewportTopInset: getNewtabViewportTopPaddingPx
   });
   const recentContextMenuSelectController = createSelectMenuController({
     documentObj: document,
     windowObj: window,
-    onBeforeOpen: () => {
-      hideCursorTooltip();
-      hideTopActionTooltip();
-    },
-    getViewportTopInset: () => getNewtabViewportTopPaddingPx()
+    getViewportTopInset: getNewtabViewportTopPaddingPx
+  });
+
+  const {
+    topActionTooltipController,
+    shortcutTooltipController,
+    shortcutDialogTooltipController,
+    bookmarkCascadeCopyTooltipController,
+    bookmarkCursorTooltipController,
+    searchInputCursorTooltipController
+  } = NEWTAB_TOOLTIP_CONTROLLERS.createTooltipControllers();
+
+  const {
+    showTopActionTooltip,
+    hideTopActionTooltip,
+    bindSearchInputCursorTooltip,
+    hideSearchInputCursorTooltip,
+    bindShortcutTooltip,
+    hideShortcutTooltip,
+    bindShortcutDialogTooltip,
+    hideShortcutDialogTooltip,
+    bindCursorTooltip,
+    hideCursorTooltip
+  } = NEWTAB_TOOLTIP_BINDINGS.createTooltipBindings({
+    shortcutContextMenuSelectController,
+    bookmarkContextMenuSelectController,
+    recentContextMenuSelectController,
+    dragSessions,
+    shortcutGrid,
+    searchBox,
+    preview,
+    topActionTooltipController,
+    searchInputCursorTooltipController,
+    shortcutTooltipController,
+    t,
+    shortcutDialogTooltipController,
+    bookmarkCursorTooltipController
   });
 
   const {
@@ -431,8 +455,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     shortcutSection,
     shortcutList,
     t,
-    bindShortcutDialogTooltip: (...args) => bindShortcutDialogTooltip(...args),
-    hideShortcutDialogTooltip: (...args) => hideShortcutDialogTooltip(...args),
+    bindShortcutDialogTooltip,
+    hideShortcutDialogTooltip,
     readSavedFolderColors: (...args) => readSavedFolderColors(...args),
     saveSavedFolderColors: (...args) => saveSavedFolderColors(...args),
     getShortcutGroups: (...args) => getShortcutGroups(...args),
@@ -469,7 +493,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     addBookmarkFolderToShortcuts: (...args) => addBookmarkFolderToShortcuts(...args),
     closeShortcutContextMenu: (...args) => closeShortcutContextMenu(...args),
     closeRecentContextMenu: (...args) => closeRecentContextMenu(...args),
-    hideCursorTooltip: (...args) => hideCursorTooltip(...args)
+    hideCursorTooltip
   });
 
   const shortcutFolderRuntime = FOLDER_BINDINGS.createRuntime({
@@ -542,7 +566,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     settings,
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     setNewtabTopLayout: (...args) => setNewtabTopLayout(...args),
-    scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
     showToast,
     t
   });
@@ -592,7 +615,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     t,
     getShortcutContextMenuOptions,
     closeRecentContextMenu: (...args) => closeRecentContextMenu(...args),
-    hideShortcutTooltip: (...args) => hideShortcutTooltip(...args),
+    hideShortcutTooltip,
     getShortcutTileId,
     openShortcutGroupDialog: (...args) => openShortcutGroupDialog(...args),
     openShortcutAddDialog: (...args) => openShortcutAddDialog(...args),
@@ -611,13 +634,11 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     syncShortcutDockFolderMenu,
     followShortcutDockMagnification
   } = NEWTAB_SHORTCUT_DOCK.createShortcutDock({
+    dragSessions,
     getShortcutContextMenuTile,
     shortcutGrid,
     settings,
     preview,
-    isShortcutDragActive: (...args) => isShortcutDragActive(...args),
-    isBookmarkDragActive: () => isBookmarkDragActive() ||
-      Boolean(dragSessions.recentCard && dragSessions.recentCard.isDragging),
     isShortcutContextMenuOpen,
     applyShortcutContextMenuDockHover,
     clearShortcutContextMenuTileActive,
@@ -782,8 +803,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeShortcutContextMenu,
     closeBookmarkContextMenu,
     canDismissRecentCard: (...args) => canDismissRecentCard(...args),
-    hideCursorTooltip: (...args) => hideCursorTooltip(...args),
-    hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
+    hideCursorTooltip,
+    hideTopActionTooltip,
     normalizeHost,
     getCanonicalPageUrlForFavicon,
     sanitizeDisplayText,
@@ -822,11 +843,11 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bookmarksRuntime,
     closeBookmarkCascadeMenu,
     closeShortcutDialog,
-    hideCursorTooltip: (...args) => hideCursorTooltip(...args),
+    hideCursorTooltip,
     t,
     playFolderPathMorph,
-    bindShortcutDialogTooltip: (...args) => bindShortcutDialogTooltip(...args),
-    hideShortcutDialogTooltip: (...args) => hideShortcutDialogTooltip(...args),
+    bindShortcutDialogTooltip,
+    hideShortcutDialogTooltip,
     showToast
   });
   dismissStack.setShouldIgnore(isFolderColorPickerOpen);
@@ -867,7 +888,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getThemeSource,
     normalizeThemeConfidence,
     isLowConfidenceTheme,
-    scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
     recentPointer
   });
 
@@ -880,7 +900,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getTooltipController: () => topActionTooltipController,
     onLayout: () => window.requestAnimationFrame(() => {
       updateBookmarkSectionPosition();
-      scheduleWallpaperAdaptiveToneUpdate();
+      adaptiveToneEvents.emit('stale', {});
     })
   });
   const {
@@ -923,8 +943,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     addMediaQueryChangeListener,
     mediaQuery,
-    removeMediaQueryChangeListener,
-    scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args)
+    removeMediaQueryChangeListener
   });
 
   const {
@@ -975,7 +994,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getBookmarkLimit: (...args) => getBookmarkLimit(...args),
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
-    scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
     getVisibleShortcuts: (...args) => getVisibleShortcuts(...args),
     resetShortcutDockHover,
     closeShortcutContextMenu,
@@ -1048,8 +1066,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     wallpaperRuntime,
     bootstrapInitialWallpaper,
     markInitialWallpaperVisualReady,
-    getWallpaperShownAt,
-    scheduleWallpaperAdaptiveToneUpdate
+    getWallpaperShownAt
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
     topContentController,
     topContentContainer,
@@ -1082,8 +1099,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     setThemeScope,
     showToast,
     beginToast,
-    showTopActionTooltip: (...args) => showTopActionTooltip(...args),
-    hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
+    showTopActionTooltip,
+    hideTopActionTooltip,
     applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     getEffectiveNewtabSearchWidth,
     setNewtabSearchWidth,
@@ -1286,7 +1303,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     recentCards,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
-    scheduleWallpaperAdaptiveToneUpdate,
     settings,
     preview
   });
@@ -1311,50 +1327,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   const {
-    topActionTooltipController,
-    shortcutTooltipController,
-    shortcutDialogTooltipController,
-    bookmarkCascadeCopyTooltipController,
-    bookmarkCursorTooltipController,
-    searchInputCursorTooltipController
-  } = NEWTAB_TOOLTIP_CONTROLLERS.createTooltipControllers();
-
-  const {
-    showTopActionTooltip,
-    hideTopActionTooltip,
-    bindSearchInputCursorTooltip,
-    hideSearchInputCursorTooltip,
-    bindShortcutTooltip,
-    hideShortcutTooltip,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
-    bindCursorTooltip,
-    hideCursorTooltip
-  } = NEWTAB_TOOLTIP_BINDINGS.createTooltipBindings({
-    shortcutGrid,
-    searchBox,
-    preview,
-    topActionTooltipController,
-    searchInputCursorTooltipController,
-    shortcutTooltipController,
-    t,
-    isShortcutDragActive: (...args) => isShortcutDragActive(...args),
-    isBookmarkDragActive: () => isBookmarkDragActive() ||
-      Boolean(dragSessions.recentCard && dragSessions.recentCard.isDragging),
-    isShortcutContextMenuOpen,
-    shortcutDialogTooltipController,
-    bookmarkCursorTooltipController,
-    shouldSuppressBookmarkHover: (...args) => shouldSuppressBookmarkHover(...args)
-  });
-
-  const {
     setRecentMode,
     canDismissRecentCard,
     updateBookmarkHeader,
     isBookmarkTopbarMode,
-    getNewtabTopOccupiedInsetPx,
-    getNewtabViewportTopPaddingPx,
-    getBookmarkCascadeViewportTopPaddingPx,
     setNewtabTopOccupied,
     setNewtabTopLayout,
     syncBookmarkSurfaceMode,
@@ -1370,7 +1346,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     preview,
     settings,
     t,
-    getNewtabVisualViewportInsets,
     updateSearchEntryLayout,
     setContentSectionVisible,
     bookmarkSection,
@@ -1443,6 +1418,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    dragSessions,
     historyLock,
     bookmarkParts,
     setShortcutIconError,
@@ -1451,7 +1427,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     settings,
     shortcutFolderRuntime,
     bookmarksRuntime,
-    isShortcutDragActive: (...args) => isShortcutDragActive(...args),
     moveShortcutByKeyboard: (...args) => moveShortcutByKeyboard(...args),
     normalizeHost,
     sanitizeDisplayText,
@@ -1486,7 +1461,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bookmarkMoveHistory,
     getBookmarkUndoShortcutLabel: (...args) => getBookmarkUndoShortcutLabel(...args),
     resetShortcutDockHover,
-    scheduleWallpaperAdaptiveToneUpdate,
     pageStructureRuntime,
     shortcutTiles,
     shortcutGroupHeaders,
@@ -1547,8 +1521,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     refreshOpenBookmarkCascadeMenu,
     syncOpenBookmarkCascadeAnchorVisual,
     performBookmarkMoveHistoryAction,
-    isBookmarkDragActive,
-    shouldSuppressBookmarkHover,
     finishBookmarkDrag,
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
@@ -1598,9 +1570,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     navigateBookmarkFolder,
     switchBookmarkPageDuringDrag: (...args) => switchBookmarkPageDuringDrag(...args),
     setShortcutDragTileTransform: (...args) => setShortcutDragTileTransform(...args),
-    scheduleWallpaperAdaptiveToneUpdate,
     formatMessage,
-    isShortcutDragActive: (...args) => isShortcutDragActive(...args),
     hideCursorTooltip,
     isEditableElement: (...args) => isEditableElement(...args),
     closeBookmarkCascadeMenu,
@@ -1608,13 +1578,14 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     applyShortcutGroupDeleteRecord,
     autoScrollShortcutArea: (...args) => autoScrollShortcutArea(...args),
     closeBookmarkContextMenu,
-    getShortcutGroups: (...args) => getShortcutGroups(...args),
+    getShortcutGroups,
     isWebDavBackingUpShortcuts
   });
 
   createShortcutsSection();
 
   NEWTAB_BOOKMARK_SECTION.createBookmarkSection({
+    dragSessions,
     bookmarkParts,
     settings,
     preview,
@@ -1642,7 +1613,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     queueThemeForTarget,
     applyBookmarkCardTheme,
     shouldDelayBookmarkHoverFromRecent,
-    shouldSuppressBookmarkHover,
     bindCursorTooltip,
     hideCursorTooltip,
     openBookmarkFolder,
@@ -1660,7 +1630,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     hideTopActionTooltip,
     handleBookmarkCascadeItemPointerDown,
     isBookmarkContextMenuNode,
-    getBookmarkCascadeViewportTopPaddingPx,
     setNewtabTopOccupied,
     syncBookmarkTopbarSurfaceAppearance,
     syncBookmarkSurfaceMode
@@ -1722,7 +1691,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bookmarkSection,
     suggestionsSurface,
     suggestionsOutline,
-    getNewtabTopOccupiedInsetPx,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
     viewport: viewportActivity
@@ -1763,7 +1731,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     scheduleShortcutDragMove,
     finishShortcutDrag,
     moveShortcutByKeyboard,
-    isShortcutDragActive,
     isBookmarkSurfaceDragStateActive,
     handleShortcutDragPointerDown
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
@@ -1795,7 +1762,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     clearBookmarkDragPageSwitch,
     clearBookmarkDragFolderSwitch,
     clearDragDropTarget,
-    scheduleWallpaperAdaptiveToneUpdate,
     getBookmarkDragPageSwitchDirection,
     scheduleBookmarkDragPageSwitch,
     getShortcutFolderDropTargetAt,
@@ -1859,7 +1825,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     hideCursorTooltip,
     hideTopActionTooltip,
     resetShortcutDockHover,
-    scheduleWallpaperAdaptiveToneUpdate,
     showToast,
     t,
     formatMessage
@@ -1888,8 +1853,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getHiddenRecentSites,
     settings,
     preview,
-    isShortcutDragActive,
-    isRecentCardDragActive: recentCardDrag.isRecentCardDragActive,
     resumeRecentCardDragAfterFolderSwitch: recentCardDrag.resumeRecentCardDragAfterFolderSwitch,
     isBookmarkTopbarMode,
     scheduleShortcutDragMove,
@@ -2144,8 +2107,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     hideShortcutTooltip,
     hideCursorTooltip,
     updateBookmarkSectionPosition,
-    updateSearchEntryLayout,
-    scheduleWallpaperAdaptiveToneUpdate
+    updateSearchEntryLayout
   });
 
   const {
@@ -2294,7 +2256,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followNewtabGlassStyle
   } = NEWTAB_GLASS_SURFACES.createGlassSurfaces({
     settings,
-    scheduleWallpaperAdaptiveToneUpdate,
     syncBookmarkTopbarSurfaceAppearance
   });
 
@@ -2499,13 +2460,13 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     finishBookmarkDrag(null, { canceled: true });
   });
   window.addEventListener('visibilitychange', handleRecentVisibilityChange);
-  window.addEventListener('resize', scheduleWallpaperAdaptiveToneUpdate, { passive: true });
+  window.addEventListener('resize', () => adaptiveToneEvents.emit('stale', {}), { passive: true });
   // An open folder menu follows its anchor once per frame while the page
   // scrolls; scroll events run before that frame's animation callbacks, so
   // the menu never trails the page.
   let bookmarkCascadeScrollFrame = 0;
   window.addEventListener('scroll', () => {
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
     if (bookmarkCascadeScrollFrame || !bookmarkParts.cascade || !bookmarkParts.cascade.isOpen()) {
       return;
     }
@@ -2514,7 +2475,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
       positionBookmarkCascadeLevels();
     });
   }, { passive: true });
-  bottomDockRuntime.onScroll(scheduleWallpaperAdaptiveToneUpdate, { passive: true });
+  bottomDockRuntime.onScroll(() => adaptiveToneEvents.emit('stale', {}), { passive: true });
   const actionButtonVisibilityReadyPromise = followNewtabActionButtonVisibility();
   const glassStyleReadyPromise = followNewtabGlassStyle();
   const shortcutPreferencesReadyPromise = followNewtabShortcutPreferences();

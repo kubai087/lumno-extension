@@ -10,6 +10,7 @@ import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import { newtabShortcutDockMagnificationEnabled } from '../../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from '../setting-preview';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { DragSessions } from '../drag-sessions';
 const SHORTCUT_DOCK_FOLLOW_TIME_MS = 60;
 const SHORTCUT_DOCK_DEFAULT_SCALE = 1.28;
 const SHORTCUT_DOCK_DEFAULT_RISE_PX = -6;
@@ -39,8 +40,6 @@ interface DockMagnitude {
 interface ShortcutDockDeps {
   settings: Pick<SettingsStore, 'subscribe'>;
   preview: Pick<SettingPreview, 'get'>;
-  isShortcutDragActive(): boolean;
-  isBookmarkDragActive(): boolean;
   isShortcutContextMenuOpen(): boolean;
   applyShortcutContextMenuDockHover(tile: HTMLElement): void;
   clearShortcutContextMenuTileActive(): void;
@@ -48,6 +47,7 @@ interface ShortcutDockDeps {
   shortcutGrid: HTMLElement;
   // The tile the open shortcut menu acts on; null while it is closed.
   getShortcutContextMenuTile(): HTMLElement | null;
+  dragSessions: Pick<DragSessions, 'bookmarkDragging' | 'recentCardDragging' | 'shortcutDragging'>;
 }
 
 function createShortcutDock(deps: ShortcutDockDeps) {
@@ -55,12 +55,11 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     shortcutGrid,
     settings,
     preview,
-    isShortcutDragActive,
-    isBookmarkDragActive,
     applyShortcutContextMenuDockHover,
     clearShortcutContextMenuTileActive,
     getShortcutTileFromNode,
-    getShortcutContextMenuTile
+    getShortcutContextMenuTile,
+    dragSessions
   } = deps;
 
   // The pointer's x for the next dock frame; NaN when none is pending.
@@ -248,7 +247,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     const pendingPointerX = shortcutDockPendingPointerX;
     shortcutDockPendingTile = null;
     shortcutDockPendingPointerX = Number.NaN;
-    if (isShortcutDragActive() || isBookmarkDragActive()) {
+    if (dragSessions.shortcutDragging || (dragSessions.bookmarkDragging || dragSessions.recentCardDragging)) {
       shortcutDockLastFrameTime = 0;
       return;
     }
@@ -430,7 +429,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
   }
 
   function handleShortcutDockPointerOver(event: PointerEvent): void {
-    if (isShortcutDragActive() || isBookmarkDragActive()) {
+    if (dragSessions.shortcutDragging || (dragSessions.bookmarkDragging || dragSessions.recentCardDragging)) {
       return;
     }
     const tile = getShortcutTileFromNode(event.target);
@@ -447,7 +446,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
   }
 
   function handleShortcutDockPointerMove(event: PointerEvent): void {
-    if (isShortcutDragActive() || isBookmarkDragActive()) {
+    if (dragSessions.shortcutDragging || (dragSessions.bookmarkDragging || dragSessions.recentCardDragging)) {
       return;
     }
     // In the gap between two tiles the pointer is over the grid itself; the

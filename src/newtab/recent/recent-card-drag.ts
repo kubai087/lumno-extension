@@ -25,6 +25,7 @@ import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
 import type { DragSessions } from '../drag-sessions';
 import { recentEvents } from './recent-events';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 
 interface RecentCardDragDeps {
@@ -58,7 +59,6 @@ interface RecentCardDragDeps {
   hideCursorTooltip(): void;
   hideTopActionTooltip(): void;
   resetShortcutDockHover(): void;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
@@ -138,7 +138,6 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     hideCursorTooltip,
     hideTopActionTooltip,
     resetShortcutDockHover,
-    scheduleWallpaperAdaptiveToneUpdate,
     showToast,
     t,
     formatMessage,
@@ -156,10 +155,6 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
   const GHOST_SHADOW = '0 12px 28px rgba(15, 23, 42, 0.22), 0 2px 6px rgba(15, 23, 42, 0.12)';
   const GHOST_REST_SHADOW = '0 0 0 rgba(15, 23, 42, 0), 0 0 0 rgba(15, 23, 42, 0)';
 
-
-  function isRecentCardDragActive(): boolean {
-    return Boolean(dragSessions.recentCard && dragSessions.recentCard.isDragging);
-  }
 
   function isRecentCardDragState(state: SurfaceDragState | null): boolean {
     return Boolean(state && state === dragSessions.recentCard && state.isDragging);
@@ -558,7 +553,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
         bookmarkMoveHistory.push(record);
       }
       if (saved) {
-        scheduleWallpaperAdaptiveToneUpdate();
+        adaptiveToneEvents.emit('stale', {});
       }
       return Boolean(saved);
     }).finally(() => {
@@ -796,7 +791,6 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
   recentEvents.on('cardPointerDown', handleRecentCardPointerDown);
   return {
     finishRecentCardDrag,
-    isRecentCardDragActive,
     isRecentCardDragState,
     hasRecentCardDragSession: () => Boolean(dragSessions.recentCard),
     resumeRecentCardDragAfterFolderSwitch

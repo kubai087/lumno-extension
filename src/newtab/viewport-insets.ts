@@ -6,36 +6,40 @@ function isPinchZoomed(visualViewport: Pick<VisualViewport, 'scale'> | null | un
   return Number.isFinite(scale) && Math.abs(scale - 1) > 0.001;
 }
 
-function createViewportInsets() {
-  function getNewtabVisualViewportInsets(): { top: number; bottom: number } {
-    const visualViewport = window.visualViewport;
-    if (!visualViewport || isPinchZoomed(visualViewport)) {
-      return { top: 0, bottom: 0 };
-    }
-    const top = Number.isFinite(Number(visualViewport.offsetTop))
-      ? Math.max(0, Number(visualViewport.offsetTop))
-      : 0;
-    const viewportHeight = Number.isFinite(Number(visualViewport.height))
-      ? Math.max(0, Number(visualViewport.height))
-      : Math.max(0, Number(window.innerHeight) || 0);
-    const layoutHeight = Math.max(0, Number(window.innerHeight) || viewportHeight);
-    const bottom = Math.max(0, layoutHeight - top - viewportHeight);
-    return { top, bottom };
+// The insets the visual viewport leaves at the top and bottom of the layout.
+function getNewtabVisualViewportInsets(): { top: number; bottom: number } {
+  const visualViewport = window.visualViewport;
+  if (!visualViewport || isPinchZoomed(visualViewport)) {
+    return { top: 0, bottom: 0 };
   }
-  function syncNewtabVisualViewportInsets(): void {
-    if (!document.documentElement || !document.documentElement.style) {
-      return;
-    }
-    const insets = getNewtabVisualViewportInsets();
-    document.documentElement.style.setProperty(
-      '--x-nt-visual-viewport-top-inset',
-      `${Math.round(insets.top)}px`
-    );
-    document.documentElement.style.setProperty(
-      '--x-nt-visual-viewport-bottom-inset',
-      `${Math.round(insets.bottom)}px`
-    );
+  const top = Number.isFinite(Number(visualViewport.offsetTop))
+    ? Math.max(0, Number(visualViewport.offsetTop))
+    : 0;
+  const viewportHeight = Number.isFinite(Number(visualViewport.height))
+    ? Math.max(0, Number(visualViewport.height))
+    : Math.max(0, Number(window.innerHeight) || 0);
+  const layoutHeight = Math.max(0, Number(window.innerHeight) || viewportHeight);
+  const bottom = Math.max(0, layoutHeight - top - viewportHeight);
+  return { top, bottom };
+}
+
+function syncNewtabVisualViewportInsets(): void {
+  if (!document.documentElement || !document.documentElement.style) {
+    return;
   }
+  const insets = getNewtabVisualViewportInsets();
+  document.documentElement.style.setProperty(
+    '--x-nt-visual-viewport-top-inset',
+    `${Math.round(insets.top)}px`
+  );
+  document.documentElement.style.setProperty(
+    '--x-nt-visual-viewport-bottom-inset',
+    `${Math.round(insets.bottom)}px`
+  );
+}
+
+// Keeps the CSS insets current from now on.
+function followNewtabVisualViewportInsets(): void {
   syncNewtabVisualViewportInsets();
   window.addEventListener('resize', syncNewtabVisualViewportInsets, { passive: true });
   if (window.visualViewport &&
@@ -51,13 +55,6 @@ function createViewportInsets() {
       { passive: true }
     );
   }
-
-  return {
-    getNewtabVisualViewportInsets
-  };
 }
 
-type ViewportInsets = ReturnType<typeof createViewportInsets>;
-
-export { createViewportInsets, isPinchZoomed };
-export type { ViewportInsets };
+export { followNewtabVisualViewportInsets, getNewtabVisualViewportInsets, isPinchZoomed };

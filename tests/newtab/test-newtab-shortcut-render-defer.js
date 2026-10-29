@@ -36,7 +36,8 @@ const noop = () => {};
 const controller = LumnoNewtabShortcutsController.createShortcutsController({
   NEWTAB_SHORTCUTS_STORE,
   NEWTAB_SHORTCUT_ICON_PLATE: require(path.join(repoRoot, 'src/newtab/shortcuts/shortcut-icon-plate.ts')),
-  isShortcutDragActive: () => dragActive,
+  // A shortcut drag runs while `dragActive` is set.
+  dragSessions: { get shortcutDragging() { return dragActive; } },
   shortcutFolderRuntime: { visibleItems: (items) => items, flush: () => Promise.resolve() },
   bookmarksRuntime: { getNodeMap: () => new Map(), getSnapshot: () => ({ ready: true, nodeMap: new Map() }) },
   pageStructureRuntime: { shortcut: { section: createElementStub(), grid: createElementStub() } },

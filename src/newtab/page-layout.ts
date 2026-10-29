@@ -25,6 +25,7 @@ import type { RecentPointer } from './recent/recent-pointer';
 import type { ShortcutList } from './shortcuts/shortcut-list';
 import type { BottomDockParts } from './shortcuts/bottom-dock-parts';
 import type { BookmarksShown } from './bookmarks/bookmarks-shown';
+import { adaptiveToneEvents } from './wallpaper/tone-requests';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -49,7 +50,6 @@ interface PageLayoutDeps extends
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
   preview: Pick<SettingPreview, 'get' | 'show' | 'store'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   viewport: Pick<ViewportActivity, 'locked'>;
   recentPointer: Pick<RecentPointer, 'reset'>;
   shortcutList: Pick<ShortcutList, 'items'>;
@@ -78,7 +78,6 @@ function createPageLayout(deps: PageLayoutDeps) {
     getBookmarkLimit,
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
-    scheduleWallpaperAdaptiveToneUpdate,
     getVisibleShortcuts,
     resetShortcutDockHover,
     closeShortcutContextMenu,
@@ -230,7 +229,7 @@ function createPageLayout(deps: PageLayoutDeps) {
     if (section === recentSection && (!visible || settings.get(newtabZenMode))) {
       closeRecentContextMenu();
     }
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
   }
 
   function isContentSectionVisible(section: Element | null | undefined): boolean {
@@ -387,7 +386,7 @@ function createPageLayout(deps: PageLayoutDeps) {
       bottomDockParts.layoutMotion.commit();
     }
     rememberSearchEntryViewport();
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
   }
 
   function updateSearchEntryLayout(options?: SearchEntryLayoutOptions): void {

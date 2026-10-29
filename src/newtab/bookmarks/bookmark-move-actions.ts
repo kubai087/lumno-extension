@@ -19,6 +19,7 @@ import type { ShortcutList } from '../shortcuts/shortcut-list';
 import type { BookmarksShown } from './bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
 import type { MoveHistoryLock } from './move-history-lock';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 
 interface BookmarkMoveActionsDeps {
@@ -28,7 +29,6 @@ interface BookmarkMoveActionsDeps {
   applyShortcutGroupDeleteRecord(record: ShortcutGroupDeleteRecord, isUndo: boolean): Promise<boolean>;
   persistShortcuts: PersistShortcuts;
   refreshShortcutFolderReferences(): Promise<unknown>;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
   loadBookmarks(options?: { force?: boolean }): unknown;
   refreshOpenBookmarkCascadeMenu(refreshOptions?: CascadeRefreshOptions): Promise<boolean>;
@@ -66,7 +66,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
     refreshShortcutFolderReferences,
-    scheduleWallpaperAdaptiveToneUpdate,
     markBookmarkTreeDirty,
     loadBookmarks,
     refreshOpenBookmarkCascadeMenu,
@@ -277,7 +276,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         if (!saved) return;
         if (isUndo) bookmarkMoveHistory.commitUndo();
         else bookmarkMoveHistory.commitRedo();
-        scheduleWallpaperAdaptiveToneUpdate();
+        adaptiveToneEvents.emit('stale', {});
       }).finally(() => { historyLock.release(); });
       return true;
     }

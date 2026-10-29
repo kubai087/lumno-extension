@@ -82,9 +82,7 @@ interface BookmarkDragControllerDeps {
   // Shows another page of the bookmarks during a drag; false when it cannot.
   switchBookmarkPageDuringDrag(page: number): boolean;
   setShortcutDragTileTransform(state: SurfaceDragState, pointerX: number, pointerY: number): void;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   formatMessage: FormatMessage;
-  isShortcutDragActive(): boolean;
   hideCursorTooltip(): void;
   isEditableElement(element: Element): boolean;
   closeBookmarkCascadeMenu(options?: { animate?: boolean }): void;
@@ -104,7 +102,7 @@ interface BookmarkDragControllerDeps {
   bookmarkPagerPrevButton: HTMLElement;
   bookmarkPagerNextButton: HTMLElement;
   historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
-  dragSessions: Pick<DragSessions, 'bookmark' | 'setBookmark'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'setBookmark' | 'shortcutDragging'>;
   getAddShortcutButton(): HTMLElement | null;
 }
 
@@ -170,9 +168,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     navigateBookmarkFolder,
     switchBookmarkPageDuringDrag,
     setShortcutDragTileTransform,
-    scheduleWallpaperAdaptiveToneUpdate,
     formatMessage,
-    isShortcutDragActive,
     hideCursorTooltip,
     isEditableElement,
     closeBookmarkCascadeMenu,
@@ -1285,7 +1281,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
     refreshShortcutFolderReferences,
-    scheduleWallpaperAdaptiveToneUpdate,
     markBookmarkTreeDirty,
     loadBookmarks,
     refreshOpenBookmarkCascadeMenu: (refreshOptions) => refreshOpenBookmarkCascadeMenu(refreshOptions),
@@ -1327,29 +1322,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     return nextAnchor
       ? bookmarkParts.cascade.rebindAnchor(nextAnchor, { instant: true })
       : false;
-  }
-
-  function isBookmarkDragActive(): boolean {
-    return Boolean(
-      (dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
-      (bookmarkGrid && bookmarkGrid.getAttribute('data-bookmark-dragging') === 'true')
-    );
-  }
-
-  function isBookmarkReorderInteractionActive(): boolean {
-    return Boolean(dragSessions.bookmark || isBookmarkDragActive());
-  }
-
-  // Bookmark cards and cascade rows show no hover while a drag is on.
-  function shouldSuppressBookmarkHover(target: Element | null | undefined): boolean {
-    return Boolean(
-      target &&
-      (isBookmarkReorderInteractionActive() || isShortcutDragActive()) &&
-      (
-        target.classList.contains('x-nt-bookmark-card') ||
-        target.closest('.x-nt-bookmark-card, .x-nt-bookmark-cascade-item')
-      )
-    );
   }
 
   function startBookmarkDrag(event: PointerEvent, card: BookmarkDragSource): void {
@@ -1678,8 +1650,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     refreshOpenBookmarkCascadeMenu,
     syncOpenBookmarkCascadeAnchorVisual,
     performBookmarkMoveHistoryAction,
-    isBookmarkDragActive,
-    shouldSuppressBookmarkHover,
     finishBookmarkDrag,
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown

@@ -16,7 +16,6 @@ import type { SectionLoaders } from './section-loaders';
 import type { SuggestionsController } from './search/suggestions-controller';
 import type { QuoteRuntime } from './top-content/quotes';
 import type { TopContentRuntime } from './top-content/top-content';
-import type { ToneScheduleOptions } from './wallpaper/wallpaper-adaptive-tone';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabTopContentMode } from '../domain/settings/newtab-time';
 import { themeMode } from '../domain/settings/appearance';
@@ -31,6 +30,7 @@ import type { PageNoticeControllers } from './notice-controllers';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import type { FaviconParts } from './theme/favicon-parts';
+import { adaptiveToneEvents } from './wallpaper/tone-requests';
 
 type ResolvedTheme = 'light' | 'dark';
 
@@ -51,8 +51,6 @@ interface AppearanceModesDeps extends
   renderShortcuts(): void;
   updateBookmarkModeMenu: SectionHeaders['updateBookmarkModeMenu'];
   forceReloadRecentSitesForI18n: SectionLoaders['forceReloadRecentSitesForI18n'];
-  // { resetInk: true } when a setting changed what the glass ink should be.
-  scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions): void;
   // Resolves "system" through the media query unless a match is given.
   resolveTheme(mode: ThemeMode, mediaMatchesOverride?: boolean | null): ResolvedTheme;
   mediaQuery: MediaQueryList;
@@ -95,8 +93,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     applyWordmarkThemeAppearance,
     addMediaQueryChangeListener,
     mediaQuery,
-    removeMediaQueryChangeListener,
-    scheduleWallpaperAdaptiveToneUpdate
+    removeMediaQueryChangeListener
   } = deps;
 
 
@@ -189,7 +186,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
       mediaListenerAttached = false;
     }
     // A new theme decides the glass ink afresh rather than holding the last theme's.
-    scheduleWallpaperAdaptiveToneUpdate(didResolvedThemeChange ? { resetInk: true } : undefined);
+    adaptiveToneEvents.emit('stale', { resetInk: didResolvedThemeChange });
   }
 
   function isNewtabThemeFollowingGlobal(): boolean {

@@ -55,6 +55,8 @@ import type { ShortcutList } from './shortcut-list';
 import { faviconEnhancedFetchEnabled, faviconRequestBlacklist } from '../../domain/settings/search';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
+import type { DragSessions } from '../drag-sessions';
 
 
 // An option the shortcuts view is handed as it is.
@@ -65,7 +67,6 @@ interface ShortcutsControllerDeps {
   shortcutFolderRuntime: Pick<FolderBindingRuntime, 'ready' | 'flush' | 'getNode' | 'reconcile' | 'visibleItems'>;
   bookmarksRuntime: Pick<BookmarksRuntime,
     'getNode' | 'getNodeMap' | 'getSnapshot' | 'ensureReady' | 'runControlledMutation' | 'update'>;
-  isShortcutDragActive(): boolean;
   moveShortcutByKeyboard: ViewOption<'moveShortcut'>;
   normalizeHost: NonNullable<ShortcutNormalizeOptions['normalizeHost']>;
   sanitizeDisplayText(text: unknown): string;
@@ -102,7 +103,6 @@ interface ShortcutsControllerDeps {
   bookmarkMoveHistory: Pick<BookmarkMoveHistory, 'push'>;
   getBookmarkUndoShortcutLabel(): string;
   resetShortcutDockHover: ShortcutDock['resetShortcutDockHover'];
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   pageStructureRuntime: { shortcut: Pick<PageStructureRuntime['shortcut'], 'section' | 'grid'> };
   shortcutTiles: ViewOption<'tiles'>;
   shortcutGroupHeaders: ViewOption<'groupHeaders'>;
@@ -136,6 +136,7 @@ interface ShortcutsControllerDeps {
   historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
   setShortcutError(message: string): void;
   setShortcutIconError(message: string): void;
+  dragSessions: Pick<DragSessions, 'shortcutDragging'>;
 }
 
 // The icon choice a dialog submitted.
@@ -231,7 +232,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     settings,
     shortcutFolderRuntime,
     bookmarksRuntime,
-    isShortcutDragActive,
     moveShortcutByKeyboard,
     normalizeHost,
     sanitizeDisplayText,
@@ -266,7 +266,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     bookmarkMoveHistory,
     getBookmarkUndoShortcutLabel,
     resetShortcutDockHover,
-    scheduleWallpaperAdaptiveToneUpdate,
     pageStructureRuntime,
     shortcutTiles,
     shortcutGroupHeaders,
@@ -295,7 +294,8 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     handleShortcutGroupMenu,
     animateShortcutLayoutChange,
     setShortcutError,
-    setShortcutIconError
+    setShortcutIconError,
+    dragSessions
   } = deps;
 
   // Bumped when the favicon policy changes, so requests made before it are
@@ -363,10 +363,10 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     if (historyLock.busy) return Promise.resolve(false);
     const original = shortcutList.items;
     return Promise.all([shortcutFolderRuntime.ready, bookmarksRuntime.ensureReady(false)]).then(([, ready]) => {
-      if (!ready || historyLock.busy || isShortcutDragActive() || shortcutList.items !== original) return false;
+      if (!ready || historyLock.busy || dragSessions.shortcutDragging || shortcutList.items !== original) return false;
       const next = shortcutFolderRuntime.reconcile(original, bookmarksRuntime.getNodeMap());
       return shortcutFolderRuntime.flush().then(() => {
-        if (shortcutList.items !== original || historyLock.busy || isShortcutDragActive()) return false;
+        if (shortcutList.items !== original || historyLock.busy || dragSessions.shortcutDragging) return false;
         if (JSON.stringify(next) !== JSON.stringify(original)) return persistShortcuts(next);
         renderShortcuts();
         return true;
@@ -914,7 +914,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     if (!shortcutsView) {
       return;
     }
-    if (isShortcutDragActive()) {
+    if (dragSessions.shortcutDragging) {
       shortcutRenderDeferred = true;
       return;
     }
@@ -929,7 +929,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       groups: shortcutGroups
     });
     if (grouped) {
-      scheduleWallpaperAdaptiveToneUpdate();
+      adaptiveToneEvents.emit('stale', {});
     }
     shortcutFolderRuntime.flush().catch(() => {});
     syncOpenBookmarkCascadeAnchorVisual();
@@ -944,7 +944,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   }
 
   function flushDeferredShortcutRender(): void {
-    if (shortcutRenderDeferred && !isShortcutDragActive()) {
+    if (shortcutRenderDeferred && !dragSessions.shortcutDragging) {
       renderShortcuts();
     }
   }
@@ -1723,7 +1723,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     resetShortcutDockHover();
     applyNewtabShortcutsVisibility();
     updateBookmarkSectionPosition({ preserveSearchEntryLayout: true });
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
     showToast(t(
       'newtab_shortcuts_add_hidden',
       '“+” hidden. Re-enable it in Settings → Appearance → Shortcuts → Show “+”.'

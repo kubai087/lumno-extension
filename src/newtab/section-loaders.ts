@@ -41,7 +41,7 @@ interface SectionLoadOptions {
 
 
 interface SectionLoadersDeps extends
-  Pick<ShortcutDrag, 'isShortcutDragActive' | 'scheduleShortcutDragMove'>,
+  Pick<ShortcutDrag, 'scheduleShortcutDragMove'>,
   Pick<BookmarkDragController,
     'updateBookmarkDragLayoutCache' | 'setBookmarkDragCardTransform' | 'scheduleBookmarkDragMove' |
     'syncOpenBookmarkCascadeAnchorVisual' | 'playPendingBookmarkLayoutAnimation'>,
@@ -62,7 +62,6 @@ interface SectionLoadersDeps extends
   Pick<RecentSources, 'getRecentSites'> {
   settings: Pick<SettingsStore, 'get'>;
   preview: Pick<SettingPreview, 'get'>;
-  isRecentCardDragActive: RecentCardDrag['isRecentCardDragActive'];
   resumeRecentCardDragAfterFolderSwitch: RecentCardDrag['resumeRecentCardDragAfterFolderSwitch'];
   isBookmarkTopbarMode: SectionHeaders['isBookmarkTopbarMode'];
   setBookmarkSurfaceVisible: SectionHeaders['setBookmarkSurfaceVisible'];
@@ -75,7 +74,7 @@ interface SectionLoadersDeps extends
   bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'renderSignature' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
   bookmarkGrid: HTMLElement;
-  dragSessions: Pick<DragSessions, 'bookmark' | 'shortcut'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'recentCardDragging' | 'shortcut' | 'shortcutDragging'>;
   recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'>;
 }
 
@@ -90,8 +89,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     appliedTheme,
     settings,
     preview,
-    isShortcutDragActive,
-    isRecentCardDragActive,
     resumeRecentCardDragAfterFolderSwitch,
     isBookmarkTopbarMode,
     scheduleShortcutDragMove,
@@ -152,7 +149,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
 
   function isDragActive(): boolean {
     return Boolean((dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
-      isShortcutDragActive() || isRecentCardDragActive());
+      dragSessions.shortcutDragging || dragSessions.recentCardDragging);
   }
 
   function getShortcutAreaLimit(): string {
@@ -189,7 +186,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       isAtRoot &&
       normalizedItems.length === 0 &&
       ((dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
-        isShortcutDragActive() || isRecentCardDragActive())
+        dragSessions.shortcutDragging || dragSessions.recentCardDragging)
     );
     if (bookmarkGrid) {
       if (keepEmptyRootVisibleForDrag) {

@@ -6,6 +6,7 @@ import type { BookmarkCardElement } from '../react/bookmarks';
 import type { SiteThemeResolver } from './site-theme-resolver';
 import type { ThemeRgb } from '../../domain/favicon/types';
 import type { RecentPointer } from '../recent/recent-pointer';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 // A theme as a card or tile holds it; parts may be missing.
 type CardTheme = Partial<ThemeVariant> | null | undefined;
@@ -25,7 +26,6 @@ interface CardThemesDeps {
   getThemeSource: SiteThemeResolver['getThemeSource'];
   normalizeThemeConfidence: SiteThemeResolver['normalizeThemeConfidence'];
   isLowConfidenceTheme: SiteThemeResolver['isLowConfidenceTheme'];
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   recentPointer: Pick<RecentPointer, 'wasInsideWithin'>;
 }
 
@@ -45,7 +45,6 @@ function createCardThemes(deps: CardThemesDeps) {
     getThemeSource,
     normalizeThemeConfidence,
     isLowConfidenceTheme,
-    scheduleWallpaperAdaptiveToneUpdate,
     recentPointer
   } = deps;
 
@@ -164,7 +163,7 @@ function createCardThemes(deps: CardThemesDeps) {
     tile.style.removeProperty('--x-nt-shortcut-wallpaper-icon-color');
     tile.style.setProperty('--x-nt-shortcut-icon-bg', colors.iconBg);
     tile.style.setProperty('--x-nt-shortcut-icon-color', colors.iconColor);
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
   }
 
   function shouldDelayBookmarkHoverFromRecent(pointerType?: string): boolean {

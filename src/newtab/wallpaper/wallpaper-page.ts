@@ -8,7 +8,7 @@ import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ThemeScope } from '../react/wallpaper-panel/panel-model';
 import type { TopContentController } from '../react/wordmark';
 import type { QuoteRuntime } from '../top-content/quotes';
-import type { AdaptiveToneTarget, ToneScheduleOptions } from './wallpaper-adaptive-tone';
+import type { AdaptiveToneTarget } from './wallpaper-adaptive-tone';
 import * as NEWTAB_WALLPAPER from './wallpaper';
 import type { SectionPanelSettings } from './runtime/panel-actions';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
@@ -26,6 +26,7 @@ import { NEWTAB_GLASS_ADAPTIVE_SELECTOR } from '../newtab-config';
 import { SEARCH_WIDTH_CONFIG } from '../layout';
 import type { BottomDockParts } from '../shortcuts/bottom-dock-parts';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
+import { adaptiveToneEvents } from './tone-requests';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -489,12 +490,11 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     return wallpaperShownAt;
   }
 
-  function scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions | Event | null): void {
-    wallpaperRuntime.scheduleAdaptiveToneUpdate(options);
-  }
+  // Parts that move or restyle what the tone samples ask for a new sample.
+  adaptiveToneEvents.on('stale', (options) => wallpaperRuntime.scheduleAdaptiveToneUpdate(options));
 
   // The dock's magnification changes what the glass behind it samples.
-  settings.subscribe(newtabShortcutDockMagnificationEnabled, () => scheduleWallpaperAdaptiveToneUpdate());
+  settings.subscribe(newtabShortcutDockMagnificationEnabled, () => wallpaperRuntime.scheduleAdaptiveToneUpdate());
 
   // The panel draws in the page's language.
   locale.store.subscribe(() => wallpaperRuntime.updateLanguageStrings());
@@ -505,8 +505,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     wallpaperRuntime,
     bootstrapInitialWallpaper,
     markInitialWallpaperVisualReady,
-    getWallpaperShownAt,
-    scheduleWallpaperAdaptiveToneUpdate
+    getWallpaperShownAt
   };
 }
 

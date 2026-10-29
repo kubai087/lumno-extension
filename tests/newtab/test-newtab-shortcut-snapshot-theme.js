@@ -49,7 +49,7 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   NEWTAB_SHORTCUT_ICON_PLATE: require(path.join(repoRoot, 'src/newtab/shortcuts/shortcut-icon-plate.ts')),
   SHORTCUT_FAVICON,
   FAVICON_UTILS,
-  isShortcutDragActive: () => false,
+  dragSessions: { shortcutDragging: false },
   shortcutFolderRuntime: { visibleItems: (items) => items, flush: () => Promise.resolve() },
   bookmarksRuntime: { getNodeMap: () => new Map() },
   pageStructureRuntime: { shortcut: { section: createElementStub(), grid: createElementStub() } },

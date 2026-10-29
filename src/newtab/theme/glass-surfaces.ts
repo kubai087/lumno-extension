@@ -1,24 +1,21 @@
 // The glass material: which surfaces the liquid style bends the wallpaper
 // under, the stored glass style and theme, and the ink hint remembered for
 // the next load.
-import type { ToneScheduleOptions } from '../wallpaper/wallpaper-adaptive-tone';
 import { createLiquidSurfaces } from '../react/liquid-glass';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
 import { newtabGlassStyle, newtabGlassTheme } from '../../domain/settings/newtab-page';
 import * as SETTINGS from '../../domain/settings';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 interface GlassSurfacesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
-  // { resetInk: true } when a setting changed what the glass ink should be.
-  scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions): void;
   syncBookmarkTopbarSurfaceAppearance(options: { updateMenu: boolean }): void;
 }
 
 function createGlassSurfaces(deps: GlassSurfacesDeps) {
   const {
     settings,
-    scheduleWallpaperAdaptiveToneUpdate,
     syncBookmarkTopbarSurfaceAppearance
   } = deps;
 
@@ -80,7 +77,7 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     if (newtabGlassOpenObserver || typeof MutationObserver !== 'function') {
       return;
     }
-    newtabGlassOpenObserver = new MutationObserver(() => scheduleWallpaperAdaptiveToneUpdate());
+    newtabGlassOpenObserver = new MutationObserver(() => adaptiveToneEvents.emit('stale', {}));
     newtabGlassOpenObserver.observe(document.body, {
       attributes: true,
       subtree: true,
@@ -117,7 +114,7 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     syncNewtabGlassOpenObserver(style !== 'none');
     // The bookmarks bar's "match style" background follows the page's material.
     syncBookmarkTopbarSurfaceAppearance({ updateMenu: false });
-    scheduleWallpaperAdaptiveToneUpdate({ resetInk: true });
+    adaptiveToneEvents.emit('stale', { resetInk: true });
   }
 
   // A material set to light or dark holds the page's theme there (appearance-modes.ts reads the

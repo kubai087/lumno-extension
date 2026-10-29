@@ -14,6 +14,7 @@ import { bookmarkCount } from '../domain/settings/bookmarks';
 import type { SearchBoxParts } from './search/search-box-parts';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
+import { adaptiveToneEvents } from './wallpaper/tone-requests';
 
 
 interface ModeCommandsDeps {
@@ -41,7 +42,6 @@ interface ModeCommandsDeps {
   hideCursorTooltip(): void;
   updateBookmarkSectionPosition(): void;
   updateSearchEntryLayout(): void;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
   appliedTheme: Pick<AppliedThemeMode, 'mode'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
@@ -78,8 +78,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     hideShortcutTooltip,
     hideCursorTooltip,
     updateBookmarkSectionPosition,
-    updateSearchEntryLayout,
-    scheduleWallpaperAdaptiveToneUpdate
+    updateSearchEntryLayout
   } = deps;
 
   // Firefox's website appearance setting (the color scheme pages see), read
@@ -422,7 +421,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     }
     updateBookmarkSectionPosition();
     updateSearchEntryLayout();
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
     updateModeBadge(searchBox.inputParts && searchBox.inputParts.input ? searchBox.inputParts.input.value : '');
   }
 

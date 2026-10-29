@@ -20,6 +20,7 @@ import {
 import { newtabZenMode } from '../../domain/settings/newtab-page';
 import * as COMMUNITY_LINKS from '../../platform/community-links';
 import * as SETTINGS from '../../domain/settings';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 
 // A card's place on screen before a layout change.
@@ -30,7 +31,6 @@ interface TopContentDeps {
   recentCards: readonly HTMLElement[];
   updateSearchEntryLayout(): void;
   updateSuggestionsFloatingLayout(): void;
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   preview: SettingPreview;
   topContentContainer: HTMLElement;
@@ -44,7 +44,6 @@ function createTopContentRuntime(deps: TopContentDeps) {
     recentCards,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
-    scheduleWallpaperAdaptiveToneUpdate,
     settings,
     preview
   } = deps;
@@ -219,7 +218,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     }
     updateSearchEntryLayout();
     updateSuggestionsFloatingLayout();
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
   }
 
   function finishWordmarkEntryAnimation(): void {
@@ -338,7 +337,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
       showSeconds: shown.secondsVisible,
       twelveHour: shown.twelveHour
     });
-    scheduleWallpaperAdaptiveToneUpdate();
+    adaptiveToneEvents.emit('stale', {});
   }
 
   function readTopContentSettings() {
@@ -407,7 +406,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
     }
     if (next.ink !== previous.ink) {
       applyWordmarkThemeAppearance();
-      scheduleWallpaperAdaptiveToneUpdate();
+      adaptiveToneEvents.emit('stale', {});
     }
   }
 

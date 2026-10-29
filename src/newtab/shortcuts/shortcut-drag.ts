@@ -22,6 +22,7 @@ import type { ShortcutList } from './shortcut-list';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
 import type { DragSessions } from '../drag-sessions';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 
 interface ShortcutDragDeps {
@@ -46,7 +47,6 @@ interface ShortcutDragDeps {
   clearBookmarkDragPageSwitch: BookmarkDragController['clearBookmarkDragPageSwitch'];
   clearBookmarkDragFolderSwitch: BookmarkDragController['clearBookmarkDragFolderSwitch'];
   clearDragDropTarget: BookmarkDragController['clearDragDropTarget'];
-  scheduleWallpaperAdaptiveToneUpdate(): void;
   getBookmarkDragPageSwitchDirection: BookmarkDragController['getBookmarkDragPageSwitchDirection'];
   scheduleBookmarkDragPageSwitch: BookmarkDragController['scheduleBookmarkDragPageSwitch'];
   getShortcutFolderDropTargetAt: BookmarkDragController['getShortcutFolderDropTargetAt'];
@@ -168,7 +168,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     clearBookmarkDragPageSwitch,
     clearBookmarkDragFolderSwitch,
     clearDragDropTarget,
-    scheduleWallpaperAdaptiveToneUpdate,
     getBookmarkDragPageSwitchDirection,
     scheduleBookmarkDragPageSwitch,
     getShortcutFolderDropTargetAt,
@@ -776,7 +775,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     }
     void persistShortcutOrder(state).then(() => {
       animateShortcutLayoutChange(renderShortcuts);
-      scheduleWallpaperAdaptiveToneUpdate();
+      adaptiveToneEvents.emit('stale', {});
       const tile = getShortcutTileById(shortcutId);
       if (tile && document.activeElement !== tile) {
         tile.focus({ preventScroll: true });
@@ -1004,7 +1003,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       }
       return persistShortcutOrder(state).then(() => {
         animateShortcutLayoutChange(renderShortcuts);
-        scheduleWallpaperAdaptiveToneUpdate();
+        adaptiveToneEvents.emit('stale', {});
       });
     }
     if (options && options.cancel) {
@@ -1026,10 +1025,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     document.removeEventListener('pointermove', handleShortcutDragPointerMove, true);
     document.removeEventListener('pointerup', handleShortcutDragPointerUp, true);
     document.removeEventListener('pointercancel', handleShortcutDragPointerCancel, true);
-  }
-
-  function isShortcutDragActive(): boolean {
-    return Boolean(dragSessions.shortcut && dragSessions.shortcut.isDragging);
   }
 
   function isBookmarkSurfaceDragStateActive(state: SurfaceDragState | null): boolean {
@@ -1132,7 +1127,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (state.hasReordered) {
       void persistShortcutOrder().then(() => {
         renderShortcuts();
-        scheduleWallpaperAdaptiveToneUpdate();
+        adaptiveToneEvents.emit('stale', {});
       });
     }
     return false;
@@ -1515,7 +1510,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     scheduleShortcutDragMove,
     finishShortcutDrag,
     moveShortcutByKeyboard,
-    isShortcutDragActive,
     isBookmarkSurfaceDragStateActive,
     handleShortcutDragPointerDown
   };

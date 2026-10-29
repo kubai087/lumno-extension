@@ -7,13 +7,13 @@ import type { ViewportActivity } from '../viewport-activity';
 import type { SearchBoxParts } from '../search/search-box-parts';
 import type { PageNoticeControllers } from '../notice-controllers';
 import type { BottomDockParts } from './bottom-dock-parts';
+import { getNewtabTopOccupiedInsetPx } from '../dom/top-inset';
 
 interface BottomDockRuntimeDeps {
   root: HTMLElement;
   bookmarkSection: HTMLElement | null;
   suggestionsSurface: HTMLElement | null;
   suggestionsOutline: HTMLElement | null;
-  getNewtabTopOccupiedInsetPx(): number;
   shouldAnimateNewtabLayoutShift(): boolean;
   applyNewtabWidthMode(): void;
   viewport: Pick<ViewportActivity, 'locked'>;
@@ -41,7 +41,6 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     bookmarkSection,
     suggestionsSurface,
     suggestionsOutline,
-    getNewtabTopOccupiedInsetPx,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
     viewport,

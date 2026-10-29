@@ -7,15 +7,14 @@ import type { PageLayout } from './page-layout';
 import type { BookmarkHeaderModel } from './react/bookmark-header';
 import type { SectionLoaders } from './section-loaders';
 import type { TooltipBindings } from './tooltip-bindings';
-import type { ViewportInsets } from './viewport-insets';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
 import { recentMode } from '../domain/settings/recent-sites';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
-import { BOOKMARK_TOPBAR_HEIGHT_PX } from './react/bookmarks-topbar';
 import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
+import { getNewtabViewportTopPaddingPx } from './dom/top-inset';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
@@ -23,8 +22,7 @@ const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
 interface SectionHeadersDeps extends
   Pick<PageLayout, 'updateSearchEntryLayout' | 'setContentSectionVisible'>,
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu'>,
-  Pick<TooltipBindings, 'showTopActionTooltip' | 'hideTopActionTooltip'>,
-  Pick<ViewportInsets, 'getNewtabVisualViewportInsets'> {
+  Pick<TooltipBindings, 'showTopActionTooltip' | 'hideTopActionTooltip'> {
   preview: Pick<SettingPreview, 'get'>;
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   t: Translate;
@@ -50,7 +48,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     preview,
     settings,
     t,
-    getNewtabVisualViewportInsets,
     updateSearchEntryLayout,
     setContentSectionVisible,
     bookmarkSection,
@@ -68,11 +65,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
   } = deps;
 
 
-  const NEWTAB_FLOATING_TOP_GAP_PX = 12;
-  const BOOKMARK_CASCADE_TOPBAR_GAP_PX = 4;
-  // Matches the floating bar's 8px top offset and 40px height in styles/bookmarks-topbar.css.
-  const BOOKMARK_TOPBAR_FLOATING_OCCUPIED_PX = 48;
-
   // The follow in startup-preferences loads the recent sites again.
   function setRecentMode(nextMode: unknown): void {
     void settings.set(recentMode, recentMode.parse(nextMode)).catch(() => {});
@@ -84,28 +76,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 
   function isBookmarkTopbarMode(): boolean {
     return settings.get(bookmarkViewMode) === 'top';
-  }
-
-  function getNewtabTopOccupiedInsetPx(): number {
-    const visualViewportTopInset = getNewtabVisualViewportInsets().top;
-    const body = document.body;
-    const bookmarkTopbarInset = body && body.getAttribute('data-nt-top-occupied') === 'true'
-      ? (body.getAttribute('data-nt-top-layout') === 'floating'
-        ? BOOKMARK_TOPBAR_FLOATING_OCCUPIED_PX
-        : BOOKMARK_TOPBAR_HEIGHT_PX)
-      : 0;
-    return visualViewportTopInset + bookmarkTopbarInset;
-  }
-
-  function getNewtabViewportTopPaddingPx(): number {
-    return getNewtabTopOccupiedInsetPx() + Math.min(8, NEWTAB_FLOATING_TOP_GAP_PX);
-  }
-
-  function getBookmarkCascadeViewportTopPaddingPx(): number {
-    const occupiedTopInset = getNewtabTopOccupiedInsetPx();
-    return occupiedTopInset > 0
-      ? occupiedTopInset + BOOKMARK_CASCADE_TOPBAR_GAP_PX
-      : 8;
   }
 
   function setNewtabTopOccupied(occupied: unknown): void {
@@ -280,9 +250,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     canDismissRecentCard,
     updateBookmarkHeader,
     isBookmarkTopbarMode,
-    getNewtabTopOccupiedInsetPx,
-    getNewtabViewportTopPaddingPx,
-    getBookmarkCascadeViewportTopPaddingPx,
     setNewtabTopOccupied,
     setNewtabTopLayout,
     syncBookmarkSurfaceMode,
