@@ -15,9 +15,14 @@ global.document = { activeElement: null, body: { setAttribute() {}, removeAttrib
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function createFixture(shortcuts) {
+  // The page's shortcut list, which a move replaces.
+  const shortcutList = {
+    items: shortcuts.map((item) => ({ ...item })),
+    icons: {},
+    replaceItems(next) { this.items = next; },
+    replaceIcons(next) { this.icons = next; }
+  };
   const pageState = {
-    newtabShortcuts: shortcuts.map((item) => ({ ...item })),
-    shortcutGrid: null,
     shortcutDragState: null,
     bookmarkMoveHistoryBusy: false
   };
@@ -31,7 +36,7 @@ function createFixture(shortcuts) {
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }),
     focus() { global.document.activeElement = this; }
   });
-  const getTiles = () => pageState.newtabShortcuts.map(createTile);
+  const getTiles = () => shortcutList.items.map(createTile);
   let tiles = getTiles();
   const drag = LumnoNewtabShortcutDrag.createShortcutDrag({
     NEWTAB_CROSS_SURFACE_DRAG,
@@ -49,6 +54,9 @@ function createFixture(shortcuts) {
       tiles = getTiles();
     },
     scheduleWallpaperAdaptiveToneUpdate() {},
+    shortcutList,
+    shortcutGrid: null,
+    getAddShortcutButton: () => null,
     pageState
   });
   return {
@@ -56,7 +64,7 @@ function createFixture(shortcuts) {
     pageState,
     saved,
     history,
-    order: () => pageState.newtabShortcuts.map((item) => `${item.groupId || ''}:${item.id}`),
+    order: () => shortcutList.items.map((item) => `${item.groupId || ''}:${item.id}`),
     renders: () => renders
   };
 }

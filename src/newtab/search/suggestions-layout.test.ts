@@ -27,7 +27,7 @@ function setUp() {
   const layout = createSuggestionsLayout({
     suggestionsContainer: container,
     searchBox: { modeController: inputModeController },
-    pageState: {
+    bottomDockParts: {
       layoutMotion: null,
       layoutController
     }

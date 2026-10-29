@@ -27,6 +27,7 @@ import { recentMode } from '../domain/settings/recent-sites';
 import { isRecord } from '../platform/storage-call';
 import { FAVICON_CACHE_BOOT_WAIT_MS, MAX_PINNED_RECENT_SITES } from './newtab-config';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
+import type { ShortcutList } from './shortcuts/shortcut-list';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -51,7 +52,6 @@ interface SectionLoadersState {
   bookmarkRootVisibleCount: number;
   bookmarkCurrentPage: number;
   bookmarkLoadedOnce: boolean;
-  newtabShortcuts: ReadonlyArray<{ type?: string }>;
   recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'> | null;
   recentSourceItems: RecentSite[];
   recentRenderSignature: string;
@@ -88,11 +88,13 @@ interface SectionLoadersDeps extends
   recentSection: HTMLElement | null;
   bookmarksRuntime: Pick<BookmarksRuntime, 'invalidate'>;
   appliedTheme: Pick<AppliedThemeMode, 'applied'>;
+  shortcutList: Pick<ShortcutList, 'items'>;
   pageState: SectionLoadersState;
 }
 
 function createSectionLoaders(deps: SectionLoadersDeps) {
   const {
+    shortcutList,
     appliedTheme,
     settings,
     preview,
@@ -416,7 +418,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       updateBookmarkHeader();
       renderCurrentBookmarkPage();
       playPendingBookmarkLayoutAnimation();
-      if (pageState.newtabShortcuts.some((shortcut) => shortcut.type === 'folder')) {
+      if (shortcutList.items.some((shortcut) => shortcut.type === 'folder')) {
         renderShortcuts();
       }
       bookmarkDataDirty = false;

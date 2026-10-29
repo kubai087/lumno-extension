@@ -172,6 +172,8 @@ import { SearchBoxParts } from './search/search-box-parts';
 import { OpenTabs } from '../shared/search-panel/open-tabs';
 import { PageNoticeControllers } from './notice-controllers';
 import { AppliedThemeMode } from './theme/applied-theme-mode';
+import { ShortcutList } from './shortcuts/shortcut-list';
+import { BottomDockParts } from './shortcuts/bottom-dock-parts';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
@@ -206,6 +208,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
   const suggestionsContainer = pageStructureRuntime.suggestions.container;
   const searchLayer = pageStructureRuntime.searchLayer;
+  const shortcutSection = pageStructureRuntime.shortcut.section;
+  const shortcutGrid = pageStructureRuntime.shortcut.grid;
   // The search box's parts, mounted by the search box below.
   const searchBox = new SearchBoxParts();
   // The search suggestion the arrows show in the input.
@@ -216,6 +220,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const notices = new PageNoticeControllers();
   // The theme mode the page is drawn in.
   const appliedTheme = new AppliedThemeMode();
+  // The shortcuts the page shows and their icons.
+  const shortcutList = new ShortcutList();
+  // The bottom dock's parts and the layout it drives, mounted with the dock.
+  const bottomDockParts = new BottomDockParts();
 
 
   const startupRecentSourceReadsAt = Date.now();
@@ -353,6 +361,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   const {
+    setShortcutError,
+    setShortcutIconError,
     pickShortcutIconPlateColor,
     getShortcutContextMenuOptions,
     updateShortcutLanguageStrings,
@@ -368,6 +378,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     openShortcutEditor,
     isShortcutFolderAnchor
   } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
+    shortcutGrid,
+    shortcutSection,
+    shortcutList,
     t,
     bindShortcutDialogTooltip: (...args) => bindShortcutDialogTooltip(...args),
     hideShortcutDialogTooltip: (...args) => hideShortcutDialogTooltip(...args),
@@ -509,6 +522,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     openShortcutAddContextMenu,
     openShortcutGroupMenu
   } = NEWTAB_SHORTCUT_CONTEXT_MENU.createShortcutContextMenu({
+    shortcutSection,
     setShortcutContextMenuMark: (mark) => setShortcutContextMenuMark(mark),
     getShortcutDockIcon: (...args) => getShortcutDockIcon(...args),
     setShortcutDockHover: (...args) => setShortcutDockHover(...args),
@@ -546,6 +560,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     syncShortcutDockFolderMenu,
     followShortcutDockMagnification
   } = NEWTAB_SHORTCUT_DOCK.createShortcutDock({
+    shortcutGrid,
     settings,
     preview,
     isShortcutDragActive: (...args) => isShortcutDragActive(...args),
@@ -841,7 +856,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     settings, localStorageArea, t, showToast,
     getLocale: () => locale.store.getSnapshot().locale,
     getSearchRoot: () => root,
-    getShortcutSection: () => pageState.shortcutSection,
+    getShortcutSection: () => shortcutSection,
     getTooltipController: () => topActionTooltipController,
     onLayout: () => window.requestAnimationFrame(() => {
       updateBookmarkSectionPosition();
@@ -896,9 +911,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     setSuggestionsVisible,
     updateSuggestionsFloatingLayout
   } = NEWTAB_SUGGESTIONS_LAYOUT.createSuggestionsLayout({
+    bottomDockParts,
     suggestionsContainer,
-    searchBox,
-    pageState
+    searchBox
   });
 
   const {
@@ -925,6 +940,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followShortcutGridLayout,
     followNewtabSearchWidth
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
+    bottomDockParts,
+    shortcutGrid,
+    shortcutSection,
+    shortcutList,
     preview,
     settings,
     normalizeNewtabSearchWidth: (...args) => normalizeNewtabSearchWidth(...args),
@@ -1008,6 +1027,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getWallpaperShownAt,
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
+    bottomDockParts,
+    shortcutGrid,
     locale,
     appliedTheme,
     sectionPanelSettings,
@@ -1131,9 +1152,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     scheduleRecentReloadIfVisible: (...args) => scheduleRecentReloadIfVisible(...args),
     scheduleBookmarkReloadIfVisible: (...args) => scheduleBookmarkReloadIfVisible(...args),
     refreshThemeAwareFavicons,
-    renderShortcuts: (...args) => renderShortcuts(...args),
-    getImmediateThemeForSuggestion,
-    pageState
+    getImmediateThemeForSuggestion
   });
 
   migrateLocalSettingsIfNeeded(SYNCED_PAGE_STORAGE_KEYS.slice());
@@ -1282,6 +1301,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bindCursorTooltip,
     hideCursorTooltip
   } = NEWTAB_TOOLTIP_BINDINGS.createTooltipBindings({
+    shortcutGrid,
     searchBox,
     preview,
     topActionTooltipController,
@@ -1294,8 +1314,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isShortcutContextMenuOpen,
     shortcutDialogTooltipController,
     bookmarkCursorTooltipController,
-    shouldSuppressBookmarkHover: (...args) => shouldSuppressBookmarkHover(...args),
-    pageState
+    shouldSuppressBookmarkHover: (...args) => shouldSuppressBookmarkHover(...args)
   });
 
   const {
@@ -1356,6 +1375,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   const {
+    getAddShortcutButton,
     setShortcutContextMenuMark,
     getShortcutFolderId,
     getFolderItemIconUrl,
@@ -1392,6 +1412,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    setShortcutIconError,
+    setShortcutError,
+    shortcutList,
     settings,
     shortcutFolderRuntime,
     bookmarksRuntime,
@@ -1498,6 +1521,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    getAddShortcutButton,
+    shortcutGrid,
+    shortcutSection,
+    shortcutList,
     settings,
     preview,
     isBookmarkTopbarMode,
@@ -1644,6 +1671,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bottomDockRuntime,
     bottomDock
   } = NEWTAB_BOTTOM_DOCK_RUNTIME.createBottomDockRuntime({
+    bottomDockParts,
+    shortcutSection,
     quoteRuntime,
     notices,
     searchLayer,
@@ -1698,6 +1727,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isBookmarkSurfaceDragStateActive,
     handleShortcutDragPointerDown
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
+    getAddShortcutButton,
+    shortcutGrid,
+    shortcutList,
     getShortcutReorderTiles,
     refreshShortcutTileCacheFromDom,
     getShortcutTileId,
@@ -1749,6 +1781,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   pageState.recentCardDragRuntime = NEWTAB_RECENT_CARD_DRAG.createRecentCardDrag({
+    shortcutList,
     getShortcutStoreOptions,
     getShortcutFolderId,
     persistShortcuts,
@@ -1797,6 +1830,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleRecentVisibilityChange,
     forceReloadRecentSitesForI18n
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    shortcutList,
     appliedTheme,
     getHiddenRecentSites,
     settings,
@@ -2356,9 +2390,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   searchLayer.appendChild(inputParts.container);
   root.appendChild(searchLayer);
   const newtabUpdateNoticeAnchor = root.nextSibling;
-  if (pageState.shortcutSection) {
-    document.body.insertBefore(pageState.shortcutSection, newtabUpdateNoticeAnchor);
-  }
+  document.body.insertBefore(shortcutSection, newtabUpdateNoticeAnchor);
   const updateNotice = notices.update;
   if (updateNotice && updateNotice.element) {
     document.body.insertBefore(updateNotice.element, newtabUpdateNoticeAnchor);
@@ -2406,14 +2438,12 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     document.body.appendChild(wallpaperControl);
   }
   document.body.appendChild(feedbackControl);
-  if (pageState.shortcutDialogController) {
-    pageState.shortcutDialogController.mount(document.body);
-  }
 
   const {
     scheduleRecentReloadIfVisible,
     scheduleBookmarkReloadIfVisible
   } = NEWTAB_SECTION_RELOAD.createSectionReload({
+    shortcutList,
     loadRecentSites,
     loadBookmarks,
     releaseStartupRecentSourceReads,

@@ -1,23 +1,18 @@
 // Creates the bottom shortcut dock and the layout motion that moves the
 // page's blocks when the dock, sections or search entry change size.
 import * as LumnoNewtabLayoutMotion from '../layout-motion';
-import type { LayoutController } from '../layout';
-import type { LayoutMotion } from '../layout-motion';
 import { createDock } from '../react/dock';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX } from '../newtab-config';
 import type { ViewportActivity } from '../viewport-activity';
 import type { SearchBoxParts } from '../search/search-box-parts';
 import type { PageNoticeControllers } from '../notice-controllers';
+import type { BottomDockParts } from './bottom-dock-parts';
 
 // A part of the page that may show an element of its own.
 
 interface BottomDockRuntimeState {
   topContentContainer: HTMLElement | null;
-  shortcutSection: HTMLElement | null;
   recentSection: HTMLElement | null;
-  bottomDockScroller: HTMLElement | null;
-  layoutController: LayoutController | null;
-  layoutMotion: LayoutMotion | null;
   // While the window is resized the layout does not animate.
 }
 
@@ -35,11 +30,14 @@ interface BottomDockRuntimeDeps {
   searchLayer: HTMLElement;
   notices: Pick<PageNoticeControllers, 'engagement' | 'update'>;
   quoteRuntime: { element: HTMLElement | null };
+  shortcutSection: HTMLElement;
   pageState: BottomDockRuntimeState;
+  bottomDockParts: Pick<BottomDockParts, 'mount'>;
 }
 
 function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const {
+    shortcutSection,
     quoteRuntime,
     searchLayer,
     suggestionsContainer,
@@ -52,7 +50,8 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
     viewport,
-    notices
+    notices,
+    bottomDockParts
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -83,7 +82,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     searchLayer: () => searchLayer,
     inputParts: () => searchBox.inputParts,
     topContentContainer: () => pageState.topContentContainer,
-    shortcutSection: () => pageState.shortcutSection,
+    shortcutSection: () => shortcutSection,
     quoteSection: () => quoteRuntime.element,
     bookmarkSection,
     recentSection,
@@ -109,16 +108,14 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     }
   });
   const bottomDock = bottomDockRuntime.element;
-  pageState.bottomDockScroller = bottomDockRuntime.scroller;
-  pageState.layoutController = bottomDockRuntime.layoutController;
   // The dock moves as a whole when its sections slide together.
-  pageState.layoutMotion = LumnoNewtabLayoutMotion.createLayoutMotion({
+  const layoutMotion = LumnoNewtabLayoutMotion.createLayoutMotion({
     documentObj: document,
     windowObj: window,
     getTargets: () => [
       { key: 'topContent', element: pageState.topContentContainer },
       { key: 'search', element: root },
-      { key: 'shortcuts', element: pageState.shortcutSection },
+      { key: 'shortcuts', element: shortcutSection },
       { key: 'quote', element: quoteRuntime.element },
       { key: 'updateNotice', element: notices.update && notices.update.element },
       {
@@ -132,6 +129,11 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
       !viewport.locked &&
       document.visibilityState === 'visible' &&
       document.documentElement.getAttribute('data-lumno-motion-effects') !== 'off'
+  });
+  bottomDockParts.mount({
+    scroller: bottomDockRuntime.scroller,
+    layoutController: bottomDockRuntime.layoutController,
+    layoutMotion
   });
   applyNewtabWidthMode();
 

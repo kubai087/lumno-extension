@@ -24,11 +24,17 @@ async function setUp() {
   const runtime = bookmarksRuntimeModule.createBookmarksRuntime({ chromeApi: { bookmarks, runtime: {} } });
   await runtime.ensureReady(true);
   const toasts = [];
+  // The page's shortcut list, which persisting replaces.
+  const shortcutList = {
+    items: [],
+    icons: {},
+    replaceItems(items) { this.items = items; },
+    replaceIcons(icons) { this.icons = icons; }
+  };
   const pageState = {
     bookmarkAllItems: [],
     bookmarkCurrentFolderId: '1',
     bookmarkCascadeRuntime: null,
-    newtabShortcuts: [],
     bookmarkMoveHistoryBusy: false
   };
   const history = moveHistory.createBookmarkMoveHistory();
@@ -43,7 +49,7 @@ async function setUp() {
     },
     applyShortcutGroupDeleteRecord: () => Promise.resolve(false),
     persistShortcuts: (items) => {
-      pageState.newtabShortcuts = items;
+      shortcutList.items = items;
       return Promise.resolve(true);
     },
     MAX_NEWTAB_SHORTCUTS: 30,
@@ -57,10 +63,11 @@ async function setUp() {
     showToast: (message) => toasts.push(message),
     t: (key, fallback) => fallback,
     formatMessage: (key, fallback, params) => fallback.replace('{shortcut}', params && params.shortcut),
+    shortcutList,
     pageState
   });
   const barIds = () => bookmarks.root.children[0].children.map((node) => node.title);
-  return { bookmarks, runtime, actions, pageState, history, toasts, barIds };
+  return { bookmarks, runtime, actions, pageState, shortcutList, history, toasts, barIds };
 }
 
 (async () => {
@@ -95,17 +102,17 @@ async function setUp() {
       'a blocked drop moves nothing');
   }
   {
-    const { actions, pageState, history, toasts } = await setUp();
+    const { actions, pageState, history, toasts, shortcutList } = await setUp();
     const snapshot = shortcutsStore.createShortcutRecord({ id: 's1', title: 'Alpha', url: 'https://alpha.example/' });
-    pageState.newtabShortcuts = [snapshot];
+    shortcutList.items = [snapshot];
     history.push(moveHistory.createShortcutAddRecord({ snapshot, index: 0 }));
     actions.performBookmarkMoveHistoryAction('undo');
     await wait();
-    assert.deepStrictEqual(pageState.newtabShortcuts, [], 'undoing an addition takes the shortcut out');
+    assert.deepStrictEqual(shortcutList.items, [], 'undoing an addition takes the shortcut out');
     assert.deepStrictEqual(toasts, ['Shortcut add undone · ⇧⌘Z to redo']);
     actions.performBookmarkMoveHistoryAction('redo');
     await wait();
-    assert.deepStrictEqual(pageState.newtabShortcuts.map((item) => item.id), ['s1'], 'redo adds it again');
+    assert.deepStrictEqual(shortcutList.items.map((item) => item.id), ['s1'], 'redo adds it again');
     pageState.bookmarkMoveHistoryBusy = true;
     assert.strictEqual(actions.performBookmarkMoveHistoryAction('undo'), false, 'nothing replays while a change runs');
   }

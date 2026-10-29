@@ -12,16 +12,15 @@ import type { BookmarkShortcutTransfer } from './bookmark-shortcut-transfer';
 import type { BookmarkItem, BookmarkNode } from './bookmarks-store';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
-import type { ShortcutItem } from '../../domain/shortcuts/types';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
+import type { ShortcutList } from '../shortcuts/shortcut-list';
 
 interface BookmarkMoveActionsState {
   bookmarkAllItems: BookmarkItem[];
   bookmarkCurrentFolderId: string;
   bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
-  newtabShortcuts: ShortcutItem[];
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
 }
@@ -44,6 +43,7 @@ interface BookmarkMoveActionsDeps {
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
+  shortcutList: Pick<ShortcutList, 'items'>;
   pageState: BookmarkMoveActionsState;
 }
 
@@ -58,6 +58,7 @@ interface BookmarkDeleteTarget {
 
 function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
   const {
+    shortcutList,
     bookmarksRuntime,
     bookmarkMoveHistory,
     transfer,
@@ -263,7 +264,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
     pageState.bookmarkMoveHistoryBusy = true;
     if (record.kind === 'shortcut-reorder') {
       const next = NEWTAB_CROSS_SURFACE_DRAG.planShortcutReorder({
-        shortcuts: pageState.newtabShortcuts,
+        shortcuts: shortcutList.items,
         sourceOrder: isUndo ? record.toOrder : record.fromOrder,
         order: isUndo ? record.fromOrder : record.toOrder,
         groups: isUndo ? record.fromGroups : record.toGroups
@@ -296,7 +297,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         }
       }).finally(() => {
         pageState.bookmarkMoveHistoryBusy = false;
-        if (pageState.newtabShortcuts.some((item) => isShortcutFolder(item))) return refreshShortcutFolderReferences();
+        if (shortcutList.items.some((item) => isShortcutFolder(item))) return refreshShortcutFolderReferences();
         return undefined;
       });
       return true;
@@ -314,7 +315,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         ));
       }).finally(() => {
         pageState.bookmarkMoveHistoryBusy = false;
-        if (pageState.newtabShortcuts.some((item) => isShortcutFolder(item))) return refreshShortcutFolderReferences();
+        if (shortcutList.items.some((item) => isShortcutFolder(item))) return refreshShortcutFolderReferences();
         return undefined;
       });
       return true;
@@ -339,16 +340,16 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       // Undoing a removal puts the shortcut back; undoing an addition takes it out.
       const restores = (record.kind === 'shortcut-delete') === isUndo;
       const snapshot = record.snapshot;
-      const exists = pageState.newtabShortcuts.some((item) => item.id === snapshot.id ||
+      const exists = shortcutList.items.some((item) => item.id === snapshot.id ||
         (isShortcutFolder(snapshot)
           ? !snapshot.folderRef && isShortcutFolder(item) && !item.folderRef && item.folderId === snapshot.folderId
           : !isShortcutFolder(item) && item.url === snapshot.url));
-      if (restores && (exists || pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS)) {
+      if (restores && (exists || shortcutList.items.length >= DEFAULT_MAX_SHORTCUTS)) {
         pageState.bookmarkMoveHistoryBusy = false;
         showToast(t('toast_error', 'Operation failed. Please try again.'), true);
         return true;
       }
-      const next = pageState.newtabShortcuts.slice();
+      const next = shortcutList.items.slice();
       if (restores) {
         next.splice(Math.min(record.index, next.length), 0, snapshot);
       } else {

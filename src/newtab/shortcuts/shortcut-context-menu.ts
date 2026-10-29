@@ -17,9 +17,6 @@ interface ShortcutContextMenuState {
   shortcutContextMenu: ContextMenuParts | null;
   shortcutContextMenuSelectController: SelectMenuController | null;
   shortcutContextMenuTarget: ShortcutContextTarget | null;
-  shortcutGrid: HTMLElement | null;
-  shortcutSection: HTMLElement | null;
-  addShortcutButton: HTMLElement | null;
 }
 
 interface ShortcutContextMenuDeps {
@@ -49,6 +46,7 @@ interface ShortcutContextMenuDeps {
   moveShortcutGroup(groupId: string, offset: number): unknown;
   deleteShortcutGroup(groupId: string, keepSites: boolean): unknown;
   confirmDeleteShortcutGroupWithSites(groupId: string, sourceElement: HTMLElement): void;
+  shortcutSection: HTMLElement;
   pageState: ShortcutContextMenuState;
 }
 
@@ -56,6 +54,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   // Escape closes the menu through the page's dismiss stack.
   const dismissStack = LumnoNewtabDismissStack.getDismissStack();
   const {
+    shortcutSection,
     setShortcutContextMenuMark,
     getShortcutDockIcon,
     setShortcutDockHover,
@@ -366,7 +365,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     menu.addEventListener('click', handleShortcutContextMenuActionClick);
     document.addEventListener('pointerdown', handleShortcutContextMenuDocumentPointerDown, true);
     document.addEventListener('focusin', handleShortcutContextMenuDocumentFocusIn, true);
-    (document.body || pageState.shortcutSection || document.documentElement).appendChild(control);
+    (document.body || shortcutSection || document.documentElement).appendChild(control);
     return {
       control,
       select,
@@ -444,8 +443,8 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     });
   }
 
-  function openShortcutAddContextMenu(sourceElement?: HTMLElement | null): void {
-    const tile = sourceElement || pageState.addShortcutButton;
+  function openShortcutAddContextMenu(sourceElement: HTMLElement): void {
+    const tile = sourceElement;
     if (!tile || tile.hidden) {
       return;
     }

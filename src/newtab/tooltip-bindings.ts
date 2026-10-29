@@ -7,9 +7,6 @@ import { newtabShortcutDockMagnificationEnabled } from '../domain/settings/newta
 import type { SettingPreview } from './setting-preview';
 import type { SearchBoxParts } from './search/search-box-parts';
 
-interface TooltipBindingsState {
-  shortcutGrid: HTMLElement | null;
-}
 
 interface TooltipBindingsDeps {
   preview: Pick<SettingPreview, 'get'>;
@@ -25,11 +22,12 @@ interface TooltipBindingsDeps {
   // Whether bookmark hover feedback is off for this target, as during a drag.
   shouldSuppressBookmarkHover(target: HTMLElement): boolean;
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
-  pageState: TooltipBindingsState;
+  shortcutGrid: HTMLElement;
 }
 
 function createTooltipBindings(deps: TooltipBindingsDeps) {
   const {
+    shortcutGrid,
     searchBox,
     preview,
     topActionTooltipController,
@@ -44,8 +42,6 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
     shouldSuppressBookmarkHover
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function showTopActionTooltip(
     button: HTMLElement | null | undefined,
@@ -129,7 +125,7 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
     return Boolean(
       isShortcutDragActive() ||
       isBookmarkDragActive() ||
-      (pageState.shortcutGrid && pageState.shortcutGrid.getAttribute('data-shortcut-dragging') === 'true') ||
+      (shortcutGrid && shortcutGrid.getAttribute('data-shortcut-dragging') === 'true') ||
       isShortcutContextMenuOpen()
     );
   }
@@ -206,4 +202,4 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
 type TooltipBindings = ReturnType<typeof createTooltipBindings>;
 
 export { createTooltipBindings };
-export type { TooltipBindings, TooltipBindingsDeps, TooltipBindingsState };
+export type { TooltipBindings, TooltipBindingsDeps };

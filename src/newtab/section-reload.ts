@@ -1,9 +1,9 @@
 // Reloads the recent and bookmark sections when tabs, history or
 // bookmarks change elsewhere, once the page is visible again.
 import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
+import type { ShortcutList } from './shortcuts/shortcut-list';
 
 interface SectionReloadState {
-  newtabShortcuts: ReadonlyArray<{ type?: string }>;
   bookmarkCascadeRuntime: { isOpen?: () => boolean } | null;
 }
 
@@ -18,11 +18,13 @@ interface SectionReloadDeps {
   markBookmarkTreeDirty(options: { preserveCascadeOpen: boolean; skipRuntimeInvalidate: boolean }): void;
   bookmarkMoveHistory: { clear(): void };
   refreshOpenBookmarkCascadeMenu(): void;
+  shortcutList: Pick<ShortcutList, 'items'>;
   pageState: SectionReloadState;
 }
 
 function createSectionReload(deps: SectionReloadDeps) {
   const {
+    shortcutList,
     loadRecentSites,
     loadBookmarks,
     releaseStartupRecentSourceReads,
@@ -82,7 +84,7 @@ function createSectionReload(deps: SectionReloadDeps) {
     }
     bookmarksRuntime.subscribe((change) => {
       // Folder entries remain useful even when the bookmarks section is hidden.
-      if (pageState.newtabShortcuts.some((shortcut) => shortcut.type === 'folder')) {
+      if (shortcutList.items.some((shortcut) => shortcut.type === 'folder')) {
         refreshShortcutFolderReferences();
       }
       scheduleFolderColorSync();

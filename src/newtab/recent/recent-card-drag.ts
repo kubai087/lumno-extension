@@ -17,14 +17,14 @@ import type { RecentSitesViewOptions } from '../react/recent-sites';
 import type { ShortcutDrag, ShortcutDragSession } from '../shortcuts/shortcut-drag';
 import type { ShortcutsController } from '../shortcuts/shortcuts-controller';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
-import type { ShortcutItem, ShortcutLink } from '../../domain/shortcuts/types';
+import type { ShortcutLink } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
+import type { ShortcutList } from '../shortcuts/shortcut-list';
 
 interface RecentCardDragState {
-  newtabShortcuts: ShortcutItem[];
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
   bookmarkDragState: BookmarkDragSession | null;
@@ -68,6 +68,7 @@ interface RecentCardDragDeps {
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
+  shortcutList: Pick<ShortcutList, 'items'>;
   pageState: RecentCardDragState;
 }
 
@@ -105,6 +106,7 @@ function cloneHtmlElement(element: HTMLElement): HTMLElement | null {
 
 function createRecentCardDrag(deps: RecentCardDragDeps) {
   const {
+    shortcutList,
     getShortcutStoreOptions,
     getShortcutFolderId,
     persistShortcuts,
@@ -525,7 +527,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
   }
 
   function addSiteToShortcuts(target: ShortcutInsertionTarget): Promise<boolean> {
-    const shortcuts = pageState.newtabShortcuts;
+    const shortcuts = shortcutList.items;
     const plan = NEWTAB_CROSS_SURFACE_DRAG.planBookmarkToShortcut({
       shortcuts,
       record: target.record,
@@ -699,7 +701,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     landGhost(state, () => removeGhost(state));
     dropSite(state, dropTarget).then((dropped) => {
       if (!dropped && dropTarget.surface === 'shortcuts' &&
-          pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS) {
+          shortcutList.items.length >= DEFAULT_MAX_SHORTCUTS) {
         showToast(formatMessage(
           'newtab_shortcuts_limit_reached',
           'You can add up to {count} shortcuts.',

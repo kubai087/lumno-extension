@@ -31,17 +31,15 @@ function createElementStub() {
 const pageUrl = 'https://example.com/docs/';
 const otherUrl = 'https://other.example.com/';
 const snapshot = `data:image/png;base64,${png(64, 7).toString('base64')}`;
-const pageState = {
-  newtabShortcuts: [
+// The page's shortcut list.
+const shortcutList = {
+  items: [
     { id: 'a', url: pageUrl, title: 'Docs', iconSource: 'service' },
     { id: 'b', url: otherUrl, title: 'Other' }
   ],
-  newtabShortcutFavicons: {},
-  shortcutFaviconPendingCacheEntries: {},
-  shortcutFaviconPolicyRevision: 0,
-  shortcutGrid: null,
-  shortcutSection: null,
-  addShortcutButton: null
+  icons: {},
+  replaceItems(next) { this.items = next; },
+  replaceIcons(next) { this.icons = next; }
 };
 const saved = [];
 shortcutIconEvents.on('snapshotSaved', (event) => saved.push(event.pageUrl));
@@ -77,7 +75,10 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   updateBookmarkSectionPosition: noop,
   applyNewtabShortcutDockMagnification: noop,
   scheduleWallpaperAdaptiveToneUpdate: noop,
-  pageState
+  shortcutList,
+  // Only followed here: no setting changes in these tests.
+  settings: { subscribe: () => () => {} },
+  pageState: {}
 });
 
 (async () => {

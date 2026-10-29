@@ -23,11 +23,9 @@ import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
+import type { ShortcutList } from '../shortcuts/shortcut-list';
 
 interface BookmarkShortcutTransferState {
-  newtabShortcuts: ShortcutItem[];
-  // Custom icon images by shortcut id.
-  newtabShortcutIcons: Record<string, string>;
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
   bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
@@ -56,6 +54,7 @@ interface BookmarkShortcutTransferDeps {
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
+  shortcutList: Pick<ShortcutList, 'icons' | 'items'>;
   pageState: BookmarkShortcutTransferState;
 }
 
@@ -68,6 +67,7 @@ interface ShortcutDropPlan {
 
 function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
   const {
+    shortcutList,
     bookmarksRuntime,
     getShortcutStoreOptions,
     getShortcutFolderId,
@@ -94,7 +94,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
 
   function hasShortcutForBookmarkFolder(bookmarkId: unknown): boolean {
     const id = String(bookmarkId || '');
-    return Boolean(id) && pageState.newtabShortcuts.some((item) => (
+    return Boolean(id) && shortcutList.items.some((item) => (
       item && isShortcutFolder(item) && String(getShortcutFolderId(item)) === id
     ));
   }
@@ -114,7 +114,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     if (!record) {
       return Promise.resolve(false);
     }
-    if (pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS) {
+    if (shortcutList.items.length >= DEFAULT_MAX_SHORTCUTS) {
       showToast(formatMessage(
         'newtab_shortcuts_limit_reached',
         'You can add up to {count} shortcuts.',
@@ -126,14 +126,14 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     const lastGroup = groups.length ? groups[groups.length - 1] : null;
     return moveBookmarkToShortcuts({ bookmarkId: node.id }, {
       record,
-      index: pageState.newtabShortcuts.length,
+      index: shortcutList.items.length,
       groupId: lastGroup ? lastGroup.id : ''
     });
   }
 
   // Whether a bookmark sits in a folder shown as a shortcut, at any depth.
   function isInShortcutFolder(bookmarkId: unknown): boolean {
-    const folderIds = new Set(pageState.newtabShortcuts
+    const folderIds = new Set(shortcutList.items
       .filter((item) => item && isShortcutFolder(item))
       .map((item) => String(getShortcutFolderId(item) || ''))
       .filter(Boolean));
@@ -176,7 +176,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     const node = bookmarksRuntime.getNode(state.bookmarkId);
     if (!node) return Promise.resolve(false);
     const plan = NEWTAB_CROSS_SURFACE_DRAG.planBookmarkToShortcut({
-      shortcuts: pageState.newtabShortcuts,
+      shortcuts: shortcutList.items,
       record: target.record,
       index: target.index,
       groupId: target.groupId,
@@ -186,11 +186,11 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     if (!plan) {
       return Promise.resolve(false);
     }
-    const existingIndex = pageState.newtabShortcuts.findIndex((item) => item.id === plan.shortcutId);
+    const existingIndex = shortcutList.items.findIndex((item) => item.id === plan.shortcutId);
     const beforeShortcut = existingIndex >= 0 ? {
-      snapshot: pageState.newtabShortcuts[existingIndex],
+      snapshot: shortcutList.items[existingIndex],
       index: existingIndex,
-      iconDataUrl: pageState.newtabShortcutIcons[plan.shortcutId]
+      iconDataUrl: shortcutList.icons[plan.shortcutId]
     } : null;
     const isFolder = isShortcutFolder(targetRecord);
     if (isShortcutFolder(targetRecord)) {
@@ -256,7 +256,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       return true;
     }).finally(() => {
       pageState.bookmarkMoveHistoryBusy = false;
-      if (pageState.newtabShortcuts.some((item) => isShortcutFolder(item))) return refreshShortcutFolderReferences();
+      if (shortcutList.items.some((item) => isShortcutFolder(item))) return refreshShortcutFolderReferences();
       return undefined;
     });
   }
@@ -272,7 +272,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       source: ShortcutDeleteRecord | null,
       destination: ShortcutDeleteRecord | null
     ): ShortcutItem[] | null => NEWTAB_CROSS_SURFACE_DRAG.planTransferShortcuts({
-      shortcuts: pageState.newtabShortcuts, source, destination, maxShortcuts: DEFAULT_MAX_SHORTCUTS
+      shortcuts: shortcutList.items, source, destination, maxShortcuts: DEFAULT_MAX_SHORTCUTS
     });
     const persistShortcutState = async (items: ShortcutItem[], destination: ShortcutDeleteRecord | null): Promise<boolean> => {
       if (destination && isShortcutFolder(destination.snapshot)) {
@@ -344,7 +344,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
         // duplicate the store folds away), and then removing the bookmark
         // would lose the site on both sides.
         if (!to && destinationShortcut &&
-            !pageState.newtabShortcuts.some((item) => item && item.id === destinationShortcut.snapshot.id)) {
+            !shortcutList.items.some((item) => item && item.id === destinationShortcut.snapshot.id)) {
           throw new Error('The shortcuts did not keep the transferred site.');
         }
         // Save the destination before removing the source. Folder aliases keep
@@ -402,7 +402,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
   async function applyShortcutStack(record: ShortcutStackRecord, isUndo: boolean): Promise<boolean> {
     const keepCascadeOpen = Boolean(pageState.bookmarkCascadeRuntime && pageState.bookmarkCascadeRuntime.isOpen());
     const planShortcuts = (folderSnapshot: ShortcutFolder): ShortcutItem[] | null => NEWTAB_CROSS_SURFACE_DRAG.planShortcutStack({
-      shortcuts: pageState.newtabShortcuts,
+      shortcuts: shortcutList.items,
       sources: record.sources,
       folder: { snapshot: folderSnapshot, index: record.folderShortcut.index, groupId: record.folderShortcut.groupId },
       undo: isUndo,
@@ -434,7 +434,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
           const iconChanges = record.sources.filter((source) => source.iconDataUrl).map((source): ShortcutIconChange => ({
             shortcutId: source.snapshot.id, action: 'replace', dataUrl: source.iconDataUrl
           }));
-          const previousShortcuts = pageState.newtabShortcuts;
+          const previousShortcuts = shortcutList.items;
           if (!nextShortcuts || !await persistShortcuts(nextShortcuts, '', iconChanges, { animateLayout: true })) return false;
           try {
             await bookmarksRuntime.remove(folderId, { recursive: true });

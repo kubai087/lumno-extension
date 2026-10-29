@@ -12,7 +12,6 @@ import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
-import type { ShortcutIconMap } from './shortcut-icon-store';
 import type { ShortcutPageActions } from './shortcut-page-actions';
 import type { PersistShortcuts, ShortcutInsertionSlot } from './shortcut-types';
 import type { ShortcutsController } from './shortcuts-controller';
@@ -21,15 +20,11 @@ import type { ShortcutItem } from '../../domain/shortcuts/types';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
 import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
+import type { ShortcutList } from './shortcut-list';
 
 interface ShortcutDragState {
-  shortcutGrid: HTMLElement | null;
   shortcutDragState: ShortcutDragSession | null;
   bookmarkDragState: BookmarkDragSession | null;
-  newtabShortcuts: ShortcutItem[];
-  // Custom icon images by shortcut id.
-  newtabShortcutIcons: ShortcutIconMap;
-  addShortcutButton: HTMLElement | null;
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
   bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
@@ -84,7 +79,10 @@ interface ShortcutDragDeps {
   closeShortcutContextMenu(): void;
   moveShortcutGroupToIndex(groupId: string, targetIndex: number): Promise<boolean>;
   fitShortcutGroupColumns(): boolean;
+  shortcutList: Pick<ShortcutList, 'icons' | 'items' | 'replaceItems'>;
+  shortcutGrid: HTMLElement;
   pageState: ShortcutDragState;
+  getAddShortcutButton(): HTMLElement | null;
 }
 
 // A shortcut tile being pressed or dragged.
@@ -147,6 +145,8 @@ type TileMoveSlot = Pick<ShortcutInsertionSlot, 'anchorTile' | 'markerPosition'>
 
 function createShortcutDrag(deps: ShortcutDragDeps) {
   const {
+    shortcutGrid,
+    shortcutList,
     getShortcutReorderTiles,
     refreshShortcutTileCacheFromDom,
     getShortcutTileId,
@@ -193,7 +193,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     getShortcutTileFromNode,
     closeShortcutContextMenu,
     moveShortcutGroupToIndex,
-    fitShortcutGroupColumns
+    fitShortcutGroupColumns,
+    getAddShortcutButton
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -222,7 +223,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   // The shortcut section scrolls only when it is taller than the room above
   // the bottom dock.
   function getShortcutScrollArea(): HTMLElement | null {
-    const grid = pageState.shortcutGrid;
+    const grid = shortcutGrid;
     const area = grid ? grid.closest('.x-nt-shortcuts-section') : null;
     return isHtmlElement(area) && area.getAttribute('data-shortcuts-scrollable') === 'true' ? area : null;
   }
@@ -311,8 +312,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   // Everything in the grid that can shift when shortcuts move: tiles, the
   // add tile, group titles and empty groups' slots.
   function getShortcutLayoutElements(): HTMLElement[] {
-    return pageState.shortcutGrid
-      ? queryHtmlElements(pageState.shortcutGrid,
+    return shortcutGrid
+      ? queryHtmlElements(shortcutGrid,
         '.x-nt-shortcut-tile, .x-nt-shortcut-group-header, .x-nt-shortcut-group-empty')
       : getShortcutReorderTiles();
   }
@@ -326,11 +327,11 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function getShortcutTileLayoutRect(tile: HTMLElement | null): LayoutRect | null {
-    if (!tile || !pageState.shortcutGrid || typeof tile.offsetLeft !== 'number' ||
+    if (!tile || !shortcutGrid || typeof tile.offsetLeft !== 'number' ||
         typeof tile.offsetTop !== 'number') {
       return null;
     }
-    const offsetParent = tile.offsetParent || pageState.shortcutGrid;
+    const offsetParent = tile.offsetParent || shortcutGrid;
     const parentRect = offsetParent.getBoundingClientRect();
     const width = Number(tile.offsetWidth) || 0;
     const height = Number(tile.offsetHeight) || 0;
@@ -377,7 +378,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function animateShortcutLayoutShift(beforeRects: ReadonlyMap<HTMLElement, DOMRect>, draggedTile: HTMLElement | null): void {
-    if (!pageState.shortcutGrid || NEWTAB_CROSS_SURFACE_DRAG.prefersReducedMotion(window)) {
+    if (!shortcutGrid || NEWTAB_CROSS_SURFACE_DRAG.prefersReducedMotion(window)) {
       return;
     }
     const beforeById = new Map<string, DOMRect>();
@@ -437,7 +438,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function exitShortcutLayoutElements(beforeRects: ReadonlyMap<HTMLElement, DOMRect>): void {
-    const grid = pageState.shortcutGrid;
+    const grid = shortcutGrid;
     const host = grid && grid.parentNode;
     if (!grid || !host || NEWTAB_CROSS_SURFACE_DRAG.prefersReducedMotion(window)) {
       return;
@@ -591,8 +592,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       ? getShortcutTileLayoutRect(excludedSpot)
       : getShortcutTileLayoutRect(tile));
     const layoutItems: Array<{ tile: HTMLElement; rect: LayoutRect }> = [];
-    (pageState.shortcutGrid
-      ? queryHtmlElements(pageState.shortcutGrid, SHORTCUT_SLOT_SELECTOR)
+    (shortcutGrid
+      ? queryHtmlElements(shortcutGrid, SHORTCUT_SLOT_SELECTOR)
       : getShortcutReorderTiles()).forEach((tile) => {
       const rect = tile !== excludedTile ? getSlotRect(tile) : null;
       if (rect && rect.width > 0 && rect.height > 0) {
@@ -613,7 +614,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function getShortcutDragInsertionSlot(pointerX: number, pointerY: number): ShortcutInsertionSlot | null {
-    if (!pageState.shortcutGrid || !pageState.shortcutDragState || !Number.isFinite(pointerX) ||
+    if (!shortcutGrid || !pageState.shortcutDragState || !Number.isFinite(pointerX) ||
         !Number.isFinite(pointerY)) {
       return null;
     }
@@ -621,8 +622,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function getShortcutGroupHeader(groupId: string | undefined): HTMLElement | null {
-    return pageState.shortcutGrid && groupId
-      ? queryHtmlElement(pageState.shortcutGrid, `.x-nt-shortcut-group-header[data-shortcut-group-id="${groupId}"]`)
+    return shortcutGrid && groupId
+      ? queryHtmlElement(shortcutGrid, `.x-nt-shortcut-group-header[data-shortcut-group-id="${groupId}"]`)
       : null;
   }
 
@@ -634,7 +635,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   // next to the tile the pointer is beside rather than before the next tile
   // in the list, which could already belong to the next group.
   function moveShortcutTileElement(tile: HTMLElement, targetIndex: number, slot: TileMoveSlot | null): boolean {
-    const grid = pageState.shortcutGrid;
+    const grid = shortcutGrid;
     if (!grid || tile.parentNode !== grid || !Number.isFinite(targetIndex)) {
       return false;
     }
@@ -665,7 +666,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (currentIndex === boundedIndex) {
       return false;
     }
-    return place(remainingTiles[boundedIndex] || pageState.addShortcutButton || null);
+    return place(remainingTiles[boundedIndex] || getAddShortcutButton() || null);
   }
 
   // Moves the shortcut to `targetIndex` among the other visible tiles and
@@ -674,19 +675,19 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (!shortcutId || !Number.isFinite(targetIndex)) {
       return false;
     }
-    const currentIndex = pageState.newtabShortcuts.findIndex((item) => item.id === shortcutId);
+    const currentIndex = shortcutList.items.findIndex((item) => item.id === shortcutId);
     if (currentIndex < 0) {
       return false;
     }
     const groupId = String(targetGroupId || '');
-    const regroup = Boolean(groupId) && pageState.newtabShortcuts[currentIndex].groupId !== groupId;
+    const regroup = Boolean(groupId) && shortcutList.items[currentIndex].groupId !== groupId;
     const tiles = getShortcutReorderTiles();
     const visibleIds = tiles.filter((tile) => getShortcutTileId(tile) !== shortcutId).map(getShortcutTileId);
     const visibleTargetIndex = Math.max(0, Math.min(visibleIds.length, Math.floor(targetIndex)));
     if (!regroup && tiles.findIndex((tile) => getShortcutTileId(tile) === shortcutId) === visibleTargetIndex) {
       return false;
     }
-    const nextShortcuts = pageState.newtabShortcuts.slice();
+    const nextShortcuts = shortcutList.items.slice();
     const removed = nextShortcuts.splice(currentIndex, 1)[0];
     const shortcutItem = regroup ? { ...removed, groupId } : removed;
     const anchorId = visibleIds[visibleTargetIndex];
@@ -696,7 +697,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       return false;
     }
     nextShortcuts.splice(boundedIndex, 0, shortcutItem);
-    pageState.newtabShortcuts = nextShortcuts;
+    shortcutList.replaceItems(nextShortcuts);
     return true;
   }
 
@@ -709,17 +710,17 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     }
     const originalOrder = state.originalShortcuts.map((item) => item.id);
     const restored = NEWTAB_CROSS_SURFACE_DRAG.planShortcutReorder({
-      shortcuts: pageState.newtabShortcuts, order: originalOrder,
+      shortcuts: shortcutList.items, order: originalOrder,
       groups: state.originalShortcuts.map((item) => item.groupId)
     });
-    if (restored) pageState.newtabShortcuts = restored;
+    if (restored) shortcutList.replaceItems(restored);
     // React has not committed the manually moved DOM order during the drag.
     // Each tile goes after the tile before it in its group, or after its
     // group's title when it is the first one.
     let visibleIndex = 0;
     let previousTile: HTMLElement | null = null;
     let previousGroupId: string | undefined | null = null;
-    pageState.newtabShortcuts.forEach((shortcut) => {
+    shortcutList.items.forEach((shortcut) => {
       const tile = getShortcutTileById(shortcut.id);
       if (!tile) return;
       const anchor = previousTile && previousGroupId === shortcut.groupId
@@ -736,17 +737,17 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   function persistShortcutOrder(state?: ShortcutReorderOrigin): Promise<ShortcutItem[]> {
     const record = state && NEWTAB_BOOKMARK_MOVE_HISTORY.createShortcutReorderRecord({
       fromOrder: state.originalShortcuts.map((item) => item.id),
-      toOrder: pageState.newtabShortcuts.map((item) => item.id),
+      toOrder: shortcutList.items.map((item) => item.id),
       fromGroups: state.originalShortcuts.map((item) => item.groupId),
-      toGroups: pageState.newtabShortcuts.map((item) => item.groupId)
+      toGroups: shortcutList.items.map((item) => item.groupId)
     });
-    if (state && !record) return Promise.resolve(pageState.newtabShortcuts);
+    if (state && !record) return Promise.resolve(shortcutList.items);
     if (state) pageState.bookmarkMoveHistoryBusy = true;
-    return persistShortcuts(pageState.newtabShortcuts, '', undefined, { render: false })
+    return persistShortcuts(shortcutList.items, '', undefined, { render: false })
       .then((saved) => {
         if (saved && record) bookmarkMoveHistory.push(record);
         if (!saved && state) restoreShortcutDragOrder(state);
-        return pageState.newtabShortcuts;
+        return shortcutList.items;
       }).finally(() => {
         if (state) pageState.bookmarkMoveHistoryBusy = false;
       });
@@ -769,7 +770,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const ownGroupId = getShortcutTileGroupId(tiles[currentIndex]);
     const neighborGroupId = getShortcutTileGroupId(neighbor);
     const crossesGroup = neighborGroupId !== ownGroupId;
-    const state: ShortcutReorderOrigin = { originalShortcuts: pageState.newtabShortcuts.slice() };
+    const state: ShortcutReorderOrigin = { originalShortcuts: shortcutList.items.slice() };
     // Crossing into the next group keeps the index and changes the group.
     const targetIndex = crossesGroup ? currentIndex : currentIndex + direction;
     if (!moveShortcutItem(shortcutId, targetIndex, crossesGroup ? neighborGroupId : '')) {
@@ -788,7 +789,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
 
   function startShortcutDrag(event: PointerEvent, state: ShortcutDragSession): void {
     const tile = state.tile;
-    if (!pageState.shortcutGrid || pageState.shortcutDragState !== state) {
+    if (!shortcutGrid || pageState.shortcutDragState !== state) {
       return;
     }
     state.isDragging = true;
@@ -802,7 +803,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (isEmptyBookmarkRootHidden()) {
       renderCurrentBookmarkPage();
     }
-    pageState.shortcutGrid.setAttribute('data-shortcut-dragging', 'true');
+    shortcutGrid.setAttribute('data-shortcut-dragging', 'true');
     tile.setAttribute('data-shortcut-dragging', 'true');
     tile.setAttribute('aria-grabbed', 'true');
     tile.style.pointerEvents = 'none';
@@ -955,8 +956,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       document.body.removeAttribute('data-drag-source');
     }
     const tile = state.tile;
-    if (pageState.shortcutGrid) {
-      pageState.shortcutGrid.removeAttribute('data-shortcut-dragging');
+    if (shortcutGrid) {
+      shortcutGrid.removeAttribute('data-shortcut-dragging');
     }
     if (tile) {
       tile.removeAttribute('aria-grabbed');
@@ -1153,7 +1154,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const toSource = (shortcut: ShortcutItem) => ({
       snapshot: shortcut,
       index: originalShortcuts.findIndex((item) => item.id === shortcut.id),
-      iconDataUrl: pageState.newtabShortcutIcons[shortcut.id]
+      iconDataUrl: shortcutList.icons[shortcut.id]
     });
     const record = NEWTAB_BOOKMARK_MOVE_HISTORY.createShortcutStackRecord({
       snapshot: {
@@ -1162,10 +1163,10 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       },
       sources: [toSource(destination), toSource(source)],
       itemIcons: [destination, source].map((shortcut) => getFolderItemIconForShortcut(
-        shortcut, pageState.newtabShortcutIcons[shortcut.id])),
+        shortcut, shortcutList.icons[shortcut.id])),
       folderShortcut: {
         id: FOLDER_REFERENCES.createEntryId(),
-        index: pageState.newtabShortcuts.filter((item) => item.id !== source.id)
+        index: shortcutList.items.filter((item) => item.id !== source.id)
           .findIndex((item) => item.id === destination.id),
         groupId: destination.groupId
       }
@@ -1227,10 +1228,10 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       beforeShortcut: {
         snapshot: shortcut,
         index: originalShortcuts.findIndex((item) => item.id === shortcut.id),
-        iconDataUrl: pageState.newtabShortcutIcons[shortcut.id]
+        iconDataUrl: shortcutList.icons[shortcut.id]
       },
       // The site keeps its icon choice as a bookmark in a shortcut folder.
-      itemIcon: isShortcutFolder(shortcut) ? null : getFolderItemIconForShortcut(shortcut, pageState.newtabShortcutIcons[shortcut.id])
+      itemIcon: isShortcutFolder(shortcut) ? null : getFolderItemIconForShortcut(shortcut, shortcutList.icons[shortcut.id])
     });
     if (!record) return Promise.resolve(restoreShortcut());
     pageState.bookmarkMoveHistoryBusy = true;
@@ -1248,7 +1249,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       return true;
     }).finally(() => {
       pageState.bookmarkMoveHistoryBusy = false;
-      if (pageState.newtabShortcuts.some(isShortcutFolder)) void refreshShortcutFolderReferences();
+      if (shortcutList.items.some(isShortcutFolder)) void refreshShortcutFolderReferences();
     });
   }
 
@@ -1265,8 +1266,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   });
 
   function getShortcutGroupHeaders(): HTMLElement[] {
-    return pageState.shortcutGrid
-      ? queryHtmlElements(pageState.shortcutGrid, '.x-nt-shortcut-group-header')
+    return shortcutGrid
+      ? queryHtmlElements(shortcutGrid, '.x-nt-shortcut-group-header')
       : [];
   }
 
@@ -1334,7 +1335,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   // the pointer; `targetIndex` is its index among the remaining groups.
   function updateShortcutGroupDrag(state: ShortcutGroupDragSession, pointerX: number, pointerY: number): void {
     const { ghost, line } = state;
-    const grid = pageState.shortcutGrid;
+    const grid = shortcutGrid;
     if (!ghost || !line || !grid) return;
     const left = Number.parseFloat(ghost.style.left) || 0;
     const top = Number.parseFloat(ghost.style.top) || 0;
@@ -1441,7 +1442,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       pointerId: event.pointerId,
       tile,
       shortcutId,
-      originalShortcuts: pageState.newtabShortcuts.slice(),
+      originalShortcuts: shortcutList.items.slice(),
       bookmarkId: getShortcutFolderId(getShortcutById(shortcutId)),
       pageSwitchTimerId: 0,
       pageSwitchDirection: 0,

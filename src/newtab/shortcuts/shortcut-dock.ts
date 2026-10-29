@@ -36,9 +36,6 @@ interface DockMagnitude {
 }
 
 interface ShortcutDockState {
-  shortcutGrid: HTMLElement | null;
-  // The pointer's x for the next dock frame; NaN when none is pending.
-  shortcutDockPendingPointerX: number;
   shortcutContextMenuTarget: { tile?: HTMLElement | null } | null;
 }
 
@@ -51,11 +48,13 @@ interface ShortcutDockDeps {
   applyShortcutContextMenuDockHover(tile: HTMLElement): void;
   clearShortcutContextMenuTileActive(): void;
   getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null;
+  shortcutGrid: HTMLElement;
   pageState: ShortcutDockState;
 }
 
 function createShortcutDock(deps: ShortcutDockDeps) {
   const {
+    shortcutGrid,
     settings,
     preview,
     isShortcutDragActive,
@@ -68,6 +67,8 @@ function createShortcutDock(deps: ShortcutDockDeps) {
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
+  // The pointer's x for the next dock frame; NaN when none is pending.
+  let shortcutDockPendingPointerX = Number.NaN;
 
   let shortcutDockPointerFrame = 0;
   let shortcutDockPendingTile: HTMLElement | null = null;
@@ -118,7 +119,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     }
     shortcutDockPendingTile = null;
     shortcutDockLastFrameTime = 0;
-    pageState.shortcutDockPendingPointerX = Number.NaN;
+    shortcutDockPendingPointerX = Number.NaN;
   }
 
   // Removing the inline values and the following flag in one style change
@@ -128,21 +129,21 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     shortcutDockIconStates.clear();
     shortcutDockActiveTile = null;
     shortcutDockMagnitude = null;
-    if (!pageState.shortcutGrid) {
+    if (!shortcutGrid) {
       return;
     }
-    pageState.shortcutGrid.removeAttribute('data-dock-active');
-    pageState.shortcutGrid.removeAttribute('data-dock-following');
-    queryHtmlElements(pageState.shortcutGrid, '.x-nt-shortcut-tile').forEach((tile) => {
+    shortcutGrid.removeAttribute('data-dock-active');
+    shortcutGrid.removeAttribute('data-dock-following');
+    queryHtmlElements(shortcutGrid, '.x-nt-shortcut-tile').forEach((tile) => {
       resetShortcutDockTile(tile);
     });
   }
 
   function applyNewtabShortcutDockMagnification(): void {
-    if (!pageState.shortcutGrid) {
+    if (!shortcutGrid) {
       return;
     }
-    pageState.shortcutGrid.setAttribute(
+    shortcutGrid.setAttribute(
       'data-dock-magnification',
       preview.get(newtabShortcutDockMagnificationEnabled) ? 'true' : 'false'
     );
@@ -153,7 +154,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
 
   // The compact and tiny dock densities magnify less; follow their values.
   function readShortcutDockMagnitude(): DockMagnitude {
-    const grid = pageState.shortcutGrid;
+    const grid = shortcutGrid;
     const style = grid && typeof window.getComputedStyle === 'function'
       ? window.getComputedStyle(grid)
       : null;
@@ -248,9 +249,9 @@ function createShortcutDock(deps: ShortcutDockDeps) {
   function runShortcutDockFrame(now: number): void {
     shortcutDockPointerFrame = 0;
     const pendingTile = shortcutDockPendingTile;
-    const pendingPointerX = pageState.shortcutDockPendingPointerX;
+    const pendingPointerX = shortcutDockPendingPointerX;
     shortcutDockPendingTile = null;
-    pageState.shortcutDockPendingPointerX = Number.NaN;
+    shortcutDockPendingPointerX = Number.NaN;
     if (isShortcutDragActive() || isBookmarkDragActive()) {
       shortcutDockLastFrameTime = 0;
       return;
@@ -278,7 +279,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
 
   function scheduleShortcutDockPointerStyles(tile: HTMLElement | null, pointerX: number | null): void {
     shortcutDockPendingTile = tile || null;
-    pageState.shortcutDockPendingPointerX = Number(pointerX);
+    shortcutDockPendingPointerX = Number(pointerX);
     requestShortcutDockFrame();
   }
 
@@ -315,14 +316,14 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     }
     shortcutDockFolderMenuTile = null;
     // A pointer still over the row keeps driving the dock on its next move.
-    if (!pageState.shortcutGrid || !pageState.shortcutGrid.matches(':hover')) {
+    if (!shortcutGrid || !shortcutGrid.matches(':hover')) {
       resetShortcutDockHover();
     }
   }
 
   function resetShortcutDockHover(): void {
     cancelShortcutDockPointerFrame();
-    if (!pageState.shortcutGrid) {
+    if (!shortcutGrid) {
       return;
     }
     if (isShortcutContextMenuOpen() && pageState.shortcutContextMenuTarget) {
@@ -365,7 +366,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     pointerX: number | null,
     options?: { fromFrame?: boolean; settle?: boolean }
   ): void {
-    const grid = pageState.shortcutGrid;
+    const grid = shortcutGrid;
     if (!grid || !activeTile) {
       return;
     }
@@ -458,7 +459,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     // In the gap between two tiles the pointer is over the grid itself; the
     // icons keep following it from the last tile's row.
     const tile = getShortcutTileFromNode(event.target) ||
-      (event.target === pageState.shortcutGrid && shortcutDockActiveTile && shortcutDockActiveTile.isConnected
+      (event.target === shortcutGrid && shortcutDockActiveTile && shortcutDockActiveTile.isConnected
         ? shortcutDockActiveTile
         : null);
     if (tile) {

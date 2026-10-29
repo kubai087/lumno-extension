@@ -22,7 +22,6 @@ import type { RecentCardDrag, RecentCardDragState } from './recent/recent-card-d
 import type { RecentSectionState } from './recent/recent-section';
 import type { RecentSitesControllerState } from './recent/recent-sites-controller';
 import type { RecentSourcesState } from './recent/recent-sources';
-import type { SearchSettingsSyncState } from './search/search-settings-sync';
 import type { SectionHeadersState } from './section-headers';
 import type { SectionLoadersState } from './section-loaders';
 import type { SectionReloadState } from './section-reload';
@@ -33,8 +32,6 @@ import type { ShortcutPageActionsState } from './shortcuts/shortcut-page-actions
 import type { ShortcutsControllerState } from './shortcuts/shortcuts-controller';
 import type { StartupPreferencesState } from './startup-preferences';
 import type { SiteThemeResolverState } from './theme/site-theme-resolver';
-import type { SuggestionsLayoutState } from './search/suggestions-layout';
-import type { TooltipBindingsState } from './tooltip-bindings';
 import type { TopContentState } from './top-content/top-content';
 import type { WallpaperPageState } from './wallpaper/wallpaper-page';
 
@@ -67,7 +64,6 @@ type NewtabPageState =
   RecentSectionState &
   RecentSitesControllerState &
   RecentSourcesState &
-  SearchSettingsSyncState &
   SectionHeadersState &
   SectionLoadersState &
   SectionReloadState &
@@ -78,8 +74,6 @@ type NewtabPageState =
   ShortcutsControllerState &
   StartupPreferencesState &
   SiteThemeResolverState &
-  SuggestionsLayoutState &
-  TooltipBindingsState &
   TopContentState &
   WallpaperPageState;
 
@@ -87,9 +81,6 @@ function createPageState(): NewtabPageState {
   return {
 
     recentSourceItems: [],
-    layoutController: null,
-    layoutMotion: null,
-    bottomDockScroller: null,
     faviconViewRuntime: null,
 
     topContentContainer: null,
@@ -114,13 +105,8 @@ function createPageState(): NewtabPageState {
     bookmarkMoveHistoryBusy: false,
     recentSitesView: null,
     bookmarksView: null,
-    newtabShortcutIcons: {},
-    newtabShortcutFavicons: {},
-    shortcutPersistenceInFlightCount: 0,
     shortcutDragState: null,
 
-    shortcutFaviconPolicyRevision: 0,
-    shortcutFaviconPendingCacheEntries: {},
 
 
 
@@ -134,9 +120,6 @@ function createPageState(): NewtabPageState {
     bookmarkCascadeRuntime: null,
     bookmarkDragState: null,
     bookmarkTopbarRuntime: null,
-    shortcutSection: null,
-    shortcutGrid: null,
-    addShortcutButton: null,
     recentSection: null,
     folderColorPicker: null,
     recentContextMenu: null,
@@ -149,17 +132,12 @@ function createPageState(): NewtabPageState {
     shortcutContextMenu: null,
     shortcutContextMenuSelectController: null,
     shortcutContextMenuTarget: null,
-    shortcutPlateColorPicker: null,
-    shortcutPlateColorPick: null,
-    shortcutDialogController: null,
 
     bookmarkLoadedOnce: false,
     bookmarkRenderSignature: '',
     sectionDataRevision: 0,
-    newtabShortcuts: [],
     recentLoadedOnce: false,
-    recentRenderSignature: '',
-    shortcutDockPendingPointerX: Number.NaN
+    recentRenderSignature: ''
   };
 }
 

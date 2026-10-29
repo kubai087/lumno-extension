@@ -25,11 +25,12 @@ function createElementStub() {
   return { setAttribute() {}, addEventListener() {}, getAttribute: () => null };
 }
 
-const pageState = {
-  newtabShortcuts: [],
-  shortcutGrid: null,
-  shortcutSection: null,
-  addShortcutButton: null
+// The page's shortcut list.
+const shortcutList = {
+  items: [],
+  icons: {},
+  replaceItems(next) { this.items = next; },
+  replaceIcons(next) { this.icons = next; }
 };
 const noop = () => {};
 const controller = LumnoNewtabShortcutsController.createShortcutsController({
@@ -49,7 +50,10 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   updateBookmarkSectionPosition: noop,
   applyNewtabShortcutDockMagnification: noop,
   scheduleWallpaperAdaptiveToneUpdate: noop,
-  pageState
+  shortcutList,
+  // Only followed here: no setting changes in these tests.
+  settings: { subscribe: () => () => {} },
+  pageState: {}
 });
 
 controller.createShortcutsSection();

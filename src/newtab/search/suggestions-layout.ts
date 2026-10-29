@@ -1,25 +1,22 @@
 // Where the suggestion list sits: shown or hidden, floating under the
 // search box, and offset below an open search mode menu.
+import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { LayoutController } from '../layout';
 import type { LayoutMotion } from '../layout-motion';
-import type { InputModeController } from '../../shared/search/search-input-mode';
-
-interface SuggestionsLayoutState {
-  layoutMotion: Pick<LayoutMotion, 'cancelAll'> | null;
-  layoutController: Pick<LayoutController, 'setSuggestionsVisible' | 'updateSuggestionsFloatingLayout'> | null;
-}
 
 interface SuggestionsLayoutDeps {
   // Only the mode menu's fit below the results is read from the mode controller.
   searchBox: { readonly modeController: Pick<InputModeController, 'placeModeMenuBelowResults'> | null };
   suggestionsContainer: HTMLElement;
-  pageState: SuggestionsLayoutState;
+  // The dock's layout, once the dock is made.
+  bottomDockParts: {
+    readonly layoutController: Pick<LayoutController, 'setSuggestionsVisible' | 'updateSuggestionsFloatingLayout'> | null;
+    readonly layoutMotion: Pick<LayoutMotion, 'cancelAll'> | null;
+  };
 }
 
 function createSuggestionsLayout(deps: SuggestionsLayoutDeps) {
-  const { suggestionsContainer, searchBox } = deps;
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
+  const { suggestionsContainer, searchBox, bottomDockParts } = deps;
 
   function syncSearchModeMenuResultOffset(): void {
     const container = suggestionsContainer;
@@ -42,18 +39,18 @@ function createSuggestionsLayout(deps: SuggestionsLayoutDeps) {
   function setSuggestionsVisible(visible: boolean): void {
     // The open list is placed from the search box's drawn position, so the
     // box lands first.
-    if (visible && pageState.layoutMotion) {
-      pageState.layoutMotion.cancelAll();
+    if (visible && bottomDockParts.layoutMotion) {
+      bottomDockParts.layoutMotion.cancelAll();
     }
-    if (pageState.layoutController) {
-      pageState.layoutController.setSuggestionsVisible(visible);
+    if (bottomDockParts.layoutController) {
+      bottomDockParts.layoutController.setSuggestionsVisible(visible);
     }
     syncSearchModeMenuResultOffset();
   }
 
   function updateSuggestionsFloatingLayout(): void {
-    if (pageState.layoutController) {
-      pageState.layoutController.updateSuggestionsFloatingLayout();
+    if (bottomDockParts.layoutController) {
+      bottomDockParts.layoutController.updateSuggestionsFloatingLayout();
     }
   }
 
@@ -67,4 +64,4 @@ function createSuggestionsLayout(deps: SuggestionsLayoutDeps) {
 type SuggestionsLayout = ReturnType<typeof createSuggestionsLayout>;
 
 export { createSuggestionsLayout };
-export type { SuggestionsLayout, SuggestionsLayoutDeps, SuggestionsLayoutState };
+export type { SuggestionsLayout, SuggestionsLayoutDeps };

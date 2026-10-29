@@ -24,6 +24,7 @@ import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import { NEWTAB_GLASS_ADAPTIVE_SELECTOR } from '../newtab-config';
 import { SEARCH_WIDTH_CONFIG } from '../layout';
+import type { BottomDockParts } from '../shortcuts/bottom-dock-parts';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -35,13 +36,10 @@ interface WallpaperPageState {
   bookmarkPagerPrevButton: HTMLElement | null;
   bookmarkTitleWrap: HTMLElement | null;
   bookmarkTopbarRuntime: { element: HTMLElement | null } | null;
-  shortcutGrid: HTMLElement | null;
-  addShortcutButton: HTMLElement | null;
   topContentController: TopContentController | null;
   topContentContainer: HTMLElement | null;
   wordmarkImageEl: HTMLImageElement | null;
   recentHeader: HTMLElement | null;
-  bottomDockScroller: HTMLElement | null;
 }
 
 interface WallpaperPageDeps {
@@ -82,6 +80,8 @@ interface WallpaperPageDeps {
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
   followTheme(): PromiseLike<unknown>;
   quoteRuntime: Pick<QuoteRuntime, 'element' | 'getTextElement' | 'bindSettings' | 'getProviderLabel' | 'updateLanguage'>;
+  shortcutGrid: HTMLElement;
+  bottomDockParts: Pick<BottomDockParts, 'scroller'>;
   pageState: WallpaperPageState;
   getFeedbackButton(): HTMLElement | null;
   sectionPanelSettings: SectionPanelSettings & { updateLanguage(): void };
@@ -91,6 +91,8 @@ interface WallpaperPageDeps {
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
+    bottomDockParts,
+    shortcutGrid,
     quoteRuntime,
     settings,
     preview,
@@ -144,14 +146,14 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
         element: tile,
         forcedIconBackground: 'shortcut-fallback'
       }));
-    if (pageState.shortcutGrid) {
-      queryHtmlElements(pageState.shortcutGrid, '.x-nt-shortcut-group-empty').forEach((slot) => {
+    if (shortcutGrid) {
+      queryHtmlElements(shortcutGrid, '.x-nt-shortcut-group-empty').forEach((slot) => {
         shortcutIconTargets.push({ element: slot, forcedIconBackground: 'shortcut-add' });
       });
     }
-    if (pageState.addShortcutButton) {
-      shortcutIconTargets.push({ element: pageState.addShortcutButton, forcedIconBackground: 'shortcut-add' });
-    }
+    queryHtmlElements(shortcutGrid, '.x-nt-shortcut-tile--add').forEach((addTile) => {
+      shortcutIconTargets.push({ element: addTile, forcedIconBackground: 'shortcut-add' });
+    });
     // The dock's icons read one sample over the whole row and keep one ink, so a
     // folder or the add button never flips tone against its neighbor where the
     // wallpaper under the row changes from light to dark.
@@ -255,7 +257,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       // The dock's scrollbar sits on the wallpaper beside the cards; sample
       // only its track so a thin thumb follows the tone right under it.
       {
-        element: pageState.bottomDockScroller,
+        element: bottomDockParts.scroller,
         sampleElement: bottomDockScrollbarTrackArea,
         minWidth: 24,
         minHeight: 64,
@@ -356,22 +358,22 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
   }
 
   function getBottomDockScrollbarGutter(): number {
-    return pageState.bottomDockScroller
-      ? Math.max(0, pageState.bottomDockScroller.offsetWidth - pageState.bottomDockScroller.clientWidth)
+    return bottomDockParts.scroller
+      ? Math.max(0, bottomDockParts.scroller.offsetWidth - bottomDockParts.scroller.clientWidth)
       : 0;
   }
 
   // Overlay scrollbars (macOS) take no gutter but still show while scrolling.
   function isBottomDockScrollbarShown(): boolean {
     return Boolean(
-      pageState.bottomDockScroller &&
-      pageState.bottomDockScroller.scrollHeight > pageState.bottomDockScroller.clientHeight + 1
+      bottomDockParts.scroller &&
+      bottomDockParts.scroller.scrollHeight > bottomDockParts.scroller.clientHeight + 1
     );
   }
 
   const bottomDockScrollbarTrackArea = {
     getBoundingClientRect() {
-      const scroller = pageState.bottomDockScroller;
+      const scroller = bottomDockParts.scroller;
       if (!scroller) {
         return { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 };
       }

@@ -20,9 +20,14 @@ async function setUp(options) {
   await runtime.ensureReady(true);
   const toasts = [];
   const layoutNotes = [];
+  // The page's shortcut list, which persisting replaces.
+  const shortcutList = {
+    items: [],
+    icons: {},
+    replaceItems(items) { this.items = items; },
+    replaceIcons(icons) { this.icons = icons; }
+  };
   const pageState = {
-    newtabShortcuts: [],
-    newtabShortcutIcons: {},
     bookmarkMoveHistoryBusy: false,
     bookmarkCascadeRuntime: null
   };
@@ -40,7 +45,7 @@ async function setUp(options) {
     shortcutFolderRuntime: { bind() {}, flush: () => Promise.resolve() },
     updateFolderItemIcons: () => Promise.resolve({}),
     persistShortcuts: (items) => {
-      pageState.newtabShortcuts = items;
+      shortcutList.items = items;
       return Promise.resolve(true);
     },
     refreshShortcutFolderReferences: () => Promise.resolve(),
@@ -53,17 +58,18 @@ async function setUp(options) {
     showToast: (message) => toasts.push(message),
     t: (key, fallback) => fallback,
     formatMessage: (key, fallback) => fallback,
+    shortcutList,
     pageState
   });
   const siteRecord = shortcutsStore.createShortcutRecord({ title: SITE.title, url: SITE.url });
-  return { bookmarks, runtime, transfer, pageState, history, toasts, layoutNotes, siteRecord };
+  return { bookmarks, runtime, transfer, pageState, shortcutList, history, toasts, layoutNotes, siteRecord };
 }
 
 (async () => {
   {
-    const { bookmarks, transfer, pageState, history, toasts, layoutNotes, siteRecord } = await setUp({ webdavBackup: false });
+    const { bookmarks, transfer, pageState, history, toasts, layoutNotes, siteRecord, shortcutList } = await setUp({ webdavBackup: false });
     assert.strictEqual(await transfer.moveBookmarkToShortcuts({ bookmarkId: SITE.id }, { record: siteRecord, index: 0, groupId: '' }), true);
-    assert.deepStrictEqual(pageState.newtabShortcuts.map((item) => [item.url, item.fromBookmark]), [[SITE.url, true]],
+    assert.deepStrictEqual(shortcutList.items.map((item) => [item.url, item.fromBookmark]), [[SITE.url, true]],
       'without a backup the shortcut is a copy marked as from the bookmarks');
     assert.ok(bookmarks.find(SITE.id), 'and the bookmark stays');
     assert.deepStrictEqual(toasts, ['Shortcut added']);
@@ -72,32 +78,32 @@ async function setUp(options) {
     assert.strictEqual(pageState.bookmarkMoveHistoryBusy, false);
   }
   {
-    const { bookmarks, runtime, transfer, pageState, history, siteRecord } = await setUp({ webdavBackup: true });
+    const { bookmarks, runtime, transfer, history, siteRecord, shortcutList } = await setUp({ webdavBackup: true });
     assert.strictEqual(await transfer.moveBookmarkToShortcuts({ bookmarkId: SITE.id }, { record: siteRecord, index: 0, groupId: '' }), true);
-    assert.deepStrictEqual(pageState.newtabShortcuts.map((item) => [item.url, item.fromBookmark]), [[SITE.url, undefined]],
+    assert.deepStrictEqual(shortcutList.items.map((item) => [item.url, item.fromBookmark]), [[SITE.url, undefined]],
       'with a backup the site moves into the shortcuts');
     assert.strictEqual(bookmarks.find(SITE.id), null, 'and leaves the bookmarks');
     const record = history.peekUndo();
     assert.strictEqual(await transfer.applyBookmarkShortcutTransfer(record, true), true);
-    assert.deepStrictEqual(pageState.newtabShortcuts, [], 'undo takes the shortcut back out');
+    assert.deepStrictEqual(shortcutList.items, [], 'undo takes the shortcut back out');
     await runtime.ensureReady(true);
     const restored = bookmarks.root.children[0].children.find((node) => node.url === SITE.url);
     assert.ok(restored, 'and puts the bookmark back');
     assert.strictEqual(restored.index, 0, 'where it was');
   }
   {
-    const { transfer, pageState, siteRecord } = await setUp({ webdavBackup: false });
+    const { transfer, pageState, siteRecord, shortcutList } = await setUp({ webdavBackup: false });
     pageState.bookmarkMoveHistoryBusy = true;
     assert.strictEqual(await transfer.moveBookmarkToShortcuts({ bookmarkId: SITE.id }, { record: siteRecord, index: 0, groupId: '' }), false,
       'nothing starts while another change runs');
-    assert.deepStrictEqual(pageState.newtabShortcuts, []);
+    assert.deepStrictEqual(shortcutList.items, []);
   }
   {
-    const { transfer, pageState, toasts } = await setUp({ webdavBackup: false });
+    const { transfer, toasts, shortcutList } = await setUp({ webdavBackup: false });
     assert.strictEqual(transfer.hasShortcutForBookmarkFolder('20'), false);
     assert.strictEqual(await transfer.addBookmarkFolderToShortcuts('20'), true);
-    assert.strictEqual(pageState.newtabShortcuts.length, 1);
-    assert.strictEqual(pageState.newtabShortcuts[0].type, 'folder');
+    assert.strictEqual(shortcutList.items.length, 1);
+    assert.strictEqual(shortcutList.items[0].type, 'folder');
     assert.deepStrictEqual(toasts, ['Folder added to shortcuts']);
     assert.strictEqual(await transfer.addBookmarkFolderToShortcuts(SITE.id), false, 'a site is no folder');
   }

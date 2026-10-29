@@ -41,6 +41,7 @@ import * as NEWTAB_BOOKMARK_DRAG from './bookmark-drag';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
+import type { ShortcutList } from '../shortcuts/shortcut-list';
 
 interface BookmarkDragControllerState {
   bookmarkGrid: HTMLElement | null;
@@ -51,13 +52,7 @@ interface BookmarkDragControllerState {
   bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
   bookmarkLoadedOnce: boolean;
   bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
-  shortcutSection: HTMLElement | null;
-  shortcutGrid: HTMLElement | null;
-  addShortcutButton: HTMLElement | null;
   bookmarkDragState: BookmarkDragSession | null;
-  newtabShortcuts: ShortcutItem[];
-  // Custom icon images by shortcut id.
-  newtabShortcutIcons: Record<string, string>;
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
   bookmarkPagerPrevButton: HTMLElement | null;
@@ -113,7 +108,11 @@ interface BookmarkDragControllerDeps {
   closeBookmarkContextMenu(): void;
   getShortcutGroups?(): ShortcutGroup[];
   isWebDavBackingUpShortcuts?(): Promise<boolean>;
+  shortcutList: Pick<ShortcutList, 'icons' | 'items'>;
+  shortcutSection: HTMLElement;
+  shortcutGrid: HTMLElement;
   pageState: BookmarkDragControllerState;
+  getAddShortcutButton(): HTMLElement | null;
 }
 
 interface PendingLayoutAnimation {
@@ -136,6 +135,9 @@ type InsertionGapKey = [string, string, HTMLElement | null];
 
 function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   const {
+    shortcutGrid,
+    shortcutSection,
+    shortcutList,
     settings,
     preview,
     isBookmarkTopbarMode,
@@ -179,7 +181,8 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     autoScrollShortcutArea,
     closeBookmarkContextMenu,
     getShortcutGroups,
-    isWebDavBackingUpShortcuts
+    isWebDavBackingUpShortcuts,
+    getAddShortcutButton
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -637,12 +640,12 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   // A scrolling shortcut section shows only part of its grid; the rest,
   // scrolled under the search box or the bottom dock, takes no drops.
   function isPointOverShortcutDropSurface(pointerX: number, pointerY: number): boolean {
-    const section = pageState.shortcutSection;
+    const section = shortcutSection;
     return Boolean(
-      pageState.shortcutGrid &&
+      shortcutGrid &&
       isContentSectionVisible(section) &&
       !isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY) &&
-      NEWTAB_BOOKMARK_DRAG.isPointInsideElement(pageState.shortcutGrid, pointerX, pointerY) &&
+      NEWTAB_BOOKMARK_DRAG.isPointInsideElement(shortcutGrid, pointerX, pointerY) &&
       (!section || section.getAttribute('data-shortcuts-scrollable') !== 'true' ||
         NEWTAB_BOOKMARK_DRAG.isPointInsideElement(section, pointerX, pointerY))
     );
@@ -666,14 +669,14 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   function getShortcutInsertionDropTarget(record: ShortcutItem | null, pointerX: number, pointerY: number): ShortcutInsertionTarget | null {
     const slot = getShortcutInsertionSlotAt(pointerX, pointerY, null);
     const canMove = Boolean(NEWTAB_CROSS_SURFACE_DRAG.planBookmarkToShortcut({
-      shortcuts: pageState.newtabShortcuts,
+      shortcuts: shortcutList.items,
       record,
       index: slot.index,
       groupId: slot.groupId,
       getFolderId: getShortcutFolderId,
       maxShortcuts: DEFAULT_MAX_SHORTCUTS
     }));
-    const anchorRect = slot.anchorRect || getShortcutTileLayoutRect(pageState.addShortcutButton);
+    const anchorRect = slot.anchorRect || getShortcutTileLayoutRect(getAddShortcutButton());
     if (!canMove || !anchorRect || anchorRect.width <= 0) {
       document.body.setAttribute('data-drag-blocked', 'true');
       return null;
@@ -685,8 +688,8 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       kind: 'insertion',
       surface: 'shortcuts',
       index: slot.index < getShortcutReorderTiles().length
-        ? pageState.newtabShortcuts.findIndex((item) => item.id === getShortcutTileId(getShortcutReorderTiles()[slot.index]))
-        : pageState.newtabShortcuts.length,
+        ? shortcutList.items.findIndex((item) => item.id === getShortcutTileId(getShortcutReorderTiles()[slot.index]))
+        : shortcutList.items.length,
       groupId: slot.groupId || '',
       record,
       element: null,
@@ -703,6 +706,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     applyBookmarkShortcutTransfer,
     applyShortcutStack
   } = BOOKMARK_SHORTCUT_TRANSFER.createBookmarkShortcutTransfer({
+    shortcutList,
     bookmarksRuntime,
     getShortcutStoreOptions,
     getShortcutFolderId,
@@ -1272,6 +1276,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     persistBookmarkCrossLevelMove,
     performBookmarkMoveHistoryAction
   } = BOOKMARK_MOVE_ACTIONS.createBookmarkMoveActions({
+    shortcutList,
     bookmarksRuntime,
     bookmarkMoveHistory,
     transfer: { applyBookmarkShortcutTransfer, applyShortcutStack },

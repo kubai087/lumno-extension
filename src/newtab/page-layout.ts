@@ -1,8 +1,7 @@
 // Page geometry: bookmark and recent grid column counts, the width modes
 // and search width, shortcut grid sizing, which content sections show, and
 // the search entry's vertical position as the viewport changes.
-import type { LayoutController, SearchEntryLayoutOptions, WidthModeConfig } from './layout';
-import type { LayoutMotion } from './layout-motion';
+import type { SearchEntryLayoutOptions, WidthModeConfig } from './layout';
 import type { PagePreferences } from './page-preferences';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SuggestionsLayout } from './search/suggestions-layout';
@@ -23,6 +22,8 @@ import { DEFAULT_MAX_SHORTCUTS } from '../domain/shortcuts/constants';
 import { SEARCH_WIDTH_CONFIG } from './layout';
 import type { ViewportActivity } from './viewport-activity';
 import type { RecentPointer } from './recent/recent-pointer';
+import type { ShortcutList } from './shortcuts/shortcut-list';
+import type { BottomDockParts } from './shortcuts/bottom-dock-parts';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -40,12 +41,6 @@ interface PageLayoutState {
   bookmarkCurrentPage: number;
   recentGrid: HTMLElement | null;
   recentSection: HTMLElement | null;
-  shortcutGrid: HTMLElement | null;
-  shortcutSection: HTMLElement | null;
-  newtabShortcuts: readonly unknown[];
-  layoutController: Pick<LayoutController,
-    'applyWidthMode' | 'updateBottomDockLayout' | 'updateSearchEntryLayout'> | null;
-  layoutMotion: Pick<LayoutMotion, 'commit'> | null;
 }
 
 interface PageLayoutDeps extends
@@ -62,11 +57,19 @@ interface PageLayoutDeps extends
   scheduleWallpaperAdaptiveToneUpdate(): void;
   viewport: Pick<ViewportActivity, 'locked'>;
   recentPointer: Pick<RecentPointer, 'reset'>;
+  shortcutList: Pick<ShortcutList, 'items'>;
+  shortcutSection: HTMLElement;
+  shortcutGrid: HTMLElement;
+  bottomDockParts: Pick<BottomDockParts, 'layoutController' | 'layoutMotion'>;
   pageState: PageLayoutState;
 }
 
 function createPageLayout(deps: PageLayoutDeps) {
   const {
+    bottomDockParts,
+    shortcutGrid,
+    shortcutSection,
+    shortcutList,
     preview,
     settings,
     normalizeNewtabSearchWidth,
@@ -193,8 +196,8 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   function applyNewtabWidthMode(): void {
-    if (pageState.layoutController) {
-      pageState.layoutController.applyWidthMode(getNewtabWidthModeConfig());
+    if (bottomDockParts.layoutController) {
+      bottomDockParts.layoutController.applyWidthMode(getNewtabWidthModeConfig());
     }
   }
 
@@ -269,10 +272,10 @@ function createPageLayout(deps: PageLayoutDeps) {
       '--x-nt-shortcut-columns',
       String(preview.get(newtabShortcutColumns))
     );
-    if (!pageState.shortcutGrid || typeof window.getComputedStyle !== 'function') {
+    if (!shortcutGrid || typeof window.getComputedStyle !== 'function') {
       return;
     }
-    const gridStyle = window.getComputedStyle(pageState.shortcutGrid);
+    const gridStyle = window.getComputedStyle(shortcutGrid);
     const tileSize = Number.parseFloat(
       gridStyle.getPropertyValue('--x-nt-shortcut-tile-size')
     );
@@ -294,13 +297,13 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   function applyNewtabShortcutsVisibility(): void {
-    if (!pageState.shortcutSection) {
+    if (!shortcutSection) {
       return;
     }
     const hasVisibleContent = getVisibleShortcuts().length > 0 ||
-      (preview.get(newtabShortcutAddVisible) && pageState.newtabShortcuts.length < DEFAULT_MAX_SHORTCUTS);
+      (preview.get(newtabShortcutAddVisible) && shortcutList.items.length < DEFAULT_MAX_SHORTCUTS);
     setContentSectionVisible(
-      pageState.shortcutSection,
+      shortcutSection,
       Boolean(preview.get(newtabShortcutsVisible) && hasVisibleContent)
     );
     if (!preview.get(newtabShortcutsVisible) || !hasVisibleContent || settings.get(newtabZenMode)) {
@@ -370,8 +373,8 @@ function createPageLayout(deps: PageLayoutDeps) {
     options?: { preserveSearchEntryLayout?: boolean; stabilizeDockDensity?: boolean }
   ): void {
     const layoutOptions = options || {};
-    if (pageState.layoutController) {
-      pageState.layoutController.updateBottomDockLayout({
+    if (bottomDockParts.layoutController) {
+      bottomDockParts.layoutController.updateBottomDockLayout({
         preserveSearchEntryLayout: Boolean(layoutOptions.preserveSearchEntryLayout) ||
           viewport.locked ||
           shouldPreserveSearchEntryLayout(),
@@ -380,19 +383,19 @@ function createPageLayout(deps: PageLayoutDeps) {
         onRecentHidden: () => recentPointer.reset()
       });
     }
-    if (pageState.layoutMotion) {
-      pageState.layoutMotion.commit();
+    if (bottomDockParts.layoutMotion) {
+      bottomDockParts.layoutMotion.commit();
     }
     rememberSearchEntryViewport();
     scheduleWallpaperAdaptiveToneUpdate();
   }
 
   function updateSearchEntryLayout(options?: SearchEntryLayoutOptions): void {
-    if (pageState.layoutController) {
-      pageState.layoutController.updateSearchEntryLayout(options);
+    if (bottomDockParts.layoutController) {
+      bottomDockParts.layoutController.updateSearchEntryLayout(options);
     }
-    if (pageState.layoutMotion) {
-      pageState.layoutMotion.commit();
+    if (bottomDockParts.layoutMotion) {
+      bottomDockParts.layoutMotion.commit();
     }
   }
 

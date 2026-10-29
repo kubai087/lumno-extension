@@ -24,11 +24,6 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SearchBoxParts } from './search-box-parts';
 
-interface SearchSettingsSyncState {
-  // Bumped when the favicon policy changes, so requests made before it are
-  // dropped.
-  shortcutFaviconPolicyRevision: number;
-}
 
 interface SearchSettingsSyncDeps {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -43,11 +38,9 @@ interface SearchSettingsSyncDeps {
   scheduleRecentReloadIfVisible(): void;
   scheduleBookmarkReloadIfVisible(): void;
   refreshThemeAwareFavicons?(): void;
-  renderShortcuts(): void;
   getImmediateThemeForSuggestion(suggestion: { provider: SiteSearchProvider }): InputModeTheme;
   searchBox: Pick<SearchBoxParts, 'modeController'>;
   suggestionsContainer: HTMLElement;
-  pageState: SearchSettingsSyncState;
 }
 
 function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
@@ -66,12 +59,9 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     scheduleRecentReloadIfVisible,
     scheduleBookmarkReloadIfVisible,
     refreshThemeAwareFavicons,
-    renderShortcuts,
     getImmediateThemeForSuggestion
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function redrawSuggestions(): void {
     if (searchQuery.text) {
@@ -107,8 +97,6 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     if (refreshThemeAwareFavicons) {
       refreshThemeAwareFavicons();
     }
-    pageState.shortcutFaviconPolicyRevision += 1;
-    renderShortcuts();
     if (searchBox.modeController) {
       if (searchMode.site) {
         modeActions.setSiteSearchPrefix(searchMode.site, getImmediateThemeForSuggestion({ provider: searchMode.site }), { animate: false });
@@ -128,4 +116,4 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
 }
 
 export { createSearchSettingsSync };
-export type { SearchSettingsSyncDeps, SearchSettingsSyncState };
+export type { SearchSettingsSyncDeps };
