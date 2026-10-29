@@ -2,7 +2,6 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { isNode } from '../../shared/dom-guards';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
 export type FeedbackCommunityChannel = 'wechat' | 'x';
@@ -483,13 +482,3 @@ export function createFeedbackControlController(
     }
   });
 }
-
-export function createFeedbackControlApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createFeedbackControlController
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getFeedbackControlApi = lazyInstance(createFeedbackControlApi);

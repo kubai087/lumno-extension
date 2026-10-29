@@ -22,7 +22,6 @@ import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlElements, queryHtmlTag, queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import type { ShortcutGroup, ShortcutLink, VisibleShortcutFolder, VisibleShortcutItem } from '../../domain/shortcuts/types';
@@ -900,15 +899,3 @@ export function createShortcutsView(
     }
   };
 }
-
-export function createShortcutsViewApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createShortcutsView(options?: ShortcutsViewOptions) {
-      return createShortcutsView(options);
-    }
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getShortcutsViewApi = lazyInstance(createShortcutsViewApi);

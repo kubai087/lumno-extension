@@ -3,7 +3,6 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { TopbarBookmarkActions, type BookmarkHeaderStore } from './bookmark-header';
 import { createLiquidGlass } from './liquid-glass';
-import { lazyInstance } from '../../shared/lazy-instance';
 
 export const BOOKMARK_TOPBAR_IDS = Object.freeze({
   topbar: '_x_extension_newtab_bookmarks_topbar_2026_unique_',
@@ -551,18 +550,3 @@ export function createBookmarksTopbar(
   };
   return Object.freeze(runtime);
 }
-
-export function createBookmarksTopbarApi() {
-  return Object.freeze({
-    IDS: BOOKMARK_TOPBAR_IDS,
-    implementation: 'react',
-    createBookmarksTopbar,
-    getSurfaceColorTokens,
-    normalizeLayout,
-    normalizeSurfaceMode,
-    normalizeSurfaceColor
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getBookmarksTopbarApi = lazyInstance(createBookmarksTopbarApi);

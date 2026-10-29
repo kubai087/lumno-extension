@@ -19,6 +19,8 @@ type InjectedAppName = keyof typeof INJECTED_APP_PATHS;
 
 // The search overlay's host element, which the worker checks after a toggle.
 const OVERLAY_HOST_ID = '_x_extension_overlay_host_2026_unique_';
+// The search panel inside the host.
+const OVERLAY_PANEL_ID = '_x_extension_overlay_2024_unique_';
 
 // Opens or closes the search overlay with the window's tabs and the context
 // the worker opened it with; the overlay reads both as untrusted.
@@ -103,6 +105,7 @@ function readStartCommand(value: unknown): StartCommand | null {
 export {
   INJECTED_APP_PATHS,
   OVERLAY_HOST_ID,
+  OVERLAY_PANEL_ID,
   readOverlayCommand,
   readPageShortcutToastCommand,
   readPipPickerCommand,

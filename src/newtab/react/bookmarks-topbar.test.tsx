@@ -5,7 +5,6 @@ import type { BookmarkHeaderModel } from './bookmark-header';
 import { createBookmarkHeaderModel } from './bookmark-header.fixtures';
 import {
   createBookmarksTopbar,
-  createBookmarksTopbarApi,
   getSurfaceColorTokens,
   normalizeLayout,
   normalizeSurfaceMode,
@@ -48,7 +47,6 @@ describe('New Tab React bookmarks topbar', () => {
       throw new Error('Expected bookmarks topbar runtime');
     }
 
-    expect(createBookmarksTopbarApi().implementation).toBe('react');
     expect(runtime.element.dataset.reactIsland).toBe(
       'newtab-bookmarks-topbar'
     );

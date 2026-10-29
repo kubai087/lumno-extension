@@ -5,6 +5,16 @@ const assert = require('assert');
 const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
+let dragActive = false;
+let renders = 0;
+globalThis.__lumnoTestModuleStubs = {
+  'src/newtab/react/shortcuts.tsx': {
+    createShortcutsView: () => ({
+      render: () => { renders += 1; },
+      getAddButton: () => null
+    })
+  }
+};
 const NEWTAB_SHORTCUTS_STORE = require(path.join(repoRoot, 'tests/helpers/shortcuts-store.ts'));
 const LumnoNewtabShortcutsController = require(path.join(repoRoot, 'src/newtab/shortcuts/shortcuts-controller.ts'));
 
@@ -15,8 +25,6 @@ function createElementStub() {
   return { setAttribute() {}, addEventListener() {}, getAttribute: () => null };
 }
 
-let dragActive = false;
-let renders = 0;
 const pageState = {
   newtabShortcuts: [],
   shortcutGrid: null,
@@ -31,12 +39,6 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   shortcutFolderRuntime: { visibleItems: (items) => items, flush: () => Promise.resolve() },
   bookmarksRuntime: { getNodeMap: () => new Map(), getSnapshot: () => ({ ready: true, nodeMap: new Map() }) },
   pageStructureRuntime: { shortcut: { section: createElementStub(), grid: createElementStub() } },
-  NEWTAB_SHORTCUTS_VIEW: {
-    createShortcutsView: () => ({
-      render: () => { renders += 1; },
-      getAddButton: () => null
-    })
-  },
   t: (key, fallback) => fallback,
   formatMessage: (key, fallback) => fallback,
   hideShortcutTooltip: noop,

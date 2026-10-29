@@ -87,6 +87,7 @@ import type { InputModeProvider } from '../shared/search/input-mode/types';
 import type { OverlaySuggestion } from './panel/types';
 import { isAggregateSearchProvider } from '../domain/search/aggregate-search-store';
 import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../shared/search-panel/labels';
+import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../domain/injected-commands';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -305,8 +306,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       overlayState.overlayFirstResultRevealTimer = null;
     }
   }
-  const OVERLAY_HOST_ID = '_x_extension_overlay_host_2026_unique_';
-  const OVERLAY_PANEL_ID = '_x_extension_overlay_2024_unique_';
 
   const {
     getOrCreateOverlayContextToken,

@@ -5,7 +5,6 @@ import type { TooltipController } from '../../shared/ui/tooltip';
 import type { DismissStack } from '../dismiss-stack';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import type { BookmarkCardElement, BookmarksViewController, BookmarksViewOptions } from '../react/bookmarks';
-import type { createBookmarksTopbarApi } from '../react/bookmarks-topbar';
 import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import type { PageStructureRuntime } from '../react/page-structure';
 import * as NEWTAB_BOOKMARK_CASCADE_MENU from './bookmark-cascade-menu';
@@ -21,6 +20,7 @@ import type { SettingPreview } from '../setting-preview';
 import { bookmarkFolderIconsVisible, bookmarkViewMode } from '../../domain/settings/bookmarks';
 import type { SettingsStore } from '../../platform/settings-store';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
+import { createBookmarksTopbar } from '../react/bookmarks-topbar';
 
 type ViewOption<K extends keyof BookmarksViewOptions> = NonNullable<BookmarksViewOptions[K]>;
 
@@ -92,7 +92,6 @@ interface BookmarkSectionDeps {
   handleBookmarkCascadeItemPointerDown(detail: CascadeItemEventDetail<PointerEvent>): void;
   isBookmarkContextMenuNode(node: EventTarget | null): boolean;
   getBookmarkCascadeViewportTopPaddingPx(): number;
-  NEWTAB_BOOKMARKS_TOPBAR: Pick<ReturnType<typeof createBookmarksTopbarApi>, 'createBookmarksTopbar'>;
   setNewtabTopOccupied(occupied: boolean): void;
   syncBookmarkTopbarSurfaceAppearance(options?: { updateMenu?: boolean; scheduleTone?: boolean }): unknown;
   syncBookmarkSurfaceMode(): void;
@@ -146,7 +145,6 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     handleBookmarkCascadeItemPointerDown,
     isBookmarkContextMenuNode,
     getBookmarkCascadeViewportTopPaddingPx,
-    NEWTAB_BOOKMARKS_TOPBAR,
     setNewtabTopOccupied,
     syncBookmarkTopbarSurfaceAppearance,
     syncBookmarkSurfaceMode
@@ -255,7 +253,7 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     getViewportTopPadding: getBookmarkCascadeViewportTopPaddingPx,
     view: NEWTAB_BOOKMARK_CASCADE_VIEW
   });
-  pageState.bookmarkTopbarRuntime = NEWTAB_BOOKMARKS_TOPBAR.createBookmarksTopbar({
+  pageState.bookmarkTopbarRuntime = createBookmarksTopbar({
     documentObj: document,
     windowObj: window,
     grid: bookmarkGrid,

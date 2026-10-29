@@ -119,11 +119,7 @@ import type { BookmarkCardElement } from './react/bookmarks';
 import type { RecentCardElement } from './react/recent-sites';
 import type { ShortcutTileElement } from './react/shortcuts';
 import { readBootValue } from '../platform/boot-handoff';
-import { getBookmarksTopbarApi } from './react/bookmarks-topbar';
 import { createToastController } from '../shared/react/toast';
-import { getShortcutDialogApi } from './react/shortcut-dialog-lazy';
-import { getShortcutsViewApi } from './react/shortcuts';
-import { getFeedbackControlApi } from './react/feedback';
 import { getSelectMenuApi } from './react/select-menu';
 import { getTopContentApi } from './react/wordmark';
 import { getPageStructureApi } from './react/page-structure';
@@ -262,14 +258,10 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
 
   const BROWSER_PROFILE = LumnoBrowserProfile;
   const COMMUNITY_LINKS = LumnoCommunityLinks;
-  const NEWTAB_BOOKMARKS_TOPBAR = getBookmarksTopbarApi();
   // Escape closes only the top open layer (menus, popovers, panels, drags).
   // The folder color dialog handles its own Escape.
   const dismissStack = LumnoNewtabDismissStack.getDismissStack();
   dismissStack.setShouldIgnore(() => Boolean(pageState.folderColorPicker && pageState.folderColorPicker.isOpen()));
-  const NEWTAB_SHORTCUT_DIALOG = getShortcutDialogApi();
-  const NEWTAB_SHORTCUTS_VIEW = getShortcutsViewApi();
-  const NEWTAB_FEEDBACK_CONTROL = getFeedbackControlApi();
 
   // The page's language; it follows the stored choice from the first read.
   const locale = new SurfaceLocale(settings, loadNewtabLocaleMessages);
@@ -289,7 +281,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     t,
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
-    NEWTAB_FEEDBACK_CONTROL,
     showTopActionTooltip: (...args) => showTopActionTooltip(...args),
     pageState
   });
@@ -1441,7 +1432,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     resetShortcutDockHover,
     scheduleWallpaperAdaptiveToneUpdate,
     pageStructureRuntime,
-    NEWTAB_SHORTCUTS_VIEW,
     shortcutTiles,
     shortcutGroupHeaders,
     initFolderPathMorph,
@@ -1463,7 +1453,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     handleShortcutDockPointerOver,
     handleShortcutDockPointerMove,
     syncShortcutDockFolderMenu,
-    NEWTAB_SHORTCUT_DIALOG,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
     handleShortcutGroupMenu: openShortcutGroupMenu,
@@ -1605,7 +1594,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     handleBookmarkCascadeItemPointerDown,
     isBookmarkContextMenuNode,
     getBookmarkCascadeViewportTopPaddingPx,
-    NEWTAB_BOOKMARKS_TOPBAR,
     setNewtabTopOccupied,
     syncBookmarkTopbarSurfaceAppearance,
     syncBookmarkSurfaceMode,

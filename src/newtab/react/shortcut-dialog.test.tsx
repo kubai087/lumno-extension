@@ -2,11 +2,11 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createShortcutDialog,
-  createShortcutDialogApi,
   type ShortcutDialogController,
   type ShortcutDialogOptions,
   type ShortcutDialogPayload
 } from './shortcut-dialog';
+import { MODE_ADD, MODE_EDIT, clampEnterOffset, getEnterOffset, normalizeMode } from './shortcut-dialog-helpers';
 import { getElement, getTag, getTags } from '../../../tests/react/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
@@ -104,16 +104,13 @@ afterEach(() => {
 });
 
 describe('shortcut dialog React island', () => {
-  it('keeps the legacy helper and controller contract', () => {
-    const api = createShortcutDialogApi();
-
-    expect(api.implementation).toBe('react');
-    expect(api.MODE_ADD).toBe('add');
-    expect(api.MODE_EDIT).toBe('edit');
-    expect(api.normalizeMode('edit', null)).toBe('add');
-    expect(api.normalizeMode('edit', { id: 'one' })).toBe('edit');
-    expect(api.clampEnterOffset(50, 28)).toBe(28);
-    expect(api.getEnterOffset(90, 100)).toBe(-6);
+  it('keeps the helper and controller contract', () => {
+    expect(MODE_ADD).toBe('add');
+    expect(MODE_EDIT).toBe('edit');
+    expect(normalizeMode('edit', null)).toBe('add');
+    expect(normalizeMode('edit', { id: 'one' })).toBe('edit');
+    expect(clampEnterOffset(50, 28)).toBe(28);
+    expect(getEnterOffset(90, 100)).toBe(-6);
 
     const controller = createController(() => false);
     expect(Object.isFrozen(controller)).toBe(true);

@@ -5,6 +5,15 @@ const assert = require('assert');
 const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
+let viewOptions = null;
+globalThis.__lumnoTestModuleStubs = {
+  'src/newtab/react/shortcuts.tsx': {
+    createShortcutsView: (options) => {
+      viewOptions = options;
+      return { render() {}, getAddButton: () => null };
+    }
+  }
+};
 const NEWTAB_SHORTCUTS_STORE = require(path.join(repoRoot, 'tests/helpers/shortcuts-store.ts'));
 const SHORTCUT_FAVICON = require(path.join(repoRoot, 'tests/helpers/shortcut-favicon.ts'));
 const FAVICON_UTILS = require(path.join(repoRoot, 'tests/helpers/favicon-utils.ts'));
@@ -48,7 +57,6 @@ const shortcutTiles = [
 ];
 const queued = [];
 const applied = [];
-let viewOptions = null;
 const noop = () => {};
 const controller = LumnoNewtabShortcutsController.createShortcutsController({
   NEWTAB_SHORTCUTS_STORE,
@@ -59,12 +67,6 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   shortcutFolderRuntime: { visibleItems: (items) => items, flush: () => Promise.resolve() },
   bookmarksRuntime: { getNodeMap: () => new Map() },
   pageStructureRuntime: { shortcut: { section: createElementStub(), grid: createElementStub() } },
-  NEWTAB_SHORTCUTS_VIEW: {
-    createShortcutsView: (options) => {
-      viewOptions = options;
-      return { render: noop, getAddButton: () => null };
-    }
-  },
   shortcutTiles,
   queueThemeForTarget: (target, suggestion, applyTheme, options) => {
     queued.push({ target, suggestion, options });

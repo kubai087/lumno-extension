@@ -2,7 +2,6 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createShortcutsView,
-  createShortcutsViewApi,
   type VisibleShortcutItem,
   type ShortcutsLayout,
   type ShortcutTileElement,
@@ -209,7 +208,6 @@ describe('Shortcuts React island', () => {
     const grid = expectElement(options.grid);
     const tile = view.getTiles()[0];
 
-    expect(createShortcutsViewApi().implementation).toBe('react');
     expect(result).toEqual({ count: 1 });
     expect(grid.dataset.reactIsland).toBe('shortcuts');
     expect(tile.dataset.shortcutId).toBe('docs');

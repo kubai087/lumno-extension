@@ -5,9 +5,10 @@ import type { Disposition } from '../domain/navigation-disposition';
 import { queryHtmlElement } from '../shared/dom-lookup';
 import * as LumnoNewtabDismissStack from './dismiss-stack';
 import type { Translate } from './newtab-types';
-import type { createFeedbackControlApi, FeedbackControlController, FeedbackControlModel } from './react/feedback';
+import type { FeedbackControlController, FeedbackControlModel } from './react/feedback';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import * as COMMUNITY_LINKS from '../platform/community-links';
+import { createFeedbackControlController } from './react/feedback';
 
 interface FeedbackControlState {
   feedbackLinks: CommunityLinks | null;
@@ -21,7 +22,6 @@ interface FeedbackControlDeps {
   t: Translate;
   openExternalNewTabUrl(url: string, disposition: Disposition): boolean;
   hideTopActionTooltip(): void;
-  NEWTAB_FEEDBACK_CONTROL: ReturnType<typeof createFeedbackControlApi>;
   showTopActionTooltip(anchor: HTMLElement, text: string, options?: { checkActive?: boolean; placement?: string }): void;
   pageState: FeedbackControlState;
 }
@@ -32,7 +32,6 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
     t,
     openExternalNewTabUrl,
     hideTopActionTooltip,
-    NEWTAB_FEEDBACK_CONTROL,
     showTopActionTooltip
   } = deps;
 
@@ -221,7 +220,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
     const control = document.createElement('div');
     pageState.feedbackControl = control;
     pageState.feedbackReactController =
-      NEWTAB_FEEDBACK_CONTROL.createFeedbackControlController(
+      createFeedbackControlController(
         control,
         {
           onHideTooltip() {

@@ -17,7 +17,6 @@ import {
   DEFAULT_ID_PREFIX,
   MODE_ADD,
   MODE_EDIT,
-  clampEnterOffset,
   getEnterOffset,
   cssColorToHex,
   getIconPlateStyle,
@@ -1703,17 +1702,5 @@ export function createShortcutDialog(
     updateLanguage,
     getState,
     destroy
-  });
-}
-
-export function createShortcutDialogApi() {
-  return Object.freeze({
-    implementation: 'react',
-    MODE_ADD,
-    MODE_EDIT,
-    clampEnterOffset,
-    getEnterOffset,
-    normalizeMode,
-    createShortcutDialog
   });
 }

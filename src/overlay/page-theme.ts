@@ -1,3 +1,5 @@
+import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../domain/injected-commands';
+
 type PageTheme = 'dark' | 'light';
 
 // An [r, g, b] triple, each 0 to 255.
@@ -46,8 +48,6 @@ interface ThemeModeOptions {
   systemTheme?: string;
 }
 
-const OVERLAY_PANEL_ID = '_x_extension_overlay_2024_unique_';
-const OVERLAY_HOST_ID = '_x_extension_overlay_host_2026_unique_';
 const DEFAULT_CANVAS_RGB: readonly number[] = [255, 255, 255];
 const MAX_BACKGROUND_ANCESTORS = 10;
 const VIEWPORT_SAMPLE_POINTS: readonly SamplePoint[] = Object.freeze([

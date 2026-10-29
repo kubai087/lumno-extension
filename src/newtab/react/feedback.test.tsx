@@ -1,7 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  createFeedbackControlApi,
   createFeedbackControlController,
   type FeedbackControlController,
   type FeedbackControlModel
@@ -65,7 +64,6 @@ describe('New Tab feedback React island', () => {
     const { controller, host, options } = createController();
     const button = queryHtmlTag(host, '.x-nt-feedback-button', 'button');
 
-    expect(createFeedbackControlApi().implementation).toBe('react');
     expect(host.dataset.reactIsland).toBe('newtab-feedback-control');
     expect(host.classList.contains('x-nt-feedback-control')).toBe(true);
     expect(controller.isOpen()).toBe(false);

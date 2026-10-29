@@ -25,8 +25,7 @@ import type {
   ShortcutDialogController,
   ShortcutDialogPayload
 } from '../react/shortcut-dialog';
-import type { createShortcutDialogApi } from '../react/shortcut-dialog-lazy';
-import type { createShortcutsViewApi, ShortcutContextMenuMark, ShortcutsViewController, ShortcutsViewOptions } from '../react/shortcuts';
+import type { ShortcutContextMenuMark, ShortcutsViewController, ShortcutsViewOptions } from '../react/shortcuts';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
 import type { ShortcutDock } from './shortcut-dock';
 import type { ShortcutIconMap, ShortcutIconStore } from './shortcut-icon-store';
@@ -50,6 +49,8 @@ import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-histor
 import { SHORTCUT_DIALOG_ITEM_BOOKMARK, SHORTCUT_DIALOG_ITEM_FOLDER } from '../menu-values';
 import { DEFAULT_MAX_SHORTCUTS, DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES } from '../../domain/shortcuts/constants';
 import { webdavStatus } from '../../domain/settings/sync-state';
+import { createShortcutsView } from '../react/shortcuts';
+import { createShortcutDialog } from '../react/shortcut-dialog-lazy';
 
 interface ShortcutsControllerState {
   newtabShortcuts: ShortcutItem[];
@@ -119,7 +120,6 @@ interface ShortcutsControllerDeps {
   resetShortcutDockHover: ShortcutDock['resetShortcutDockHover'];
   scheduleWallpaperAdaptiveToneUpdate(): void;
   pageStructureRuntime: { shortcut: Pick<PageStructureRuntime['shortcut'], 'section' | 'grid'> };
-  NEWTAB_SHORTCUTS_VIEW: Pick<ReturnType<typeof createShortcutsViewApi>, 'createShortcutsView'>;
   shortcutTiles: ViewOption<'tiles'>;
   shortcutGroupHeaders: ViewOption<'groupHeaders'>;
   initFolderPathMorph: ViewOption<'initFolderIcon'>;
@@ -141,7 +141,6 @@ interface ShortcutsControllerDeps {
   handleShortcutDockPointerOver: ShortcutDock['handleShortcutDockPointerOver'];
   handleShortcutDockPointerMove: ShortcutDock['handleShortcutDockPointerMove'];
   syncShortcutDockFolderMenu: ShortcutDock['syncShortcutDockFolderMenu'];
-  NEWTAB_SHORTCUT_DIALOG: Pick<ReturnType<typeof createShortcutDialogApi>, 'createShortcutDialog'>;
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
   handleShortcutGroupMenu: ShortcutContextMenu['openShortcutGroupMenu'];
@@ -278,7 +277,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     resetShortcutDockHover,
     scheduleWallpaperAdaptiveToneUpdate,
     pageStructureRuntime,
-    NEWTAB_SHORTCUTS_VIEW,
     shortcutTiles,
     shortcutGroupHeaders,
     initFolderPathMorph,
@@ -300,7 +298,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     handleShortcutDockPointerOver,
     handleShortcutDockPointerMove,
     syncShortcutDockFolderMenu,
-    NEWTAB_SHORTCUT_DIALOG,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
     handleShortcutGroupMenu,
@@ -1777,7 +1774,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     pageState.shortcutGrid = grid;
     applyNewtabShortcutDockMagnification();
 
-    const view = NEWTAB_SHORTCUTS_VIEW.createShortcutsView({
+    const view = createShortcutsView({
       grid,
       tiles: shortcutTiles,
       maxShortcuts: DEFAULT_MAX_SHORTCUTS,
@@ -1833,7 +1830,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
 
   // The dialog module loads on first use.
   function createShortcutDialogComponent(): Promise<ShortcutDialogController | null> {
-    return NEWTAB_SHORTCUT_DIALOG.createShortcutDialog({
+    return createShortcutDialog({
       documentObj: document,
       windowObj: window,
       t,
