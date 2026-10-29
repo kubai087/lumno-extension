@@ -11,7 +11,7 @@ const STYLE_DEBT_ALLOWLIST = [
     setPropertyImportant: true
   },
   {
-    file: 'src/newtab/theme/favicon-view.ts',
+    file: 'src/newtab/dom/favicon-view.ts',
     reason: 'favicon fallback display and optical alignment until class-rendered fallback is verified',
     important: true,
     setPropertyImportant: true

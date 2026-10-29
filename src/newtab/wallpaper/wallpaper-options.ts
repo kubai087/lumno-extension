@@ -4,8 +4,8 @@ import type { WallpaperSourceTab } from '../react/wallpaper-panel/panel-model';
 import { CUSTOM_WALLPAPER_ID } from '../../shared/wallpaper-records';
 import type { NewtabFaviconOption } from './runtime/favicon-chooser';
 import type { BuiltInWallpaper, WallpaperMode, WallpaperOverlayStops } from './runtime/wallpaper-runtime-types';
-import * as WALLPAPER_EFFECTS from './wallpaper-effects';
-import type { EffectType } from './wallpaper-effects';
+import * as WALLPAPER_EFFECTS from '../dom/wallpaper-effects';
+import type { EffectType } from '../dom/wallpaper-effects';
 import type { CrtParameterKey } from './runtime/panel-state';
 
 const NEWTAB_WALLPAPER_EXTENSION_DIRECTORY = 'assets/wallpapers';

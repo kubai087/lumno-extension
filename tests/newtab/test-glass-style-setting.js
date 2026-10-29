@@ -41,9 +41,9 @@ async function boot(value, themeValue) {
     darkSystem: true,
     // The page's liquid glass module, replaced by one that counts the
     // surfaces it is asked for and hands each to the real one.
-    stubs: { 'src/newtab/react/liquid-glass.ts': 'LumnoTestLiquidGlass' },
+    stubs: { 'src/newtab/dom/liquid-glass.ts': 'LumnoTestLiquidGlass' },
     setup(window) {
-      window.eval(moduleScript('src/newtab/react/liquid-glass.ts', 'LumnoRealLiquidGlass'));
+      window.eval(moduleScript('src/newtab/dom/liquid-glass.ts', 'LumnoRealLiquidGlass'));
       const real = window.LumnoRealLiquidGlass;
       window.LumnoTestLiquidGlass = Object.assign({}, real, {
         createLiquidSurfaces(options) {

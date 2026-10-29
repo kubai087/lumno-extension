@@ -5,7 +5,7 @@
 // jumps as the pointer crosses from one tile to the next. A frame loop eases
 // each icon toward that target (CSS transitions restarted on every move
 // stuttered); leaving hands the icons back to the CSS transition.
-import { getShortcutTileIcon } from '../dom/shortcut-tiles';
+import { getShortcutTileFromNode, getShortcutTileIcon } from './shortcut-tiles';
 import { isElementNode } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import { newtabShortcutDockMagnificationEnabled } from '../../domain/settings/newtab-shortcuts';
@@ -41,7 +41,6 @@ interface DockMagnitude {
 interface ShortcutDockDeps {
   settings: Pick<SettingsStore, 'subscribe'>;
   preview: Pick<SettingPreview, 'get'>;
-  getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null;
   shortcutGrid: HTMLElement;
   dragSessions: Pick<DragSessions, 'bookmarkDragging' | 'recentCardDragging' | 'shortcutDragging'>;
 }
@@ -51,7 +50,6 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     shortcutGrid,
     settings,
     preview,
-    getShortcutTileFromNode,
     dragSessions
   } = deps;
 
@@ -432,7 +430,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     if (dragSessions.shortcutDragging || (dragSessions.bookmarkDragging || dragSessions.recentCardDragging)) {
       return;
     }
-    const tile = getShortcutTileFromNode(event.target);
+    const tile = getShortcutTileFromNode(shortcutGrid, event.target);
     if (tile) {
       scheduleShortcutDockPointerStyles(tile, getShortcutDockPointerX(event));
       return;
@@ -451,7 +449,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     }
     // In the gap between two tiles the pointer is over the grid itself; the
     // icons keep following it from the last tile's row.
-    const tile = getShortcutTileFromNode(event.target) ||
+    const tile = getShortcutTileFromNode(shortcutGrid, event.target) ||
       (event.target === shortcutGrid && shortcutDockActiveTile && shortcutDockActiveTile.isConnected
         ? shortcutDockActiveTile
         : null);

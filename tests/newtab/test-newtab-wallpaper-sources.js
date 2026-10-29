@@ -128,7 +128,7 @@ function readImageSize(file) {
 // scripts/build/generate-wallpaper-samples.js writes these; a wallpaper added or replaced without
 // running it would sample a missing or stale copy.
 function testEveryBuiltInWallpaperHasASampleAtTheSamplerSize() {
-  const effects = runModuleInContext('src/newtab/wallpaper/wallpaper-effects.ts', vm.createContext({}));
+  const effects = runModuleInContext('src/newtab/dom/wallpaper-effects.ts', vm.createContext({}));
   const source = fs.readFileSync(path.join(repoRoot, 'src/newtab/wallpaper/wallpaper-options.ts'), 'utf8');
   const suffix = source.match(/NEWTAB_WALLPAPER_SAMPLE_SUFFIX\s*=\s*'([^']+)'/)[1];
   const sourceSize = source.match(/NEWTAB_WALLPAPER_SOURCE_SIZE\s*=\s*Object\.freeze\(\{\s*width:\s*(\d+),\s*height:\s*(\d+)\s*\}\)/);

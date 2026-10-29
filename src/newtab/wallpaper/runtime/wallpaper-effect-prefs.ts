@@ -2,19 +2,19 @@
 // shows, their labels, applying and saving them, and the first effect shown
 // at startup.
 import type { Translate } from '../../newtab-types';
-import type { EffectType, WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from '../wallpaper-effects';
+import type { EffectType, WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from '../../dom/wallpaper-effects';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperMode } from './wallpaper-runtime-types';
 import { newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../../platform/settings-store';
-import * as WALLPAPER_EFFECTS from '../wallpaper-effects';
+import * as WALLPAPER_EFFECTS from '../../dom/wallpaper-effects';
 import { createStore } from '../../../shared/state/store';
 import { NEWTAB_WALLPAPER_EFFECT_DEFAULTS, NEWTAB_WALLPAPER_EFFECT_INK_TONES, NEWTAB_WALLPAPER_EFFECT_TYPES, NEWTAB_WALLPAPER_MODES, WALLPAPER_EFFECT_MODE_STORAGE_VERSION } from '../wallpaper-options';
 import type { WallpaperChoice } from './wallpaper-choice';
 import type { InitialWallpaper } from './initial-wallpaper';
 import { createDebouncedSaver } from './debounced-saver';
-import { createWallpaperTransitionLayer, releaseWallpaperTransitionLayer } from './transition-layer';
-import type { WallpaperEffects } from '../wallpaper-effects';
+import { createWallpaperTransitionLayer, releaseWallpaperTransitionLayer } from '../../dom/wallpaper-transition-layer';
+import type { WallpaperEffects } from '../../dom/wallpaper-effects';
 
 // The effect per mode as chosen, and the one on screen now.
 interface EffectPrefsState {

@@ -1,12 +1,10 @@
 // Shortcut tiles on the page: finding a tile and its shortcut, the
 // context menu's options, and opening a shortcut or its editor.
-import { getShortcutReorderTiles } from '../dom/shortcut-tiles';
+import { getShortcutTileById } from '../dom/shortcut-tiles';
 import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
 import type { OpenEvent } from '../../domain/navigation-disposition';
 import type { BookmarkCascadeActions } from '../bookmarks/bookmark-cascade-actions';
 import type { PageNavigation } from '../page-navigation';
-import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
-import { queryHtmlElements } from '../../shared/dom-lookup';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
@@ -34,7 +32,6 @@ interface ShortcutPageActionsDeps {
   openUrlFromNewtabCard: PageNavigation['openUrlFromNewtabCard'];
   openShortcutDialog: ShortcutDialogActions['openShortcutDialog'];
   // The tiles drawn now, kept in DOM order.
-  shortcutTiles: HTMLElement[];
   openBookmarkEditor(target: BookmarkEditTarget): void;
   getShortcutTitle(shortcut: ShortcutItem): string;
   getShortcutIconDataUrl(shortcutId: string): string;
@@ -55,7 +52,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     openBookmarkCascadeMenu,
     openUrlFromNewtabCard,
     openShortcutDialog,
-    shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle,
     getShortcutIconDataUrl
@@ -148,43 +144,17 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   }
 
 
-  function getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null {
-    if (!shortcutGrid || !isElementNode(node)) {
-      return null;
-    }
-    const tile = node.closest('.x-nt-shortcut-tile');
-    return isHtmlElement(tile) && shortcutGrid.contains(tile) ? tile : null;
-  }
-
-  function getShortcutTileId(tile: Element | null | undefined): string {
-    return tile ? tile.getAttribute('data-shortcut-id') || '' : '';
-  }
-
-  function refreshShortcutTileCacheFromDom(): void {
-    if (!shortcutGrid) {
-      return;
-    }
-    shortcutTiles.length = 0;
-    queryHtmlElements(shortcutGrid, '.x-nt-shortcut-tile[data-shortcut-id]').forEach((tile) => {
-      shortcutTiles.push(tile);
-    });
-  }
 
 
 
-  function getShortcutTileById(shortcutId: unknown): HTMLElement | null {
-    const id = String(shortcutId || '');
-    if (!id) {
-      return null;
-    }
-    return getShortcutReorderTiles(shortcutGrid).find((tile) => getShortcutTileId(tile) === id) || null;
-  }
+
+
 
   // Tiles are dragged by pointer events, never natively.
   // A link opens its site; a folder opens its bookmarks in the folder menu.
   function openShortcutUrl(shortcut: ShortcutItem | VisibleShortcutItem | null | undefined, event?: OpenEvent | null): void {
     if (shortcut && shortcut.type === 'folder') {
-      const tile = getShortcutTileById(shortcut.id);
+      const tile = getShortcutTileById(shortcutGrid, shortcut.id);
       void bookmarksRuntime.ensureReady(false).then((ready) => {
         const node = ready && bookmarksRuntime.getNode(getShortcutFolderId(shortcut));
         if (!node || node.url) {
@@ -231,10 +201,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   return {
     openShortcutUrl,
     getShortcutContextMenuOptions,
-    getShortcutTileFromNode,
-    getShortcutTileId,
-    refreshShortcutTileCacheFromDom,
-    getShortcutTileById,
     handleShortcutNativeDragStart,
     openShortcutEditor
   };

@@ -8,7 +8,7 @@ import { normalizeHost } from '../../domain/favicon/brand-accents';
 import type { BookmarkCardElement } from '../react/bookmarks';
 import { BookmarksShown } from '../bookmarks/bookmarks-shown';
 import { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
-import { BookmarkLayoutAnimation } from '../bookmarks/bookmark-layout-animation';
+import { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import type { PageContext } from '../app/context';
 
 function createBookmarkStoreFeature(ctx: PageContext) {

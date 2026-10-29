@@ -16,7 +16,7 @@ import type { OnlineWallpapers } from './online-wallpapers';
 import type { WallpaperChoice } from './wallpaper-choice';
 import type { WallpaperPanelView } from './panel-view';
 import { playEnterMotion } from './motion';
-import type { WallpaperEffects } from '../wallpaper-effects';
+import type { WallpaperEffects } from '../../dom/wallpaper-effects';
 
 interface DailyWallpapersDeps extends
   Pick<WallpaperStorage,

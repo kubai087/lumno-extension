@@ -1,6 +1,7 @@
 // Copying a bookmark's or a search result's URL to the clipboard (with
 // the textarea fallback where the async clipboard is unavailable) and the
 // page toast that confirms it.
+import { copyTextThroughSelection } from './dom/clipboard';
 import type { ToastController, ToastTask } from '../shared/ui/toast-screen';
 import type { ShowToast, Translate } from './newtab-types';
 
@@ -31,44 +32,19 @@ function createClipboardActions(deps: ClipboardActionsDeps) {
     return toastController.begin(message);
   }
 
-  function fallbackCopyText(text: unknown): boolean {
-    if (!document || !document.body || typeof document.execCommand !== 'function') {
-      return false;
-    }
-    const activeElement = document.activeElement;
-    const textarea = document.createElement('textarea');
-    textarea.value = String(text || '');
-    textarea.setAttribute('readonly', '');
-    textarea.style.setProperty('position', 'fixed');
-    textarea.style.setProperty('left', '-9999px');
-    textarea.style.setProperty('top', '0');
-    document.body.appendChild(textarea);
-    textarea.select();
-    let copied = false;
-    try {
-      copied = document.execCommand('copy');
-    } catch {
-      copied = false;
-    }
-    textarea.remove();
-    if (activeElement && 'focus' in activeElement && typeof activeElement.focus === 'function') {
-      activeElement.focus({ preventScroll: true });
-    }
-    return copied;
-  }
 
   function copyTextToClipboard(text: unknown): Promise<unknown> {
     const value = String(text || '');
     const clipboard = window.navigator && window.navigator.clipboard;
     if (clipboard && typeof clipboard.writeText === 'function') {
       return Promise.resolve(clipboard.writeText(value)).catch((error) => {
-        if (fallbackCopyText(value)) {
+        if (copyTextThroughSelection(value)) {
           return true;
         }
         throw error;
       });
     }
-    return fallbackCopyText(value)
+    return copyTextThroughSelection(value)
       ? Promise.resolve(true)
       : Promise.reject(new Error('clipboard-write-failed'));
   }

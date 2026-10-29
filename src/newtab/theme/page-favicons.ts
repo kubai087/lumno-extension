@@ -2,7 +2,7 @@
 // the favicon view runtime that renders icons with their fallbacks, and the
 // favicon sources suggestions and themes resolve from.
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
-import * as NEWTAB_FAVICON_VIEW from './favicon-view';
+import * as NEWTAB_FAVICON_VIEW from '../dom/favicon-view';
 import type { SiteThemeResolver } from './site-theme-resolver';
 import * as FaviconThemeColor from '../../domain/favicon/theme-color';
 import type { ThemeRgb } from '../../domain/favicon/types';

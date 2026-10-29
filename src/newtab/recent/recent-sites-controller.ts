@@ -1,4 +1,5 @@
 // Pinned and hidden recent sites, and the recent-site context menu.
+import { getSelectOptionFromTarget } from '../dom/select-option';
 import type { Disposition } from '../../domain/navigation-disposition';
 import type * as ProgressHistory from '../../domain/progress-history';
 import type { ProgressHistoryMap, ProgressVersion } from '../../domain/progress-history';
@@ -294,9 +295,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
 
   function handleRecentContextMenuActionClick(event: MouseEvent): void {
     const target = event.target;
-    const option = isElementNode(target)
-      ? target.closest('._x_extension_select_option_2024_unique_')
-      : null;
+    const option = getSelectOptionFromTarget(target);
     if (!option || !recentContextMenu ||
         !recentContextMenu.menu.contains(option)) {
       return;

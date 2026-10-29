@@ -1,5 +1,6 @@
 // Custom shortcut icons: reading a picked image file, fitting it into a
 // 128 px PNG, and keeping the images by shortcut id in local storage.
+import { createCanvas } from '../dom/canvas';
 import type { StorageAreaLike } from '../../domain/storage-port';
 import { MAX_OUTPUT_BYTES, getDataUrlByteLength, normalizeIconDataUrl, normalizeIconMap } from '../../domain/shortcut-icon-map';
 import type { ShortcutIconMap } from '../../domain/shortcut-icon-map';
@@ -187,9 +188,7 @@ function createShortcutIconStore(options?: ShortcutIconStoreOptions) {
     if (!documentObj || typeof documentObj.createElement !== 'function') {
       throw createIconError('render-failed', 'Canvas is unavailable.');
     }
-    const canvas = documentObj.createElement('canvas');
-    canvas.width = OUTPUT_SIZE;
-    canvas.height = OUTPUT_SIZE;
+    const canvas = createCanvas(documentObj, OUTPUT_SIZE, OUTPUT_SIZE);
     const context = canvas.getContext('2d');
     if (!context) {
       throw createIconError('render-failed', 'Canvas is unavailable.');

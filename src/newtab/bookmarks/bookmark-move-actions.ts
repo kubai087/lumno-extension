@@ -1,7 +1,7 @@
 // The bookmark changes the move history records, and undoing or redoing
 // each: a reorder or a move across folders after a drag, a delete from a
 // context menu, and the shortcut changes that share the same history.
-import type { BookmarkLayoutAnimation } from './bookmark-layout-animation';
+import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import type { DragDropTarget } from '../cross-surface-drag';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';

@@ -22,7 +22,7 @@ import { isLinkWallpaperId } from './wallpaper-library';
 import type { WallpaperLibrary } from './wallpaper-library';
 import type { WallpaperChoice } from './wallpaper-choice';
 import type { InitialWallpaper } from './initial-wallpaper';
-import { createWallpaperTransitionLayer, releaseWallpaperTransitionLayer } from './transition-layer';
+import { createWallpaperTransitionLayer, releaseWallpaperTransitionLayer } from '../../dom/wallpaper-transition-layer';
 import type { WallpaperPreloadCache } from './wallpaper-preload-cache';
 import { createEventBus } from '../../../shared/state/events';
 

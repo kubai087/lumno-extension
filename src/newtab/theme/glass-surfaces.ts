@@ -1,7 +1,7 @@
 // The glass material: which surfaces the liquid style bends the wallpaper
 // under, the stored glass style and theme, and the ink hint remembered for
 // the next load.
-import { createLiquidSurfaces } from '../react/liquid-glass';
+import { createLiquidSurfaces } from '../dom/liquid-glass';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
 import { newtabGlassStyle, newtabGlassTheme } from '../../domain/settings/newtab-page';

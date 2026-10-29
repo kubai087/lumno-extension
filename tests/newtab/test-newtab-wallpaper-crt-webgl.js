@@ -5,7 +5,7 @@ const { moduleScript } = require('../helpers/module-script');
 function loadModule() {
   const sandbox = { console };
   sandbox.globalThis = sandbox;
-  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-crt-webgl.ts', 'LumnoNewtabCrtWebGL'), sandbox, { filename: 'src/newtab/wallpaper/wallpaper-crt-webgl.ts' });
+  vm.runInNewContext(moduleScript('src/newtab/dom/wallpaper-crt-webgl.ts', 'LumnoNewtabCrtWebGL'), sandbox, { filename: 'src/newtab/dom/wallpaper-crt-webgl.ts' });
   return sandbox.LumnoNewtabCrtWebGL;
 }
 

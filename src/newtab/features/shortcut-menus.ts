@@ -1,7 +1,7 @@
 // Acting on shortcut tiles: finding a tile, opening a shortcut or its
 // editor, the dock's magnification, and the shortcut context menu.
 import * as NEWTAB_SHORTCUT_CONTEXT_MENU from '../shortcuts/shortcut-context-menu';
-import * as NEWTAB_SHORTCUT_DOCK from '../shortcuts/shortcut-dock';
+import * as NEWTAB_SHORTCUT_DOCK from '../dom/shortcut-dock';
 import * as NEWTAB_SHORTCUT_PAGE_ACTIONS from '../shortcuts/shortcut-page-actions';
 import type { PageContext } from '../app/context';
 import type { ShellFeature } from './shell';
@@ -44,8 +44,7 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     openShortcutDialog,
     openShortcutGroupDialog,
     removeShortcutById,
-    shortcutList,
-    shortcutTiles
+    shortcutList
   } = deps.shortcutStore;
   const { openExternalNewTabUrl, openUrlFromNewtabCard } = deps.navigation;
   const {
@@ -58,10 +57,6 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
   const {
     openShortcutUrl,
     getShortcutContextMenuOptions,
-    getShortcutTileFromNode,
-    getShortcutTileId,
-    refreshShortcutTileCacheFromDom,
-    getShortcutTileById,
     handleShortcutNativeDragStart,
     openShortcutEditor
   } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
@@ -76,7 +71,6 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     getShortcutFolderId,
     getShortcutById,
     openShortcutDialog,
-    shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle,
     getShortcutIconDataUrl
@@ -95,8 +89,7 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     dragSessions,
     shortcutGrid,
     settings,
-    preview,
-    getShortcutTileFromNode
+    preview
   });
 
   const {
@@ -106,6 +99,7 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     openShortcutAddContextMenu,
     openShortcutGroupMenu
   } = NEWTAB_SHORTCUT_CONTEXT_MENU.createShortcutContextMenu({
+    shortcutGrid,
     otherContextMenus: [bookmarkContextMenuSelectController, recentContextMenuSelectController],
     locale,
     settings,
@@ -115,7 +109,6 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     setShortcutDockHover,
     resetShortcutDockHover,
     holdShortcutDockHover,
-    getShortcutTileFromNode,
     getShortcutById,
     openFolderColorPicker,
     getShortcutFolderId,
@@ -127,7 +120,6 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     t,
     getShortcutContextMenuOptions,
     hideShortcutTooltip,
-    getShortcutTileId,
     openShortcutGroupDialog,
     openShortcutAddDialog,
     moveShortcutGroup,
@@ -139,9 +131,6 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     applyNewtabShortcutDockMagnification,
     closeShortcutContextMenu,
     followShortcutDockMagnification,
-    getShortcutTileById,
-    getShortcutTileFromNode,
-    getShortcutTileId,
     handleShortcutContextMenu,
     handleShortcutDockPointerMove,
     handleShortcutDockPointerOver,
@@ -150,7 +139,6 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
     openShortcutAddContextMenu,
     openShortcutGroupMenu,
     openShortcutUrl,
-    refreshShortcutTileCacheFromDom,
     resetShortcutDockHover,
     syncShortcutDockFolderMenu
   };

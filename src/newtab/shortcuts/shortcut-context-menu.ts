@@ -1,17 +1,18 @@
 // Right-click menu for shortcut tiles and the add-shortcut tile.
-import { getShortcutTileIcon } from '../dom/shortcut-tiles';
+import { getSelectOptionFromTarget } from '../dom/select-option';
+import { getShortcutTileAtPoint, getShortcutTileFromNode, getShortcutTileIcon, getShortcutTileId } from '../dom/shortcut-tiles';
 import { shortcutEvents } from './shortcut-events';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 import { newtabShortcutAddVisible } from '../../domain/settings/newtab-shortcuts';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { Disposition } from '../../domain/navigation-disposition';
-import { isElementNode, isNode } from '../../shared/dom-guards';
+import { isNode } from '../../shared/dom-guards';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import type { ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
 import type { SelectMenuInstance } from '../react/select-menu';
-import type { ShortcutDock } from './shortcut-dock';
+import type { ShortcutDock } from '../dom/shortcut-dock';
 import type { ShortcutContextTarget } from './shortcut-types';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem } from '../../domain/shortcuts/types';
@@ -25,7 +26,7 @@ interface ShortcutContextMenuDeps {
   holdShortcutDockHover: ShortcutDock['holdShortcutDockHover'];
   settings: Pick<SettingsStore, 'get' | 'set'>;
   showToast: ShowToast;
-  getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null;
+  shortcutGrid: HTMLElement;
   getShortcutById(shortcutId: unknown): ShortcutItem | null;
   openFolderColorPicker(folderId: string, title: string, sourceElement?: HTMLElement | null): Promise<void>;
   getShortcutFolderId(shortcut: ShortcutItem): string;
@@ -38,7 +39,6 @@ interface ShortcutContextMenuDeps {
   t: Translate;
   getShortcutContextMenuOptions(target?: ShortcutContextTarget | null): SelectMenuOption[];
   hideShortcutTooltip(): void;
-  getShortcutTileId(tile: Element | null | undefined): string;
   openShortcutGroupDialog(groupId: string, sourceElement: HTMLElement): void;
   openShortcutAddDialog(sourceElement: HTMLElement, groupId?: string): void;
   moveShortcutGroup(groupId: string, offset: number): unknown;
@@ -62,7 +62,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     holdShortcutDockHover,
     settings,
     showToast,
-    getShortcutTileFromNode,
+    shortcutGrid,
     getShortcutById,
     openFolderColorPicker,
     getShortcutFolderId,
@@ -74,7 +74,6 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     t,
     getShortcutContextMenuOptions,
     hideShortcutTooltip,
-    getShortcutTileId,
     openShortcutGroupDialog,
     openShortcutAddDialog,
     moveShortcutGroup,
@@ -143,12 +142,11 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   function syncShortcutDockHoverFromPoint(clientX: unknown, clientY: unknown): void {
     const pointerX = Number(clientX);
     const pointerY = Number(clientY);
-    if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY) ||
-        typeof document.elementFromPoint !== 'function') {
+    if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
       resetShortcutDockHover();
       return;
     }
-    const tile = getShortcutTileFromNode(document.elementFromPoint(pointerX, pointerY));
+    const tile = getShortcutTileAtPoint(shortcutGrid, pointerX, pointerY);
     if (tile) {
       setShortcutDockHover(tile, pointerX);
       return;
@@ -278,9 +276,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
 
   function handleShortcutContextMenuActionClick(event: MouseEvent): void {
     const target = event.target;
-    const option = isElementNode(target)
-      ? target.closest('._x_extension_select_option_2024_unique_')
-      : null;
+    const option = getSelectOptionFromTarget(target);
     if (!option || !shortcutContextMenu ||
         !shortcutContextMenu.menu.contains(option)) {
       return;
@@ -422,7 +418,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   function handleShortcutContextMenu(
     event: Pick<MouseEvent, 'currentTarget' | 'target' | 'preventDefault' | 'stopPropagation'>
   ): void {
-    const tile = getShortcutTileFromNode(event.currentTarget || event.target);
+    const tile = getShortcutTileFromNode(shortcutGrid, event.currentTarget || event.target);
     if (!tile || !getShortcutTileId(tile)) {
       return;
     }

@@ -104,8 +104,8 @@ vm.runInNewContext(moduleScript('tests/helpers/favicon-utils.ts', 'LumnoFaviconU
   filename: 'tests/helpers/favicon-utils.ts'
 });
 
-vm.runInNewContext(moduleScript('src/newtab/theme/favicon-view.ts', 'LumnoNewtabFaviconView', null, { 'src/shared/favicon/favicon-view-core.ts': 'LumnoFaviconViewCore' }), sandbox, {
-  filename: 'src/newtab/theme/favicon-view.ts'
+vm.runInNewContext(moduleScript('src/newtab/dom/favicon-view.ts', 'LumnoNewtabFaviconView', null, { 'src/shared/favicon/favicon-view-core.ts': 'LumnoFaviconViewCore' }), sandbox, {
+  filename: 'src/newtab/dom/favicon-view.ts'
 });
 
 const runtime = sandbox.LumnoNewtabFaviconView.createFaviconViewRuntime({

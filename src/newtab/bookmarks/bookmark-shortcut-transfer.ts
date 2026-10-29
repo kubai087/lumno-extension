@@ -3,7 +3,7 @@
 // shortcuts stacked into a new bookmark folder. Each step writes its
 // destination before it removes its source, rolls back what it wrote when
 // a later step fails, and goes on the move history to undo.
-import type { BookmarkLayoutAnimation } from './bookmark-layout-animation';
+import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';

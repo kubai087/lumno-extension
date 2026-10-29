@@ -1,4 +1,5 @@
 // Right-click menu for bookmark cards and folders.
+import { getSelectOptionFromTarget } from '../dom/select-option';
 import type { Disposition } from '../../domain/navigation-disposition';
 import { isElementNode } from '../../shared/dom-guards';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
@@ -266,9 +267,7 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
 
   function handleBookmarkContextMenuActionClick(event: MouseEvent): void {
     const target = event.target;
-    const option = isElementNode(target)
-      ? target.closest('._x_extension_select_option_2024_unique_')
-      : null;
+    const option = getSelectOptionFromTarget(target);
     if (!option || option.getAttribute('aria-disabled') === 'true' ||
         !bookmarkContextMenu ||
         !bookmarkContextMenu.menu.contains(option)) {

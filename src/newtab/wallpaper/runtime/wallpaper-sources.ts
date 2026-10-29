@@ -4,7 +4,7 @@
 import type { WallpaperLocalStore } from '../../../shared/wallpaper-records';
 import type { Translate } from '../../newtab-types';
 import type { RemoteContentClient } from '../../remote-content';
-import type { WallpaperSample } from '../wallpaper-effects';
+import type { WallpaperSample } from '../../dom/wallpaper-effects';
 import * as REMOTE_CONTENT from '../../remote-content';
 import { NEWTAB_CUSTOM_WALLPAPER_ID, NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_EXTENSION_DIRECTORY, NEWTAB_WALLPAPER_MODE_DARK, NEWTAB_WALLPAPER_MODE_LIGHT, NEWTAB_WALLPAPER_OPTIONS, NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION, NEWTAB_WALLPAPER_SAMPLE_SUFFIX, NEWTAB_WALLPAPER_SOURCE_SIZE, NEWTAB_WALLPAPER_THUMBNAIL_SUFFIX } from '../wallpaper-options';
 import type {

@@ -4,8 +4,8 @@
 import type { RemoteContentClient } from '../../remote-content';
 import * as REMOTE_CONTENT from '../../remote-content';
 import type { AdaptiveToneSampler } from '../wallpaper-adaptive-tone';
-import * as WALLPAPER_EFFECTS from '../wallpaper-effects';
-import type { WallpaperEffectStoragePrefs } from '../wallpaper-effects';
+import * as WALLPAPER_EFFECTS from '../../dom/wallpaper-effects';
+import type { WallpaperEffectStoragePrefs } from '../../dom/wallpaper-effects';
 import { NEWTAB_WALLPAPER_MODES, NEWTAB_WALLPAPER_MODE_DARK, NEWTAB_WALLPAPER_MODE_LIGHT, NEWTAB_WALLPAPER_OVERLAY_STOPS } from '../wallpaper-options';
 import { PRELOAD_STORAGE_VERSION } from '../wallpaper-preload-types';
 import { newtabWallpaperPreload } from '../../../domain/settings/newtab-wallpaper';

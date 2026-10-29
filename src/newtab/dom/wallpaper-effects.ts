@@ -30,8 +30,8 @@ import {
   sampleColor,
   shadeBlockColor,
   writeTransparentNoisePixel
-} from './wallpaper-effect-pixels';
-import type { EffectSampler, RenderedMetrics, RgbColor, Viewport } from './wallpaper-effect-pixels';
+} from '../wallpaper/wallpaper-effect-pixels';
+import type { EffectSampler, RenderedMetrics, RgbColor, Viewport } from '../wallpaper/wallpaper-effect-pixels';
 import {
   DEFAULT_PREFS,
   EFFECT_INK_TONES,
@@ -44,8 +44,8 @@ import {
   resolveAutoInkTone,
   resolvePrefsForMode,
   resolveUseDarkInk
-} from './wallpaper-effect-settings';
-import type { EffectInkTone, EffectType, WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from './wallpaper-effect-settings';
+} from '../wallpaper/wallpaper-effect-settings';
+import type { EffectInkTone, EffectType, WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from '../wallpaper/wallpaper-effect-settings';
 
 // A small copy of the wallpaper, cropped the same way, with the full image's
 // width and height (0 when unknown).

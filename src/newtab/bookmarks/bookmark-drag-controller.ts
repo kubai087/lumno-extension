@@ -1,11 +1,11 @@
 // Bookmark card layout animation, drag and drop (within the grid, across
 // folders and onto shortcuts) and the bookmark move undo history.
-import type { ShortcutAreaScroll } from '../shortcuts/shortcut-area-scroll';
+import type { ShortcutAreaScroll } from '../dom/shortcut-area-scroll';
 import type { BookmarkCascadeActions } from './bookmark-cascade-actions';
-import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileLayoutRect, placeShortcutDragTile } from '../dom/shortcut-tiles';
+import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileId, getShortcutTileLayoutRect, placeShortcutDragTile } from '../dom/shortcut-tiles';
 import { getBookmarkCardFromNode, getBookmarkCardId, getBookmarkCardLayoutRect, getBookmarkReorderCards } from '../dom/bookmark-cards';
-import { BOOKMARK_REORDER_EASING } from './bookmark-layout-animation';
-import type { BookmarkLayoutAnimation } from './bookmark-layout-animation';
+import { BOOKMARK_REORDER_EASING } from '../dom/bookmark-layout-animation';
+import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import { isElementNode, isHtmlElement, isHtmlTag, isEditableElement } from '../../shared/dom-guards';
 import { createSvgElement } from '../../shared/ui/svg-tree';
 import type { BlockedDropTarget, DragDropTarget, FolderDropTarget, GridInsertionTarget, ShortcutInsertionTarget, SurfaceDragState } from '../cross-surface-drag';
@@ -53,7 +53,6 @@ interface BookmarkDragControllerDeps {
   // The local bookmark folder a folder shortcut shows.
   getShortcutFolderId(shortcut: ShortcutItem): string;
   getShortcutStoreOptions(): Parameters<typeof ShortcutNormalize.createShortcutRecord>[1];
-  getShortcutTileId(tile: HTMLElement | null | undefined): string;
   getBookmarkPageCount(): number;
   openBookmarkCascadeMenu(...args: Parameters<BookmarkCascadeRuntime['open']>): void;
   navigateBookmarkFolder(folderId: string): void;
@@ -121,7 +120,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getShortcutById,
     getShortcutFolderId,
     getShortcutStoreOptions,
-    getShortcutTileId,
     getBookmarkPageCount,
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,

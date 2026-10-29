@@ -1,6 +1,7 @@
 // Wallpaper-adaptive tones: samples the wallpaper under each text, icon and
 // glass surface of the New Tab page and sets the ink and colors that read on it.
-import type { WallpaperSample } from './wallpaper-effects';
+import { createCanvas } from '../dom/canvas';
+import type { WallpaperSample } from '../dom/wallpaper-effects';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
 import { adaptiveToneEvents } from './tone-requests';
 
@@ -1234,9 +1235,7 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
     naturalWidth: number,
     naturalHeight: number
   ): AdaptiveToneSampler | null {
-    const canvas = documentObj.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    const canvas = createCanvas(documentObj, width, height);
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) {
       return null;

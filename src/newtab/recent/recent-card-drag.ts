@@ -1,9 +1,9 @@
 // Dragging a recent-site card onto the shortcuts or the bookmarks. The card
 // stays where it is: a copy of it lifts off and shrinks into a small site
 // icon that follows the pointer, and lands as a new shortcut or bookmark.
-import type { ShortcutAreaScroll } from '../shortcuts/shortcut-area-scroll';
+import type { ShortcutAreaScroll } from '../dom/shortcut-area-scroll';
 import type { BookmarkShortcutTransfer } from '../bookmarks/bookmark-shortcut-transfer';
-import type { BookmarkLayoutAnimation } from '../bookmarks/bookmark-layout-animation';
+import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import { isHtmlElement, isHtmlTag } from '../../shared/dom-guards';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { createRemixIconElement } from '../../shared/ui/remix-icon';

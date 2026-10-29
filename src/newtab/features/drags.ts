@@ -94,9 +94,6 @@ function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
   const {
     applyNewtabShortcutDockMagnification,
     closeShortcutContextMenu,
-    getShortcutTileById,
-    getShortcutTileFromNode,
-    getShortcutTileId,
     handleShortcutContextMenu,
     handleShortcutDockPointerMove,
     handleShortcutDockPointerOver,
@@ -105,7 +102,6 @@ function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
     openShortcutAddContextMenu,
     openShortcutGroupMenu,
     openShortcutUrl,
-    refreshShortcutTileCacheFromDom,
     resetShortcutDockHover,
     syncShortcutDockFolderMenu
   } = deps.shortcutMenus;
@@ -232,7 +228,6 @@ function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
     getShortcutById,
     getShortcutFolderId,
     getShortcutStoreOptions,
-    getShortcutTileId,
     getBookmarkPageCount,
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,
@@ -248,6 +243,7 @@ function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
   const {
     finishShortcutDrag
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
+    shortcutTiles,
     shortcutAreaScroll,
     shortcutLayoutAnimation,
     settings,
@@ -258,9 +254,6 @@ function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
     getAddShortcutButton,
     shortcutGrid,
     shortcutList,
-    refreshShortcutTileCacheFromDom,
-    getShortcutTileId,
-    getShortcutTileById,
     renderShortcuts,
     flushDeferredShortcutRender,
     resetShortcutDockHover,
@@ -297,7 +290,6 @@ function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
     formatMessage,
     refreshShortcutFolderReferences,
     isShortcutContextMenuNode,
-    getShortcutTileFromNode,
     closeShortcutContextMenu,
     moveShortcutGroupToIndex,
     fitShortcutGroupColumns

@@ -1,7 +1,7 @@
 // Paints the cached wallpaper and the New Tab favicon before the page's own
 // scripts run, from what an earlier page saved on this device.
-import * as LumnoNewtabWallpaperEffects from './wallpaper-effects';
-import type { WallpaperEffectPrefs, WallpaperSample } from './wallpaper-effects';
+import * as LumnoNewtabWallpaperEffects from '../dom/wallpaper-effects';
+import type { WallpaperEffectPrefs, WallpaperSample } from '../dom/wallpaper-effects';
 import type {
   PreloadDecodedImage,
   PreloadImageRecord,

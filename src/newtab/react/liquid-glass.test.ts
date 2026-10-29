@@ -10,7 +10,7 @@ import {
   isLiquidGlassSupported,
   placeLensFilter,
   type LensTileCanvas
-} from './liquid-glass';
+} from '../dom/liquid-glass';
 import { required } from '../../../tests/react/dom';
 import { createSvgElement } from '../../shared/ui/svg-tree';
 

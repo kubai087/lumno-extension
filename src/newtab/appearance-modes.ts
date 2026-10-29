@@ -1,5 +1,6 @@
 // Applying the UI language and the light/dark theme to the New Tab, and
 // following the system theme.
+import { applyDocumentColorScheme, getDocumentTheme, setDocumentTheme } from './dom/document-state';
 import type { ThemeMode } from '../domain/settings';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
@@ -117,18 +118,11 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     const mediaMatchesOverride = options && typeof options.mediaMatches === 'boolean'
       ? options.mediaMatches
       : null;
-    const previousResolved = document.body ? document.body.getAttribute('data-theme') : '';
+    const previousResolved = getDocumentTheme();
     const resolved = resolveTheme(mode, mediaMatchesOverride);
-    document.body.setAttribute('data-theme', resolved);
+    setDocumentTheme(resolved);
     syncBookmarkTopbarSurfaceAppearance({ scheduleTone: false });
-    if (document.documentElement) {
-      document.documentElement.removeAttribute('data-wallpaper-preload-theme');
-      document.documentElement.style.colorScheme = resolved;
-    }
-    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-    if (themeColorMeta) {
-      themeColorMeta.setAttribute('content', resolved === 'dark' ? '#111111' : '#ffffff');
-    }
+    applyDocumentColorScheme(resolved);
     const didResolvedThemeChange = previousResolved !== resolved;
     pageColorScheme.setState({ dark: resolved === 'dark' });
     applyLanguageStrings();

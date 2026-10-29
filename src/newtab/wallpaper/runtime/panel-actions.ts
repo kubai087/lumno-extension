@@ -7,7 +7,7 @@ import type { EffectSliderKey, GlassTheme, ThemeScope, WallpaperPanelActions } f
 import type { SliderChange } from '../../react/wallpaper-panel/panel-primitives';
 import type { WallpaperViewController } from '../../react/wallpaper-view';
 import type { QuoteRuntime } from '../../top-content/quotes';
-import type { WallpaperEffectPrefs } from '../wallpaper-effects';
+import type { WallpaperEffectPrefs } from '../../dom/wallpaper-effects';
 import type { CustomWallpapers } from './custom-wallpapers';
 import type { DailyWallpapers } from './daily-wallpapers';
 import type { FaviconChooser } from './favicon-chooser';

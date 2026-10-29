@@ -1,11 +1,11 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
-import type { ShortcutAreaScroll } from './shortcut-area-scroll';
-import { SHORTCUT_REORDER_EASING } from './shortcut-layout-animation';
-import type { ShortcutLayoutAnimation } from './shortcut-layout-animation';
+import type { ShortcutAreaScroll } from '../dom/shortcut-area-scroll';
+import { SHORTCUT_REORDER_EASING } from '../dom/shortcut-layout-animation';
+import type { ShortcutLayoutAnimation } from '../dom/shortcut-layout-animation';
 import { shortcutEvents } from './shortcut-events';
-import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileGroupId, getShortcutTileLayoutRect, placeShortcutDragTile } from '../dom/shortcut-tiles';
+import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileById, getShortcutTileFromNode, getShortcutTileGroupId, getShortcutTileId, getShortcutTileLayoutRect, placeShortcutDragTile, readShortcutTiles } from '../dom/shortcut-tiles';
 import type { BookmarkShortcutTransfer } from '../bookmarks/bookmark-shortcut-transfer';
-import type { BookmarkLayoutAnimation } from '../bookmarks/bookmark-layout-animation';
+import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import { getUndoShortcutLabels } from '../bookmarks/bookmark-drag-rules';
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
@@ -18,7 +18,6 @@ import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
-import type { ShortcutPageActions } from './shortcut-page-actions';
 import type { PersistShortcuts, ShortcutInsertionSlot } from './shortcut-types';
 import type { ShortcutData } from './shortcut-data';
 import type { ShortcutFavicons } from './shortcut-favicons';
@@ -38,11 +37,10 @@ import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 
 
 interface ShortcutDragDeps {
+  // The tiles' cache, read again after a tile moves in the grid.
+  shortcutTiles: HTMLElement[];
   shortcutAreaScroll: Pick<ShortcutAreaScroll, 'area' | 'step'>;
   shortcutLayoutAnimation: Pick<ShortcutLayoutAnimation, 'change' | 'measure' | 'shift'>;
-  refreshShortcutTileCacheFromDom: ShortcutPageActions['refreshShortcutTileCacheFromDom'];
-  getShortcutTileId: ShortcutPageActions['getShortcutTileId'];
-  getShortcutTileById: ShortcutPageActions['getShortcutTileById'];
   renderShortcuts(): void;
   flushDeferredShortcutRender(): void;
   resetShortcutDockHover(): void;
@@ -79,7 +77,6 @@ interface ShortcutDragDeps {
   formatMessage: FormatMessage;
   refreshShortcutFolderReferences(): Promise<unknown>;
   isShortcutContextMenuNode: ShortcutContextMenu['isShortcutContextMenuNode'];
-  getShortcutTileFromNode: ShortcutPageActions['getShortcutTileFromNode'];
   closeShortcutContextMenu(): void;
   moveShortcutGroupToIndex(groupId: string, targetIndex: number): Promise<boolean>;
   fitShortcutGroupColumns(): boolean;
@@ -153,6 +150,7 @@ type TileMoveSlot = Pick<ShortcutInsertionSlot, 'anchorTile' | 'markerPosition'>
 
 function createShortcutDrag(deps: ShortcutDragDeps) {
   const {
+    shortcutTiles,
     shortcutAreaScroll,
     shortcutLayoutAnimation,
     dragSessions,
@@ -161,9 +159,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     bookmarkParts,
     shortcutGrid,
     shortcutList,
-    refreshShortcutTileCacheFromDom,
-    getShortcutTileId,
-    getShortcutTileById,
     renderShortcuts,
     flushDeferredShortcutRender,
     resetShortcutDockHover,
@@ -200,7 +195,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     formatMessage,
     refreshShortcutFolderReferences,
     isShortcutContextMenuNode,
-    getShortcutTileFromNode,
     closeShortcutContextMenu,
     moveShortcutGroupToIndex,
     fitShortcutGroupColumns,
@@ -341,7 +335,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const place = (reference: Node | null): boolean => {
       grid.insertBefore(tile, reference);
       if (lead !== tile) grid.insertBefore(lead, tile);
-      refreshShortcutTileCacheFromDom();
+      readShortcutTiles(grid, shortcutTiles);
       return true;
     };
     const anchor = slot && slot.anchorTile && slot.anchorTile !== tile && slot.anchorTile !== lead &&
@@ -417,7 +411,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     let previousTile: HTMLElement | null = null;
     let previousGroupId: string | undefined | null = null;
     shortcutList.items.forEach((shortcut) => {
-      const tile = getShortcutTileById(shortcut.id);
+      const tile = getShortcutTileById(shortcutGrid, shortcut.id);
       if (!tile) return;
       const anchor = previousTile && previousGroupId === shortcut.groupId
         ? previousTile
@@ -475,7 +469,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     void persistShortcutOrder(state).then(() => {
       shortcutLayoutAnimation.change(renderShortcuts);
       adaptiveToneEvents.emit('stale', {});
-      const tile = getShortcutTileById(shortcutId);
+      const tile = getShortcutTileById(shortcutGrid, shortcutId);
       if (tile && document.activeElement !== tile) {
         tile.focus({ preventScroll: true });
       }
@@ -1116,7 +1110,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (historyLock.busy || isShortcutContextMenuNode(event.target)) {
       return;
     }
-    const tile = getShortcutTileFromNode(event.target);
+    const tile = getShortcutTileFromNode(shortcutGrid, event.target);
     if (!tile) {
       handleShortcutGroupDragPointerDown(event);
       return;

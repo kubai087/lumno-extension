@@ -5,7 +5,7 @@ import type { SearchEntryLayoutOptions, WidthModeConfig } from './layout';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SuggestionsLayout } from './search/suggestions-layout';
 import type { ShortcutContextMenu } from './shortcuts/shortcut-context-menu';
-import type { ShortcutDock } from './shortcuts/shortcut-dock';
+import type { ShortcutDock } from './dom/shortcut-dock';
 import type { ShortcutDialogActions } from './shortcuts/shortcut-dialog-actions';
 import type { ShortcutData } from './shortcuts/shortcut-data';
 import { newtabZenMode } from '../domain/settings/newtab-page';

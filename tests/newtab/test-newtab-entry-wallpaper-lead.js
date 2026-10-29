@@ -151,7 +151,7 @@ async function testEffectPreloadRecordsWhenTheWallpaperShowed() {
   sandbox.globalThis = sandbox;
   const before = performance.now();
   vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-effect-preload.ts', undefined, null, {
-    'src/newtab/wallpaper/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects'
+    'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects'
   }), sandbox, { filename: 'src/newtab/wallpaper/wallpaper-effect-preload.ts' });
   await Promise.resolve();
   await Promise.resolve();

@@ -1,6 +1,7 @@
 // Shortcut tiles in the grid: which elements are tiles, the tiles in order,
 // a tile's icon, box and group, where a drop between them lands, and the
 // dragged tile following the pointer.
+import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import type { LayoutRect } from '../cross-surface-drag';
@@ -14,6 +15,36 @@ function isShortcutFolderAnchor(element: Element | null | undefined): boolean {
 
 function getShortcutTileIcon(tile: HTMLElement | null | undefined): HTMLElement | null {
   return tile ? queryHtmlElement(tile, '.x-nt-shortcut-icon') : null;
+}
+
+// The tile an event or a point in the grid falls on.
+function getShortcutTileFromNode(grid: HTMLElement, node: EventTarget | null): HTMLElement | null {
+  if (!isElementNode(node)) {
+    return null;
+  }
+  const tile = node.closest('.x-nt-shortcut-tile');
+  return isHtmlElement(tile) && grid.contains(tile) ? tile : null;
+}
+
+function getShortcutTileAtPoint(grid: HTMLElement, x: number, y: number): HTMLElement | null {
+  return typeof document.elementFromPoint === 'function'
+    ? getShortcutTileFromNode(grid, document.elementFromPoint(x, y))
+    : null;
+}
+
+function getShortcutTileId(tile: Element | null | undefined): string {
+  return tile ? tile.getAttribute('data-shortcut-id') || '' : '';
+}
+
+function getShortcutTileById(grid: HTMLElement, shortcutId: unknown): HTMLElement | null {
+  const id = String(shortcutId || '');
+  return id ? getShortcutReorderTiles(grid).find((tile) => getShortcutTileId(tile) === id) || null : null;
+}
+
+// Fills `tiles` with the shortcuts' tiles as drawn now.
+function readShortcutTiles(grid: HTMLElement, tiles: HTMLElement[]): void {
+  tiles.length = 0;
+  tiles.push(...getShortcutReorderTiles(grid));
 }
 
 // The shortcuts' tiles in the order they are drawn.
@@ -108,6 +139,11 @@ function placeShortcutDragTile(state: ShortcutDragSession, pointerX: number, poi
 export {
   getShortcutInsertionSlotAt,
   getShortcutReorderTiles,
+  getShortcutTileAtPoint,
+  getShortcutTileById,
+  getShortcutTileFromNode,
+  getShortcutTileId,
+  readShortcutTiles,
   getShortcutTileGroupId,
   getShortcutTileIcon,
   getShortcutTileLayoutRect,

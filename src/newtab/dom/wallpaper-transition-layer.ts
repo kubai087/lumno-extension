@@ -1,6 +1,6 @@
 // A copy of the wallpaper on screen that fades out over a change, so the
 // next wallpaper or filter cross-fades in instead of cutting over.
-import { shouldReduceMotion } from './motion';
+import { shouldReduceMotion } from '../wallpaper/runtime/motion';
 
 const WALLPAPER_VISUAL_TRANSITION_MS = 220;
 const WALLPAPER_FILTER_TRANSITION_MS = 180;

@@ -2,7 +2,7 @@
 // favicon view the page favicons module makes. The site theme
 // resolver reads icon data through them and the appearance modes redraw the
 // icons on a theme change; each part is null until it is mounted.
-import type { FaviconViewRuntime } from './favicon-view';
+import type { FaviconViewRuntime } from '../dom/favicon-view';
 
 class FaviconParts {
   // Icon data URLs by icon URL, shared by the view and the theme resolver.

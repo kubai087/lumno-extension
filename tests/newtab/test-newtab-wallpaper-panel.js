@@ -13,7 +13,7 @@ const { getBundleFiles } = require('../helpers/runtime-scripts');
 // Real page dependencies, loaded the way newtab.html loads them before wallpaper.ts.
 const LumnoSettings = require('../../src/domain/settings/index.ts');
 const LumnoNewtabWallpaperAdaptiveTone = require('../../src/newtab/wallpaper/wallpaper-adaptive-tone.ts');
-const LumnoNewtabWallpaperEffects = require('../../src/newtab/wallpaper/wallpaper-effects.ts');
+const LumnoNewtabWallpaperEffects = require('../../src/newtab/dom/wallpaper-effects.ts');
 const LumnoNewtabWallpaperLocalStore = require('../../src/shared/wallpaper-local-store.ts');
 const LumnoNewtabRemoteContent = require('../../src/newtab/remote-content.ts');
 const { moduleScript } = require('../helpers/module-script');
@@ -966,7 +966,7 @@ function testNewtabFaviconPreloadAppliesCachedAlternateBeforeMainRuntime() {
     }
   };
 
-  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/wallpaper/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
+  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
     filename: 'src/newtab/wallpaper/wallpaper-preload.ts'
   });
 
@@ -1032,7 +1032,7 @@ async function testWallpaperPreloadUsesTheCachedResolvedMode() {
         }
       }
     };
-    vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/wallpaper/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), preloadSandbox, {
+    vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), preloadSandbox, {
       filename: 'src/newtab/wallpaper/wallpaper-preload.ts'
     });
     return preloadSandbox;
@@ -2324,7 +2324,7 @@ function runPreloadForWallpaper(entry, wallpaperEffects, prepareWindow) {
   windowObj.chrome = { runtime: { getURL: (path) => `chrome-extension://abc/${path}` } };
   if (prepareWindow) prepareWindow(windowObj);
   const sandbox = { ...REAL_WALLPAPER_DEPENDENCIES, document: documentObj, window: windowObj, chrome: windowObj.chrome };
-  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/wallpaper/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
+  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
     filename: 'src/newtab/wallpaper/wallpaper-preload.ts'
   });
   return { root: documentObj.documentElement, preload: sandbox.__lumnoBoot?.wallpaperPreload };
@@ -3850,7 +3850,7 @@ async function testPreloadPaintsTheCachedOnlineCopyBeforeTheRuntime() {
       wallpapers: { light: entry, dark: null }
     }));
     const sandbox = { ...REAL_WALLPAPER_DEPENDENCIES, document: documentObj, window: windowObj, chrome: {} };
-    vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/wallpaper/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
+    vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
       filename: 'src/newtab/wallpaper/wallpaper-preload.ts'
     });
     if (beforeRead) beforeRead(sandbox.__lumnoBoot?.wallpaperPreload);
@@ -3894,7 +3894,7 @@ function runWallpaperPreloadWithEntry(entry, prepareWindow) {
   }));
   if (prepareWindow) prepareWindow(windowObj);
   const sandbox = { ...REAL_WALLPAPER_DEPENDENCIES, document: documentObj, window: windowObj, chrome: {} };
-  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/wallpaper/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
+  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
     filename: 'src/newtab/wallpaper/wallpaper-preload.ts'
   });
   return { documentObj, windowObj, preload: sandbox.__lumnoBoot?.wallpaperPreload };
@@ -4166,7 +4166,7 @@ async function testCuratedDailyCachesTomorrowsPhotoAhead() {
   }
   const preloadSandbox = { ...REAL_WALLPAPER_DEPENDENCIES, document: preloadDocument, window: preloadWindow,
     chrome: {}, Date: TomorrowDate };
-  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/wallpaper/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), preloadSandbox, {
+  vm.runInNewContext(moduleScript('src/newtab/wallpaper/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), preloadSandbox, {
     filename: 'src/newtab/wallpaper/wallpaper-preload.ts'
   });
   assert.strictEqual(await preloadSandbox.__lumnoBoot?.wallpaperPreload.imageReady, copyDataUrl(tomorrow.imageUrl),

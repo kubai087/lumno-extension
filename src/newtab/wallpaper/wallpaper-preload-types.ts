@@ -1,7 +1,7 @@
 // What the wallpaper preload scripts hand the New Tab page: the wallpaper
 // painted before the page's own scripts run, and the effect layer already
 // drawing over it.
-import type { WallpaperEffectPrefs, WallpaperEffects, WallpaperSample } from './wallpaper-effects';
+import type { WallpaperEffectPrefs, WallpaperEffects, WallpaperSample } from '../dom/wallpaper-effects';
 
 // The shape of the stored preload record; a record of another version is ignored.
 const PRELOAD_STORAGE_VERSION = 4;

@@ -12,9 +12,9 @@ import { readBootValue } from '../../../platform/boot-handoff';
 import { NEWTAB_WALLPAPER_OVERLAY_STOPS } from '../wallpaper-options';
 import type { WallpaperPanelView } from './panel-view';
 import { afterNextPaint, waitForDocumentLoad } from './motion';
-import { WALLPAPER_FILTER_TRANSITION_MS, WALLPAPER_VISUAL_TRANSITION_MS } from './transition-layer';
+import { WALLPAPER_FILTER_TRANSITION_MS, WALLPAPER_VISUAL_TRANSITION_MS } from '../../dom/wallpaper-transition-layer';
 import { createEventBus } from '../../../shared/state/events';
-import type { WallpaperEffects } from '../wallpaper-effects';
+import type { WallpaperEffects } from '../../dom/wallpaper-effects';
 
 interface WallpaperVisualDeps extends
   Pick<WallpaperSources, 'isNetworkWallpaperImageUrl' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperSample'> {

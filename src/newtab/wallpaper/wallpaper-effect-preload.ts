@@ -1,7 +1,7 @@
 // Starts the wallpaper effect over the preloaded wallpaper before the page's
 // own scripts run, for wallpaper.ts to adopt.
-import * as LumnoNewtabWallpaperEffects from './wallpaper-effects';
-import type { WallpaperEffectPrefs } from './wallpaper-effects';
+import * as LumnoNewtabWallpaperEffects from '../dom/wallpaper-effects';
+import type { WallpaperEffectPrefs } from '../dom/wallpaper-effects';
 import type { WallpaperEffectPreloadRuntime } from './wallpaper-preload-types';
 import { publishBootValue, readBootValue } from '../../platform/boot-handoff';
 

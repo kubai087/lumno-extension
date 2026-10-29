@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { TopbarBookmarkActions, type BookmarkHeaderStore } from './bookmark-header';
-import { createLiquidGlass } from './liquid-glass';
+import { createLiquidGlass } from '../dom/liquid-glass';
 import { getPagePortals } from '../app/portals';
 
 export const BOOKMARK_TOPBAR_IDS = Object.freeze({

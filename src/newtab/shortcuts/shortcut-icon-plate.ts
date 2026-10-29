@@ -2,6 +2,7 @@
 // transparency) gets a plate, so it reads as a tile like the icons that
 // bring their own square. The plate is a soft tint of the artwork's main
 // color. Each shortcut can turn this on or off, or pick the plate color.
+import { createCanvas } from '../dom/canvas';
 const SAMPLE_SIZE = 32;
 const TRANSPARENT_ALPHA = 24;
 const OPAQUE_ALPHA = 128;
@@ -184,9 +185,7 @@ function analyzeImage(
   }
   let result: IconAnalysis | null = null;
   try {
-    const canvas = documentObj.createElement('canvas');
-    canvas.width = SAMPLE_SIZE;
-    canvas.height = SAMPLE_SIZE;
+    const canvas = createCanvas(documentObj, SAMPLE_SIZE, SAMPLE_SIZE);
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return null;
     context.clearRect(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
