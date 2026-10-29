@@ -15,6 +15,7 @@ import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import { getNewtabViewportTopPaddingPx } from './dom/top-inset';
+import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
@@ -38,6 +39,7 @@ interface SectionHeadersDeps extends
   bookmarksShown: Pick<BookmarksShown, 'folderPath' | 'forgetSignature' | 'loadedOnce' | 'openFolder' | 'pagerAvailability' | 'rootFolderId' | 'showPage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'topbar'>;
   bookmarkGrid: HTMLElement;
+  locale: Pick<SurfaceLocale, 'store'>;
 }
 
 function createSectionHeaders(deps: SectionHeadersDeps) {
@@ -61,7 +63,8 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     getBookmarkModeMenuOptions,
     handleBookmarkModeMenuAction,
     goToBookmarkPage,
-    openBookmarkManager
+    openBookmarkManager,
+    locale
   } = deps;
 
 
@@ -237,6 +240,9 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     });
   }
 
+
+  // The display mode menu reads its labels in the page's language.
+  locale.store.subscribe(() => updateBookmarkModeMenu());
   return {
     setRecentMode,
     updateBookmarkHeader,

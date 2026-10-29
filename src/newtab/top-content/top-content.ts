@@ -21,6 +21,8 @@ import { newtabZenMode } from '../../domain/settings/newtab-page';
 import * as COMMUNITY_LINKS from '../../platform/community-links';
 import * as SETTINGS from '../../domain/settings';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 
 
 // A card's place on screen before a layout change.
@@ -35,6 +37,8 @@ interface TopContentDeps {
   preview: SettingPreview;
   topContentContainer: HTMLElement;
   topContentController: TopContentController;
+  locale: Pick<SurfaceLocale, 'store'>;
+  appliedTheme: Pick<AppliedThemeMode, 'events'>;
 }
 
 function createTopContentRuntime(deps: TopContentDeps) {
@@ -45,7 +49,9 @@ function createTopContentRuntime(deps: TopContentDeps) {
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
     settings,
-    preview
+    preview,
+    locale,
+    appliedTheme
   } = deps;
 
 
@@ -436,6 +442,16 @@ function createTopContentRuntime(deps: TopContentDeps) {
       .then(() => true, () => true);
   }
 
+
+  // The mark draws in the page's theme and in the ink the wallpaper's tone gives it.
+  appliedTheme.events.on('changed', () => applyWordmarkThemeAppearance());
+  adaptiveToneEvents.on('applied', () => applyWordmarkThemeAppearance());
+  // The clock reads its labels in the page's language.
+  locale.store.subscribe(() => {
+    if (shown.mode === 'time') {
+      renderNewtabTopContent(false);
+    }
+  });
   return {
     captureRecentCardLayout,
     cancelRecentResizeLayoutAnimations,

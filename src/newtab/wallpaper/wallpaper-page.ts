@@ -58,7 +58,6 @@ interface WallpaperPageDeps {
   beginToast(message: string): ToastTask;
   showTopActionTooltip(anchor: HTMLElement, text: string, options?: { placement?: string }): void;
   hideTopActionTooltip(): void;
-  applyWordmarkThemeAppearance(): void;
   getEffectiveNewtabSearchWidth(): number;
   setNewtabSearchWidth(width: number, options: PersistOptions): void;
   setNewtabShortcutsVisible(visible: boolean, options: PersistOptions): void;
@@ -117,7 +116,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     beginToast,
     showTopActionTooltip,
     hideTopActionTooltip,
-    applyWordmarkThemeAppearance,
     getEffectiveNewtabSearchWidth,
     setNewtabSearchWidth,
     setNewtabShortcutsVisible,
@@ -415,7 +413,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     beginToast,
     showTopActionTooltip: (...args) => showTopActionTooltip(...args),
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
-    applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     settings,
     preview,
     getSearchWidth: getEffectiveNewtabSearchWidth,

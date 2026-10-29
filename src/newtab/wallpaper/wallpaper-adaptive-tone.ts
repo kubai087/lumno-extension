@@ -2,6 +2,7 @@
 // glass surface of the New Tab page and sets the ink and colors that read on it.
 import type { WallpaperSample } from './wallpaper-effects';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
+import { adaptiveToneEvents } from './tone-requests';
 
 type ToneInk = 'light' | 'dark';
 type ThemeMode = 'light' | 'dark';
@@ -117,7 +118,6 @@ interface WallpaperAdaptiveToneOptions<W> {
   // The mask's luminance: 0 black, 1 white.
   getOverlayLuminance?: () => number;
   getEffectLuminanceAtViewport?: (viewportX: number, viewportY: number, baseLuminance: number) => number | null | undefined;
-  applyWordmarkThemeAppearance?: () => void;
   // Hears each new sampler, whose canvas holds the shown image scaled down.
   onSamplerReady?: (sampler: AdaptiveToneSampler) => void;
   // An image another script already loaded and decoded to sample this URL's
@@ -996,7 +996,6 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
   const getOverlayAlphaAtViewportY = config.getOverlayAlphaAtViewportY || (() => 0);
   const getOverlayLuminance = config.getOverlayLuminance || (() => 1);
   const getEffectLuminanceAtViewport = config.getEffectLuminanceAtViewport || (() => null);
-  const applyWordmarkThemeAppearance = config.applyWordmarkThemeAppearance || (() => {});
   const onSamplerReady = config.onSamplerReady || (() => {});
   const getPreloadedImage = config.getPreloadedImage || (() => null);
 
@@ -1093,7 +1092,7 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
       documentObj.body.style.removeProperty(PAGE_BASE_COLOR_PROP);
     }
     if (!options || options.updateWordmark !== false) {
-      applyWordmarkThemeAppearance();
+      adaptiveToneEvents.emit('applied', null);
     }
   }
 
@@ -1485,7 +1484,7 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
         !documentObj.body ||
         documentObj.body.getAttribute('data-wallpaper-active') !== 'true') {
       clear({ updateWordmark: false });
-      applyWordmarkThemeAppearance();
+      adaptiveToneEvents.emit('applied', null);
       return;
     }
     const viewport = getViewportSize();
@@ -1618,7 +1617,7 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
       }
     });
     applyGlassSamples(glassSamples, themeMode, config.resetInk === true || platesChanged);
-    applyWordmarkThemeAppearance();
+    adaptiveToneEvents.emit('applied', null);
   }
 
   // The whole page reads in one ink, chosen from the mean brightness under its plates, so no plate

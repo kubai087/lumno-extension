@@ -819,6 +819,13 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }
   }
 
+
+  // The rows read their labels in the page's language.
+  locale.store.subscribe(() => {
+    if (searchQuery.text && searchQuery.text.trim()) {
+      void renderSuggestions(searchResults.lastResponse, searchQuery.text);
+    }
+  });
   return {
     getAutoHighlightIndex,
     activateRenderedSuggestion,

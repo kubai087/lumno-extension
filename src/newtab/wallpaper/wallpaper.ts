@@ -155,7 +155,6 @@ interface WallpaperRuntimeOptions {
   beginToast?: (message: string) => ToastTask;
   showTopActionTooltip?: (anchor: HTMLElement, text: string, options?: { placement?: string }) => void;
   hideTopActionTooltip?: () => void;
-  applyWordmarkThemeAppearance?: () => void;
   // The page's own adaptive tone targets.
   getAdaptiveToneTargets?: () => ReadonlyArray<AdaptiveToneTarget | null | undefined>;
   fetchRemoteContent?: (url: string, init: RequestInit) => Promise<Response>;
@@ -321,9 +320,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     : function() {};
   const hideTopActionTooltip = typeof options.hideTopActionTooltip === 'function'
     ? options.hideTopActionTooltip
-    : function() {};
-  const applyWordmarkThemeAppearance = typeof options.applyWordmarkThemeAppearance === 'function'
-    ? options.applyWordmarkThemeAppearance
     : function() {};
   const getAdaptiveToneTargets = typeof options.getAdaptiveToneTargets === 'function'
     ? options.getAdaptiveToneTargets
@@ -618,7 +614,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
         ? wallpaperEffects.getLuminanceAtViewport(viewportX, viewportY, baseLuminance)
         : null;
     },
-    applyWordmarkThemeAppearance,
     onSamplerReady: rememberWallpaperLuminance,
     getPreloadedImage: takePreloadedDecodedImage
   });

@@ -25,6 +25,7 @@ import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import type { DragSessions } from './drag-sessions';
 import { bookmarkSectionEvents } from './bookmarks/bookmark-section-events';
+import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -63,6 +64,7 @@ interface SectionLoadersDeps extends
   bookmarkGrid: HTMLElement;
   dragSessions: Pick<DragSessions, 'bookmark' | 'recentCardDragging' | 'shortcut' | 'shortcutDragging'>;
   recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'>;
+  locale: Pick<SurfaceLocale, 'store'>;
 }
 
 function createSectionLoaders(deps: SectionLoadersDeps) {
@@ -98,7 +100,8 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     getRecentSourceLimit,
     getRecentSites,
     beginSearchEntryRestoreLayoutLock,
-    recentSitesView
+    recentSitesView,
+    locale
   } = deps;
 
   // Bumped by the startup pass; loads asked for under an older one are dropped when they land.
@@ -380,6 +383,16 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
   bookmarkSectionEvents.on('changed', ({ keepCascadeOpen }) => {
     markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
     void loadBookmarks({ force: true });
+  });
+
+  // New messages load the sections again: their names and dates are in them.
+  let shownMessages = locale.store.getSnapshot().messages;
+  locale.store.subscribe(() => {
+    const { messages } = locale.store.getSnapshot();
+    if (messages !== shownMessages) {
+      shownMessages = messages;
+      forceReloadRecentSitesForI18n();
+    }
   });
   return {
     startSectionDataPass,

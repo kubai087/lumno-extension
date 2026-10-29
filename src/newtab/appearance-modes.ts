@@ -10,13 +10,8 @@ import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import { localeToHtmlLang } from '../domain/settings/locale';
 import { cacheNewtabLocale } from '../platform/settings-storage';
 import type { TopContentController } from './react/wordmark';
-import type { SectionHeaders } from './section-headers';
-import type { SectionLoaders } from './section-loaders';
-import type { SuggestionsController } from './search/suggestions-controller';
 import type { QuoteRuntime } from './top-content/quotes';
-import type { TopContentRuntime } from './top-content/top-content';
 import type { SettingsStore } from '../platform/settings-store';
-import { newtabTopContentMode } from '../domain/settings/newtab-time';
 import { themeMode } from '../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
 import type { SearchQuery } from '../shared/search-panel/search-query';
@@ -35,9 +30,7 @@ type ResolvedTheme = 'light' | 'dark';
 
 
 interface AppearanceModesDeps extends
-  Pick<TopContentRuntime, 'renderNewtabTopContent' | 'applyWordmarkThemeAppearance'>,
   Pick<FeedbackControlRuntime, 'updateFeedbackLanguageStrings'>,
-  Pick<SuggestionsController, 'renderSuggestions'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'> {
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
@@ -47,8 +40,6 @@ interface AppearanceModesDeps extends
   settings: Pick<SettingsStore, 'get' | 'set' | 'include' | 'subscribe'>;
   t: Translate;
   renderShortcuts(): void;
-  updateBookmarkModeMenu: SectionHeaders['updateBookmarkModeMenu'];
-  forceReloadRecentSitesForI18n: SectionLoaders['forceReloadRecentSitesForI18n'];
   // Resolves "system" through the media query unless a match is given.
   resolveTheme(mode: ThemeMode, mediaMatchesOverride?: boolean | null): ResolvedTheme;
   mediaQuery: MediaQueryList;
@@ -73,21 +64,14 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     notices,
     searchBox,
     modeActions,
-    searchResults,
     searchMode,
-    searchQuery,
     locale,
     settings,
     t,
-    renderNewtabTopContent,
-    updateBookmarkModeMenu,
     updateFeedbackLanguageStrings,
     renderShortcuts,
-    renderSuggestions,
-    forceReloadRecentSitesForI18n,
     resolveTheme,
     syncBookmarkTopbarSurfaceAppearance,
-    applyWordmarkThemeAppearance,
     addMediaQueryChangeListener,
     mediaQuery,
     removeMediaQueryChangeListener
@@ -98,14 +82,9 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
 
   function applyLanguageStrings(): void {
     document.title = t('newtab_page_title', 'New Tab');
-    if (settings.get(newtabTopContentMode) === 'time') {
-      renderNewtabTopContent(false);
-    }
     if (bookmarkParts.topbar) {
       bookmarkParts.topbar.updateLanguage(t('bookmark_view_mode_top', 'Top bookmarks bar'));
     }
-    // Also draws the bookmark header with the new language.
-    updateBookmarkModeMenu();
     quoteRuntime.updateLanguage();
     updateFeedbackLanguageStrings();
     // Draws the tiles' labels and the shortcut menus in the new language.
@@ -121,9 +100,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
       if (searchMode.local) {
         modeActions.setLocalSearchScopePrefix(searchMode.local);
       }
-    }
-    if (searchQuery.text && searchQuery.text.trim()) {
-      void renderSuggestions(searchResults.lastResponse, searchQuery.text);
     }
   }
 
@@ -163,7 +139,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     if (themeColorMeta) {
       themeColorMeta.setAttribute('content', resolved === 'dark' ? '#111111' : '#ffffff');
     }
-    applyWordmarkThemeAppearance(resolved);
     const didResolvedThemeChange = previousResolved !== resolved;
     pageColorScheme.setState({ dark: resolved === 'dark' });
     applyLanguageStrings();
@@ -290,7 +265,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
       if (messages !== shownMessages) {
         shownMessages = messages;
         applyLanguageStrings();
-        forceReloadRecentSitesForI18n();
       }
     };
     locale.store.subscribe(applyLocale);

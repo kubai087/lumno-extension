@@ -954,14 +954,9 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     locale,
     settings,
     t,
-    renderNewtabTopContent: (...args) => renderNewtabTopContent(...args),
-    updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     updateFeedbackLanguageStrings,
     renderShortcuts: () => renderShortcuts(),
-    renderSuggestions: (...args) => renderSuggestions(...args),
-    forceReloadRecentSitesForI18n: (...args) => forceReloadRecentSitesForI18n(...args),
     resolveTheme,
-    applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     addMediaQueryChangeListener,
     mediaQuery,
     removeMediaQueryChangeListener
@@ -1117,7 +1112,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     beginToast,
     showTopActionTooltip,
     hideTopActionTooltip,
-    applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     getEffectiveNewtabSearchWidth,
     setNewtabSearchWidth,
     setNewtabShortcutsVisible,
@@ -1251,10 +1245,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     animateRecentResizeLayout,
     applyNewtabTopContentVisibility,
     finishWordmarkEntryAnimation,
-    applyWordmarkThemeAppearance,
     renderNewtabTopContent,
     followTopContentSettings
   } = NEWTAB_TOP_CONTENT_RUNTIME.createTopContentRuntime({
+    appliedTheme,
+    locale,
     topContentContainer,
     topContentController,
     recentCards,
@@ -1295,6 +1290,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     setBookmarkViewMode,
     navigateBookmarkFolder
   } = NEWTAB_SECTION_HEADERS.createSectionHeaders({
+    locale,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarkParts,
     bookmarksShown,
@@ -1785,9 +1781,9 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     markRecentDataDirty,
     loadBookmarks,
     loadRecentSites,
-    handleRecentVisibilityChange,
-    forceReloadRecentSitesForI18n
+    handleRecentVisibilityChange
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    locale,
     dragSessions,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarkParts,
