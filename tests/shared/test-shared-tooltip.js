@@ -252,7 +252,7 @@ assert.ok(
   'overlay injection should load the shared tooltip component before search-panel'
 );
 assert.ok(
-  overlayPanel.includes("overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/tooltip.css')"),
+  overlayPanel.includes("LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/tooltip.css')"),
   'overlay should resolve the shared tooltip stylesheet URL'
 );
 assert.ok(

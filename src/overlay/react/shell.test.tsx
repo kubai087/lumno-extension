@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createOverlayShellApi } from './shell';
+import { appendOverlayStyleNodes, createOverlayMount, destroyOverlayMount, findOverlayPanel } from './shell';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 afterEach(() => {
@@ -13,12 +13,11 @@ afterEach(() => {
 
 describe('Overlay React shell', () => {
   it('creates the panel inside a page-inaccessible Shadow DOM', () => {
-    const api = createOverlayShellApi();
     const holder: {
-      value: ReturnType<typeof api.createOverlayMount>;
+      value: ReturnType<typeof createOverlayMount>;
     } = { value: null };
     act(() => {
-      holder.value = api.createOverlayMount(document, {
+      holder.value = createOverlayMount(document, {
         hostId: 'overlay-host',
         id: 'overlay-panel',
         width: 800,
@@ -30,8 +29,6 @@ describe('Overlay React shell', () => {
       throw new Error('Expected overlay mount');
     }
     document.body.appendChild(mount.host);
-
-    expect(api.implementation).toBe('react');
     expect(mount.host.shadowRoot).toBeNull();
     expect('_lumnoOverlayPanel' in mount.host).toBe(false);
     expect(mount.panel.dataset.reactIsland).toBe('overlay-shell');
@@ -55,21 +52,20 @@ describe('Overlay React shell', () => {
     expect(mount.host.getAttribute('popover')).toBe('manual');
     expect(mount.root?.querySelectorAll('#overlay-panel')).toHaveLength(1);
     expect(
-      api.findOverlayPanel(document, {
+      findOverlayPanel(document, {
         hostId: 'overlay-host',
         id: 'overlay-panel'
       })
     ).toBe(mount.panel);
 
-    act(() => api.destroyOverlayMount(mount.host));
+    act(() => destroyOverlayMount(mount.host));
     expect(mount.root?.querySelector('#overlay-panel')).toBeNull();
   });
 
   it('draws the panel\'s theme from its model beside its own look', () => {
-    const api = createOverlayShellApi();
-    const holder: { value: ReturnType<typeof api.createOverlayMount> } = { value: null };
+    const holder: { value: ReturnType<typeof createOverlayMount> } = { value: null };
     act(() => {
-      holder.value = api.createOverlayMount(document, { hostId: 'overlay-host', id: 'overlay-panel' });
+      holder.value = createOverlayMount(document, { hostId: 'overlay-host', id: 'overlay-panel' });
     });
     const mount = holder.value;
     if (!mount) {
@@ -90,14 +86,13 @@ describe('Overlay React shell', () => {
     expect(mount.panel.style.getPropertyValue('--lumno-font-sans')).toBe('');
     expect(mount.panel.style.position).toBe('fixed');
     expect(mount.panel.style.getPropertyPriority('position')).toBe('important');
-    act(() => api.destroyOverlayMount(mount.host));
+    act(() => destroyOverlayMount(mount.host));
   });
 
   it('marks the host editable while focus is in the panel, after the page saw the focus', () => {
-    const api = createOverlayShellApi();
-    const holder: { value: ReturnType<typeof api.createOverlayMount> } = { value: null };
+    const holder: { value: ReturnType<typeof createOverlayMount> } = { value: null };
     act(() => {
-      holder.value = api.createOverlayMount(document, { hostId: 'overlay-host', id: 'overlay-panel' });
+      holder.value = createOverlayMount(document, { hostId: 'overlay-host', id: 'overlay-panel' });
     });
     const mount = holder.value;
     if (!mount) {
@@ -122,14 +117,13 @@ describe('Overlay React shell', () => {
       expect(mount.host.hasAttribute('contenteditable')).toBe(false);
     } finally {
       window.removeEventListener('focus', recordFocus, true);
-      act(() => api.destroyOverlayMount(mount.host));
+      act(() => destroyOverlayMount(mount.host));
     }
   });
 
   it('installs isolated styles without a legacy adapter', () => {
-    const api = createOverlayShellApi();
     const root = document.createElement('div');
-    api.appendOverlayStyleNodes(document, {
+    appendOverlayStyleNodes(document, {
       root,
       searchInputCssUrl: 'chrome-extension://example/search-input.css',
       remixBrush2IconSvgUrl:

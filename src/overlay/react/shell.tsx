@@ -1,7 +1,6 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
 import { queryHtmlElement } from '../../shared/dom-lookup';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { PortalHost } from '../../shared/react/portal-host';
 
 type OverlayShellOptions = Record<string, unknown> & {
@@ -674,106 +673,101 @@ interface OverlayPanelElement extends HTMLDivElement {
   _lumnoOverlayRoot?: ShadowRoot | null;
 }
 
-export function createOverlayShellApi() {
-  const hosts = new WeakMap<HTMLElement, PortalHost>();
-  const panels = new WeakMap<HTMLElement, HTMLElement>();
+// The page's mounted panels: each host's portal root and panel, so the
+// session can find the panel again and tear its root down.
+const hosts = new WeakMap<HTMLElement, PortalHost>();
+const panels = new WeakMap<HTMLElement, HTMLElement>();
 
-  function createOverlayMount(
-    doc: Document,
-    options: OverlayShellOptions = {}
-  ): OverlayMount | null {
-    if (!doc || typeof doc.createElement !== 'function') {
-      return null;
-    }
-    const host = createOverlayHost(doc, options);
-    // Every supported browser has closed shadow roots, so page styles never
-    // reach the panel and its own never reach the page.
-    const shadowRoot = host.attachShadow({ mode: 'closed' });
-    markHostEditableWhileFocused(host, shadowRoot);
-    appendOverlayStyleNodes(doc, {
-      ...options,
-      root: shadowRoot
-    });
+export function createOverlayMount(
+  doc: Document,
+  options: OverlayShellOptions = {}
+): OverlayMount | null {
+  if (!doc || typeof doc.createElement !== 'function') {
+    return null;
+  }
+  const host = createOverlayHost(doc, options);
+  // Every supported browser has closed shadow roots, so page styles never
+  // reach the panel and its own never reach the page.
+  const shadowRoot = host.attachShadow({ mode: 'closed' });
+  markHostEditableWhileFocused(host, shadowRoot);
+  appendOverlayStyleNodes(doc, {
+    ...options,
+    root: shadowRoot
+  });
 
-    const mounted: { parts: OverlayPanelParts | null } = { parts: null };
-    const registerPanel = (parts: OverlayPanelParts) => {
-      mounted.parts = parts;
-    };
-    const store = createRenderStore<OverlayPanelModel>({ theme: '', vars: {} });
-    const portals = new PortalHost(shadowRoot);
-    portals.show(shadowRoot, (
-      <OverlayPanel
-        declarations={getPanelDeclarations(options, supportsCornerShape(doc))}
-        id={String(
-          options.id || '_x_extension_overlay_2024_unique_'
-        )}
-        onMount={registerPanel}
-        store={store}
-        suggestionsContainerId={String(
-          options.suggestionsContainerId || '_x_extension_suggestions_container_2024_unique_'
-        )}
-      />
-    ));
-    const parts = mounted.parts;
-    if (!parts) {
-      portals.destroy();
-      return null;
-    }
-
-    const mountedPanel: OverlayPanelElement = parts.panel;
-    mountedPanel._lumnoOverlayHost = host;
-    mountedPanel._lumnoOverlayRoot = shadowRoot;
-    hosts.set(host, portals);
-    panels.set(host, mountedPanel);
-    const view: OverlayPanelView = { render: store.render };
-    return {
-      host,
-      portals,
-      panel: mountedPanel,
-      inputContainer: parts.inputContainer,
-      suggestionsContainer: parts.suggestionsContainer,
-      root: shadowRoot,
-      view
-    };
+  const mounted: { parts: OverlayPanelParts | null } = { parts: null };
+  const registerPanel = (parts: OverlayPanelParts) => {
+    mounted.parts = parts;
+  };
+  const store = createRenderStore<OverlayPanelModel>({ theme: '', vars: {} });
+  const portals = new PortalHost(shadowRoot);
+  portals.show(shadowRoot, (
+    <OverlayPanel
+      declarations={getPanelDeclarations(options, supportsCornerShape(doc))}
+      id={String(
+        options.id || '_x_extension_overlay_2024_unique_'
+      )}
+      onMount={registerPanel}
+      store={store}
+      suggestionsContainerId={String(
+        options.suggestionsContainerId || '_x_extension_suggestions_container_2024_unique_'
+      )}
+    />
+  ));
+  const parts = mounted.parts;
+  if (!parts) {
+    portals.destroy();
+    return null;
   }
 
-  return Object.freeze({
-    appendOverlayStyleNodes,
-    createOverlayMount,
-    destroyOverlayMount(host: HTMLElement | null) {
-      if (!host) {
-        return;
-      }
-      const portals = hosts.get(host);
-      if (portals) {
-        portals.destroy();
-        hosts.delete(host);
-      }
-      panels.delete(host);
-    },
-    findOverlayPanel(
-      doc: Document,
-      options: OverlayShellOptions = {}
-    ): HTMLElement | null {
-      const panelId = String(
-        options.id || '_x_extension_overlay_2024_unique_'
-      );
-      const hostId = String(
-        options.hostId || '_x_extension_overlay_host_2026_unique_'
-      );
-      const host = doc.getElementById(hostId);
-      if (host) {
-        return (
-          host.shadowRoot?.getElementById(panelId) ||
-          panels.get(host) ||
-          null
-        );
-      }
-      return doc.getElementById(panelId);
-    },
-    implementation: 'react'
-  });
+  const mountedPanel: OverlayPanelElement = parts.panel;
+  mountedPanel._lumnoOverlayHost = host;
+  mountedPanel._lumnoOverlayRoot = shadowRoot;
+  hosts.set(host, portals);
+  panels.set(host, mountedPanel);
+  const view: OverlayPanelView = { render: store.render };
+  return {
+    host,
+    portals,
+    panel: mountedPanel,
+    inputContainer: parts.inputContainer,
+    suggestionsContainer: parts.suggestionsContainer,
+    root: shadowRoot,
+    view
+  };
 }
 
-// The one instance a page or injected script draws through, made on first use.
-export const getOverlayShellApi = lazyInstance(createOverlayShellApi);
+export function destroyOverlayMount(host: HTMLElement | null): void {
+  if (!host) {
+    return;
+  }
+  const portals = hosts.get(host);
+  if (portals) {
+    portals.destroy();
+    hosts.delete(host);
+  }
+  panels.delete(host);
+}
+
+export function findOverlayPanel(
+  doc: Document,
+  options: OverlayShellOptions = {}
+): HTMLElement | null {
+  const panelId = String(
+    options.id || '_x_extension_overlay_2024_unique_'
+  );
+  const hostId = String(
+    options.hostId || '_x_extension_overlay_host_2026_unique_'
+  );
+  const host = doc.getElementById(hostId);
+  if (host) {
+    return (
+      host.shadowRoot?.getElementById(panelId) ||
+      panels.get(host) ||
+      null
+    );
+  }
+  return doc.getElementById(panelId);
+}
+
+export { appendOverlayStyleNodes };

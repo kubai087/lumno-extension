@@ -54,7 +54,7 @@ function listHostStyleNodes(document) {
     assert.strictEqual(window.getComputedStyle(hostIcon).fontFamily, window.getComputedStyle(plainIcon).fontFamily,
       'host-page elements with ri-* classes must keep their own styling');
 
-    const panel = window.LumnoTestOverlayShellModule.getOverlayShellApi().findOverlayPanel(document);
+    const panel = window.LumnoTestOverlayShellModule.findOverlayPanel(document);
     const root = panel._lumnoOverlayRoot;
     assert.ok(root.querySelector('#_x_extension_remixicon_shadow_css_2026_unique_'),
       'icon class rules should load inside the overlay shadow root');

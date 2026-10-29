@@ -4,7 +4,8 @@
 // the panel.
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import * as LumnoMessaging from '../../platform/messaging';
-import type * as OverlayLifecycle from '../lifecycle';
+import * as OverlayLifecycle from '../lifecycle';
+import { destroyOverlayMount } from '../react/shell';
 import type { createNoticeLayer } from '../notices';
 import { setOverlayOpenState } from '../../platform/content-registry';
 import { destroySearchInput } from '../../shared/react/search-input';
@@ -21,8 +22,6 @@ interface PanelSessionDeps {
   // Stops the answers on their way.
   suggestionSource: Pick<SuggestionSource, 'cancel'>;
   stopOverlayAntiTranslateObserver(): void;
-  overlayShell: { destroyOverlayMount(host: HTMLElement | null): void };
-  overlayLifecycle: Pick<typeof OverlayLifecycle, 'requestSessionDestroy'>;
   settings: Pick<OverlaySettings, 'get' | 'release'>;
   overlaySessionCleanups: Pick<ReturnType<typeof OverlayLifecycle.createSessionCleanupRegistry>, 'run'>;
   overlayNoticeLayer: Pick<ReturnType<typeof createNoticeLayer>, 'stop'>;
@@ -72,9 +71,7 @@ function createPanelSession(deps: PanelSessionDeps) {
     clearOverlayEnterAnimationFrames,
     clearOverlayPanelEnterCleanup,
     suggestionSource,
-    stopOverlayAntiTranslateObserver,
-    overlayShell,
-    overlayLifecycle
+    stopOverlayAntiTranslateObserver
   } = deps;
 
   const OVERLAY_CONTEXT_TOKEN_ATTRIBUTE = 'data-lumno-overlay-context-token';
@@ -434,7 +431,7 @@ function createPanelSession(deps: PanelSessionDeps) {
         destroySearchInput(elements.inputParts);
       }
       const mountHost = getOverlayMountHost(overlayElement);
-      overlayShell.destroyOverlayMount(mountHost);
+      destroyOverlayMount(mountHost);
       if (mountHost) {
         mountHost.remove();
       }
@@ -458,7 +455,7 @@ function createPanelSession(deps: PanelSessionDeps) {
   function destroyExistingOverlaySession(overlayElement: HTMLElement | null, options?: RemoveOverlayOptions | null): void {
     const mountHost = getOverlayMountHost(overlayElement);
     const destroyed = mountHost
-      ? overlayLifecycle.requestSessionDestroy(mountHost, options)
+      ? OverlayLifecycle.requestSessionDestroy(mountHost, options)
       : !(overlayElement && overlayElement.isConnected);
     if (destroyed || (overlayElement &&
         overlayElement.getAttribute('data-lumno-overlay-exit') === 'running')) {

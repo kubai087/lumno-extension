@@ -28,7 +28,7 @@ async function waitForClosed(page, message) {
 const MOTION_KEY = '_x_extension_motion_effects_enabled_2026_unique_';
 
 function findPanel(page) {
-  return page.window.LumnoTestOverlayShellModule.getOverlayShellApi().findOverlayPanel(page.window.document);
+  return page.window.LumnoTestOverlayShellModule.findOverlayPanel(page.window.document);
 }
 
 async function testToggleCloseFromNewInvocation() {

@@ -58,7 +58,7 @@ import * as LumnoOverlayRuntime from './runtime';
 import * as LumnoOverlaySiteFixes from './site-fixes';
 import * as LumnoMessaging from '../platform/messaging';
 import { isOverlayOpenState, setOverlayOpenState } from '../platform/content-registry';
-import { getOverlayShellApi } from './react/shell';
+import { appendOverlayStyleNodes, createOverlayMount, findOverlayPanel } from './react/shell';
 import { createSearchInput } from '../shared/react/search-input';
 import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
@@ -107,22 +107,8 @@ const iconPreloadCache = new Map<string, HTMLImageElement>();
 let pageMenuOrder: SearchModeMenuOrder | null = null;
 
 function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): void {
-  const overlayLifecycle = LumnoOverlayLifecycle;
-  const overlayRuntime = LumnoOverlayRuntime;
-  // Set by the overlay's React bundle, which the worker injects first.
-  const overlayShell = getOverlayShellApi();
-  if (!overlayShell) {
-    console.warn('Lumno: overlay shell not available.');
-    return;
-  }
   const openOptions = OVERLAY_CONTEXT.readOverlayOpenOptions(overlayContext, Date.now());
   const initialOverlayTabs = OVERLAY_CONTEXT.readOverlayTabs(requestedTabs);
-  const requestedTabZoomFactor = openOptions.tabZoomFactor;
-  const initialPrefillQuery = openOptions.prefillQuery;
-  const initialContextTabId = openOptions.currentTabId;
-  const ensureOverlayOpen = openOptions.ensureOpen;
-  const initialOverlayOpenStartedAt = openOptions.openedAt;
-  const initialLoadingSession = openOptions.loadingSession;
   const shouldIgnoreTabZoomCompensation = OVERLAY_CONTEXT.isLocalFileLikeUrl(openOptions.currentTabUrl);
   // Web clip needs Document Picture-in-Picture, which Firefox does not ship.
   const documentPipSupported = 'documentPictureInPicture' in window;
@@ -138,7 +124,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const notices = new OverlayNotices();
   // The toast, drawn once the panel mounts its element.
   const overlayToast = new OverlayToast();
-  const overlayTabs = new OpenTabs(initialOverlayTabs, initialContextTabId);
+  const overlayTabs = new OpenTabs(initialOverlayTabs, openOptions.currentTabId);
   const lastRender = new LastRender();
   const overlayThemeChoice = new OverlayThemeMode();
   const settings = createOverlaySettings(chrome);
@@ -153,7 +139,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // Teardown steps owned by this invocation's overlay session. Controllers
   // created deep inside the mount block register here so removeOverlay can
   // release them without stashing them on DOM expandos.
-  const overlaySessionCleanups = overlayLifecycle.createSessionCleanupRegistry();
+  const overlaySessionCleanups = LumnoOverlayLifecycle.createSessionCleanupRegistry();
   const {
     applyOverlayInputExtensionIsolation,
     applyNoTranslate,
@@ -173,9 +159,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getSizePreset: () => getOverlaySizePreset(settings.get(overlaySizeMode)),
     decorate: (element) => applyNoTranslateDeep(element)
   });
-  const overlayViewportSizeSync = overlayLifecycle.createViewportSizeSync(window, {
+  const overlayViewportSizeSync = LumnoOverlayLifecycle.createViewportSizeSync(window, {
     getSizePreset: () => getOverlaySizePreset(settings.get(overlaySizeMode)),
-    getRequestedTabZoomFactor: () => requestedTabZoomFactor,
+    getRequestedTabZoomFactor: () => openOptions.tabZoomFactor,
     shouldIgnoreTabZoomCompensation: () => shouldIgnoreTabZoomCompensation
   });
   const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
@@ -183,9 +169,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   const defaultTheme = createDefaultTheme();
   const urlHighlightTheme = createUrlHighlightTheme();
-  const prioritizeCurrentPageMatch = openOptions.prioritizeCurrentPageMatch;
-  const currentTabPinned = openOptions.currentTabPinned;
-  const initialContextTabUrl = openOptions.currentTabUrl;
   const {
     shouldSwitchMatchedTabSuggestion,
     getUrlDisplay,
@@ -195,8 +178,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   } = PANEL_TAB_MATCHING.createTabMatching({
     settings,
     overlayTabs,
-    initialContextTabUrl,
-    prioritizeCurrentPageMatch
+    initialContextTabUrl: openOptions.currentTabUrl,
+    prioritizeCurrentPageMatch: openOptions.prioritizeCurrentPageMatch
   });
 
   // They follow storage only once the panel mounts, below.
@@ -249,7 +232,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     instantActive: () => settings.get(numberShortcutInstantEnabled)
   };
 
-  const overlayFrameTracker = overlayLifecycle.createFrameTracker(window);
+  const overlayFrameTracker = LumnoOverlayLifecycle.createFrameTracker(window);
 
   const setInputScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
     if (!element) {
@@ -319,7 +302,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     clearOverlayEnterAnimationFrames
   } = PANEL_ENTRY_MOTION.createEntryMotion({
     settings,
-    initialOverlayOpenStartedAt,
+    initialOverlayOpenStartedAt: openOptions.openedAt,
     overlayFrameTracker
   });
 
@@ -349,9 +332,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     clearOverlayEnterAnimationFrames,
     clearOverlayPanelEnterCleanup,
     suggestionSource,
-    stopOverlayAntiTranslateObserver,
-    overlayShell,
-    overlayLifecycle
+    stopOverlayAntiTranslateObserver
   });
 
   const {
@@ -360,7 +341,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getOpenDisposition
   } = PANEL_RESULT_ACTIVATION.createResultActivation({
     elements,
-    currentTabPinned,
+    currentTabPinned: openOptions.currentTabPinned,
     settings,
     removeOverlay
   });
@@ -555,7 +536,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     lastRender,
     overlayTabs,
     elements,
-    prioritizeCurrentPageMatch,
+    prioritizeCurrentPageMatch: openOptions.prioritizeCurrentPageMatch,
     settings,
     siteSearchRunner,
     searchMatching,
@@ -649,7 +630,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       getInput: () => elements.searchInput,
       getModeController: () => elements.inputModeController,
       getPageProvider: (providers) => SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
-        initialContextTabUrl,
+        openOptions.currentTabUrl,
         providers
       ),
       beforeDoubleTab: () => {
@@ -846,19 +827,18 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // The panel draws the mode applied to it.
   overlayThemeChoice.events.on('applied', ({ mode }) => applyOverlayTheme(mode));
 
-  const overlaySiteFixes = LumnoOverlaySiteFixes;
   const addOverlaySessionCleanup = overlaySessionCleanups.add;
   addOverlaySessionCleanup(stopFollowingSystemTheme);
 
   const OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS = 700;
-  const RI_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'assets/remixicon/fonts/remixicon.css');
-  const SEARCH_INPUT_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/search/search-input.css');
-  const FEATURE_HINTS_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/feature-hints.css');
-  const TOOLTIP_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/tooltip.css');
-  const CURSOR_TOOLTIP_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/cursor-tooltip.css');
-  const TOAST_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/toast.css');
-  const EXTERNAL_LINK_ICON_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/external-link-icon.css');
-  const OVERLAY_SUGGESTIONS_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/overlay/suggestions-view.css');
+  const RI_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'assets/remixicon/fonts/remixicon.css');
+  const SEARCH_INPUT_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/search/search-input.css');
+  const FEATURE_HINTS_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/feature-hints.css');
+  const TOOLTIP_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/tooltip.css');
+  const CURSOR_TOOLTIP_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/cursor-tooltip.css');
+  const TOAST_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/toast.css');
+  const EXTERNAL_LINK_ICON_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/external-link-icon.css');
+  const OVERLAY_SUGGESTIONS_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/overlay/suggestions-view.css');
 
   faviconRuntime.onFaviconData(preloadThemeFromFavicon);
 
@@ -879,7 +859,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = OVERLAY_FONT_FACES.buildOverlayFontFaceCss(
-      (assetPath) => overlayRuntime.getRuntimeUrl(chrome, assetPath)
+      (assetPath) => LumnoOverlayRuntime.getRuntimeUrl(chrome, assetPath)
     );
     host.appendChild(style);
     // Every face added to a page that has already laid out restyles and
@@ -895,7 +875,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   }
 
   // Check if the overlay already exists
-  elements.holdExisting(overlayShell.findOverlayPanel(document, {
+  elements.holdExisting(findOverlayPanel(document, {
     hostId: OVERLAY_HOST_ID,
     id: OVERLAY_PANEL_ID
   }));
@@ -907,7 +887,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       elements.overlay.getAttribute('data-lumno-overlay-exit') === 'running';
     const shouldReplaceExistingOverlay = shouldReplaceClosingOverlay ||
       isStaleOverlay(elements.overlay);
-    if (ensureOverlayOpen && !shouldReplaceExistingOverlay) {
+    if (openOptions.ensureOpen && !shouldReplaceExistingOverlay) {
       setOverlayOpenState(true);
       return;
     }
@@ -931,7 +911,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   detectPageTheme();
   ensureOverlayFontFaces();
   const initialOverlaySizePreset = getOverlaySizePreset(settings.get(overlaySizeMode));
-  const overlayMount = overlayShell.createOverlayMount(document, {
+  const overlayMount = createOverlayMount(document, {
     hostId: OVERLAY_HOST_ID,
     id: OVERLAY_PANEL_ID,
     width: initialOverlaySizePreset.width,
@@ -954,7 +934,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // The panel's shadow root, which holds its styles.
   const overlayStyleRoot = overlayMount.root;
   setOverlayStoredContextToken(elements.overlay);
-  addOverlaySessionCleanup(overlayLifecycle.onSessionDestroyRequest(overlayHost, (options) => {
+  addOverlaySessionCleanup(LumnoOverlayLifecycle.onSessionDestroyRequest(overlayHost, (options) => {
     if (options.animateExit === true) closeOverlayWithMotion(elements.overlay);
     else removeOverlay(elements.overlay, options);
   }));
@@ -962,7 +942,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   setOverlayMountVisibility(overlayHost, true);
   applyNoTranslate(elements.overlay);
 
-  overlayShell.appendOverlayStyleNodes(document, {
+  appendOverlayStyleNodes(document, {
     root: overlayStyleRoot,
     remixIconCssUrl: RI_CSS_URL,
     searchInputCssUrl: SEARCH_INPUT_CSS_URL,
@@ -1016,7 +996,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     t
   });
 
-  const overlayRevealGate = overlaySiteFixes.createOverlayRevealGate(window, {
+  const overlayRevealGate = LumnoOverlaySiteFixes.createOverlayRevealGate(window, {
     overlay: overlayMount.panel,
     styleRoot: overlayStyleRoot
   });
@@ -1604,13 +1584,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (!elements.searchInput || !elements.searchInput.isConnected) {
       return;
     }
-    if (initialLoadingSession && initialLoadingSession.focused === false) {
+    if (openOptions.loadingSession && openOptions.loadingSession.focused === false) {
       return;
     }
     elements.searchInput.focus({ preventScroll: true });
   }
 
-  const mountConnectionGuard = overlayLifecycle.createMountConnectionGuard(window, {
+  const mountConnectionGuard = LumnoOverlayLifecycle.createMountConnectionGuard(window, {
     getMountParent(doc) {
       return doc.fullscreenElement || doc.documentElement || doc.body;
     },
@@ -1656,19 +1636,19 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (!elements.overlay || !elements.overlay.isConnected || !searchInput) {
       return false;
     }
-    if (initialLoadingSession || initialPrefillQuery) {
-      const initialInputValue = initialLoadingSession
-        ? initialLoadingSession.inputValue
-        : initialPrefillQuery;
+    if (openOptions.loadingSession || openOptions.prefillQuery) {
+      const initialInputValue = openOptions.loadingSession
+        ? openOptions.loadingSession.inputValue
+        : openOptions.prefillQuery;
       searchInput.value = initialInputValue;
-      const selectionStart = initialLoadingSession
-        ? initialLoadingSession.selectionStart
+      const selectionStart = openOptions.loadingSession
+        ? openOptions.loadingSession.selectionStart
         : initialInputValue.length;
-      const selectionEnd = initialLoadingSession
-        ? initialLoadingSession.selectionEnd
+      const selectionEnd = openOptions.loadingSession
+        ? openOptions.loadingSession.selectionEnd
         : initialInputValue.length;
-      const selectionDirection = initialLoadingSession
-        ? initialLoadingSession.selectionDirection
+      const selectionDirection = openOptions.loadingSession
+        ? openOptions.loadingSession.selectionDirection
         : 'none';
       searchInput.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
       searchQuery.set(initialInputValue);
