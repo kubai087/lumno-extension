@@ -1,6 +1,7 @@
 // Dragging a recent-site card onto the shortcuts or the bookmarks. The card
 // stays where it is: a copy of it lifts off and shrinks into a small site
 // icon that follows the pointer, and lands as a new shortcut or bookmark.
+import type { ShortcutAreaScroll } from '../shortcuts/shortcut-area-scroll';
 import type { BookmarkShortcutTransfer } from '../bookmarks/bookmark-shortcut-transfer';
 import type { BookmarkLayoutAnimation } from '../bookmarks/bookmark-layout-animation';
 import { isHtmlElement, isHtmlTag } from '../../shared/dom-guards';
@@ -14,7 +15,6 @@ import type { DragDropTarget, ShortcutInsertionTarget, SurfaceDragState } from '
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { RecentSitesViewOptions } from '../react/recent-sites';
-import type { ShortcutDrag } from '../shortcuts/shortcut-drag';
 import type { ShortcutData } from '../shortcuts/shortcut-data';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutLink } from '../../domain/shortcuts/types';
@@ -46,7 +46,7 @@ interface RecentCardDragDeps {
   getShortcutInsertionDropTarget: BookmarkDragController['getShortcutInsertionDropTarget'];
   isPointOverShortcutDropSurface: BookmarkDragController['isPointOverShortcutDropSurface'];
   isValidExternalBookmarkDropTarget: BookmarkDragController['isValidExternalBookmarkDropTarget'];
-  autoScrollShortcutArea: ShortcutDrag['autoScrollShortcutArea'];
+  shortcutAreaScroll: Pick<ShortcutAreaScroll, 'step'>;
   setDragDropTarget: BookmarkDragController['setDragDropTarget'];
   clearDragDropTarget: BookmarkDragController['clearDragDropTarget'];
   getBookmarkDragPageSwitchDirection: BookmarkDragController['getBookmarkDragPageSwitchDirection'];
@@ -125,7 +125,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     getShortcutInsertionDropTarget,
     isPointOverShortcutDropSurface,
     isValidExternalBookmarkDropTarget,
-    autoScrollShortcutArea,
+    shortcutAreaScroll,
     setDragDropTarget,
     clearDragDropTarget,
     getBookmarkDragPageSwitchDirection,
@@ -484,7 +484,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     if (topbarPoint && topbar && topbar.autoScroll(topbarPoint.x, topbarPoint.y)) {
       scheduleRecentCardDragMove(state, pointerX, pointerY);
     }
-    if (isPointOverShortcutDropSurface(pointerX, pointerY) && autoScrollShortcutArea(pointerX, pointerY)) {
+    if (isPointOverShortcutDropSurface(pointerX, pointerY) && shortcutAreaScroll.step(pointerX, pointerY)) {
       scheduleRecentCardDragMove(state, pointerX, pointerY);
     }
     updateDropTarget(state, pointerX, pointerY);

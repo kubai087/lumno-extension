@@ -182,6 +182,7 @@ import { createShortcutFavicons } from './shortcuts/shortcut-favicons';
 import { createShortcutData } from './shortcuts/shortcut-data';
 import { createShortcutDialogActions } from './shortcuts/shortcut-dialog-actions';
 import { ShortcutLayoutAnimation } from './shortcuts/shortcut-layout-animation';
+import { ShortcutAreaScroll } from './shortcuts/shortcut-area-scroll';
 import { BookmarkLayoutAnimation } from './bookmarks/bookmark-layout-animation';
 import * as BOOKMARK_SHORTCUT_TRANSFER from './bookmarks/bookmark-shortcut-transfer';
 import * as BOOKMARK_MOVE_ACTIONS from './bookmarks/bookmark-move-actions';
@@ -221,6 +222,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const shortcutGrid = pageStructureRuntime.shortcut.grid;
   // The slide the shortcut tiles make when the grid changes.
   const shortcutLayoutAnimation = new ShortcutLayoutAnimation(shortcutGrid);
+  // The shortcut section's scrolling while a drag holds the pointer by its edge.
+  const shortcutAreaScroll = new ShortcutAreaScroll(shortcutGrid);
   // The wordmark or clock above the search box, drawn by the top content runtime.
   const topContentContainer = pageStructureRuntime.topContent;
   const recentSection = pageStructureRuntime.recent.section;
@@ -1471,6 +1474,34 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
+    getBookmarkPageCount,
+    updateBookmarkPagerState,
+    updateBookmarkGridHeightLock,
+    renderCurrentBookmarkPage,
+    switchBookmarkPageDuringDrag,
+    handleBookmarkWheel
+  } = NEWTAB_BOOKMARK_PAGER.createBookmarkPager({
+    setBookmarkSurfaceVisible,
+    shortcutSection,
+    dragSessions,
+    bookmarkParts,
+    settings,
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarksShown,
+    getBookmarkLimit,
+    updateBookmarkHeader,
+    getBookmarkGridColumnCount,
+    updateBookmarkSectionPosition
+  });
+  // A swipe or wheel turn over the bookmarks turns their pages.
+  bookmarkSection.addEventListener('wheel', (event) => {
+    if (!event || !isContentSectionVisible(bookmarkSection)) {
+      return;
+    }
+    handleBookmarkWheel(event);
+  }, { passive: false });
+
+  const {
     isEmptyBookmarkRootHidden,
     getExternalBookmarkSurfacePoint,
     isValidExternalBookmarkDropTarget,
@@ -1490,6 +1521,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    shortcutAreaScroll,
     syncOpenBookmarkCascadeAnchorVisual,
     bookmarkLayoutAnimation,
     moveBookmarkToShortcuts,
@@ -1516,20 +1548,14 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutById,
     getShortcutFolderId,
     getShortcutStoreOptions,
-    getShortcutInsertionSlotAt: (...args) => getShortcutInsertionSlotAt(...args),
     getShortcutTileId,
-    getBookmarkPageCount: (...args) => getBookmarkPageCount(...args),
-    // A recent card dragged over the bookmarks opens folders like the others.
-    isBookmarkSurfaceDragStateActive: (state) => isBookmarkSurfaceDragStateActive(state) ||
-      Boolean(state && state === dragSessions.recentCard && state.isDragging),
+    getBookmarkPageCount,
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,
-    switchBookmarkPageDuringDrag: (...args) => switchBookmarkPageDuringDrag(...args),
-    setShortcutDragTileTransform: (...args) => setShortcutDragTileTransform(...args),
+    switchBookmarkPageDuringDrag,
     hideCursorTooltip,
     closeBookmarkCascadeMenu,
-    renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
-    autoScrollShortcutArea: (...args) => autoScrollShortcutArea(...args),
+    renderCurrentBookmarkPage,
     closeBookmarkContextMenu
   });
 
@@ -1645,40 +1671,9 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    getBookmarkPageCount,
-    updateBookmarkPagerState,
-    updateBookmarkGridHeightLock,
-    renderCurrentBookmarkPage,
-    switchBookmarkPageDuringDrag,
-    handleBookmarkWheel
-  } = NEWTAB_BOOKMARK_PAGER.createBookmarkPager({
-    setBookmarkSurfaceVisible,
-    shortcutSection,
-    dragSessions,
-    bookmarkParts,
-    settings,
-    bookmarkGrid: pageStructureRuntime.bookmark.grid,
-    bookmarksShown,
-    getBookmarkLimit,
-    updateBookmarkHeader,
-    getBookmarkGridColumnCount,
-    updateBookmarkSectionPosition
-  });
-  // A swipe or wheel turn over the bookmarks turns their pages.
-  bookmarkSection.addEventListener('wheel', (event) => {
-    if (!event || !isContentSectionVisible(bookmarkSection)) {
-      return;
-    }
-    handleBookmarkWheel(event);
-  }, { passive: false });
-
-  const {
-    setShortcutDragTileTransform,
-    getShortcutInsertionSlotAt,
-    autoScrollShortcutArea,
-    finishShortcutDrag,
-    isBookmarkSurfaceDragStateActive
+    finishShortcutDrag
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
+    shortcutAreaScroll,
     shortcutLayoutAnimation,
     settings,
     dragSessions,
@@ -1752,7 +1747,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutInsertionDropTarget,
     isPointOverShortcutDropSurface,
     isValidExternalBookmarkDropTarget,
-    autoScrollShortcutArea,
+    shortcutAreaScroll,
     setDragDropTarget,
     clearDragDropTarget,
     getBookmarkDragPageSwitchDirection,

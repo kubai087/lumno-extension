@@ -1,8 +1,9 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
+import type { ShortcutAreaScroll } from './shortcut-area-scroll';
 import { SHORTCUT_REORDER_EASING } from './shortcut-layout-animation';
 import type { ShortcutLayoutAnimation } from './shortcut-layout-animation';
 import { shortcutEvents } from './shortcut-events';
-import { getShortcutReorderTiles, getShortcutTileLayoutRect } from '../dom/shortcut-tiles';
+import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileGroupId, getShortcutTileLayoutRect, placeShortcutDragTile } from '../dom/shortcut-tiles';
 import type { BookmarkShortcutTransfer } from '../bookmarks/bookmark-shortcut-transfer';
 import type { BookmarkLayoutAnimation } from '../bookmarks/bookmark-layout-animation';
 import { getUndoShortcutLabels } from '../bookmarks/bookmark-drag-rules';
@@ -12,7 +13,7 @@ import type { BookmarkDragController } from '../bookmarks/bookmark-drag-controll
 import type { BookmarkMoveHistory } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import { hasBookmarkFolder } from '../cross-surface-drag';
-import type { DragDropTarget, LayoutRect, ShortcutStackTarget, SurfaceDragState } from '../cross-surface-drag';
+import type { DragDropTarget, ShortcutStackTarget, SurfaceDragState } from '../cross-surface-drag';
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
@@ -37,6 +38,7 @@ import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 
 
 interface ShortcutDragDeps {
+  shortcutAreaScroll: Pick<ShortcutAreaScroll, 'area' | 'step'>;
   shortcutLayoutAnimation: Pick<ShortcutLayoutAnimation, 'change' | 'measure' | 'shift'>;
   refreshShortcutTileCacheFromDom: ShortcutPageActions['refreshShortcutTileCacheFromDom'];
   getShortcutTileId: ShortcutPageActions['getShortcutTileId'];
@@ -151,6 +153,7 @@ type TileMoveSlot = Pick<ShortcutInsertionSlot, 'anchorTile' | 'markerPosition'>
 
 function createShortcutDrag(deps: ShortcutDragDeps) {
   const {
+    shortcutAreaScroll,
     shortcutLayoutAnimation,
     dragSessions,
     historyLock,
@@ -217,60 +220,11 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
 
   const SHORTCUT_DRAG_START_THRESHOLD_PX = 10;
   const SHORTCUT_DROP_ANIMATION_MS = 210;
-  const SHORTCUT_AREA_AUTO_SCROLL_EDGE_PX = 44;
-  const SHORTCUT_AREA_AUTO_SCROLL_MAX_STEP_PX = 16;
-  const SHORTCUT_AREA_AUTO_SCROLL_DELAY_MS = 220;
-  const SHORTCUT_SLOT_SELECTOR = '.x-nt-shortcut-tile[data-shortcut-id], .x-nt-shortcut-group-empty';
-
-  // The shortcut section scrolls only when it is taller than the room above
-  // the bottom dock.
-  function getShortcutScrollArea(): HTMLElement | null {
-    const grid = shortcutGrid;
-    const area = grid ? grid.closest('.x-nt-shortcuts-section') : null;
-    return isHtmlElement(area) && area.getAttribute('data-shortcuts-scrollable') === 'true' ? area : null;
-  }
-
-  // Scrolls a step while a drag holds the pointer near the area's top or
-  // bottom edge; the caller asks for another frame while it returns true.
-  // A drag coming in from the dock crosses the bottom edge, so scrolling
-  // waits until the pointer has stayed by an edge for a moment.
-  let shortcutAreaEdgeSince = 0;
-  let shortcutAreaEdgeCheckedAt = 0;
-  function autoScrollShortcutArea(pointerX: number, pointerY: number): boolean {
-    const area = getShortcutScrollArea();
-    if (!area || !Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
-      return false;
-    }
-    const rect = area.getBoundingClientRect();
-    const edge = Math.min(SHORTCUT_AREA_AUTO_SCROLL_EDGE_PX, rect.height / 3);
-    const inside = pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom;
-    const depth = !inside ? 0 : pointerY < rect.top + edge
-      ? -(rect.top + edge - pointerY)
-      : pointerY > rect.bottom - edge ? pointerY - (rect.bottom - edge) : 0;
-    const now = window.performance && typeof window.performance.now === 'function'
-      ? window.performance.now() : Date.now();
-    const resumed = now - shortcutAreaEdgeCheckedAt < 120;
-    shortcutAreaEdgeCheckedAt = now;
-    if (!depth) {
-      shortcutAreaEdgeSince = 0;
-      return false;
-    }
-    if (!shortcutAreaEdgeSince || !resumed) {
-      shortcutAreaEdgeSince = now;
-    }
-    if (now - shortcutAreaEdgeSince < SHORTCUT_AREA_AUTO_SCROLL_DELAY_MS) {
-      return true;
-    }
-    const step = Math.sign(depth) * Math.max(1, Math.round(SHORTCUT_AREA_AUTO_SCROLL_MAX_STEP_PX * Math.min(1, Math.abs(depth) / edge)));
-    const before = area.scrollTop;
-    area.scrollTop = before + step;
-    return area.scrollTop !== before;
-  }
-
+  
   // A scrolling section would clip the dragged tile, so the tile leaves it
   // as a fixed element while a placeholder keeps its slot.
   function liftShortcutDragTile(tile: HTMLElement): void {
-    if (dragLifts.has(tile) || !tile.parentNode || !getShortcutScrollArea()) {
+    if (dragLifts.has(tile) || !tile.parentNode || !shortcutAreaScroll.area()) {
       return;
     }
     const rect = tile.getBoundingClientRect();
@@ -311,31 +265,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     tile.style.removeProperty('top');
   }
 
-  // Everything in the grid that can shift when shortcuts move: tiles, the
-  // add tile, group titles and empty groups' slots.
-  // Puts the dragged tile under the pointer. `state` is whichever drag is
-  // running; only a shortcut drag has a tile to move.
-  function setShortcutDragTileTransform(state: SurfaceDragState | null, pointerX: number, pointerY: number): void {
-    const session = dragSessions.shortcut;
-    if (!session || state !== session) {
-      return;
-    }
-    applyShortcutDragTileTransform(session, pointerX, pointerY);
-  }
 
-  function applyShortcutDragTileTransform(state: ShortcutDragSession, pointerX: number, pointerY: number): void {
-    const rect = state.tile.getBoundingClientRect();
-    const currentX = Number(state.translateX) || 0;
-    const currentY = Number(state.translateY) || 0;
-    const baseLeft = rect.left - currentX;
-    const baseTop = rect.top - currentY;
-    const nextX = pointerX - state.grabOffsetX - baseLeft;
-    const nextY = pointerY - state.grabOffsetY - baseTop;
-    state.translateX = nextX;
-    state.translateY = nextY;
-    state.tile.style.transition = 'none';
-    state.tile.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
-  }
 
   // How long a dropped tile takes to land and lose its drag styles.
   function getShortcutDropSettleMs(): number {
@@ -377,47 +307,17 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     return getShortcutReorderTiles(shortcutGrid).indexOf(tile);
   }
 
-  // Empty groups show a slot that takes drops like a tile. `index` counts
-  // only the tiles before the insertion point; `groupId` is the group of the
-  // tile or slot the pointer is beside.
-  function getShortcutInsertionSlotAt(pointerX: number, pointerY: number, excludedTile: HTMLElement | null): ShortcutInsertionSlot {
-    // The dragged tile filling an empty group hides that group's slot.
-    // The slot keeps the tile's place, or the group's row would drop out
-    // of reach and the next move would send the tile back, every move.
-    const placeholder = getDragPlaceholder(excludedTile);
-    const excludedSpot = placeholder && placeholder.isConnected ? placeholder : excludedTile;
-    const getSlotRect = (tile: HTMLElement): LayoutRect | null => (excludedTile && tile.previousElementSibling === excludedTile &&
-      tile.classList.contains('x-nt-shortcut-group-empty') && !tile.hidden
-      ? getShortcutTileLayoutRect(shortcutGrid, excludedSpot)
-      : getShortcutTileLayoutRect(shortcutGrid, tile));
-    const layoutItems: Array<{ tile: HTMLElement; rect: LayoutRect }> = [];
-    (shortcutGrid
-      ? queryHtmlElements(shortcutGrid, SHORTCUT_SLOT_SELECTOR)
-      : getShortcutReorderTiles(shortcutGrid)).forEach((tile) => {
-      const rect = tile !== excludedTile ? getSlotRect(tile) : null;
-      if (rect && rect.width > 0 && rect.height > 0) {
-        layoutItems.push({ tile, rect });
-      }
-    });
-    const slot = NEWTAB_CROSS_SURFACE_DRAG.getRowInsertionSlot(layoutItems, pointerX, pointerY);
-    const anchor = slot.anchorIndex >= 0 ? layoutItems[slot.anchorIndex] : null;
-    const insertionPoint = !anchor ? 0 : slot.markerPosition === 'after' ? slot.anchorIndex + 1 : slot.anchorIndex;
-    return {
-      index: layoutItems.slice(0, insertionPoint)
-        .filter((item) => item.tile.hasAttribute('data-shortcut-id')).length,
-      markerPosition: slot.markerPosition,
-      anchorRect: anchor ? anchor.rect : null,
-      anchorTile: anchor ? anchor.tile : null,
-      groupId: anchor ? getShortcutTileGroupId(anchor.tile) : ''
-    };
-  }
-
   function getShortcutDragInsertionSlot(pointerX: number, pointerY: number): ShortcutInsertionSlot | null {
     if (!shortcutGrid || !dragSessions.shortcut || !Number.isFinite(pointerX) ||
         !Number.isFinite(pointerY)) {
       return null;
     }
-    return getShortcutInsertionSlotAt(pointerX, pointerY, dragSessions.shortcut.tile);
+    // The dragged tile filling an empty group hides that group's slot; the
+    // slot keeps the tile's place, held by its placeholder while lifted.
+    const tile = dragSessions.shortcut.tile;
+    const placeholder = getDragPlaceholder(tile);
+    return getShortcutInsertionSlotAt(shortcutGrid, pointerX, pointerY, tile,
+      placeholder && placeholder.isConnected ? placeholder : tile);
   }
 
   function getShortcutGroupHeader(groupId: string | undefined): HTMLElement | null {
@@ -426,9 +326,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       : null;
   }
 
-  function getShortcutTileGroupId(tile: HTMLElement): string {
-    return String(tile.getAttribute('data-shortcut-group-id') || '');
-  }
 
   // Group titles sit between the tiles of different groups, so a tile goes
   // next to the tile the pointer is beside rather than before the next tile
@@ -608,7 +505,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     tile.style.pointerEvents = 'none';
     tile.style.willChange = 'transform';
     liftShortcutDragTile(tile);
-    applyShortcutDragTileTransform(state, Number(event.clientX), Number(event.clientY));
+    placeShortcutDragTile(state, Number(event.clientX), Number(event.clientY));
     if (typeof tile.setPointerCapture === 'function') {
       try {
         tile.setPointerCapture(event.pointerId);
@@ -631,7 +528,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
         !Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
       return;
     }
-    applyShortcutDragTileTransform(state, pointerX, pointerY);
+    placeShortcutDragTile(state, pointerX, pointerY);
     document.body.removeAttribute('data-drag-blocked');
     const topbarPoint = settings.get(bookmarkViewMode) === 'top' &&
       !isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY)
@@ -642,7 +539,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     }
     // Near the shortcut area's edges the area scrolls whatever is under the
     // pointer, so a tile there does not hold the drag as a stack target.
-    if (isPointOverShortcutDropSurface(pointerX, pointerY) && autoScrollShortcutArea(pointerX, pointerY)) {
+    if (isPointOverShortcutDropSurface(pointerX, pointerY) && shortcutAreaScroll.step(pointerX, pointerY)) {
       scheduleShortcutDragMove(state, pointerX, pointerY);
     }
     if (updateShortcutDragBookmarkTarget(state, pointerX, pointerY)) {
@@ -669,7 +566,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
           holdShortcutStackTargetUnderPointer(state, pointerX, pointerY);
         }
         shortcutLayoutAnimation.shift(beforeRects, state.tile);
-        applyShortcutDragTileTransform(state, pointerX, pointerY);
+        placeShortcutDragTile(state, pointerX, pointerY);
       }
     }
   }
@@ -829,9 +726,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     document.removeEventListener('pointercancel', handleShortcutDragPointerCancel, true);
   }
 
-  function isBookmarkSurfaceDragStateActive(state: SurfaceDragState | null): boolean {
-    return Boolean(state && state.isDragging && (state === dragSessions.bookmark || state === dragSessions.shortcut));
-  }
 
   function updateShortcutDragBookmarkTarget(state: ShortcutDragSession, pointerX: number, pointerY: number): boolean {
     if (state.folderSwitchPendingId) {
@@ -1135,7 +1029,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const left = Number.parseFloat(ghost.style.left) || 0;
     const top = Number.parseFloat(ghost.style.top) || 0;
     ghost.style.transform = `translate3d(${pointerX - state.grabOffsetX - left}px, ${pointerY - state.grabOffsetY - top}px, 0)`;
-    if (autoScrollShortcutArea(pointerX, pointerY)) {
+    if (shortcutAreaScroll.step(pointerX, pointerY)) {
       scheduleShortcutGroupDragMove(state, pointerX, pointerY);
     }
     const headers = getShortcutGroupHeaders();
@@ -1151,7 +1045,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     state.targetIndex = targetIndex;
     const anchor = blocks[targetIndex] || blocks[blocks.length - 1];
     if (!anchor) return;
-    const area = getShortcutScrollArea();
+    const area = shortcutAreaScroll.area();
     const areaRect = area ? area.getBoundingClientRect() : null;
     let lineY = blocks[targetIndex] ? anchor.top - 4 : anchor.bottom - 4;
     if (areaRect) lineY = Math.max(areaRect.top + 2, Math.min(areaRect.bottom - 2, lineY));
@@ -1317,13 +1211,9 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     moveShortcutByKeyboard(shortcutId, direction);
   });
   return {
-    setShortcutDragTileTransform,
-    getShortcutInsertionSlotAt,
-    autoScrollShortcutArea,
     scheduleShortcutDragMove,
     finishShortcutDrag,
-    moveShortcutByKeyboard,
-    isBookmarkSurfaceDragStateActive
+    moveShortcutByKeyboard
   };
 }
 

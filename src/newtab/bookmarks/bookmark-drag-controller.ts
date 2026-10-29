@@ -1,7 +1,8 @@
 // Bookmark card layout animation, drag and drop (within the grid, across
 // folders and onto shortcuts) and the bookmark move undo history.
+import type { ShortcutAreaScroll } from '../shortcuts/shortcut-area-scroll';
 import type { BookmarkCascadeActions } from './bookmark-cascade-actions';
-import { getShortcutReorderTiles, getShortcutTileLayoutRect } from '../dom/shortcut-tiles';
+import { getShortcutInsertionSlotAt, getShortcutReorderTiles, getShortcutTileLayoutRect, placeShortcutDragTile } from '../dom/shortcut-tiles';
 import { getBookmarkCardFromNode, getBookmarkCardId, getBookmarkCardLayoutRect, getBookmarkReorderCards } from '../dom/bookmark-cards';
 import { BOOKMARK_REORDER_EASING } from './bookmark-layout-animation';
 import type { BookmarkLayoutAnimation } from './bookmark-layout-animation';
@@ -10,7 +11,6 @@ import { createSvgElement } from '../../shared/ui/svg-tree';
 import type { BlockedDropTarget, DragDropTarget, FolderDropTarget, GridInsertionTarget, ShortcutInsertionTarget, SurfaceDragState } from '../cross-surface-drag';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { BookmarkCardElement } from '../react/bookmarks';
-import type { ShortcutInsertionSlot } from '../shortcuts/shortcut-types';
 import type { BookmarkCascadeRuntime, CascadeItemEventDetail } from './bookmark-cascade-menu';
 import type { BookmarkDragSession, BookmarkDragSource, BookmarkLayoutItem } from './bookmark-drag';
 import type * as FolderIcon from './bookmark-folder-icon';
@@ -53,20 +53,16 @@ interface BookmarkDragControllerDeps {
   // The local bookmark folder a folder shortcut shows.
   getShortcutFolderId(shortcut: ShortcutItem): string;
   getShortcutStoreOptions(): Parameters<typeof ShortcutNormalize.createShortcutRecord>[1];
-  getShortcutInsertionSlotAt(pointerX: number, pointerY: number, excludedTile: HTMLElement | null): ShortcutInsertionSlot;
   getShortcutTileId(tile: HTMLElement | null | undefined): string;
   getBookmarkPageCount(): number;
-  isBookmarkSurfaceDragStateActive(state: SurfaceDragState): boolean;
   openBookmarkCascadeMenu(...args: Parameters<BookmarkCascadeRuntime['open']>): void;
   navigateBookmarkFolder(folderId: string): void;
   // Shows another page of the bookmarks during a drag; false when it cannot.
   switchBookmarkPageDuringDrag(page: number): boolean;
-  setShortcutDragTileTransform(state: SurfaceDragState, pointerX: number, pointerY: number): void;
   hideCursorTooltip(): void;
   closeBookmarkCascadeMenu(options?: { animate?: boolean }): void;
   renderCurrentBookmarkPage(): void;
   // Scrolls the shortcuts while a drag rests near their edge.
-  autoScrollShortcutArea(pointerX: number, pointerY: number): boolean;
   closeBookmarkContextMenu(): void;
   shortcutList: Pick<ShortcutList, 'icons' | 'items'>;
   shortcutSection: HTMLElement;
@@ -77,9 +73,10 @@ interface BookmarkDragControllerDeps {
   bookmarkPagerPrevButton: HTMLElement;
   bookmarkPagerNextButton: HTMLElement;
   historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
-  dragSessions: Pick<DragSessions, 'bookmark' | 'setBookmark' | 'shortcutDragging'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'isSurfaceDragRunning' | 'setBookmark' | 'shortcut' | 'shortcutDragging'>;
   getAddShortcutButton(): HTMLElement | null;
   syncOpenBookmarkCascadeAnchorVisual: BookmarkCascadeActions['syncOpenBookmarkCascadeAnchorVisual'];
+  shortcutAreaScroll: Pick<ShortcutAreaScroll, 'step'>;
   bookmarkLayoutAnimation: Pick<BookmarkLayoutAnimation, 'queue'>;
   moveBookmarkToShortcuts: BookmarkShortcutTransfer['moveBookmarkToShortcuts'];
   persistBookmarkDragOrder: BookmarkMoveActions['persistBookmarkDragOrder'];
@@ -98,6 +95,7 @@ type InsertionGapKey = [string, string, HTMLElement | null];
 
 function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   const {
+    shortcutAreaScroll,
     syncOpenBookmarkCascadeAnchorVisual,
     bookmarkLayoutAnimation,
     moveBookmarkToShortcuts,
@@ -123,18 +121,14 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getShortcutById,
     getShortcutFolderId,
     getShortcutStoreOptions,
-    getShortcutInsertionSlotAt,
     getShortcutTileId,
     getBookmarkPageCount,
-    isBookmarkSurfaceDragStateActive,
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,
     switchBookmarkPageDuringDrag,
-    setShortcutDragTileTransform,
     hideCursorTooltip,
     closeBookmarkCascadeMenu,
     renderCurrentBookmarkPage,
-    autoScrollShortcutArea,
     closeBookmarkContextMenu,
     getAddShortcutButton
   } = deps;
@@ -461,7 +455,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   // Where `record` would join the shortcuts under the pointer, with the
   // line to show there; null (and a blocked cursor) when it cannot.
   function getShortcutInsertionDropTarget(record: ShortcutItem | null, pointerX: number, pointerY: number): ShortcutInsertionTarget | null {
-    const slot = getShortcutInsertionSlotAt(pointerX, pointerY, null);
+    const slot = getShortcutInsertionSlotAt(shortcutGrid, pointerX, pointerY, null, null);
     const canMove = Boolean(NEWTAB_CROSS_SURFACE_DRAG.planBookmarkToShortcut({
       shortcuts: shortcutList.items,
       record,
@@ -828,7 +822,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
         ? { folderId: String(target.folderId), element: target.element }
         : NEWTAB_BOOKMARK_DRAG.getFolderSwitchTarget(bookmarksShown.currentFolderId, target));
     const switchTarget = getSwitchTarget(dropTarget);
-    if (!state || !switchTarget || !isBookmarkSurfaceDragStateActive(state) ||
+    if (!state || !switchTarget || !dragSessions.isSurfaceDragRunning(state) ||
         !state.isDragging) {
       clearBookmarkDragFolderSwitch(state);
       return false;
@@ -850,7 +844,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     }
     state.folderSwitchTimerId = window.setTimeout(() => {
       state.folderSwitchTimerId = 0;
-      if (!isBookmarkSurfaceDragStateActive(state) || !state.isDragging) {
+      if (!dragSessions.isSurfaceDragRunning(state) || !state.isDragging) {
         clearBookmarkDragFolderSwitch(state);
         return;
       }
@@ -866,7 +860,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       if (activeDropTarget && (activeDropTarget.kind === 'shortcut-folder' ||
           (activeDropTarget.kind === 'card' && (settings.get(bookmarkViewMode) === 'top' || settings.get(bookmarkViewMode) === 'list')))) {
         openBookmarkCascadeMenu({ id: targetFolderId, title: activeDropTarget.title },
-          activeTarget.element, { dragMode: true, shouldOpen: () => isBookmarkSurfaceDragStateActive(state) });
+          activeTarget.element, { dragMode: true, shouldOpen: () => dragSessions.isSurfaceDragRunning(state) });
         return;
       }
       clearDragDropTarget(state);
@@ -883,7 +877,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
 
   function scheduleBookmarkDragPageSwitch(state: SurfaceDragState, direction: number): void {
     const normalizedDirection = direction < 0 ? -1 : direction > 0 ? 1 : 0;
-    if (!state || !normalizedDirection || !isBookmarkSurfaceDragStateActive(state) || !state.isDragging) {
+    if (!state || !normalizedDirection || !dragSessions.isSurfaceDragRunning(state) || !state.isDragging) {
       clearBookmarkDragPageSwitch(state);
       return;
     }
@@ -906,7 +900,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     }
     state.pageSwitchTimerId = window.setTimeout(() => {
       state.pageSwitchTimerId = 0;
-      if (!isBookmarkSurfaceDragStateActive(state) || !state.isDragging) {
+      if (!dragSessions.isSurfaceDragRunning(state) || !state.isDragging) {
         clearBookmarkDragPageSwitch(state);
         return;
       }
@@ -931,7 +925,9 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
         updateBookmarkDragLayoutCache(bookmarkState);
         setBookmarkDragCardTransform(bookmarkState, pointerX, pointerY);
       } else {
-        setShortcutDragTileTransform(state, pointerX, pointerY);
+        if (dragSessions.shortcut && state === dragSessions.shortcut) {
+          placeShortcutDragTile(dragSessions.shortcut, pointerX, pointerY);
+        }
       }
       const nextDirection = getBookmarkDragPageSwitchDirection(pointerX, pointerY);
       if (nextDirection === normalizedDirection) {
@@ -968,7 +964,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       updateBookmarkDragLayoutCache(state);
       scheduleBookmarkDragMove(state, pointerX, pointerY);
     }
-    if (isPointOverShortcutDropSurface(pointerX, pointerY) && autoScrollShortcutArea(pointerX, pointerY)) {
+    if (isPointOverShortcutDropSurface(pointerX, pointerY) && shortcutAreaScroll.step(pointerX, pointerY)) {
       scheduleBookmarkDragMove(state, pointerX, pointerY);
     }
     setBookmarkDragCardTransform(state, pointerX, pointerY);

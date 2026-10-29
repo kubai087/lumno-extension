@@ -5,6 +5,7 @@
 import type { BookmarkDragSession } from './bookmarks/bookmark-drag';
 import type { RecentCardDragSession } from './recent/recent-card-drag';
 import type { ShortcutDragSession } from './shortcuts/shortcut-drag';
+import type { SurfaceDragState } from './cross-surface-drag';
 
 class DragSessions {
   private bookmarkSession: BookmarkDragSession | null = null;
@@ -34,6 +35,13 @@ class DragSessions {
 
   get recentCardDragging(): boolean {
     return Boolean(this.recentCardSession && this.recentCardSession.isDragging);
+  }
+
+  // Whether `state` is one of the running drags, past its threshold; a
+  // recent card dragged over the bookmarks opens folders like the others.
+  isSurfaceDragRunning(state: SurfaceDragState | null): boolean {
+    return Boolean(state && state.isDragging && (state === this.bookmarkSession ||
+      state === this.shortcutSession || state === this.recentCardSession));
   }
 
   setBookmark(session: BookmarkDragSession | null): void {
