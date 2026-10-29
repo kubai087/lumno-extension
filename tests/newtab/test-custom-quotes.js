@@ -55,7 +55,7 @@ async function main() {
   // Stands in for the appearance panel: keeps the last model.
   let panelModel = null;
   const makeRuntime = () => quotesApi.createRuntime({ documentObj: document, windowObj: dom.window,
-    t: (key, fallback) => locale[key]?.message || fallback, getLocale: () => 'en',
+    t: (key, fallback) => locale[key]?.message || fallback, locale: { store: { getSnapshot: () => ({ locale: 'en' }), subscribe: () => () => {} } },
     getSearchRoot: () => document.querySelector('#search'), getShortcutSection: () => document.querySelector('#shortcuts'),
     settings: memory.store,
     client: { getQuote() { networkCalls++; return Promise.resolve({ text: 'Remote', author: '', source: '', url: 'https://hitokoto.cn/' }); } }

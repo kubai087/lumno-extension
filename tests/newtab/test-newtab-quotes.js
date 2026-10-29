@@ -61,6 +61,7 @@ async function main() {
   };
   const line = createLineView();
   const runtime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
+    locale: { store: { getSnapshot: () => ({ locale: 'zh_CN' }), subscribe: () => () => {} } },
     t: (key, fallback) => messages[key] ? messages[key].message : fallback,
     getSearchRoot: () => document.querySelector('#search'),
     getShortcutSection: () => document.querySelector('#shortcuts'),
@@ -189,7 +190,7 @@ async function main() {
   let localeRequests = 0;
   createLineView();
   const localeRuntime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
-    t: (_key, fallback) => fallback, getLocale: () => locale,
+    t: (_key, fallback) => fallback, locale: { store: { getSnapshot: () => ({ locale }), subscribe: () => () => {} } },
     getSearchRoot: () => document.querySelector('#search'),
     getShortcutSection: () => document.querySelector('#shortcuts'),
     settings: createMemorySettings({
@@ -229,6 +230,7 @@ async function main() {
   });
   createLineView();
   const cachedRuntime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
+    locale: { store: { getSnapshot: () => ({ locale: 'zh_CN' }), subscribe: () => () => {} } },
     t: (_key, fallback) => fallback,
     getSearchRoot: () => document.querySelector('#search'),
     settings: cachedMemory.store,
@@ -252,6 +254,7 @@ async function main() {
   const toasts = [];
   const shuffleLine = createLineView();
   const shuffleRuntime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
+    locale: { store: { getSnapshot: () => ({ locale: 'zh_CN' }), subscribe: () => () => {} } },
     t: (_key, fallback) => fallback, showToast: (message, isError) => toasts.push([message, isError]),
     getSearchRoot: () => document.querySelector('#search'),
     settings: createMemorySettings({

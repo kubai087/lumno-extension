@@ -63,6 +63,7 @@ import type { BookmarkNode } from '../bookmarks/bookmarks-store';
 import type { OpenEvent } from '../../domain/navigation-disposition';
 import { playFolderPathMorph } from '../bookmarks/bookmark-folder-icon';
 import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 
 // An option the shortcuts view is handed as it is.
@@ -142,6 +143,7 @@ interface ShortcutsControllerDeps {
   getShortcutTileById(id: string): HTMLElement | null;
   openBookmarkCascadeMenu(folder: BookmarkNode & { type: 'folder' }, anchor: HTMLElement | null): void;
   openUrlFromNewtabCard: PageNavigation['openUrlFromNewtabCard'];
+  locale: Pick<SurfaceLocale, 'store'>;
 }
 
 // The icon choice a dialog submitted.
@@ -299,7 +301,8 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     dragSessions,
     getShortcutTileById,
     openBookmarkCascadeMenu,
-    openUrlFromNewtabCard
+    openUrlFromNewtabCard,
+    locale
   } = deps;
 
   // Bumped when the favicon policy changes, so requests made before it are
@@ -1893,6 +1896,9 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       renderShortcuts();
     }
   });
+
+  // The tiles draw their labels and menus in the page's language.
+  locale.store.subscribe(() => renderShortcuts());
   return {
     openShortcutUrl,
     getAddShortcutButton,

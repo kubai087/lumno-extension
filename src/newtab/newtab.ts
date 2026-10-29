@@ -320,6 +320,48 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     buildModeSuggestion,
     buildZenSuggestion
   } = commandCatalog;
+
+  const {
+    getPageFaviconUrlResolver,
+    logFaviconDecision,
+    getUrlDisplay,
+    isBrowserPageRecentUrl,
+    isOwnExtensionUrl,
+    getOwnExtensionPageDisplay,
+    getExtensionFaviconUrl,
+    getGstaticFaviconUrl,
+    getChromeFaviconUrl,
+    getBrowserPageFaviconUrl,
+    getPageFaviconCandidateUrl,
+    getPageFaviconRenderCandidates,
+    isLocalNetworkHost,
+    shouldBlockFaviconForHost,
+    shouldAvoidDirectFaviconForHost,
+    isUrlBlockedByFaviconRequestBlacklist,
+    getNewtabStrictFaviconReason,
+    isNewtabEnhancedFaviconFetchEnabled,
+    filterBlacklistedSuggestions,
+    limitSuggestionsForDisplay,
+    shouldExcludeFromRecentSites
+  } = NEWTAB_URL_POLICY.createUrlPolicy({
+    settings,
+    t,
+    getBrowserIconUrl: firefoxBrowserIcons ? firefoxBrowserIcons.get : undefined
+  });
+
+  // The persisted favicon, icon data and site theme caches.
+  const {
+    faviconCacheRuntime,
+    isBlockedLocalFaviconUrl,
+    areFaviconRenderCachesReady,
+    waitForFaviconRenderCaches,
+    isHostFaviconVisitDirty,
+    setPersistedFaviconUrl,
+    getPersistedFaviconEntry,
+    getPersistedFaviconDataEntry,
+    setPersistedFaviconData,
+    getPersistedSiteThemeEntry
+  } = createPageFaviconCache({ isUrlBlockedByFaviconRequestBlacklist });
   const sanitizeDisplayText = SearchDirectNavigation.sanitizeDisplayText;
 
   const SITE_DISPLAY_NAME_OPTIONS = createSiteDisplayNameOptions(t);
@@ -695,48 +737,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const shortcutGroupHeaders: HTMLElement[] = [];
 
   const {
-    getPageFaviconUrlResolver,
-    logFaviconDecision,
-    getUrlDisplay,
-    isBrowserPageRecentUrl,
-    isOwnExtensionUrl,
-    getOwnExtensionPageDisplay,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    getBrowserPageFaviconUrl,
-    getPageFaviconCandidateUrl,
-    getPageFaviconRenderCandidates,
-    isLocalNetworkHost,
-    shouldBlockFaviconForHost,
-    shouldAvoidDirectFaviconForHost,
-    isUrlBlockedByFaviconRequestBlacklist,
-    getNewtabStrictFaviconReason,
-    isNewtabEnhancedFaviconFetchEnabled,
-    filterBlacklistedSuggestions,
-    limitSuggestionsForDisplay,
-    shouldExcludeFromRecentSites
-  } = NEWTAB_URL_POLICY.createUrlPolicy({
-    settings,
-    t,
-    getBrowserIconUrl: firefoxBrowserIcons ? firefoxBrowserIcons.get : undefined
-  });
-
-  // The persisted favicon, icon data and site theme caches.
-  const {
-    faviconCacheRuntime,
-    isBlockedLocalFaviconUrl,
-    areFaviconRenderCachesReady,
-    waitForFaviconRenderCaches,
-    isHostFaviconVisitDirty,
-    setPersistedFaviconUrl,
-    getPersistedFaviconEntry,
-    getPersistedFaviconDataEntry,
-    setPersistedFaviconData,
-    getPersistedSiteThemeEntry
-  } = createPageFaviconCache({ isUrlBlockedByFaviconRequestBlacklist });
-
-  const {
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
@@ -920,18 +920,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     recentPointer
   });
 
-  const quoteRuntime = LumnoNewtabQuotes.createRuntime({
-    documentObj: document, windowObj: window,
-    settings, localStorageArea, t, showToast,
-    getLocale: () => locale.store.getSnapshot().locale,
-    getSearchRoot: () => root,
-    getShortcutSection: () => shortcutSection,
-    getTooltipController: () => topActionTooltipController,
-    onLayout: () => window.requestAnimationFrame(() => {
-      updateBookmarkSectionPosition();
-      adaptiveToneEvents.emit('stale', {});
-    })
-  });
   const {
     getThemeScope,
     setThemeMode,
@@ -949,7 +937,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     faviconParts,
     topContentController,
     bookmarkParts,
-    quoteRuntime,
     appliedTheme,
     notices,
     searchBox,
@@ -962,7 +949,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     settings,
     t,
     updateFeedbackLanguageStrings,
-    renderShortcuts: () => renderShortcuts(),
     resolveTheme,
     addMediaQueryChangeListener,
     mediaQuery,
@@ -1024,6 +1010,19 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     recentPointer
   });
 
+  const quoteRuntime = LumnoNewtabQuotes.createRuntime({
+    documentObj: document, windowObj: window,
+    settings, localStorageArea, t, showToast,
+    locale,
+    getSearchRoot: () => root,
+    getShortcutSection: () => shortcutSection,
+    getTooltipController: () => topActionTooltipController,
+    onLayout: () => window.requestAnimationFrame(() => {
+      updateBookmarkSectionPosition();
+      adaptiveToneEvents.emit('stale', {});
+    })
+  });
+
   const {
     inferNewtabShortcutColumnsFromWidth,
     setNewtabShortcutsVisible,
@@ -1052,7 +1051,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
       ...bookmarkTopbarStorageKeys
     ],
     getBookmarkViewMode: () => settings.get(bookmarkViewMode),
-    setBookmarkViewMode: (mode) => setBookmarkViewMode(mode),
+    setBookmarkViewMode: (mode) => void settings.set(bookmarkViewMode, bookmarkViewMode.parse(mode)).catch(() => {}),
     getBookmarkCount: () => preview.get(bookmarkCount),
     setBookmarkCount: (value, options) => {
       preview.set(bookmarkCount, value, options);
@@ -1074,7 +1073,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     ),
     pickBookmarkTopbarSurfaceColor: () => handleBookmarkModeMenuAction(BOOKMARK_TOPBAR_PICK_COLOR_ACTION),
     getRecentMode: () => settings.get(recentMode),
-    setRecentMode: (mode) => setRecentMode(mode),
+    setRecentMode: (mode) => void settings.set(recentMode, recentMode.parse(mode)).catch(() => {}),
     getRecentCount: () => preview.get(recentCount),
     setRecentCount: (value, options) => {
       preview.set(recentCount, value, options);
@@ -1290,7 +1289,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     syncBookmarkSurfaceMode,
     setBookmarkSurfaceVisible,
     followBookmarkViewMode,
-    setBookmarkViewMode,
     navigateBookmarkFolder
   } = NEWTAB_SECTION_HEADERS.createSectionHeaders({
     locale,
@@ -1357,6 +1355,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    locale,
     openUrlFromNewtabCard,
     openBookmarkCascadeMenu,
     getShortcutTileById,
@@ -1624,13 +1623,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     viewport: viewportActivity
   });
 
-  bookmarkSection.addEventListener('wheel', (event) => {
-    if (!event || !isContentSectionVisible(bookmarkSection)) {
-      return;
-    }
-    handleBookmarkWheel(event);
-  }, { passive: false });
-
   const {
     getBookmarkPageCount,
     updateBookmarkPagerState,
@@ -1651,6 +1643,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getBookmarkGridColumnCount,
     updateBookmarkSectionPosition
   });
+  // A swipe or wheel turn over the bookmarks turns their pages.
+  bookmarkSection.addEventListener('wheel', (event) => {
+    if (!event || !isContentSectionVisible(bookmarkSection)) {
+      return;
+    }
+    handleBookmarkWheel(event);
+  }, { passive: false });
 
   const {
     getShortcutTileLayoutRect,

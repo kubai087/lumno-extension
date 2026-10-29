@@ -18,6 +18,7 @@ import type { QuoteFile, QuoteLibrary } from '../../domain/custom-quotes';
 import { createQuoteLineView } from '../react/quote-line';
 import { quoteCache } from '../../domain/settings/newtab-quote';
 import * as NewtabQuoteSettings from '../../domain/settings/newtab-quote';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 type QuoteStorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -35,7 +36,8 @@ interface QuoteRuntimeOptions {
   localStorageArea?: QuoteStorageArea | null;
   t: Translate;
   showToast?: ShowToast;
-  getLocale?: () => string | null | undefined;
+  // The page's language; the quote shows for Chinese ones and follows a change.
+  locale: Pick<SurfaceLocale, 'store'>;
   getSearchRoot(): HTMLElement;
   getShortcutSection?: () => HTMLElement | null | undefined;
   getTooltipController?: () => QuoteTooltip | null | undefined;
@@ -51,7 +53,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
   const custom = LumnoCustomQuotes;
   const t = config.t;
   // Hitokoto only serves Chinese text, so the quote exists for Chinese UI languages only.
-  const isLocaleSupported = () => !config.getLocale || /^zh_(CN|TW)$/.test(config.getLocale() || '');
+  const isLocaleSupported = () => /^zh_(CN|TW)$/.test(config.locale.store.getSnapshot().locale || '');
   const client = config.client || LumnoNewtabRemoteContent.createClient({
     storageArea: config.localStorageArea,
     fallbackQuote: () => ({
@@ -488,6 +490,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
       return cachedQuoteRead;
     }).then(() => undefined);
   }
+  config.locale.store.subscribe(updateLanguage);
   return Object.freeze({ element, mount, bindSettings, updateLanguage, getProviderLabel,
     getTextElement: () => lineView.getTextElement(),
     importQuoteFile,

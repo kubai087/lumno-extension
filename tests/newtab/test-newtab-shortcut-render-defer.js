@@ -41,6 +41,7 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   shortcutFolderRuntime: { visibleItems: (items) => items, flush: () => Promise.resolve() },
   bookmarksRuntime: { getNodeMap: () => new Map(), getSnapshot: () => ({ ready: true, nodeMap: new Map() }) },
   pageStructureRuntime: { shortcut: { section: createElementStub(), grid: createElementStub() } },
+  locale: { store: { subscribe: () => () => {} } },
   t: (key, fallback) => fallback,
   formatMessage: (key, fallback) => fallback,
   hideShortcutTooltip: noop,

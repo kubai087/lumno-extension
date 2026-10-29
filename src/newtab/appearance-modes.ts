@@ -10,7 +10,6 @@ import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import { localeToHtmlLang } from '../domain/settings/locale';
 import { cacheNewtabLocale } from '../platform/settings-storage';
 import type { TopContentController } from './react/wordmark';
-import type { QuoteRuntime } from './top-content/quotes';
 import type { SettingsStore } from '../platform/settings-store';
 import { themeMode } from '../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
@@ -39,7 +38,6 @@ interface AppearanceModesDeps extends
   locale: Pick<SurfaceLocale, 'store' | 'ready'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'include' | 'subscribe'>;
   t: Translate;
-  renderShortcuts(): void;
   // Resolves "system" through the media query unless a match is given.
   resolveTheme(mode: ThemeMode, mediaMatchesOverride?: boolean | null): ResolvedTheme;
   mediaQuery: MediaQueryList;
@@ -49,7 +47,6 @@ interface AppearanceModesDeps extends
   searchBox: Pick<SearchBoxParts, 'inputParts' | 'modeController'>;
   notices: Pick<PageNoticeControllers, 'updateLanguage'>;
   appliedTheme: Pick<AppliedThemeMode, 'firstApplied' | 'markApplied' | 'mode' | 'set'>;
-  quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
   topContentController: TopContentController;
   faviconParts: Pick<FaviconParts, 'view'>;
@@ -59,7 +56,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
     faviconParts,
     bookmarkParts,
-    quoteRuntime,
     appliedTheme,
     notices,
     searchBox,
@@ -69,7 +65,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     settings,
     t,
     updateFeedbackLanguageStrings,
-    renderShortcuts,
     resolveTheme,
     syncBookmarkTopbarSurfaceAppearance,
     addMediaQueryChangeListener,
@@ -85,10 +80,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     if (bookmarkParts.topbar) {
       bookmarkParts.topbar.updateLanguage(t('bookmark_view_mode_top', 'Top bookmarks bar'));
     }
-    quoteRuntime.updateLanguage();
     updateFeedbackLanguageStrings();
-    // Draws the tiles' labels and the shortcut menus in the new language.
-    renderShortcuts();
     if (searchBox.modeController) {
       searchBox.modeController.refreshModeMenuLanguage();
     }
