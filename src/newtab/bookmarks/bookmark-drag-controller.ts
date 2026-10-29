@@ -45,15 +45,14 @@ import type { BookmarksShown } from './bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
 import type { MoveHistoryLock } from './move-history-lock';
 import type { DragSessions } from '../drag-sessions';
+import { setFolderPathMorphState } from './bookmark-folder-icon';
 
 
 interface BookmarkDragControllerDeps {
   settings: Pick<SettingsStore, 'get'>;
   preview: Pick<SettingPreview, 'get'>;
-  isBookmarkTopbarMode(): boolean;
   getBookmarkLimit(): number;
   initFolderPathMorph: typeof FolderIcon.initFolderPathMorph;
-  setFolderPathMorphState: typeof FolderIcon.setFolderPathMorphState;
   isContentSectionVisible(section: HTMLElement | null): boolean;
   bookmarkSection: HTMLElement | null;
   bookmarksRuntime: BookmarksRuntime;
@@ -138,10 +137,8 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     shortcutList,
     settings,
     preview,
-    isBookmarkTopbarMode,
     getBookmarkLimit,
     initFolderPathMorph,
-    setFolderPathMorphState,
     isContentSectionVisible,
     bookmarkSection,
     bookmarksRuntime,
@@ -231,7 +228,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   }
 
   function getBookmarkPageStartIndex(): number {
-    if (isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) === 'top') {
       return 0;
     }
     return Math.max(0, bookmarksShown.currentPage * getBookmarkLimit());
@@ -347,7 +344,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
         return;
       }
       const delta = NEWTAB_BOOKMARK_DRAG.getLayoutShiftDelta(before, after, {
-        horizontalOnly: isBookmarkTopbarMode()
+        horizontalOnly: settings.get(bookmarkViewMode) === 'top'
       });
       if (!delta) {
         return;
@@ -465,7 +462,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     const pageStartIndex = getBookmarkPageStartIndex();
     const pageEndIndex = pageStartIndex + getBookmarkLimit();
     const originalIndex = Number(state.originalIndex);
-    const isCrossPageDrag = !isBookmarkTopbarMode() &&
+    const isCrossPageDrag = settings.get(bookmarkViewMode) !== 'top' &&
       state.sourceKind === 'card' &&
       String(state.parentId || '') === String(bookmarksShown.currentFolderId || '') &&
       Number.isFinite(originalIndex) &&
@@ -476,7 +473,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       gridElement: bookmarkGrid,
       isCrossPageDrag,
       layoutItems: state.layoutItems,
-      markerVerticalInsetPx: isBookmarkTopbarMode() ? 3 : 8,
+      markerVerticalInsetPx: settings.get(bookmarkViewMode) === 'top' ? 3 : 8,
       pageStartIndex,
       pointerX,
       pointerY
@@ -487,7 +484,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     if (!bookmarkGrid || preview.get(bookmarkCount) <= 0) {
       return null;
     }
-    if (isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) === 'top') {
       return bookmarkParts.topbar && bookmarkParts.topbar.isVisible()
         ? bookmarkParts.topbar.element
         : null;
@@ -512,7 +509,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     if (!surface) {
       return null;
     }
-    if (isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) === 'top') {
       return NEWTAB_BOOKMARK_DRAG.getTopbarDropPoint({
         surfaceElement: surface,
         viewportElement: bookmarkParts.topbar ? bookmarkParts.topbar.viewport : null,
@@ -620,7 +617,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       // still accept contents. Other points may snap anywhere in the row.
       hitZonePx: folderTarget ? undefined : grid.getBoundingClientRect().width,
       layoutItems: getCardLayoutItems(getBookmarkReorderCards()),
-      markerVerticalInsetPx: isBookmarkTopbarMode() ? 3 : 8,
+      markerVerticalInsetPx: settings.get(bookmarkViewMode) === 'top' ? 3 : 8,
       pageStartIndex: getBookmarkPageStartIndex(),
       pointerX: surfacePoint.x,
       pointerY: surfacePoint.y
@@ -1097,7 +1094,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       const activeDropTarget = state.dropTarget;
       clearBookmarkDragFolderSwitch(state);
       if (activeDropTarget && (activeDropTarget.kind === 'shortcut-folder' ||
-          (activeDropTarget.kind === 'card' && (isBookmarkTopbarMode() || settings.get(bookmarkViewMode) === 'list')))) {
+          (activeDropTarget.kind === 'card' && (settings.get(bookmarkViewMode) === 'top' || settings.get(bookmarkViewMode) === 'list')))) {
         openBookmarkCascadeMenu({ id: targetFolderId, title: activeDropTarget.title },
           activeTarget.element, { dragMode: true, shouldOpen: () => isBookmarkSurfaceDragStateActive(state) });
         return;

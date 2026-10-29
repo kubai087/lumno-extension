@@ -70,14 +70,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     void settings.set(recentMode, recentMode.parse(nextMode)).catch(() => {});
   }
 
-  function canDismissRecentCard(): boolean {
-    return true;
-  }
-
-  function isBookmarkTopbarMode(): boolean {
-    return settings.get(bookmarkViewMode) === 'top';
-  }
-
   function setNewtabTopOccupied(occupied: unknown): void {
     if (!document.body) {
       return;
@@ -114,7 +106,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
   // In top bar mode the bar holds the bookmarks and the section's actions.
   function syncBookmarkSurfaceMode(): void {
     const topbar = bookmarkParts.topbar;
-    if (topbar && isBookmarkTopbarMode()) {
+    if (topbar && settings.get(bookmarkViewMode) === 'top') {
       topbar.activate();
       setContentSectionVisible(bookmarkSection, false);
       topbar.setVisible(bookmarkCards.length > 0 && preview.get(bookmarkCount) > 0);
@@ -130,7 +122,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 
   function setBookmarkSurfaceVisible(visible: unknown): void {
     const nextVisible = visible === true;
-    if (isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) === 'top') {
       setContentSectionVisible(bookmarkSection, false);
       if (bookmarkParts.topbar) {
         bookmarkParts.topbar.setVisible(nextVisible && !settings.get(newtabZenMode));
@@ -247,9 +239,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 
   return {
     setRecentMode,
-    canDismissRecentCard,
     updateBookmarkHeader,
-    isBookmarkTopbarMode,
     setNewtabTopOccupied,
     setNewtabTopLayout,
     syncBookmarkSurfaceMode,

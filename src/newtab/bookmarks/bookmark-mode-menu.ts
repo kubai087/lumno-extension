@@ -4,6 +4,8 @@ import type { SelectMenuOption } from '../../shared/react/select-menu/menu-optio
 import type { Translate } from '../newtab-types';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../menu-values';
+import type { SettingsStore } from '../../platform/settings-store';
+import { bookmarkViewMode } from '../../domain/settings/bookmarks';
 
 // A menu entry with its label by message key.
 interface ModeMenuOptionSource {
@@ -22,16 +24,16 @@ interface ModeMenuOptionSource {
 interface BookmarkModeMenuDeps {
   t: Translate;
   getEffectiveBookmarkTopbarSurfaceMode(): string;
-  isBookmarkTopbarMode(): boolean;
   getBookmarkTopbarLayout(): string;
+  settings: Pick<SettingsStore, 'get'>;
 }
 
 function createBookmarkModeMenu(deps: BookmarkModeMenuDeps) {
   const {
     t,
     getEffectiveBookmarkTopbarSurfaceMode,
-    isBookmarkTopbarMode,
     getBookmarkTopbarLayout,
+    settings
   } = deps;
 
   function toMenuOption(source: ModeMenuOptionSource): SelectMenuOption {
@@ -77,7 +79,7 @@ function createBookmarkModeMenu(deps: BookmarkModeMenuDeps) {
         fallback: 'Top bookmarks bar'
       }
     ];
-    if (!isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) !== 'top') {
       return options.map(toMenuOption);
     }
     const layout = getBookmarkTopbarLayout();

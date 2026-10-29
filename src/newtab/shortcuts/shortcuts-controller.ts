@@ -57,6 +57,11 @@ import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 import type { DragSessions } from '../drag-sessions';
+import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
+import type { PageNavigation } from '../page-navigation';
+import type { BookmarkNode } from '../bookmarks/bookmarks-store';
+import type { OpenEvent } from '../../domain/navigation-disposition';
+import { playFolderPathMorph } from '../bookmarks/bookmark-folder-icon';
 
 
 // An option the shortcuts view is handed as it is.
@@ -107,7 +112,6 @@ interface ShortcutsControllerDeps {
   shortcutTiles: ViewOption<'tiles'>;
   shortcutGroupHeaders: ViewOption<'groupHeaders'>;
   initFolderPathMorph: ViewOption<'initFolderIcon'>;
-  playFolderPathMorph: ViewOption<'animateFolderIcon'>;
   getHostFromUrl: ViewOption<'getHostFromUrl'>;
   getImmediateThemeForSuggestion: ViewOption<'getImmediateThemeForSuggestion'>;
   applyShortcutTileTheme: ViewOption<'applyShortcutTileTheme'>;
@@ -116,7 +120,6 @@ interface ShortcutsControllerDeps {
   attachFaviconWithFallbacks: ViewOption<'attachFaviconWithFallbacks'>;
   bindShortcutTooltip: BindTooltip;
   isMiddleClick: ViewOption<'isMiddleClick'>;
-  openShortcutUrl: ViewOption<'openShortcut'>;
   isCardActivationSuppressed(): boolean;
   handleShortcutContextMenu: ShortcutContextMenu['handleShortcutContextMenu'];
   handleShortcutNativeDragStart: ShortcutPageActions['handleShortcutNativeDragStart'];
@@ -137,6 +140,9 @@ interface ShortcutsControllerDeps {
   setShortcutError(message: string): void;
   setShortcutIconError(message: string): void;
   dragSessions: Pick<DragSessions, 'shortcutDragging'>;
+  getShortcutTileById(id: string): HTMLElement | null;
+  openBookmarkCascadeMenu(folder: BookmarkNode & { type: 'folder' }, anchor: HTMLElement | null): void;
+  openUrlFromNewtabCard: PageNavigation['openUrlFromNewtabCard'];
 }
 
 // The icon choice a dialog submitted.
@@ -270,7 +276,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     shortcutTiles,
     shortcutGroupHeaders,
     initFolderPathMorph,
-    playFolderPathMorph,
     getHostFromUrl,
     getImmediateThemeForSuggestion,
     applyShortcutTileTheme,
@@ -279,7 +284,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     attachFaviconWithFallbacks,
     bindShortcutTooltip,
     isMiddleClick,
-    openShortcutUrl,
     isCardActivationSuppressed,
     handleShortcutContextMenu,
     handleShortcutNativeDragStart,
@@ -295,7 +299,10 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     animateShortcutLayoutChange,
     setShortcutError,
     setShortcutIconError,
-    dragSessions
+    dragSessions,
+    getShortcutTileById,
+    openBookmarkCascadeMenu,
+    openUrlFromNewtabCard
   } = deps;
 
   // Bumped when the favicon policy changes, so requests made before it are
@@ -1791,6 +1798,30 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     updateShortcutLanguageStrings();
   }
 
+  // A link opens its site; a folder opens its bookmarks in the folder menu.
+  function openShortcutUrl(shortcut: ShortcutItem | VisibleShortcutItem | null | undefined, event?: OpenEvent | null): void {
+    if (shortcut && shortcut.type === 'folder') {
+      const tile = getShortcutTileById(shortcut.id);
+      void bookmarksRuntime.ensureReady(false).then((ready) => {
+        const node = ready && bookmarksRuntime.getNode(getShortcutFolderId(shortcut));
+        if (!node || node.url) {
+          showToast(t('newtab_shortcuts_folder_missing', 'This bookmark folder is no longer available.'), true);
+          return;
+        }
+        openBookmarkCascadeMenu({ ...node, type: 'folder' }, tile);
+      });
+      return;
+    }
+    if (!shortcut || !('url' in shortcut) || !shortcut.url) {
+      return;
+    }
+    openUrlFromNewtabCard(shortcut.url, {
+      openInBackgroundTab: NAVIGATION_DISPOSITION.isBackgroundOpenEvent(event),
+      openInOtherTab: Boolean(event && event.altKey),
+      surface: 'shortcuts'
+    });
+  }
+
   // The add tile, while the grid shows one.
   function getAddShortcutButton(): HTMLButtonElement | null {
     return shortcutsView ? shortcutsView.getAddButton() : null;
@@ -1860,6 +1891,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   }
 
   return {
+    openShortcutUrl,
     getAddShortcutButton,
     followStoredShortcutData,
     setShortcutContextMenuMark,

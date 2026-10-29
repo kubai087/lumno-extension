@@ -15,7 +15,6 @@ import * as NEWTAB_BOOKMARK_CASCADE_ACTIONS from './bookmarks/bookmark-cascade-a
 import * as NEWTAB_BOOKMARK_CONTEXT_MENU from './bookmarks/bookmark-context-menu';
 import * as NEWTAB_BOOKMARK_DISPLAY_SETTINGS from './bookmarks/bookmark-display-settings';
 import * as NEWTAB_BOOKMARK_DRAG_CONTROLLER from './bookmarks/bookmark-drag-controller';
-import * as NEWTAB_BOOKMARK_FOLDER_ICON from './bookmarks/bookmark-folder-icon';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmarks/bookmark-move-history';
 import * as NEWTAB_BOOKMARK_PAGER from './bookmarks/bookmark-pager';
 import * as NEWTAB_BOOKMARK_SECTION from './bookmarks/bookmark-section';
@@ -320,31 +319,14 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const { t, formatMessage } = locale;
   const sanitizeDisplayText = SearchDirectNavigation.sanitizeDisplayText;
 
-  const {
-    getFeedbackLinks,
-    getFeedbackControl,
-    getFeedbackButton,
-    getFeedbackWebLocale,
-    openFeedbackExternalUrl,
-    updateFeedbackLanguageStrings,
-    isFeedbackPopoverOpen,
-    closeFeedbackPopover,
-    createFeedbackControls
-  } = NEWTAB_FEEDBACK_CONTROL_RUNTIME.createFeedbackControlRuntime({
-    locale,
-    t,
-    openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
-    hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
-    showTopActionTooltip: (...args) => showTopActionTooltip(...args)
-  });
-
   const SITE_DISPLAY_NAME_OPTIONS = createSiteDisplayNameOptions(t);
-  function initFolderPathMorph(icon: Element | null | undefined): void {
-    NEWTAB_BOOKMARK_FOLDER_ICON.initFolderPathMorph(icon);
-    applySavedFolderColor(icon || null);
+  function getSiteDisplayName(hostname: string, title?: string): string {
+    return SITE_DISPLAY_NAME.getSiteDisplayName(
+      hostname,
+      title,
+      SITE_DISPLAY_NAME_OPTIONS
+    );
   }
-  const playFolderPathMorph = NEWTAB_BOOKMARK_FOLDER_ICON.playFolderPathMorph;
-  const setFolderPathMorphState = NEWTAB_BOOKMARK_FOLDER_ICON.setFolderPathMorphState;
   const bookmarksRuntime = NEWTAB_BOOKMARKS_RUNTIME.createBookmarksRuntime({
     chromeApi: typeof chrome !== 'undefined' ? chrome : null,
     store: NEWTAB_BOOKMARKS_STORE,
@@ -413,6 +395,41 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   } = NEWTAB_CLIPBOARD_ACTIONS.createClipboardActions({
     t,
     toastController: createToastController(document.getElementById('_x_extension_toast_2024_unique_'), getPagePortals(), { windowObj: window })
+  });
+  // The default search engine, which the page's search and navigation follow.
+  const searchEngine = new DefaultSearchEngine(settings);
+  searchEngine.follow();
+
+  const {
+    navigateToUrl,
+    isMiddleClick,
+    getOpenDisposition,
+    openExternalNewTabUrl,
+    openUrlFromNewtabCard,
+    navigateToQuery
+  } = NEWTAB_PAGE_NAVIGATION.createPageNavigation({
+    settings,
+    showToast,
+    t,
+    searchEngine
+  });
+
+  const {
+    getFeedbackLinks,
+    getFeedbackControl,
+    getFeedbackButton,
+    getFeedbackWebLocale,
+    openFeedbackExternalUrl,
+    updateFeedbackLanguageStrings,
+    isFeedbackPopoverOpen,
+    closeFeedbackPopover,
+    createFeedbackControls
+  } = NEWTAB_FEEDBACK_CONTROL_RUNTIME.createFeedbackControlRuntime({
+    locale,
+    t,
+    openExternalNewTabUrl,
+    hideTopActionTooltip,
+    showTopActionTooltip
   });
   const shortcutTiles: ShortcutTileElement[] = [];
 
@@ -483,7 +500,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     bookmarksRuntime,
     t,
     openFolderColorPicker: (...args) => openFolderColorPicker(...args),
-    openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
+    openExternalNewTabUrl,
     openBookmarkEditor,
     openBookmarkFolderTabGroupConfirmation,
     deleteBookmarkFromContextTarget: (...args) => deleteBookmarkFromContextTarget(...args),
@@ -541,10 +558,9 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     isModeActive: () => Boolean(searchMode.site),
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
-  const searchEngine = new DefaultSearchEngine(settings);
-  searchEngine.follow();
   const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
   siteSearchCatalog.follow();
+
   const pageSearchParams = new URLSearchParams(window.location.search || '');
   const {
     mediaQuery,
@@ -609,7 +625,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
     openShortcutEditor,
     openShortcutUrl: (...args) => openShortcutUrl(...args),
-    openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
+    openExternalNewTabUrl,
     removeShortcutById: (...args) => removeShortcutById(...args),
     openBookmarkFolderTabGroupConfirmation,
     t,
@@ -797,12 +813,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     settings,
     t,
     showToast,
-    openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
+    openExternalNewTabUrl,
     hasShortcutForSite: (...args) => hasShortcutForSite(...args),
     addSiteToShortcuts: (...args) => addSiteToShortcuts(...args),
     closeShortcutContextMenu,
     closeBookmarkContextMenu,
-    canDismissRecentCard: (...args) => canDismissRecentCard(...args),
     hideCursorTooltip,
     hideTopActionTooltip,
     normalizeHost,
@@ -831,8 +846,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
+    initFolderPathMorph,
     isFolderColorPickerOpen,
-    applySavedFolderColor,
     readSavedFolderColors,
     saveSavedFolderColors,
     scheduleFolderColorSync,
@@ -845,7 +860,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     closeShortcutDialog,
     hideCursorTooltip,
     t,
-    playFolderPathMorph,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
     showToast
@@ -1087,7 +1101,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutDockIcon,
     shortcutGroupHeaders,
     getEffectiveBookmarkTopbarSurfaceMode,
-    isBookmarkTopbarMode: (...args) => isBookmarkTopbarMode(...args),
     root,
     localStorageArea,
     t,
@@ -1255,27 +1268,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getProviderFaviconPageUrl
   });
 
-  const {
-    navigateToUrl,
-    isMiddleClick,
-    getOpenDisposition,
-    openExternalNewTabUrl,
-    openUrlFromNewtabCard,
-    openShortcutUrl,
-    openBookmarkFolder,
-    navigateToQuery
-  } = NEWTAB_PAGE_NAVIGATION.createPageNavigation({
-    settings,
-    getShortcutTileById,
-    bookmarksRuntime,
-    getShortcutFolderId: (...args) => getShortcutFolderId(...args),
-    showToast,
-    t,
-    openBookmarkCascadeMenu,
-    navigateBookmarkFolder: (...args) => navigateBookmarkFolder(...args),
-    searchEngine
-  });
-
   suggestionsContainer.addEventListener('wheel', function(event) {
     SUGGESTION_NAVIGATION.preventNumberShortcutWheel(event, suggestionsContainer);
   }, { passive: false });
@@ -1328,9 +1320,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
 
   const {
     setRecentMode,
-    canDismissRecentCard,
     updateBookmarkHeader,
-    isBookmarkTopbarMode,
     setNewtabTopOccupied,
     setNewtabTopLayout,
     syncBookmarkSurfaceMode,
@@ -1374,13 +1364,14 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const { getBookmarkModeMenuOptions } = NEWTAB_BOOKMARK_MODE_MENU.createBookmarkModeMenu({
+    settings,
     t,
     getEffectiveBookmarkTopbarSurfaceMode,
-    isBookmarkTopbarMode,
     getBookmarkTopbarLayout,
   });
 
   const {
+    openShortcutUrl,
     getAddShortcutButton,
     setShortcutContextMenuMark,
     getShortcutFolderId,
@@ -1418,6 +1409,9 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    openUrlFromNewtabCard,
+    openBookmarkCascadeMenu,
+    getShortcutTileById,
     dragSessions,
     historyLock,
     bookmarkParts,
@@ -1465,7 +1459,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shortcutTiles,
     shortcutGroupHeaders,
     initFolderPathMorph,
-    playFolderPathMorph,
     getHostFromUrl,
     getImmediateThemeForSuggestion,
     applyShortcutTileTheme,
@@ -1474,7 +1467,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     attachFaviconWithFallbacks,
     bindShortcutTooltip,
     isMiddleClick,
-    openShortcutUrl,
     isCardActivationSuppressed,
     handleShortcutContextMenu,
     handleShortcutNativeDragStart,
@@ -1538,10 +1530,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shortcutList,
     settings,
     preview,
-    isBookmarkTopbarMode,
     getBookmarkLimit,
     initFolderPathMorph,
-    setFolderPathMorphState,
     isContentSectionVisible,
     bookmarkSection,
     bookmarksRuntime,
@@ -1585,6 +1575,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   createShortcutsSection();
 
   NEWTAB_BOOKMARK_SECTION.createBookmarkSection({
+    navigateBookmarkFolder,
     dragSessions,
     bookmarkParts,
     settings,
@@ -1602,7 +1593,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getSiteDisplayName,
     getUrlDisplay,
     initFolderPathMorph,
-    playFolderPathMorph,
     stableHashCode,
     normalizeHost,
     attachFaviconWithFallbacks,
@@ -1615,7 +1605,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shouldDelayBookmarkHoverFromRecent,
     bindCursorTooltip,
     hideCursorTooltip,
-    openBookmarkFolder,
     openBookmarkCascadeMenu,
     copyBookmarkUrl,
     handleBookmarkItemContextMenu,
@@ -1712,9 +1701,9 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     switchBookmarkPage,
     handleBookmarkWheel
   } = NEWTAB_BOOKMARK_PAGER.createBookmarkPager({
+    settings,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarksShown,
-    isBookmarkTopbarMode,
     getBookmarkLimit,
     updateBookmarkHeader,
     getBookmarkGridColumnCount,
@@ -1734,6 +1723,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     isBookmarkSurfaceDragStateActive,
     handleShortcutDragPointerDown
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
+    settings,
     dragSessions,
     historyLock,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
@@ -1755,7 +1745,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     hideShortcutTooltip,
     isEmptyBookmarkRootHidden,
     renderCurrentBookmarkPage,
-    isBookmarkTopbarMode,
     isBookmarkCascadeSurfaceAtPoint,
     getExternalBookmarkSurfacePoint,
     isPointOverShortcutDropSurface,
@@ -1790,6 +1779,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const recentCardDrag = NEWTAB_RECENT_CARD_DRAG.createRecentCardDrag({
+    settings,
     dragSessions,
     historyLock,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
@@ -1800,7 +1790,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     persistShortcuts,
     bookmarkMoveHistory,
     bookmarksRuntime,
-    isBookmarkTopbarMode,
     isBookmarkCascadeSurfaceAtPoint,
     getExternalBookmarkSurfacePoint,
     getExternalBookmarkDropTarget,
@@ -1854,7 +1843,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     settings,
     preview,
     resumeRecentCardDragAfterFolderSwitch: recentCardDrag.resumeRecentCardDragAfterFolderSwitch,
-    isBookmarkTopbarMode,
     scheduleShortcutDragMove,
     updateBookmarkDragLayoutCache,
     setBookmarkDragCardTransform,
@@ -1907,15 +1895,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     refreshThemeAwareFavicons();
     scheduleThemeAwareFaviconRescue();
   });
-
-  function getSiteDisplayName(hostname: string, title?: string): string {
-    return SITE_DISPLAY_NAME.getSiteDisplayName(
-      hostname,
-      title,
-      SITE_DISPLAY_NAME_OPTIONS
-    );
-  }
-
 
   const attachInputModeFaviconData =
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
@@ -2095,7 +2074,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     applyNewtabShortcutsVisibility,
     bookmarkSection,
     recentSection,
-    isBookmarkTopbarMode,
     bookmarkCards,
     closeBookmarkCascadeMenu,
     closeShortcutContextMenu,

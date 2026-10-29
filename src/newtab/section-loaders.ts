@@ -63,7 +63,6 @@ interface SectionLoadersDeps extends
   settings: Pick<SettingsStore, 'get'>;
   preview: Pick<SettingPreview, 'get'>;
   resumeRecentCardDragAfterFolderSwitch: RecentCardDrag['resumeRecentCardDragAfterFolderSwitch'];
-  isBookmarkTopbarMode: SectionHeaders['isBookmarkTopbarMode'];
   setBookmarkSurfaceVisible: SectionHeaders['setBookmarkSurfaceVisible'];
   updateBookmarkHeader: SectionHeaders['updateBookmarkHeader'];
   recentSection: HTMLElement | null;
@@ -90,7 +89,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     settings,
     preview,
     resumeRecentCardDragAfterFolderSwitch,
-    isBookmarkTopbarMode,
     scheduleShortcutDragMove,
     updateBookmarkDragLayoutCache,
     setBookmarkDragCardTransform,
@@ -200,7 +198,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       folderId: bookmarksShown.currentFolderId,
       rootFolderId: bookmarksShown.rootFolderId,
       viewMode: settings.get(bookmarkViewMode),
-      menuMode: settings.get(bookmarkViewMode) === 'list' || isBookmarkTopbarMode()
+      menuMode: settings.get(bookmarkViewMode) === 'list' || settings.get(bookmarkViewMode) === 'top'
     });
     if (dragSessions.shortcut && dragSessions.shortcut.isDragging &&
         dragSessions.shortcut.folderSwitchPendingId === String(bookmarksShown.currentFolderId || '')) {

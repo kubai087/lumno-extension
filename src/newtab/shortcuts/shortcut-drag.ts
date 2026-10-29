@@ -23,6 +23,8 @@ import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
 import type { DragSessions } from '../drag-sessions';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
+import type { SettingsStore } from '../../platform/settings-store';
+import { bookmarkViewMode } from '../../domain/settings/bookmarks';
 
 
 interface ShortcutDragDeps {
@@ -40,7 +42,6 @@ interface ShortcutDragDeps {
   hideShortcutTooltip(): void;
   isEmptyBookmarkRootHidden: BookmarkDragController['isEmptyBookmarkRootHidden'];
   renderCurrentBookmarkPage(): void;
-  isBookmarkTopbarMode(): boolean;
   isBookmarkCascadeSurfaceAtPoint: BookmarkDragController['isBookmarkCascadeSurfaceAtPoint'];
   getExternalBookmarkSurfacePoint: BookmarkDragController['getExternalBookmarkSurfacePoint'];
   isPointOverShortcutDropSurface: BookmarkDragController['isPointOverShortcutDropSurface'];
@@ -79,6 +80,7 @@ interface ShortcutDragDeps {
   historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
   dragSessions: Pick<DragSessions, 'bookmark' | 'setShortcut' | 'shortcut'>;
   getAddShortcutButton(): HTMLElement | null;
+  settings: Pick<SettingsStore, 'get'>;
 }
 
 // A shortcut tile being pressed or dragged.
@@ -161,7 +163,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     hideShortcutTooltip,
     isEmptyBookmarkRootHidden,
     renderCurrentBookmarkPage,
-    isBookmarkTopbarMode,
     isBookmarkCascadeSurfaceAtPoint,
     getExternalBookmarkSurfacePoint,
     isPointOverShortcutDropSurface,
@@ -193,7 +194,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     closeShortcutContextMenu,
     moveShortcutGroupToIndex,
     fitShortcutGroupColumns,
-    getAddShortcutButton
+    getAddShortcutButton,
+    settings
   } = deps;
 
 
@@ -831,7 +833,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     }
     applyShortcutDragTileTransform(state, pointerX, pointerY);
     document.body.removeAttribute('data-drag-blocked');
-    const topbarPoint = isBookmarkTopbarMode() &&
+    const topbarPoint = settings.get(bookmarkViewMode) === 'top' &&
       !isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY)
       ? getExternalBookmarkSurfacePoint(pointerX, pointerY) : null;
     const topbar = bookmarkParts.topbar;

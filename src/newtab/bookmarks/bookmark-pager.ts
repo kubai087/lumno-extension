@@ -5,10 +5,11 @@ import * as LumnoNewtabCrossSurfaceDrag from '../cross-surface-drag';
 import type { BookmarkItem } from './bookmarks-store';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 import type { BookmarksShown } from './bookmarks-shown';
+import type { SettingsStore } from '../../platform/settings-store';
+import { bookmarkViewMode } from '../../domain/settings/bookmarks';
 
 
 interface BookmarkPagerDeps {
-  isBookmarkTopbarMode(): boolean;
   getBookmarkLimit(): number;
   updateBookmarkHeader(): void;
   getBookmarkGridColumnCount(): number;
@@ -17,6 +18,7 @@ interface BookmarkPagerDeps {
   now?: () => number;
   bookmarksShown: Pick<BookmarksShown, 'allItems' | 'currentFolderId' | 'currentPage' | 'pageAnimating' | 'pagerAvailability' | 'rootFolderId' | 'rootTotalCount' | 'rootVisibleCount' | 'setPageAnimating' | 'setPagerAvailability' | 'showPage'>;
   bookmarkGrid: HTMLElement;
+  settings: Pick<SettingsStore, 'get'>;
 }
 
 interface PageSlide {
@@ -29,17 +31,17 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
   const {
     bookmarkGrid,
     bookmarksShown,
-    isBookmarkTopbarMode,
     getBookmarkLimit,
     updateBookmarkHeader,
     getBookmarkGridColumnCount,
     renderBookmarks,
-    updateBookmarkSectionPosition
+    updateBookmarkSectionPosition,
+    settings
   } = deps;
 
 
   function getBookmarkPageCount(): number {
-    if (isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) === 'top') {
       return 1;
     }
     const total = Array.isArray(bookmarksShown.allItems) ? bookmarksShown.allItems.length : 0;
@@ -50,7 +52,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     if (!Array.isArray(bookmarksShown.allItems) || bookmarksShown.allItems.length === 0) {
       return [];
     }
-    if (isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) === 'top') {
       bookmarksShown.showPage(0);
       return bookmarksShown.allItems.slice();
     }
@@ -84,11 +86,11 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     if (bookmarkGrid.getAttribute('data-bookmark-empty-drop-surface') === 'true') {
       bookmarkGrid.style.setProperty(
         'min-height',
-        `${isBookmarkTopbarMode() ? 44 : 64}px`
+        `${settings.get(bookmarkViewMode) === 'top' ? 44 : 64}px`
       );
       return;
     }
-    if (isBookmarkTopbarMode()) {
+    if (settings.get(bookmarkViewMode) === 'top') {
       bookmarkGrid.style.removeProperty('min-height');
       return;
     }

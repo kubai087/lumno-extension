@@ -15,6 +15,7 @@ import type { SearchBoxParts } from './search/search-box-parts';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
+import { bookmarkViewMode } from '../domain/settings/bookmarks';
 
 
 interface ModeCommandsDeps {
@@ -29,7 +30,6 @@ interface ModeCommandsDeps {
   applyNewtabShortcutsVisibility(): void;
   bookmarkSection: HTMLElement | null;
   recentSection: HTMLElement | null;
-  isBookmarkTopbarMode(): boolean;
   bookmarkCards: readonly HTMLElement[];
   closeBookmarkCascadeMenu(): void;
   closeShortcutContextMenu(): void;
@@ -66,7 +66,6 @@ function createModeCommands(deps: ModeCommandsDeps) {
     applyNewtabShortcutsVisibility,
     bookmarkSection,
     recentSection,
-    isBookmarkTopbarMode,
     bookmarkCards,
     closeBookmarkCascadeMenu,
     closeShortcutContextMenu,
@@ -403,7 +402,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     applyNewtabShortcutsVisibility();
     syncSectionZenVisibility(bookmarkSection);
     syncSectionZenVisibility(recentSection);
-    if (bookmarkParts.topbar && isBookmarkTopbarMode()) {
+    if (bookmarkParts.topbar && settings.get(bookmarkViewMode) === 'top') {
       bookmarkParts.topbar.setVisible(
         !settings.get(newtabZenMode) && bookmarkCards.length > 0 && preview.get(bookmarkCount) > 0
       );

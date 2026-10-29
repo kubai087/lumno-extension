@@ -102,7 +102,6 @@ async function createController(pinned, history, options = {}) {
     addSiteToShortcuts() {},
     closeShortcutContextMenu() {},
     closeBookmarkContextMenu() {},
-    canDismissRecentCard: () => true,
     hideCursorTooltip() {},
     hideTopActionTooltip() {},
     normalizeHost: (host) => String(host || '').toLowerCase().replace(/^www\./, ''),

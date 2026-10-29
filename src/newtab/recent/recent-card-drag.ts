@@ -26,6 +26,8 @@ import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
 import type { DragSessions } from '../drag-sessions';
 import { recentEvents } from './recent-events';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
+import type { SettingsStore } from '../../platform/settings-store';
+import { bookmarkViewMode } from '../../domain/settings/bookmarks';
 
 
 interface RecentCardDragDeps {
@@ -34,7 +36,6 @@ interface RecentCardDragDeps {
   persistShortcuts: ShortcutsController['persistShortcuts'];
   bookmarkMoveHistory: Pick<BookmarkMoveHistory, 'push'>;
   bookmarksRuntime: Pick<BookmarksRuntime, 'getNode' | 'getFolderItems'>;
-  isBookmarkTopbarMode(): boolean;
   isBookmarkCascadeSurfaceAtPoint: BookmarkDragController['isBookmarkCascadeSurfaceAtPoint'];
   getExternalBookmarkSurfacePoint: BookmarkDragController['getExternalBookmarkSurfacePoint'];
   getExternalBookmarkDropTarget: BookmarkDragController['getExternalBookmarkDropTarget'];
@@ -67,6 +68,7 @@ interface RecentCardDragDeps {
   bookmarkGrid: HTMLElement;
   historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
   dragSessions: Pick<DragSessions, 'bookmark' | 'recentCard' | 'setRecentCard' | 'shortcut'>;
+  settings: Pick<SettingsStore, 'get'>;
 }
 
 // The card's colors the ghost takes on.
@@ -113,7 +115,6 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     persistShortcuts,
     bookmarkMoveHistory,
     bookmarksRuntime,
-    isBookmarkTopbarMode,
     isBookmarkCascadeSurfaceAtPoint,
     getExternalBookmarkSurfacePoint,
     getExternalBookmarkDropTarget,
@@ -141,6 +142,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     showToast,
     t,
     formatMessage,
+    settings
   } = deps;
 
 
@@ -473,7 +475,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     }
     moveGhost(state, pointerX, pointerY);
     document.body.removeAttribute('data-drag-blocked');
-    const topbarPoint = isBookmarkTopbarMode() && !isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY)
+    const topbarPoint = settings.get(bookmarkViewMode) === 'top' && !isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY)
       ? getExternalBookmarkSurfacePoint(pointerX, pointerY) : null;
     const topbar = bookmarkParts.topbar;
     if (topbarPoint && topbar && topbar.autoScroll(topbarPoint.x, topbarPoint.y)) {

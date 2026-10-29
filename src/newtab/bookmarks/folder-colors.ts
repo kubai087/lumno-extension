@@ -5,7 +5,6 @@ import { bookmarkFolderColorPresets, bookmarkFolderColorRefs, bookmarkFolderColo
 import type { SettingsStore } from '../../platform/settings-store';
 import { createFolderColorPicker } from '../react/folder-color-picker-lazy';
 import type { BindTooltip, ShowToast, Translate } from '../newtab-types';
-import type * as FolderIcon from './bookmark-folder-icon';
 import type { FolderColorMap, FolderColorRefs } from './bookmark-folder-icon';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import * as NEWTAB_BOOKMARK_FOLDER_ICON from './bookmark-folder-icon';
@@ -20,7 +19,6 @@ interface FolderColorsDeps {
   closeShortcutDialog(): void;
   hideCursorTooltip(): void;
   t: Translate;
-  playFolderPathMorph: typeof FolderIcon.playFolderPathMorph;
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
   showToast: ShowToast;
@@ -34,7 +32,6 @@ function createFolderColors(deps: FolderColorsDeps) {
     closeShortcutDialog,
     hideCursorTooltip,
     t,
-    playFolderPathMorph,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
     showToast
@@ -168,7 +165,7 @@ function createFolderColors(deps: FolderColorsDeps) {
       return await createFolderColorPicker({
         documentObj: document, t,
         initFolderIcon: NEWTAB_BOOKMARK_FOLDER_ICON.initFolderPathMorph,
-        animateFolderIcon: playFolderPathMorph,
+        animateFolderIcon: NEWTAB_BOOKMARK_FOLDER_ICON.playFolderPathMorph,
         applyFolderColor: NEWTAB_BOOKMARK_FOLDER_ICON.applyFolderColor,
         bindTooltip: bindShortcutDialogTooltip,
         hideTooltip: hideShortcutDialogTooltip,
@@ -204,7 +201,14 @@ function createFolderColors(deps: FolderColorsDeps) {
   function isFolderColorPickerOpen(): boolean {
     return Boolean(folderColorPicker && folderColorPicker.isOpen());
   }
+
+  // Draws a folder icon in its saved color, ready to morph on hover.
+  function initFolderPathMorph(icon: Element | null | undefined): void {
+    NEWTAB_BOOKMARK_FOLDER_ICON.initFolderPathMorph(icon);
+    applySavedFolderColor(icon || null);
+  }
   return {
+    initFolderPathMorph,
     isFolderColorPickerOpen,
     applySavedFolderColor,
     readSavedFolderColors,

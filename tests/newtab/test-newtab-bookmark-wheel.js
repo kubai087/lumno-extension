@@ -21,7 +21,7 @@ function fixture({ page = 3, pages = 8, animated = false } = {}) {
   state.showPage(page);
   const pager = window.LumnoNewtabBookmarkPager.createBookmarkPager({ bookmarksShown: state,
     bookmarkGrid: window.document.getElementById('grid'), now: () => env.clock,
-    isBookmarkTopbarMode: () => false, getBookmarkLimit: () => 1,
+    settings: { get: () => 'grid' }, getBookmarkLimit: () => 1,
     NEWTAB_BOOKMARKS_STORE: { getBookmarkPageItems: (items, index) => items.slice(index, index + 1) },
     updateBookmarkHeader() { env.headerUpdates += 1; }, getBookmarkGridColumnCount: () => 1, updateBookmarkSectionPosition() {},
     renderBookmarks() {} });

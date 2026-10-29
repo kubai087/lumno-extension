@@ -27,6 +27,7 @@ import { SEARCH_WIDTH_CONFIG } from '../layout';
 import type { BottomDockParts } from '../shortcuts/bottom-dock-parts';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 import { adaptiveToneEvents } from './tone-requests';
+import { bookmarkViewMode } from '../../domain/settings/bookmarks';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -43,7 +44,6 @@ interface WallpaperPageDeps {
   getShortcutDockIcon(tile: HTMLElement): HTMLElement | null;
   shortcutGroupHeaders: readonly HTMLElement[];
   getEffectiveBookmarkTopbarSurfaceMode(): string;
-  isBookmarkTopbarMode(): boolean;
   // The search box.
   root: HTMLElement;
   localStorageArea: StorageArea | null;
@@ -104,7 +104,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     getShortcutDockIcon,
     shortcutGroupHeaders,
     getEffectiveBookmarkTopbarSurfaceMode,
-    isBookmarkTopbarMode,
     root,
     localStorageArea,
     t,
@@ -199,7 +198,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
         preferOverlayPolarity: getEffectiveBookmarkTopbarSurfaceMode() === 'adaptive',
         // Without a glass style the search box and cards keep the theme's light or dark, so the
         // "match style" bar keeps it too instead of flipping over the wallpaper at the top.
-        disabled: !isBookmarkTopbarMode() ||
+        disabled: settings.get(bookmarkViewMode) !== 'top' ||
           getEffectiveBookmarkTopbarSurfaceMode() === 'custom' ||
           (getEffectiveBookmarkTopbarSurfaceMode() === 'adaptive' &&
             !document.body.hasAttribute('data-glass-style'))

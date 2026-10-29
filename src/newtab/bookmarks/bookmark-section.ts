@@ -22,6 +22,7 @@ import type { BookmarkSectionParts } from './bookmark-section-parts';
 import { isBookmarkHoverSuppressed } from '../dom/drag-hover';
 import type { DragSessions } from '../drag-sessions';
 import { getBookmarkCascadeViewportTopPaddingPx } from '../dom/top-inset';
+import { playFolderPathMorph } from './bookmark-folder-icon';
 
 type ViewOption<K extends keyof BookmarksViewOptions> = NonNullable<BookmarksViewOptions[K]>;
 
@@ -42,7 +43,6 @@ interface BookmarkSectionDeps {
   getSiteDisplayName(host: string, title?: string): string;
   getUrlDisplay(url: string): string;
   initFolderPathMorph: typeof FolderIcon.initFolderPathMorph;
-  playFolderPathMorph: typeof FolderIcon.playFolderPathMorph;
   stableHashCode: ViewOption<'stableHashCode'>;
   normalizeHost(host: string): string;
   attachFaviconWithFallbacks(
@@ -60,7 +60,6 @@ interface BookmarkSectionDeps {
   shouldDelayBookmarkHoverFromRecent: ViewOption<'shouldDelayHoverFromRecent'>;
   bindCursorTooltip: BindCursorTooltip;
   hideCursorTooltip(): void;
-  openBookmarkFolder: ViewOption<'openFolder'>;
   openBookmarkCascadeMenu: ViewOption<'openFolderMenu'>;
   copyBookmarkUrl: ViewOption<'copyUrl'>;
   handleBookmarkItemContextMenu(payload: BookmarkItemContextMenuEvent): void;
@@ -83,6 +82,7 @@ interface BookmarkSectionDeps {
   syncBookmarkSurfaceMode(): void;
   bookmarkParts: Pick<BookmarkSectionParts, 'mount'>;
   dragSessions: Pick<DragSessions, 'bookmark' | 'shortcutDragging'>;
+  navigateBookmarkFolder(targetId: unknown): void;
 }
 
 function createBookmarkSection(deps: BookmarkSectionDeps) {
@@ -102,7 +102,6 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     getSiteDisplayName,
     getUrlDisplay,
     initFolderPathMorph,
-    playFolderPathMorph,
     stableHashCode,
     normalizeHost,
     attachFaviconWithFallbacks,
@@ -115,7 +114,6 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     shouldDelayBookmarkHoverFromRecent,
     bindCursorTooltip,
     hideCursorTooltip,
-    openBookmarkFolder,
     openBookmarkCascadeMenu,
     copyBookmarkUrl,
     handleBookmarkItemContextMenu,
@@ -134,7 +132,8 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     syncBookmarkTopbarSurfaceAppearance,
     syncBookmarkSurfaceMode,
     bookmarkParts,
-    dragSessions
+    dragSessions,
+    navigateBookmarkFolder
   } = deps;
 
 
@@ -175,7 +174,7 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     shouldSuppressHover: (target) => isBookmarkHoverSuppressed(dragSessions, target),
     bindCursorTooltip,
     hideCursorTooltip,
-    openFolder: openBookmarkFolder,
+    openFolder: navigateBookmarkFolder,
     openFolderMenu: openBookmarkCascadeMenu,
     copyUrl: copyBookmarkUrl,
     onItemContextMenu: handleBookmarkItemContextMenu,

@@ -3,45 +3,28 @@
 import type { DefaultTabOpen, Disposition, OpenEvent } from '../domain/navigation-disposition';
 import type { NewtabOpenInNewTabSurface } from '../domain/settings';
 import * as LumnoMessaging from '../platform/messaging';
-import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
-import type { BookmarkNode } from './bookmarks/bookmarks-store';
 import type { ShowToast, Translate } from './newtab-types';
-import type { ShortcutItem, VisibleShortcutItem } from '../domain/shortcuts/types';
 import type { DefaultSearchEngine } from '../shared/search-panel/default-engine';
 import { newtabOpenInNewTab } from '../domain/settings/newtab-page';
-import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
 import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 import * as SearchDirectNavigation from '../domain/search/utils/direct-navigation';
 
 // A shortcut as the page opens it: a site, or a bookmark folder.
-type OpenableShortcut = ShortcutItem | VisibleShortcutItem;
 
 // The keys a surface's click or Enter was made with.
 type SurfaceOpenKeys = Pick<DefaultTabOpen, 'openInBackgroundTab' | 'openInOtherTab'>;
 
 interface PageNavigationDeps {
   settings: Pick<SettingsStore, 'get'>;
-  getShortcutTileById(id: string): HTMLElement | null;
-  bookmarksRuntime: Pick<BookmarksRuntime, 'ensureReady' | 'getNode'>;
-  getShortcutFolderId(shortcut: OpenableShortcut): string;
   showToast: ShowToast;
   t: Translate;
-  openBookmarkCascadeMenu(folder: BookmarkNode & { type: 'folder' }, anchor: HTMLElement | null): void;
-  navigateBookmarkFolder(id: string): void;
   searchEngine: Pick<DefaultSearchEngine, 'searchUrl'>;
 }
 
 function createPageNavigation(deps: PageNavigationDeps) {
   const {
     settings,
-    getShortcutTileById,
-    bookmarksRuntime,
-    getShortcutFolderId,
-    showToast,
-    t,
-    openBookmarkCascadeMenu,
-    navigateBookmarkFolder,
     searchEngine
   } = deps;
 
@@ -68,13 +51,6 @@ function createPageNavigation(deps: PageNavigationDeps) {
 
   function isMiddleClick(event: OpenEvent | null | undefined): boolean {
     return NAVIGATION_DISPOSITION.isMiddleClick(event);
-  }
-
-  function isBackgroundOpenEvent(event: OpenEvent | null | undefined): boolean {
-    if (settings.get(numberShortcutInstantEnabled)) {
-      return isMiddleClick(event);
-    }
-    return NAVIGATION_DISPOSITION.isBackgroundOpenEvent(event);
   }
 
   function getOpenDisposition(event: OpenEvent | Disposition | null | undefined, fallback?: Disposition): Disposition {
@@ -146,37 +122,6 @@ function createPageNavigation(deps: PageNavigationDeps) {
     return 'currentTab';
   }
 
-  function openShortcutUrl(shortcut: OpenableShortcut | null | undefined, event?: OpenEvent | null): void {
-    if (shortcut && shortcut.type === 'folder') {
-      const tile = getShortcutTileById(shortcut.id);
-      void bookmarksRuntime.ensureReady(false).then((ready) => {
-        const node = ready && bookmarksRuntime.getNode(getShortcutFolderId(shortcut));
-        if (!node || node.url) {
-          showToast(t('newtab_shortcuts_folder_missing', 'This bookmark folder is no longer available.'), true);
-          return;
-        }
-        openBookmarkCascadeMenu({ ...node, type: 'folder' }, tile);
-      });
-      return;
-    }
-    if (!shortcut || !('url' in shortcut) || !shortcut.url) {
-      return;
-    }
-    openUrlFromNewtabCard(shortcut.url, {
-      openInBackgroundTab: isBackgroundOpenEvent(event),
-      openInOtherTab: Boolean(event && event.altKey),
-      surface: 'shortcuts'
-    });
-  }
-
-  function openBookmarkFolder(nodeId: unknown): void {
-    const id = String(nodeId || '').trim();
-    if (!id) {
-      return;
-    }
-    navigateBookmarkFolder(id);
-  }
-
   function markCurrentTabForSearchTracking(): void {
     if (!chrome || !chrome.tabs || !chrome.tabs.getCurrent || !chrome.runtime || !chrome.runtime.sendMessage) {
       return;
@@ -242,8 +187,6 @@ function createPageNavigation(deps: PageNavigationDeps) {
     getOpenDisposition,
     openExternalNewTabUrl,
     openUrlFromNewtabCard,
-    openShortcutUrl,
-    openBookmarkFolder,
     navigateToQuery
   };
 }

@@ -35,7 +35,6 @@ interface RecentSitesControllerDeps {
   addSiteToShortcuts(site: ShortcutSite): unknown;
   closeShortcutContextMenu(): void;
   closeBookmarkContextMenu(): void;
-  canDismissRecentCard(): boolean;
   hideCursorTooltip(): void;
   hideTopActionTooltip(): void;
   normalizeHost: NonNullable<RecentSiteOptions['normalizeHost']>;
@@ -83,7 +82,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     addSiteToShortcuts,
     closeShortcutContextMenu,
     closeBookmarkContextMenu,
-    canDismissRecentCard,
     hideCursorTooltip,
     hideTopActionTooltip,
     normalizeHost,
@@ -401,9 +399,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
 
   function handleRecentCardContextMenu(payload: CardContextMenuPayload): void {
     const { event, item, element } = payload;
-    if (!canDismissRecentCard()) {
-      return;
-    }
     event.preventDefault();
     event.stopPropagation();
     hideCursorTooltip();
