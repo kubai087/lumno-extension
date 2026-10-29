@@ -4,23 +4,20 @@
 import type { BookmarkTabGroupReply } from '../../domain/messages';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
-import type { ContextMenuParts, FormatMessage, SelectMenuController, ShowToast, Translate } from '../newtab-types';
+import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ShortcutDialogOpenOptions } from '../react/shortcut-dialog';
 import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type { BookmarkContextTarget } from './bookmark-context-menu';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import type { FolderItemIcon } from './folder-item-icons';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
-import { BOOKMARK_CONTEXT_MENU_EDIT_VALUE, BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_DIALOG_ITEM_BOOKMARK, SHORTCUT_DIALOG_ITEM_FOLDER } from '../menu-values';
+import { SHORTCUT_DIALOG_ITEM_BOOKMARK, SHORTCUT_DIALOG_ITEM_FOLDER } from '../menu-values';
 
 // The bookmark an action is for, as far as the actions read it.
 type BookmarkEditTarget = Pick<BookmarkContextTarget, 'bookmarkId' | 'isFolder' | 'title'> &
   Partial<Pick<BookmarkContextTarget, 'url' | 'sourceKind'>> & { element: HTMLElement | null };
 
 interface BookmarkActionsState {
-  bookmarkContextMenu: ContextMenuParts | null;
-  bookmarkContextMenuSelectController: SelectMenuController | null;
-  bookmarkContextMenuTarget: BookmarkContextTarget | null;
   bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
 }
 
@@ -42,7 +39,6 @@ interface BookmarkActionsDeps {
 function createBookmarkActions(deps: BookmarkActionsDeps) {
   const {
     t,
-    getBookmarkContextMenuOptions,
     bookmarksRuntime,
     openShortcutDialog,
     formatMessage,
@@ -55,25 +51,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
-
-  function updateBookmarkContextMenuLanguageStrings(): void {
-    if (!pageState.bookmarkContextMenu || !pageState.bookmarkContextMenuSelectController) {
-      return;
-    }
-    pageState.bookmarkContextMenu.trigger.setAttribute(
-      'aria-label',
-      t('bookmarks_context_menu_label', 'Bookmark actions')
-    );
-    pageState.bookmarkContextMenuSelectController.setOptions(
-      pageState.bookmarkContextMenu.control,
-      getBookmarkContextMenuOptions(pageState.bookmarkContextMenuTarget),
-      pageState.bookmarkContextMenuTarget && pageState.bookmarkContextMenuTarget.isFolder
-        ? BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE
-        : pageState.bookmarkContextMenuTarget
-          ? NEWTAB_CONTEXT_MENU_OPEN_VALUE
-          : BOOKMARK_CONTEXT_MENU_EDIT_VALUE
-    );
-  }
 
   function requestBookmarkFolderTabGroup(folderId: string, title: string): Promise<BookmarkTabGroupReply> {
     return new Promise((resolve) => {
@@ -172,7 +149,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
   }
 
   return {
-    updateBookmarkContextMenuLanguageStrings,
     openBookmarkFolderTabGroupConfirmation,
     openBookmarkEditor
   };

@@ -35,9 +35,6 @@ interface DockMagnitude {
   shift: number;
 }
 
-interface ShortcutDockState {
-  shortcutContextMenuTarget: { tile?: HTMLElement | null } | null;
-}
 
 interface ShortcutDockDeps {
   settings: Pick<SettingsStore, 'subscribe'>;
@@ -49,7 +46,8 @@ interface ShortcutDockDeps {
   clearShortcutContextMenuTileActive(): void;
   getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null;
   shortcutGrid: HTMLElement;
-  pageState: ShortcutDockState;
+  // The tile the open shortcut menu acts on; null while it is closed.
+  getShortcutContextMenuTile(): HTMLElement | null;
 }
 
 function createShortcutDock(deps: ShortcutDockDeps) {
@@ -59,14 +57,12 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     preview,
     isShortcutDragActive,
     isBookmarkDragActive,
-    isShortcutContextMenuOpen,
     applyShortcutContextMenuDockHover,
     clearShortcutContextMenuTileActive,
-    getShortcutTileFromNode
+    getShortcutTileFromNode,
+    getShortcutContextMenuTile
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   // The pointer's x for the next dock frame; NaN when none is pending.
   let shortcutDockPendingPointerX = Number.NaN;
 
@@ -326,12 +322,10 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     if (!shortcutGrid) {
       return;
     }
-    if (isShortcutContextMenuOpen() && pageState.shortcutContextMenuTarget) {
-      const activeTile = pageState.shortcutContextMenuTarget.tile;
-      if (activeTile) {
-        applyShortcutContextMenuDockHover(activeTile);
-        return;
-      }
+    const activeTile = getShortcutContextMenuTile();
+    if (activeTile) {
+      applyShortcutContextMenuDockHover(activeTile);
+      return;
     }
     const folderMenuTile = getOpenShortcutFolderMenuTile();
     if (folderMenuTile) {
@@ -487,4 +481,4 @@ function createShortcutDock(deps: ShortcutDockDeps) {
 type ShortcutDock = ReturnType<typeof createShortcutDock>;
 
 export { createShortcutDock };
-export type { ShortcutDock, ShortcutDockDeps, ShortcutDockState };
+export type { ShortcutDock, ShortcutDockDeps };

@@ -7,7 +7,7 @@ import type { SelectMenuOption } from '../../shared/react/select-menu/menu-optio
 import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import type { FolderColorPicker } from '../bookmarks/folder-colors';
-import type { BindTooltip, ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
+import type { BindTooltip, ShowToast, Translate } from '../newtab-types';
 import { createFolderColorPicker } from '../react/folder-color-picker-lazy';
 import type {
   IconPlateColorRequest,
@@ -24,11 +24,6 @@ import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from './shortcut-list';
 
-interface ShortcutPageActionsState {
-  shortcutContextMenu: ContextMenuParts | null;
-  shortcutContextMenuSelectController: SelectMenuController | null;
-  shortcutContextMenuTarget: ShortcutContextTarget | null;
-}
 
 interface ShortcutPageActionsDeps {
   t: Translate;
@@ -39,8 +34,6 @@ interface ShortcutPageActionsDeps {
   getShortcutGroups(): ShortcutGroup[];
   bookmarksRuntime: BookmarksRuntime;
   getShortcutFolderId(shortcut: ShortcutItem): string;
-  updateBookmarkContextMenuLanguageStrings(): void;
-  updateRecentContextMenuLanguageStrings(): void;
   createShortcutDialogComponent(): Promise<ShortcutDialogController | null>;
   showToast: ShowToast;
   // The tiles drawn now, kept in DOM order.
@@ -51,7 +44,6 @@ interface ShortcutPageActionsDeps {
   shortcutList: Pick<ShortcutList, 'items'>;
   shortcutSection: HTMLElement;
   shortcutGrid: HTMLElement;
-  pageState: ShortcutPageActionsState;
 }
 
 function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
@@ -67,8 +59,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     getShortcutGroups,
     bookmarksRuntime,
     getShortcutFolderId,
-    updateBookmarkContextMenuLanguageStrings,
-    updateRecentContextMenuLanguageStrings,
     createShortcutDialogComponent,
     showToast,
     shortcutTiles,
@@ -77,8 +67,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     getShortcutIconDataUrl
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   // The shortcut dialog, loaded on first use.
   let shortcutDialogController: ShortcutDialogController | null = null;
   // Settles the plate color request that is open.
@@ -227,23 +215,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     ];
   }
 
-  function updateShortcutContextMenuLanguageStrings(): void {
-    if (!pageState.shortcutContextMenu || !pageState.shortcutContextMenuSelectController) {
-      return;
-    }
-    const label = t('newtab_shortcuts_context_menu_label', 'Shortcut actions');
-    pageState.shortcutContextMenu.trigger.setAttribute('aria-label', label);
-    pageState.shortcutContextMenuSelectController.setOptions(
-      pageState.shortcutContextMenu.control,
-      getShortcutContextMenuOptions(pageState.shortcutContextMenuTarget),
-      pageState.shortcutContextMenuTarget && pageState.shortcutContextMenuTarget.kind === 'group'
-        ? SHORTCUT_GROUP_MENU_VALUES.rename
-        : pageState.shortcutContextMenuTarget && pageState.shortcutContextMenuTarget.kind === 'add'
-        ? SHORTCUT_GROUP_MENU_VALUES.addShortcut
-        : NEWTAB_CONTEXT_MENU_OPEN_VALUE
-    );
-  }
-
   // The tiles draw their own labels; this names the section's host and
   // updates the dialog and the menus.
   function updateShortcutLanguageStrings(): void {
@@ -251,9 +222,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
       shortcutSection.setAttribute('aria-label', t('newtab_shortcuts_section_label', 'Shortcuts'));
     }
     updateShortcutDialogLanguageStrings();
-    updateShortcutContextMenuLanguageStrings();
-    updateBookmarkContextMenuLanguageStrings();
-    updateRecentContextMenuLanguageStrings();
   }
 
   function setShortcutError(message: string): void {
@@ -396,4 +364,4 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
 type ShortcutPageActions = ReturnType<typeof createShortcutPageActions>;
 
 export { createShortcutPageActions };
-export type { ShortcutPageActions, ShortcutPageActionsDeps, ShortcutPageActionsState };
+export type { ShortcutPageActions, ShortcutPageActionsDeps };

@@ -12,6 +12,7 @@ import type { BookmarkDragSession } from './bookmark-drag';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 import { BOOKMARK_CONTEXT_MENU_EDIT_VALUE, BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 // The bookmark a context menu was opened for.
 interface BookmarkContextTarget {
@@ -28,10 +29,6 @@ interface BookmarkContextTarget {
 type BookmarkContextMenuParts = ContextMenuParts;
 
 interface BookmarkContextMenuState {
-  // Made the first time a bookmark's menu opens.
-  bookmarkContextMenu: BookmarkContextMenuParts | null;
-  bookmarkContextMenuSelectController: SelectMenuController | null;
-  bookmarkContextMenuTarget: BookmarkContextTarget | null;
   bookmarkDragState: BookmarkDragSession | null;
   bookmarksView: Pick<BookmarksViewController, 'setContextMenuBookmark'> | null;
   bookmarkCascadeRuntime: Pick<BookmarkCascadeRuntime, 'setContextMenuBookmark'> | null;
@@ -61,11 +58,14 @@ interface BookmarkContextMenuDeps {
   closeShortcutContextMenu(): void;
   closeRecentContextMenu(): void;
   hideCursorTooltip(): void;
+  bookmarkContextMenuSelectController: SelectMenuController;
   pageState: BookmarkContextMenuState;
+  locale: Pick<SurfaceLocale, 'store'>;
 }
 
 function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   const {
+    bookmarkContextMenuSelectController,
     bookmarksRuntime,
     t,
     openFolderColorPicker,
@@ -79,11 +79,16 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     addBookmarkFolderToShortcuts,
     closeShortcutContextMenu,
     closeRecentContextMenu,
-    hideCursorTooltip
+    hideCursorTooltip,
+    locale
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
+  // What the open menu acts on.
+  let bookmarkContextMenuTarget: BookmarkContextTarget | null = null;
+  // The menu, made the first time it opens.
+  let bookmarkContextMenu: BookmarkContextMenuParts | null = null;
 
   const BOOKMARK_CONTEXT_MENU_REMOVE_VALUE = 'remove';
   const BOOKMARK_CONTEXT_MENU_ADD_SHORTCUT_VALUE = 'add-shortcut';
@@ -169,17 +174,17 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
 
   function isBookmarkContextMenuOpen(): boolean {
     return Boolean(
-      pageState.bookmarkContextMenu &&
-      pageState.bookmarkContextMenuSelectController &&
-      pageState.bookmarkContextMenuSelectController.isOpen(pageState.bookmarkContextMenu.control)
+      bookmarkContextMenu &&
+      bookmarkContextMenuSelectController &&
+      bookmarkContextMenuSelectController.isOpen(bookmarkContextMenu.control)
     );
   }
 
   function isBookmarkContextMenuNode(node: EventTarget | null): boolean {
-    if (!isElementNode(node) || !pageState.bookmarkContextMenu) {
+    if (!isElementNode(node) || !bookmarkContextMenu) {
       return false;
     }
-    const { control, menu } = pageState.bookmarkContextMenu;
+    const { control, menu } = bookmarkContextMenu;
     return control.contains(node) || menu.contains(node);
   }
 
@@ -197,10 +202,10 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
 
   function closeBookmarkContextMenu(): void {
     setBookmarkContextMenuMark(null);
-    if (pageState.bookmarkContextMenu && pageState.bookmarkContextMenuSelectController) {
-      pageState.bookmarkContextMenuSelectController.setOpen(pageState.bookmarkContextMenu.control, false);
+    if (bookmarkContextMenu && bookmarkContextMenuSelectController) {
+      bookmarkContextMenuSelectController.setOpen(bookmarkContextMenu.control, false);
     }
-    pageState.bookmarkContextMenuTarget = null;
+    bookmarkContextMenuTarget = null;
   }
 
   function getBookmarkContextMenuPoint(target: BookmarkContextTarget, event: MouseEvent | null | undefined): { x: number; y: number } {
@@ -221,17 +226,17 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   }
 
   function setBookmarkContextMenuPosition(target: BookmarkContextTarget, event: MouseEvent | null | undefined): void {
-    if (!pageState.bookmarkContextMenu) {
+    if (!bookmarkContextMenu) {
       return;
     }
     const point = getBookmarkContextMenuPoint(target, event);
-    pageState.bookmarkContextMenu.control.style.left = `${Math.round(point.x)}px`;
-    pageState.bookmarkContextMenu.control.style.top = `${Math.round(point.y)}px`;
+    bookmarkContextMenu.control.style.left = `${Math.round(point.x)}px`;
+    bookmarkContextMenu.control.style.top = `${Math.round(point.y)}px`;
   }
 
   function handleBookmarkContextMenuAction(actionValue: unknown): void {
     const action = String(actionValue || '');
-    const target = pageState.bookmarkContextMenuTarget;
+    const target = bookmarkContextMenuTarget;
     closeBookmarkContextMenu();
     if (!target || !action) {
       return;
@@ -271,8 +276,8 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
       ? target.closest('._x_extension_select_option_2024_unique_')
       : null;
     if (!option || option.getAttribute('aria-disabled') === 'true' ||
-        !pageState.bookmarkContextMenu ||
-        !pageState.bookmarkContextMenu.menu.contains(option)) {
+        !bookmarkContextMenu ||
+        !bookmarkContextMenu.menu.contains(option)) {
       return;
     }
     event.stopPropagation();
@@ -287,10 +292,10 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   }
 
   function createBookmarkContextMenu(): BookmarkContextMenuParts | null {
-    if (!pageState.bookmarkContextMenuSelectController) {
+    if (!bookmarkContextMenuSelectController) {
       return null;
     }
-    const created: SelectMenuInstance | null = pageState.bookmarkContextMenuSelectController.createSelect({
+    const created: SelectMenuInstance | null = bookmarkContextMenuSelectController.createSelect({
       id: '_x_extension_newtab_bookmark_context_menu_2026_unique_',
       selectId: '_x_extension_newtab_bookmark_context_menu_select_2026_unique_',
       className: 'x-nt-shortcut-context-menu x-nt-bookmark-context-menu',
@@ -340,26 +345,26 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     if (!target || !target.bookmarkId) {
       return;
     }
-    if (!pageState.bookmarkContextMenu) {
-      pageState.bookmarkContextMenu = createBookmarkContextMenu();
+    if (!bookmarkContextMenu) {
+      bookmarkContextMenu = createBookmarkContextMenu();
     }
-    if (!pageState.bookmarkContextMenu || !pageState.bookmarkContextMenuSelectController) {
+    if (!bookmarkContextMenu || !bookmarkContextMenuSelectController) {
       return;
     }
     closeShortcutContextMenu();
     closeRecentContextMenu();
     closeBookmarkContextMenu();
-    pageState.bookmarkContextMenuTarget = target;
+    bookmarkContextMenuTarget = target;
     setBookmarkContextMenuMark(target);
     setBookmarkContextMenuPosition(target, event);
-    pageState.bookmarkContextMenuSelectController.setOptions(
-      pageState.bookmarkContextMenu.control,
+    bookmarkContextMenuSelectController.setOptions(
+      bookmarkContextMenu.control,
       getBookmarkContextMenuOptions(target),
       target.isFolder
         ? BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE
         : NEWTAB_CONTEXT_MENU_OPEN_VALUE
     );
-    pageState.bookmarkContextMenuSelectController.setOpen(pageState.bookmarkContextMenu.control, true);
+    bookmarkContextMenuSelectController.setOpen(bookmarkContextMenu.control, true);
   }
 
   // Opened over a folder menu, it is the layer Escape closes first.
@@ -389,6 +394,28 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
       element
     }, event);
   }
+
+
+  function updateBookmarkContextMenuLanguageStrings(): void {
+    if (!bookmarkContextMenu || !bookmarkContextMenuSelectController) {
+      return;
+    }
+    bookmarkContextMenu.trigger.setAttribute(
+      'aria-label',
+      t('bookmarks_context_menu_label', 'Bookmark actions')
+    );
+    bookmarkContextMenuSelectController.setOptions(
+      bookmarkContextMenu.control,
+      getBookmarkContextMenuOptions(bookmarkContextMenuTarget),
+      bookmarkContextMenuTarget && bookmarkContextMenuTarget.isFolder
+        ? BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE
+        : bookmarkContextMenuTarget
+          ? NEWTAB_CONTEXT_MENU_OPEN_VALUE
+          : BOOKMARK_CONTEXT_MENU_EDIT_VALUE
+    );
+  }
+  // The menu draws its labels in the page's language.
+  locale.store.subscribe(updateBookmarkContextMenuLanguageStrings);
 
   return {
     getBookmarkContextMenuOptions,

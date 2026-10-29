@@ -25,10 +25,7 @@ import type { RecentSourcesState } from './recent/recent-sources';
 import type { SectionHeadersState } from './section-headers';
 import type { SectionLoadersState } from './section-loaders';
 import type { SectionReloadState } from './section-reload';
-import type { ShortcutContextMenuState } from './shortcuts/shortcut-context-menu';
-import type { ShortcutDockState } from './shortcuts/shortcut-dock';
 import type { ShortcutDragState } from './shortcuts/shortcut-drag';
-import type { ShortcutPageActionsState } from './shortcuts/shortcut-page-actions';
 import type { ShortcutsControllerState } from './shortcuts/shortcuts-controller';
 import type { StartupPreferencesState } from './startup-preferences';
 import type { SiteThemeResolverState } from './theme/site-theme-resolver';
@@ -67,10 +64,7 @@ type NewtabPageState =
   SectionHeadersState &
   SectionLoadersState &
   SectionReloadState &
-  ShortcutContextMenuState &
-  ShortcutDockState &
   ShortcutDragState &
-  ShortcutPageActionsState &
   ShortcutsControllerState &
   StartupPreferencesState &
   SiteThemeResolverState &
@@ -114,24 +108,15 @@ function createPageState(): NewtabPageState {
     faviconCacheRuntime: null,
     requestFaviconData: null,
     faviconDataCache: new Map(),
-    bookmarkContextMenu: null,
-    bookmarkContextMenuSelectController: null,
-    bookmarkContextMenuTarget: null,
     bookmarkCascadeRuntime: null,
     bookmarkDragState: null,
     bookmarkTopbarRuntime: null,
     recentSection: null,
     folderColorPicker: null,
-    recentContextMenu: null,
-    recentContextMenuSelectController: null,
-    recentContextMenuTarget: null,
     recentHistoryDialogController: null,
     startupRecentSourceReads: null,
     firefoxBrowserIcons: null,
     firefoxBrowserIconsReady: Promise.resolve(null),
-    shortcutContextMenu: null,
-    shortcutContextMenuSelectController: null,
-    shortcutContextMenuTarget: null,
 
     bookmarkLoadedOnce: false,
     bookmarkRenderSignature: '',

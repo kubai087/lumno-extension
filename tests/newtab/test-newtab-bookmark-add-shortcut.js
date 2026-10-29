@@ -7,14 +7,6 @@ global.LumnoNewtabDismissStack = { getDismissStack: () => ({ register() {} }) };
 const BOOKMARK_CONTEXT_MENU = require(path.join(__dirname, '..', '..', 'src', 'newtab', 'bookmarks', 'bookmark-context-menu.ts'));
 
 const shortcutUrls = new Set(['https://already.example/']);
-const pageState = {
-  bookmarkContextMenu: { control: {}, menu: { contains: () => true } },
-  bookmarkContextMenuSelectController: {
-    isOpen: () => true,
-    setOpen() {},
-    setOptions() {}
-  }
-};
 const menu = BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
   bookmarksRuntime: { getNode: () => null },
   NEWTAB_BOOKMARKS_STORE: { collectFolderBookmarkUrls: () => [] },
@@ -31,7 +23,13 @@ const menu = BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
   closeShortcutContextMenu() {},
   closeRecentContextMenu() {},
   hideCursorTooltip() {},
-  pageState
+  bookmarkContextMenuSelectController: {
+    isOpen: () => true,
+    setOpen() {},
+    setOptions() {}
+  },
+  locale: { store: { subscribe: () => () => {} } },
+  pageState: {}
 });
 
 const site = { bookmarkId: '7', title: 'Example', url: 'https://example.com/', isFolder: false };

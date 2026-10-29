@@ -229,7 +229,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const startupRecentSourceReadsAt = Date.now();
 
   const {
-    updateRecentContextMenuLanguageStrings,
     openRecentHistoryDialog,
     readRecentOpenTabs,
     readRecentTopSites,
@@ -330,6 +329,35 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     normalizeHost
   });
 
+  // The select menus the shortcut, bookmark and recent site context menus open in.
+  const shortcutContextMenuSelectController = createSelectMenuController({
+    documentObj: document,
+    windowObj: window,
+    onBeforeOpen: () => {
+      hideShortcutTooltip();
+      hideTopActionTooltip();
+    },
+    getViewportTopInset: () => getNewtabViewportTopPaddingPx()
+  });
+  const bookmarkContextMenuSelectController = createSelectMenuController({
+    documentObj: document,
+    windowObj: window,
+    onBeforeOpen: () => {
+      hideCursorTooltip();
+      hideTopActionTooltip();
+    },
+    getViewportTopInset: () => getNewtabViewportTopPaddingPx()
+  });
+  const recentContextMenuSelectController = createSelectMenuController({
+    documentObj: document,
+    windowObj: window,
+    onBeforeOpen: () => {
+      hideCursorTooltip();
+      hideTopActionTooltip();
+    },
+    getViewportTopInset: () => getNewtabViewportTopPaddingPx()
+  });
+
   const {
     hideToast,
     showToast,
@@ -343,7 +371,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const shortcutTiles: ShortcutTileElement[] = [];
 
   const {
-    updateBookmarkContextMenuLanguageStrings,
     openBookmarkFolderTabGroupConfirmation,
     openBookmarkEditor
   } = NEWTAB_BOOKMARK_ACTIONS.createBookmarkActions({
@@ -389,15 +416,12 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getShortcutGroups: (...args) => getShortcutGroups(...args),
     bookmarksRuntime,
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
-    updateBookmarkContextMenuLanguageStrings,
-    updateRecentContextMenuLanguageStrings,
     createShortcutDialogComponent: (...args) => createShortcutDialogComponent(...args),
     showToast,
     shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle: (...args) => getShortcutTitle(...args),
-    getShortcutIconDataUrl: (...args) => getShortcutIconDataUrl(...args),
-    pageState
+    getShortcutIconDataUrl: (...args) => getShortcutIconDataUrl(...args)
   });
 
   const {
@@ -406,6 +430,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeBookmarkContextMenu,
     handleBookmarkItemContextMenu
   } = NEWTAB_BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
+    locale,
+    bookmarkContextMenuSelectController,
     bookmarksRuntime,
     t,
     openFolderColorPicker: (...args) => openFolderColorPicker(...args),
@@ -513,6 +539,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const bookmarkMoveHistory = NEWTAB_BOOKMARK_MOVE_HISTORY.createBookmarkMoveHistory({ maxEntries: 30 });
 
   const {
+    getShortcutContextMenuTile,
     isShortcutContextMenuOpen,
     isShortcutContextMenuNode,
     clearShortcutContextMenuTileActive,
@@ -522,6 +549,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     openShortcutAddContextMenu,
     openShortcutGroupMenu
   } = NEWTAB_SHORTCUT_CONTEXT_MENU.createShortcutContextMenu({
+    locale,
+    shortcutContextMenuSelectController,
     shortcutSection,
     setShortcutContextMenuMark: (mark) => setShortcutContextMenuMark(mark),
     getShortcutDockIcon: (...args) => getShortcutDockIcon(...args),
@@ -546,8 +575,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     openShortcutAddDialog: (...args) => openShortcutAddDialog(...args),
     moveShortcutGroup: (...args) => moveShortcutGroup(...args),
     deleteShortcutGroup: (...args) => deleteShortcutGroup(...args),
-    confirmDeleteShortcutGroupWithSites: (...args) => confirmDeleteShortcutGroupWithSites(...args),
-    pageState
+    confirmDeleteShortcutGroupWithSites: (...args) => confirmDeleteShortcutGroupWithSites(...args)
   });
 
   const {
@@ -560,6 +588,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     syncShortcutDockFolderMenu,
     followShortcutDockMagnification
   } = NEWTAB_SHORTCUT_DOCK.createShortcutDock({
+    getShortcutContextMenuTile,
     shortcutGrid,
     settings,
     preview,
@@ -569,8 +598,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isShortcutContextMenuOpen,
     applyShortcutContextMenuDockHover,
     clearShortcutContextMenuTileActive,
-    getShortcutTileFromNode,
-    pageState
+    getShortcutTileFromNode
   });
 
   const shortcutGroupHeaders: HTMLElement[] = [];
@@ -727,6 +755,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     toggleRecentProgressTracking,
     restoreProgressVersion
   } = NEWTAB_RECENT_SITES_CONTROLLER.createRecentSitesController({
+    locale,
+    recentContextMenuSelectController,
     settings,
     t,
     showToast,
@@ -799,33 +829,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     lockManager: window.navigator && window.navigator.locks
   });
 
-  pageState.shortcutContextMenuSelectController = createSelectMenuController({
-      documentObj: document,
-      windowObj: window,
-      onBeforeOpen: () => {
-        hideShortcutTooltip();
-        hideTopActionTooltip();
-      },
-      getViewportTopInset: () => getNewtabViewportTopPaddingPx()
-    });
-  pageState.bookmarkContextMenuSelectController = createSelectMenuController({
-      documentObj: document,
-      windowObj: window,
-      onBeforeOpen: () => {
-        hideCursorTooltip();
-        hideTopActionTooltip();
-      },
-      getViewportTopInset: () => getNewtabViewportTopPaddingPx()
-    });
-  pageState.recentContextMenuSelectController = createSelectMenuController({
-      documentObj: document,
-      windowObj: window,
-      onBeforeOpen: () => {
-        hideCursorTooltip();
-        hideTopActionTooltip();
-      },
-      getViewportTopInset: () => getNewtabViewportTopPaddingPx()
-    });
 
   const {
     applyRecentCardTheme,

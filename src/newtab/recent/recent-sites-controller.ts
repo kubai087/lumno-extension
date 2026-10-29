@@ -21,11 +21,9 @@ import type { SettingsStore } from '../../platform/settings-store';
 import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
 import { NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
 import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 interface RecentSitesControllerState {
-  recentContextMenu: ContextMenuParts | null;
-  recentContextMenuSelectController: SelectMenuController | null;
-  recentContextMenuTarget: RecentContextTarget | null;
   recentSitesView: Pick<RecentSitesViewController, 'setContextMenuSite'> | null;
   // The items the grid shows, to skip renders that change nothing.
   recentRenderSignature: string;
@@ -54,7 +52,9 @@ interface RecentSitesControllerDeps {
   progressMatch: Pick<typeof ProgressMatch, 'looksLikeSeriesPage' | 'compareProgressPages' | 'getProgressSiteKey'>;
   progressHistory: Pick<typeof ProgressHistory, 'createProgressId' | 'getHistoryId' | 'normalizeHistoryMap' | 'restoreVersion'>;
   openProgressHistory?(item: RecentHistoryItem): unknown;
+  recentContextMenuSelectController: SelectMenuController;
   pageState: RecentSitesControllerState;
+  locale: Pick<SurfaceLocale, 'store'>;
 }
 
 // Whether pinning took, or the pin limit stopped it; and the pinned cards.
@@ -77,6 +77,7 @@ type CardContextMenuPayload = Parameters<NonNullable<RecentSitesViewOptions['onI
 
 function createRecentSitesController(deps: RecentSitesControllerDeps) {
   const {
+    recentContextMenuSelectController,
     settings,
     t,
     showToast,
@@ -97,11 +98,16 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     renderRecentSites,
     progressMatch,
     progressHistory,
-    openProgressHistory
+    openProgressHistory,
+    locale
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
+  // What the open menu acts on.
+  let recentContextMenuTarget: RecentContextTarget | null = null;
+  // The menu, made the first time it opens.
+  let recentContextMenu: ContextMenuParts | null = null;
 
   const MAX_HIDDEN_RECENT_SITES = 60;
 
@@ -198,17 +204,17 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
 
   function isRecentContextMenuOpen(): boolean {
     return Boolean(
-      pageState.recentContextMenu &&
-      pageState.recentContextMenuSelectController &&
-      pageState.recentContextMenuSelectController.isOpen(pageState.recentContextMenu.control)
+      recentContextMenu &&
+      recentContextMenuSelectController &&
+      recentContextMenuSelectController.isOpen(recentContextMenu.control)
     );
   }
 
   function isRecentContextMenuNode(node: EventTarget | null): boolean {
-    if (!isElementNode(node) || !pageState.recentContextMenu) {
+    if (!isElementNode(node) || !recentContextMenu) {
       return false;
     }
-    const { control, menu } = pageState.recentContextMenu;
+    const { control, menu } = recentContextMenu;
     return control.contains(node) || menu.contains(node);
   }
 
@@ -220,10 +226,10 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
 
   function closeRecentContextMenu(): void {
     setRecentContextMenuSite(null);
-    if (pageState.recentContextMenu && pageState.recentContextMenuSelectController) {
-      pageState.recentContextMenuSelectController.setOpen(pageState.recentContextMenu.control, false);
+    if (recentContextMenu && recentContextMenuSelectController) {
+      recentContextMenuSelectController.setOpen(recentContextMenu.control, false);
     }
-    pageState.recentContextMenuTarget = null;
+    recentContextMenuTarget = null;
   }
 
   function getRecentContextMenuPoint(target: RecentContextTarget, event: MouseEvent | null | undefined): { x: number; y: number } {
@@ -240,12 +246,12 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function setRecentContextMenuPosition(target: RecentContextTarget, event: MouseEvent | null | undefined): void {
-    if (!pageState.recentContextMenu) {
+    if (!recentContextMenu) {
       return;
     }
     const point = getRecentContextMenuPoint(target, event);
-    pageState.recentContextMenu.control.style.left = `${Math.round(point.x)}px`;
-    pageState.recentContextMenu.control.style.top = `${Math.round(point.y)}px`;
+    recentContextMenu.control.style.left = `${Math.round(point.x)}px`;
+    recentContextMenu.control.style.top = `${Math.round(point.y)}px`;
   }
 
   function removeRecentSiteFromContextMenu(item: RecentSite): Promise<void> {
@@ -272,7 +278,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
 
   function handleRecentContextMenuAction(actionValue: unknown): void {
     const action = String(actionValue || '');
-    const target = pageState.recentContextMenuTarget;
+    const target = recentContextMenuTarget;
     closeRecentContextMenu();
     if (!target || !target.item || !action) {
       return;
@@ -305,8 +311,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     const option = isElementNode(target)
       ? target.closest('._x_extension_select_option_2024_unique_')
       : null;
-    if (!option || !pageState.recentContextMenu ||
-        !pageState.recentContextMenu.menu.contains(option)) {
+    if (!option || !recentContextMenu ||
+        !recentContextMenu.menu.contains(option)) {
       return;
     }
     event.stopPropagation();
@@ -318,22 +324,22 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
 
   // Escape closes the menu through the page's dismiss stack.
   LumnoNewtabDismissStack.getDismissStack().register('recent-context-menu', {
-    isOpen: () => Boolean(pageState.recentContextMenuTarget || isRecentContextMenuOpen()),
+    isOpen: () => Boolean(recentContextMenuTarget || isRecentContextMenuOpen()),
     close: () => closeRecentContextMenu()
   });
 
   function handleRecentContextMenuDocumentPointerDown(event: PointerEvent): void {
-    if (!pageState.recentContextMenuTarget || isRecentContextMenuNode(event.target)) {
+    if (!recentContextMenuTarget || isRecentContextMenuNode(event.target)) {
       return;
     }
     closeRecentContextMenu();
   }
 
   function createRecentContextMenu(): ContextMenuParts | null {
-    if (!pageState.recentContextMenuSelectController) {
+    if (!recentContextMenuSelectController) {
       return null;
     }
-    const created: SelectMenuInstance | null = pageState.recentContextMenuSelectController.createSelect({
+    const created: SelectMenuInstance | null = recentContextMenuSelectController.createSelect({
       id: '_x_extension_newtab_recent_context_menu_2026_unique_',
       selectId: '_x_extension_newtab_recent_context_menu_select_2026_unique_',
       className: 'x-nt-shortcut-context-menu x-nt-recent-context-menu',
@@ -380,24 +386,24 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function openRecentContextMenu(target: RecentContextTarget, event: MouseEvent): void {
-    if (!pageState.recentContextMenu) {
-      pageState.recentContextMenu = createRecentContextMenu();
+    if (!recentContextMenu) {
+      recentContextMenu = createRecentContextMenu();
     }
-    if (!pageState.recentContextMenu || !pageState.recentContextMenuSelectController) {
+    if (!recentContextMenu || !recentContextMenuSelectController) {
       return;
     }
     closeShortcutContextMenu();
     closeBookmarkContextMenu();
     closeRecentContextMenu();
-    pageState.recentContextMenuTarget = target;
+    recentContextMenuTarget = target;
     setRecentContextMenuSite(String(target.item.url || ''));
     setRecentContextMenuPosition(target, event);
-    pageState.recentContextMenuSelectController.setOptions(
-      pageState.recentContextMenu.control,
+    recentContextMenuSelectController.setOptions(
+      recentContextMenu.control,
       getRecentContextMenuOptions(target),
       NEWTAB_CONTEXT_MENU_OPEN_VALUE
     );
-    pageState.recentContextMenuSelectController.setOpen(pageState.recentContextMenu.control, true);
+    recentContextMenuSelectController.setOpen(recentContextMenu.control, true);
   }
 
   function handleRecentCardContextMenu(payload: CardContextMenuPayload): void {
@@ -777,6 +783,26 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       return false;
     });
   }
+
+
+  function updateRecentContextMenuLanguageStrings(): void {
+    if (!recentContextMenu || !recentContextMenuSelectController) {
+      return;
+    }
+    if (recentContextMenu.trigger) {
+      recentContextMenu.trigger.setAttribute(
+        'aria-label',
+        t('recent_context_menu_label', 'Recent site actions')
+      );
+    }
+    recentContextMenuSelectController.setOptions(
+      recentContextMenu.control,
+      getRecentContextMenuOptions(recentContextMenuTarget),
+      NEWTAB_CONTEXT_MENU_OPEN_VALUE
+    );
+  }
+  // The menu draws its labels in the page's language.
+  locale.store.subscribe(updateRecentContextMenuLanguageStrings);
 
   return {
     followStoredSites,

@@ -2,7 +2,7 @@
 // once at startup and then on demand, merged into the recent list; plus the
 // change history dialog and the recent context menu's copy.
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
-import type { ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
+import type { ShowToast, Translate } from '../newtab-types';
 import type {
   RecentHistoryDialogController,
   RecentHistoryDialogOptions,
@@ -15,7 +15,6 @@ import type { RecentSite, RecentSiteOptions, RecentSiteSources } from '../../dom
 import * as RecentSitesMerge from '../../domain/recent-sites-merge';
 import type { SettingsStore } from '../../platform/settings-store';
 import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
-import { NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
 import { getBrowserInternalScheme } from '../../platform/browser-profile';
 
 // Edge's topSites lists its own promoted sites instead of the user's, so Edge
@@ -23,9 +22,6 @@ import { getBrowserInternalScheme } from '../../platform/browser-profile';
 const TOP_SITES_FOLLOW_HISTORY = getBrowserInternalScheme(navigator.userAgent) !== 'edge://';
 
 interface RecentSourcesState {
-  recentContextMenu: ContextMenuParts | null;
-  recentContextMenuSelectController: SelectMenuController | null;
-  recentContextMenuTarget: RecentContextTarget | null;
   recentHistoryDialogController: RecentHistoryDialogController | null;
   startupRecentSourceReads: StartupRecentSourceReads | null;
   // Firefox's own cached icons, which recent cards wait for there.
@@ -52,7 +48,6 @@ function createRecentSources(deps: RecentSourcesDeps) {
   const {
     settings,
     t,
-    getRecentContextMenuOptions,
     restoreProgressVersion,
     showToast,
     startupRecentSourceReadsAt,
@@ -69,23 +64,6 @@ function createRecentSources(deps: RecentSourcesDeps) {
   // one long after load, read afresh.
   const STARTUP_RECENT_SOURCE_MAX_AGE_MS = 3000;
   let recentHistoryDialogLoadPromise: Promise<RecentHistoryDialogController> | null = null;
-
-  function updateRecentContextMenuLanguageStrings(): void {
-    if (!pageState.recentContextMenu || !pageState.recentContextMenuSelectController) {
-      return;
-    }
-    if (pageState.recentContextMenu.trigger) {
-      pageState.recentContextMenu.trigger.setAttribute(
-        'aria-label',
-        t('recent_context_menu_label', 'Recent site actions')
-      );
-    }
-    pageState.recentContextMenuSelectController.setOptions(
-      pageState.recentContextMenu.control,
-      getRecentContextMenuOptions(pageState.recentContextMenuTarget),
-      NEWTAB_CONTEXT_MENU_OPEN_VALUE
-    );
-  }
 
   // The change history dialog is loaded the first time someone opens it.
   function openRecentHistoryDialog(item: RecentHistoryItem): Promise<void> {
@@ -248,7 +226,6 @@ function createRecentSources(deps: RecentSourcesDeps) {
   }
 
   return {
-    updateRecentContextMenuLanguageStrings,
     openRecentHistoryDialog,
     readRecentOpenTabs,
     readRecentTopSites,
