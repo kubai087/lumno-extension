@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
-import { createBookmarkCascadeViewApi } from '../react/bookmark-cascade-view';
 import {
   buildCascadeSafeTriangle,
   getTranslateNeutralRect,
@@ -185,7 +184,6 @@ function createFixture(options: Partial<BookmarkCascadeMenuOptions> & { folders?
   setRect(anchor, box(20, 20, 120, 40));
   document.body.appendChild(anchor);
   const runtime = createBookmarkCascadeMenuRuntime({
-    view: createBookmarkCascadeViewApi(),
     documentObj: document,
     windowObj: {
       innerWidth: 1024,

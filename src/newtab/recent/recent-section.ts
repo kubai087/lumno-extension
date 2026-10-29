@@ -3,7 +3,7 @@
 import type { BindCursorTooltip, FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PageStructureRuntime } from '../react/page-structure';
 import type { RecentSitesViewController, RecentSitesViewOptions } from '../react/recent-sites';
-import { getRecentSitesViewApi } from '../react/recent-sites';
+import { createRecentSitesView } from '../react/recent-sites';
 import type { SettingsStore } from '../../platform/settings-store';
 import { recentMode } from '../../domain/settings/recent-sites';
 import type { RecentSitesController } from './recent-sites-controller';
@@ -107,10 +107,6 @@ function createRecentSection(deps: RecentSectionDeps): void {
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  const NEWTAB_RECENT_VIEW = getRecentSitesViewApi();
-  if (!NEWTAB_RECENT_VIEW) {
-    throw new Error('Recent sites view unavailable');
-  }
   const section = pageStructureRuntime.recent.section;
 
   setContentSectionVisible(section, false);
@@ -152,7 +148,7 @@ function createRecentSection(deps: RecentSectionDeps): void {
   renderRecentHeader();
   pageState.recentGrid = pageStructureRuntime.recent.grid;
   applyRecentGridColumns();
-  pageState.recentSitesView = NEWTAB_RECENT_VIEW.createRecentSitesView({
+  pageState.recentSitesView = createRecentSitesView({
     documentObj: document,
     windowObj: window,
     grid: pageState.recentGrid,

@@ -2,7 +2,6 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { MessageRuntime } from '../../platform/messaging';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
 export const PAGE_NOTICE_ID =
@@ -209,14 +208,3 @@ export function renderPageNotice(
   documentObj.body.insertBefore(element, referenceNode);
   return controller;
 }
-
-export function createPageNoticeApi() {
-  return Object.freeze({
-    NOTICE_ID: PAGE_NOTICE_ID,
-    implementation: 'react',
-    renderPageNotice
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getPageNoticeApi = lazyInstance(createPageNoticeApi);

@@ -21,7 +21,7 @@ interface OpenOptions {
   previewImageUrl?: string;
   labels?: { dialog?: string; picker?: string; defaultColor?: string };
 }
-interface PickerOptions {
+export interface PickerOptions {
   documentObj?: Document;
   t?: (key: string, fallback: string) => string;
   initFolderIcon?: (element: HTMLElement) => void;

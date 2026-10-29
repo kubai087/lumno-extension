@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createQuoteLineViewApi, type QuoteLineModel, type QuoteLineView } from './quote-line';
+import { createQuoteLineView, type QuoteLineModel, type QuoteLineView } from './quote-line';
 import { getTag } from '../../../tests/react/dom';
 
 let views: QuoteLineView[] = [];
@@ -31,7 +31,7 @@ function mount(model: QuoteLineModel = MODEL) {
     onHideTooltip: vi.fn(),
     onShuffle: vi.fn()
   };
-  const view = createQuoteLineViewApi().createQuoteLineView(host, handlers);
+  const view = createQuoteLineView(host, handlers);
   views.push(view);
   act(() => view.render(model));
   return { host, handlers, view };

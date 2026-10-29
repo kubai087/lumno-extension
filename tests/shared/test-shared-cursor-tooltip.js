@@ -69,7 +69,7 @@ assert.ok(fs.existsSync(cursorTooltipCssPath), 'cursor-following tooltip styling
 
 // The module under test draws through this stand-in for its React view.
 global.__lumnoTestModuleStubs = Object.assign(global.__lumnoTestModuleStubs || {}, {
-  'src/shared/react/tooltip-view.tsx': { getTooltipViewApi: () => tooltipView }
+  'src/shared/react/tooltip-view.tsx': tooltipView
 });
 require(tooltipJsPath);
 const cursorTooltip = require('../helpers/cursor-tooltip.ts');

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBookmarkHeaderModel } from './bookmark-header.fixtures';
 import {
   createPageStructure,
-  createPageStructureApi,
   type PageStructureRuntime
 } from './page-structure';
 import { getElement, getTag, getTags } from '../../../tests/react/dom';
@@ -33,7 +32,6 @@ describe('New Tab React page structure', () => {
   it('creates stable hosts and refs for the page adapters', () => {
     const page = mount();
 
-    expect(createPageStructureApi().implementation).toBe('react');
     expect(page.shortcut.section.dataset.reactIsland).toBe('newtab-shortcut-section');
     expect(page.shortcut.grid.className).toBe('x-nt-shortcuts-grid');
     expect(page.bookmark.titleWrap.parentElement?.className).toBe('x-nt-bookmarks-header');

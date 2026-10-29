@@ -3,7 +3,7 @@
 import * as LumnoNewtabLayoutMotion from '../layout-motion';
 import type { LayoutController } from '../layout';
 import type { LayoutMotion } from '../layout-motion';
-import { getDockApi } from '../react/dock';
+import { createDock } from '../react/dock';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX } from '../newtab-config';
 
 // A part of the page that may show an element of its own.
@@ -51,10 +51,8 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  // Set by the New Tab's React islands entry, which loads first.
-  const NEWTAB_DOCK = getDockApi();
   const recentSection = pageState.recentSection;
-  if (!NEWTAB_DOCK || !bookmarkSection || !recentSection) {
+  if (!bookmarkSection || !recentSection) {
     throw new Error('The New Tab dock, bookmark or recent section is unavailable.');
   }
   const SEARCH_LAYOUT_MIN_TOP_PX = 28;
@@ -71,7 +69,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const SEARCH_LAYOUT_SHORT_VIEWPORT_MAX_HEIGHT_PX = 680;
   const SEARCH_LAYOUT_SHORT_MIN_TOP_PX = 44;
 
-  const bottomDockRuntime = NEWTAB_DOCK.createBottomDockRuntime({
+  const bottomDockRuntime = createDock({
     documentObj: document,
     windowObj: window,
     root,

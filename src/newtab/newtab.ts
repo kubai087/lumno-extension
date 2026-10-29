@@ -120,10 +120,9 @@ import type { RecentCardElement } from './react/recent-sites';
 import type { ShortcutTileElement } from './react/shortcuts';
 import { readBootValue } from '../platform/boot-handoff';
 import { createToastController } from '../shared/react/toast';
-import { getSelectMenuApi } from './react/select-menu';
-import { getTopContentApi } from './react/wordmark';
-import { getPageStructureApi } from './react/page-structure';
-import { getFolderColorPickerApi } from './react/folder-color-picker-lazy';
+import { createSelectMenuController } from './react/select-menu';
+import { createTopContentController } from './react/wordmark';
+import { createPageStructure } from './react/page-structure';
 import { createSearchInput } from '../shared/react/search-input';
 import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import { newtabShortcutFaviconCache, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
@@ -285,9 +284,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     pageState
   });
 
-  const NEWTAB_SELECT_MENU = getSelectMenuApi();
-  const NEWTAB_TOP_CONTENT = getTopContentApi();
-  const NEWTAB_PAGE_STRUCTURE = getPageStructureApi();
   const SITE_DISPLAY_NAME_OPTIONS = createSiteDisplayNameOptions(t);
   function initFolderPathMorph(icon: Element | null | undefined): void {
     NEWTAB_BOOKMARK_FOLDER_ICON.initFolderPathMorph(icon);
@@ -312,7 +308,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     pageState
   });
   const shortcutTiles: ShortcutTileElement[] = [];
-  const folderColorApi = getFolderColorPickerApi();
 
   const {
     updateBookmarkContextMenuLanguageStrings,
@@ -348,7 +343,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     openShortcutEditor,
     isShortcutFolderAnchor
   } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
-    folderColorApi,
     t,
     bindShortcutDialogTooltip: (...args) => bindShortcutDialogTooltip(...args),
     hideShortcutDialogTooltip: (...args) => hideShortcutDialogTooltip(...args),
@@ -735,7 +729,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     loadFolderColors,
     openFolderColorPicker
   } = NEWTAB_FOLDER_COLORS.createFolderColors({
-    folderColorApi,
     settings,
     bookmarksRuntime,
     closeBookmarkCascadeMenu,
@@ -764,7 +757,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     lockManager: window.navigator && window.navigator.locks
   });
 
-  pageState.shortcutContextMenuSelectController = NEWTAB_SELECT_MENU.createController({
+  pageState.shortcutContextMenuSelectController = createSelectMenuController({
       documentObj: document,
       windowObj: window,
       onBeforeOpen: () => {
@@ -773,7 +766,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
       },
       getViewportTopInset: () => getNewtabViewportTopPaddingPx()
     });
-  pageState.bookmarkContextMenuSelectController = NEWTAB_SELECT_MENU.createController({
+  pageState.bookmarkContextMenuSelectController = createSelectMenuController({
       documentObj: document,
       windowObj: window,
       onBeforeOpen: () => {
@@ -782,7 +775,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
       },
       getViewportTopInset: () => getNewtabViewportTopPaddingPx()
     });
-  pageState.recentContextMenuSelectController = NEWTAB_SELECT_MENU.createController({
+  pageState.recentContextMenuSelectController = createSelectMenuController({
       documentObj: document,
       windowObj: window,
       onBeforeOpen: () => {
@@ -1205,7 +1198,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     pageState
   });
 
-  const pageStructureRuntime = NEWTAB_PAGE_STRUCTURE.createPageStructure({
+  const pageStructureRuntime = createPageStructure({
     documentObj: document
   });
   pageState.suggestionsContainer = pageStructureRuntime.suggestions.container;
@@ -2163,7 +2156,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   }
   const shouldAnimateWordmarkEntry = !shouldSkipNewtabEntryMotion();
   pageState.topContentContainer = document.createElement('div');
-  pageState.topContentController = NEWTAB_TOP_CONTENT.createTopContentController(
+  pageState.topContentController = createTopContentController(
     pageState.topContentContainer,
     {
       onActivate(disposition) {

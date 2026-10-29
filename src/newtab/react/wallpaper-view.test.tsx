@@ -7,7 +7,6 @@ import {
   createSectionSettingsModel
 } from './wallpaper-view.fixtures';
 import {
-  createWallpaperViewApi,
   createWallpaperViewController,
   type WallpaperPanelActions,
   type WallpaperPanelModel,
@@ -190,7 +189,6 @@ describe('New Tab React wallpaper view', () => {
     act(() => view.renderQuoteSettings(createQuoteSettingsModel(quoteActions, (model) => {
       model.quote.positionSelect.onChange = onQuotePositionChange;
     })));
-    expect(createWallpaperViewApi().implementation).toBe('react');
     expect(view.control.dataset.reactIsland).toBe('newtab-wallpaper');
     expect(view.control.dataset.panelOpen).toBe('false');
     expect(refs().builtInGrid).toBeTruthy();

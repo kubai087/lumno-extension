@@ -2,7 +2,6 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createBookmarksView,
-  createBookmarksViewApi,
   getBookmarkCacheKey,
   getBookmarksSignature,
   type BookmarkCardElement,
@@ -128,7 +127,6 @@ describe('Bookmarks React island', () => {
     const view = createBookmarksView(options);
     views.push(view);
 
-    expect(createBookmarksViewApi().implementation).toBe('react');
   });
 
   it('leaves a card alone when the grid renders again with the same bookmark', () => {

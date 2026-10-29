@@ -32,7 +32,6 @@ const ICON_PATHS: Readonly<Record<LinkPreviewIconName, string>> = {
   back: 'M7.828 11H20v2H7.828l5.364 5.364-1.414 1.414L4 12l7.778-7.778 1.414 1.414z'
 };
 
-
 export interface LinkPreviewViewModel {
   state: 'prewarm' | 'open';
   // Null until the opening or closing motion first sets it.
@@ -233,7 +232,7 @@ export interface LinkPreviewViewController extends ReactRootController<LinkPrevi
 // Draws the preview into its shadow root and hands back the elements it drew.
 // Its styles come from the content script, so the overlay bundle does not
 // carry them for every overlay.
-function createLinkPreviewView(
+export function createLinkPreviewView(
   shadowRoot: ShadowRoot,
   handlers: LinkPreviewViewHandlers,
   model: LinkPreviewViewModel,
@@ -288,12 +287,5 @@ function createLinkPreviewView(
     render: view.render,
     destroy: view.destroy,
     elements: { root, page, shot, veil, scrim, windowElement, panel, controls, frame, toastElement, toastStylesheet }
-  });
-}
-
-export function createLinkPreviewViewApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createLinkPreviewView
   });
 }

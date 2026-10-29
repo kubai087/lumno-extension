@@ -14,7 +14,7 @@ import type { GraphicsNoticeController } from '../shared/graphics-acceleration-n
 import type { FeatureHintController } from '../shared/ui/feature-hint-catalog';
 import type { UpdateNoticeController } from '../shared/update-notice';
 import type { Translate } from './newtab-types';
-import { getPageNoticeApi } from './react/page-notice';
+import { renderPageNotice } from './react/page-notice';
 import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
 import type { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
@@ -77,7 +77,6 @@ function createPageNotices(deps: PageNoticesDeps) {
   const searchInput = inputParts.input;
   const searchInputContainer = inputParts.container;
 
-  const NEWTAB_PAGE_NOTICE = getPageNoticeApi();
 
   function clearPageNoticeQueryParam(): void {
     try {
@@ -116,10 +115,7 @@ function createPageNotices(deps: PageNoticesDeps) {
   }
 
   function showFileAccessNotice(detailsUrl: string): void {
-    if (!NEWTAB_PAGE_NOTICE) {
-      return;
-    }
-    NEWTAB_PAGE_NOTICE.renderPageNotice({
+    renderPageNotice({
       params: pageSearchParams,
       chromeApi: chrome,
       document,

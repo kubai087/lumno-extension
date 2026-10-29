@@ -9,7 +9,6 @@ import type {
   LayoutControllerOptions
 } from '../layout';
 import { createLayoutController } from '../layout';
-import { lazyInstance } from '../../shared/lazy-instance';
 
 export const DOCK_IDS = Object.freeze({
   bottomDock: '_x_extension_newtab_bottom_dock_2024_unique_',
@@ -86,7 +85,7 @@ export interface DockRuntime {
   updateLayout(options?: BottomDockLayoutOptions): void;
 }
 
-export function createBottomDockRuntime(
+export function createDock(
   config: BottomDockRuntimeConfig
 ): DockRuntime {
   const documentObj: Document = config.documentObj || document;
@@ -160,15 +159,3 @@ export function createBottomDockRuntime(
   };
   return runtime;
 }
-
-export function createDockApi() {
-  return Object.freeze({
-    DEFAULT_LAYOUT_CONSTANTS: DEFAULT_DOCK_LAYOUT_CONSTANTS,
-    IDS: DOCK_IDS,
-    implementation: 'react',
-    createBottomDockRuntime
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getDockApi = lazyInstance(createDockApi);

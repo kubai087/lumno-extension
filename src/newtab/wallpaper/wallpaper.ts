@@ -7,7 +7,6 @@ import type { ToastTask } from '../../shared/ui/toast-screen';
 import type { FeatureHintChromeApi } from '../../shared/ui/feature-hint-catalog';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { GlassTheme, ThemeScope } from '../react/wallpaper-panel/panel-model';
-import type { createWallpaperViewApi } from '../react/wallpaper-view';
 import type { QuoteRuntime } from '../top-content/quotes';
 import type { AdaptiveToneTarget, ToneScheduleOptions } from './wallpaper-adaptive-tone';
 import type { WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from './wallpaper-effects';
@@ -39,7 +38,7 @@ import * as WALLPAPER_EFFECTS from './wallpaper-effects';
 import * as WALLPAPER_LOCAL_STORE from '../../shared/wallpaper-local-store';
 import * as WALLPAPER_CACHES from '../../shared/wallpaper-caches';
 import { readBootValue } from '../../platform/boot-handoff';
-import { getWallpaperViewApi } from '../react/wallpaper-view';
+import { createWallpaperViewController } from '../react/wallpaper-view';
 import { newtabFavicon, newtabWallpaperEffect, newtabWallpaperOverlay } from '../../domain/settings/newtab-wallpaper';
 import { bingDailyCache } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
@@ -125,7 +124,6 @@ interface WallpaperChromeApi {
   storage?: FeatureHintChromeApi['storage'];
 }
 
-type WallpaperViewApi = ReturnType<typeof createWallpaperViewApi>;
 
 // What the page hands the runtime: its storage and the settings the panel
 // shows, read and written through the page.
@@ -137,7 +135,6 @@ interface WallpaperRuntimeOptions {
   settings: SettingsStore;
   preview: SettingPreview;
   localWallpaperStorageArea?: StorageArea | null;
-  view?: WallpaperViewApi | null;
   t?: Translate;
   formatMessage?: FormatMessage;
   getThemeMode?: () => string;
@@ -196,7 +193,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   const chrome: WallpaperChromeApi = options.chromeObj || globalThis.chrome || {};
   const extensionRoutes = options.extensionRoutes || LumnoExtensionRoutes;
   const localWallpaperStorageArea = options.localWallpaperStorageArea || null;
-  const wallpaperView = options.view || getWallpaperViewApi() || null;
   const t: Translate = typeof options.t === 'function'
     ? options.t
     : function(_key, fallback) { return fallback || ''; };
@@ -1238,12 +1234,12 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   function createWallpaperControls(): void {
     wallpaperState.wallpaperPanelActions = createWallpaperPanelActions();
     const panelState = buildWallpaperPanelState();
-    if (!panelState || !wallpaperView) {
+    if (!panelState) {
       return;
     }
     wallpaperState.wallpaperPanelState = panelState;
     wallpaperState.wallpaperPanelLayoutKey = getWallpaperPanelLayoutKey(panelState);
-    const controller = wallpaperView.createController({
+    const controller = createWallpaperViewController({
       documentObj,
       model: createWallpaperPanelModel(),
       state: panelState

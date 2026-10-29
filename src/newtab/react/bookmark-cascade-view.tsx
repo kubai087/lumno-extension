@@ -13,7 +13,6 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { RemixIcon } from '../../shared/react/remix-icon';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { FolderIcon } from './folder-icon';
 
 // The menu levels size to their content within these bounds.
@@ -292,13 +291,3 @@ export function createCascadeMenu(documentObj: Document, handlers: CascadeMenuHa
     }
   };
 }
-
-export function createBookmarkCascadeViewApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createMenu: createCascadeMenu
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getBookmarkCascadeViewApi = lazyInstance(createBookmarkCascadeViewApi);

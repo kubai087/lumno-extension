@@ -1,6 +1,17 @@
 const { createMemorySettings } = require('../helpers/memory-settings');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
+
+// Stands in for the React line view: keeps the last model and handlers.
+let line = null;
+globalThis.__lumnoTestModuleStubs = Object.assign(globalThis.__lumnoTestModuleStubs || {}, {
+  'src/newtab/react/quote-line.tsx': {
+    createQuoteLineView(_host, handlers) {
+      line = { model: null, handlers };
+      return { render(model) { line.model = model; }, getTextElement: () => null, destroy() {} };
+    }
+  }
+});
 const custom = require('../../src/domain/custom-quotes.ts');
 const settings = require('../../src/domain/settings/index.ts');
 require('../../src/newtab/remote-content.ts');
@@ -41,14 +52,9 @@ async function main() {
   });
   const local = memory.data.local;
   let networkCalls = 0;
-  // Stand in for the React line view and the appearance panel: each keeps the last model.
-  let line = null;
-  const lineView = { createQuoteLineView(_host, handlers) {
-    line = { model: null, handlers };
-    return { render(model) { line.model = model; }, getTextElement: () => null, destroy() {} };
-  } };
+  // Stands in for the appearance panel: keeps the last model.
   let panelModel = null;
-  const makeRuntime = () => quotesApi.createRuntime({ documentObj: document, windowObj: dom.window, lineView,
+  const makeRuntime = () => quotesApi.createRuntime({ documentObj: document, windowObj: dom.window,
     t: (key, fallback) => locale[key]?.message || fallback, getLocale: () => 'en',
     getSearchRoot: () => document.querySelector('#search'), getShortcutSection: () => document.querySelector('#shortcuts'),
     settings: memory.store,

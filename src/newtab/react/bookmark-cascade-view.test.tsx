@@ -1,7 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  createBookmarkCascadeViewApi,
   createCascadeMenu,
   type CascadeMenuHandlers,
   type CascadeMenuView,
@@ -85,7 +84,6 @@ describe('New Tab React bookmark cascade view', () => {
     const handlers = createHandlers();
     const menu = mount(handlers);
 
-    expect(createBookmarkCascadeViewApi().implementation).toBe('react');
     expect(menu.element.dataset.reactIsland).toBe('newtab-bookmark-cascade');
     expect(menu.element.getAttribute('role')).toBe('menu');
     const level = getElement(menu.element, '.x-nt-bookmark-cascade-level');

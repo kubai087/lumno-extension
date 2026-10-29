@@ -8,7 +8,6 @@ import type { WallpaperRecordInput } from '../../../shared/wallpaper-records';
 import type { WallpaperImageCache } from '../../../shared/wallpaper-caches';
 import * as LumnoNewtabDismissStack from '../../dismiss-stack';
 import type { FormatMessage, ShowToast, Translate } from '../../newtab-types';
-import type { createSelectMenuController } from '../../react/select-menu';
 import type { RemoteContentClient } from '../../remote-content';
 import type { RemoteWallpaper } from '../../remote-content-types';
 import type { WallpaperSelection } from './wallpaper-selection';
@@ -23,7 +22,7 @@ import type {
   WallpaperState
 } from './wallpaper-runtime-types';
 import { readBootValue } from '../../../platform/boot-handoff';
-import { getSelectMenuApi } from '../../react/select-menu';
+import { createSelectMenuController } from '../../react/select-menu';
 import { newtabLinkWallpapers } from '../../../domain/settings/newtab-wallpaper';
 import * as REMOTE_CONTENT from '../../remote-content';
 import { NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE, NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_MODES } from '../wallpaper-options';
@@ -653,11 +652,7 @@ function createCustomWallpapers(deps: CustomWallpapersDeps) {
   }
 
   function createOnlineWallpaperMenu(): OnlineWallpaperMenu | null {
-    const selectMenuApi = getSelectMenuApi();
-    if (!selectMenuApi || typeof selectMenuApi.createController !== 'function') {
-      return null;
-    }
-    const controller = selectMenuApi.createController({
+    const controller = createSelectMenuController({
       documentObj: document,
       windowObj,
       onBeforeOpen: () => hideTopActionTooltip()

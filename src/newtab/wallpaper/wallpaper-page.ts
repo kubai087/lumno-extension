@@ -13,7 +13,6 @@ import * as NEWTAB_WALLPAPER from './wallpaper';
 import type { WallpaperRuntime } from './wallpaper';
 import type { SectionPanelSettings } from './runtime/panel-actions';
 import { readBootValue } from '../../platform/boot-handoff';
-import { getWallpaperViewApi } from '../react/wallpaper-view';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SettingPreview } from '../setting-preview';
 import { getFixedTimeInk, newtabTimeInk, newtabTopContentMode } from '../../domain/settings/newtab-time';
@@ -130,7 +129,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  const NEWTAB_WALLPAPER_VIEW = getWallpaperViewApi();
 
   function createWallpaperAdaptiveToneTargets(): AdaptiveToneTarget[] {
     const bookmarkPager = pageState.bookmarkPagerPrevButton && pageState.bookmarkPagerPrevButton.parentElement
@@ -454,8 +452,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     setGlassStyle: (value) => void settings.set(newtabGlassStyle, newtabGlassStyle.parse(value)),
     getGlassTheme: () => settings.get(newtabGlassTheme),
     setGlassTheme: (value) => void settings.set(newtabGlassTheme, newtabGlassTheme.parse(value)),
-    getAdaptiveToneTargets: createWallpaperAdaptiveToneTargets,
-    view: NEWTAB_WALLPAPER_VIEW
+    getAdaptiveToneTargets: createWallpaperAdaptiveToneTargets
   });
 
   function updateWallpaperLanguageStrings(): void {

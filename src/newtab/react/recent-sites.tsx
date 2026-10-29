@@ -16,7 +16,6 @@ import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RecentSite } from '../../domain/recent-sites-store';
 
@@ -1136,16 +1135,3 @@ export function createRecentSitesView(
     }
   };
 }
-
-export function createRecentSitesViewApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createRecentSitesView(options?: RecentSitesViewOptions) {
-      return createRecentSitesView(options);
-    },
-    getRecentSitesSignature
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getRecentSitesViewApi = lazyInstance(createRecentSitesViewApi);

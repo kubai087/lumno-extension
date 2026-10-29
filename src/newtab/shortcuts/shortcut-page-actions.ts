@@ -8,7 +8,7 @@ import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import type { FolderColorPicker } from '../bookmarks/folder-colors';
 import type { BindTooltip, ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
-import type { createFolderColorPickerApi } from '../react/folder-color-picker-lazy';
+import { createFolderColorPicker } from '../react/folder-color-picker-lazy';
 import type {
   IconPlateColorRequest,
   ShortcutDialogCloseOptions,
@@ -38,7 +38,6 @@ interface ShortcutPageActionsState {
 }
 
 interface ShortcutPageActionsDeps {
-  folderColorApi: ReturnType<typeof createFolderColorPickerApi> | undefined;
   t: Translate;
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
@@ -61,7 +60,6 @@ interface ShortcutPageActionsDeps {
 
 function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   const {
-    folderColorApi,
     t,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
@@ -91,11 +89,8 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   // result. Resolves with a color, null to follow the icon, or undefined.
   async function pickShortcutIconPlateColor(request: IconPlateColorRequest): Promise<string | null | undefined> {
     if (!pageState.shortcutPlateColorPicker) {
-      if (!folderColorApi) {
-        return undefined;
-      }
       try {
-        pageState.shortcutPlateColorPicker = await folderColorApi.createFolderColorPicker({
+        pageState.shortcutPlateColorPicker = await createFolderColorPicker({
           documentObj: document, t,
           bindTooltip: bindShortcutDialogTooltip,
           hideTooltip: hideShortcutDialogTooltip,

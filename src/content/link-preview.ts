@@ -10,7 +10,7 @@
 import { toPreviewFrameUrl } from '../domain/link-preview-frame-url';
 import * as TOAST from '../shared/ui/toast';
 import { createToastStyleGate } from '../shared/ui/toast-style-gate';
-import { createLinkPreviewViewApi } from '../shared/react/link-preview-view';
+import { createLinkPreviewView } from '../shared/react/link-preview-view';
 import { readStartCommand } from '../domain/injected-commands';
 import type { LinkPreviewElements, LinkPreviewViewModel } from '../shared/react/link-preview-view';
 import { isNavigateEvent, readPageNavigation } from '../platform/page-navigation';
@@ -21,15 +21,6 @@ import { STYLES } from './link-preview-styles';
 import { getMessage, isRecord, listenTarget, listenWindow, readOrigin, send, surface, teardown, update } from './link-preview-surface';
 import type { LinkPreview, ShowRequest } from './link-preview-surface';
 
-let linkPreviewViewApi: ReturnType<typeof createLinkPreviewViewApi> | null = null;
-
-// The React view the surface draws through, made on first use.
-function getLinkPreviewViewApi(): ReturnType<typeof createLinkPreviewViewApi> {
-  if (!linkPreviewViewApi) {
-    linkPreviewViewApi = createLinkPreviewViewApi();
-  }
-  return linkPreviewViewApi;
-}
 
 const HOST_ID = '_x_extension_link_preview_host_2026_unique_';
 // A prewarmed window the click never claimed (the page kept the click).
@@ -64,7 +55,6 @@ function applyHostStyle(host: HTMLElement): void {
 }
 
 function build(token: string, url: string): LinkPreview | null {
-  const viewApi = getLinkPreviewViewApi();
   const host = document.createElement('div');
   host.id = HOST_ID;
   host.setAttribute('translate', 'no');
@@ -102,7 +92,7 @@ function build(token: string, url: string): LinkPreview | null {
     }
   };
   let preview: LinkPreview | null = null;
-  const view = viewApi.createLinkPreviewView(shadow, {
+  const view = createLinkPreviewView(shadow, {
     onClose: () => close(preview),
     onOpenInTab: () => { if (preview) moveToTab(preview); },
     onCopyLink: () => { if (preview) copyLink(preview); },

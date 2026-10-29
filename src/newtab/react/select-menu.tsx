@@ -3,7 +3,6 @@ import { createRoot, type Root } from 'react-dom/client';
 import { SelectMenu, type SelectMenuConfig, type SelectMenuControls } from '../../shared/react/select-menu';
 import { toCssLength, type SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import { queryHtmlElement, queryHtmlElements, queryHtmlTag } from '../../shared/dom-lookup';
-import { lazyInstance } from '../../shared/lazy-instance';
 
 export interface SelectMenuControllerOptions {
   documentObj?: Document;
@@ -174,13 +173,3 @@ export function createSelectMenuController(
     }
   });
 }
-
-export function createSelectMenuApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createController: createSelectMenuController
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getSelectMenuApi = lazyInstance(createSelectMenuApi);

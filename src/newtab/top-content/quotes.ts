@@ -9,13 +9,13 @@ import type { ShowToast, Translate } from '../newtab-types';
 import type { WallpaperViewController } from '../react/wallpaper-view';
 import type { QuoteSettingsActions, QuoteSettingsModel } from '../react/wallpaper-panel/panel-model';
 import type { SliderChange } from '../react/wallpaper-panel/panel-primitives';
-import type { QuoteLineHandlers, QuoteLineModel, QuoteLineView } from '../react/quote-line';
+import type { QuoteLineModel } from '../react/quote-line';
 import * as LumnoNewtabRemoteContent from '../remote-content';
 import type { RemoteContentClient } from '../remote-content';
 import type { DailyQuote } from '../remote-content-types';
 import * as LumnoCustomQuotes from '../../domain/custom-quotes';
 import type { QuoteFile, QuoteLibrary } from '../../domain/custom-quotes';
-import { getQuoteLineViewApi } from '../react/quote-line';
+import { createQuoteLineView } from '../react/quote-line';
 import { quoteCache } from '../../domain/settings/newtab-quote';
 import * as NewtabQuoteSettings from '../../domain/settings/newtab-quote';
 
@@ -25,11 +25,6 @@ type QuoteTooltip = Pick<TooltipController, 'show' | 'hide'>;
 
 // The panel view, which draws the quote section.
 type QuoteSettingsView = Pick<WallpaperViewController, 'renderQuoteSettings'>;
-
-// Draws the quote's line into its host element; the New Tab's React islands provide it.
-interface QuoteLineViewApi {
-  createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers): QuoteLineView;
-}
 
 interface QuoteRuntimeOptions {
   documentObj?: Document;
@@ -46,8 +41,6 @@ interface QuoteRuntimeOptions {
   getTooltipController?: () => QuoteTooltip | null | undefined;
   onLayout?: () => void;
   client?: Pick<RemoteContentClient, 'getQuote'>;
-  // The line's view; the New Tab's React islands one by default.
-  lineView?: QuoteLineViewApi | null;
 }
 
 function createRuntime(options: QuoteRuntimeOptions) {
@@ -260,13 +253,12 @@ function createRuntime(options: QuoteRuntimeOptions) {
     const tooltip = getTooltip();
     if (tooltip) tooltip.hide();
   };
-  const lineViewApi: QuoteLineViewApi | null = config.lineView || getQuoteLineViewApi() || null;
-  const lineView = lineViewApi ? lineViewApi.createQuoteLineView(element, {
+  const lineView = createQuoteLineView(element, {
     onShowOrigin: (target) => showTooltip(target, origin),
     onShowShuffleLabel: (target) => showTooltip(target, shuffleLabel()),
     onHideTooltip: hideTooltip,
     onShuffle: () => { void shuffle(); }
-  }) : null;
+  });
 
   function getLineModel(current: DailyQuote): QuoteLineModel {
     const withoutTooltip = !config.getTooltipController;
@@ -285,7 +277,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
   }
 
   function renderLine(): void {
-    if (quote && lineView && !disposed) lineView.render(getLineModel(quote));
+    if (quote && !disposed) lineView.render(getLineModel(quote));
   }
 
   function updateText(): void {
@@ -497,7 +489,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
     }).then(() => undefined);
   }
   return Object.freeze({ element, mount, bindSettings, updateLanguage, getProviderLabel,
-    getTextElement: () => (lineView ? lineView.getTextElement() : null),
+    getTextElement: () => lineView.getTextElement(),
     importQuoteFile,
     importMarkdown: importQuoteFile,
     destroy() {
@@ -508,7 +500,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
       unsubscribes.forEach((stop) => stop());
       document.removeEventListener('visibilitychange', onVisibility);
       hideTooltip();
-      if (lineView) lineView.destroy();
+      lineView.destroy();
       element.remove();
     } });
 }

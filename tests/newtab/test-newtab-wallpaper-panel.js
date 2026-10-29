@@ -23,8 +23,7 @@ const REAL_WALLPAPER_DEPENDENCIES = {
   LumnoNewtabWallpaperAdaptiveTone: LumnoNewtabWallpaperAdaptiveTone,
   LumnoNewtabWallpaperEffects: LumnoNewtabWallpaperEffects,
   LumnoNewtabWallpaperLocalStore: LumnoNewtabWallpaperLocalStore,
-  // No React views unless a test hands one in.
-  LumnoNewtabWallpaperViewModule: { getWallpaperViewApi: () => null },
+  LumnoNewtabWallpaperViewModule: { createWallpaperViewController: createRecordingWallpaperViewController },
   LumnoFeatureHintViewModule: { createFeatureHintView: () => null }
 };
 
@@ -1286,9 +1285,6 @@ function createWallpaperSandbox(options) {
       REAL_WALLPAPER_DEPENDENCIES.LumnoNewtabWallpaperAdaptiveTone,
       options && options.adaptiveToneApi
     ),
-    LumnoNewtabWallpaperViewModule: {
-      getWallpaperViewApi: () => ({ createController: createRecordingWallpaperViewController })
-    },
     // What wallpaper-preload.ts left for the runtime, when a test ran it first.
     __lumnoBoot: options && options.preload ? { wallpaperPreload: options.preload } : undefined
   };
@@ -1322,10 +1318,7 @@ const sandbox = {
       getURL: (path) => `chrome-extension://abc/${String(path || '').replace(/^\/+/, '')}`
     }
   },
-  ...REAL_WALLPAPER_DEPENDENCIES,
-  LumnoNewtabWallpaperViewModule: {
-    getWallpaperViewApi: () => ({ createController: createRecordingWallpaperViewController })
-  }
+  ...REAL_WALLPAPER_DEPENDENCIES
 };
 sandbox.globalThis = sandbox;
 

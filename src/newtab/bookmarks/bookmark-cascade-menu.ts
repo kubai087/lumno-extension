@@ -6,9 +6,9 @@ import type {
   CascadeLevelModel,
   CascadeMenuHandlers,
   CascadeMenuView,
-  CascadeRowModel,
-  createBookmarkCascadeViewApi
+  CascadeRowModel
 } from '../react/bookmark-cascade-view';
+import { createCascadeMenu } from '../react/bookmark-cascade-view';
 import { isHtmlElement, isNode } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import type * as MenuSurface from '../../shared/ui/menu-surface';
@@ -71,7 +71,6 @@ interface BookmarkCascadeMenuOptions {
   positionUtils?: Partial<typeof CascadePosition>;
   crossSurfaceDrag?: InsertionGapApi | null;
   menuSurface?: Partial<Pick<typeof MenuSurface, 'open' | 'close'>> | null;
-  view?: ReturnType<typeof createBookmarkCascadeViewApi> | null;
   t?: Translate;
   sanitizeDisplayText?(value: unknown): string;
   getHostFromUrl?(url: string): string;
@@ -217,7 +216,6 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
   const crossSurfaceDrag = config.crossSurfaceDrag || null;
   const insertionGapOwner = {};
   const menuSurface = config.menuSurface || null;
-  const view = config.view || null;
   const t: Translate = config.t || ((_key, fallback) => fallback || '');
   const sanitizeDisplayText = config.sanitizeDisplayText || ((value: unknown) => String(value || ''));
   const getHostFromUrl = config.getHostFromUrl || (() => '');
@@ -1576,7 +1574,7 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
         setAnchorVisualActive(anchorElement, false);
         return;
       }
-      if (!ready || !anchorElement.isConnected || !view || !documentObj.body) {
+      if (!ready || !anchorElement.isConnected || !documentObj.body) {
         setAnchorVisualActive(anchorElement, false);
         return;
       }
@@ -1590,7 +1588,7 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
         close();
         bookmarkCascadeAnchor = anchorElement;
         setAnchorVisualActive(anchorElement, true);
-        menuView = view.createMenu(documentObj, viewHandlers);
+        menuView = createCascadeMenu(documentObj, viewHandlers);
         bookmarkCascadeMenu = menuView.element;
         setDocumentListenersAttached(true);
         setBookmarkCascadeDragMode(dragMode);

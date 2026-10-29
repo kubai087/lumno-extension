@@ -1,9 +1,9 @@
 import { queryHtmlElements } from '../dom-lookup';
-import { getTooltipViewApi } from '../react/tooltip-view';
+import { createTooltipElement, destroyTooltipElement, renderTooltipText } from '../react/tooltip-view';
 import { getClearTimeout, getElementRect, getNumber, getRequestAnimationFrame, getSetTimeout, placeTooltipAt, prepareTooltipFrame } from './tooltip-frame';
 import type { TooltipPosition, TooltipRect, TooltipWindow } from './tooltip-frame';
 // The shared tooltip: one element per controller, placed beside its target
-// and drawn by the React tooltip view (getTooltipViewApi()).
+// and drawn by the React tooltip view (tooltip-view.tsx).
 const TOOLTIP_CLASS = '_x_extension_tooltip_2026_unique_';
 const HOST_CLASS = '_x_extension_tooltip_host_2026_unique_';
 const LEGACY_HOST_CLASS = '_x_extension_tooltip_host_2024_unique_';
@@ -89,12 +89,11 @@ function getDynamicNumber(
 
 function createElement(doc: Document | null | undefined, options?: TooltipElementOptions | null): HTMLElement | null {
   const documentObj = doc || getDocument(options);
-  const tooltipView = getTooltipViewApi();
-  if (!documentObj || !tooltipView) {
+  if (!documentObj) {
     return null;
   }
   const config: TooltipElementOptions = options || {};
-  const element = tooltipView.createTooltipElement({
+  const element = createTooltipElement({
     className: config.className || '',
     documentObj,
     id: config.id ? String(config.id) : '',
@@ -111,11 +110,7 @@ function renderText(element: HTMLElement | null | undefined, text: string | null
   if (!element) {
     return null;
   }
-  const tooltipView = getTooltipViewApi();
-  if (!tooltipView) {
-    return null;
-  }
-  tooltipView.renderTooltipText(element, String(text || ''));
+  renderTooltipText(element, String(text || ''));
   return element;
 }
 
@@ -237,10 +232,7 @@ function setTooltipShown(tooltip: HTMLElement, shown: boolean): void {
 }
 
 function removeTooltipElement(element: HTMLElement): void {
-  const tooltipView = getTooltipViewApi();
-  if (tooltipView) {
-    tooltipView.destroyTooltipElement(element);
-  }
+  destroyTooltipElement(element);
   if (element.parentNode) {
     element.parentNode.removeChild(element);
   }

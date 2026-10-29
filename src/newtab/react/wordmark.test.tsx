@@ -1,7 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  createTopContentApi,
   createTopContentController,
   type TopContentClockFont,
   type TopContentController,
@@ -61,7 +60,6 @@ describe('New Tab top-content React island', () => {
   it('owns the existing wordmark host and visual elements', () => {
     const { controller, host } = createController();
 
-    expect(createTopContentApi().implementation).toBe('react');
     expect(host.id).toBe('_x_extension_newtab_wordmark_2026_unique_');
     expect(host.dataset.reactIsland).toBe('newtab-wordmark');
     expect(host.dataset.enter).toBe('run');

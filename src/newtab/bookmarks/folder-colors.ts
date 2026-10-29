@@ -3,15 +3,14 @@
 // per-device map, and opening the color picker.
 import { bookmarkFolderColorPresets, bookmarkFolderColorRefs, bookmarkFolderColorsLegacy } from '../../domain/settings/bookmarks';
 import type { SettingsStore } from '../../platform/settings-store';
-import type { createFolderColorPicker } from '../react/folder-color-picker';
-import type { createFolderColorPickerApi } from '../react/folder-color-picker-lazy';
+import { createFolderColorPicker } from '../react/folder-color-picker-lazy';
 import type { BindTooltip, ShowToast, Translate } from '../newtab-types';
 import type * as FolderIcon from './bookmark-folder-icon';
 import type { FolderColorMap, FolderColorRefs } from './bookmark-folder-icon';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import * as NEWTAB_BOOKMARK_FOLDER_ICON from './bookmark-folder-icon';
 
-type FolderColorPicker = ReturnType<typeof createFolderColorPicker>;
+type FolderColorPicker = Awaited<ReturnType<typeof createFolderColorPicker>>;
 
 interface FolderColorsState {
   // Made the first time a folder's color is changed.
@@ -19,7 +18,6 @@ interface FolderColorsState {
 }
 
 interface FolderColorsDeps {
-  folderColorApi: ReturnType<typeof createFolderColorPickerApi> | undefined;
   settings: Pick<SettingsStore, 'get' | 'include' | 'remove' | 'set' | 'subscribe'>;
   bookmarksRuntime: BookmarksRuntime;
   closeBookmarkCascadeMenu(): void;
@@ -35,7 +33,6 @@ interface FolderColorsDeps {
 
 function createFolderColors(deps: FolderColorsDeps) {
   const {
-    folderColorApi,
     settings,
     bookmarksRuntime,
     closeBookmarkCascadeMenu,
@@ -173,11 +170,8 @@ function createFolderColors(deps: FolderColorsDeps) {
   }
 
   async function createPicker(): Promise<FolderColorPicker | null> {
-    if (!folderColorApi) {
-      return null;
-    }
     try {
-      return await folderColorApi.createFolderColorPicker({
+      return await createFolderColorPicker({
         documentObj: document, t,
         initFolderIcon: NEWTAB_BOOKMARK_FOLDER_ICON.initFolderPathMorph,
         animateFolderIcon: playFolderPathMorph,

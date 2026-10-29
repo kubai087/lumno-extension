@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPageNoticeApi, renderPageNotice } from './page-notice';
+import { renderPageNotice } from './page-notice';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 import { required } from '../../../tests/react/dom';
 
@@ -27,7 +27,6 @@ describe('New Tab React page notice', () => {
       });
     });
     const noticeController = required(rendered.controller, 'page notice controller');
-    expect(createPageNoticeApi().implementation).toBe('react');
     expect(noticeController.element.dataset.reactIsland).toBe(
       'newtab-page-notice'
     );

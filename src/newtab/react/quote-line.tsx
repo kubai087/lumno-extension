@@ -5,7 +5,6 @@
 import { useState } from 'react';
 import { createReactRootController } from '../../shared/react/root-controller';
 import { queryHtmlElement } from '../../shared/dom-lookup';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
 export interface QuoteLineModel {
@@ -106,7 +105,7 @@ export interface QuoteLineView {
   destroy(): void;
 }
 
-function createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers): QuoteLineView {
+export function createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers): QuoteLineView {
   const controller = createReactRootController(host, (model: QuoteLineModel) => (
     <QuoteLine handlers={handlers} model={model} />
   ));
@@ -116,13 +115,3 @@ function createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers): Qu
     destroy: () => controller.destroy()
   };
 }
-
-export function createQuoteLineViewApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createQuoteLineView
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getQuoteLineViewApi = lazyInstance(createQuoteLineViewApi);

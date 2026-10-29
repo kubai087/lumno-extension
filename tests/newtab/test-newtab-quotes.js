@@ -2,15 +2,23 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
+
+// Stands in for the React line view: each runtime draws through the line made
+// last before it. Its markup is covered by src/newtab/react/quote-line.test.tsx.
+let currentLine = null;
+globalThis.__lumnoTestModuleStubs = Object.assign(globalThis.__lumnoTestModuleStubs || {}, {
+  'src/newtab/react/quote-line.tsx': {
+    createQuoteLineView: (host, handlers) => currentLine.api.createQuoteLineView(host, handlers)
+  }
+});
 const settings = require('../../src/domain/settings/index.ts');
 const quotes = require('../../src/newtab/top-content/quotes.ts');
 const quoteSettings = require('../../src/domain/settings/newtab-quote.ts');
 const { createMemorySettings } = require('../helpers/memory-settings');
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-// Stands in for the React line view: keeps the last model it was handed and
-// the handlers the runtime gave it. Its markup is covered by
-// src/newtab/react/quote-line.test.tsx.
+// A line view that keeps the last model it was handed and the handlers the
+// runtime gave it; the next runtime draws through it.
 function createLineView() {
   const record = { model: null, handlers: null, destroyed: false };
   const api = {
@@ -23,7 +31,8 @@ function createLineView() {
       };
     }
   };
-  return { record, api };
+  currentLine = { record, api };
+  return currentLine;
 }
 
 // Stands in for the appearance panel: keeps the last quote section model.
@@ -56,7 +65,6 @@ async function main() {
     getSearchRoot: () => document.querySelector('#search'),
     getShortcutSection: () => document.querySelector('#shortcuts'),
     getTooltipController: () => tooltipController,
-    lineView: line.api,
     settings: memory.store,
     client: { getQuote: () => { requests += 1; return new Promise((resolve) => { resolveQuote = resolve; }); } }
   });
@@ -179,11 +187,11 @@ async function main() {
   // The quote exists only for Chinese UI languages; other languages hide it but keep its settings.
   let locale = 'en';
   let localeRequests = 0;
+  createLineView();
   const localeRuntime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
     t: (_key, fallback) => fallback, getLocale: () => locale,
     getSearchRoot: () => document.querySelector('#search'),
     getShortcutSection: () => document.querySelector('#shortcuts'),
-    lineView: createLineView().api,
     settings: createMemorySettings({
       sync: { [settings.newtabQuotePrefs.key]: { enabled: true, position: 'bottom' } }
     }).store,
@@ -219,10 +227,10 @@ async function main() {
     sync: { [settings.newtabQuotePrefs.key]: { enabled: true, position: 'top' } },
     local: { [quoteSettings.quoteCache.key]: { literature: { quote: { text: '缓存', author: '', source: '', url: '' } } } }
   });
+  createLineView();
   const cachedRuntime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
     t: (_key, fallback) => fallback,
     getSearchRoot: () => document.querySelector('#search'),
-    lineView: createLineView().api,
     settings: cachedMemory.store,
     client: { getQuote: () => new Promise(() => {}) }
   });
@@ -246,7 +254,6 @@ async function main() {
   const shuffleRuntime = quotes.createRuntime({ documentObj: document, windowObj: dom.window,
     t: (_key, fallback) => fallback, showToast: (message, isError) => toasts.push([message, isError]),
     getSearchRoot: () => document.querySelector('#search'),
-    lineView: shuffleLine.api,
     settings: createMemorySettings({
       sync: { [settings.newtabQuotePrefs.key]: { enabled: true, position: 'input', category: 'poetry' } }
     }).store,

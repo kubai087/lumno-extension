@@ -1,8 +1,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  createBottomDockRuntime,
-  createDockApi,
+  createDock,
   DOCK_IDS,
   type DockRuntime
 } from './dock';
@@ -31,7 +30,7 @@ describe('New Tab bottom dock React island', () => {
     const recentSection = document.createElement('section');
     const holder: { value: DockRuntime | null } = { value: null };
     act(() => {
-      holder.value = createBottomDockRuntime({
+      holder.value = createDock({
         bookmarkSection,
         constants: { mobileFlowBreakpointPx: 900 },
         documentObj: document,
@@ -46,7 +45,6 @@ describe('New Tab bottom dock React island', () => {
     }
     runtimes.push(runtime);
 
-    expect(createDockApi().implementation).toBe('react');
     expect(runtime.element.id).toBe(DOCK_IDS.bottomDock);
     expect(runtime.element.dataset.reactIsland).toBe('newtab-bottom-dock');
     expect(runtime.scroller.id).toBe(DOCK_IDS.scroller);
@@ -70,7 +68,7 @@ describe('New Tab bottom dock React island', () => {
     const listener = vi.fn();
     const holder: { value: DockRuntime | null } = { value: null };
     act(() => {
-      holder.value = createBottomDockRuntime({
+      holder.value = createDock({
         bookmarkSection: document.createElement('section'),
         documentObj: document,
         recentSection: document.createElement('section'),

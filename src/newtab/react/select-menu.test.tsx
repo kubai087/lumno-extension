@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createSelectMenuApi, createSelectMenuController, type SelectMenuInstance } from './select-menu';
+import { createSelectMenuController, type SelectMenuInstance } from './select-menu';
 import type { SelectMenuConfig } from '../../shared/react/select-menu';
 import { getElements } from '../../../tests/react/dom';
 import { queryHtmlElement } from '../../shared/dom-lookup';
@@ -176,7 +176,6 @@ describe('New Tab select menu React island', () => {
   it('preserves the custom-select DOM and synchronous controller contract', () => {
     const { controller, instance } = createMenu();
 
-    expect(createSelectMenuApi().implementation).toBe('react');
     expect(instance.wrapper.dataset.reactIsland).toBe('newtab-select-menu');
     expect(instance.wrapper.classList.contains('x-nt-section-mode-select')).toBe(
       true

@@ -1,7 +1,7 @@
 // The onboarding's two floating tooltips: the info tooltip beside an
 // interaction (for the browser list, a row of avatars beside its button),
 // and the tooltip of an action button, named in its data-tooltip.
-import { getTooltipViewApi } from '../../shared/react/tooltip-view';
+import { renderBrowserAvatarTooltip } from '../../shared/react/tooltip-view';
 import * as LumnoTooltip from '../../shared/ui/tooltip';
 import type { InteractionBrowserAvatars, InteractionInfoTooltip } from '../react/interactions';
 import type { OnboardingFlow } from '../features/flow';
@@ -46,9 +46,8 @@ class OnboardingTooltips {
       return;
     }
     element.classList.toggle('onboarding-browser-tooltip', avatars);
-    const tooltipView = getTooltipViewApi();
-    if (avatars && tooltipView) {
-      tooltipView.renderBrowserAvatarTooltip(element, {
+    if (avatars) {
+      renderBrowserAvatarTooltip(element, {
         browsers,
         browserNameSeparator: separator,
         browserAvatarSuffix: getRuntimeMiscText(copy, 'browserAvatarSuffix', 'and more')

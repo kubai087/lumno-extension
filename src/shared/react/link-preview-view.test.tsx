@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createLinkPreviewViewApi, type LinkPreviewViewController, type LinkPreviewViewModel } from './link-preview-view';
+import { createLinkPreviewView, type LinkPreviewViewController, type LinkPreviewViewModel } from './link-preview-view';
 import { getElement, getTag } from '../../../tests/react/dom';
 
 let views: LinkPreviewViewController[] = [];
@@ -35,7 +35,7 @@ function setUp() {
   };
   const drawnViews: LinkPreviewViewController[] = [];
   act(() => {
-    const drawn = createLinkPreviewViewApi().createLinkPreviewView(shadow, handlers, model(), {
+    const drawn = createLinkPreviewView(shadow, handlers, model(), {
       styles: '.root { color: red; }',
       toastStylesheetUrl: 'toast.css'
     });

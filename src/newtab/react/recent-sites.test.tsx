@@ -2,7 +2,6 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createRecentSitesView,
-  createRecentSitesViewApi,
   getRecentSitesSignature,
   type RecentCardElement,
   type RecentSite,
@@ -117,7 +116,6 @@ describe('Recent Sites React island', () => {
     const options = createOptions();
     const view = createRecentSitesView(options);
     views.push(view);
-    expect(createRecentSitesViewApi().implementation).toBe('react');
   });
 
   it('renders cards synchronously and keeps external card metadata intact', () => {

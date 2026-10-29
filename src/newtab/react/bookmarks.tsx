@@ -20,7 +20,6 @@ import { queryHtmlTags } from '../../shared/dom-lookup';
 import { EmptyStateArt } from '../../shared/react/empty-state-art';
 import { FaviconFallback, FolderPreviewFaviconFallback } from '../../shared/react/favicon-fallback';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
-import { lazyInstance } from '../../shared/lazy-instance';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 
@@ -1310,17 +1309,3 @@ export function createBookmarksView(
     }
   };
 }
-
-export function createBookmarksViewApi() {
-  return Object.freeze({
-    implementation: 'react',
-    createBookmarksView(options?: BookmarksViewOptions) {
-      return createBookmarksView(options);
-    },
-    getBookmarkCacheKey,
-    getBookmarksSignature
-  });
-}
-
-// The one instance a page or injected script draws through, made on first use.
-export const getBookmarksViewApi = lazyInstance(createBookmarksViewApi);

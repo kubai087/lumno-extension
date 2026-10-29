@@ -9,7 +9,7 @@ import type {
   RecentHistoryItem
 } from '../react/recent-history-dialog';
 import type { RecentContextTarget, StartupRecentSourceReads } from './recent-types';
-import { getRecentHistoryDialogApi } from '../react/recent-history-dialog-lazy';
+import { createRecentHistoryDialog } from '../react/recent-history-dialog-lazy';
 import type { BrowserIconIndex } from '../../domain/favicon/types';
 import type { RecentSite, RecentSiteOptions, RecentSiteSources } from '../../domain/recent-sites-store';
 import * as RecentSitesMerge from '../../domain/recent-sites-merge';
@@ -68,7 +68,6 @@ function createRecentSources(deps: RecentSourcesDeps) {
   // pass shares these reads until the first pass lands or the history changes; later passes, or
   // one long after load, read afresh.
   const STARTUP_RECENT_SOURCE_MAX_AGE_MS = 3000;
-  const NEWTAB_RECENT_HISTORY_DIALOG = getRecentHistoryDialogApi();
   let recentHistoryDialogLoadPromise: Promise<RecentHistoryDialogController> | null = null;
 
   function updateRecentContextMenuLanguageStrings(): void {
@@ -91,19 +90,15 @@ function createRecentSources(deps: RecentSourcesDeps) {
   // The change history dialog is loaded the first time someone opens it.
   function openRecentHistoryDialog(item: RecentHistoryItem): Promise<void> {
     if (!recentHistoryDialogLoadPromise) {
-      recentHistoryDialogLoadPromise = Promise.resolve(
-        NEWTAB_RECENT_HISTORY_DIALOG
-          ? NEWTAB_RECENT_HISTORY_DIALOG.createRecentHistoryDialog({
-            documentObj: document,
-            windowObj: window,
-            t,
-            onRestore: restoreProgressVersion,
-            onRestoreSuccess() {
-              showToast(t('recent_history_restore_success', '已恢复为所选版本'), false);
-            }
-          })
-          : null
-      ).then((controller) => {
+      recentHistoryDialogLoadPromise = createRecentHistoryDialog({
+        documentObj: document,
+        windowObj: window,
+        t,
+        onRestore: restoreProgressVersion,
+        onRestoreSuccess() {
+          showToast(t('recent_history_restore_success', '已恢复为所选版本'), false);
+        }
+      }).then((controller) => {
         if (!controller) throw new Error('Recent history dialog unavailable');
         controller.mount(document.body);
         pageState.recentHistoryDialogController = controller;

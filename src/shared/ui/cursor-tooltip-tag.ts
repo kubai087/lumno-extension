@@ -2,7 +2,7 @@
 // would do. It has its own element, made on first use, and sits just above
 // the tooltip's left edge.
 import { getElementRect, getNumber, placeTooltipAt, prepareTooltipFrame } from './tooltip-frame';
-import { getTooltipViewApi } from '../react/tooltip-view';
+import { renderCursorTag } from '../react/tooltip-view';
 import { removeTooltipElement } from './tooltip';
 import { DEFAULT_VISIBLE_ATTRIBUTE, TAG_CLASS } from './cursor-tooltip-model';
 import type { CursorPointInput, CursorTooltipOptions, CursorTooltipPosition } from './cursor-tooltip-model';
@@ -50,12 +50,8 @@ function setShown(element: HTMLElement, shown: boolean): void {
 }
 
 function drawTag(tag: HTMLElement, text: string, options: CursorTooltipOptions): HTMLElement | null {
-  const tooltipView = getTooltipViewApi();
-  if (!tooltipView) {
-    return null;
-  }
   const keyText = getCursorTooltipTagKeyText(options);
-  tooltipView.renderCursorTag(tag, {
+  renderCursorTag(tag, {
     keyText,
     label: text,
     windowsLogo: keyText.toLowerCase() === 'win'

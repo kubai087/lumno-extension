@@ -47,7 +47,7 @@ const tooltipView = {
 
 // The shared tooltip draws through this stand-in for its React view.
 global.__lumnoTestModuleStubs = {
-  'src/shared/react/tooltip-view.tsx': { getTooltipViewApi: () => tooltipView }
+  'src/shared/react/tooltip-view.tsx': tooltipView
 };
 
 assert.ok(fs.existsSync(tooltipJsPath), 'shared tooltip behavior should live in src/shared/ui/tooltip.ts');

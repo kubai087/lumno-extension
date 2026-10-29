@@ -286,7 +286,3 @@ export function createRecentHistoryDialog(
   render();
   return Object.freeze({ element: host, open, close, update, mount, destroy });
 }
-
-export function createRecentHistoryDialogApi() {
-  return Object.freeze({ implementation: 'react' as const, createRecentHistoryDialog });
-}
