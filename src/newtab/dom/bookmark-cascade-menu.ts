@@ -13,9 +13,9 @@ import { isHtmlElement, isNode } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import type * as MenuSurface from '../../shared/ui/menu-surface';
 import type { TooltipController } from '../../shared/ui/tooltip';
-import type * as CascadePosition from './bookmark-cascade-position';
-import type { Point, PointLike, Rect, RootPlacement, SubmenuPlacement } from './bookmark-cascade-position';
-import type { BookmarkItem } from './bookmarks-store';
+import type * as CascadePosition from '../bookmarks/bookmark-cascade-position';
+import type { Point, PointLike, Rect, RootPlacement, SubmenuPlacement } from '../bookmarks/bookmark-cascade-position';
+import type { BookmarkItem } from '../bookmarks/bookmarks-store';
 
 // An element the menu opens from. The view that drew it hooks in to show
 // its menu as open: it draws its own expanded state and active look.

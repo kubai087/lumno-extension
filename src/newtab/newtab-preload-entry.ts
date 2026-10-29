@@ -5,4 +5,4 @@ import '../shared/scrollbar-mode';
 import './newtab-focus-entry';
 import './newtab-storage-prefetch';
 import '../shared/motion-preload';
-import './wallpaper/wallpaper-preload';
+import './dom/wallpaper-preload';

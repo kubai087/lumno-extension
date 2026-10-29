@@ -2,7 +2,7 @@ const assert = require('assert');
 const config = require('../../src/newtab/newtab-config.ts');
 const settings = require('../../src/domain/settings/index.ts');
 const shortcutsStore = require('../helpers/shortcuts-store.ts');
-const layout = require('../../src/newtab/layout.ts');
+const layout = require('../../src/newtab/dom/layout.ts');
 
 // The New Tab's fixed configuration: brand names, the width modes and the
 // preferences moved into browser sync.

@@ -1,7 +1,7 @@
 // Where the suggestion list sits: shown or hidden, floating under the
 // search box, and offset below an open search mode menu.
 import type { InputModeController } from '../../shared/search/search-input-mode';
-import type { LayoutController } from '../layout';
+import type { LayoutController } from '../dom/layout';
 import type { LayoutMotion } from '../layout-motion';
 
 interface SuggestionsLayoutDeps {

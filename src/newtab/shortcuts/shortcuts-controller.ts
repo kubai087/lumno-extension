@@ -21,7 +21,7 @@ import { createShortcutsView } from '../react/shortcuts';
 import type { ShortcutList } from './shortcut-list';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 import type { DragSessions } from '../drag-sessions';
-import { playFolderPathMorph } from '../bookmarks/bookmark-folder-icon';
+import { playFolderPathMorph } from '../dom/folder-icon';
 import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 

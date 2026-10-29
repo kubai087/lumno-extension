@@ -1,6 +1,7 @@
 // The New Tab favicon the appearance panel picks: the built-in icons, the
 // theme-aware SVG link kept in step with the browser theme across tabs, and
 // the cached choice the next page load starts from.
+import { getPageFaviconLink } from '../../dom/page-favicon-link';
 import { serializeSvgDocument } from '../../../shared/ui/svg-tree';
 import type { FormatMessage, ShowToast, Translate } from '../../newtab-types';
 import type { WallpaperStorage } from './wallpaper-storage';
@@ -183,7 +184,7 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
   function refreshNewtabFaviconLink(): void {
     const item = getNewtabFaviconById(store.getSnapshot().id) ||
       getNewtabFaviconById(NEWTAB_FAVICON_DEFAULT_ID);
-    const link = getNewtabFaviconLink();
+    const link = getPageFaviconLink(document);
     if (link && item) {
       applyNewtabFaviconLinkAttributes(link, item);
     }
@@ -289,22 +290,6 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
     }
   }
 
-  function getNewtabFaviconLink(): Element | null {
-    const head: HTMLHeadElement | undefined = document.head || document.getElementsByTagName('head')[0];
-    if (!head) {
-      return null;
-    }
-    const children = Array.from(head.children);
-    let link = children.find((child) =>
-      String(child.tagName || '').toUpperCase() === 'LINK' &&
-      child.getAttribute('data-lumno-newtab-favicon') === 'true');
-    if (!link) {
-      link = document.createElement('link');
-      link.setAttribute('data-lumno-newtab-favicon', 'true');
-      head.appendChild(link);
-    }
-    return link;
-  }
 
   function applyNewtabFavicon(value: unknown): void {
     const nextId = normalizeNewtabFaviconId(value);
@@ -312,7 +297,7 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
     store.setState({ id: item ? item.id : NEWTAB_FAVICON_DEFAULT_ID });
     cacheNewtabFaviconPreloadId(store.getSnapshot().id);
     bindNewtabFaviconThemeListener(item);
-    const link = getNewtabFaviconLink();
+    const link = getPageFaviconLink(document);
     if (link && item) {
       applyNewtabFaviconLinkAttributes(link, item);
     }

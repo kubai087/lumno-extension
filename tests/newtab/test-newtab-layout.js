@@ -4,7 +4,7 @@ const { readStylesheet } = require('../helpers/css-tokens');
 const { parseCss, parsePageCss } = require('../helpers/css-rules');
 
 require('../../src/shared/search/suggestions-height-layout.ts');
-const LumnoNewtabLayout = require('../../src/newtab/layout.ts');
+const LumnoNewtabLayout = require('../../src/newtab/dom/layout.ts');
 
 const layoutRuntime = LumnoNewtabLayout;
 const layoutMotionRuntime = require('../../src/newtab/layout-motion.ts');

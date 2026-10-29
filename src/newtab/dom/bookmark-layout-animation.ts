@@ -7,7 +7,7 @@ import type { LayoutRect } from '../cross-surface-drag';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import { getBookmarkCardId, getBookmarkCardLayoutRect, getBookmarkReorderCards } from './bookmark-cards';
 import type { BookmarkCardElement } from '../react/bookmarks';
-import * as NEWTAB_BOOKMARK_DRAG from '../bookmarks/bookmark-drag';
+import * as NEWTAB_BOOKMARK_DRAG from './bookmark-drag';
 import * as BOOKMARK_DRAG_RULES from '../bookmarks/bookmark-drag-rules';
 import type { AnimationRect } from '../bookmarks/bookmark-drag-rules';
 import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';

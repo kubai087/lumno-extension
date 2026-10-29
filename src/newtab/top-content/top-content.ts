@@ -1,6 +1,6 @@
 // The wordmark/clock area above the search box. Moving the blocks around
 // it when it shows, hides or changes height is layout-motion.ts's job.
-import { queryHtmlElement } from '../../shared/dom-lookup';
+import { getWordmarkContent } from '../dom/top-content';
 import { createTopContentController } from '../react/wordmark';
 import type { WordmarkAppearance } from '../react/wordmark';
 import type { PageNavigation } from '../page-navigation';
@@ -261,7 +261,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
       finishWordmarkEntryAnimation();
       return;
     }
-    const wordmarkContent = queryHtmlElement(container, '.x-nt-wordmark-content');
+    const wordmarkContent = getWordmarkContent(container);
     if (wordmarkEntryTransitionTimer) {
       window.clearTimeout(wordmarkEntryTransitionTimer);
       wordmarkEntryTransitionTimer = 0;

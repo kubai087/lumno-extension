@@ -13,7 +13,7 @@ const { createLayoutController, updateBottomDockLayout } = vi.hoisted(() => {
     createLayoutController: vi.fn((_options?: unknown) => ({ updateBottomDockLayout: updateLayout }))
   };
 });
-vi.mock('../layout', () => ({ createLayoutController }));
+vi.mock('../dom/layout', () => ({ createLayoutController }));
 
 let runtimes: DockRuntime[] = [];
 

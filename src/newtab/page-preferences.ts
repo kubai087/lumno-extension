@@ -7,7 +7,7 @@ import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
 import { NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SHORTCUT_COLUMNS_MIN, NEWTAB_SHORTCUT_WIDTH_MAX, NEWTAB_SHORTCUT_WIDTH_MIN, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import * as SETTINGS from '../domain/settings';
-import { SEARCH_WIDTH_CONFIG } from './layout';
+import { SEARCH_WIDTH_CONFIG } from './dom/layout';
 
 // Whether a change is only shown or also saved.
 type PersistOptions = { persist?: boolean } | null | undefined;

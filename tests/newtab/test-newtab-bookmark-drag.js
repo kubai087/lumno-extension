@@ -13,7 +13,7 @@ const {
   isPointInsideElement,
   shouldKeepCascadeOpenAfterDrop,
   updateVisualPosition
-} = require(path.join(repoRoot, 'src', 'newtab', 'bookmarks', 'bookmark-drag.ts'));
+} = require(path.join(repoRoot, 'src', 'newtab', 'dom', 'bookmark-drag.ts'));
 
 function createClassList(names) {
   const values = new Set(names);

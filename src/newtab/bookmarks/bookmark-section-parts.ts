@@ -2,7 +2,7 @@
 // folder menu that cascades from a card or a folder shortcut, and the top
 // bar the bookmarks show in while in top bar mode. Each is null until the
 // section is made.
-import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
+import type { BookmarkCascadeRuntime } from '../dom/bookmark-cascade-menu';
 import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import type { BookmarksViewController } from '../react/bookmarks';
 

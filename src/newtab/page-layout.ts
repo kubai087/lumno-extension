@@ -1,7 +1,7 @@
 // Page geometry: bookmark and recent grid column counts, the width modes
 // and search width, shortcut grid sizing, which content sections show, and
 // the search entry's vertical position as the viewport changes.
-import type { SearchEntryLayoutOptions, WidthModeConfig } from './layout';
+import type { SearchEntryLayoutOptions, WidthModeConfig } from './dom/layout';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SuggestionsLayout } from './search/suggestions-layout';
 import type { ShortcutContextMenu } from './shortcuts/shortcut-context-menu';
@@ -15,10 +15,10 @@ import type { SettingPreview } from './setting-preview';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
 import { bookmarkColumns, bookmarkCount } from '../domain/settings/bookmarks';
 import { recentCount } from '../domain/settings/recent-sites';
-import * as NEWTAB_LAYOUT from './layout';
+import * as NEWTAB_LAYOUT from './dom/layout';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX, NEWTAB_WIDTH_MODE_CONFIGS, RECENT_CARD_TARGET_WIDTH_PX, RECENT_GRID_GAP_PX } from './newtab-config';
 import { DEFAULT_MAX_SHORTCUTS } from '../domain/shortcuts/constants';
-import { SEARCH_WIDTH_CONFIG } from './layout';
+import { SEARCH_WIDTH_CONFIG } from './dom/layout';
 import type { ViewportActivity } from './viewport-activity';
 import type { RecentPointer } from './recent/recent-pointer';
 import type { ShortcutList } from './shortcuts/shortcut-list';

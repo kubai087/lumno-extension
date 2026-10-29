@@ -1,5 +1,6 @@
 // The daily quote: its line on the page, its settings in the appearance
 // panel, and the custom collection it can read from.
+import { createQuoteHost } from '../dom/quote-host';
 import * as LumnoSettings from '../../domain/settings';
 import type { NewtabQuotePosition, NewtabQuotePrefs } from '../../domain/settings';
 import type { StorageAreaLike, StorageItems } from '../../domain/storage-port';
@@ -64,9 +65,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
     })
   });
   // The line's host: it moves between slots on the page with the chosen position.
-  const element = document.createElement('div');
-  element.className = 'x-nt-quote';
-  element.hidden = true;
+  const element = createQuoteHost(document);
   // Resolved on use: the page creates its tooltip controllers after the quote runtime.
   const getTooltip = () => (config.getTooltipController ? config.getTooltipController() : null);
   let origin = '';

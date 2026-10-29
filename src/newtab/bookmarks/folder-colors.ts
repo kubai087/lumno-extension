@@ -8,6 +8,7 @@ import type { BindTooltip, ShowToast, Translate } from '../newtab-types';
 import type { FolderColorMap, FolderColorRefs } from './bookmark-folder-icon';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import * as NEWTAB_BOOKMARK_FOLDER_ICON from './bookmark-folder-icon';
+import * as FOLDER_ICON from '../dom/folder-icon';
 
 type FolderColorPicker = Awaited<ReturnType<typeof createFolderColorPicker>>;
 
@@ -60,15 +61,12 @@ function createFolderColors(deps: FolderColorsDeps) {
 
   function applySavedFolderColor(icon: Element | null): void {
     if (!icon) return;
-    const svg = icon.querySelector('svg[data-folder-color-id]');
-    const folderId = svg && svg.getAttribute('data-folder-color-id');
-    if (folderId) NEWTAB_BOOKMARK_FOLDER_ICON.applyFolderColor(icon, getFolderColor(folderId));
+    const folderId = FOLDER_ICON.getFolderIconColorId(icon);
+    if (folderId) FOLDER_ICON.applyFolderColor(icon, getFolderColor(folderId));
   }
 
   function refreshFolderColors() {
-    document.querySelectorAll('svg[data-folder-color-id]').forEach((svg) => {
-      applySavedFolderColor(svg.parentElement);
-    });
+    FOLDER_ICON.getFolderIcons(document).forEach(applySavedFolderColor);
   }
 
   function readFolderColorRefs(): Promise<FolderColorRefs> {
@@ -158,9 +156,9 @@ function createFolderColors(deps: FolderColorsDeps) {
     try {
       return await createFolderColorPicker({
         documentObj: document, t,
-        initFolderIcon: NEWTAB_BOOKMARK_FOLDER_ICON.initFolderPathMorph,
-        animateFolderIcon: NEWTAB_BOOKMARK_FOLDER_ICON.playFolderPathMorph,
-        applyFolderColor: NEWTAB_BOOKMARK_FOLDER_ICON.applyFolderColor,
+        initFolderIcon: FOLDER_ICON.initFolderPathMorph,
+        animateFolderIcon: FOLDER_ICON.playFolderPathMorph,
+        applyFolderColor: FOLDER_ICON.applyFolderColor,
         bindTooltip: bindShortcutDialogTooltip,
         hideTooltip: hideShortcutDialogTooltip,
         readSavedColors: () => settings.include(bookmarkFolderColorPresets).then(() => settings.get(bookmarkFolderColorPresets)),
@@ -198,7 +196,7 @@ function createFolderColors(deps: FolderColorsDeps) {
 
   // Draws a folder icon in its saved color, ready to morph on hover.
   function initFolderPathMorph(icon: Element | null | undefined): void {
-    NEWTAB_BOOKMARK_FOLDER_ICON.initFolderPathMorph(icon);
+    FOLDER_ICON.initFolderPathMorph(icon);
     applySavedFolderColor(icon || null);
   }
   return {

@@ -16,4 +16,9 @@ function getPageRoot(doc: Document): HTMLElement | null {
   return doc.getElementById('_x_extension_newtab_root_2024_unique_');
 }
 
-export { createAppRootContainer, getPageRoot };
+// The element the page's toasts draw in.
+function getToastElement(doc: Document): HTMLElement | null {
+  return doc.getElementById('_x_extension_toast_2024_unique_');
+}
+
+export { createAppRootContainer, getPageRoot, getToastElement };

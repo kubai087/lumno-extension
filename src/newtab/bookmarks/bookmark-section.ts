@@ -7,11 +7,11 @@ import type { DismissStack } from '../dismiss-stack';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import type { BookmarkCardElement, BookmarksViewOptions } from '../react/bookmarks';
 import type { PageStructureRuntime } from '../react/page-structure';
-import * as NEWTAB_BOOKMARK_CASCADE_MENU from './bookmark-cascade-menu';
-import type { CascadeItemEventDetail } from './bookmark-cascade-menu';
+import * as NEWTAB_BOOKMARK_CASCADE_MENU from '../dom/bookmark-cascade-menu';
+import type { CascadeItemEventDetail } from '../dom/bookmark-cascade-menu';
 import * as NEWTAB_BOOKMARK_CASCADE_POSITION from './bookmark-cascade-position';
 import type { BookmarkItemContextMenuEvent } from './bookmark-context-menu';
-import type * as FolderIcon from './bookmark-folder-icon';
+import type * as FolderIcon from '../dom/folder-icon';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import { createBookmarksView } from '../react/bookmarks';
 import type { SettingPreview } from '../setting-preview';
@@ -23,7 +23,7 @@ import type { BookmarkSectionParts } from './bookmark-section-parts';
 import { isBookmarkHoverSuppressed } from '../dom/drag-hover';
 import type { DragSessions } from '../drag-sessions';
 import { getBookmarkCascadeViewportTopPaddingPx } from '../dom/top-inset';
-import { playFolderPathMorph } from './bookmark-folder-icon';
+import { playFolderPathMorph } from '../dom/folder-icon';
 
 type ViewOption<K extends keyof BookmarksViewOptions> = NonNullable<BookmarksViewOptions[K]>;
 

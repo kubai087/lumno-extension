@@ -204,7 +204,7 @@ assert.ok(
   'new tab should load bookmark move history before the main runtime'
 );
 assert.ok(
-  runsBefore(getPageScripts('newtab.html'), 'src/newtab/bookmarks/bookmark-drag.ts', 'src/newtab/app/main.ts'),
+  runsBefore(getPageScripts('newtab.html'), 'src/newtab/dom/bookmark-drag.ts', 'src/newtab/app/main.ts'),
   'new tab should load the bookmark drag runtime before the page entry'
 );
 // The drag's look, read from the stylesheets.

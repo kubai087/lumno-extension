@@ -497,7 +497,7 @@ assert.ok(
   'the standalone CRT shader should load before the shared wallpaper effect controller'
 );
 assert.ok(
-  runsBefore(getBundleFiles('newtab-preload'), 'src/newtab/dom/wallpaper-effects.ts', 'src/newtab/wallpaper/wallpaper-preload.ts'),
+  runsBefore(getBundleFiles('newtab-preload'), 'src/newtab/dom/wallpaper-effects.ts', 'src/newtab/dom/wallpaper-preload.ts'),
   'the wallpaper effect renderer should load before the head preload fast path'
 );
 assert.ok(

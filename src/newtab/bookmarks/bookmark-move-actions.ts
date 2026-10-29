@@ -5,7 +5,7 @@ import type { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
 import type { DragDropTarget } from '../cross-surface-drag';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
-import type { BookmarkDragSession } from './bookmark-drag';
+import type { BookmarkDragSession } from '../dom/bookmark-drag';
 import { getMoveDestination, getUndoShortcutLabels } from './bookmark-drag-rules';
 import type { BookmarkLocation, BookmarkMoveHistory, ShortcutGroupDeleteRecord } from './bookmark-move-history';
 import type { BookmarkShortcutTransfer } from './bookmark-shortcut-transfer';

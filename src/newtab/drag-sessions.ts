@@ -2,7 +2,7 @@
 // recent site card's. Each drag module starts and ends its own; the others
 // read them so two drags never run at once and the page keeps still while
 // one does.
-import type { BookmarkDragSession } from './bookmarks/bookmark-drag';
+import type { BookmarkDragSession } from './dom/bookmark-drag';
 import type { RecentCardDragSession } from './recent/recent-card-drag';
 import type { ShortcutDragSession } from './shortcuts/shortcut-drag';
 import type { SurfaceDragState } from './cross-surface-drag';

@@ -11,7 +11,7 @@
 // page's top inset follows, and the header's display menu when `menu`.
 import { createEventBus } from '../../shared/state/events';
 import type { BookmarkTopbarLayout } from '../react/bookmarks-topbar';
-import type { CascadeRefreshOptions } from './bookmark-cascade-menu';
+import type { CascadeRefreshOptions } from '../dom/bookmark-cascade-menu';
 
 interface BookmarkSectionEvents {
   changed: { keepCascadeOpen: boolean; cascadeRefresh?: CascadeRefreshOptions };

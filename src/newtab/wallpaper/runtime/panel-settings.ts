@@ -1,6 +1,6 @@
 // Settings the appearance panel edits besides the wallpaper: top content
 // and the clock, search width and the shortcut grid sliders.
-import { queryHtmlElement, queryHtmlElements } from '../../../shared/dom-lookup';
+import { getAppearanceOptionButtons, getAppearanceOptionMotionElement } from '../../dom/appearance-options';
 import type { SettingsStore } from '../../../platform/settings-store';
 import type { SettingPreview } from '../../setting-preview';
 import {
@@ -112,11 +112,11 @@ function createPanelSettings(deps: PanelSettingsDeps) {
 
   function getWallpaperAppearanceOptionButtons(): HTMLElement[] {
     const options = panelView.getRefs().appearanceOptions;
-    return options ? queryHtmlElements(options, '.x-nt-appearance-option') : [];
+    return options ? getAppearanceOptionButtons(options) : [];
   }
   // The part of an appearance option that moves; the option itself when it has none.
   function getWallpaperAppearanceOptionMotionElement(button: HTMLElement): HTMLElement {
-    return queryHtmlElement(button, '.x-nt-appearance-option-content') || button;
+    return getAppearanceOptionMotionElement(button);
   }
 
   function getSearchWidthMin(): number {

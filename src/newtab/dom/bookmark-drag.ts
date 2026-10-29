@@ -9,7 +9,7 @@ import type {
   SurfaceDragState
 } from '../cross-surface-drag';
 import type { BookmarkCardElement, BookmarkItem as CardItem } from '../react/bookmarks';
-import type { BookmarkItem } from './bookmarks-store';
+import type { BookmarkItem } from '../bookmarks/bookmarks-store';
 
 // A bookmark card, or a row of the cascade menu, that a drag starts on.
 type BookmarkDragSource = HTMLElement &

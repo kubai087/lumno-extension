@@ -1,6 +1,6 @@
-import { queryHtmlElement } from '../shared/dom-lookup';
-import * as SUGGESTIONS_HEIGHT_LAYOUT from '../shared/search/suggestions-height-layout';
-import { isPinchZoomed } from './viewport-insets';
+import { queryHtmlElement } from '../../shared/dom-lookup';
+import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
+import { isPinchZoomed } from '../viewport-insets';
 
 type DockDensity = 'mobile' | 'tiny' | 'compact' | 'default';
 

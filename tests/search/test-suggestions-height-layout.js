@@ -57,7 +57,7 @@ assert.deepStrictEqual(
 assert.strictEqual(runtime.applyNaturalSuggestionsHeightLayout(null), false);
 
 assert.ok(
-  runsBefore(getPageScripts('newtab.html'), 'src/shared/search/suggestions-height-layout.ts', 'src/newtab/layout.ts') &&
+  runsBefore(getPageScripts('newtab.html'), 'src/shared/search/suggestions-height-layout.ts', 'src/newtab/dom/layout.ts') &&
     runsBefore(getPageScripts('newtab.html'), 'src/shared/search/suggestions-height-layout.ts', 'src/newtab/app/main.ts'),
   'New Tab should load the shared height policy before its layout and page runtimes'
 );

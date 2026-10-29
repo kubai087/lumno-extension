@@ -11,7 +11,7 @@ import {
   type BookmarkCascadeMenuOptions,
   type BookmarkCascadeRuntime,
   type BookmarkMenuAnchor
-} from './bookmark-cascade-menu';
+} from '../dom/bookmark-cascade-menu';
 import type { BookmarkItem } from './bookmarks-store';
 import type { MenuSurfaceElement } from '../../shared/ui/menu-surface';
 import { getElements, getTags } from '../../../tests/react/dom';

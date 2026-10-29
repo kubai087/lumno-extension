@@ -340,7 +340,7 @@ function testStylesAndCopy() {
   });
   const scripts = getPageScripts('newtab.html');
   const pageRuntimeIndex = scripts.indexOf('src/newtab/app/main.ts');
-  ['src/newtab/bookmarks/bookmark-drag.ts', 'src/newtab/cross-surface-drag.ts'].forEach((helper) => {
+  ['src/newtab/dom/bookmark-drag.ts', 'src/newtab/cross-surface-drag.ts'].forEach((helper) => {
     const helperIndex = scripts.indexOf(helper);
     assert.ok(helperIndex >= 0 && helperIndex < pageRuntimeIndex, `${helper} loads before the page runtime`);
   });

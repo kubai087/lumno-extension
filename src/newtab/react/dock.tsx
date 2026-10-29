@@ -6,8 +6,8 @@ import type {
   LayoutConstants,
   LayoutController,
   LayoutControllerOptions
-} from '../layout';
-import { createLayoutController } from '../layout';
+} from '../dom/layout';
+import { createLayoutController } from '../dom/layout';
 
 export const DOCK_IDS = Object.freeze({
   bottomDock: '_x_extension_newtab_bottom_dock_2024_unique_',

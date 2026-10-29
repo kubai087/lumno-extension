@@ -1,15 +1,16 @@
 // Paints the cached wallpaper and the New Tab favicon before the page's own
 // scripts run, from what an earlier page saved on this device.
-import * as LumnoNewtabWallpaperEffects from '../dom/wallpaper-effects';
-import type { WallpaperEffectPrefs, WallpaperSample } from '../dom/wallpaper-effects';
+import { getPageFaviconLink } from './page-favicon-link';
+import * as LumnoNewtabWallpaperEffects from './wallpaper-effects';
+import type { WallpaperEffectPrefs, WallpaperSample } from './wallpaper-effects';
 import type {
   PreloadDecodedImage,
   PreloadImageRecord,
   PreloadObjectUrl,
   WallpaperMode,
   WallpaperPreloadState
-} from './wallpaper-preload-types';
-import { PRELOAD_STORAGE_VERSION } from './wallpaper-preload-types';
+} from '../wallpaper/wallpaper-preload-types';
+import { PRELOAD_STORAGE_VERSION } from '../wallpaper/wallpaper-preload-types';
 import { publishBootValue } from '../../platform/boot-handoff';
 import { newtabFavicon, newtabFaviconPreload, newtabWallpaperEffect, newtabWallpaperPreload } from '../../domain/settings/newtab-wallpaper';
 import * as ProviderStorage from '../../platform/provider-storage';
@@ -347,22 +348,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     }
   }
 
-  function getFaviconLink(): Element | null {
-    if (!document.head) {
-      return null;
-    }
-    const existing = Array.from(document.head.children).find((child) => {
-      return String(child.tagName || '').toUpperCase() === 'LINK' &&
-        child.getAttribute('data-lumno-newtab-favicon') === 'true';
-    });
-    if (existing) {
-      return existing;
-    }
-    const link = document.createElement('link');
-    link.setAttribute('data-lumno-newtab-favicon', 'true');
-    document.head.appendChild(link);
-    return link;
-  }
 
   function applyFaviconId(id: unknown): boolean {
     const normalized = normalizeFaviconId(id);
@@ -370,7 +355,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
       return false;
     }
     const item = FAVICON_OPTIONS[normalized];
-    const link = getFaviconLink();
+    const link = getPageFaviconLink(document);
     if (!link) {
       return false;
     }

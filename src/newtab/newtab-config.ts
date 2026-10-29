@@ -3,7 +3,7 @@
 // it moves into browser sync.
 import * as LumnoSettings from '../domain/settings';
 import * as SearchSettings from '../domain/settings/search';
-import { CONTENT_MAX_WIDTH_PX, STANDARD_SEARCH_MAX_WIDTH_PX, getGridContentWidthForColumns } from './layout';
+import { CONTENT_MAX_WIDTH_PX, STANDARD_SEARCH_MAX_WIDTH_PX, getGridContentWidthForColumns } from './dom/layout';
 import { SHORTCUT_STORAGE_KEYS } from '../domain/shortcuts/constants';
 
 // What a site's own name is shown as, given its brand host.

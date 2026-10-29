@@ -1,5 +1,5 @@
 const assert = require('assert');
-const bookmarkDrag = require('../../src/newtab/bookmarks/bookmark-drag.ts');
+const bookmarkDrag = require('../../src/newtab/dom/bookmark-drag.ts');
 const bookmarkMoveHistory = require('../../src/newtab/bookmarks/bookmark-move-history.ts');
 const bookmarkStore = require('../../src/newtab/bookmarks/bookmarks-store.ts');
 

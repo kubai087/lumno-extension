@@ -2,6 +2,7 @@ const assert = require('assert');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const folderIcon = require('../../src/newtab/bookmarks/bookmark-folder-icon.ts');
+const folderIconMotion = require('../../src/newtab/dom/folder-icon.ts');
 const { createSvgElement } = require('../../src/shared/ui/svg-tree.ts');
 const { createNewtabPage } = require('../helpers/newtab-page');
 const { getPageScripts, runsBefore } = require('../helpers/runtime-scripts');
@@ -86,7 +87,7 @@ assert.ok(firstIds.includes('x-nt-folder-filter-lower-base-folder_one'));
 assert.ok(idsOf(drawFolderIcon(probeDocument, 'folder/two')).includes('x-nt-folder-filter-lower-base-folder_two'));
 assert.ok(firstIds.every((id) => !id.includes(' ')), 'SVG ids should sanitize caller-provided suffixes');
 assert.strictEqual(
-  folderIcon.FOLDER_PATH_MORPH_DURATION_MS,
+  folderIconMotion.FOLDER_PATH_MORPH_DURATION_MS,
   460,
   'the shared component should expose its animation duration contract'
 );
@@ -94,41 +95,41 @@ assert.strictEqual(
 const dom = new JSDOM('<!doctype html><body><span id="folder"></span></body>');
 const iconElement = dom.window.document.getElementById('folder');
 iconElement.replaceChildren(drawFolderIcon(dom.window.document, 'folder one'));
-folderIcon.initFolderPathMorph(iconElement);
-assert.ok(Array.isArray(folderIcon.getFolderMorphParts(iconElement)));
-assert.ok(folderIcon.getFolderMorphParts(iconElement).length >= 6);
-assert.strictEqual(folderIcon.getFolderMorphState(iconElement), 'base');
+folderIconMotion.initFolderPathMorph(iconElement);
+assert.ok(Array.isArray(folderIconMotion.getFolderMorphParts(iconElement)));
+assert.ok(folderIconMotion.getFolderMorphParts(iconElement).length >= 6);
+assert.strictEqual(folderIconMotion.getFolderMorphState(iconElement), 'base');
 
-folderIcon.playFolderPathMorph(iconElement, true, { instant: true });
-assert.strictEqual(folderIcon.getFolderMorphState(iconElement), 'hover');
-const upperBody = folderIcon.getFolderMorphParts(iconElement).find((part) => part.partName === 'upper-body');
+folderIconMotion.playFolderPathMorph(iconElement, true, { instant: true });
+assert.strictEqual(folderIconMotion.getFolderMorphState(iconElement), 'hover');
+const upperBody = folderIconMotion.getFolderMorphParts(iconElement).find((part) => part.partName === 'upper-body');
 assert.ok(upperBody);
 assert.strictEqual(upperBody.pathEl.getAttribute('d'), upperBody.hoverD);
 
-folderIcon.setFolderPathMorphState(iconElement, false);
-assert.strictEqual(folderIcon.getFolderMorphState(iconElement), 'base');
+folderIconMotion.setFolderPathMorphState(iconElement, false);
+assert.strictEqual(folderIconMotion.getFolderMorphState(iconElement), 'base');
 assert.strictEqual(upperBody.pathEl.getAttribute('d'), upperBody.baseD);
 
-folderIcon.applyFolderColor(iconElement, '#EF4444');
+folderIconMotion.applyFolderColor(iconElement, '#EF4444');
 const originalPath = upperBody.pathEl;
 assert.strictEqual(iconElement.querySelector('svg').getAttribute('data-folder-color'), '#EF4444');
 assert.strictEqual(iconElement.querySelector('[data-folder-part="upper-outline"]').getAttribute('stroke'), '#EF4444');
 const closedStops = Array.from(iconElement.querySelectorAll('[data-folder-gradient-morph="upper-main"] stop')).map((stop) => stop.getAttribute('stop-color'));
 assert.ok(closedStops.every((color) => color !== '#CCDFFF'), 'all gradient stops should use the selected palette');
-folderIcon.playFolderPathMorph(iconElement, true, { instant: true });
+folderIconMotion.playFolderPathMorph(iconElement, true, { instant: true });
 assert.strictEqual(upperBody.pathEl, originalPath, 'recoloring must retain animated path nodes');
 assert.notDeepStrictEqual(Array.from(iconElement.querySelectorAll('[data-folder-gradient-morph="upper-main"] stop')).map((stop) => stop.getAttribute('stop-color')), closedStops, 'expanded folders should keep their shaded gradient animation');
-folderIcon.applyFolderColor(iconElement, '#22C55E');
-assert.strictEqual(folderIcon.getFolderMorphState(iconElement), 'hover', 'recoloring an open folder must preserve its expanded shape');
-folderIcon.setFolderPathMorphState(iconElement, false);
-folderIcon.applyFolderColor(iconElement, null);
+folderIconMotion.applyFolderColor(iconElement, '#22C55E');
+assert.strictEqual(folderIconMotion.getFolderMorphState(iconElement), 'hover', 'recoloring an open folder must preserve its expanded shape');
+folderIconMotion.setFolderPathMorphState(iconElement, false);
+folderIconMotion.applyFolderColor(iconElement, null);
 assert.deepStrictEqual(Array.from(iconElement.querySelectorAll('[data-folder-gradient-morph="upper-main"] stop')).map((stop) => stop.getAttribute('stop-color')), ['#CCDFFF', '#B2CEFF', '#89B5FF', '#97BEFF'], 'reset must exactly restore the original blue palette');
 
 iconElement.replaceChildren(drawFolderIcon(dom.window.document, 'after-reorder', '123'));
-folderIcon.initFolderPathMorph(iconElement);
-folderIcon.applyFolderColor(iconElement, '#EF4444');
-folderIcon.playFolderPathMorph(iconElement, true, { instant: true });
-assert.strictEqual(folderIcon.getFolderMorphParts(iconElement).find((part) => part.partName === 'upper-body').pathEl, iconElement.querySelector('[data-folder-part="upper-body"]'), 'reordered folders must animate the current SVG');
+folderIconMotion.initFolderPathMorph(iconElement);
+folderIconMotion.applyFolderColor(iconElement, '#EF4444');
+folderIconMotion.playFolderPathMorph(iconElement, true, { instant: true });
+assert.strictEqual(folderIconMotion.getFolderMorphParts(iconElement).find((part) => part.partName === 'upper-body').pathEl, iconElement.querySelector('[data-folder-part="upper-body"]'), 'reordered folders must animate the current SVG');
 assert.strictEqual(iconElement.querySelector('svg').getAttribute('data-folder-color-id'), '123');
 
 {
@@ -164,25 +165,25 @@ assert.strictEqual(iconElement.querySelector('svg').getAttribute('data-folder-co
       const icon = dom.window.document.createElement('span');
       icon.appendChild(drawFolderIcon(dom.window.document, suffix));
       dom.window.document.body.appendChild(icon);
-      folderIcon.initFolderPathMorph(icon);
+      folderIconMotion.initFolderPathMorph(icon);
       return icon;
     };
     const first = makeIcon('a');
-    folderIcon.playFolderPathMorph(first, true);
+    folderIconMotion.playFolderPathMorph(first, true);
     const firstSamples = samples;
     assert.ok(firstSamples > 0, 'the first hover samples the folder shapes it cannot morph by number');
     runFrames(16);
     runFrames(16);
-    folderIcon.playFolderPathMorph(first, false);
+    folderIconMotion.playFolderPathMorph(first, false);
     runFrames(16);
     assert.strictEqual(samples, firstSamples, 'turning back mid-morph reuses the points on screen');
     runFrames(1000);
     runFrames(16);
     const second = makeIcon('b');
-    folderIcon.playFolderPathMorph(second, true);
+    folderIconMotion.playFolderPathMorph(second, true);
     runFrames(1000);
     runFrames(16);
-    folderIcon.playFolderPathMorph(second, false);
+    folderIconMotion.playFolderPathMorph(second, false);
     runFrames(1000);
     runFrames(16);
     assert.strictEqual(samples, firstSamples, 'another folder icon reuses the shapes already sampled');

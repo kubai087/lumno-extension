@@ -4,7 +4,7 @@
 import { getShortcutReorderTiles } from '../dom/shortcut-tiles';
 import { getBookmarkCardId, getBookmarkReorderCards } from '../dom/bookmark-cards';
 import type { Translate } from '../newtab-types';
-import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
+import type { BookmarkCascadeRuntime } from '../dom/bookmark-cascade-menu';
 import type { BookmarkItem } from './bookmarks-store';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import type { BookmarksShown } from './bookmarks-shown';

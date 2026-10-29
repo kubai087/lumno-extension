@@ -2,7 +2,7 @@
 // results' layout, the stored page preferences, the window's resizes, the
 // bottom dock's parts, the wait for the entry animation, and the guard that
 // keeps a drag's release from opening a card.
-import * as NEWTAB_CARD_ACTIVATION_GUARD from '../card-activation-guard';
+import * as NEWTAB_CARD_ACTIVATION_GUARD from '../dom/card-activation-guard';
 import * as NEWTAB_PAGE_LAYOUT from '../page-layout';
 import * as NEWTAB_PAGE_PREFERENCES from '../page-preferences';
 import * as NEWTAB_SUGGESTIONS_LAYOUT from '../search/suggestions-layout';

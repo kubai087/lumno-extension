@@ -2,6 +2,7 @@
 // theme mode drawn, the favicon data and caches, the drags and the undo
 // lock, the URL and favicon policy, site names, the select menus, tooltips
 // and toasts, and Firefox's browser icon index.
+import { getToastElement } from '../dom/app-root';
 import * as LumnoBrowserProfile from '../../platform/browser-profile';
 import * as LumnoBrowserIcons from '../../platform/browser-icons';
 import * as SITE_DISPLAY_NAME from '../../domain/site-display-name';
@@ -170,7 +171,7 @@ function createShellFeature(ctx: PageContext) {
     copySearchResultUrl
   } = NEWTAB_CLIPBOARD_ACTIONS.createClipboardActions({
     t,
-    toastController: createToastController(document.getElementById('_x_extension_toast_2024_unique_'), getPagePortals(), { windowObj: window })
+    toastController: createToastController(getToastElement(document), getPagePortals(), { windowObj: window })
   });
 
   return {

@@ -24,7 +24,7 @@ import { NEWTAB_SHORTCUT_COLUMNS_DEFAULT, NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SH
 import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import { NEWTAB_GLASS_ADAPTIVE_SELECTOR } from '../newtab-config';
-import { SEARCH_WIDTH_CONFIG } from '../layout';
+import { SEARCH_WIDTH_CONFIG } from '../dom/layout';
 import type { BottomDockParts } from '../shortcuts/bottom-dock-parts';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 import { adaptiveToneEvents } from './tone-requests';

@@ -1,7 +1,6 @@
 const MAX_AGE_MS = 5000;
 // Never hold the old frame longer than this, whatever is still loading.
 const MAX_HOLD_MS = 1200;
-const VIEW_TRANSITION_STYLE_ATTRIBUTE = 'data-nt-focus-resume-transition';
 // Both pages opt in. The old frame stays opaque over the new page until the
 // transition is skipped, or until the hold runs out.
 const OUTGOING_TRANSITION_CSS = '@view-transition { navigation: auto; }';
@@ -19,6 +18,7 @@ animation-duration: 0s !important;
 animation-delay: 0s !important;
 }`;
 
+import { addTransitionStyle } from './dom/view-transition-style';
 import type { SearchSourceType, SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import { publishBootValue, takeBootValue } from '../platform/boot-handoff';
@@ -137,16 +137,6 @@ function saveSnapshot(snapshot: SearchSnapshot | null): boolean {
   }
 }
 
-function addTransitionStyle(cssText: string): void {
-  const head = document.head || document.documentElement;
-  if (!head || document.querySelector(`style[${VIEW_TRANSITION_STYLE_ATTRIBUTE}]`)) {
-    return;
-  }
-  const style = document.createElement('style');
-  style.setAttribute(VIEW_TRANSITION_STYLE_ATTRIBUTE, 'true');
-  style.textContent = cssText;
-  head.appendChild(style);
-}
 
 // Runs in the head of the reloaded page, before its first frame. Marks the
 // load as a resume and keeps the old frame up while the page rebuilds.

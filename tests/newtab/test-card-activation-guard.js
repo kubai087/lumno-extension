@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
-const guardModule = require('../../src/newtab/card-activation-guard.ts');
+const guardModule = require('../../src/newtab/dom/card-activation-guard.ts');
 
 // Presses that belong to a card context menu (made while it is open, or
 // just after, through the fading menu) must not open the card underneath.
