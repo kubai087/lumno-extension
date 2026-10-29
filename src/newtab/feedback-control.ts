@@ -9,6 +9,7 @@ import type { FeedbackControlController, FeedbackControlModel } from './react/fe
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import * as COMMUNITY_LINKS from '../platform/community-links';
 import { createFeedbackControlController } from './react/feedback';
+import * as COMMUNITY_QR_DIALOG from '../shared/ui/community-qr-dialog';
 
 
 interface FeedbackControlDeps {
@@ -294,7 +295,25 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
     return feedbackButton;
   }
 
+
+  // The WeChat group QR opens in a dialog over the page, never in a new tab.
+  function openCommunityQrDialog(qrUrl: string | null | undefined): void {
+    if (!COMMUNITY_QR_DIALOG) {
+      return;
+    }
+    COMMUNITY_QR_DIALOG.open({
+      documentObj: document,
+      imageUrl: qrUrl || feedbackLinks.wechatQr,
+      title: t('newtab_feedback_wechat_panel_title', 'Bug 反馈 & 新功能提需'),
+      alt: t('newtab_feedback_wechat_qr_alt', 'Lumno 微信群二维码'),
+      closeLabel: t('newtab_feedback_wechat_close_tooltip', '关闭'),
+      theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
+      glass: document.body.hasAttribute('data-glass-style'),
+      returnFocus: document.activeElement
+    });
+  }
   return {
+    openCommunityQrDialog,
     getFeedbackLinks,
     getFeedbackControl,
     getFeedbackButton,

@@ -168,6 +168,8 @@ import { RecentPointer } from './recent/recent-pointer';
 import { getPagePortals } from './app/portals';
 import { SearchBoxParts } from './search/search-box-parts';
 import { OpenTabs } from '../shared/search-panel/open-tabs';
+import { WebAppearance } from './search/web-appearance';
+import { createCommandCatalog } from './search/command-catalog';
 import { PageNoticeControllers } from './notice-controllers';
 import { AppliedThemeMode } from './theme/applied-theme-mode';
 import { ShortcutList } from './shortcuts/shortcut-list';
@@ -317,6 +319,20 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const locale = new SurfaceLocale(settings, loadNewtabLocaleMessages);
   locale.follow();
   const { t, formatMessage } = locale;
+  // Firefox's website appearance setting, and the slash commands typed in the search box.
+  const webAppearance = new WebAppearance();
+  const commandCatalog = createCommandCatalog({ settings, t, formatMessage, getExtensionResourceUrl, appliedTheme, webAppearance });
+  const {
+    getCommandMatches,
+    getCommandMatch,
+    buildCommandSuggestion,
+    getNextThemeMode,
+    isModeCommand,
+    isZenCommand,
+    isSlashCommandInput,
+    buildModeSuggestion,
+    buildZenSuggestion
+  } = commandCatalog;
   const sanitizeDisplayText = SearchDirectNavigation.sanitizeDisplayText;
 
   const SITE_DISPLAY_NAME_OPTIONS = createSiteDisplayNameOptions(t);
@@ -415,6 +431,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
+    openCommunityQrDialog,
     getFeedbackLinks,
     getFeedbackControl,
     getFeedbackButton,
@@ -533,7 +550,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
     showToast: (message, isError) => showToast(message, isError),
-    getHelpCenterLocale: () => getHelpCenterLocale(),
+    getHelpCenterLocale: () => locale.store.getSnapshot().locale,
     openInCurrentTab: (url) => navigateToUrl(url)
   });
   const resultActivation = new ResultActivation(settings, {
@@ -950,7 +967,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     updateFeedbackLanguageStrings,
     renderShortcuts: () => renderShortcuts(),
-    updateModeBadge: (...args) => updateModeBadge(...args),
     renderSuggestions: (...args) => renderSuggestions(...args),
     forceReloadRecentSitesForI18n: (...args) => forceReloadRecentSitesForI18n(...args),
     resolveTheme,
@@ -1909,14 +1925,14 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     suggestionItems,
     getAutoHighlightIndex: (...args) => getAutoHighlightIndex(...args),
     renderSuggestions: (...args) => renderSuggestions(...args),
-    isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    getCommandMatch: (...args) => getCommandMatch(...args),
-    isModeCommand: (...args) => isModeCommand(...args),
-    isZenCommand: (...args) => isZenCommand(...args),
-    getNextThemeMode: (...args) => getNextThemeMode(...args),
+    isSlashCommandInput,
+    getCommandMatch,
+    isModeCommand,
+    isZenCommand,
+    getNextThemeMode,
     setVisibleThemeMode,
-    setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
-    openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
+    webAppearance,
+    openCommunityQrDialog,
     navigateToQuery
   });
 
@@ -1951,23 +1967,22 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     settings,
     getPageFaviconCandidateUrl,
     setVisibleThemeMode,
-    setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
+    webAppearance,
     shouldSwitchMatchedTabSuggestion,
     resultActivation,
     navigateToQuery,
     suggestionsContainer: suggestionsContainer,
     suggestionItems,
     refreshTabsForSearchContext,
-    clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
-    isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    isModeCommand: (...args) => isModeCommand(...args),
-    isZenCommand: (...args) => isZenCommand(...args),
+    isSlashCommandInput,
+    isModeCommand,
+    isZenCommand,
     getScopedThemeMode,
     applyThemeMode,
-    getCommandMatches: (...args) => getCommandMatches(...args),
-    buildModeSuggestion: (...args) => buildModeSuggestion(...args),
-    buildZenSuggestion: (...args) => buildZenSuggestion(...args),
-    buildCommandSuggestion: (...args) => buildCommandSuggestion(...args),
+    getCommandMatches,
+    buildModeSuggestion,
+    buildZenSuggestion,
+    buildCommandSuggestion,
     getDirectUrlSuggestion,
     quickNavigation,
     siteSearchCatalog,
@@ -1977,12 +1992,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
     getUrlDisplay,
-    setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
     limitSuggestionsForDisplay,
     t,
     warmIconCache,
     setSuggestionsVisible,
-    openCommunityQrDialog: (...args) => openCommunityQrDialog(...args)
+    openCommunityQrDialog
   });
 
   const { focusResume } = NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
@@ -2014,29 +2028,18 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    getCommandMatches,
-    getCommandMatch,
-    buildCommandSuggestion,
     updateModeBadge,
-    getNextThemeMode,
-    isModeCommand,
-    isZenCommand,
-    isSlashCommandInput,
-    buildModeSuggestion,
-    buildZenSuggestion,
-    loadWebAppearance,
-    setWebAppearanceMode,
     followZenMode
   } = NEWTAB_MODE_COMMANDS.createModeCommands({
+    catalog: commandCatalog,
+    webAppearance,
+    locale,
     bookmarkParts,
     appliedTheme,
     searchBox,
     preview,
     settings,
     t,
-    formatMessage,
-    updateInputRightPadding: (...args) => updateInputRightPadding(...args),
-    getExtensionResourceUrl,
     renderSuggestions,
     applyNewtabTopContentVisibility,
     applyNewtabShortcutsVisibility,
@@ -2151,12 +2154,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     maybeShowFileAccessNotice,
     createNewtabGraphicsNoticeController,
     createNewtabEngagementNoticeController,
-    getHelpCenterLocale,
-    openCommunityQrDialog,
     helpCenterAskHintSettled,
     dismissHelpCenterAskHint,
     dismissWebdavFeatureHint
   } = NEWTAB_PAGE_NOTICES.createPageNotices({
+    openCommunityQrDialog,
     getFeedbackLinks,
     notices,
     searchBox,
@@ -2175,7 +2177,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    updateInputRightPadding,
     followNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
     getWallpaperControl: wallpaperRuntime.getControlElement,
@@ -2205,10 +2206,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     syncBookmarkTopbarSurfaceAppearance
   });
 
-  const {
-    setSiteSearchTabHint,
-    clearSiteSearchTabHint,
-  } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+  NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
     suggestionsContainer,
     searchBox,
     modeMenu,
@@ -2490,7 +2488,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     typeof document.fonts.ready.then === 'function'
       ? document.fonts.ready.catch(() => true)
       : Promise.resolve(true);
-  loadWebAppearance();
+  webAppearance.load();
   Promise.all([
     initialAppearanceReadyTask,
     initialBookmarkTopbarLayoutReady,

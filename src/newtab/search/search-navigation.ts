@@ -4,7 +4,6 @@ import type { Disposition } from '../../domain/navigation-disposition';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { Suggestion, SuggestionElement } from '../../shared/react/search/suggestion-list/types';
-import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
 import type { RenderSuggestions, SlashCommand } from './search-types';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
@@ -23,6 +22,7 @@ import { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import type { SearchBoxParts } from './search-box-parts';
 import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
+import type { WebAppearance } from './web-appearance';
 
 
 // A slash command the typed text names, and the text that completes it.
@@ -51,7 +51,7 @@ interface SearchNavigationDeps {
   isZenCommand(query: string): boolean;
   getNextThemeMode(mode: string): string;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
-  setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
+  webAppearance: Pick<WebAppearance, 'set'>;
   openCommunityQrDialog(url: string | undefined): void;
   // Searches the query with the default engine; `forceSearch` skips the
   // address check.
@@ -87,7 +87,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     isZenCommand,
     getNextThemeMode,
     setVisibleThemeMode,
-    setWebAppearanceMode,
+    webAppearance,
     openCommunityQrDialog,
     navigateToQuery
   } = deps;
@@ -246,7 +246,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return true;
       }
       if (selectedSuggestion.type === 'webAppearanceSwitch') {
-        setWebAppearanceMode(selectedSuggestion.nextMode);
+        webAppearance.set(selectedSuggestion.nextMode);
         return true;
       }
       if (selectedSuggestion.type === 'commandNewTab') {

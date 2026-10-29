@@ -3,7 +3,6 @@
 // file access notice and the page notice banner, and the WebDAV hint.
 import * as ENGAGEMENT_NOTICE from '../shared/engagement-notice';
 import * as GRAPHICS_NOTICE from '../shared/graphics-acceleration-notice';
-import * as COMMUNITY_QR_DIALOG from '../shared/ui/community-qr-dialog';
 import * as UPDATE_NOTICE from '../shared/update-notice';
 import * as LumnoMessaging from '../platform/messaging';
 import type { CommunityLinks } from '../domain/community-links';
@@ -42,6 +41,7 @@ interface PageNoticesDeps {
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
   notices: Pick<PageNoticeControllers, 'engagement' | 'graphics' | 'helpCenterAskHint' | 'mountHelpCenterAskHint' | 'mountUpdate' | 'update' | 'webdavHint'>;
   getFeedbackLinks(): CommunityLinks;
+  openCommunityQrDialog(qrUrl: string | null | undefined): void;
 }
 
 function createPageNotices(deps: PageNoticesDeps) {
@@ -49,7 +49,6 @@ function createPageNotices(deps: PageNoticesDeps) {
     notices,
     searchBox,
     modeActions,
-    locale,
     pageSearchParams,
     bottomDock,
     t,
@@ -60,7 +59,8 @@ function createPageNotices(deps: PageNoticesDeps) {
     newtabEntryAnimationReadyPromise,
     root,
     siteSearchCatalog,
-    getFeedbackLinks
+    getFeedbackLinks,
+    openCommunityQrDialog
   } = deps;
 
 
@@ -257,27 +257,6 @@ function createPageNotices(deps: PageNoticesDeps) {
       }
     });
   }
-  // Help Center results and the page the search row opens both follow the interface language.
-  function getHelpCenterLocale(): string {
-    return locale.store.getSnapshot().locale;
-  }
-
-  // The WeChat group QR opens in a dialog over the page, never in a new tab.
-  function openCommunityQrDialog(qrUrl: string | null | undefined): void {
-    if (!COMMUNITY_QR_DIALOG) {
-      return;
-    }
-    COMMUNITY_QR_DIALOG.open({
-      documentObj: document,
-      imageUrl: qrUrl || getFeedbackLinks().wechatQr,
-      title: t('newtab_feedback_wechat_panel_title', 'Bug 反馈 & 新功能提需'),
-      alt: t('newtab_feedback_wechat_qr_alt', 'Lumno 微信群二维码'),
-      closeLabel: t('newtab_feedback_wechat_close_tooltip', '关闭'),
-      theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
-      glass: document.body.hasAttribute('data-glass-style'),
-      returnFocus: document.activeElement
-    });
-  }
   // Above the search input, new installs and people updating to this version learn that the
   // Help Center answers questions here (lm + Tab). It stays until closed or until they ask one,
   // and only while the Help Center site search is enabled. Resolves to whether it is showing.
@@ -344,8 +323,6 @@ function createPageNotices(deps: PageNoticesDeps) {
     maybeShowFileAccessNotice,
     createNewtabGraphicsNoticeController,
     createNewtabEngagementNoticeController,
-    getHelpCenterLocale,
-    openCommunityQrDialog,
     helpCenterAskHintSettled,
     dismissHelpCenterAskHint,
     dismissWebdavFeatureHint

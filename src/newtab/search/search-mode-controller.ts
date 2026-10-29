@@ -5,7 +5,7 @@ import type { SiteSearchProvider } from '../../domain/search/types';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import * as SEARCH_INPUT_MODE from '../../shared/search/search-input-mode';
 import type { InputModeConfig } from '../../shared/search/input-mode/controller-types';
-import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
+import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { RenderSuggestions } from './search-types';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
@@ -69,7 +69,7 @@ interface SearchModeControllerDeps {
   suggestionsContainer: HTMLElement;
 }
 
-function createSearchModeController(deps: SearchModeControllerDeps) {
+function createSearchModeController(deps: SearchModeControllerDeps): void {
   const {
     suggestionsContainer,
     searchBox,
@@ -111,14 +111,6 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
   const inputParts = searchBox.inputParts;
   if (!inputParts) {
     throw new Error('Search input unavailable');
-  }
-
-  function setSiteSearchTabHint(provider: InputModeProvider | null): void {
-    modeController.setTabHintVisible(true, provider);
-  }
-
-  function clearSiteSearchTabHint(): void {
-    modeController.setTabHintVisible(false);
   }
 
   void settings.include([searchResultPriority, searchResultSourceTypes, searchResultDisplayLimit, overlayTabPriority, newtabOpenInNewTab])
@@ -211,13 +203,8 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
 
 
 
-  return {
-    setSiteSearchTabHint,
-    clearSiteSearchTabHint,
-  };
 }
 
-type SearchModeController = ReturnType<typeof createSearchModeController>;
 
 export { createSearchModeController };
-export type { SearchModeController, SearchModeControllerDeps };
+export type { SearchModeControllerDeps };

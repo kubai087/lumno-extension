@@ -5,7 +5,6 @@ import type { SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { FeedbackControlRuntime } from './feedback-control';
-import type { ModeCommands } from './mode-commands';
 import type { NewtabThemeScope, Translate } from './newtab-types';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import { localeToHtmlLang } from '../domain/settings/locale';
@@ -38,7 +37,6 @@ type ResolvedTheme = 'light' | 'dark';
 interface AppearanceModesDeps extends
   Pick<TopContentRuntime, 'renderNewtabTopContent' | 'applyWordmarkThemeAppearance'>,
   Pick<FeedbackControlRuntime, 'updateFeedbackLanguageStrings'>,
-  Pick<ModeCommands, 'updateModeBadge'>,
   Pick<SuggestionsController, 'renderSuggestions'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'> {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -85,7 +83,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     updateBookmarkModeMenu,
     updateFeedbackLanguageStrings,
     renderShortcuts,
-    updateModeBadge,
     renderSuggestions,
     forceReloadRecentSitesForI18n,
     resolveTheme,
@@ -125,7 +122,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
         modeActions.setLocalSearchScopePrefix(searchMode.local);
       }
     }
-    updateModeBadge(searchBox.inputParts && searchBox.inputParts.input ? searchBox.inputParts.input.value : '');
     if (searchQuery.text && searchQuery.text.trim()) {
       void renderSuggestions(searchResults.lastResponse, searchQuery.text);
     }
@@ -171,7 +167,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     const didResolvedThemeChange = previousResolved !== resolved;
     pageColorScheme.setState({ dark: resolved === 'dark' });
     applyLanguageStrings();
-    updateModeBadge(searchBox.inputParts && searchBox.inputParts.input ? searchBox.inputParts.input.value : '');
     refreshFallbackIcons();
     if (didResolvedThemeChange) {
       refreshThemeAwareFavicons();

@@ -9,9 +9,7 @@ import type {
 } from '../../shared/react/search/suggestion-list/types';
 import { holdSuggestionsHeight, releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { AppearanceModes } from '../appearance-modes';
-import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage, Translate } from '../newtab-types';
-import type { SearchModeController } from './search-mode-controller';
 import type { SearchNavigation, SearchNavigationDeps } from './search-navigation';
 import type {
   RequestSuggestionsOptions,
@@ -52,6 +50,8 @@ import * as SearchDirectNavigation from '../../domain/search/utils/direct-naviga
 import type { SearchBoxParts } from './search-box-parts';
 import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
+import type { WebAppearance } from './web-appearance';
+import type { InputModeProvider } from '../../shared/search/input-mode/types';
 
 
 interface SuggestionsControllerDeps {
@@ -69,14 +69,13 @@ interface SuggestionsControllerDeps {
   searchEngine: DefaultSearchEngine;
   getPageFaviconCandidateUrl(pageUrl: string): string;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
-  setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
+  webAppearance: Pick<WebAppearance, 'set'>;
   shouldSwitchMatchedTabSuggestion: SearchNavigation['shouldSwitchMatchedTabSuggestion'];
   resultActivation: ResultActivation;
   navigateToQuery: SearchNavigationDeps['navigateToQuery'];
   suggestionsContainer: HTMLElement;
   suggestionItems: SuggestionElement[];
   refreshTabsForSearchContext: SearchNavigation['refreshTabsForSearchContext'];
-  clearSiteSearchTabHint: SearchModeController['clearSiteSearchTabHint'];
   isSlashCommandInput(query: string): boolean;
   isModeCommand(query: string): boolean;
   isZenCommand(query: string): boolean;
@@ -95,14 +94,13 @@ interface SuggestionsControllerDeps {
   // The suggestions the search blacklist does not leave out.
   filterBlacklistedSuggestions(list: Suggestion[], query: string): Suggestion[];
   getUrlDisplay(url: string | undefined): string;
-  setSiteSearchTabHint: SearchModeController['setSiteSearchTabHint'];
   // The rows the list shows; `uncapped` keeps every command.
   limitSuggestionsForDisplay(list: Suggestion[], options: { uncapped: boolean }): Suggestion[];
   t: Translate;
   warmIconCache(list: Suggestion[]): void;
   setSuggestionsVisible(visible: boolean): void;
   openCommunityQrDialog?(url: string | undefined): void;
-  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'suggestionsView'>;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController' | 'suggestionsView'>;
   openTabs: Pick<OpenTabs, 'clear' | 'currentTabId' | 'tabs'>;
   appliedTheme: Pick<AppliedThemeMode, 'mode'>;
 }
@@ -140,14 +138,13 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     searchEngine,
     getPageFaviconCandidateUrl,
     setVisibleThemeMode,
-    setWebAppearanceMode,
+    webAppearance,
     shouldSwitchMatchedTabSuggestion,
     resultActivation,
     navigateToQuery,
     suggestionsContainer,
     suggestionItems,
     refreshTabsForSearchContext,
-    clearSiteSearchTabHint,
     isSlashCommandInput,
     isModeCommand,
     isZenCommand,
@@ -164,7 +161,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
     getUrlDisplay,
-    setSiteSearchTabHint,
     limitSuggestionsForDisplay,
     t,
     warmIconCache,
@@ -185,6 +181,18 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   let pendingProviderReload = false;
 
 
+
+  function setSiteSearchTabHint(provider: InputModeProvider | null): void {
+    if (searchBox.modeController) {
+      searchBox.modeController.setTabHintVisible(true, provider);
+    }
+  }
+
+  function clearSiteSearchTabHint(): void {
+    if (searchBox.modeController) {
+      searchBox.modeController.setTabHintVisible(false);
+    }
+  }
 
   function getAutoHighlightIndex(): number {
     return searchBox.suggestionsView ? searchBox.suggestionsView.getAutoHighlightIndex() : -1;
@@ -237,7 +245,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       return;
     }
     if (suggestion.type === 'webAppearanceSwitch') {
-      setWebAppearanceMode(suggestion.nextMode);
+      webAppearance.set(suggestion.nextMode);
       searchBox.focusInput();
       return;
     }
