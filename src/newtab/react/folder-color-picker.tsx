@@ -253,7 +253,7 @@ function FolderColorForm({ initial, options, initialSavedColors, updateSavedColo
           <div className="x-nt-folder-color-editor" ref={editorRef}>
             <fieldset className="x-nt-folder-color-controls" disabled={busy}>
               <div inert={busy}>
-                <HexColorPicker color={color} onChange={(value) => selectColor(value)} aria-label={initial.labels?.picker || t('folder_color_title', 'Folder color')} />
+                <HexColorPicker color={color} onChange={selectColor} aria-label={initial.labels?.picker || t('folder_color_title', 'Folder color')} />
               </div>
               <div className="x-nt-folder-color-palettes">
                 {mergePalettes ? <div className="x-nt-folder-color-presets" role="group" ref={savedColorsRef}

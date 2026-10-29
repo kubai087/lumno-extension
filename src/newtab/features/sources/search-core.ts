@@ -84,20 +84,20 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
   const suggestionModifiers = new SuggestionModifiers(settings);
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
-    showToast: (message, isError) => showToast(message, isError),
+    showToast,
     getHelpCenterLocale: () => locale.store.getSnapshot().locale,
-    openInCurrentTab: (url) => navigateToUrl(url)
+    openInCurrentTab: navigateToUrl
   });
   const resultActivation = new ResultActivation(settings, {
     source: 'newtab',
     enterAction: 'openNewTab',
     isCurrentTabDefault: () => !settings.get(newtabOpenInNewTab).search,
-    openInCurrentTab: (url) => navigateToUrl(url)
+    openInCurrentTab: navigateToUrl
   });
   const menuOrder = new SearchModeMenuOrder(settings);
   const searchMatching = new SearchMatching({
     settings,
-    getUrlDisplay: (url) => getUrlDisplay(url)
+    getUrlDisplay
   });
   const searchResults = new SearchResults<Suggestion>();
   const suggestionSource = new SuggestionSource(searchQuery, searchResults);
@@ -108,7 +108,7 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
     getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
     preview: suggestionInputPreview,
     isModeActive: () => Boolean(searchMode.site),
-    getUrlDisplay: (url) => getUrlDisplay(url)
+    getUrlDisplay
   });
   const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
   siteSearchCatalog.follow();
@@ -199,7 +199,7 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
     surface: {
       getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
       getModeController: () => searchBox.modeController,
-      getProviderIcon: (provider) => getProviderIcon(provider)
+      getProviderIcon
     }
   });
   const urlHighlightTheme = createUrlHighlightTheme();

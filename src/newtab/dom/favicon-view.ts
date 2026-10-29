@@ -144,16 +144,35 @@ function createFaviconViewRuntime(options?: FaviconViewRuntimeOptions | null) {
     getStrictFaviconReason,
     logFaviconDecision
   });
-  const faviconViewCoreApi = LumnoFaviconViewCore;
-  const faviconViewCore = faviconViewCoreApi.createFaviconViewCore({
+  const fallbackIcons = LumnoFaviconViewCore.createFallbackIconPresenter({
+    fallbackClassName: '_x_extension_favicon_fallback_2024_unique_',
+    getFallbackSibling,
+    styleFallbackNode: sizeFallbackNode,
+    setImageVisible(img: FaviconImage, visible: boolean) {
+      if (visible) {
+        img.style.setProperty('display', 'block');
+      } else {
+        img.style.removeProperty('display');
+      }
+    },
+    clearCandidateTimer: clearThemeAwareCandidateLoadTimer,
+    setTimer
+  });
+  const {
+    setFallbackIconVisible,
+    showResolvedFavicon,
+    showPendingFallbackIcon,
+    applyFallbackIcon
+  } = fallbackIcons;
+  const faviconViewCore = LumnoFaviconViewCore.createFaviconViewCore({
     document: doc,
     windowObj: win,
     chromeApi,
     getHostFromUrl,
     shouldBlockFaviconForHost,
     isBlockedLocalFaviconUrl,
-    showResolvedFavicon: (img) => showResolvedFavicon(img),
-    showPendingFallbackIcon: (img) => showPendingFallbackIcon(img),
+    showResolvedFavicon,
+    showPendingFallbackIcon,
     getPersistCacheKey: (img) => img.getAttribute('data-x-nt-favicon-cache-key') || '',
     setPersistedFaviconUrl,
     setPersistedFaviconData,
@@ -241,26 +260,6 @@ function createFaviconViewRuntime(options?: FaviconViewRuntimeOptions | null) {
     node.style.setProperty('--x-nt-favicon-fallback-height', `${resolveFallbackIconDimension(img, 'height', defaultDimension)}px`);
   }
 
-  const fallbackIcons = faviconViewCoreApi.createFallbackIconPresenter({
-    fallbackClassName: '_x_extension_favicon_fallback_2024_unique_',
-    getFallbackSibling,
-    styleFallbackNode: sizeFallbackNode,
-    setImageVisible(img: FaviconImage, visible: boolean) {
-      if (visible) {
-        img.style.setProperty('display', 'block');
-      } else {
-        img.style.removeProperty('display');
-      }
-    },
-    clearCandidateTimer: clearThemeAwareCandidateLoadTimer,
-    setTimer
-  });
-  const {
-    setFallbackIconVisible,
-    showResolvedFavicon,
-    showPendingFallbackIcon,
-    applyFallbackIcon
-  } = fallbackIcons;
 
   // After a theme change the fallback tiles size and show again.
   function refreshFallbackIcons(): void {

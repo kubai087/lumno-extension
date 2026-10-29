@@ -11,7 +11,7 @@ function loadNewtabLocaleMessages(locale: string): Promise<LocaleMessages> {
   // newtab-storage-prefetch.ts started the last New Tab's locale before this script loaded.
   const prefetch = takeBootValue('localePrefetch');
   if (prefetch && prefetch.locale === normalized) {
-    return prefetch.messages.then((value) => readLocaleMessages(value), () => loadExtensionLocaleMessages(normalized));
+    return prefetch.messages.then(readLocaleMessages, () => loadExtensionLocaleMessages(normalized));
   }
   return loadExtensionLocaleMessages(normalized);
 }

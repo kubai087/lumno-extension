@@ -217,7 +217,7 @@ function createPanelActions(deps: PanelActionsDeps) {
   function createWallpaperPanelActions(): WallpaperPanelActions {
     const actions: WallpaperPanelActions = {
       togglePanel: toggleWallpaperPanel,
-      showTooltip: (anchor, text) => showTopActionTooltip(anchor, text),
+      showTooltip: showTopActionTooltip,
       hideTooltip: () => hideTopActionTooltip(),
       showButtonTooltip(anchor) {
         if (isWallpaperPanelOpen()) {
@@ -227,8 +227,8 @@ function createPanelActions(deps: PanelActionsDeps) {
         showTopActionTooltip(anchor, getWallpaperButtonLabel(), { placement: 'top' });
       },
       selectThemeScope: (scope: ThemeScope) => animateWallpaperAppearanceScopeChange(getThemeScope(), scope),
-      selectThemeMode: (mode) => setThemeMode(mode),
-      setSearchWidth: (value, change) => persistSearchWidthFromSlider(value, change),
+      selectThemeMode: setThemeMode,
+      setSearchWidth: persistSearchWidthFromSlider,
       setInputAutoFocus(enabled) {
         setInputAutoFocusEnabled(enabled);
         renderWallpaperPanelState();
@@ -241,17 +241,17 @@ function createPanelActions(deps: PanelActionsDeps) {
         setGlassTheme(value);
         renderWallpaperPanelState();
       },
-      selectTopContent: (mode) => persistTopContentMode(mode),
-      setTimeFontWeight: (value) => persistTimeFontWeight(value),
+      selectTopContent: persistTopContentMode,
+      setTimeFontWeight: persistTimeFontWeight,
       resetTimeFontWeight: () => persistTimeFontWeight(SETTINGS.getNewtabTimeFont(settings.get(newtabTimeFont)).defaultWeight),
-      setTimeFontSize: (value, change) => persistTimeFontSizeFromSlider(value, change),
+      setTimeFontSize: persistTimeFontSizeFromSlider,
       resetTimeFontSize: () => persistTimeFontSizeFromSlider(SETTINGS.NEWTAB_TIME_FONT_SIZE_DEFAULT, { final: true }),
-      setTimeOpacity: (value, change) => persistTimeOpacityFromSlider(value, change),
+      setTimeOpacity: persistTimeOpacityFromSlider,
       resetTimeOpacity: () => persistTimeOpacityFromSlider(SETTINGS.NEWTAB_TIME_OPACITY_DEFAULT, { final: true }),
-      selectTimeInk: (value) => persistTimeInk(value),
-      setTimeFont: (value) => persistTimeFont(value),
-      setTimeSecondsVisible: (visible) => persistTimeSecondsVisible(visible),
-      setTime12Hour: (enabled) => persistTime12Hour(enabled),
+      selectTimeInk: persistTimeInk,
+      setTimeFont: persistTimeFont,
+      setTimeSecondsVisible: persistTimeSecondsVisible,
+      setTime12Hour: persistTime12Hour,
       setShortcutsVisible(visible) {
         setShortcutsVisible(visible, { persist: true });
         renderWallpaperPanelState();
@@ -264,9 +264,9 @@ function createPanelActions(deps: PanelActionsDeps) {
         setShortcutDockMagnificationEnabled(enabled, { persist: true });
         renderWallpaperPanelState();
       },
-      setShortcutColumns: (value, change) => persistShortcutColumnsFromSlider(value, change),
-      setShortcutSize: (value, change) => persistShortcutSizeFromSlider(value, change),
-      setShortcutGap: (value, change) => persistShortcutGapFromSlider(value, change),
+      setShortcutColumns: persistShortcutColumnsFromSlider,
+      setShortcutSize: persistShortcutSizeFromSlider,
+      setShortcutGap: persistShortcutGapFromSlider,
       resetShortcutSize: () => persistShortcutSizeFromSlider(
         getShortcutLayoutDefault(shortcutSizeConfig, 48, 112, 64),
         { final: true }
@@ -275,14 +275,14 @@ function createPanelActions(deps: PanelActionsDeps) {
         getShortcutLayoutDefault(shortcutGapConfig, 0, 24, 4),
         { final: true }
       ),
-      setWallpaperEnabled: (enabled) => persistWallpaperEnabled(enabled),
-      setModeSync: (enabled) => persistWallpaperModeConsistency(enabled),
-      selectWallpaperMode: (mode) => setWallpaperActiveMode(mode),
-      selectSourceTab: (tab) => setWallpaperActiveTab(tab),
-      selectWallpaper: (id) => persistNewtabWallpaper(id),
+      setWallpaperEnabled: persistWallpaperEnabled,
+      setModeSync: persistWallpaperModeConsistency,
+      selectWallpaperMode: setWallpaperActiveMode,
+      selectSourceTab: setWallpaperActiveTab,
+      selectWallpaper: persistNewtabWallpaper,
       primeWallpaper: (id) => { void primeWallpaperImage(id); },
-      deleteWallpaper: (id) => deleteCustomWallpaper(id),
-      importWallpaperFile: (file) => importCustomWallpaperFile(file),
+      deleteWallpaper: deleteCustomWallpaper,
+      importWallpaperFile: importCustomWallpaperFile,
       toggleUrlForm() {
         if (panelUi.state.importing) {
           return;
@@ -293,7 +293,7 @@ function createPanelActions(deps: PanelActionsDeps) {
         }
         setCustomWallpaperUrlFormOpen(!panelUi.state.urlFormOpen);
       },
-      openOnlineWallpaperMenu: (id, element, point) => openOnlineWallpaperMenu(id, element, point),
+      openOnlineWallpaperMenu,
       showLocalWallpaperLimit: () => showLocalWallpaperLimitToast(),
       submitWallpaperUrl(url) {
         if (!panelUi.state.importing) {
@@ -317,9 +317,9 @@ function createPanelActions(deps: PanelActionsDeps) {
           void selectBingWallpaper(id, { asDailyPick: true });
         }
       },
-      setCuratedDaily: (enabled) => setCuratedDailyWallpaper(enabled),
-      selectCuratedCategory: (category) => selectCuratedCategory(category),
-      setCuratedMixCategory: (category, included) => setCuratedMixCategory(category, included),
+      setCuratedDaily: setCuratedDailyWallpaper,
+      selectCuratedCategory,
+      setCuratedMixCategory,
       showMoreCurated: () => showMoreCuratedWallpapers(),
       selectCuratedWallpaper(id) {
         if (isWallpaperTileSelected(id)) {
@@ -341,7 +341,7 @@ function createPanelActions(deps: PanelActionsDeps) {
       selectEffect: (type) => persistWallpaperEffectPrefs({ type }),
       selectInkTone: (tone) => persistWallpaperEffectPrefs({ inkTone: tone }),
       setEffectParameter: setWallpaperEffectParameter,
-      selectFavicon: (id) => persistNewtabFavicon(id)
+      selectFavicon: persistNewtabFavicon
     };
     return Object.freeze(actions);
   }
