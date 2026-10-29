@@ -2,17 +2,28 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createShortcutsView,
+  type ShortcutContextMenuMark,
   type VisibleShortcutItem,
   type ShortcutsLayout,
   type ShortcutTileElement,
+  type ShortcutTilesState,
   type ShortcutsViewController,
   type ShortcutsViewOptions
 } from './shortcuts';
+import { createViewStore } from '../../shared/react/view-store';
+import type { Store } from '../../shared/state/store';
 import { expectElement, getElement, getTag, required } from '../../../tests/react/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 import type { ShortcutLink, VisibleShortcutFolder } from '../../domain/shortcuts/types';
 
-let views: ShortcutsViewController[] = [];
+// A view with the stores the shortcuts set: the tiles and what a context
+// menu is open for.
+interface ShortcutsHarness extends ShortcutsViewController {
+  tilesState: Store<ShortcutTilesState>;
+  contextMenuMark: Store<{ mark: ShortcutContextMenuMark | null }>;
+}
+
+let views: ShortcutsHarness[] = [];
 
 // A link shortcut; its host stays empty unless given, so tiles read it
 // from getHostFromUrl.
@@ -60,30 +71,30 @@ function createOptions(
 function createView(
   overrides: Partial<ShortcutsViewOptions> = {}
 ): {
-  view: ShortcutsViewController;
+  view: ShortcutsHarness;
   options: ShortcutsViewOptions;
 } {
-  const options = createOptions(overrides);
-  const view = createShortcutsView(options);
+  const tilesState = createViewStore<ShortcutTilesState>({ items: [], layout: {} });
+  const contextMenuMark = createViewStore<{ mark: ShortcutContextMenuMark | null }>({ mark: null });
+  const options = createOptions({ tilesState, contextMenuMark, ...overrides });
+  const view = { ...createShortcutsView(options), tilesState, contextMenuMark };
   views.push(view);
   return { view, options };
 }
 
+// Sets the tiles as the shortcuts do.
 function renderItems(
-  view: ShortcutsViewController,
+  view: ShortcutsHarness,
   items: VisibleShortcutItem[],
   layout?: ShortcutsLayout
 ): { count: number } {
-  let result = { count: 0 };
-  act(() => {
-    result = view.render(items, layout);
-  });
-  return result;
+  act(() => view.tilesState.setState({ items, layout: layout || {} }));
+  return { count: items.length };
 }
 
 afterEach(() => {
   act(() => {
-    views.forEach((view) => view.clear());
+    views.forEach((view) => view.tilesState.setState({ items: [], layout: {} }));
   });
   views = [];
 });
@@ -139,7 +150,7 @@ describe('Shortcuts React island', () => {
     renderItems(view, [folderEntry]);
     const tile = view.getTiles()[0];
     const icon = tile.querySelector('.x-nt-shortcut-icon');
-    act(() => view.setContextMenuMark({ kind: 'shortcut', shortcutId: 'folder-entry' }));
+    act(() => view.contextMenuMark.setState({ mark: { kind: 'shortcut', shortcutId: 'folder-entry' } }));
     expect(animateFolderIcon).toHaveBeenLastCalledWith(icon, true);
     expect(tile.hasAttribute('data-shortcut-folder-open')).toBe(true);
     animateFolderIcon.mockClear();
@@ -149,7 +160,7 @@ describe('Shortcuts React island', () => {
     required(tile._xSetBookmarkMenuVisualActive, 'tile._xSetBookmarkMenuVisualActive')(true);
     required(tile._xSetBookmarkMenuVisualActive, 'tile._xSetBookmarkMenuVisualActive')(false);
     expect(tile.hasAttribute('data-shortcut-folder-open')).toBe(true);
-    act(() => view.setContextMenuMark(null));
+    act(() => view.contextMenuMark.setState({ mark: null }));
     expect(animateFolderIcon).toHaveBeenLastCalledWith(icon, false);
     expect(tile.hasAttribute('data-shortcut-folder-open')).toBe(false);
   });
@@ -162,8 +173,8 @@ describe('Shortcuts React island', () => {
     required(tile._xSetBookmarkMenuVisualActive, 'tile._xSetBookmarkMenuVisualActive')(true);
     expect(tile.getAttribute('aria-expanded')).toBe('true');
     expect(onFolderMenuChange).toHaveBeenLastCalledWith(tile);
-    act(() => view.setContextMenuMark({ kind: 'shortcut', shortcutId: 'folder-entry' }));
-    act(() => view.setContextMenuMark(null));
+    act(() => view.contextMenuMark.setState({ mark: { kind: 'shortcut', shortcutId: 'folder-entry' } }));
+    act(() => view.contextMenuMark.setState({ mark: null }));
     expect(animateFolderIcon).toHaveBeenLastCalledWith(tile.querySelector('.x-nt-shortcut-icon'), true);
     expect(tile.hasAttribute('data-shortcut-folder-open')).toBe(true);
     required(tile._xSetBookmarkMenuVisualActive, 'tile._xSetBookmarkMenuVisualActive')(false);
@@ -178,12 +189,12 @@ describe('Shortcuts React island', () => {
     ]);
     const marked = () => view.getTiles().map((tile) => tile.getAttribute('data-shortcut-context-menu-open'));
 
-    act(() => view.setContextMenuMark({ kind: 'shortcut', shortcutId: 'mail' }));
+    act(() => view.contextMenuMark.setState({ mark: { kind: 'shortcut', shortcutId: 'mail' } }));
     expect(marked()).toEqual([null, 'true']);
-    act(() => view.setContextMenuMark({ kind: 'add' }));
+    act(() => view.contextMenuMark.setState({ mark: { kind: 'add' } }));
     expect(marked()).toEqual([null, null]);
     expect(view.getAddButton()?.getAttribute('data-shortcut-context-menu-open')).toBe('true');
-    act(() => view.setContextMenuMark(null));
+    act(() => view.contextMenuMark.setState({ mark: null }));
     expect(view.getAddButton()?.hasAttribute('data-shortcut-context-menu-open')).toBe(false);
   });
 
@@ -228,7 +239,8 @@ describe('Shortcuts React island', () => {
       }
     );
     expect(applyTheme).toHaveBeenCalledOnce();
-    expect(bindTooltip).toHaveBeenCalledTimes(2);
+    // The empty grid's add tile when the view mounts, then the tile and the add tile.
+    expect(bindTooltip).toHaveBeenCalledTimes(3);
   });
 
   it('routes click, keyboard, middle-click, context menu, and add actions', () => {

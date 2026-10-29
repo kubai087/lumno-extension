@@ -3,7 +3,8 @@
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
 import type { BindTooltip, FormatMessage, Translate } from '../newtab-types';
 import type { PageStructureRuntime } from '../react/page-structure';
-import type { ShortcutsViewController, ShortcutsViewOptions } from '../react/shortcuts';
+import type { ShortcutContextMenuMark, ShortcutTilesState, ShortcutsViewController, ShortcutsViewOptions } from '../react/shortcuts';
+import { createViewStore } from '../../shared/react/view-store';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
 import type { ShortcutDock } from '../dom/shortcut-dock';
 import type { ShortcutPageActions } from './shortcut-page-actions';
@@ -137,6 +138,9 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
 
 
   let shortcutsView: ShortcutsViewController | null = null;
+  // The tiles the grid shows, and what a context menu is open for.
+  const tilesState = createViewStore<ShortcutTilesState>({ items: [], layout: {} });
+  const contextMenuMark = createViewStore<{ mark: ShortcutContextMenuMark | null }>({ mark: null });
   // A shortcut drag moves the rendered tiles by hand until it ends, so a
   // render asked for meanwhile (a favicon that resolved, a storage change)
   // waits and runs once the drag is over.
@@ -156,10 +160,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     shortcutList.replaceItems(ShortcutNormalize.normalizeShortcuts(shortcutList.items, getShortcutStoreOptions()));
     const items = getVisibleShortcuts();
     const grouped = isShortcutGroupLayoutActive();
-    shortcutsView.render(items, {
-      grouped,
-      groups: getShortcutGroups()
-    });
+    tilesState.setState({ items, layout: { grouped, groups: getShortcutGroups() } });
     if (grouped) {
       adaptiveToneEvents.emit('stale', {});
     }
@@ -214,6 +215,8 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     const view = createShortcutsView({
       grid,
       tiles: shortcutTiles,
+      tilesState,
+      contextMenuMark,
       maxShortcuts: DEFAULT_MAX_SHORTCUTS,
       initFolderIcon: initFolderPathMorph,
       animateFolderIcon: playFolderPathMorph,
@@ -257,7 +260,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       onGroupAdd: (groupId, sourceElement) => openShortcutAddDialog(sourceElement, groupId)
     });
     shortcutsView = view;
-    view.render([]);
     grid.addEventListener('pointerover', handleShortcutDockPointerOver);
     grid.addEventListener('pointermove', handleShortcutDockPointerMove);
     grid.addEventListener('pointerleave', resetShortcutDockHover);
@@ -281,11 +283,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   // The tiles draw their labels and menus in the page's language.
   locale.store.subscribe(() => renderShortcuts());
   shortcutEvents.on('stale', () => renderShortcuts());
-  shortcutEvents.on('menuMarked', ({ mark }) => {
-    if (shortcutsView) {
-      shortcutsView.setContextMenuMark(mark);
-    }
-  });
+  shortcutEvents.on('menuMarked', ({ mark }) => contextMenuMark.setState({ mark }));
   shortcutEvents.on('changed', ({ animateLayout }) => {
     if (animateLayout) {
       shortcutLayoutAnimation.change(renderShortcuts);

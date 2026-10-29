@@ -7,12 +7,13 @@ const path = require('path');
 const repoRoot = path.resolve(__dirname, '..', '..');
 let dragActive = false;
 let renders = 0;
+// The grid view counts each set of tiles the controller hands it.
 globalThis.__lumnoTestModuleStubs = {
   'src/newtab/react/shortcuts.tsx': {
-    createShortcutsView: () => ({
-      render: () => { renders += 1; },
-      getAddButton: () => null
-    })
+    createShortcutsView: ({ tilesState }) => {
+      tilesState.subscribe(() => { renders += 1; });
+      return { getAddButton: () => null };
+    }
   }
 };
 const NEWTAB_SHORTCUTS_STORE = require(path.join(repoRoot, 'tests/helpers/shortcuts-store.ts'));

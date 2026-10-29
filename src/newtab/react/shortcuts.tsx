@@ -10,8 +10,8 @@ import {
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlElements, queryHtmlTag, queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
-import { createViewStore } from '../../shared/react/view-store';
 import { useStore } from '../../shared/react/use-store';
+import { createStore } from '../../shared/state/store';
 import type { Store } from '../../shared/state/store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
@@ -32,6 +32,12 @@ export interface ShortcutsLayout {
   groups?: ShortcutGroup[];
 }
 
+// The tiles the grid shows and how they group, as the shortcuts set them.
+export interface ShortcutTilesState {
+  items: VisibleShortcutItem[];
+  layout: ShortcutsLayout;
+}
+
 interface ThemeSuggestion {
   type: 'shortcut';
   url: string;
@@ -44,6 +50,9 @@ export interface ShortcutTileElement extends HTMLButtonElement {
 }
 
 export interface ShortcutsViewOptions {
+  tilesState?: Store<ShortcutTilesState>;
+  // What a context menu is open for, as the shortcuts set it.
+  contextMenuMark?: Store<{ mark: ShortcutContextMenuMark | null }>;
   initFolderIcon?: (icon: HTMLElement) => void;
   animateFolderIcon?: (icon: HTMLElement, active: boolean) => void;
   onFolderMenuChange?: (tile: HTMLElement) => void;
@@ -129,17 +138,13 @@ export type ShortcutContextMenuMark =
   | { kind: 'add' };
 
 export interface ShortcutsViewController {
-  render(items: VisibleShortcutItem[], layout?: ShortcutsLayout): { count: number };
   fitGroupedColumns(items: VisibleShortcutItem[], groups: ShortcutGroup[]): boolean;
-  clear(): void;
-  refreshElements(): void;
   getTiles(): ShortcutTileElement[];
   getAddButton(): HTMLButtonElement | null;
-  // Marks what a context menu is open for, or nothing.
-  setContextMenuMark(mark: ShortcutContextMenuMark | null): void;
 }
 
 interface NormalizedOptions {
+  tilesState: Store<ShortcutTilesState>;
   contextMenuMark: Store<{ mark: ShortcutContextMenuMark | null }>;
   initFolderIcon: (icon: HTMLElement) => void;
   animateFolderIcon: (icon: HTMLElement, active: boolean) => void;
@@ -219,7 +224,8 @@ function normalizeOptions(
     return null;
   }
   return {
-    contextMenuMark: createViewStore<{ mark: ShortcutContextMenuMark | null }>({ mark: null }),
+    tilesState: options.tilesState || createStore<ShortcutTilesState>({ items: [], layout: {} }),
+    contextMenuMark: options.contextMenuMark || createStore<{ mark: ShortcutContextMenuMark | null }>({ mark: null }),
     initFolderIcon: options.initFolderIcon || (() => {}),
     animateFolderIcon: options.animateFolderIcon || (() => {}),
     onFolderMenuChange: options.onFolderMenuChange || (() => {}),
@@ -761,27 +767,31 @@ function createNoopController(
 ): ShortcutsViewController {
   const tiles = Array.isArray(options.tiles) ? options.tiles : [];
   return {
-    render() {
-      tiles.length = 0;
-      return { count: 0 };
-    },
     fitGroupedColumns() {
       return false;
-    },
-    clear() {
-      tiles.length = 0;
-    },
-    refreshElements() {
-      tiles.length = 0;
     },
     getTiles() {
       return tiles;
     },
     getAddButton() {
       return null;
-    },
-    setContextMenuMark() {}
+    }
   };
+}
+
+// The tiles from the shortcuts' store. Each new set lays the grid out
+// (`onDrawn`) once React has committed it, before it is painted.
+function ShortcutGrid({ options, addButtonRef, onDrawn }: {
+  options: NormalizedOptions;
+  addButtonRef: { current: HTMLButtonElement | null };
+  onDrawn(items: VisibleShortcutItem[], groups: ShortcutGroup[] | null): void;
+}) {
+  const { items, layout } = useStore(options.tilesState);
+  const groups = layout.grouped && layout.groups && layout.groups.length ? layout.groups : null;
+  useLayoutEffect(() => {
+    onDrawn(items, groups);
+  }, [items, groups, onDrawn]);
+  return <ShortcutsList addButtonRef={addButtonRef} items={items} layout={{ ...layout, grouped: Boolean(groups) }} options={options} />;
 }
 
 export function createShortcutsView(
@@ -819,26 +829,17 @@ export function createShortcutsView(
     }));
   }
 
-  function render(items: VisibleShortcutItem[], layout: ShortcutsLayout = {}): { count: number } {
-    const normalizedItems = Array.isArray(items) ? items : [];
-    const groups = layout.grouped && layout.groups && layout.groups.length ? layout.groups : null;
-    const grouped = Boolean(groups);
+  // Lays out the tiles just drawn: the grouped columns, the page's refs to
+  // the tiles, and the tooltips of the add tile and the empty group slots.
+  function onDrawn(items: VisibleShortcutItem[], groups: ShortcutGroup[] | null): void {
     options.hideTooltip();
     if (groups) {
       options.grid.setAttribute('data-shortcut-grouped', 'true');
-      fitGroupedColumns(normalizedItems, groups);
+      fitGroupedColumns(items, groups);
     } else {
       options.grid.removeAttribute('data-shortcut-grouped');
       options.grid.style.removeProperty('--x-nt-shortcut-grouped-columns');
     }
-    getPagePortals().show(options.grid, (
-      <ShortcutsList
-        items={normalizedItems}
-        layout={{ ...layout, grouped }}
-        options={options}
-        addButtonRef={addButtonRef}
-      />
-    ));
     refreshElements();
     const addButton = addButtonRef.current;
     if (addButton) {
@@ -856,7 +857,6 @@ export function createShortcutsView(
           { maxWidth: 260 }
         );
       });
-    return { count: normalizedItems.length };
   }
 
   // Sizes a grouped grid to its longest row. A drag moves tiles between
@@ -877,25 +877,14 @@ export function createShortcutsView(
     return true;
   }
 
+  getPagePortals().show(options.grid, <ShortcutGrid addButtonRef={addButtonRef} onDrawn={onDrawn} options={options} />);
   return {
-    render,
     fitGroupedColumns,
-    clear() {
-      options.hideTooltip();
-      getPagePortals().show(options.grid, null);
-      options.tiles.length = 0;
-      options.groupHeaders.length = 0;
-      addButtonRef.current = null;
-    },
-    refreshElements,
     getTiles() {
       return options.tiles;
     },
     getAddButton() {
       return addButtonRef.current;
-    },
-    setContextMenuMark(mark) {
-      options.contextMenuMark.setState({ mark });
     }
   };
 }
