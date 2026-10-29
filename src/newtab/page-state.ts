@@ -23,7 +23,6 @@ import type { ModeCommandsState } from './mode-commands';
 import type { PageFaviconsState } from './theme/page-favicons';
 import type { PageKeyboardState } from './page-keyboard';
 import type { PageLayoutState } from './page-layout';
-import type { PageNavigationState } from './page-navigation';
 import type { PageNoticesState } from './page-notices';
 import type { PagePreferencesState } from './page-preferences';
 import type { PageResizeState } from './page-resize';
@@ -86,7 +85,6 @@ type NewtabPageState =
   PageFaviconsState &
   PageKeyboardState &
   PageLayoutState &
-  PageNavigationState &
   PageNoticesState &
   PagePreferencesState &
   PageResizeState &

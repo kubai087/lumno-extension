@@ -1,9 +1,7 @@
 // Keys inside the panel: Tab into modes and autocomplete, the input's
 // keydown, and navigating, opening and deleting results.
 import type { ShortcutRule, WebAppearanceMode } from '../../domain/messages';
-import type { Disposition } from '../../domain/navigation-disposition';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
-import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings/appearance';
@@ -30,6 +28,7 @@ import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
+import type { ResultActivation } from '../../shared/search-panel/result-activation';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -82,15 +81,7 @@ interface PanelKeysDeps {
   openOverlayCommunityQrDialog(qrUrl: string): void;
   openSiteSearchProviderQuery(provider: InputModeProvider | null, query: string, event: ActivationEvent | null): boolean;
   finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean;
-  openMatchedTabSuggestion(
-    suggestion: DisplayedSuggestion,
-    event: ActivationEvent | null,
-    item: { _xVisitButtonAction?: string } | null,
-    query: string
-  ): void;
-  shouldOpenSearchResultInBackgroundTab(event: ActivationEvent | null): boolean;
-  recordSearchSuggestionSelectionFromSuggestion(suggestion: DisplayedSuggestion, query: string, source: string): void;
-  getSearchResultDisposition(event: ActivationEvent | null): Disposition;
+  resultActivation: ResultActivation;
   isSlashCommandInput(input: string): boolean;
   // Called with no rows: the list rebuilds from the typed command.
   updateSearchSuggestions(rows: never[], query: string): void;
@@ -137,10 +128,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     openOverlayCommunityQrDialog,
     openSiteSearchProviderQuery,
     finishOverlayResultActivation,
-    openMatchedTabSuggestion,
-    shouldOpenSearchResultInBackgroundTab,
-    recordSearchSuggestionSelectionFromSuggestion,
-    getSearchResultDisposition,
+    resultActivation,
     isSlashCommandInput,
     updateSearchSuggestions,
     resolveQuickNavigation
@@ -645,33 +633,22 @@ function createPanelKeys(deps: PanelKeysDeps) {
             return;
           }
           if (shouldSwitchMatchedTabSuggestion(selectedSuggestion, activeSuggestionIndex)) {
-            openMatchedTabSuggestion(selectedSuggestion, e, activeItem, query);
+            resultActivation.openMatchedTab(selectedSuggestion, e, activeItem, query);
             canKeepOverlayOpen = Boolean(selectedSuggestion.url);
           } else if (selectedSuggestion.forceSearch && selectedSuggestion.searchQuery) {
-            if (shouldOpenSearchResultInBackgroundTab(e) && selectedSuggestion.url) {
-              recordSearchSuggestionSelectionFromSuggestion(selectedSuggestion, query, 'overlay');
-              LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-                action: 'createTab',
-                url: selectedSuggestion.url,
-                disposition: 'backgroundTab'
-              });
+            if (resultActivation.opensInBackground(e) && selectedSuggestion.url) {
+              resultActivation.openUrl(selectedSuggestion, query, e);
             } else {
               LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
                 action: 'searchOrNavigate',
                 query: selectedSuggestion.searchQuery,
                 forceSearch: true,
-                disposition: getSearchResultDisposition(e)
+                disposition: resultActivation.getDisposition(e)
               });
             }
             canKeepOverlayOpen = Boolean(selectedSuggestion.url);
           } else {
-            // Navigate to the suggested URL
-            recordSearchSuggestionSelectionFromSuggestion(selectedSuggestion, query, 'overlay');
-            LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-              action: 'createTab',
-              url: selectedSuggestion.url || '',
-              disposition: getSearchResultDisposition(e)
-            });
+            resultActivation.openUrl(selectedSuggestion, query, e);
             canKeepOverlayOpen = true;
           }
         } else if (!isSearchSuggestion) {
@@ -714,7 +691,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
             LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
               action: 'createTab',
               url: inlineSearch.url,
-              disposition: getSearchResultDisposition(e)
+              disposition: resultActivation.getDisposition(e)
             });
           } else {
             return;
@@ -723,16 +700,11 @@ function createPanelKeys(deps: PanelKeysDeps) {
           return;
         }
         if (searchAutocomplete.state && searchAutocomplete.state.url) {
-          recordSearchSuggestionSelectionFromSuggestion({
+          resultActivation.openUrl({
             url: searchAutocomplete.state.url,
             title: searchAutocomplete.state.title || '',
             type: 'autocomplete'
-          }, query, 'overlay');
-          LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-            action: 'createTab',
-            url: searchAutocomplete.state.url,
-            disposition: getSearchResultDisposition(e)
-          });
+          }, query, e);
           finishOverlayResultActivation(e, true);
           return;
         }
@@ -741,14 +713,14 @@ function createPanelKeys(deps: PanelKeysDeps) {
             LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
               action: 'createTab',
               url: targetUrl,
-              disposition: getSearchResultDisposition(e)
+              disposition: resultActivation.getDisposition(e)
             });
           } else {
             // Handle search or URL navigation
             LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
               action: 'searchOrNavigate',
               query: query,
-              disposition: getSearchResultDisposition(e)
+              disposition: resultActivation.getDisposition(e)
             });
           }
           finishOverlayResultActivation(e, true);

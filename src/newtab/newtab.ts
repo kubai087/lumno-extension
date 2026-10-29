@@ -166,6 +166,7 @@ import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from './menu-values';
+import { ResultActivation } from '../shared/search-panel/result-activation';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -406,6 +407,11 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     t: (key, fallback) => locale.t(key, fallback),
     showToast: (message, isError) => showToast(message, isError),
     getHelpCenterLocale: () => getHelpCenterLocale(),
+    openInCurrentTab: (url) => navigateToUrl(url)
+  });
+  const resultActivation = new ResultActivation(settings, {
+    source: 'newtab',
+    isCurrentTabDefault: () => !settings.get(newtabOpenInNewTab).search,
     openInCurrentTab: (url) => navigateToUrl(url)
   });
   const menuOrder = new SearchModeMenuOrder(settings);
@@ -1174,17 +1180,13 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   const {
     navigateToUrl,
     isMiddleClick,
-    isBackgroundOpenEvent,
     getOpenDisposition,
-    getSurfaceOpenDisposition,
     openExternalNewTabUrl,
     openUrlFromNewtabCard,
     openShortcutUrl,
-    recordSearchSuggestionSelection,
     openBookmarkFolder,
     navigateToQuery
   } = NEWTAB_PAGE_NAVIGATION.createPageNavigation({
-    searchQuery,
     settings,
     getShortcutTileById,
     bookmarksRuntime,
@@ -1194,8 +1196,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     openBookmarkCascadeMenu,
     navigateBookmarkFolder: (...args) => navigateBookmarkFolder(...args),
     getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args),
-    searchEngine,
-    pageState
+    searchEngine
   });
 
   const pageStructureRuntime = createPageStructure({
@@ -1879,10 +1880,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     getDirectNavigationUrl,
     getMatchedOpenTabIdForSuggestion,
     shouldSwitchMatchedTabSuggestion,
-    shouldOpenSearchResultInBackgroundTab,
-    getSearchResultDisposition,
-    openSearchResultUrl,
-    openMatchedTabSuggestion,
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
@@ -1896,10 +1893,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     formatMessage,
     getExtensionResourceUrl,
     getPageFaviconCandidateUrl,
-    isBackgroundOpenEvent,
-    getSurfaceOpenDisposition,
-    recordSearchSuggestionSelection,
-    navigateToUrl,
+    resultActivation,
     suggestionItems,
     getAutoHighlightIndex: (...args) => getAutoHighlightIndex(...args),
     renderSuggestions: (...args) => renderSuggestions(...args),
@@ -1948,10 +1942,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     setVisibleThemeMode,
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     shouldSwitchMatchedTabSuggestion,
-    openMatchedTabSuggestion,
-    shouldOpenSearchResultInBackgroundTab,
-    getSearchResultDisposition,
-    openSearchResultUrl,
+    resultActivation,
     navigateToQuery,
     suggestionsContainer: pageState.suggestionsContainer,
     suggestionItems,
@@ -2107,7 +2098,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     getBrowserPageFaviconUrl,
     getPageFaviconRenderCandidates,
     setSuggestionsVisible,
-    shouldOpenSearchResultInBackgroundTab,
+    resultActivation,
     activateRenderedSuggestion,
     deleteRenderedHistorySuggestion,
     copySearchResultUrl,

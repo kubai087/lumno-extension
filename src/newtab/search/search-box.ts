@@ -34,6 +34,7 @@ import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-m
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
+import type { ResultActivation } from '../../shared/search-panel/result-activation';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -91,7 +92,7 @@ interface SearchBoxDeps {
   getBrowserPageFaviconUrl: ViewOption<'getBrowserPageFaviconUrl'>;
   getPageFaviconRenderCandidates: ViewOption<'getPageFaviconRenderCandidates'>;
   setSuggestionsVisible: ViewOption<'setSuggestionsVisible'>;
-  shouldOpenSearchResultInBackgroundTab(event: MouseEvent): boolean;
+  resultActivation: ResultActivation;
   activateRenderedSuggestion: ViewOption<'onActivateSuggestion'>;
   deleteRenderedHistorySuggestion: ViewOption<'onDeleteHistory'>;
   copySearchResultUrl: ViewOption<'onCopyUrl'>;
@@ -180,7 +181,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     getBrowserPageFaviconUrl,
     getPageFaviconRenderCandidates,
     setSuggestionsVisible,
-    shouldOpenSearchResultInBackgroundTab,
+    resultActivation,
     activateRenderedSuggestion,
     deleteRenderedHistorySuggestion,
     copySearchResultUrl,
@@ -296,7 +297,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     },
     getSelectedIndex: () => searchResults.selectedIndex,
     onSwitchToTab: (tab, event) => {
-      if (shouldOpenSearchResultInBackgroundTab(event) && tab.url) {
+      if (resultActivation.opensInBackground(event) && tab.url) {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
           action: 'createTab',
           url: tab.url,

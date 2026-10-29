@@ -2,9 +2,7 @@
 // scrolling, activating or deleting a row, favicons in rows, the empty
 // state and the open tabs list.
 import type { OverlayTab, WebAppearanceMode } from '../../domain/messages';
-import type { Disposition } from '../../domain/navigation-disposition';
 import * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
-import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import * as LumnoMessaging from '../../platform/messaging';
 import type {
@@ -41,6 +39,8 @@ import type { SearchLocale } from '../../shared/search-panel/labels';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
+import type { ResultActivation } from '../../shared/search-panel/result-activation';
+import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -71,6 +71,7 @@ interface SuggestionsRenderState {
 }
 
 interface SuggestionsRenderDeps {
+  suggestionModifiers: SuggestionModifiers;
   modeActions: SearchModeActions<InputModeProvider>;
   locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
@@ -89,17 +90,9 @@ interface SuggestionsRenderDeps {
   applyThemeModeChange(mode: string): void;
   applyWebAppearanceMode(mode: WebAppearanceMode): void;
   shouldSwitchMatchedTabSuggestion: ViewOption<'shouldSwitchMatchedTabSuggestion'>;
-  openMatchedTabSuggestion(
-    suggestion: DisplayedSuggestion,
-    event: ActivationEvent | null,
-    item: { _xVisitButtonAction?: string } | null,
-    query: string
-  ): void;
+  resultActivation: ResultActivation;
   finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean;
   openSiteSearchProviderQuery(provider: InputModeProvider | null, query: string, event: ActivationEvent | null): boolean;
-  shouldOpenSearchResultInBackgroundTab(event: ActivationEvent | null): boolean;
-  recordSearchSuggestionSelectionFromSuggestion(suggestion: DisplayedSuggestion, query: string, source: string): void;
-  getSearchResultDisposition(event: ActivationEvent | null): Disposition;
   // Whether a plain open goes to the current tab, so rows say 「前往」.
   isCurrentTabDefault(): boolean;
   getOverlayFaviconUrlResolver(): {
@@ -148,6 +141,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    suggestionModifiers,
     modeActions,
     locale,
     searchResults,
@@ -165,12 +159,9 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     applyThemeModeChange,
     applyWebAppearanceMode,
     shouldSwitchMatchedTabSuggestion,
-    openMatchedTabSuggestion,
+    resultActivation,
     finishOverlayResultActivation,
     openSiteSearchProviderQuery,
-    shouldOpenSearchResultInBackgroundTab,
-    recordSearchSuggestionSelectionFromSuggestion,
-    getSearchResultDisposition,
     isCurrentTabDefault,
     getOverlayFaviconUrlResolver,
     t,
@@ -204,6 +195,15 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
 
   // The panel state object shared with search-panel.ts and the other modules.
   const overlayState = deps.overlayState;
+
+  // The rows show what the held modifier keys make of their action.
+  suggestionModifiers.store.subscribe(() => {
+    const view = ensureOverlaySuggestionsView();
+    const modifiers = suggestionModifiers.store.getSnapshot();
+    view.setOpenInCurrentTabModifierActive(modifiers.openInCurrentTab);
+    view.setOpenSwitchInNewTabModifierActive(modifiers.openSwitchInNewTab);
+    view.setOpenInBackgroundTabModifierActive(modifiers.openInBackgroundTab);
+  });
 
   // A tab's switch ranking, shown under it while score debugging is on.
   function formatTabRankDebugText(tab: OpenTabSuggestion & { _xTabFetchSeq?: number }): string {
@@ -394,7 +394,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       return;
     }
     if (shouldSwitchMatchedTabSuggestion(suggestion, index)) {
-      openMatchedTabSuggestion(suggestion, event, item, query);
+      resultActivation.openMatchedTab(suggestion, event, item, query);
       finishOverlayResultActivation(event, Boolean(suggestion.url));
       return;
     }
@@ -409,36 +409,18 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       return;
     }
     if (suggestion.forceSearch && suggestion.searchQuery) {
-      if (shouldOpenSearchResultInBackgroundTab(event) && suggestion.url) {
-        recordSearchSuggestionSelectionFromSuggestion(
-          suggestion,
-          query,
-          'overlay'
-        );
-        LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-          action: 'createTab',
-          url: suggestion.url,
-          disposition: 'backgroundTab'
-        });
+      if (resultActivation.opensInBackground(event) && suggestion.url) {
+        resultActivation.openUrl(suggestion, query, event);
       } else {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
           action: 'searchOrNavigate',
           query: suggestion.searchQuery,
           forceSearch: true,
-          disposition: getSearchResultDisposition(event)
+          disposition: resultActivation.getDisposition(event)
         });
       }
     } else {
-      recordSearchSuggestionSelectionFromSuggestion(
-        suggestion,
-        query,
-        'overlay'
-      );
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-        action: 'createTab',
-        url: suggestion.url || '',
-        disposition: getSearchResultDisposition(event)
-      });
+      resultActivation.openUrl(suggestion, query, event);
     }
     finishOverlayResultActivation(
       event,
@@ -545,7 +527,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
           favicon: tab && tab.favIconUrl ? tab.favIconUrl : '',
           _xMatchedTabId: tab && typeof tab.id === 'number' ? tab.id : undefined
         };
-        openMatchedTabSuggestion(
+        resultActivation.openMatchedTab(
           suggestion,
           event,
           null,

@@ -8,7 +8,6 @@ import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion, SuggestionElement } from '../../shared/react/search/suggestion-list/types';
 import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
-import type { SurfaceOpenKeys } from '../page-navigation';
 import type { RenderSuggestions, SlashCommand } from './search-types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
@@ -23,8 +22,8 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
+import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import * as BROWSER_PROFILE from '../../platform/browser-profile';
-import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -50,11 +49,7 @@ interface SearchNavigationDeps {
   formatMessage: FormatMessage;
   getExtensionResourceUrl(resourcePath: string): string;
   getPageFaviconCandidateUrl(pageUrl: string): string;
-  isBackgroundOpenEvent(event: OpenEventLike | null | undefined): boolean;
-  // Where a plain open from the surface goes, after its new-tab setting.
-  getSurfaceOpenDisposition(surface: 'search', keys: SurfaceOpenKeys): Disposition;
-  recordSearchSuggestionSelection(suggestion: Suggestion, query: string): void;
-  navigateToUrl(url: string): void;
+  resultActivation: ResultActivation;
   suggestionItems: SuggestionElement[];
   getAutoHighlightIndex(): number;
   renderSuggestions: RenderSuggestions;
@@ -73,11 +68,7 @@ interface SearchNavigationDeps {
   pageState: SearchNavigationState;
 }
 
-// The fields of a click or key event that decide where a result opens.
-type OpenEventLike = Pick<MouseEvent, 'altKey' | 'shiftKey' | 'metaKey' | 'ctrlKey'> & { button?: number };
 
-// A result to open: its address, and what kind of row it came from.
-type OpenableSuggestion = Pick<Suggestion, 'url' | 'title' | 'type'>;
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
@@ -91,10 +82,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     formatMessage,
     getExtensionResourceUrl,
     getPageFaviconCandidateUrl,
-    isBackgroundOpenEvent,
-    getSurfaceOpenDisposition,
-    recordSearchSuggestionSelection,
-    navigateToUrl,
+    resultActivation,
     suggestionItems,
     getAutoHighlightIndex,
     renderSuggestions,
@@ -261,86 +249,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     return true;
   }
 
-  function shouldUseNewTabForSwitchAction(
-    suggestion: Suggestion,
-    event: OpenEventLike | null | undefined,
-    item: SuggestionElement | null | undefined
-  ): boolean {
-    if (!event || !event.shiftKey) {
-      return false;
-    }
-    const action = item && item._xVisitButtonAction ? item._xVisitButtonAction : 'switch';
-    return SUGGESTION_ACTION_MODEL.shouldOpenSwitchActionInNewTab(suggestion, {
-      action,
-      openSwitchInNewTab: true
-    });
-  }
-
-  function shouldOpenSearchResultInBackgroundTab(event: OpenEventLike | null | undefined): boolean {
-    const config = {
-      openInBackgroundTab: isBackgroundOpenEvent(event),
-      openInCurrentTab: Boolean(event && event.altKey)
-    };
-    return SUGGESTION_ACTION_MODEL.getSearchResultOpenDisposition(config) === 'backgroundTab';
-  }
-
-  function getSearchResultNewTabDisposition(event: OpenEventLike | null | undefined): Disposition {
-    return shouldOpenSearchResultInBackgroundTab(event) ? 'backgroundTab' : 'newTab';
-  }
-
-  // Option/Alt opens a result in the other of the current and a new tab
-  // than search results are set to.
-  function getSearchResultDisposition(event: OpenEventLike | null | undefined): Disposition {
-    return getSurfaceOpenDisposition('search', {
-      openInBackgroundTab: isBackgroundOpenEvent(event),
-      openInOtherTab: Boolean(event && event.altKey)
-    });
-  }
-
-  function openSearchResultUrl(suggestion: OpenableSuggestion | null | undefined, query: string, event: OpenEventLike | null | undefined): boolean {
-    if (!suggestion || !suggestion.url) {
-      return false;
-    }
-    recordSearchSuggestionSelection(suggestion, query);
-    const disposition = getSearchResultDisposition(event);
-    if (disposition !== 'currentTab') {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-        action: 'createTab',
-        url: suggestion.url,
-        disposition
-      });
-      return true;
-    }
-    navigateToUrl(suggestion.url);
-    return true;
-  }
-
-  function openMatchedTabSuggestion(
-    suggestion: Suggestion,
-    event: OpenEventLike | null | undefined,
-    item: SuggestionElement | null | undefined,
-    query: string
-  ): void {
-    if (shouldUseNewTabForSwitchAction(suggestion, event, item) ||
-        shouldOpenSearchResultInBackgroundTab(event)) {
-      recordSearchSuggestionSelection(suggestion, query);
-      if (suggestion.url) {
-        LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-          action: 'createTab',
-          url: suggestion.url,
-          disposition: getSearchResultNewTabDisposition(event)
-        });
-      }
-      return;
-    }
-    if (typeof suggestion._xMatchedTabId === 'number') {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-        action: 'switchToTab',
-        tabId: suggestion._xMatchedTabId
-      });
-    }
-  }
-
   // Reads the open tabs again; `callback` learns whether it could.
   function refreshTabsForSearchContext(callback?: (ok: boolean) => void): void {
     if (!chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
@@ -469,22 +377,22 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return siteSearchRunner.run(
           selectedSuggestion.provider,
           selectedSuggestion.searchQuery,
-          getSearchResultDisposition(event)
+          resultActivation.getDisposition(event)
         );
       }
       if (shouldSwitchMatchedTabSuggestion(selectedSuggestion)) {
-        openMatchedTabSuggestion(selectedSuggestion, event, activeItem, query);
+        resultActivation.openMatchedTab(selectedSuggestion, event, activeItem, query);
         return true;
       }
-      if (shouldOpenSearchResultInBackgroundTab(event) && selectedSuggestion.url) {
-        return openSearchResultUrl(selectedSuggestion, query, event);
+      if (resultActivation.opensInBackground(event) && selectedSuggestion.url) {
+        return resultActivation.openUrl(selectedSuggestion, query, event);
       }
       if (selectedSuggestion.forceSearch && selectedSuggestion.searchQuery) {
-        navigateToQuery(selectedSuggestion.searchQuery, true, getSearchResultDisposition(event));
+        navigateToQuery(selectedSuggestion.searchQuery, true, resultActivation.getDisposition(event));
         return true;
       }
       if (selectedSuggestion.url) {
-        return openSearchResultUrl(selectedSuggestion, query, event);
+        return resultActivation.openUrl(selectedSuggestion, query, event);
       }
       return false;
     };
@@ -511,7 +419,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       if (siteSearchRunner.run(
         searchMode.site,
         query,
-        getSearchResultDisposition(event)
+        resultActivation.getDisposition(event)
       )) {
         return;
       }
@@ -524,12 +432,12 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         if (siteSearchRunner.run(
           inline.provider,
           inline.query,
-          getSearchResultDisposition(event)
+          resultActivation.getDisposition(event)
         )) {
           return;
         }
       } else if (inline.url) {
-        openSearchResultUrl({
+        resultActivation.openUrl({
           url: inline.url,
           title: inline.url,
           type: 'inlineSiteSearch'
@@ -538,7 +446,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       }
     }
     if (searchAutocomplete.state && searchAutocomplete.state.url) {
-      openSearchResultUrl({
+      resultActivation.openUrl({
         url: searchAutocomplete.state.url,
         title: searchAutocomplete.state.title || '',
         type: 'autocomplete'
@@ -547,14 +455,14 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     }
     void resolveQuickNavigation(query).then((targetUrl) => {
       if (targetUrl) {
-        openSearchResultUrl({
+        resultActivation.openUrl({
           url: targetUrl,
           title: query,
           type: 'quickNavigation'
         }, query, event);
         return;
       }
-      navigateToQuery(query, false, getSearchResultDisposition(event));
+      navigateToQuery(query, false, resultActivation.getDisposition(event));
     });
   }
 
@@ -566,10 +474,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     getDirectNavigationUrl,
     getMatchedOpenTabIdForSuggestion,
     shouldSwitchMatchedTabSuggestion,
-    shouldOpenSearchResultInBackgroundTab,
-    getSearchResultDisposition,
-    openSearchResultUrl,
-    openMatchedTabSuggestion,
     refreshTabsForSearchContext,
     resolveQuickNavigation
   };

@@ -2,12 +2,9 @@
 // URLs and icons, running an interactive provider and recording a
 // selection. The lists themselves are the catalog's.
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
-import type { Disposition } from '../../domain/navigation-disposition';
 import * as AGGREGATE_SEARCH_SURFACE from '../../domain/search/aggregate-search-surface';
-import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
@@ -16,12 +13,12 @@ import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persis
 import type { OverlayFaviconRuntime } from '../favicon-view';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
+import type { ResultActivation } from '../../shared/search-panel/result-activation';
 
 interface SiteSearchProvidersDeps {
   siteSearchRunner: SiteSearchRunner;
   favicons: Pick<OverlayFaviconRuntime, 'requestFaviconData'>;
-  getSearchResultDisposition(event: ActivationEvent | null): Disposition;
-  getSearchResultNewTabDisposition(event: ActivationEvent | null): 'backgroundTab' | 'newTab';
+  resultActivation: ResultActivation;
   finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean;
   getOverlayFaviconUrlResolver(): FaviconUrlResolver | null;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
@@ -33,8 +30,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
     siteSearchRunner,
     favicons,
-    getSearchResultDisposition,
-    getSearchResultNewTabDisposition,
+    resultActivation,
     finishOverlayResultActivation,
     getOverlayFaviconUrlResolver,
     siteSearchIconCache,
@@ -55,9 +51,9 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   // aggregate search finishes the activation once its sources opened.
   function openSiteSearchProviderQuery(provider: InputModeProvider | null, query: string, event: ActivationEvent | null): boolean {
     if (!isAggregateSearchProvider(provider)) {
-      return siteSearchRunner.run(provider, query, getSearchResultDisposition(event));
+      return siteSearchRunner.run(provider, query, resultActivation.getDisposition(event));
     }
-    return siteSearchRunner.run(provider, query, getSearchResultNewTabDisposition(event), {
+    return siteSearchRunner.run(provider, query, resultActivation.getNewTabDisposition(event), {
       onSuccess(response) {
         const feedbackDelayMs = AGGREGATE_SEARCH_SURFACE.getSuccessFeedbackDelayMs(response);
         if (feedbackDelayMs > 0) {
@@ -69,24 +65,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     });
   }
 
-  // Teaches the ranking which result was picked for the query.
-  function recordSearchSuggestionSelectionFromSuggestion(suggestion: DisplayedSuggestion, query: string, source: string): void {
-    if (!suggestion || suggestion.forceSearch || suggestion.provider || !suggestion.url) {
-      return;
-    }
-    try {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-        action: 'recordSearchSuggestionSelection',
-        query: String(query || '').trim(),
-        url: suggestion.url,
-        title: suggestion.title || '',
-        type: suggestion.type || 'history',
-        source: source || 'overlay'
-      });
-    } catch (_error) {
-      // Selection ranking is best-effort; never block opening the target.
-    }
-  }
+
 
   function getProviderIcon(provider: Partial<SiteSearchProvider>): string {
     const resolver = getOverlayFaviconUrlResolver();
@@ -126,7 +105,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
 
   return {
     openSiteSearchProviderQuery,
-    recordSearchSuggestionSelectionFromSuggestion,
     getProviderIcon,
     toPageRenderableIconUrl,
     getPageRenderableProviderIcon

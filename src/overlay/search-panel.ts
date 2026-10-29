@@ -329,6 +329,16 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayLifecycle,
     overlayState
   });
+  const {
+    resultActivation,
+    finishOverlayResultActivation,
+    getOpenDisposition,
+    isCurrentTabDefault
+  } = PANEL_RESULT_ACTIVATION.createResultActivation({
+    removeOverlay,
+    overlayState
+  });
+
 
   overlayState.overlayContextToken = getOrCreateOverlayContextToken();
 
@@ -482,6 +492,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    suggestionModifiers,
     modeActions,
     locale,
     searchResults,
@@ -499,13 +510,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyThemeModeChange: (...args) => applyThemeModeChange(...args),
     applyWebAppearanceMode: (...args) => applyWebAppearanceMode(...args),
     shouldSwitchMatchedTabSuggestion: (...args) => shouldSwitchMatchedTabSuggestion(...args),
-    openMatchedTabSuggestion: (...args) => openMatchedTabSuggestion(...args),
-    finishOverlayResultActivation: (...args) => finishOverlayResultActivation(...args),
+    resultActivation,
+    finishOverlayResultActivation,
     openSiteSearchProviderQuery: (...args) => openSiteSearchProviderQuery(...args),
-    shouldOpenSearchResultInBackgroundTab: (...args) => shouldOpenSearchResultInBackgroundTab(...args),
-    recordSearchSuggestionSelectionFromSuggestion: (...args) => recordSearchSuggestionSelectionFromSuggestion(...args),
-    getSearchResultDisposition: (...args) => getSearchResultDisposition(...args),
-    isCurrentTabDefault: (...args) => isCurrentTabDefault(...args),
+    isCurrentTabDefault,
     getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
     t: (...args) => t(...args),
     formatMessage: (...args) => formatMessage(...args),
@@ -577,11 +585,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isModeCommand: (...args) => isModeCommand(...args),
     openOverlayCommunityQrDialog: (...args) => openOverlayCommunityQrDialog(...args),
     openSiteSearchProviderQuery: (...args) => openSiteSearchProviderQuery(...args),
-    finishOverlayResultActivation: (...args) => finishOverlayResultActivation(...args),
-    openMatchedTabSuggestion: (...args) => openMatchedTabSuggestion(...args),
-    shouldOpenSearchResultInBackgroundTab: (...args) => shouldOpenSearchResultInBackgroundTab(...args),
-    recordSearchSuggestionSelectionFromSuggestion: (...args) => recordSearchSuggestionSelectionFromSuggestion(...args),
-    getSearchResultDisposition: (...args) => getSearchResultDisposition(...args),
+    finishOverlayResultActivation,
+    resultActivation,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     updateSearchSuggestions,
     resolveQuickNavigation,
@@ -644,16 +649,14 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   const {
     openSiteSearchProviderQuery,
-    recordSearchSuggestionSelectionFromSuggestion,
     getProviderIcon,
     toPageRenderableIconUrl,
     getPageRenderableProviderIcon
   } = PANEL_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
     siteSearchRunner,
     favicons: faviconRuntime,
-    getSearchResultDisposition: (...args) => getSearchResultDisposition(...args),
-    getSearchResultNewTabDisposition: (...args) => getSearchResultNewTabDisposition(...args),
-    finishOverlayResultActivation: (...args) => finishOverlayResultActivation(...args),
+    resultActivation,
+    finishOverlayResultActivation,
     getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
     siteSearchIconCache,
     faviconDataCache
@@ -671,21 +674,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayState
   });
 
-  const {
-    shouldOpenSearchResultInBackgroundTab,
-    finishOverlayResultActivation,
-    getOpenDisposition,
-    getSearchResultNewTabDisposition,
-    getSearchResultDisposition,
-    isCurrentTabDefault,
-    openMatchedTabSuggestion
-  } = PANEL_RESULT_ACTIVATION.createResultActivation({
-    suggestionModifiers,
-    ensureOverlaySuggestionsView,
-    removeOverlay,
-    recordSearchSuggestionSelectionFromSuggestion,
-    overlayState
-  });
   const overlaySiteFixes = LumnoOverlaySiteFixes;
   const addOverlaySessionCleanup = overlayState.overlaySessionCleanups.add;
   const overlayFrameTracker = overlayLifecycle.createFrameTracker(window);

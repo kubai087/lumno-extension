@@ -51,6 +51,7 @@ import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as NEWTAB_DIRECT_NAVIGATION_SETTLE from './direct-navigation-settle';
 import * as COMMUNITY_LINKS from '../../platform/community-links';
+import type { ResultActivation } from '../../shared/search-panel/result-activation';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -81,10 +82,7 @@ interface SuggestionsControllerDeps {
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   shouldSwitchMatchedTabSuggestion: SearchNavigation['shouldSwitchMatchedTabSuggestion'];
-  openMatchedTabSuggestion: SearchNavigation['openMatchedTabSuggestion'];
-  shouldOpenSearchResultInBackgroundTab: SearchNavigation['shouldOpenSearchResultInBackgroundTab'];
-  getSearchResultDisposition: SearchNavigation['getSearchResultDisposition'];
-  openSearchResultUrl: SearchNavigation['openSearchResultUrl'];
+  resultActivation: ResultActivation;
   navigateToQuery: SearchNavigationDeps['navigateToQuery'];
   suggestionsContainer: HTMLElement | null;
   suggestionItems: SuggestionElement[];
@@ -157,10 +155,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     setVisibleThemeMode,
     setWebAppearanceMode,
     shouldSwitchMatchedTabSuggestion,
-    openMatchedTabSuggestion,
-    shouldOpenSearchResultInBackgroundTab,
-    getSearchResultDisposition,
-    openSearchResultUrl,
+    resultActivation,
     navigateToQuery,
     suggestionsContainer,
     suggestionItems,
@@ -309,26 +304,26 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       return;
     }
     if (Number.isInteger(index) && shouldSwitchMatchedTabSuggestion(suggestion)) {
-      openMatchedTabSuggestion(suggestion, event, item, query);
+      resultActivation.openMatchedTab(suggestion, event, item, query);
       return;
     }
     if (isSiteSearchProvider(suggestion.provider) && suggestion.searchQuery) {
       siteSearchRunner.run(
         suggestion.provider,
         suggestion.searchQuery,
-        getSearchResultDisposition(event)
+        resultActivation.getDisposition(event)
       );
       return;
     }
-    if (shouldOpenSearchResultInBackgroundTab(event) && suggestion.url) {
-      openSearchResultUrl(suggestion, query, event);
+    if (resultActivation.opensInBackground(event) && suggestion.url) {
+      resultActivation.openUrl(suggestion, query, event);
       return;
     }
     if (suggestion.forceSearch && suggestion.searchQuery) {
-      navigateToQuery(suggestion.searchQuery, true, getSearchResultDisposition(event));
+      navigateToQuery(suggestion.searchQuery, true, resultActivation.getDisposition(event));
       return;
     }
-    openSearchResultUrl(suggestion, query, event);
+    resultActivation.openUrl(suggestion, query, event);
   }
 
   function deleteRenderedHistorySuggestion(suggestion: Suggestion): void {

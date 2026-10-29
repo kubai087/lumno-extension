@@ -11,7 +11,6 @@ import type { DefaultSearchEngine } from '../shared/search-panel/default-engine'
 import { newtabOpenInNewTab } from '../domain/settings/newtab-page';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
-import type { SearchQuery } from '../shared/search-panel/search-query';
 import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
 
 // A shortcut as the page opens it: a site, or a bookmark folder.
@@ -20,21 +19,7 @@ type OpenableShortcut = ShortcutItem | VisibleShortcutItem;
 // The keys a surface's click or Enter was made with.
 type SurfaceOpenKeys = Pick<DefaultTabOpen, 'openInBackgroundTab' | 'openInOtherTab'>;
 
-// A suggestion whose choice counts toward its future ranking.
-interface SelectableSuggestion {
-  url?: string;
-  title?: string;
-  type?: string;
-  provider?: unknown;
-  forceSearch?: boolean;
-}
-
-interface PageNavigationState {
-  inputParts: { input: HTMLInputElement } | null;
-}
-
 interface PageNavigationDeps {
-  searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get'>;
   getShortcutTileById(id: string): HTMLElement | null;
   bookmarksRuntime: Pick<BookmarksRuntime, 'ensureReady' | 'getNode'>;
@@ -45,12 +30,10 @@ interface PageNavigationDeps {
   navigateBookmarkFolder(id: string): void;
   getDirectNavigationUrl(query: string): string;
   searchEngine: Pick<DefaultSearchEngine, 'searchUrl'>;
-  pageState: PageNavigationState;
 }
 
 function createPageNavigation(deps: PageNavigationDeps) {
   const {
-    searchQuery,
     settings,
     getShortcutTileById,
     bookmarksRuntime,
@@ -62,9 +45,6 @@ function createPageNavigation(deps: PageNavigationDeps) {
     getDirectNavigationUrl,
     searchEngine
   } = deps;
-
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function navigateToUrl(url: string | null | undefined): void {
     if (!url) {
@@ -190,29 +170,6 @@ function createPageNavigation(deps: PageNavigationDeps) {
     });
   }
 
-  function recordSearchSuggestionSelection(suggestion: SelectableSuggestion | null | undefined, rawQuery?: string): void {
-    if (!suggestion || suggestion.forceSearch || suggestion.provider || !suggestion.url ||
-        !chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
-      return;
-    }
-    const query = String(rawQuery || searchQuery.raw || (pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '') || '').trim();
-    if (!query) {
-      return;
-    }
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-      action: 'recordSearchSuggestionSelection',
-      query,
-      url: suggestion.url,
-      title: suggestion.title || '',
-      type: suggestion.type || 'history',
-      source: 'newtab'
-    }, () => {
-      if (chrome.runtime && chrome.runtime.lastError) {
-        // Best-effort ranking signal.
-      }
-    });
-  }
-
   function openBookmarkFolder(nodeId: unknown): void {
     const id = String(nodeId || '').trim();
     if (!id) {
@@ -283,13 +240,10 @@ function createPageNavigation(deps: PageNavigationDeps) {
   return {
     navigateToUrl,
     isMiddleClick,
-    isBackgroundOpenEvent,
     getOpenDisposition,
-    getSurfaceOpenDisposition,
     openExternalNewTabUrl,
     openUrlFromNewtabCard,
     openShortcutUrl,
-    recordSearchSuggestionSelection,
     openBookmarkFolder,
     navigateToQuery
   };
@@ -298,4 +252,4 @@ function createPageNavigation(deps: PageNavigationDeps) {
 type PageNavigation = ReturnType<typeof createPageNavigation>;
 
 export { createPageNavigation };
-export type { PageNavigation, PageNavigationDeps, PageNavigationState, SurfaceOpenKeys };
+export type { PageNavigation, PageNavigationDeps, SurfaceOpenKeys };

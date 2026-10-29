@@ -17,6 +17,7 @@ const OVERLAY_PANEL_FILES = [
   'src/overlay/panel/slash-commands.ts',
   'src/overlay/panel/panel-theme.ts',
   'src/overlay/panel/suggestion-themes.ts',
+  'src/shared/search-panel/result-activation.ts',
   'src/overlay/panel/result-activation.ts',
   'src/overlay/panel/tab-matching.ts',
   'src/shared/search-panel/autocomplete.ts',
