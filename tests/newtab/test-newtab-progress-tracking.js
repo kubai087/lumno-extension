@@ -118,6 +118,7 @@ async function createController(pinned, history, options = {}) {
     openProgressHistory: (item) => opened.push(item),
     recentContextMenuSelectController: { isOpen: () => false, setOpen() {}, setOptions() {} },
     locale: { store: { subscribe: () => () => {} } },
+    otherContextMenus: [],
     recentShown
   });
   await controller.followStoredSites();

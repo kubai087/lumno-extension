@@ -81,13 +81,7 @@ function createFolderColors(deps: FolderColorsDeps) {
   }
 
   // The colors saved in the picker, read as untrusted.
-  function readSavedFolderColors(): Promise<unknown> {
-    return settings.include(bookmarkFolderColorPresets).then(() => settings.get(bookmarkFolderColorPresets));
-  }
 
-  function saveSavedFolderColors(colors: string[]): Promise<void> {
-    return settings.set(bookmarkFolderColorPresets, colors);
-  }
 
   // Bookmark ids and paths can change underneath the synced map; resolving
   // again also moves a renamed or moved folder's color to its new path.
@@ -169,8 +163,8 @@ function createFolderColors(deps: FolderColorsDeps) {
         applyFolderColor: NEWTAB_BOOKMARK_FOLDER_ICON.applyFolderColor,
         bindTooltip: bindShortcutDialogTooltip,
         hideTooltip: hideShortcutDialogTooltip,
-        readSavedColors: readSavedFolderColors,
-        saveSavedColors: saveSavedFolderColors,
+        readSavedColors: () => settings.include(bookmarkFolderColorPresets).then(() => settings.get(bookmarkFolderColorPresets)),
+        saveSavedColors: (colors) => settings.set(bookmarkFolderColorPresets, colors),
         onPreview: (id, color) => {
           folderColorPreview = { folderId: id, color };
           refreshFolderColors();
@@ -211,8 +205,6 @@ function createFolderColors(deps: FolderColorsDeps) {
     initFolderPathMorph,
     isFolderColorPickerOpen,
     applySavedFolderColor,
-    readSavedFolderColors,
-    saveSavedFolderColors,
     syncFolderColorsWithBookmarks,
     scheduleFolderColorSync,
     loadFolderColors,

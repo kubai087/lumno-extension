@@ -34,7 +34,6 @@ interface ShortcutContextMenuDeps {
   openBookmarkFolderTabGroupConfirmation(target: BookmarkEditTarget): void;
   t: Translate;
   getShortcutContextMenuOptions(target?: ShortcutContextTarget | null): SelectMenuOption[];
-  closeRecentContextMenu(): void;
   hideShortcutTooltip(): void;
   getShortcutTileId(tile: Element | null | undefined): string;
   openShortcutGroupDialog(groupId: string, sourceElement: HTMLElement): void;
@@ -45,6 +44,8 @@ interface ShortcutContextMenuDeps {
   shortcutSection: HTMLElement;
   shortcutContextMenuSelectController: SelectMenuController;
   locale: Pick<SurfaceLocale, 'store'>;
+  // The other context menus' select menus; this menu closes as one opens.
+  otherContextMenus: Pick<SelectMenuController, 'events'>[];
 }
 
 function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
@@ -69,7 +70,6 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     openBookmarkFolderTabGroupConfirmation,
     t,
     getShortcutContextMenuOptions,
-    closeRecentContextMenu,
     hideShortcutTooltip,
     getShortcutTileId,
     openShortcutGroupDialog,
@@ -77,7 +77,8 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     moveShortcutGroup,
     deleteShortcutGroup,
     confirmDeleteShortcutGroupWithSites,
-    locale
+    locale,
+    otherContextMenus
   } = deps;
 
   // What the open menu acts on.
@@ -394,7 +395,6 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     if (!shortcutContextMenu || !shortcutContextMenuSelectController) {
       return;
     }
-    closeRecentContextMenu();
     hideShortcutTooltip();
     resetShortcutDockHover();
     shortcutContextMenuTarget = target;
@@ -480,6 +480,10 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   function getShortcutContextMenuTile(): HTMLElement | null {
     return isShortcutContextMenuOpen() && shortcutContextMenuTarget ? shortcutContextMenuTarget.tile || null : null;
   }
+
+  otherContextMenus.forEach((menu) => {
+    menu.events.on('opening', () => closeShortcutContextMenu());
+  });
   return {
     getShortcutContextMenuTile,
     isShortcutContextMenuOpen,

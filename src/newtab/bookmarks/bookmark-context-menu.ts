@@ -49,13 +49,13 @@ interface BookmarkContextMenuDeps {
   addSiteToShortcuts(site: ShortcutSite): unknown;
   hasShortcutForBookmarkFolder(bookmarkId: string): boolean;
   addBookmarkFolderToShortcuts(bookmarkId: string): Promise<boolean>;
-  closeShortcutContextMenu(): void;
-  closeRecentContextMenu(): void;
   hideCursorTooltip(): void;
   bookmarkContextMenuSelectController: SelectMenuController;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'view'>;
   dragSessions: Pick<DragSessions, 'bookmark'>;
   locale: Pick<SurfaceLocale, 'store'>;
+  // The other context menus' select menus; this menu closes as one opens.
+  otherContextMenus: Pick<SelectMenuController, 'events'>[];
 }
 
 function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
@@ -74,10 +74,9 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     addSiteToShortcuts,
     hasShortcutForBookmarkFolder,
     addBookmarkFolderToShortcuts,
-    closeShortcutContextMenu,
-    closeRecentContextMenu,
     hideCursorTooltip,
-    locale
+    locale,
+    otherContextMenus
   } = deps;
 
   // What the open menu acts on.
@@ -346,8 +345,6 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     if (!bookmarkContextMenu || !bookmarkContextMenuSelectController) {
       return;
     }
-    closeShortcutContextMenu();
-    closeRecentContextMenu();
     closeBookmarkContextMenu();
     bookmarkContextMenuTarget = target;
     setBookmarkContextMenuMark(target);
@@ -412,6 +409,10 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   // The menu draws its labels in the page's language.
   locale.store.subscribe(updateBookmarkContextMenuLanguageStrings);
 
+
+  otherContextMenus.forEach((menu) => {
+    menu.events.on('opening', () => closeBookmarkContextMenu());
+  });
   return {
     getBookmarkContextMenuOptions,
     isBookmarkContextMenuNode,

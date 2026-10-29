@@ -471,14 +471,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openShortcutEditor,
     isShortcutFolderAnchor
   } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
+    settings,
     shortcutGrid,
     shortcutSection,
     shortcutList,
     t,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
-    readSavedFolderColors: (...args) => readSavedFolderColors(...args),
-    saveSavedFolderColors: (...args) => saveSavedFolderColors(...args),
     getShortcutGroups: (...args) => getShortcutGroups(...args),
     bookmarksRuntime,
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
@@ -491,18 +490,50 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
+    openBookmarkCascadeMenu,
+    closeBookmarkCascadeMenu,
+    positionBookmarkCascadeLevels,
+    getTopBookmarks
+  } = NEWTAB_BOOKMARK_CASCADE_ACTIONS.createBookmarkCascadeActions({
+    bookmarkParts,
+    bookmarksShown,
+    bookmarksRuntime,
+    t
+  });
+
+  const {
+    initFolderPathMorph,
+    isFolderColorPickerOpen,
+    scheduleFolderColorSync,
+    loadFolderColors,
+    openFolderColorPicker
+  } = NEWTAB_FOLDER_COLORS.createFolderColors({
+    settings,
+    bookmarksRuntime,
+    closeBookmarkCascadeMenu,
+    closeShortcutDialog,
+    hideCursorTooltip,
+    t,
+    bindShortcutDialogTooltip,
+    hideShortcutDialogTooltip,
+    showToast
+  });
+  dismissStack.setShouldIgnore(isFolderColorPickerOpen);
+
+  const {
     getBookmarkContextMenuOptions,
     isBookmarkContextMenuNode,
     closeBookmarkContextMenu,
     handleBookmarkItemContextMenu
   } = NEWTAB_BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
+    otherContextMenus: [shortcutContextMenuSelectController, recentContextMenuSelectController],
     dragSessions,
     bookmarkParts,
     locale,
     bookmarkContextMenuSelectController,
     bookmarksRuntime,
     t,
-    openFolderColorPicker: (...args) => openFolderColorPicker(...args),
+    openFolderColorPicker,
     openExternalNewTabUrl,
     openBookmarkEditor,
     openBookmarkFolderTabGroupConfirmation,
@@ -511,8 +542,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     addSiteToShortcuts: (...args) => addSiteToShortcuts(...args),
     hasShortcutForBookmarkFolder: (...args) => hasShortcutForBookmarkFolder(...args),
     addBookmarkFolderToShortcuts: (...args) => addBookmarkFolderToShortcuts(...args),
-    closeShortcutContextMenu: (...args) => closeShortcutContextMenu(...args),
-    closeRecentContextMenu: (...args) => closeRecentContextMenu(...args),
     hideCursorTooltip
   });
 
@@ -614,6 +643,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openShortcutAddContextMenu,
     openShortcutGroupMenu
   } = NEWTAB_SHORTCUT_CONTEXT_MENU.createShortcutContextMenu({
+    otherContextMenus: [bookmarkContextMenuSelectController, recentContextMenuSelectController],
     locale,
     shortcutContextMenuSelectController,
     shortcutSection,
@@ -624,7 +654,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutTileFromNode,
     getShortcutById,
     hideShortcutAddFromContextMenu: (...args) => hideShortcutAddFromContextMenu(...args),
-    openFolderColorPicker: (...args) => openFolderColorPicker(...args),
+    openFolderColorPicker,
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
     openShortcutEditor,
     openShortcutUrl: (...args) => openShortcutUrl(...args),
@@ -633,7 +663,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openBookmarkFolderTabGroupConfirmation,
     t,
     getShortcutContextMenuOptions,
-    closeRecentContextMenu: (...args) => closeRecentContextMenu(...args),
     hideShortcutTooltip,
     getShortcutTileId,
     openShortcutGroupDialog: (...args) => openShortcutGroupDialog(...args),
@@ -808,6 +837,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getRecentProgressState,
     toggleRecentProgressTracking
   } = NEWTAB_RECENT_SITES_CONTROLLER.createRecentSitesController({
+    otherContextMenus: [shortcutContextMenuSelectController, bookmarkContextMenuSelectController],
     recentShown,
     locale,
     recentContextMenuSelectController,
@@ -817,8 +847,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openExternalNewTabUrl,
     hasShortcutForSite: (...args) => hasShortcutForSite(...args),
     addSiteToShortcuts: (...args) => addSiteToShortcuts(...args),
-    closeShortcutContextMenu,
-    closeBookmarkContextMenu,
     hideCursorTooltip,
     hideTopActionTooltip,
     normalizeHost,
@@ -841,38 +869,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
   const recentSitesReadyTask = followStoredSites();
 
-  const {
-    openBookmarkCascadeMenu,
-    closeBookmarkCascadeMenu,
-    positionBookmarkCascadeLevels,
-    getTopBookmarks
-  } = NEWTAB_BOOKMARK_CASCADE_ACTIONS.createBookmarkCascadeActions({
-    bookmarkParts,
-    bookmarksShown,
-    bookmarksRuntime,
-    t
-  });
-
-  const {
-    initFolderPathMorph,
-    isFolderColorPickerOpen,
-    readSavedFolderColors,
-    saveSavedFolderColors,
-    scheduleFolderColorSync,
-    loadFolderColors,
-    openFolderColorPicker
-  } = NEWTAB_FOLDER_COLORS.createFolderColors({
-    settings,
-    bookmarksRuntime,
-    closeBookmarkCascadeMenu,
-    closeShortcutDialog,
-    hideCursorTooltip,
-    t,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
-    showToast
-  });
-  dismissStack.setShouldIgnore(isFolderColorPickerOpen);
   const shortcutIconStore = NEWTAB_SHORTCUT_ICON_STORE.createShortcutIconStore({
     documentObj: document,
     windowObj: window,

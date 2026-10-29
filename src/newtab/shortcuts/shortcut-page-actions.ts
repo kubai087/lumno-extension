@@ -23,14 +23,14 @@ import * as NEWTAB_BOOKMARKS_STORE from '../bookmarks/bookmarks-store';
 import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_CONTEXT_MENU_EDIT_VALUE, SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE, SHORTCUT_CONTEXT_MENU_REMOVE_VALUE, SHORTCUT_GROUP_MENU_VALUES } from '../menu-values';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from './shortcut-list';
+import type { SettingsStore } from '../../platform/settings-store';
+import { bookmarkFolderColorPresets } from '../../domain/settings/bookmarks';
 
 
 interface ShortcutPageActionsDeps {
   t: Translate;
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
-  readSavedFolderColors(): Promise<unknown>;
-  saveSavedFolderColors(colors: string[]): Promise<void>;
   getShortcutGroups(): ShortcutGroup[];
   bookmarksRuntime: BookmarksRuntime;
   getShortcutFolderId(shortcut: ShortcutItem): string;
@@ -44,6 +44,7 @@ interface ShortcutPageActionsDeps {
   shortcutList: Pick<ShortcutList, 'items'>;
   shortcutSection: HTMLElement;
   shortcutGrid: HTMLElement;
+  settings: Pick<SettingsStore, 'get' | 'include' | 'set'>;
 }
 
 function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
@@ -54,8 +55,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     t,
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
-    readSavedFolderColors,
-    saveSavedFolderColors,
     getShortcutGroups,
     bookmarksRuntime,
     getShortcutFolderId,
@@ -64,7 +63,8 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle,
-    getShortcutIconDataUrl
+    getShortcutIconDataUrl,
+    settings
   } = deps;
 
   // The shortcut dialog, loaded on first use.
@@ -87,8 +87,8 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
           documentObj: document, t,
           bindTooltip: bindShortcutDialogTooltip,
           hideTooltip: hideShortcutDialogTooltip,
-          readSavedColors: readSavedFolderColors,
-          saveSavedColors: saveSavedFolderColors,
+          readSavedColors: () => settings.include(bookmarkFolderColorPresets).then(() => settings.get(bookmarkFolderColorPresets)),
+          saveSavedColors: (colors) => settings.set(bookmarkFolderColorPresets, colors),
           onSubmit: (_id, color) => {
             shortcutPlateColorPick?.(color);
             return Promise.resolve();

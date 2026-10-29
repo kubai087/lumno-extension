@@ -34,8 +34,6 @@ interface RecentSitesControllerDeps {
   openExternalNewTabUrl(url: string, disposition: Disposition): unknown;
   hasShortcutForSite(site: ShortcutSite): boolean;
   addSiteToShortcuts(site: ShortcutSite): unknown;
-  closeShortcutContextMenu(): void;
-  closeBookmarkContextMenu(): void;
   hideCursorTooltip(): void;
   hideTopActionTooltip(): void;
   normalizeHost: NonNullable<RecentSiteOptions['normalizeHost']>;
@@ -50,6 +48,8 @@ interface RecentSitesControllerDeps {
   recentContextMenuSelectController: SelectMenuController;
   recentShown: Pick<RecentSitesShown, 'forgetSignature' | 'items'>;
   locale: Pick<SurfaceLocale, 'store'>;
+  // The other context menus' select menus; this menu closes as one opens.
+  otherContextMenus: Pick<SelectMenuController, 'events'>[];
 }
 
 // Whether pinning took, or the pin limit stopped it; and the pinned cards.
@@ -80,8 +80,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     openExternalNewTabUrl,
     hasShortcutForSite,
     addSiteToShortcuts,
-    closeShortcutContextMenu,
-    closeBookmarkContextMenu,
     hideCursorTooltip,
     hideTopActionTooltip,
     normalizeHost,
@@ -93,7 +91,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     renderRecentSites,
     progressMatch,
     progressHistory,
-    locale
+    locale,
+    otherContextMenus
   } = deps;
 
   // What the open menu acts on.
@@ -382,8 +381,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     if (!recentContextMenu || !recentContextMenuSelectController) {
       return;
     }
-    closeShortcutContextMenu();
-    closeBookmarkContextMenu();
     closeRecentContextMenu();
     recentContextMenuTarget = target;
     setRecentContextMenuSite(String(target.item.url || ''));
@@ -828,6 +825,10 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     if (!settings.get(progressTrackingEnabled) && recentHistoryDialogController) {
       recentHistoryDialogController.close({ restoreFocus: false });
     }
+  });
+
+  otherContextMenus.forEach((menu) => {
+    menu.events.on('opening', () => closeRecentContextMenu());
   });
   return {
     followStoredSites,
