@@ -2,7 +2,6 @@ import { useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFoc
 import { useExclusiveAsyncAction } from '../../shared/react/use-exclusive-async-action';
 import { isElementTextTruncated } from '../../shared/react/text-overflow';
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
-import { queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { useStore } from '../../shared/react/use-store';
 import { createStore } from '../../shared/state/store';
@@ -11,6 +10,7 @@ import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RecentSite } from '../../domain/recent-sites-store';
 import { getPagePortals } from '../app/portals';
 import { useCardTheme } from './card-theme';
+import { getRecentCards } from '../dom/recent-cards';
 
 type Translate = (key: string, fallback: string) => string;
 // A site's theme as the page resolves it; the view passes it through.
@@ -1002,8 +1002,7 @@ function RecentCards({ options }: { options: NormalizedRecentSitesOptions }) {
     options.hideTopActionTooltip();
     options.hideCursorTooltip();
     options.cards.length = 0;
-    queryHtmlTags(options.grid, '.x-nt-recent-card', 'div')
-      .forEach((card) => options.cards.push(card));
+    getRecentCards(options.grid).forEach((card) => options.cards.push(card));
   }, [items, options]);
   return items ? <RecentSitesList items={items} options={options} /> : null;
 }

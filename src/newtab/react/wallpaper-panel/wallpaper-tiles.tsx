@@ -14,6 +14,7 @@ import { LinkButton } from '../../../shared/react/link-button';
 import { InfoButton } from './panel-controls';
 import { RemixIcon } from '../../../shared/react/remix-icon';
 import { SvgTree } from '../../../shared/react/svg-tree';
+import { isWallpaperDeleteTarget } from '../../dom/event-targets';
 
 export function WallpaperTile({
   onPrime,
@@ -112,9 +113,7 @@ export const activateOnKey = (activate: () => void) => (event: ReactKeyboardEven
   activate();
 };
 
-const isFromDeleteButton = (event: { target: EventTarget | null }) => Boolean(
-  event.target instanceof Element && event.target.closest('.x-nt-wallpaper-delete-button')
-);
+const isFromDeleteButton = (event: { target: EventTarget | null }) => isWallpaperDeleteTarget(event.target);
 
 export function CustomWallpaperTile({
   actions,

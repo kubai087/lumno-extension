@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { createViewHost } from '../dom/view-hosts';
 import type { ReactNode } from 'react';
 import { createViewStore } from '../../shared/react/view-store';
 import { useStore } from '../../shared/react/use-store';
@@ -89,16 +90,11 @@ function createHost<K extends keyof HTMLElementTagNameMap>(
     visible?: boolean;
   }
 ) {
-  const host = documentObj.createElement(tagName);
-  host.id = options.id;
-  if (options.className) {
-    host.className = options.className;
-  }
-  host.dataset.reactIsland = options.island;
+  const data: Record<string, string> = { reactIsland: options.island };
   if (typeof options.visible === 'boolean') {
-    host.dataset.visible = options.visible ? 'true' : 'false';
+    data.visible = options.visible ? 'true' : 'false';
   }
-  return host;
+  return createViewHost(documentObj, tagName, { id: options.id, className: options.className, data });
 }
 
 function renderStatic<T>(
@@ -160,10 +156,8 @@ export function createPageStructure(config: {
     island: 'newtab-bookmark-section',
     visible: false
   });
-  const bookmarkHeader = documentObj.createElement('div');
-  bookmarkHeader.className = 'x-nt-bookmarks-header';
-  const bookmarkGrid = documentObj.createElement('div');
-  bookmarkGrid.id = PAGE_STRUCTURE_IDS.bookmarkGrid;
+  const bookmarkHeader = createViewHost(documentObj, 'div', { className: 'x-nt-bookmarks-header' });
+  const bookmarkGrid = createViewHost(documentObj, 'div', { id: PAGE_STRUCTURE_IDS.bookmarkGrid });
   bookmarkSection.append(bookmarkHeader, bookmarkGrid);
   // The headers' models, as the section headers set them.
   const bookmarkHeaderStore: BookmarkHeaderStore = createViewStore<{ model: BookmarkHeaderModel | null }>({ model: null });
@@ -202,7 +196,7 @@ export function createPageStructure(config: {
     id: PAGE_STRUCTURE_IDS.searchLayer,
     island: 'newtab-search-layer'
   });
-  const topContent = documentObj.createElement('div');
+  const topContent = createViewHost(documentObj, 'div');
 
   let destroyed = false;
   return Object.freeze({

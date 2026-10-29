@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from 'react';
 import type { NormalizedOptions, Suggestion } from './types';
 import { surfaceClass } from './surface-options';
 import {
-  followEmptyStateArtTheme,
+  followEmptyStateArtIn,
   type EmptyStateArtName
 } from '../../../ui/empty-state-art';
 import { EmptyStateArt } from '../../empty-state-art';
@@ -24,8 +24,7 @@ export function EmptyState({
   const artName = art || 'noResults';
   const artRef = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
-    const svg = artRef.current?.querySelector('svg');
-    return svg ? followEmptyStateArtTheme(svg) : undefined;
+    return followEmptyStateArtIn(artRef.current);
   }, [artName]);
   return (
     <div

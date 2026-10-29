@@ -1,7 +1,8 @@
 import { act } from 'react';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { appendOverlayStyleNodes, createOverlayMount, destroyOverlayMount, findOverlayPanel, type OverlayPanelModel } from './shell';
+import { createOverlayMount, destroyOverlayMount, findOverlayPanel, type OverlayPanelModel } from './shell';
+import { appendOverlayStyleNodes } from '../dom/overlay-styles';
 import { createViewStore } from '../../shared/react/view-store';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 

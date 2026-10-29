@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { createViewHost } from '../dom/view-hosts';
 import { getPagePortals } from '../app/portals';
 import type {
   BottomDockLayoutOptions,
@@ -89,9 +90,7 @@ export function createDock(
 ): DockRuntime {
   const documentObj: Document = config.documentObj || document;
   const windowObj: Window = config.windowObj || window;
-  const bottomDock = documentObj.createElement('div');
-  bottomDock.id = DOCK_IDS.bottomDock;
-  bottomDock.dataset.reactIsland = 'newtab-bottom-dock';
+  const bottomDock = createViewHost(documentObj, 'div', { id: DOCK_IDS.bottomDock, data: { reactIsland: 'newtab-bottom-dock' } });
   const mounted: { elements: DockElements | null } = { elements: null };
   const register = (nextElements: DockElements) => {
     mounted.elements = nextElements;

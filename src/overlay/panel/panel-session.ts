@@ -5,7 +5,8 @@
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import * as LumnoMessaging from '../../platform/messaging';
 import * as OverlayLifecycle from '../dom/lifecycle';
-import { destroyOverlayMount, removeOverlayPageStyles } from '../react/shell';
+import { destroyOverlayMount } from '../react/shell';
+import { removeOverlayPageStyles } from '../dom/overlay-styles';
 import type { createNoticeLayer } from '../notices';
 import { setOverlayOpenState } from '../../platform/content-registry';
 import { destroySearchInput } from '../../shared/react/search-input';

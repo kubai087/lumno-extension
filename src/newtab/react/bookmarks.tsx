@@ -1,10 +1,9 @@
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { isElementTextTruncated } from '../../shared/react/text-overflow';
-import { followEmptyStateArtTheme } from '../../shared/ui/empty-state-art';
+import { followEmptyStateArtIn } from '../../shared/ui/empty-state-art';
 import type { CursorTooltipOptions } from '../../shared/ui/cursor-tooltip-model';
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
-import { queryHtmlTags } from '../../shared/dom-lookup';
 import { EmptyStateArt } from '../../shared/react/empty-state-art';
 import { FaviconFallback, FolderPreviewFaviconFallback } from '../../shared/react/favicon-fallback';
 import { useStore } from '../../shared/react/use-store';
@@ -14,6 +13,7 @@ import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import { getPagePortals } from '../app/portals';
 import { useCardTheme } from './card-theme';
+import { getBookmarkCards, isBookmarkCopyActionTarget } from '../dom/bookmark-cards';
 
 // A site's theme as the page resolves it; the view passes it through.
 type ThemeValue = Partial<ThemeVariant> | null;
@@ -824,11 +824,7 @@ function BookmarkCard({
       {
         maxWidth: 460,
         shouldShow: (_target, event) => {
-          const eventTarget = event?.target;
-          if (
-            eventTarget instanceof Element &&
-            eventTarget.closest('.x-nt-bookmark-copy-action')
-          ) {
+          if (isBookmarkCopyActionTarget(event?.target)) {
             return false;
           }
           return isBookmarkTitleTruncated(titleRef.current);
@@ -1085,8 +1081,7 @@ function EmptyFolderState({
   // wallpaper ink.
   const artRef = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
-    const svg = artRef.current?.querySelector('svg');
-    return svg ? followEmptyStateArtTheme(svg) : undefined;
+    return followEmptyStateArtIn(artRef.current);
   }, []);
   return (
     <div className="x-nt-bookmark-empty">
@@ -1109,7 +1104,7 @@ function BookmarkGrid({ options }: { options: NormalizedBookmarksOptions }) {
   useLayoutEffect(() => {
     options.hideCursorTooltip();
     options.cards.length = 0;
-    queryHtmlTags(options.grid, '.x-nt-bookmark-card', 'div')
+    getBookmarkCards(options.grid)
       .forEach((element) => {
         const card: BookmarkCardElement = element;
         options.cards.push(card);

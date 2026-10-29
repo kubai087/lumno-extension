@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { createViewHost } from '../dom/view-hosts';
 import { TopbarBookmarkActions, type BookmarkHeaderStore } from './bookmark-header';
 import { createLiquidGlass } from '../dom/liquid-glass';
 import { getPagePortals } from '../app/portals';
@@ -236,14 +237,12 @@ export function createBookmarksTopbar(
 ): BookmarksTopbarRuntime {
   const documentObj: Document = options.documentObj || document;
   const windowObj = options.windowObj || window;
-  const element = documentObj.createElement('section');
-  element.id = BOOKMARK_TOPBAR_IDS.topbar;
-  element.className = 'x-nt-bookmarks-topbar';
-  element.dataset.reactIsland = 'newtab-bookmarks-topbar';
-  element.dataset.surfaceMode = 'adaptive';
-  element.dataset.layout = 'docked';
-  element.dataset.visible = 'false';
-  element.setAttribute('aria-label', String(options.ariaLabel || 'Bookmarks'));
+  const element = createViewHost(documentObj, 'section', {
+    id: BOOKMARK_TOPBAR_IDS.topbar,
+    className: 'x-nt-bookmarks-topbar',
+    data: { reactIsland: 'newtab-bookmarks-topbar', surfaceMode: 'adaptive', layout: 'docked', visible: 'false' },
+    attributes: { 'aria-label': String(options.ariaLabel || 'Bookmarks') }
+  });
   const mounted: { elements: TopbarElements | null } = { elements: null };
   const register = (nextElements: TopbarElements) => {
     mounted.elements = nextElements;

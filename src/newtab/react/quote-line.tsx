@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { getPagePortals } from '../app/portals';
 import { useStore } from '../../shared/react/use-store';
 import type { Store } from '../../shared/state/store';
-import { queryHtmlElement } from '../../shared/dom-lookup';
 import { RemixIcon } from '../../shared/react/remix-icon';
+import { getQuoteTextElement } from '../dom/quote-host';
 
 export interface QuoteLineModel {
   text: string;
@@ -119,7 +119,7 @@ export interface QuoteLineView {
 export function createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers, store: Store<QuoteLineState>): QuoteLineView {
   getPagePortals().show(host, <QuoteLineRoot handlers={handlers} store={store} />);
   return {
-    getTextElement: () => queryHtmlElement(host, '.x-nt-quote-line'),
+    getTextElement: () => getQuoteTextElement(host),
     destroy: () => getPagePortals().remove(host)
   };
 }

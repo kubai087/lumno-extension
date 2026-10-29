@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { RangeSliderField } from '../../../shared/react/range-slider';
 import { useSegmentedIndicator } from '../../../shared/react/segmented-indicator';
+import { getRangeSliderRow } from '../../dom/event-targets';
 
 // Controls of the New Tab appearance panel. Each one renders from the state the
 // wallpaper runtime hands down and reports changes through callbacks; none of them
@@ -271,7 +272,7 @@ export function PanelSlider({
   useLayoutEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    const row = input.closest('.x-nt-range-slider-row');
+    const row = getRangeSliderRow(input);
     if (row) {
       if (slider.suffix === '%') row.setAttribute('data-value-suffix', '%');
       else row.removeAttribute('data-value-suffix');

@@ -1,10 +1,10 @@
 import NumberFlow, { NumberFlowGroup } from '@number-flow/react';
 import type { CSSProperties } from 'react';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { queryHtmlElement } from '../../shared/dom-lookup';
 import { getPagePortals } from '../app/portals';
 import { useStore } from '../../shared/react/use-store';
 import type { Store } from '../../shared/state/store';
+import { getWordmarkButton, getWordmarkContent, getWordmarkImage } from '../dom/top-content';
 
 export type NewtabTopContentMode = 'brand' | 'time';
 
@@ -578,14 +578,8 @@ export function createTopContentController(
       destroyed = true;
       getPagePortals().remove(host);
     },
-    getButton() {
-      return host.querySelector('button');
-    },
-    getContent() {
-      return queryHtmlElement(host, '.x-nt-wordmark-content');
-    },
-    getImage() {
-      return host.querySelector('img');
-    }
+    getButton: () => getWordmarkButton(host),
+    getContent: () => getWordmarkContent(host),
+    getImage: () => getWordmarkImage(host)
   });
 }

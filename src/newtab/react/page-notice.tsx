@@ -1,4 +1,5 @@
 import { getPagePortals } from '../app/portals';
+import { createViewHost, removeElementById } from '../dom/view-hosts';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { MessageRuntime } from '../../platform/messaging';
 import { RemixIcon } from '../../shared/react/remix-icon';
@@ -164,10 +165,8 @@ export function renderPageNotice(
   ) {
     return null;
   }
-  documentObj.getElementById(PAGE_NOTICE_ID)?.remove();
-  const element = documentObj.createElement('div');
-  element.id = PAGE_NOTICE_ID;
-  element.dataset.reactIsland = 'newtab-page-notice';
+  removeElementById(documentObj, PAGE_NOTICE_ID);
+  const element = createViewHost(documentObj, 'div', { id: PAGE_NOTICE_ID, data: { reactIsland: 'newtab-page-notice' } });
   let dismissed = false;
   const controller: PageNoticeController = {
     dismiss() {

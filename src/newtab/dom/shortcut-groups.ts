@@ -3,7 +3,7 @@
 // ghost and the line showing where it lands, and the placeholder that keeps
 // a lifted tile's slot.
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
-import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
+import { queryHtmlElement, queryHtmlElements, queryHtmlTags } from '../../shared/dom-lookup';
 
 function getShortcutGroupHeaders(grid: HTMLElement): HTMLElement[] {
   return queryHtmlElements(grid, '.x-nt-shortcut-group-header');
@@ -52,7 +52,13 @@ function createShortcutDragPlaceholder(doc: Document): HTMLElement {
   return placeholder;
 }
 
+// The slots of the groups that hold no tile.
+function getEmptyShortcutGroupSlots(grid: HTMLElement): HTMLButtonElement[] {
+  return queryHtmlTags(grid, '.x-nt-shortcut-group-empty', 'button');
+}
+
 export {
+  getEmptyShortcutGroupSlots,
   createShortcutDragPlaceholder,
   createShortcutGroupDropLine,
   createShortcutGroupGhost,

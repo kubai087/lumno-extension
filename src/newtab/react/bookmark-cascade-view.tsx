@@ -3,6 +3,7 @@
 // levels, active and hover-suppressed rows) and the work that measures or
 // animates (placement, width lock, opening motion, drop marks).
 import { useCallback, useLayoutEffect, useRef } from 'react';
+import { createViewHost } from '../dom/view-hosts';
 import type {
   FocusEvent as ReactFocusEvent,
   KeyboardEvent as ReactKeyboardEvent,
@@ -270,10 +271,11 @@ function CascadeLevels({ handlers, store }: { handlers: CascadeMenuHandlers; sto
 
 // Draws the open levels its owner sets in `store`.
 export function createCascadeMenu(documentObj: Document, handlers: CascadeMenuHandlers, store: Store<CascadeMenuModel>): CascadeMenuView {
-  const element = documentObj.createElement('div');
-  element.className = 'x-nt-bookmark-cascade-menu';
-  element.dataset.reactIsland = 'newtab-bookmark-cascade';
-  element.setAttribute('role', 'menu');
+  const element = createViewHost(documentObj, 'div', {
+    className: 'x-nt-bookmark-cascade-menu',
+    data: { reactIsland: 'newtab-bookmark-cascade' },
+    attributes: { role: 'menu' }
+  });
   let destroyed = false;
   getPagePortals().show(element, <CascadeLevels handlers={handlers} store={store} />);
   return {

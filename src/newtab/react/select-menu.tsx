@@ -1,9 +1,10 @@
 import { flushSync } from 'react-dom';
+import { createViewHost } from '../dom/view-hosts';
 import { SelectMenu, type SelectMenuConfig, type SelectMenuControls } from '../../shared/react/select-menu';
 import { toCssLength, type SelectMenuOption } from '../../shared/react/select-menu/menu-options';
-import { queryHtmlElement, queryHtmlElements, queryHtmlTag } from '../../shared/dom-lookup';
 import { getPagePortals } from '../app/portals';
 import { createEventBus } from '../../shared/state/events';
+import { getSelectElement, getSelectMenuByOwner, getSelectTrigger, getUnclaimedSelectMenu } from '../dom/select-menus';
 
 export interface SelectMenuControllerOptions {
   documentObj?: Document;
@@ -65,7 +66,7 @@ export function createSelectMenuController(
   return Object.freeze({
     events,
     createSelect(config: SelectMenuConfig): SelectMenuInstance | null {
-      const host = documentObj.createElement('div');
+      const host = createViewHost(documentObj, 'div');
       host.id = config.id || '';
       host.className = [
         '_x_extension_select_wrap_2024_unique_',
@@ -106,16 +107,10 @@ export function createSelectMenuController(
         }
       });
       renderInstance(host);
-      const select = host.querySelector('select');
-      const trigger = host.querySelector('button');
-      const menu = config.id
-        ? queryHtmlElement(documentObj, `[data-react-select-owner="${config.id}"]`)
-        : null;
-      const portalMenu =
-        menu ||
-        Array.from(
-          queryHtmlElements(documentObj, 'body > ._x_extension_select_menu_2024_unique_')
-        ).find((candidate) => !candidate.dataset.reactSelectClaimed);
+      const select = getSelectElement(host);
+      const trigger = getSelectTrigger(host);
+      const portalMenu = (config.id ? getSelectMenuByOwner(documentObj, config.id) : null) ||
+        getUnclaimedSelectMenu(documentObj);
       if (!select || !trigger || !portalMenu) {
         getPagePortals().remove(host);
         return null;
@@ -179,7 +174,7 @@ export function createSelectMenuController(
     },
     sync(host: HTMLElement) {
       const instance = instances.get(host);
-      const select = queryHtmlTag(host, 'select', 'select');
+      const select = getSelectElement(host);
       if (instance && select) {
         flushSync(() => instance.controls.syncValue(select.value));
       }

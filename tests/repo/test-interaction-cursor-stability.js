@@ -10,7 +10,8 @@ const read = (relativePath) =>
 const newtabHtml = readPageSource('newtab.html');
 const optionsHtml = readPageSource('src/options/options.html');
 const onboardingHtml = readPageSource('src/onboarding/onboarding.html');
-const overlayShell = read('src/overlay/react/shell.tsx');
+// The overlay panel's own style rules, which its shell puts in its shadow root.
+const overlayShell = read('src/overlay/dom/overlay-styles.ts');
 const documentPipPicker = read('src/content/document-pip-picker/dock.ts');
 const tooltipCss = read('src/shared/ui/tooltip.css');
 const cursorTooltipCss = read('src/shared/ui/cursor-tooltip.css');

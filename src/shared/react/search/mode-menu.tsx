@@ -15,7 +15,7 @@ import {
   type RefObject
 } from 'react';
 import * as LumnoSortableDrag from '../../ui/sortable-drag';
-import { followEmptyStateArtTheme } from '../../ui/empty-state-art';
+import { followEmptyStateArtIn } from '../../ui/empty-state-art';
 import { EmptyStateArt } from '../empty-state-art';
 import { className as MENU_SURFACE_CLASS } from '../../ui/menu-surface';
 import { HOST_CLASS as CURSOR_TOOLTIP_HOST_CLASS } from '../../ui/cursor-tooltip-model';
@@ -304,8 +304,7 @@ function EmptyState({ text, hidden }: { text: string; hidden: boolean }) {
   const artRef = useRef<HTMLSpanElement>(null);
   // Its theme follows the panel's while it shows.
   useLayoutEffect(() => {
-    const svg = artRef.current ? artRef.current.querySelector('svg') : null;
-    return !hidden && svg ? followEmptyStateArtTheme(svg) : undefined;
+    return hidden ? undefined : followEmptyStateArtIn(artRef.current);
   }, [hidden]);
   return (
     <div {...NO_TRANSLATE} className="x-lumno-search-input-mode__menu-empty" hidden={hidden} role="status">

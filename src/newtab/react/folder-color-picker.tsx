@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { createViewHost } from '../dom/view-hosts';
 import { HexColorPicker } from 'react-colorful';
 import { SelectMenu } from '../../shared/react/select-menu';
 import { DEFAULT_CLOSE_DELAY_MS, getEnterOffset } from './shortcut-dialog-helpers';
 import { DEFAULT_FOLDER_COLOR, MAX_SAVED_FOLDER_COLORS, normalizeSavedFolderColors, parseFolderColor, folderColorToChannels, withFolderColorChannel } from './folder-color';
-import { queryHtmlElement, queryHtmlElements, queryHtmlTags } from '../../shared/dom-lookup';
 import { FolderIcon } from './folder-icon';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { getPagePortals } from '../app/portals';
+import { getCurrentColorControl, getFolderColorBackdrop, getFolderColorDialog, getSavedColorSwatches } from '../dom/folder-color-picker';
+import { getFocusableControls, hasDisabledFieldset } from '../dom/dialog-focus';
 
 interface OpenOptions {
   folderId: string;
@@ -84,8 +86,7 @@ function FolderColorForm({ initial, options, initialSavedColors, updateSavedColo
 
   // Rest on the selected swatch, or the saturation area for a custom color, so the dialog opens in a browsing state.
   function focusCurrentColor() {
-    ((editorRef.current ? queryHtmlElement(editorRef.current, '.x-nt-folder-color-swatch[aria-pressed="true"]') : null)
-      || (editorRef.current ? queryHtmlElement(editorRef.current, '.react-colorful__saturation .react-colorful__interactive') : null))?.focus();
+    (editorRef.current ? getCurrentColorControl(editorRef.current) : null)?.focus();
   }
   useLayoutEffect(focusCurrentColor, []);
   useLayoutEffect(() => {
@@ -93,7 +94,7 @@ function FolderColorForm({ initial, options, initialSavedColors, updateSavedColo
       if (target) options.bindTooltip?.(target, () => target.getAttribute('data-tooltip') || '', { placement: 'top', maxWidth: 260 });
     }
     if (focusSavedColorRef.current !== null) {
-      const target = (savedColorsRef.current ? queryHtmlTags(savedColorsRef.current, '.x-nt-folder-color-saved-item .x-nt-folder-color-swatch', 'button') : [])[focusSavedColorRef.current] || addColorRef.current;
+      const target = (savedColorsRef.current ? getSavedColorSwatches(savedColorsRef.current) : [])[focusSavedColorRef.current] || addColorRef.current;
       focusSavedColorRef.current = null;
       if (target && !target.disabled) target.focus();
       else focusCurrentColor();
@@ -333,7 +334,7 @@ function FolderColorForm({ initial, options, initialSavedColors, updateSavedColo
 
 export function createFolderColorPicker(options: PickerOptions = {}) {
   const doc = options.documentObj || document;
-  const host = doc.createElement('div');
+  const host = createViewHost(doc, 'div');
   let initial: OpenOptions | null = null;
   let savedColors: string[] = [];
   const updateSavedColors = (colors: string[]) => { savedColors = colors; };
@@ -341,7 +342,7 @@ export function createFolderColorPicker(options: PickerOptions = {}) {
   let openFrame = 0;
   let closeTimer = 0;
   const view = doc.defaultView || window;
-  const getBackdrop = () => queryHtmlElement(host, '.x-nt-folder-color-backdrop');
+  const getBackdrop = () => getFolderColorBackdrop(host);
   function cancelMotion() {
     if (openFrame) { view.cancelAnimationFrame(openFrame); openFrame = 0; }
     if (closeTimer) { view.clearTimeout(closeTimer); closeTimer = 0; }
@@ -354,7 +355,7 @@ export function createFolderColorPicker(options: PickerOptions = {}) {
   }
   // Drift in from the source tile the same way the shortcut dialog does.
   function setEnterDirection(sourceElement: HTMLElement | null | undefined) {
-    const dialog = queryHtmlElement(host, '.x-nt-folder-color-dialog');
+    const dialog = getFolderColorDialog(host);
     if (!dialog) return;
     let enterX = 0;
     if (sourceElement?.isConnected) {
@@ -384,10 +385,10 @@ export function createFolderColorPicker(options: PickerOptions = {}) {
     // Keep modal keys from reaching new-tab search and shortcut navigation.
     event.stopImmediatePropagation();
     if (event.defaultPrevented) return;
-    const controls = queryHtmlElements(host, 'button:not(:disabled), input:not(:disabled), [tabindex="0"]').filter((element) => !element.closest('[inert]'));
+    const controls = getFocusableControls(host);
     if (event.key === 'Escape') {
       event.preventDefault();
-      if (!host.querySelector('fieldset:disabled')) close();
+      if (!hasDisabledFieldset(host)) close();
     } else if (event.key === 'Tab' && controls.length) {
       const first = controls[0], last = controls[controls.length - 1];
       if (event.shiftKey && doc.activeElement === first) { event.preventDefault(); last.focus(); }

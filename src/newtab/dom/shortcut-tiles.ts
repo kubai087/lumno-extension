@@ -2,7 +2,7 @@
 // a tile's icon, box and group, where a drop between them lands, and the
 // dragged tile following the pointer.
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
-import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
+import { queryHtmlElement, queryHtmlElements, queryHtmlTag, queryHtmlTags } from '../../shared/dom-lookup';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import type { LayoutRect } from '../cross-surface-drag';
 import type { ShortcutDragSession } from '../shortcuts/shortcut-drag';
@@ -136,7 +136,18 @@ function placeShortcutDragTile(state: ShortcutDragSession, pointerX: number, poi
   state.tile.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
 }
 
+// The shortcuts' tile buttons, and the add tile ending the grid.
+function getShortcutTileButtons(grid: HTMLElement): HTMLButtonElement[] {
+  return queryHtmlTags(grid, '.x-nt-shortcut-tile[data-shortcut-id]', 'button');
+}
+
+function getAddShortcutTile(grid: HTMLElement): HTMLButtonElement | null {
+  return queryHtmlTag(grid, '.x-nt-shortcut-tile--add', 'button');
+}
+
 export {
+  getAddShortcutTile,
+  getShortcutTileButtons,
   getShortcutInsertionSlotAt,
   getShortcutReorderTiles,
   getShortcutTileAtPoint,

@@ -1,4 +1,5 @@
 import { flushSync } from 'react-dom';
+import { createViewHost } from '../dom/view-hosts';
 import type { SelectMenuControls } from '../../shared/react/select-menu';
 import { LinkButton } from '../../shared/react/link-button';
 import { RemixIcon } from '../../shared/react/remix-icon';
@@ -21,13 +22,14 @@ import { RecentSettingsSection } from './wallpaper-panel/recent-settings-section
 import { QuoteSection } from './wallpaper-panel/quote-section';
 import { WallpaperSection } from './wallpaper-panel/wallpaper-section';
 import { FaviconSection } from './wallpaper-panel/favicon-section';
-import { queryHtmlElement, queryHtmlElements, queryHtmlTag } from '../../shared/dom-lookup';
 import { getPagePortals } from '../app/portals';
 import { useLayoutEffect } from 'react';
 import { useStore } from '../../shared/react/use-store';
 import { createViewStore } from '../../shared/react/view-store';
 import { createStore } from '../../shared/state/store';
 import type { Store } from '../../shared/state/store';
+import { getWallpaperPanelRef, getWallpaperPanelRefTag, getWallpaperPanelRefs } from '../dom/wallpaper-panel-refs';
+import { getSelectMenuByOwner, getSelectTrigger } from '../dom/select-menus';
 export { EFFECT_SLIDER_KEYS } from './wallpaper-panel/panel-model';
 export type { WallpaperSourceTab, WallpaperMode, ThemeScope, TopContentMode, TimeInk, GlassTheme, EffectSliderKey, WallpaperPanelModel, TileState, OnlineTileState, SelectedSourceState, DailyState, PanelSelectModel, CuratedMixState, WallpaperPanelActions, WallpaperPanelState, SectionSettingsActions, SectionSettingsModel, QuoteSettingsActions, QuoteSettingsModel, WallpaperPanelStateSlot, SectionSettingsSlot, QuoteSettingsSlot } from './wallpaper-panel/panel-model';
 
@@ -192,9 +194,7 @@ export function createWallpaperViewController(
   const registerSelect = (id: string, controls: SelectMenuControls) => {
     selectControls.set(id, controls);
   };
-  const control = documentObj.createElement('div');
-  control.className = 'x-nt-wallpaper-control';
-  control.dataset.reactIsland = 'newtab-wallpaper';
+  const control = createViewHost(documentObj, 'div', { className: 'x-nt-wallpaper-control', data: { reactIsland: 'newtab-wallpaper' } });
   let destroyed = false;
   getPagePortals().show(control, (
     <WallpaperPanelRoot
@@ -206,23 +206,13 @@ export function createWallpaperViewController(
       stateStore={config.state}
     />
   ));
-  const panel = queryHtmlTag(control, '[data-wallpaper-ref="panel"]', 'div');
-  const button = queryHtmlTag(control, '[data-wallpaper-ref="button"]', 'button');
+  const panel = getWallpaperPanelRefTag(control, 'panel', 'div');
+  const button = getWallpaperPanelRefTag(control, 'button', 'button');
   if (!panel || !button) {
     getPagePortals().remove(control);
     throw new Error('Lumno React wallpaper view did not mount.');
   }
-  const getRefs = () => {
-    const refs: Record<string, HTMLElement> = {};
-    queryHtmlElements(control, '[data-wallpaper-ref]')
-      .forEach((element) => {
-        const name = element.dataset.wallpaperRef;
-        if (name) {
-          refs[name] = element;
-        }
-      });
-    return refs;
-  };
+  const getRefs = () => getWallpaperPanelRefs(control);
 
   const controller: WallpaperViewController = {
     button,
@@ -235,8 +225,7 @@ export function createWallpaperViewController(
       getPagePortals().remove(control);
     },
     focus(name: string) {
-      const element = queryHtmlElement(control, `[data-wallpaper-ref="${name}"]`);
-      element?.focus();
+      getWallpaperPanelRef(control, name)?.focus();
     },
     getRefs,
     panel,
@@ -251,14 +240,13 @@ export function createWallpaperViewController(
       }
       flushSync(() => selectControls.get(openId)?.setOpen(false));
       if (options?.restoreFocus) {
-        queryHtmlElement(control, `[data-wallpaper-ref="${SELECT_HOST_REFS[openId]}"] button`)?.focus();
+        getSelectTrigger(getWallpaperPanelRef(control, SELECT_HOST_REFS[openId]))?.focus();
       }
       return true;
     },
     // The menus are portaled to the body but still belong to the panel.
     containsSelectMenuTarget(target: Node | null) {
-      return Boolean(target && SELECT_IDS.some((id) => documentObj
-        .querySelector(`[data-react-select-owner="${id}"]`)?.contains(target)));
+      return Boolean(target && SELECT_IDS.some((id) => getSelectMenuByOwner(documentObj, id)?.contains(target)));
     }
   };
   return Object.freeze(controller);

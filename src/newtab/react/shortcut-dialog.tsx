@@ -1,3 +1,4 @@
+import { createViewHost } from '../dom/view-hosts';
 import {
   forwardRef,
   useImperativeHandle,
@@ -29,9 +30,9 @@ import {
   type ShortcutRecord
 } from './shortcut-dialog-helpers';
 import { isNode } from '../../shared/dom-guards';
-import { queryHtmlTag } from '../../shared/dom-lookup';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { getPagePortals } from '../app/portals';
+import { getSelectTrigger } from '../dom/select-menus';
 
 type Translate = (key: string, fallback: string) => string;
 type IconAction = 'keep' | 'replace' | 'remove';
@@ -494,7 +495,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
           nameInputRef.current,
           urlInfoButtonRef.current,
           urlInputRef.current,
-          (iconSelectHost ? queryHtmlTag(iconSelectHost, 'button', 'button') : null) || null,
+          getSelectTrigger(iconSelectHost),
           iconInfoButtonRef.current,
           iconRefreshButtonRef.current,
           iconUploadTileRef.current,
@@ -679,7 +680,7 @@ const ShortcutDialogView = forwardRef<ShortcutDialogViewHandle, ShortcutDialogVi
         iconError: ''
       }));
       clearIconSuccessTimer();
-      focusElement(iconSelectHost?.querySelector('button'));
+      focusElement(getSelectTrigger(iconSelectHost));
     }
 
     async function handleIconChange(): Promise<void> {
@@ -1387,14 +1388,17 @@ export function createShortcutDialog(
     })
   };
 
-  const host = options.documentObj.createElement('div');
-  host.className = 'x-nt-shortcut-dialog-backdrop';
-  host.setAttribute('role', 'dialog');
-  host.setAttribute('aria-modal', 'true');
-  host.setAttribute('aria-labelledby', `${options.idPrefix}_title`);
-  host.hidden = true;
-  host.setAttribute('data-open', 'false');
-  host.setAttribute('data-react-island', 'shortcut-dialog');
+  const host = createViewHost(options.documentObj, 'div', {
+    className: 'x-nt-shortcut-dialog-backdrop',
+    attributes: {
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-labelledby': `${options.idPrefix}_title`,
+      'data-open': 'false',
+      'data-react-island': 'shortcut-dialog'
+    },
+    hidden: true
+  });
 
   const viewRef: MutableRefObject<ShortcutDialogViewHandle | null> = {
     current: null

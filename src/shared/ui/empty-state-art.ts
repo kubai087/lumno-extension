@@ -531,6 +531,11 @@ export function resolveEmptyStateArtTheme(element: Element | null | undefined): 
 
 const THEME_ATTRIBUTES = ['data-theme', 'data-glass-ink-theme', 'data-wallpaper-ink', 'data-wallpaper-active'];
 
+// Follows the illustration placed in `container`, as followEmptyStateArtTheme.
+export function followEmptyStateArtIn(container: Element | null | undefined): () => void {
+  return followEmptyStateArtTheme(container ? container.querySelector('svg') : null);
+}
+
 // Keeps a placed illustration's theme in step with where it sits (a theme
 // switch, a new wallpaper sampled to another ink), and makes sure its root
 // has the shared stylesheet. Returns a stop function.

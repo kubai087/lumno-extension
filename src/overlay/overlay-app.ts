@@ -6,7 +6,7 @@ import '../shared/cjk-font-faces';
 import { toggleSearchOverlay } from './app/main';
 import { isOverlayOpenState, setOverlayOpenState } from '../platform/content-registry';
 import { readOverlayCommand } from '../domain/injected-commands';
-import { isOverlayHostInPage } from './react/shell';
+import { isOverlayHostInPage } from './dom/overlay-host';
 import type { OverlayReply } from '../domain/injected-commands';
 
 // Loaded and closed, until the first toggle opens it.

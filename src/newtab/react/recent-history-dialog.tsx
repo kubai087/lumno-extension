@@ -1,6 +1,7 @@
-import { queryHtmlTag, queryHtmlTags } from '../../shared/dom-lookup';
+import { createViewHost } from '../dom/view-hosts';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { getPagePortals } from '../app/portals';
+import { getEnabledButtons, getHistoryCloseButton } from '../dom/dialog-focus';
 
 export interface RecentHistoryVersion {
   title: string;
@@ -130,11 +131,11 @@ export function createRecentHistoryDialog(
     closeDelayMs,
     Number.isFinite(rawToastDelayMs) ? Math.max(0, rawToastDelayMs) : DEFAULT_TOAST_DELAY_MS
   );
-  const host = documentObj.createElement('div');
-  host.className = 'x-nt-recent-history-backdrop';
-  host.hidden = true;
-  host.dataset.open = 'false';
-  host.dataset.reactIsland = 'recent-history-dialog';
+  const host = createViewHost(documentObj, 'div', {
+    className: 'x-nt-recent-history-backdrop',
+    data: { open: 'false', reactIsland: 'recent-history-dialog' },
+    hidden: true
+  });
   let item: RecentHistoryItem | null = null;
   let busyIndex = -1;
   let previousFocus: HTMLElement | null = null;
@@ -222,7 +223,7 @@ export function createRecentHistoryDialog(
     });
     windowObj.requestAnimationFrame(() => {
       if (!host.hidden && (host.dataset.state === 'opening' || host.dataset.state === 'open')) {
-        queryHtmlTag(host, '.x-nt-recent-history-close', 'button')?.focus();
+        getHistoryCloseButton(host)?.focus();
       }
     });
     return true;
@@ -245,7 +246,7 @@ export function createRecentHistoryDialog(
       return;
     }
     if (event.key === 'Tab') {
-      const focusable = queryHtmlTags(host, 'button:not(:disabled)', 'button');
+      const focusable = getEnabledButtons(host);
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!first || !last) return;

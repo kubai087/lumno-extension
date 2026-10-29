@@ -8,7 +8,6 @@ import {
   type IconPlateInput
 } from './shortcut-dialog-helpers';
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
-import { queryHtmlElements, queryHtmlTag, queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
 import { useStore } from '../../shared/react/use-store';
 import { createStore } from '../../shared/state/store';
@@ -20,6 +19,8 @@ import { getPagePortals } from '../app/portals';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 import { shortcutIconEvents } from '../shortcuts/shortcut-icon-events';
 import { useCardTheme } from './card-theme';
+import { getAddShortcutTile, getShortcutTileButtons } from '../dom/shortcut-tiles';
+import { getEmptyShortcutGroupSlots, getShortcutGroupHeaders } from '../dom/shortcut-groups';
 
 // A site's theme as the page resolves it; the view passes it through.
 type ThemeValue = Partial<ThemeVariant> | null;
@@ -807,12 +808,10 @@ export function createShortcutsView(
 
   function refreshElements(): void {
     options.tiles.length = 0;
-    queryHtmlTags(options.grid, '.x-nt-shortcut-tile[data-shortcut-id]', 'button')
-      .forEach((tile) => options.tiles.push(tile));
-    addButtonRef.current = queryHtmlTag(options.grid, '.x-nt-shortcut-tile--add', 'button');
+    getShortcutTileButtons(options.grid).forEach((tile) => options.tiles.push(tile));
+    addButtonRef.current = getAddShortcutTile(options.grid);
     options.groupHeaders.length = 0;
-    queryHtmlElements(options.grid, '.x-nt-shortcut-group-header')
-      .forEach((header) => options.groupHeaders.push(header));
+    getShortcutGroupHeaders(options.grid).forEach((header) => options.groupHeaders.push(header));
   }
 
   // The longest group row in slots: its tiles, plus the slot of an empty
@@ -849,7 +848,7 @@ export function createShortcutsView(
         { maxWidth: 260 }
       );
     }
-    queryHtmlTags(options.grid, '.x-nt-shortcut-group-empty', 'button')
+    getEmptyShortcutGroupSlots(options.grid)
       .forEach((slot) => {
         options.bindTooltip(
           slot,

@@ -9,6 +9,7 @@ import { SelectMenu, type SelectMenuControls } from '../../shared/react/select-m
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import { useStore } from '../../shared/react/use-store';
 import type { Store } from '../../shared/state/store';
+import { getButtonAtTarget } from '../dom/event-targets';
 
 export interface BookmarkCrumb {
   id: string;
@@ -130,10 +131,10 @@ function ModeMenu({
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const controls = useRef<SelectMenuControls | null>(null);
   const showTooltip = (target: EventTarget) => {
-    if (!(target instanceof Element) || controls.current?.isOpen()) {
+    if (controls.current?.isOpen()) {
       return;
     }
-    const trigger = target.closest('button');
+    const trigger = getButtonAtTarget(target);
     if (trigger) model.showTooltip(trigger, menu.title, placement);
   };
   const documentObj = host ? host.ownerDocument : null;

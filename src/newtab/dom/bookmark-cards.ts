@@ -14,6 +14,16 @@ function getBookmarkCardId(card: Element | null | undefined): string {
   return card ? card.getAttribute('data-bookmark-id') || '' : '';
 }
 
+// Every card in the grid, in the order it is drawn.
+function getBookmarkCards(grid: HTMLElement): BookmarkCardElement[] {
+  return queryHtmlTags(grid, '.x-nt-bookmark-card', 'div');
+}
+
+// Whether a pointer event landed on a card's copy button.
+function isBookmarkCopyActionTarget(target: EventTarget | null | undefined): boolean {
+  return isElementNode(target) && Boolean(target.closest('.x-nt-bookmark-copy-action'));
+}
+
 // The cards a drag can move, in the order they are drawn.
 function getBookmarkReorderCards(grid: HTMLElement): BookmarkCardElement[] {
   return queryHtmlTags(grid, '.x-nt-bookmark-card[data-bookmark-draggable="true"]', 'div');
@@ -80,4 +90,4 @@ function createOutgoingBookmarkPage(grid: HTMLElement, gridStyle: CSSStyleDeclar
   return outgoing;
 }
 
-export { createOutgoingBookmarkPage, getBookmarkCardFromNode, measureBookmarkRow, getBookmarkCardId, getBookmarkCardLayoutRect, getBookmarkReorderCards };
+export { createOutgoingBookmarkPage, getBookmarkCardFromNode, getBookmarkCards, isBookmarkCopyActionTarget, measureBookmarkRow, getBookmarkCardId, getBookmarkCardLayoutRect, getBookmarkReorderCards };
