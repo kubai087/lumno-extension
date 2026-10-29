@@ -8,13 +8,6 @@ import type { SearchBoxParts } from '../search/search-box-parts';
 import type { PageNoticeControllers } from '../notice-controllers';
 import type { BottomDockParts } from './bottom-dock-parts';
 
-// A part of the page that may show an element of its own.
-
-interface BottomDockRuntimeState {
-  topContentContainer: HTMLElement | null;
-  // While the window is resized the layout does not animate.
-}
-
 interface BottomDockRuntimeDeps {
   root: HTMLElement;
   bookmarkSection: HTMLElement | null;
@@ -31,12 +24,13 @@ interface BottomDockRuntimeDeps {
   quoteRuntime: { element: HTMLElement | null };
   shortcutSection: HTMLElement;
   recentSection: HTMLElement;
-  pageState: BottomDockRuntimeState;
+  topContentContainer: HTMLElement;
   bottomDockParts: Pick<BottomDockParts, 'mount'>;
 }
 
 function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const {
+    topContentContainer,
     recentSection,
     shortcutSection,
     quoteRuntime,
@@ -55,8 +49,6 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     bottomDockParts
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   if (!bookmarkSection) {
     throw new Error('The New Tab dock or bookmark section is unavailable.');
@@ -81,7 +73,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     root,
     searchLayer: () => searchLayer,
     inputParts: () => searchBox.inputParts,
-    topContentContainer: () => pageState.topContentContainer,
+    topContentContainer: () => topContentContainer,
     shortcutSection: () => shortcutSection,
     quoteSection: () => quoteRuntime.element,
     bookmarkSection,
@@ -113,7 +105,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     documentObj: document,
     windowObj: window,
     getTargets: () => [
-      { key: 'topContent', element: pageState.topContentContainer },
+      { key: 'topContent', element: topContentContainer },
       { key: 'search', element: root },
       { key: 'shortcuts', element: shortcutSection },
       { key: 'quote', element: quoteRuntime.element },
@@ -144,4 +136,4 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
 }
 
 export { createBottomDockRuntime };
-export type { BottomDockRuntimeDeps, BottomDockRuntimeState };
+export type { BottomDockRuntimeDeps };

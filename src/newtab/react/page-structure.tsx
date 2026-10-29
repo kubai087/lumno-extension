@@ -130,6 +130,8 @@ export interface PageStructureRuntime {
   };
   searchLayer: HTMLDivElement;
   shortcut: ShortcutElements & { section: HTMLElement };
+  // The wordmark or clock above the search box; its controller draws into it.
+  topContent: HTMLDivElement;
   suggestions: {
     container: HTMLDivElement;
     outline: HTMLDivElement;
@@ -198,6 +200,7 @@ export function createPageStructure(config: {
     id: PAGE_STRUCTURE_IDS.searchLayer,
     island: 'newtab-search-layer'
   });
+  const topContent = documentObj.createElement('div');
 
   let destroyed = false;
   return Object.freeze({
@@ -233,6 +236,7 @@ export function createPageStructure(config: {
       container: suggestionsContainer,
       outline: suggestionsOutline,
       surface: suggestionsSurface
-    }
+    },
+    topContent
   });
 }

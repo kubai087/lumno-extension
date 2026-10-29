@@ -25,11 +25,6 @@ import * as SETTINGS from '../../domain/settings';
 // A card's place on screen before a layout change.
 type LayoutPosition = { left: number; top: number };
 
-interface TopContentState {
-  topContentContainer: HTMLElement | null;
-  topContentController: TopContentController | null;
-  wordmarkImageEl: HTMLImageElement | null;
-}
 
 interface TopContentDeps {
   recentCards: readonly HTMLElement[];
@@ -38,11 +33,14 @@ interface TopContentDeps {
   scheduleWallpaperAdaptiveToneUpdate(): void;
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   preview: SettingPreview;
-  pageState: TopContentState;
+  topContentContainer: HTMLElement;
+  topContentController: TopContentController;
 }
 
 function createTopContentRuntime(deps: TopContentDeps) {
   const {
+    topContentContainer,
+    topContentController,
     recentCards,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
@@ -51,8 +49,6 @@ function createTopContentRuntime(deps: TopContentDeps) {
     preview
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // What the clock area last drew with.
   let shown = readTopContentSettings();
@@ -177,7 +173,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
   }
 
   function applyNewtabTopContentVisibility(options?: { contentChanged?: boolean } | null): void {
-    const container = pageState.topContentContainer;
+    const container = topContentContainer;
     if (!container) {
       return;
     }
@@ -231,13 +227,13 @@ function createTopContentRuntime(deps: TopContentDeps) {
       window.clearTimeout(wordmarkEntryTransitionTimer);
       wordmarkEntryTransitionTimer = 0;
     }
-    if (pageState.topContentContainer) {
-      pageState.topContentContainer.setAttribute('data-enter', 'done');
+    if (topContentContainer) {
+      topContentContainer.setAttribute('data-enter', 'done');
     }
   }
 
   function restartWordmarkEntryAnimation(): void {
-    const container = pageState.topContentContainer;
+    const container = topContentContainer;
     if (!container) {
       return;
     }
@@ -281,7 +277,7 @@ function createTopContentRuntime(deps: TopContentDeps) {
   // sampled ink, or the theme's image faintly when an overlay covers it.
   function getWordmarkAppearance(resolvedTheme?: string | null): WordmarkAppearance {
     const theme = resolvedTheme || (document.body ? document.body.getAttribute('data-theme') : 'light');
-    const container = pageState.topContentContainer;
+    const container = topContentContainer;
     const wallpaperActive = Boolean(document.body &&
       document.body.getAttribute('data-wallpaper-active') === 'true');
     const wallpaperInk = container ? container.getAttribute('data-wallpaper-ink') : '';
@@ -311,13 +307,13 @@ function createTopContentRuntime(deps: TopContentDeps) {
   }
 
   function applyWordmarkThemeAppearance(resolvedTheme?: string | null): void {
-    if (pageState.topContentController) {
-      pageState.topContentController.updateAppearance(getWordmarkAppearance(resolvedTheme));
+    if (topContentController) {
+      topContentController.updateAppearance(getWordmarkAppearance(resolvedTheme));
     }
   }
 
   function renderNewtabTopContent(animateEntry?: boolean): void {
-    const controller = pageState.topContentController;
+    const controller = topContentController;
     if (!controller) {
       return;
     }
@@ -342,7 +338,6 @@ function createTopContentRuntime(deps: TopContentDeps) {
       showSeconds: shown.secondsVisible,
       twelveHour: shown.twelveHour
     });
-    pageState.wordmarkImageEl = controller.getImage();
     scheduleWallpaperAdaptiveToneUpdate();
   }
 
@@ -362,9 +357,9 @@ function createTopContentRuntime(deps: TopContentDeps) {
   // The clock grows or shrinks: the area's cap and the blocks below follow.
   function applyTimeFontSize(): void {
     renderNewtabTopContent(false);
-    if (pageState.topContentContainer &&
-        pageState.topContentContainer.getAttribute('data-visible') !== 'false') {
-      pageState.topContentContainer.style.setProperty('max-height', `${getTopContentMaxHeight()}px`);
+    if (topContentContainer &&
+        topContentContainer.getAttribute('data-visible') !== 'false') {
+      topContentContainer.style.setProperty('max-height', `${getTopContentMaxHeight()}px`);
       updateSearchEntryLayout();
       updateSuggestionsFloatingLayout();
     }
@@ -459,4 +454,4 @@ function createTopContentRuntime(deps: TopContentDeps) {
 type TopContentRuntime = ReturnType<typeof createTopContentRuntime>;
 
 export { createTopContentRuntime };
-export type { TopContentDeps, TopContentRuntime, TopContentState };
+export type { TopContentDeps, TopContentRuntime };

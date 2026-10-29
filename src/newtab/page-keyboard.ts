@@ -8,9 +8,6 @@ import type { SearchBoxParts } from './search/search-box-parts';
 import type { DragSessions } from './drag-sessions';
 import type { RecentCardDrag } from './recent/recent-card-drag';
 
-interface PageKeyboardState {
-  folderColorPicker: { isOpen(): boolean } | null;
-}
 
 interface PageKeyboardDeps {
   suggestionModifiers: SuggestionModifiers;
@@ -26,8 +23,8 @@ interface PageKeyboardDeps {
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
   suggestionsContainer: NumberShortcutContainer | null;
   dragSessions: Pick<DragSessions, 'bookmark' | 'recentCard' | 'shortcut'>;
-  pageState: PageKeyboardState;
   finishRecentCardDrag: RecentCardDrag['finishRecentCardDrag'];
+  isFolderColorPickerOpen(): boolean;
 }
 
 function createPageKeyboard(deps: PageKeyboardDeps): void {
@@ -44,11 +41,10 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     performBookmarkMoveHistoryAction,
     suggestionItems,
     numberShortcutOptions,
-    finishRecentCardDrag
+    finishRecentCardDrag,
+    isFolderColorPickerOpen
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // Escape cancels a drag before it closes any open layer.
   dismissStack.register('drag', {
@@ -62,7 +58,7 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
   });
 
   document.addEventListener('keydown', function(event) {
-    if (pageState.folderColorPicker && pageState.folderColorPicker.isOpen()) return;
+    if (isFolderColorPickerOpen()) return;
     if (!event || event.defaultPrevented || event.altKey || isEditableElement(event.target)) {
       return;
     }
@@ -83,7 +79,7 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
   }, true);
 
   document.addEventListener('keydown', function(event) {
-    if (pageState.folderColorPicker && pageState.folderColorPicker.isOpen()) return;
+    if (isFolderColorPickerOpen()) return;
     suggestionModifiers.syncFromEvent(event);
     if (SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       event,
@@ -117,4 +113,4 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
 }
 
 export { createPageKeyboard };
-export type { PageKeyboardDeps, PageKeyboardState };
+export type { PageKeyboardDeps };

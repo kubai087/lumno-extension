@@ -35,7 +35,6 @@ import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 type ResolvedTheme = 'light' | 'dark';
 
 interface AppearanceModesState {
-  topContentController: TopContentController | null;
   faviconViewRuntime: Pick<FaviconViewRuntime,
     'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
 }
@@ -69,6 +68,7 @@ interface AppearanceModesDeps extends
   appliedTheme: Pick<AppliedThemeMode, 'firstApplied' | 'markApplied' | 'mode' | 'set'>;
   quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
+  topContentController: TopContentController;
   pageState: AppearanceModesState;
 }
 
@@ -109,7 +109,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
 
   function applyLanguageStrings(): void {
     document.title = t('newtab_page_title', 'New Tab');
-    if (pageState.topContentController && settings.get(newtabTopContentMode) === 'time') {
+    if (settings.get(newtabTopContentMode) === 'time') {
       renderNewtabTopContent(false);
     }
     if (bookmarkParts.topbar) {

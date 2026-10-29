@@ -110,7 +110,6 @@ import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
 import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
 import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { BackgroundAction, BackgroundReply, BackgroundRequest } from '../domain/messages';
-import type { Disposition } from '../domain/navigation-disposition';
 import type { SuggestionElement } from '../shared/react/search/suggestion-list/types';
 import type { BookmarkCardElement } from './react/bookmarks';
 import type { RecentCardElement } from './react/recent-sites';
@@ -215,6 +214,19 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const searchLayer = pageStructureRuntime.searchLayer;
   const shortcutSection = pageStructureRuntime.shortcut.section;
   const shortcutGrid = pageStructureRuntime.shortcut.grid;
+  // The wordmark or clock above the search box. Its controller draws nothing
+  // until the top content runtime renders it.
+  const topContentContainer = pageStructureRuntime.topContent;
+  const topContentController = createTopContentController(topContentContainer, {
+    onActivate(disposition) {
+      openExternalNewTabUrl(LumnoCommunityLinks.getStoreListing().url, disposition);
+    },
+    onEntryAnimationComplete(animationName) {
+      if (!animationName || animationName === WORDMARK_ENTRY_ANIMATION_NAME) {
+        finishWordmarkEntryAnimation();
+      }
+    }
+  });
   const recentSection = pageStructureRuntime.recent.section;
   // The search box's parts, mounted by the search box below.
   const searchBox = new SearchBoxParts();
@@ -300,11 +312,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getNewtabVisualViewportInsets
   } = NEWTAB_VIEWPORT_INSETS.createViewportInsets();
 
-  const COMMUNITY_LINKS = LumnoCommunityLinks;
   // Escape closes only the top open layer (menus, popovers, panels, drags).
   // The folder color dialog handles its own Escape.
   const dismissStack = LumnoNewtabDismissStack.getDismissStack();
-  dismissStack.setShouldIgnore(() => Boolean(pageState.folderColorPicker && pageState.folderColorPicker.isOpen()));
 
   // The page's language; it follows the stored choice from the first read.
   const locale = new SurfaceLocale(settings, loadNewtabLocaleMessages);
@@ -802,6 +812,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   const {
+    isFolderColorPickerOpen,
     applySavedFolderColor,
     readSavedFolderColors,
     saveSavedFolderColors,
@@ -818,9 +829,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     playFolderPathMorph,
     bindShortcutDialogTooltip: (...args) => bindShortcutDialogTooltip(...args),
     hideShortcutDialogTooltip: (...args) => hideShortcutDialogTooltip(...args),
-    showToast,
-    pageState
+    showToast
   });
+  dismissStack.setShouldIgnore(isFolderColorPickerOpen);
   const shortcutIconStore = NEWTAB_SHORTCUT_ICON_STORE.createShortcutIconStore({
     documentObj: document,
     windowObj: window,
@@ -888,6 +899,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    topContentController,
     bookmarkParts,
     quoteRuntime,
     appliedTheme,
@@ -1041,6 +1053,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getWallpaperShownAt,
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
+    topContentController,
+    topContentContainer,
     bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
     bookmarkTitleWrap: pageStructureRuntime.bookmark.titleWrap,
     bookmarkParts,
@@ -1083,8 +1097,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     setNewtabShortcutGap,
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
-    followTheme,
-    pageState
+    followTheme
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -1270,13 +1283,14 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     renderNewtabTopContent,
     followTopContentSettings
   } = NEWTAB_TOP_CONTENT_RUNTIME.createTopContentRuntime({
+    topContentContainer,
+    topContentController,
     recentCards,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
     scheduleWallpaperAdaptiveToneUpdate,
     settings,
-    preview,
-    pageState
+    preview
   });
   // Settles once the stored clock face has loaded, so the first reveal never
   // draws the clock in a fallback face.
@@ -1697,6 +1711,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bottomDockRuntime,
     bottomDock
   } = NEWTAB_BOTTOM_DOCK_RUNTIME.createBottomDockRuntime({
+    topContentContainer,
     recentSection,
     bottomDockParts,
     shortcutSection,
@@ -1712,8 +1727,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getNewtabTopOccupiedInsetPx,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
-    viewport: viewportActivity,
-    pageState
+    viewport: viewportActivity
   });
 
   bookmarkSection.addEventListener('wheel', (event) => {
@@ -2082,13 +2096,13 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     refreshFallbackShortcut,
     handleGlobalTypingFocus
   } = NEWTAB_INPUT_FOCUS.createInputFocus({
+    isFolderColorPickerOpen,
     searchBox,
     settings,
     focusResume,
     refreshTabsIfIdle,
     initialNewtabInputAutoFocusReadyTask,
-    isImeCompositionEvent,
-    pageState
+    isImeCompositionEvent
   });
 
   const {
@@ -2224,25 +2238,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bindSearchInputCursorTooltip
   });
 
-  function openWordmarkUrl(disposition: Disposition): void {
-    openExternalNewTabUrl(COMMUNITY_LINKS.getStoreListing().url, disposition);
-  }
-  const shouldAnimateWordmarkEntry = !shouldSkipNewtabEntryMotion();
-  pageState.topContentContainer = document.createElement('div');
-  pageState.topContentController = createTopContentController(
-    pageState.topContentContainer,
-    {
-      onActivate(disposition) {
-        openWordmarkUrl(disposition);
-      },
-      onEntryAnimationComplete(animationName) {
-        if (!animationName || animationName === WORDMARK_ENTRY_ANIMATION_NAME) {
-          finishWordmarkEntryAnimation();
-        }
-      }
-    }
-  );
-  renderNewtabTopContent(shouldAnimateWordmarkEntry);
+  renderNewtabTopContent(!shouldSkipNewtabEntryMotion());
   applyNewtabTopContentVisibility();
 
   const {
@@ -2367,6 +2363,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   NEWTAB_PAGE_KEYBOARD.createPageKeyboard({
+    isFolderColorPickerOpen,
     finishRecentCardDrag: recentCardDrag.finishRecentCardDrag,
     dragSessions,
     suggestionsContainer,
@@ -2379,8 +2376,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isEditableElement,
     performBookmarkMoveHistoryAction,
     suggestionItems,
-    numberShortcutOptions,
-    pageState
+    numberShortcutOptions
   });
 
   NEWTAB_SEARCH_INPUT_COMPOSITION.createSearchInputComposition({
@@ -2429,7 +2425,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     }
   });
 
-  document.body.insertBefore(pageState.topContentContainer, root);
+  document.body.insertBefore(topContentContainer, root);
   searchLayer.appendChild(inputParts.container);
   root.appendChild(searchLayer);
   const newtabUpdateNoticeAnchor = root.nextSibling;

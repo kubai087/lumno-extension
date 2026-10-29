@@ -8,9 +8,6 @@ import type { FocusResume } from './focus-resume';
 import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
 import type { SearchBoxParts } from './search/search-box-parts';
 
-interface InputFocusState {
-  folderColorPicker: { isOpen(): boolean } | null;
-}
 
 interface InputFocusDeps {
   settings: Pick<SettingsStore, 'get'>;
@@ -21,7 +18,7 @@ interface InputFocusDeps {
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
   isImeCompositionEvent(event: KeyboardEvent): boolean;
   searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController'>;
-  pageState: InputFocusState;
+  isFolderColorPickerOpen(): boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -35,11 +32,10 @@ function createInputFocus(deps: InputFocusDeps) {
     focusResume,
     refreshTabsIfIdle,
     initialNewtabInputAutoFocusReadyTask,
-    isImeCompositionEvent
+    isImeCompositionEvent,
+    isFolderColorPickerOpen
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   let fallbackShortcutRaw = '';
   let fallbackShortcutSpec: ShortcutSpec | null = null;
@@ -263,7 +259,7 @@ function createInputFocus(deps: InputFocusDeps) {
   refreshFallbackShortcut(true);
 
   function handleGlobalTypingFocus(event: KeyboardEvent): void {
-    if (pageState.folderColorPicker && pageState.folderColorPicker.isOpen()) return;
+    if (isFolderColorPickerOpen()) return;
     if (!event || event.defaultPrevented) {
       return;
     }
@@ -327,4 +323,4 @@ function createInputFocus(deps: InputFocusDeps) {
 type InputFocus = ReturnType<typeof createInputFocus>;
 
 export { createInputFocus };
-export type { InputFocus, InputFocusDeps, InputFocusState };
+export type { InputFocus, InputFocusDeps };

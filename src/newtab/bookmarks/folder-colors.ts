@@ -12,10 +12,6 @@ import * as NEWTAB_BOOKMARK_FOLDER_ICON from './bookmark-folder-icon';
 
 type FolderColorPicker = Awaited<ReturnType<typeof createFolderColorPicker>>;
 
-interface FolderColorsState {
-  // Made the first time a folder's color is changed.
-  folderColorPicker: FolderColorPicker | null;
-}
 
 interface FolderColorsDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'remove' | 'set' | 'subscribe'>;
@@ -28,7 +24,6 @@ interface FolderColorsDeps {
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
   showToast: ShowToast;
-  pageState: FolderColorsState;
 }
 
 function createFolderColors(deps: FolderColorsDeps) {
@@ -45,8 +40,8 @@ function createFolderColors(deps: FolderColorsDeps) {
     showToast
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
+  // The folder color dialog, made the first time it opens.
+  let folderColorPicker: FolderColorPicker | null = null;
 
   let folderColors: FolderColorMap = {};
   // Synced colors keyed by folder path.
@@ -59,7 +54,6 @@ function createFolderColors(deps: FolderColorsDeps) {
   });
 
   let folderColorPreview: { folderId: string; color: string } | null = null;
-  pageState.folderColorPicker = null;
 
   function getFolderColor(folderId: unknown): string {
     return folderColorPreview && folderColorPreview.folderId === String(folderId)
@@ -196,16 +190,22 @@ function createFolderColors(deps: FolderColorsDeps) {
     closeBookmarkCascadeMenu();
     closeShortcutDialog();
     hideCursorTooltip();
-    const picker = pageState.folderColorPicker || await createPicker();
+    const picker = folderColorPicker || await createPicker();
     if (!picker) {
       showToast(t('folder_color_save_failed', 'Could not save the folder color. Try again.'), true);
       return;
     }
-    pageState.folderColorPicker = picker;
+    folderColorPicker = picker;
     picker.open({ folderId: String(folderId), title, color: getFolderColor(folderId), sourceElement });
   }
 
+
+  // Escape and typing leave the page alone while the dialog is open.
+  function isFolderColorPickerOpen(): boolean {
+    return Boolean(folderColorPicker && folderColorPicker.isOpen());
+  }
   return {
+    isFolderColorPickerOpen,
     applySavedFolderColor,
     readSavedFolderColors,
     saveSavedFolderColors,
@@ -219,4 +219,4 @@ function createFolderColors(deps: FolderColorsDeps) {
 type FolderColors = ReturnType<typeof createFolderColors>;
 
 export { createFolderColors };
-export type { FolderColorPicker, FolderColors, FolderColorsDeps, FolderColorsState };
+export type { FolderColorPicker, FolderColors, FolderColorsDeps };

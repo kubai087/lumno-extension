@@ -33,11 +33,6 @@ type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 type PersistOptions = { persist: boolean };
 
 // The page state parts the wallpaper reads and sets.
-interface WallpaperPageState {
-  topContentController: TopContentController | null;
-  topContentContainer: HTMLElement | null;
-  wordmarkImageEl: HTMLImageElement | null;
-}
 
 interface WallpaperPageDeps {
   settings: SettingsStore;
@@ -83,7 +78,8 @@ interface WallpaperPageDeps {
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
   bookmarkTitleWrap: HTMLElement;
   bookmarkPagerPrevButton: HTMLElement;
-  pageState: WallpaperPageState;
+  topContentContainer: HTMLElement;
+  topContentController: TopContentController;
   getFeedbackButton(): HTMLElement | null;
   sectionPanelSettings: SectionPanelSettings & { updateLanguage(): void };
   appliedTheme: Pick<AppliedThemeMode, 'events'>;
@@ -92,6 +88,8 @@ interface WallpaperPageDeps {
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
+    topContentController,
+    topContentContainer,
     bookmarkPagerPrevButton,
     bookmarkTitleWrap,
     bookmarkParts,
@@ -137,8 +135,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     locale
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   let wallpaperShownAt = 0;
 
 
@@ -183,16 +179,14 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
         iconButton: true
       });
     });
-    const topContentSample: HTMLElement | null = pageState.topContentController && typeof pageState.topContentController.getContent === 'function'
-      ? (pageState.topContentController.getContent() || pageState.topContentContainer)
-      : (pageState.wordmarkImageEl || pageState.topContentContainer);
+    const topContentSample: HTMLElement | null = topContentController.getContent() || topContentContainer;
     const quoteElement = quoteRuntime.element;
     const quoteSample = quoteRuntime.getTextElement() || quoteElement;
     // A quote at the top is the wordmark's caption: both read the wallpaper under
     // the pair and share one ink, so the line never flips against the mark above it.
     const quoteIsCaption = Boolean(quoteElement && !quoteElement.hidden &&
       quoteElement.getAttribute('data-position') === 'top' &&
-      pageState.topContentContainer && pageState.topContentContainer.getAttribute('data-visible') !== 'false');
+      topContentContainer && topContentContainer.getAttribute('data-visible') !== 'false');
     const captionSample = quoteIsCaption ? [topContentSample, quoteSample] : null;
     const targets: AdaptiveToneTarget[] = [
       {
@@ -210,7 +204,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
             !document.body.hasAttribute('data-glass-style'))
       },
       {
-        element: pageState.topContentContainer,
+        element: topContentContainer,
         sampleElement: captionSample || topContentSample,
         toneGroup: captionSample ? 'top-caption' : '',
         // A clock ink the user fixed; a caption under the clock keeps the sampled one.
@@ -519,4 +513,4 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
 type WallpaperPage = ReturnType<typeof createWallpaperPage>;
 
 export { createWallpaperPage };
-export type { WallpaperPage, WallpaperPageDeps, WallpaperPageState };
+export type { WallpaperPage, WallpaperPageDeps };
