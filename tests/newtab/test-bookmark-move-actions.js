@@ -7,6 +7,7 @@ const moveHistory = require('../../src/newtab/bookmarks/bookmark-move-history.ts
 const crossSurfaceDrag = require('../../src/newtab/cross-surface-drag.ts');
 const shortcutsStore = require('../helpers/shortcuts-store.ts');
 const { BookmarksShown } = require('../../src/newtab/bookmarks/bookmarks-shown.ts');
+const { MoveHistoryLock } = require('../../src/newtab/bookmarks/move-history-lock.ts');
 
 // Bookmark moves and deletes go on the move history; undo and redo replay
 // them, and the shortcut changes that share the history.
@@ -32,9 +33,8 @@ async function setUp() {
     replaceItems(items) { this.items = items; },
     replaceIcons(icons) { this.icons = icons; }
   };
-  const pageState = {
-    bookmarkMoveHistoryBusy: false
-  };
+  // The lock an undoable change holds while it runs.
+  const historyLock = new MoveHistoryLock();
   const history = moveHistory.createBookmarkMoveHistory();
   const actions = actionsModule.createBookmarkMoveActions({
     bookmarksRuntime: runtime,
@@ -65,10 +65,10 @@ async function setUp() {
     // The bar's root folder, browsed from its first page.
     bookmarksShown: new BookmarksShown(),
     bookmarkParts: { cascade: null },
-    pageState
+    historyLock
   });
   const barIds = () => bookmarks.root.children[0].children.map((node) => node.title);
-  return { bookmarks, runtime, actions, pageState, shortcutList, history, toasts, barIds };
+  return { bookmarks, runtime, actions, historyLock, shortcutList, history, toasts, barIds };
 }
 
 (async () => {
@@ -103,7 +103,7 @@ async function setUp() {
       'a blocked drop moves nothing');
   }
   {
-    const { actions, pageState, history, toasts, shortcutList } = await setUp();
+    const { actions, historyLock, history, toasts, shortcutList } = await setUp();
     const snapshot = shortcutsStore.createShortcutRecord({ id: 's1', title: 'Alpha', url: 'https://alpha.example/' });
     shortcutList.items = [snapshot];
     history.push(moveHistory.createShortcutAddRecord({ snapshot, index: 0 }));
@@ -114,7 +114,7 @@ async function setUp() {
     actions.performBookmarkMoveHistoryAction('redo');
     await wait();
     assert.deepStrictEqual(shortcutList.items.map((item) => item.id), ['s1'], 'redo adds it again');
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     assert.strictEqual(actions.performBookmarkMoveHistoryAction('undo'), false, 'nothing replays while a change runs');
   }
   console.log('bookmark move actions tests passed');

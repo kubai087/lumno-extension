@@ -1,7 +1,6 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
-import type { BookmarkDragSession } from '../bookmarks/bookmark-drag';
 import type { BookmarkDragController } from '../bookmarks/bookmark-drag-controller';
 import type { BookmarkMoveHistory } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
@@ -21,13 +20,9 @@ import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-histor
 import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
 import type { ShortcutList } from './shortcut-list';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
+import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
+import type { DragSessions } from '../drag-sessions';
 
-interface ShortcutDragState {
-  shortcutDragState: ShortcutDragSession | null;
-  bookmarkDragState: BookmarkDragSession | null;
-  // While an undoable change runs, no other may start.
-  bookmarkMoveHistoryBusy: boolean;
-}
 
 interface ShortcutDragDeps {
   getShortcutReorderTiles: ShortcutPageActions['getShortcutReorderTiles'];
@@ -81,7 +76,8 @@ interface ShortcutDragDeps {
   shortcutGrid: HTMLElement;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
   bookmarkGrid: HTMLElement;
-  pageState: ShortcutDragState;
+  historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'setShortcut' | 'shortcut'>;
   getAddShortcutButton(): HTMLElement | null;
 }
 
@@ -145,6 +141,8 @@ type TileMoveSlot = Pick<ShortcutInsertionSlot, 'anchorTile' | 'markerPosition'>
 
 function createShortcutDrag(deps: ShortcutDragDeps) {
   const {
+    dragSessions,
+    historyLock,
     bookmarkGrid,
     bookmarkParts,
     shortcutGrid,
@@ -199,8 +197,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     getAddShortcutButton
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // Tiles lifted out of a scrolling section, and the timers of tiles that
   // slide or land.
@@ -519,7 +515,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   // Puts the dragged tile under the pointer. `state` is whichever drag is
   // running; only a shortcut drag has a tile to move.
   function setShortcutDragTileTransform(state: SurfaceDragState | null, pointerX: number, pointerY: number): void {
-    const session = pageState.shortcutDragState;
+    const session = dragSessions.shortcut;
     if (!session || state !== session) {
       return;
     }
@@ -616,11 +612,11 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function getShortcutDragInsertionSlot(pointerX: number, pointerY: number): ShortcutInsertionSlot | null {
-    if (!shortcutGrid || !pageState.shortcutDragState || !Number.isFinite(pointerX) ||
+    if (!shortcutGrid || !dragSessions.shortcut || !Number.isFinite(pointerX) ||
         !Number.isFinite(pointerY)) {
       return null;
     }
-    return getShortcutInsertionSlotAt(pointerX, pointerY, pageState.shortcutDragState.tile);
+    return getShortcutInsertionSlotAt(pointerX, pointerY, dragSessions.shortcut.tile);
   }
 
   function getShortcutGroupHeader(groupId: string | undefined): HTMLElement | null {
@@ -744,14 +740,14 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       toGroups: shortcutList.items.map((item) => item.groupId)
     });
     if (state && !record) return Promise.resolve(shortcutList.items);
-    if (state) pageState.bookmarkMoveHistoryBusy = true;
+    if (state) historyLock.hold();
     return persistShortcuts(shortcutList.items, '', undefined, { render: false })
       .then((saved) => {
         if (saved && record) bookmarkMoveHistory.push(record);
         if (!saved && state) restoreShortcutDragOrder(state);
         return shortcutList.items;
       }).finally(() => {
-        if (state) pageState.bookmarkMoveHistoryBusy = false;
+        if (state) historyLock.release();
       });
   }
 
@@ -759,8 +755,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   // past a group's edge it joins the neighboring group. It saves and
   // records undo the way a drop does, and keeps focus on the tile.
   function moveShortcutByKeyboard(shortcutId: string, direction: number): boolean {
-    if (!shortcutId || (direction !== 1 && direction !== -1) || pageState.shortcutDragState ||
-        pageState.bookmarkMoveHistoryBusy) {
+    if (!shortcutId || (direction !== 1 && direction !== -1) || dragSessions.shortcut ||
+        historyLock.busy) {
       return false;
     }
     const tiles = getShortcutReorderTiles();
@@ -791,7 +787,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
 
   function startShortcutDrag(event: PointerEvent, state: ShortcutDragSession): void {
     const tile = state.tile;
-    if (!shortcutGrid || pageState.shortcutDragState !== state) {
+    if (!shortcutGrid || dragSessions.shortcut !== state) {
       return;
     }
     state.isDragging = true;
@@ -830,7 +826,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function applyShortcutDragMove(state: ShortcutDragSession, pointerX: number, pointerY: number): void {
-    if (state !== pageState.shortcutDragState || !state.isDragging ||
+    if (state !== dragSessions.shortcut || !state.isDragging ||
         !Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
       return;
     }
@@ -911,13 +907,13 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   // has landed, so a render never cuts into its settle animation.
   // `event` is the pointer event that ended the drag.
   function finishShortcutDrag(event?: PointerEvent | null, options?: { cancel?: boolean }): void {
-    if (!pageState.shortcutDragState) {
+    if (!dragSessions.shortcut) {
       return;
     }
-    if (event && pageState.shortcutDragState.pointerId !== event.pointerId) {
+    if (event && dragSessions.shortcut.pointerId !== event.pointerId) {
       return;
     }
-    const settleMs = pageState.shortcutDragState.isDragging ? getShortcutDropSettleMs() : 0;
+    const settleMs = dragSessions.shortcut.isDragging ? getShortcutDropSettleMs() : 0;
     const outcome = endShortcutDrag(event, options);
     const flushAfterSettle = () => {
       window.setTimeout(flushDeferredShortcutRender, settleMs);
@@ -926,7 +922,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function endShortcutDrag(event: PointerEvent | null | undefined, options?: { cancel?: boolean }): Promise<unknown> | undefined {
-    const state = pageState.shortcutDragState;
+    const state = dragSessions.shortcut;
     if (!state) {
       return undefined;
     }
@@ -947,7 +943,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     clearBookmarkDragPageSwitch(state);
     clearBookmarkDragFolderSwitch(state);
     clearDragDropTarget(state);
-    pageState.shortcutDragState = null;
+    dragSessions.setShortcut(null);
     document.body.removeAttribute('data-drag-blocked');
     // Only a drag can leave a drag-mode folder menu open. A plain click must
     // keep an open folder menu, so the click itself can toggle it closed.
@@ -1033,11 +1029,11 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function isShortcutDragActive(): boolean {
-    return Boolean(pageState.shortcutDragState && pageState.shortcutDragState.isDragging);
+    return Boolean(dragSessions.shortcut && dragSessions.shortcut.isDragging);
   }
 
   function isBookmarkSurfaceDragStateActive(state: SurfaceDragState | null): boolean {
-    return Boolean(state && state.isDragging && (state === pageState.bookmarkDragState || state === pageState.shortcutDragState));
+    return Boolean(state && state.isDragging && (state === dragSessions.bookmark || state === dragSessions.shortcut));
   }
 
   function updateShortcutDragBookmarkTarget(state: ShortcutDragSession, pointerX: number, pointerY: number): boolean {
@@ -1147,7 +1143,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const destination = getShortcutById(target.shortcutId);
     const restoreShortcut = () => restoreDroppedShortcut(state);
     if (!source || !destination || isShortcutFolder(source) || isShortcutFolder(destination) ||
-        pageState.bookmarkMoveHistoryBusy) {
+        historyLock.busy) {
       hideToast();
       return Promise.resolve(restoreShortcut());
     }
@@ -1177,7 +1173,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       hideToast();
       return Promise.resolve(restoreShortcut());
     }
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     queueBookmarkLayoutAnimation('');
     return applyShortcutStack(record, false).then((stacked) => {
       if (!stacked) return restoreShortcut();
@@ -1189,7 +1185,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       ));
       return true;
     }).finally(() => {
-      pageState.bookmarkMoveHistoryBusy = false;
+      historyLock.release();
       return refreshShortcutFolderReferences();
     });
   }
@@ -1197,7 +1193,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   function moveShortcutToBookmarks(state: ShortcutDragSession, target: DragDropTarget): Promise<boolean> {
     const shortcut = getShortcutById(state.shortcutId);
     const restoreShortcut = () => restoreDroppedShortcut(state);
-    if (!shortcut || pageState.bookmarkMoveHistoryBusy) {
+    if (!shortcut || historyLock.busy) {
       return Promise.resolve(restoreShortcut());
     }
     if (!isValidExternalBookmarkDropTarget(state, target) || !hasBookmarkFolder(target)) {
@@ -1236,7 +1232,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       itemIcon: isShortcutFolder(shortcut) ? null : getFolderItemIconForShortcut(shortcut, shortcutList.icons[shortcut.id])
     });
     if (!record) return Promise.resolve(restoreShortcut());
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     queueBookmarkLayoutAnimation('');
     return applyBookmarkShortcutTransfer(record, false).then((moved) => {
       if (!moved) return restoreShortcut();
@@ -1250,7 +1246,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       }
       return true;
     }).finally(() => {
-      pageState.bookmarkMoveHistoryBusy = false;
+      historyLock.release();
       if (shortcutList.items.some(isShortcutFolder)) void refreshShortcutFolderReferences();
     });
   }
@@ -1426,7 +1422,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function handleShortcutDragPointerDown(event: PointerEvent): void {
-    if (pageState.bookmarkMoveHistoryBusy || isShortcutContextMenuNode(event.target)) {
+    if (historyLock.busy || isShortcutContextMenuNode(event.target)) {
       return;
     }
     const tile = getShortcutTileFromNode(event.target);
@@ -1440,7 +1436,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     }
     closeShortcutContextMenu();
     const rect = tile.getBoundingClientRect();
-    pageState.shortcutDragState = {
+    dragSessions.setShortcut({
       pointerId: event.pointerId,
       tile,
       shortcutId,
@@ -1465,7 +1461,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       dropTarget: null,
       isDragging: false,
       hasReordered: false
-    };
+    });
     attachShortcutDragDocumentListeners();
     if (typeof tile.setPointerCapture === 'function') {
       try {
@@ -1477,7 +1473,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function handleShortcutDragPointerMove(event: PointerEvent): void {
-    const state = pageState.shortcutDragState;
+    const state = dragSessions.shortcut;
     if (!state || state.pointerId !== event.pointerId) {
       return;
     }
@@ -1528,4 +1524,4 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
 type ShortcutDrag = ReturnType<typeof createShortcutDrag>;
 
 export { createShortcutDrag };
-export type { ShortcutDrag, ShortcutDragDeps, ShortcutDragSession, ShortcutDragState };
+export type { ShortcutDrag, ShortcutDragDeps, ShortcutDragSession };

@@ -4,7 +4,6 @@
 import { isHtmlElement, isHtmlTag } from '../../shared/dom-guards';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { createRemixIconElement } from '../../shared/ui/remix-icon';
-import type { BookmarkDragSession } from '../bookmarks/bookmark-drag';
 import type { BookmarkDragController } from '../bookmarks/bookmark-drag-controller';
 import type { BookmarkMoveHistory } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
@@ -13,7 +12,7 @@ import type { DragDropTarget, ShortcutInsertionTarget, SurfaceDragState } from '
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { RecentSitesViewOptions } from '../react/recent-sites';
-import type { ShortcutDrag, ShortcutDragSession } from '../shortcuts/shortcut-drag';
+import type { ShortcutDrag } from '../shortcuts/shortcut-drag';
 import type { ShortcutsController } from '../shortcuts/shortcuts-controller';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutLink } from '../../domain/shortcuts/types';
@@ -23,13 +22,10 @@ import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-histor
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from '../shortcuts/shortcut-list';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
+import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
+import type { DragSessions } from '../drag-sessions';
+import { recentEvents } from './recent-events';
 
-interface RecentCardDragState {
-  // While an undoable change runs, no other may start.
-  bookmarkMoveHistoryBusy: boolean;
-  bookmarkDragState: BookmarkDragSession | null;
-  shortcutDragState: ShortcutDragSession | null;
-}
 
 interface RecentCardDragDeps {
   getShortcutStoreOptions: ShortcutsController['getShortcutStoreOptions'];
@@ -69,7 +65,8 @@ interface RecentCardDragDeps {
   shortcutList: Pick<ShortcutList, 'items'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
   bookmarkGrid: HTMLElement;
-  pageState: RecentCardDragState;
+  historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'recentCard' | 'setRecentCard' | 'shortcut'>;
 }
 
 // The card's colors the ghost takes on.
@@ -106,6 +103,8 @@ function cloneHtmlElement(element: HTMLElement): HTMLElement | null {
 
 function createRecentCardDrag(deps: RecentCardDragDeps) {
   const {
+    dragSessions,
+    historyLock,
     bookmarkGrid,
     bookmarkParts,
     shortcutList,
@@ -145,8 +144,6 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     formatMessage,
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const RECENT_DRAG_START_THRESHOLD_PX = 10;
   // The icon the card shrinks into, the size of a shortcut icon plus a rim.
@@ -159,14 +156,13 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
   const GHOST_SHADOW = '0 12px 28px rgba(15, 23, 42, 0.22), 0 2px 6px rgba(15, 23, 42, 0.12)';
   const GHOST_REST_SHADOW = '0 0 0 rgba(15, 23, 42, 0), 0 0 0 rgba(15, 23, 42, 0)';
 
-  let dragState: RecentCardDragSession | null = null;
 
   function isRecentCardDragActive(): boolean {
-    return Boolean(dragState && dragState.isDragging);
+    return Boolean(dragSessions.recentCard && dragSessions.recentCard.isDragging);
   }
 
   function isRecentCardDragState(state: SurfaceDragState | null): boolean {
-    return Boolean(state && state === dragState && state.isDragging);
+    return Boolean(state && state === dragSessions.recentCard && state.isDragging);
   }
 
   function isMotionReduced(): boolean {
@@ -471,7 +467,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
   }
 
   function processRecentCardDragMove(state: RecentCardDragSession): void {
-    if (state !== dragState || !state.isDragging) {
+    if (state !== dragSessions.recentCard || !state.isDragging) {
       return;
     }
     state.moveFrameId = 0;
@@ -553,7 +549,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
         snapshot: plan.shortcuts.find((item) => item.id === plan.shortcutId),
         index: plan.shortcuts.findIndex((item) => item.id === plan.shortcutId)
       });
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     return persistShortcuts(plan.shortcuts, '', undefined, {
       syncOverflowShortcutId: plan.shortcutId,
       animateLayout: true
@@ -566,7 +562,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
       }
       return Boolean(saved);
     }).finally(() => {
-      pageState.bookmarkMoveHistoryBusy = false;
+      historyLock.release();
     });
   }
 
@@ -589,7 +585,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
       return Promise.resolve(false);
     }
     const folder = bookmarksRuntime.getNode(folderId);
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     queueBookmarkLayoutAnimation('');
     return applyBookmarkShortcutTransfer(record, false).then((added) => {
       if (!added) {
@@ -608,12 +604,12 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
       }
       return true;
     }).finally(() => {
-      pageState.bookmarkMoveHistoryBusy = false;
+      historyLock.release();
     });
   }
 
   function dropSite(state: RecentCardDragSession, target: DragDropTarget): Promise<boolean> {
-    if (pageState.bookmarkMoveHistoryBusy) {
+    if (historyLock.busy) {
       return Promise.resolve(false);
     }
     if (target.surface === 'shortcuts') {
@@ -638,7 +634,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
 
   // A press that may become a drag must not start selecting the card text.
   function handleRecentCardDragSelectStart(event: Event): void {
-    if (dragState) {
+    if (dragSessions.recentCard) {
       event.preventDefault();
     }
   }
@@ -650,13 +646,13 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
 
   // `event` is the pointer event that ended the press.
   function finishRecentCardDrag(event?: PointerEvent | null, options?: { cancel?: boolean }): void {
-    const state = dragState;
+    const state = dragSessions.recentCard;
     if (!state || (event && state.pointerId !== event.pointerId)) {
       return;
     }
     detachDocumentListeners();
     if (!state.isDragging) {
-      dragState = null;
+      dragSessions.setRecentCard(null);
       return;
     }
     if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
@@ -668,7 +664,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
       window.cancelAnimationFrame(state.moveFrameId);
       processRecentCardDragMove(state);
     }
-    dragState = null;
+    dragSessions.setRecentCard(null);
     const canceled = Boolean(options && options.cancel);
     const dropTarget = canceled ? null : state.dropTarget;
     clearBookmarkDragPageSwitch(state);
@@ -720,8 +716,8 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
   // on release unless it moves far enough to start a drag.
   function handleRecentCardPointerDown(payload: CardPointerDownPayload): void {
     const { event, element: card, item } = payload;
-    if (dragState || pageState.bookmarkMoveHistoryBusy ||
-        pageState.bookmarkDragState || pageState.shortcutDragState ||
+    if (dragSessions.recentCard || historyLock.busy ||
+        dragSessions.bookmark || dragSessions.shortcut ||
         (event.pointerType === 'mouse' && event.button !== 0)) {
       return;
     }
@@ -730,7 +726,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     if (!record) {
       return;
     }
-    dragState = {
+    dragSessions.setRecentCard({
       pointerId: event.pointerId,
       card,
       site,
@@ -754,12 +750,12 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
       ghostSnapshot: null,
       ghostFace: null,
       ghostColors: null
-    };
+    });
     attachDocumentListeners();
   }
 
   function handleRecentCardDragPointerMove(event: PointerEvent): void {
-    const state = dragState;
+    const state = dragSessions.recentCard;
     if (!state || state.pointerId !== event.pointerId) {
       return;
     }
@@ -788,7 +784,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
 
   // A drag that switched the bookmark folder resumes once it shows.
   function resumeRecentCardDragAfterFolderSwitch(folderId: unknown): void {
-    const state = dragState;
+    const state = dragSessions.recentCard;
     if (state && state.isDragging && state.folderSwitchPendingId &&
         state.folderSwitchPendingId === String(folderId || '')) {
       state.folderSwitchPendingId = '';
@@ -796,12 +792,13 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     }
   }
 
+
+  recentEvents.on('cardPointerDown', handleRecentCardPointerDown);
   return {
-    handleRecentCardPointerDown,
     finishRecentCardDrag,
     isRecentCardDragActive,
     isRecentCardDragState,
-    hasRecentCardDragSession: () => Boolean(dragState),
+    hasRecentCardDragSession: () => Boolean(dragSessions.recentCard),
     resumeRecentCardDragAfterFolderSwitch
   };
 }
@@ -809,4 +806,4 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
 type RecentCardDrag = ReturnType<typeof createRecentCardDrag>;
 
 export { createRecentCardDrag };
-export type { RecentCardDrag, RecentCardDragDeps, RecentCardDragState };
+export type { RecentCardDrag, RecentCardDragDeps, RecentCardDragSession };

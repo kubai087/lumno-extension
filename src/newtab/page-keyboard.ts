@@ -5,14 +5,10 @@ import type { DismissStack } from './dismiss-stack';
 import type { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
 import type { SearchBoxParts } from './search/search-box-parts';
+import type { DragSessions } from './drag-sessions';
+import type { RecentCardDrag } from './recent/recent-card-drag';
 
 interface PageKeyboardState {
-  shortcutDragState: unknown;
-  bookmarkDragState: unknown;
-  recentCardDragRuntime: {
-    hasRecentCardDragSession(): boolean;
-    finishRecentCardDrag(event: null, options: { cancel: boolean }): void;
-  } | null;
   folderColorPicker: { isOpen(): boolean } | null;
 }
 
@@ -29,11 +25,14 @@ interface PageKeyboardDeps {
   numberShortcutOptions: NumberShortcutOptions;
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
   suggestionsContainer: NumberShortcutContainer | null;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'recentCard' | 'shortcut'>;
   pageState: PageKeyboardState;
+  finishRecentCardDrag: RecentCardDrag['finishRecentCardDrag'];
 }
 
 function createPageKeyboard(deps: PageKeyboardDeps): void {
   const {
+    dragSessions,
     suggestionsContainer,
     searchBox,
     suggestionModifiers,
@@ -45,6 +44,7 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     performBookmarkMoveHistoryAction,
     suggestionItems,
     numberShortcutOptions,
+    finishRecentCardDrag
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -53,14 +53,11 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
   // Escape cancels a drag before it closes any open layer.
   dismissStack.register('drag', {
     priority: 1,
-    isOpen: () => Boolean(pageState.shortcutDragState || pageState.bookmarkDragState ||
-      (pageState.recentCardDragRuntime && pageState.recentCardDragRuntime.hasRecentCardDragSession())),
+    isOpen: () => Boolean(dragSessions.shortcut || dragSessions.bookmark || dragSessions.recentCard),
     close: () => {
       finishShortcutDrag(null, { cancel: true });
       finishBookmarkDrag(null, { canceled: true });
-      if (pageState.recentCardDragRuntime) {
-        pageState.recentCardDragRuntime.finishRecentCardDrag(null, { cancel: true });
-      }
+      finishRecentCardDrag(null, { cancel: true });
     }
   });
 

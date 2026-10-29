@@ -15,10 +15,6 @@ import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 // An option the recent sites view is handed as it is.
 type ViewOption<K extends keyof RecentSitesViewOptions> = NonNullable<RecentSitesViewOptions[K]>;
 
-interface RecentSectionState {
-  // Starts a drag when a press on a card moves far enough.
-  recentCardDragRuntime: { handleRecentCardPointerDown: ViewOption<'onCardPointerDown'> } | null;
-}
 
 interface RecentSectionDeps {
   getPinnedRecentSites: RecentSitesController['getPinnedRecentSites'];
@@ -57,7 +53,6 @@ interface RecentSectionDeps {
   getRecentProgressState: ViewOption<'getProgressState'>;
   toggleRecentProgressTracking: ViewOption<'toggleProgressTracking'>;
   recentPointer: RecentPointer;
-  pageState: RecentSectionState;
   locale: Pick<SurfaceLocale, 'store'>;
 }
 
@@ -101,8 +96,6 @@ function createRecentSection(deps: RecentSectionDeps) {
     locale
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const section = pageStructureRuntime.recent.section;
 
@@ -175,9 +168,7 @@ function createRecentSection(deps: RecentSectionDeps) {
     togglePinned: togglePinnedRecentSite,
     onItemContextMenu: handleRecentCardContextMenu,
     isActivationSuppressed: isCardActivationSuppressed,
-    onCardPointerDown: (payload) => {
-      if (pageState.recentCardDragRuntime) pageState.recentCardDragRuntime.handleRecentCardPointerDown(payload);
-    },
+    onCardPointerDown: (payload) => recentEvents.emit('cardPointerDown', payload),
     getProgressState: getRecentProgressState,
     toggleProgressTracking: toggleRecentProgressTracking
   });
@@ -187,4 +178,4 @@ function createRecentSection(deps: RecentSectionDeps) {
 }
 
 export { createRecentSection };
-export type { RecentSectionDeps, RecentSectionState };
+export type { RecentSectionDeps };

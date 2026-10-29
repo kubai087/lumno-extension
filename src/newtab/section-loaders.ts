@@ -2,7 +2,6 @@
 import { queryHtmlElement } from '../shared/dom-lookup';
 import type { AppearanceModes } from './appearance-modes';
 import type { BookmarkCascadeActions } from './bookmarks/bookmark-cascade-actions';
-import type { BookmarkDragSession } from './bookmarks/bookmark-drag';
 import type { BookmarkDragController } from './bookmarks/bookmark-drag-controller';
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { BookmarkItem } from './bookmarks/bookmarks-store';
@@ -15,7 +14,7 @@ import type { RecentCardDrag } from './recent/recent-card-drag';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { RecentSources } from './recent/recent-sources';
 import type { SectionHeaders } from './section-headers';
-import type { ShortcutDrag, ShortcutDragSession } from './shortcuts/shortcut-drag';
+import type { ShortcutDrag } from './shortcuts/shortcut-drag';
 import type { ShortcutsController } from './shortcuts/shortcuts-controller';
 import type { PageFavicons } from './theme/page-favicons';
 import type { UrlPolicy } from './url-policy';
@@ -31,6 +30,7 @@ import type { ShortcutList } from './shortcuts/shortcut-list';
 import type { RecentSitesShown } from './recent/recent-sites-shown';
 import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
+import type { DragSessions } from './drag-sessions';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -39,10 +39,6 @@ interface SectionLoadOptions {
   sectionDataRevision?: number;
 }
 
-interface SectionLoadersState {
-  bookmarkDragState: BookmarkDragSession | null;
-  shortcutDragState: ShortcutDragSession | null;
-}
 
 interface SectionLoadersDeps extends
   Pick<ShortcutDrag, 'isShortcutDragActive' | 'scheduleShortcutDragMove'>,
@@ -79,12 +75,13 @@ interface SectionLoadersDeps extends
   bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'renderSignature' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
   bookmarkGrid: HTMLElement;
-  pageState: SectionLoadersState;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'shortcut'>;
   recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'>;
 }
 
 function createSectionLoaders(deps: SectionLoadersDeps) {
   const {
+    dragSessions,
     bookmarkGrid,
     bookmarkParts,
     bookmarksShown,
@@ -134,8 +131,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     recentSitesView
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   // Bumped by the startup pass; loads asked for under an older one are dropped when they land.
   let sectionDataRevision = 0;
 
@@ -156,7 +151,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
   }
 
   function isDragActive(): boolean {
-    return Boolean((pageState.bookmarkDragState && pageState.bookmarkDragState.isDragging) ||
+    return Boolean((dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
       isShortcutDragActive() || isRecentCardDragActive());
   }
 
@@ -193,7 +188,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     const keepEmptyRootVisibleForDrag = Boolean(
       isAtRoot &&
       normalizedItems.length === 0 &&
-      ((pageState.bookmarkDragState && pageState.bookmarkDragState.isDragging) ||
+      ((dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
         isShortcutDragActive() || isRecentCardDragActive())
     );
     if (bookmarkGrid) {
@@ -210,17 +205,17 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       viewMode: settings.get(bookmarkViewMode),
       menuMode: settings.get(bookmarkViewMode) === 'list' || isBookmarkTopbarMode()
     });
-    if (pageState.shortcutDragState && pageState.shortcutDragState.isDragging &&
-        pageState.shortcutDragState.folderSwitchPendingId === String(bookmarksShown.currentFolderId || '')) {
-      pageState.shortcutDragState.folderSwitchPendingId = '';
-      scheduleShortcutDragMove(pageState.shortcutDragState, pageState.shortcutDragState.pendingPointerX, pageState.shortcutDragState.pendingPointerY);
+    if (dragSessions.shortcut && dragSessions.shortcut.isDragging &&
+        dragSessions.shortcut.folderSwitchPendingId === String(bookmarksShown.currentFolderId || '')) {
+      dragSessions.shortcut.folderSwitchPendingId = '';
+      scheduleShortcutDragMove(dragSessions.shortcut, dragSessions.shortcut.pendingPointerX, dragSessions.shortcut.pendingPointerY);
     }
     resumeRecentCardDragAfterFolderSwitch(bookmarksShown.currentFolderId);
-    if (pageState.bookmarkDragState &&
-        pageState.bookmarkDragState.isDragging &&
-        pageState.bookmarkDragState.folderSwitchPendingId ===
+    if (dragSessions.bookmark &&
+        dragSessions.bookmark.isDragging &&
+        dragSessions.bookmark.folderSwitchPendingId ===
           String(bookmarksShown.currentFolderId || '')) {
-      const activeDragState = pageState.bookmarkDragState;
+      const activeDragState = dragSessions.bookmark;
       activeDragState.folderSwitchPendingId = '';
       updateBookmarkDragLayoutCache(activeDragState);
       setBookmarkDragCardTransform(
@@ -534,4 +529,4 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
 type SectionLoaders = ReturnType<typeof createSectionLoaders>;
 
 export { createSectionLoaders };
-export type { SectionLoadOptions, SectionLoaders, SectionLoadersDeps, SectionLoadersState };
+export type { SectionLoadOptions, SectionLoaders, SectionLoadersDeps };

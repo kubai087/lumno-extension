@@ -7,6 +7,7 @@ const moveHistory = require('../../src/newtab/bookmarks/bookmark-move-history.ts
 const crossSurfaceDrag = require('../../src/newtab/cross-surface-drag.ts');
 const shortcutsStore = require('../helpers/shortcuts-store.ts');
 const folderReferences = require('../../src/domain/bookmark-folder-reference.ts');
+const { MoveHistoryLock } = require('../../src/newtab/bookmarks/move-history-lock.ts');
 
 // A bookmark dropped on the shortcuts: copied while the shortcuts have no
 // WebDAV backup, moved while they do, and put back by undo.
@@ -27,9 +28,8 @@ async function setUp(options) {
     replaceItems(items) { this.items = items; },
     replaceIcons(icons) { this.icons = icons; }
   };
-  const pageState = {
-    bookmarkMoveHistoryBusy: false
-  };
+  // The lock an undoable change holds while it runs.
+  const historyLock = new MoveHistoryLock();
   const history = moveHistory.createBookmarkMoveHistory();
   const transfer = transferModule.createBookmarkShortcutTransfer({
     bookmarksRuntime: runtime,
@@ -59,15 +59,15 @@ async function setUp(options) {
     formatMessage: (key, fallback) => fallback,
     shortcutList,
     bookmarkParts: { cascade: null },
-    pageState
+    historyLock
   });
   const siteRecord = shortcutsStore.createShortcutRecord({ title: SITE.title, url: SITE.url });
-  return { bookmarks, runtime, transfer, pageState, shortcutList, history, toasts, layoutNotes, siteRecord };
+  return { bookmarks, runtime, transfer, historyLock, shortcutList, history, toasts, layoutNotes, siteRecord };
 }
 
 (async () => {
   {
-    const { bookmarks, transfer, pageState, history, toasts, layoutNotes, siteRecord, shortcutList } = await setUp({ webdavBackup: false });
+    const { bookmarks, transfer, historyLock, history, toasts, layoutNotes, siteRecord, shortcutList } = await setUp({ webdavBackup: false });
     assert.strictEqual(await transfer.moveBookmarkToShortcuts({ bookmarkId: SITE.id }, { record: siteRecord, index: 0, groupId: '' }), true);
     assert.deepStrictEqual(shortcutList.items.map((item) => [item.url, item.fromBookmark]), [[SITE.url, true]],
       'without a backup the shortcut is a copy marked as from the bookmarks');
@@ -75,7 +75,7 @@ async function setUp(options) {
     assert.deepStrictEqual(toasts, ['Shortcut added']);
     assert.deepStrictEqual(layoutNotes, [SITE.id], 'the cards slide from where they were');
     assert.ok(history.peekUndo(), 'the copy can be undone');
-    assert.strictEqual(pageState.bookmarkMoveHistoryBusy, false);
+    assert.strictEqual(historyLock.busy, false);
   }
   {
     const { bookmarks, runtime, transfer, history, siteRecord, shortcutList } = await setUp({ webdavBackup: true });
@@ -92,8 +92,8 @@ async function setUp(options) {
     assert.strictEqual(restored.index, 0, 'where it was');
   }
   {
-    const { transfer, pageState, siteRecord, shortcutList } = await setUp({ webdavBackup: false });
-    pageState.bookmarkMoveHistoryBusy = true;
+    const { transfer, historyLock, siteRecord, shortcutList } = await setUp({ webdavBackup: false });
+    historyLock.hold();
     assert.strictEqual(await transfer.moveBookmarkToShortcuts({ bookmarkId: SITE.id }, { record: siteRecord, index: 0, groupId: '' }), false,
       'nothing starts while another change runs');
     assert.deepStrictEqual(shortcutList.items, []);

@@ -177,6 +177,8 @@ import { BottomDockParts } from './shortcuts/bottom-dock-parts';
 import { RecentSitesShown } from './recent/recent-sites-shown';
 import { BookmarksShown } from './bookmarks/bookmarks-shown';
 import { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
+import { DragSessions } from './drag-sessions';
+import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
@@ -234,6 +236,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const bookmarksShown = new BookmarksShown();
   // The bookmark section's view, folder menu and top bar, mounted with the section.
   const bookmarkParts = new BookmarkSectionParts();
+  // The drags running on the page, and the lock an undoable change holds.
+  const dragSessions = new DragSessions();
+  const historyLock = new MoveHistoryLock();
 
 
   // Firefox: index the browser's own cached icons, which stand in for the
@@ -439,6 +444,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeBookmarkContextMenu,
     handleBookmarkItemContextMenu
   } = NEWTAB_BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
+    dragSessions,
     bookmarkParts,
     locale,
     bookmarkContextMenuSelectController,
@@ -455,8 +461,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     addBookmarkFolderToShortcuts: (...args) => addBookmarkFolderToShortcuts(...args),
     closeShortcutContextMenu: (...args) => closeShortcutContextMenu(...args),
     closeRecentContextMenu: (...args) => closeRecentContextMenu(...args),
-    hideCursorTooltip: (...args) => hideCursorTooltip(...args),
-    pageState
+    hideCursorTooltip: (...args) => hideCursorTooltip(...args)
   });
 
   const shortcutFolderRuntime = FOLDER_BINDINGS.createRuntime({
@@ -604,7 +609,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     preview,
     isShortcutDragActive: (...args) => isShortcutDragActive(...args),
     isBookmarkDragActive: () => isBookmarkDragActive() ||
-      Boolean(pageState.recentCardDragRuntime && pageState.recentCardDragRuntime.isRecentCardDragActive()),
+      Boolean(dragSessions.recentCard && dragSessions.recentCard.isDragging),
     isShortcutContextMenuOpen,
     applyShortcutContextMenuDockHover,
     clearShortcutContextMenuTileActive,
@@ -1323,7 +1328,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     t,
     isShortcutDragActive: (...args) => isShortcutDragActive(...args),
     isBookmarkDragActive: () => isBookmarkDragActive() ||
-      Boolean(pageState.recentCardDragRuntime && pageState.recentCardDragRuntime.isRecentCardDragActive()),
+      Boolean(dragSessions.recentCard && dragSessions.recentCard.isDragging),
     isShortcutContextMenuOpen,
     shortcutDialogTooltipController,
     bookmarkCursorTooltipController,
@@ -1426,6 +1431,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    historyLock,
     bookmarkParts,
     setShortcutIconError,
     setShortcutError,
@@ -1495,8 +1501,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
     handleShortcutGroupMenu: openShortcutGroupMenu,
-    animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args),
-    pageState
+    animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args)
   });
   followStoredShortcutData();
 
@@ -1536,6 +1541,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    dragSessions,
+    historyLock,
     bookmarkPagerNextButton: pageStructureRuntime.bookmark.nextButton,
     bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
@@ -1574,7 +1581,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getBookmarkPageCount: (...args) => getBookmarkPageCount(...args),
     // A recent card dragged over the bookmarks opens folders like the others.
     isBookmarkSurfaceDragStateActive: (state) => isBookmarkSurfaceDragStateActive(state) ||
-      Boolean(pageState.recentCardDragRuntime && pageState.recentCardDragRuntime.isRecentCardDragState(state)),
+      Boolean(state && state === dragSessions.recentCard && state.isDragging),
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,
     switchBookmarkPageDuringDrag: (...args) => switchBookmarkPageDuringDrag(...args),
@@ -1590,8 +1597,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     autoScrollShortcutArea: (...args) => autoScrollShortcutArea(...args),
     closeBookmarkContextMenu,
     getShortcutGroups: (...args) => getShortcutGroups(...args),
-    isWebDavBackingUpShortcuts,
-    pageState
+    isWebDavBackingUpShortcuts
   });
 
   createShortcutsSection();
@@ -1684,8 +1690,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isCardActivationSuppressed,
     getRecentProgressState,
     toggleRecentProgressTracking,
-    recentPointer,
-    pageState
+    recentPointer
   });
 
   const {
@@ -1750,6 +1755,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isBookmarkSurfaceDragStateActive,
     handleShortcutDragPointerDown
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
+    dragSessions,
+    historyLock,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarkParts,
     getAddShortcutButton,
@@ -1801,11 +1808,12 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getShortcutTileFromNode,
     closeShortcutContextMenu,
     moveShortcutGroupToIndex,
-    fitShortcutGroupColumns,
-    pageState
+    fitShortcutGroupColumns
   });
 
-  pageState.recentCardDragRuntime = NEWTAB_RECENT_CARD_DRAG.createRecentCardDrag({
+  const recentCardDrag = NEWTAB_RECENT_CARD_DRAG.createRecentCardDrag({
+    dragSessions,
+    historyLock,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarkParts,
     shortcutList,
@@ -1842,8 +1850,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     scheduleWallpaperAdaptiveToneUpdate,
     showToast,
     t,
-    formatMessage,
-    pageState
+    formatMessage
   });
 
   const {
@@ -1858,6 +1865,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleRecentVisibilityChange,
     forceReloadRecentSitesForI18n
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    dragSessions,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarkParts,
     bookmarksShown,
@@ -1869,8 +1877,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     settings,
     preview,
     isShortcutDragActive,
-    isRecentCardDragActive: pageState.recentCardDragRuntime.isRecentCardDragActive,
-    resumeRecentCardDragAfterFolderSwitch: pageState.recentCardDragRuntime.resumeRecentCardDragAfterFolderSwitch,
+    isRecentCardDragActive: recentCardDrag.isRecentCardDragActive,
+    resumeRecentCardDragAfterFolderSwitch: recentCardDrag.resumeRecentCardDragAfterFolderSwitch,
     isBookmarkTopbarMode,
     scheduleShortcutDragMove,
     updateBookmarkDragLayoutCache,
@@ -1904,8 +1912,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     renderShortcuts,
     getRecentSourceLimit,
     getRecentSites,
-    beginSearchEntryRestoreLayoutLock,
-    pageState
+    beginSearchEntryRestoreLayoutLock
   });
 
   const numberShortcutOptions = {
@@ -2360,6 +2367,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   NEWTAB_PAGE_KEYBOARD.createPageKeyboard({
+    finishRecentCardDrag: recentCardDrag.finishRecentCardDrag,
+    dragSessions,
     suggestionsContainer,
     searchBox,
     suggestionModifiers,

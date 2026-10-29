@@ -6,12 +6,12 @@ import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import type { ContextMenuParts, SelectMenuController, Translate } from '../newtab-types';
 import type { SelectMenuInstance } from '../react/select-menu';
 import type { ShortcutSite } from '../shortcuts/shortcut-types';
-import type { BookmarkDragSession } from './bookmark-drag';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 import { BOOKMARK_CONTEXT_MENU_EDIT_VALUE, BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
+import type { DragSessions } from '../drag-sessions';
 
 // The bookmark a context menu was opened for.
 interface BookmarkContextTarget {
@@ -27,9 +27,6 @@ interface BookmarkContextTarget {
 
 type BookmarkContextMenuParts = ContextMenuParts;
 
-interface BookmarkContextMenuState {
-  bookmarkDragState: BookmarkDragSession | null;
-}
 
 // A right-click on a bookmark card or a cascade row.
 interface BookmarkItemContextMenuEvent {
@@ -57,12 +54,13 @@ interface BookmarkContextMenuDeps {
   hideCursorTooltip(): void;
   bookmarkContextMenuSelectController: SelectMenuController;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'view'>;
-  pageState: BookmarkContextMenuState;
+  dragSessions: Pick<DragSessions, 'bookmark'>;
   locale: Pick<SurfaceLocale, 'store'>;
 }
 
 function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   const {
+    dragSessions,
     bookmarkParts,
     bookmarkContextMenuSelectController,
     bookmarksRuntime,
@@ -82,8 +80,6 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     locale
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   // What the open menu acts on.
   let bookmarkContextMenuTarget: BookmarkContextTarget | null = null;
   // The menu, made the first time it opens.
@@ -376,7 +372,7 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     const event = payload.event;
     const item = payload.item;
     const element = payload.element;
-    if (!event || !item || !element || !item.id || pageState.bookmarkDragState) {
+    if (!event || !item || !element || !item.id || dragSessions.bookmark) {
       return;
     }
     event.preventDefault();
@@ -428,7 +424,6 @@ export { createBookmarkContextMenu };
 export type {
   BookmarkContextMenuDeps,
   BookmarkContextMenuParts,
-  BookmarkContextMenuState,
   BookmarkContextTarget,
   BookmarkItemContextMenuEvent
 };

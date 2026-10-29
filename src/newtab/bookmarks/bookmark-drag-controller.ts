@@ -43,12 +43,9 @@ import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from '../shortcuts/shortcut-list';
 import type { BookmarksShown } from './bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
+import type { MoveHistoryLock } from './move-history-lock';
+import type { DragSessions } from '../drag-sessions';
 
-interface BookmarkDragControllerState {
-  bookmarkDragState: BookmarkDragSession | null;
-  // While an undoable change runs, no other may start.
-  bookmarkMoveHistoryBusy: boolean;
-}
 
 interface BookmarkDragControllerDeps {
   settings: Pick<SettingsStore, 'get'>;
@@ -106,7 +103,8 @@ interface BookmarkDragControllerDeps {
   bookmarkGrid: HTMLElement;
   bookmarkPagerPrevButton: HTMLElement;
   bookmarkPagerNextButton: HTMLElement;
-  pageState: BookmarkDragControllerState;
+  historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'setBookmark'>;
   getAddShortcutButton(): HTMLElement | null;
 }
 
@@ -130,6 +128,8 @@ type InsertionGapKey = [string, string, HTMLElement | null];
 
 function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   const {
+    dragSessions,
+    historyLock,
     bookmarkPagerNextButton,
     bookmarkPagerPrevButton,
     bookmarkGrid,
@@ -185,8 +185,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getAddShortcutButton
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const BOOKMARK_DRAG_START_THRESHOLD_PX = 10;
   const BOOKMARK_REORDER_ANIMATION_MS = 180;
@@ -583,7 +581,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     const target: FolderDropTarget = { kind: 'shortcut-folder', surface: 'folder', element: tile,
       folderId: tile.getAttribute('data-bookmark-drop-folder-id') || '',
       title: tile.getAttribute('data-shortcut-title') || '' };
-    const bookmarkState = pageState.bookmarkDragState;
+    const bookmarkState = dragSessions.bookmark;
     const valid = bookmarkState && state === bookmarkState
       ? isValidBookmarkFolderDropTarget(bookmarkState, target)
       : isValidExternalBookmarkDropTarget(state, target);
@@ -706,6 +704,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     applyBookmarkShortcutTransfer,
     applyShortcutStack
   } = BOOKMARK_SHORTCUT_TRANSFER.createBookmarkShortcutTransfer({
+    historyLock,
     bookmarkParts,
     shortcutList,
     bookmarksRuntime,
@@ -728,8 +727,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     },
     showToast,
     t,
-    formatMessage,
-    pageState
+    formatMessage
   });
 
   function isInsertLineDropTarget(target: DragDropTarget | null | undefined): target is InsertLineTarget {
@@ -1109,7 +1107,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
         return;
       }
       clearDragDropTarget(state);
-      const bookmarkState = pageState.bookmarkDragState;
+      const bookmarkState = dragSessions.bookmark;
       if (bookmarkState && state === bookmarkState) {
         restoreBookmarkDragPreview(bookmarkState);
         setBookmarkDragCardTransform(bookmarkState, Number(state.pendingPointerX), Number(state.pendingPointerY));
@@ -1157,7 +1155,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       }
       clearDragDropTarget(state);
       clearBookmarkDragFolderSwitch(state);
-      const bookmarkState = pageState.bookmarkDragState;
+      const bookmarkState = dragSessions.bookmark;
       const isBookmarkDrag = Boolean(bookmarkState && state === bookmarkState);
       if (bookmarkState && isBookmarkDrag) {
         restoreBookmarkDragPreview(bookmarkState);
@@ -1182,7 +1180,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   }
 
   function processBookmarkDragMove(state: BookmarkDragSession): void {
-    if (!state || pageState.bookmarkDragState !== state || !state.isDragging) {
+    if (!state || dragSessions.bookmark !== state || !state.isDragging) {
       return;
     }
     state.moveFrameId = 0;
@@ -1277,6 +1275,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     persistBookmarkCrossLevelMove,
     performBookmarkMoveHistoryAction
   } = BOOKMARK_MOVE_ACTIONS.createBookmarkMoveActions({
+    historyLock,
     bookmarkParts,
     bookmarksShown,
     shortcutList,
@@ -1296,8 +1295,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     },
     showToast,
     t,
-    formatMessage,
-    pageState
+    formatMessage
   });
 
   function refreshOpenBookmarkCascadeMenu(refreshOptions?: CascadeRefreshOptions): Promise<boolean> {
@@ -1333,13 +1331,13 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
 
   function isBookmarkDragActive(): boolean {
     return Boolean(
-      (pageState.bookmarkDragState && pageState.bookmarkDragState.isDragging) ||
+      (dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
       (bookmarkGrid && bookmarkGrid.getAttribute('data-bookmark-dragging') === 'true')
     );
   }
 
   function isBookmarkReorderInteractionActive(): boolean {
-    return Boolean(pageState.bookmarkDragState || isBookmarkDragActive());
+    return Boolean(dragSessions.bookmark || isBookmarkDragActive());
   }
 
   // Bookmark cards and cascade rows show no hover while a drag is on.
@@ -1355,10 +1353,10 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   }
 
   function startBookmarkDrag(event: PointerEvent, card: BookmarkDragSource): void {
-    if (!bookmarkGrid || !card || !pageState.bookmarkDragState || pageState.bookmarkDragState.card !== card) {
+    if (!bookmarkGrid || !card || !dragSessions.bookmark || dragSessions.bookmark.card !== card) {
       return;
     }
-    pageState.bookmarkDragState.isDragging = true;
+    dragSessions.bookmark.isDragging = true;
     if (document.body) {
       document.body.setAttribute('data-drag-source', 'bookmark');
     }
@@ -1367,14 +1365,14 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     if (isHtmlElement(activeElement) && isEditableElement(activeElement)) {
       activeElement.blur();
     }
-    if (pageState.bookmarkDragState.sourceKind === 'cascade') {
+    if (dragSessions.bookmark.sourceKind === 'cascade') {
       if (bookmarkParts.cascade) {
         bookmarkParts.cascade.setDragMode(true);
       }
     } else {
       closeBookmarkCascadeMenu();
     }
-    if (pageState.bookmarkDragState.sourceKind !== 'cascade') {
+    if (dragSessions.bookmark.sourceKind !== 'cascade') {
       bookmarkGrid.setAttribute('data-bookmark-dragging', 'true');
     }
     card.setAttribute('data-bookmark-dragging', 'true');
@@ -1383,9 +1381,9 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       card._xDeactivateBookmarkHoverVisual();
     }
     card.style.pointerEvents = 'none';
-    updateBookmarkDragLayoutCache(pageState.bookmarkDragState);
-    createBookmarkCascadeDragPreview(pageState.bookmarkDragState);
-    setBookmarkDragCardTransform(pageState.bookmarkDragState, Number(event.clientX), Number(event.clientY));
+    updateBookmarkDragLayoutCache(dragSessions.bookmark);
+    createBookmarkCascadeDragPreview(dragSessions.bookmark);
+    setBookmarkDragCardTransform(dragSessions.bookmark, Number(event.clientX), Number(event.clientY));
     try {
       card.setPointerCapture(event.pointerId);
     } catch (error) {
@@ -1428,7 +1426,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   }
 
   function handleBookmarkDragSelectStart(event: Event): void {
-    if (!pageState.bookmarkDragState) {
+    if (!dragSessions.bookmark) {
       return;
     }
     event.preventDefault();
@@ -1436,17 +1434,17 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
 
   // Ends the drag on the pointer's release (or cancel) and makes its drop.
   function finishBookmarkDrag(event: PointerEvent | null, finishOptions?: { canceled?: boolean }): void {
-    if (!pageState.bookmarkDragState) {
+    if (!dragSessions.bookmark) {
       return;
     }
-    if (event && pageState.bookmarkDragState.pointerId !== event.pointerId) {
+    if (event && dragSessions.bookmark.pointerId !== event.pointerId) {
       return;
     }
     if (document.body) {
       document.body.removeAttribute('data-drag-source');
       document.body.removeAttribute('data-drag-blocked');
     }
-    const state = pageState.bookmarkDragState;
+    const state = dragSessions.bookmark;
     detachBookmarkDragDocumentListeners();
     if (state.isDragging && state.moveFrameId) {
       cancelBookmarkDragMoveFrame(state);
@@ -1476,7 +1474,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     if (canceled) {
       restoreBookmarkDragPreview(state);
     }
-    pageState.bookmarkDragState = null;
+    dragSessions.setBookmark(null);
     document.body.removeAttribute('data-drag-blocked');
     state.folderSwitchPendingId = '';
     const card = state.card;
@@ -1547,7 +1545,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     bookmarkItem: BookmarkCardElement['_xBookmarkItem'] | BookmarkItem | null | undefined,
     sourceKind: 'card' | 'cascade'
   ): boolean {
-    if (!event || !card || pageState.bookmarkDragState || pageState.bookmarkMoveHistoryBusy ||
+    if (!event || !card || dragSessions.bookmark || historyLock.busy ||
         BOOKMARK_DRAG_RULES.isMacContextClick(event, navigator)) {
       return false;
     }
@@ -1581,7 +1579,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       pageCardIds: getBookmarkReorderCards().map((reorderCard) => getBookmarkCardId(reorderCard)),
       sourceKind
     });
-    pageState.bookmarkDragState = session;
+    dragSessions.setBookmark(session);
     attachBookmarkDragDocumentListeners();
     const rect = sourceKind === 'cascade'
       ? card.getBoundingClientRect()
@@ -1597,7 +1595,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   }
 
   function handleBookmarkDragPointerDown(event: PointerEvent): void {
-    if (bookmarksShown.pageAnimating || pageState.bookmarkDragState) {
+    if (bookmarksShown.pageAnimating || dragSessions.bookmark) {
       return;
     }
     if (isElementNode(event.target) && event.target.closest('.x-nt-bookmark-copy-action')) {
@@ -1611,14 +1609,14 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     const event = payload.event;
     const element = payload.element;
     const item = payload.item;
-    if (bookmarksShown.pageAnimating || pageState.bookmarkDragState || !event || !element || !item) {
+    if (bookmarksShown.pageAnimating || dragSessions.bookmark || !event || !element || !item) {
       return;
     }
     beginBookmarkDragPointerTracking(event, element, item, 'cascade');
   }
 
   function handleBookmarkDragPointerMove(event: PointerEvent): void {
-    if (!pageState.bookmarkDragState || pageState.bookmarkDragState.pointerId !== event.pointerId) {
+    if (!dragSessions.bookmark || dragSessions.bookmark.pointerId !== event.pointerId) {
       return;
     }
     const pointerX = Number(event.clientX);
@@ -1626,20 +1624,20 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
       return;
     }
-    const dx = pointerX - pageState.bookmarkDragState.startX;
-    const dy = pointerY - pageState.bookmarkDragState.startY;
-    if (!pageState.bookmarkDragState.isDragging &&
+    const dx = pointerX - dragSessions.bookmark.startX;
+    const dy = pointerY - dragSessions.bookmark.startY;
+    if (!dragSessions.bookmark.isDragging &&
         Math.hypot(dx, dy) < BOOKMARK_DRAG_START_THRESHOLD_PX) {
       return;
     }
-    if (!pageState.bookmarkDragState.isDragging) {
-      startBookmarkDrag(event, pageState.bookmarkDragState.card);
+    if (!dragSessions.bookmark.isDragging) {
+      startBookmarkDrag(event, dragSessions.bookmark.card);
     }
-    if (!pageState.bookmarkDragState.isDragging) {
+    if (!dragSessions.bookmark.isDragging) {
       return;
     }
     event.preventDefault();
-    scheduleBookmarkDragMove(pageState.bookmarkDragState, pointerX, pointerY);
+    scheduleBookmarkDragMove(dragSessions.bookmark, pointerX, pointerY);
   }
 
   function handleBookmarkDragPointerUp(event: PointerEvent): void {
@@ -1694,6 +1692,5 @@ export { createBookmarkDragController };
 export type {
   BookmarkDeleteTarget,
   BookmarkDragController,
-  BookmarkDragControllerDeps,
-  BookmarkDragControllerState
+  BookmarkDragControllerDeps
 };

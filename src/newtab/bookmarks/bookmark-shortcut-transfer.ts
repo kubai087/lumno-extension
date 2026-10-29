@@ -24,11 +24,8 @@ import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from '../shortcuts/shortcut-list';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
+import type { MoveHistoryLock } from './move-history-lock';
 
-interface BookmarkShortcutTransferState {
-  // While an undoable change runs, no other may start.
-  bookmarkMoveHistoryBusy: boolean;
-}
 
 interface BookmarkShortcutTransferDeps {
   bookmarksRuntime: BookmarksRuntime;
@@ -55,7 +52,7 @@ interface BookmarkShortcutTransferDeps {
   formatMessage: FormatMessage;
   shortcutList: Pick<ShortcutList, 'icons' | 'items'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
-  pageState: BookmarkShortcutTransferState;
+  historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
 }
 
 // Where a bookmark joins the shortcuts as `record`.
@@ -67,6 +64,7 @@ interface ShortcutDropPlan {
 
 function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
   const {
+    historyLock,
     bookmarkParts,
     shortcutList,
     bookmarksRuntime,
@@ -90,8 +88,6 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     formatMessage
   } = deps;
 
-  // The page state object shared with newtab.ts and the other modules.
-  const pageState = deps.pageState;
 
   function hasShortcutForBookmarkFolder(bookmarkId: unknown): boolean {
     const id = String(bookmarkId || '');
@@ -153,16 +149,16 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
   // shortcuts, so leaving it in the folder would show it twice.
   function moveBookmarkToShortcuts(state: { bookmarkId: string }, target: ShortcutDropPlan): Promise<boolean> {
     const record = target.record;
-    if (pageState.bookmarkMoveHistoryBusy || !record) return Promise.resolve(false);
+    if (historyLock.busy || !record) return Promise.resolve(false);
     if (!isShortcutFolder(record) && isInShortcutFolder(state.bookmarkId)) {
       return transferBookmarkToShortcuts(state, target, false);
     }
     if (isShortcutFolder(record) || typeof isWebDavBackingUpShortcuts !== 'function') {
       return transferBookmarkToShortcuts(state, target, true);
     }
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     return isWebDavBackingUpShortcuts().then((backedUp) => {
-      pageState.bookmarkMoveHistoryBusy = false;
+      historyLock.release();
       return transferBookmarkToShortcuts(state, target, !backedUp);
     });
   }
@@ -173,7 +169,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     keepsBookmark: boolean
   ): Promise<boolean> {
     const targetRecord = target.record;
-    if (pageState.bookmarkMoveHistoryBusy || !targetRecord) return Promise.resolve(false);
+    if (historyLock.busy || !targetRecord) return Promise.resolve(false);
     const node = bookmarksRuntime.getNode(state.bookmarkId);
     if (!node) return Promise.resolve(false);
     const plan = NEWTAB_CROSS_SURFACE_DRAG.planBookmarkToShortcut({
@@ -244,7 +240,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       itemIcon
     });
     if (!record) return Promise.resolve(false);
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     queueLayoutAnimation(state.bookmarkId);
     return applyBookmarkShortcutTransfer(record, false).then((saved) => {
       if (!saved) return false;
@@ -256,7 +252,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       }
       return true;
     }).finally(() => {
-      pageState.bookmarkMoveHistoryBusy = false;
+      historyLock.release();
       if (shortcutList.items.some((item) => isShortcutFolder(item))) return refreshShortcutFolderReferences();
       return undefined;
     });
@@ -529,4 +525,4 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
 type BookmarkShortcutTransfer = ReturnType<typeof createBookmarkShortcutTransfer>;
 
 export { createBookmarkShortcutTransfer };
-export type { BookmarkShortcutTransfer, BookmarkShortcutTransferState, ShortcutDropPlan };
+export type { BookmarkShortcutTransfer, ShortcutDropPlan };

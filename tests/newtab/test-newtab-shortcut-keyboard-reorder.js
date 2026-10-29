@@ -22,10 +22,9 @@ function createFixture(shortcuts) {
     replaceItems(next) { this.items = next; },
     replaceIcons(next) { this.icons = next; }
   };
-  const pageState = {
-    shortcutDragState: null,
-    bookmarkMoveHistoryBusy: false
-  };
+  // The drags running and the lock an undoable change holds.
+  const dragSessions = { bookmark: null, shortcut: null, setShortcut(session) { this.shortcut = session; } };
+  const historyLock = { busy: false, hold() { this.busy = true; }, release() { this.busy = false; } };
   const saved = [];
   const history = [];
   let renders = 0;
@@ -57,11 +56,13 @@ function createFixture(shortcuts) {
     shortcutList,
     shortcutGrid: null,
     getAddShortcutButton: () => null,
-    pageState
+    dragSessions,
+    historyLock
   });
   return {
     drag,
-    pageState,
+    dragSessions,
+    historyLock,
     saved,
     history,
     order: () => shortcutList.items.map((item) => `${item.groupId || ''}:${item.id}`),
@@ -116,10 +117,10 @@ function createFixture(shortcuts) {
   // Nothing moves while a drag or another history action runs.
   {
     const fixture = createFixture([{ id: 'a', groupId: 'g1' }, { id: 'b', groupId: 'g1' }]);
-    fixture.pageState.bookmarkMoveHistoryBusy = true;
+    fixture.historyLock.hold();
     assert.strictEqual(fixture.drag.moveShortcutByKeyboard('a', 1), false);
-    fixture.pageState.bookmarkMoveHistoryBusy = false;
-    fixture.pageState.shortcutDragState = { tile: null };
+    fixture.historyLock.release();
+    fixture.dragSessions.setShortcut({ tile: null });
     assert.strictEqual(fixture.drag.moveShortcutByKeyboard('a', 1), false);
     assert.deepStrictEqual(fixture.order(), ['g1:a', 'g1:b']);
   }

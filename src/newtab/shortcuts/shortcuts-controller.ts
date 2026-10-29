@@ -54,11 +54,8 @@ import { createShortcutDialog } from '../react/shortcut-dialog-lazy';
 import type { ShortcutList } from './shortcut-list';
 import { faviconEnhancedFetchEnabled, faviconRequestBlacklist } from '../../domain/settings/search';
 import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
+import type { MoveHistoryLock } from '../bookmarks/move-history-lock';
 
-interface ShortcutsControllerState {
-  // While an undoable change runs, no other may start.
-  bookmarkMoveHistoryBusy: boolean;
-}
 
 // An option the shortcuts view is handed as it is.
 type ViewOption<K extends keyof ShortcutsViewOptions> = NonNullable<ShortcutsViewOptions[K]>;
@@ -136,7 +133,7 @@ interface ShortcutsControllerDeps {
   animateShortcutLayoutChange?(apply: () => void): void;
   shortcutList: Pick<ShortcutList, 'icons' | 'items' | 'replaceIcons' | 'replaceItems'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
-  pageState: ShortcutsControllerState;
+  historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
   setShortcutError(message: string): void;
   setShortcutIconError(message: string): void;
 }
@@ -228,6 +225,7 @@ function isIconChangeList(
 
 function createShortcutsController(deps: ShortcutsControllerDeps) {
   const {
+    historyLock,
     bookmarkParts,
     shortcutList,
     settings,
@@ -300,8 +298,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     setShortcutIconError
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   // Bumped when the favicon policy changes, so requests made before it are
   // dropped.
   let shortcutFaviconPolicyRevision = 0;
@@ -364,13 +360,13 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   }
 
   function refreshShortcutFolderReferences(): Promise<boolean> {
-    if (pageState.bookmarkMoveHistoryBusy) return Promise.resolve(false);
+    if (historyLock.busy) return Promise.resolve(false);
     const original = shortcutList.items;
     return Promise.all([shortcutFolderRuntime.ready, bookmarksRuntime.ensureReady(false)]).then(([, ready]) => {
-      if (!ready || pageState.bookmarkMoveHistoryBusy || isShortcutDragActive() || shortcutList.items !== original) return false;
+      if (!ready || historyLock.busy || isShortcutDragActive() || shortcutList.items !== original) return false;
       const next = shortcutFolderRuntime.reconcile(original, bookmarksRuntime.getNodeMap());
       return shortcutFolderRuntime.flush().then(() => {
-        if (shortcutList.items !== original || pageState.bookmarkMoveHistoryBusy || isShortcutDragActive()) return false;
+        if (shortcutList.items !== original || historyLock.busy || isShortcutDragActive()) return false;
         if (JSON.stringify(next) !== JSON.stringify(original)) return persistShortcuts(next);
         renderShortcuts();
         return true;
@@ -1318,7 +1314,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   }
 
   function createShortcutGroup(title: string): Promise<boolean> {
-    if (pageState.bookmarkMoveHistoryBusy) {
+    if (historyLock.busy) {
       return Promise.resolve(false);
     }
     if (shortcutGroups.length >= ShortcutConstants.DEFAULT_MAX_SHORTCUT_GROUPS) {
@@ -1409,7 +1405,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   }
 
   function deleteShortcutGroup(groupId: string, keepSites: boolean): Promise<boolean> {
-    if (pageState.bookmarkMoveHistoryBusy) {
+    if (historyLock.busy) {
       return Promise.resolve(false);
     }
     const items = shortcutList.items;
@@ -1429,7 +1425,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
         iconDataUrl: shortcutList.icons[item.id]
       }))
     });
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     return persistShortcuts(plan.items, '', undefined, { groups: plan.groups, animateLayout: true }).then((saved) => {
       if (saved && record) {
         bookmarkMoveHistory.push(record);
@@ -1440,7 +1436,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
         ));
       }
       return saved;
-    }).finally(() => { pageState.bookmarkMoveHistoryBusy = false; });
+    }).finally(() => { historyLock.release(); });
   }
 
   // Deleting a group with its sites removes them all at once, so it asks
@@ -1688,7 +1684,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
 
   function removeShortcutById(shortcutId: string): Promise<boolean> {
     const id = String(shortcutId || '');
-    if (!id || pageState.bookmarkMoveHistoryBusy) {
+    if (!id || historyLock.busy) {
       return Promise.resolve(false);
     }
     const index = shortcutList.items.findIndex((item) => item.id === id);
@@ -1699,7 +1695,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       snapshot: shortcutList.items[index], index,
       iconDataUrl: shortcutList.icons[id]
     });
-    pageState.bookmarkMoveHistoryBusy = true;
+    historyLock.hold();
     return persistShortcuts(shortcutList.items.filter((item) => item.id !== id), '', undefined,
       { animateLayout: true }).then((saved) => {
       if (saved && record) {
@@ -1711,7 +1707,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
         ));
       }
       return saved;
-    }).finally(() => { pageState.bookmarkMoveHistoryBusy = false; });
+    }).finally(() => { historyLock.release(); });
   }
 
   function hideShortcutAddFromContextMenu(sourceElement?: HTMLElement | null): void {
@@ -1912,4 +1908,4 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
 type ShortcutsController = ReturnType<typeof createShortcutsController>;
 
 export { createShortcutsController };
-export type { ShortcutsController, ShortcutsControllerDeps, ShortcutsControllerState };
+export type { ShortcutsController, ShortcutsControllerDeps };
