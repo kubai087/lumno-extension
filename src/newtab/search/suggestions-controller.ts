@@ -14,7 +14,7 @@ import type {
 import { holdSuggestionsHeight, releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { AppearanceModes } from '../appearance-modes';
 import type { ModeCommands } from '../mode-commands';
-import type { FormatMessage, SendRuntimeMessage, Translate } from '../newtab-types';
+import type { FormatMessage, Translate } from '../newtab-types';
 import type { SearchModeController } from './search-mode-controller';
 import type { SearchNavigation, SearchNavigationDeps } from './search-navigation';
 import type {
@@ -22,8 +22,6 @@ import type {
   SlashCommand
 } from './search-types';
 import type { SiteSearchProviders } from './site-search-providers';
-import { createSuggestionSource } from '../../domain/search/help-center/search';
-import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
@@ -50,8 +48,9 @@ import type { SuggestionSource } from '../../shared/search-panel/suggestion-sour
 import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as NEWTAB_DIRECT_NAVIGATION_SETTLE from './direct-navigation-settle';
-import * as COMMUNITY_LINKS from '../../platform/community-links';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
+import { HelpCenterRows } from '../../shared/search-panel/help-center-rows';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -69,7 +68,7 @@ interface SuggestionsControllerDeps {
   siteSearchRunner: SiteSearchRunner;
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchMatching: SearchMatching;
-  locale: SearchLocale;
+  locale: SearchLocale & Pick<SurfaceLocale, 'store'>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
@@ -114,9 +113,7 @@ interface SuggestionsControllerDeps {
   t: Translate;
   warmIconCache(list: Suggestion[]): void;
   setSuggestionsVisible(visible: boolean): void;
-  sendRuntimeMessage: SendRuntimeMessage;
   openCommunityQrDialog?(url: string | undefined): void;
-  getHelpCenterLocale(): string;
   pageState: SuggestionsControllerState;
 }
 
@@ -184,48 +181,17 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     t,
     warmIconCache,
     setSuggestionsVisible,
-    sendRuntimeMessage,
     openCommunityQrDialog,
-    getHelpCenterLocale
   } = deps;
 
   // Page state still owned by newtab.js; read and written through accessors.
   const pageState = deps.pageState;
 
   let lastRenderedActionContextKey = '';
-  let helpCenterFeedbackLinksRequested = false;
-
-  // Where to ask when the help center has nothing; community links are fetched fresh once.
-  function getHelpCenterFeedback(query: string) {
-    if (!COMMUNITY_LINKS) {
-      return null;
-    }
-    if (!helpCenterFeedbackLinksRequested) {
-      helpCenterFeedbackLinksRequested = true;
-      void COMMUNITY_LINKS.load().then(() => {
-        if (query === searchQuery.text) {
-          renderSuggestions(searchResults.lastResponse, query);
-        }
-      });
-    }
-    const links = COMMUNITY_LINKS.getLinks();
-    return {
-      links,
-      channel: COMMUNITY_LINKS.getCommunityChannel(links, getHelpCenterLocale()),
-      t
-    };
-  }
 
   // Lumno Help Center search lists the matching help pages under its search row.
-  const helpCenterSuggestionSource = createSuggestionSource({
-    sendMessage: (message, callback) => sendRuntimeMessage<'getHelpCenterSearchResults'>(message, (response) => {
-      callback(chrome.runtime && chrome.runtime.lastError ? undefined : response);
-    }),
-    onUpdate: (query) => {
-      if (query === searchQuery.text) {
-        renderSuggestions(searchResults.lastResponse, query);
-      }
-    }
+  const helpCenterRows = new HelpCenterRows(locale, searchQuery, (query) => {
+    renderSuggestions(searchResults.lastResponse, query);
   });
   let pendingProviderReload = false;
   // The rows show what the held modifier keys make of their action.
@@ -549,14 +515,8 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           })()
         : null;
 
-      const helpCenterSuggestions: Suggestion[] = siteSearchQueryModeActive && siteSearchProvider &&
-          helpCenterSuggestionSource && SearchSiteSearchProviders.isHelpCenterSiteSearchProvider(siteSearchProvider)
-        ? helpCenterSuggestionSource.getSuggestions(
-          query,
-          getHelpCenterLocale(),
-          getProviderIcon(siteSearchProvider),
-          getHelpCenterFeedback(query)
-        )
+      const helpCenterSuggestions: Suggestion[] = siteSearchQueryModeActive && siteSearchProvider
+        ? helpCenterRows.getRows(query, siteSearchProvider, getProviderIcon(siteSearchProvider))
         : [];
 
       const defaultSuggestions = [

@@ -1974,9 +1974,7 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     t,
     warmIconCache,
     setSuggestionsVisible,
-    sendRuntimeMessage,
     openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
-    getHelpCenterLocale: (...args) => getHelpCenterLocale(...args),
     pageState
   });
 

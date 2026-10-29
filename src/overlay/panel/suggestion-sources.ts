@@ -19,9 +19,7 @@ import type {
   Translate
 } from './types';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
-import * as Search from '../../domain/search/help-center/search';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
-import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
@@ -41,7 +39,7 @@ import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engin
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
-import * as COMMUNITY_LINKS from '../../platform/community-links';
+import { HelpCenterRows } from '../../shared/search-panel/help-center-rows';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -157,8 +155,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const overlayState = deps.overlayState;
 
   // Lumno Help Center search lists the matching help pages under its search row.
-  let helpCenterSuggestionSource: ReturnType<typeof Search.createSuggestionSource> | null = null;
-  let helpCenterFeedbackLinksRequested = false;
   let pendingProviderReload = false;
 
   function getBrowserPageSuggestionTitle(browserProfile: { name: string } | null, targetUrl: string): string {
@@ -296,56 +292,9 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   }
 
   // The help pages matching the query while the help center site search is on.
-  function getHelpCenterSuggestions(query: string): OverlaySuggestion[] {
-    const provider = searchMode.site;
-    if (!provider || !SearchSiteSearchProviders.isHelpCenterSiteSearchProvider(provider)) {
-      return [];
-    }
-    if (!helpCenterSuggestionSource) {
-      helpCenterSuggestionSource = Search.createSuggestionSource({
-        sendMessage: (message, callback) => {
-          try {
-            LumnoMessaging.sendBackgroundMessage(chrome.runtime, message, (response) => {
-              callback(chrome.runtime.lastError ? undefined : response);
-            });
-            return true;
-          } catch (_error) {
-            return false;
-          }
-        },
-        onUpdate: (updatedQuery) => {
-          if (updatedQuery === searchQuery.text) {
-            updateSearchSuggestions(searchResults.lastResponse, searchQuery.text);
-          }
-        }
-      });
-    }
-    const locale = getHelpCenterLocale();
-    return helpCenterSuggestionSource.getSuggestions(
-      query,
-      locale,
-      getProviderIcon(provider),
-      getHelpCenterFeedback(query, locale)
-    );
-  }
-
-  // Where to ask when the help center has nothing; community links are fetched fresh once.
-  function getHelpCenterFeedback(query: string, locale: string) {
-    if (!helpCenterFeedbackLinksRequested) {
-      helpCenterFeedbackLinksRequested = true;
-      void COMMUNITY_LINKS.load().then(() => {
-        if (query === searchQuery.text) {
-          updateSearchSuggestions(searchResults.lastResponse, query);
-        }
-      });
-    }
-    const links = COMMUNITY_LINKS.getLinks();
-    return {
-      links,
-      channel: COMMUNITY_LINKS.getCommunityChannel(links, locale),
-      t
-    };
-  }
+  const helpCenterRows = new HelpCenterRows(locale, searchQuery, (query) => {
+    updateSearchSuggestions(searchResults.lastResponse, query);
+  });
 
   // Renders the list for the query from the local rows given, adding the
   // search action, commands, direct addresses and site search rows, and
@@ -482,7 +431,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       let allSuggestions: OverlaySuggestion[] = localSearchQueryModeActive
         ? suggestions.filter((item) => Boolean(item && scope && item.type === scope.sourceType))
         : (slashCommandModeActive ? [...preSuggestions] : (siteSearchQueryModeActive
-          ? (siteSearchSuggestion ? [siteSearchSuggestion, ...getHelpCenterSuggestions(query)] : [])
+          ? (siteSearchSuggestion ? [siteSearchSuggestion, ...helpCenterRows.getRows(query, searchMode.site, searchMode.site ? getProviderIcon(searchMode.site) : '')] : [])
           : (modeCommandActive ? [...preSuggestions] : [...preSuggestions, ...newTabRows, ...suggestions])));
       allSuggestions.forEach((item) => {
         if (!item || !item.url) {
