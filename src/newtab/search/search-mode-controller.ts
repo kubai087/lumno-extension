@@ -103,7 +103,7 @@ function createSearchModeController(deps: SearchModeControllerDeps): void {
     hideToast,
     setSearchScopeIconEnabled,
     syncSearchModeMenuResultOffset,
-    siteSearchIconCache,
+    siteSearchIconCache
   } = deps;
 
 

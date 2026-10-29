@@ -1,8 +1,9 @@
 // Bookmark card layout animation, drag and drop (within the grid, across
 // folders and onto shortcuts) and the bookmark move undo history.
-import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
+import { getBookmarkCardFromNode, getBookmarkCardId, getBookmarkCardLayoutRect, getBookmarkReorderCards } from '../dom/bookmark-cards';
+import { BOOKMARK_REORDER_EASING } from './bookmark-layout-animation';
+import type { BookmarkLayoutAnimation } from './bookmark-layout-animation';
 import { isElementNode, isHtmlElement, isHtmlTag, isEditableElement } from '../../shared/dom-guards';
-import { queryHtmlTags } from '../../shared/dom-lookup';
 import { createSvgElement } from '../../shared/ui/svg-tree';
 import type {
   BlockedDropTarget,
@@ -14,24 +15,21 @@ import type {
   SurfaceDragState
 } from '../cross-surface-drag';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
-import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { BookmarkCardElement } from '../react/bookmarks';
-import type { PersistShortcuts, ShortcutInsertionSlot } from '../shortcuts/shortcut-types';
+import type { ShortcutInsertionSlot } from '../shortcuts/shortcut-types';
 import type { BookmarkCascadeRuntime, CascadeItemEventDetail } from './bookmark-cascade-menu';
 import type { BookmarkDragSession, BookmarkDragSource, BookmarkLayoutItem } from './bookmark-drag';
 import type * as FolderIcon from './bookmark-folder-icon';
 import { describeFolderIcon } from './bookmark-folder-icon';
-import type { BookmarkMoveHistory, ShortcutGroupDeleteRecord } from './bookmark-move-history';
 import type { BookmarkItem } from './bookmarks-store';
 import * as BOOKMARK_DRAG_RULES from './bookmark-drag-rules';
-import * as BOOKMARK_MOVE_ACTIONS from './bookmark-move-actions';
+import type { BookmarkMoveActions } from './bookmark-move-actions';
 import type { BookmarkDeleteTarget } from './bookmark-move-actions';
-import * as BOOKMARK_SHORTCUT_TRANSFER from './bookmark-shortcut-transfer';
+import type { BookmarkShortcutTransfer } from './bookmark-shortcut-transfer';
 import type { AnimationRect } from './bookmark-drag-rules';
 import type { BookmarksRuntime } from './bookmarks-runtime';
-import type { FolderItemIcon, FolderItemIconMap } from './folder-item-icons';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
-import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
+import type { ShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import type { SettingPreview } from '../setting-preview';
 import { bookmarkCount, bookmarkViewMode } from '../../domain/settings/bookmarks';
@@ -65,14 +63,6 @@ interface BookmarkDragControllerDeps {
   getShortcutStoreOptions(): Parameters<typeof ShortcutNormalize.createShortcutRecord>[1];
   getShortcutInsertionSlotAt(pointerX: number, pointerY: number, excludedTile: HTMLElement | null): ShortcutInsertionSlot;
   getShortcutTileId(tile: HTMLElement | null | undefined): string;
-  bookmarkMoveHistory: BookmarkMoveHistory;
-  showToast: ShowToast;
-  t: Translate;
-  refreshShortcutFolderReferences(): Promise<unknown>;
-  shortcutFolderRuntime: Pick<FolderBindingRuntime, 'bind' | 'flush'>;
-  getFolderItemIcon?(bookmarkId: string): FolderItemIcon | null;
-  updateFolderItemIcons(changes: Readonly<Record<string, FolderItemIcon | null>>): Promise<FolderItemIconMap>;
-  persistShortcuts: PersistShortcuts;
   getBookmarkPageCount(): number;
   isBookmarkSurfaceDragStateActive(state: SurfaceDragState): boolean;
   openBookmarkCascadeMenu(...args: Parameters<BookmarkCascadeRuntime['open']>): void;
@@ -80,16 +70,12 @@ interface BookmarkDragControllerDeps {
   // Shows another page of the bookmarks during a drag; false when it cannot.
   switchBookmarkPageDuringDrag(page: number): boolean;
   setShortcutDragTileTransform(state: SurfaceDragState, pointerX: number, pointerY: number): void;
-  formatMessage: FormatMessage;
   hideCursorTooltip(): void;
   closeBookmarkCascadeMenu(options?: { animate?: boolean }): void;
   renderCurrentBookmarkPage(): void;
-  applyShortcutGroupDeleteRecord(record: ShortcutGroupDeleteRecord, isUndo: boolean): Promise<boolean>;
   // Scrolls the shortcuts while a drag rests near their edge.
   autoScrollShortcutArea(pointerX: number, pointerY: number): boolean;
   closeBookmarkContextMenu(): void;
-  getShortcutGroups?(): ShortcutGroup[];
-  isWebDavBackingUpShortcuts?(): Promise<boolean>;
   shortcutList: Pick<ShortcutList, 'icons' | 'items'>;
   shortcutSection: HTMLElement;
   shortcutGrid: HTMLElement;
@@ -101,16 +87,12 @@ interface BookmarkDragControllerDeps {
   historyLock: Pick<MoveHistoryLock, 'busy' | 'hold' | 'release'>;
   dragSessions: Pick<DragSessions, 'bookmark' | 'setBookmark' | 'shortcutDragging'>;
   getAddShortcutButton(): HTMLElement | null;
+  bookmarkLayoutAnimation: Pick<BookmarkLayoutAnimation, 'queue'>;
+  moveBookmarkToShortcuts: BookmarkShortcutTransfer['moveBookmarkToShortcuts'];
+  persistBookmarkDragOrder: BookmarkMoveActions['persistBookmarkDragOrder'];
+  persistBookmarkCrossLevelMove: BookmarkMoveActions['persistBookmarkCrossLevelMove'];
 }
 
-interface PendingLayoutAnimation {
-  folderId: string;
-  page: number;
-  excludedBookmarkId: string;
-  draggedBookmarkId: string;
-  draggedRect: AnimationRect | null;
-  rects: Map<string, LayoutRect>;
-}
 
 type InsertLineTarget = GridInsertionTarget | ShortcutInsertionTarget;
 
@@ -123,6 +105,10 @@ type InsertionGapKey = [string, string, HTMLElement | null];
 
 function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   const {
+    bookmarkLayoutAnimation,
+    moveBookmarkToShortcuts,
+    persistBookmarkDragOrder,
+    persistBookmarkCrossLevelMove,
     dragSessions,
     historyLock,
     bookmarkPagerNextButton,
@@ -147,63 +133,32 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getShortcutStoreOptions,
     getShortcutInsertionSlotAt,
     getShortcutTileId,
-    bookmarkMoveHistory,
-    showToast,
-    t,
-    refreshShortcutFolderReferences,
-    shortcutFolderRuntime,
-    getFolderItemIcon,
-    updateFolderItemIcons,
-    persistShortcuts,
     getBookmarkPageCount,
     isBookmarkSurfaceDragStateActive,
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,
     switchBookmarkPageDuringDrag,
     setShortcutDragTileTransform,
-    formatMessage,
     hideCursorTooltip,
     closeBookmarkCascadeMenu,
     renderCurrentBookmarkPage,
-    applyShortcutGroupDeleteRecord,
     autoScrollShortcutArea,
     closeBookmarkContextMenu,
-    getShortcutGroups,
-    isWebDavBackingUpShortcuts,
     getAddShortcutButton
   } = deps;
 
 
   const BOOKMARK_DRAG_START_THRESHOLD_PX = 10;
-  const BOOKMARK_REORDER_ANIMATION_MS = 180;
   const BOOKMARK_DROP_ANIMATION_MS = 210;
-  const BOOKMARK_REORDER_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
   const BOOKMARK_DRAG_PAGE_SWITCH_DELAY_MS = 640;
   const BOOKMARK_DRAG_FOLDER_SWITCH_DELAY_MS = 640;
-  let bookmarkPendingLayoutAnimation: PendingLayoutAnimation | null = null;
   const insertionGapOwner = {};
   let insertionGapKey: InsertionGapKey | null = null;
-  // The timers that end each card's reorder slide and drop settle.
-  const cardLayoutAnimationTimers = new WeakMap<HTMLElement, number>();
+  // The timers that end each card's drop settle.
   const cardDropTimers = new WeakMap<HTMLElement, number>();
-
-  function getBookmarkCardFromNode(node: EventTarget | null): BookmarkCardElement | null {
-    const card = isElementNode(node) ? node.closest('.x-nt-bookmark-card') : null;
-    return isHtmlTag(card, 'div') ? card : null;
-  }
-
-  function getBookmarkCardId(card: Element | null | undefined): string {
-    return card ? card.getAttribute('data-bookmark-id') || '' : '';
-  }
 
   function getBookmarkCardParentId(card: Element): string {
     return card.getAttribute('data-bookmark-parent-id') || '';
-  }
-
-  function getBookmarkReorderCards(): BookmarkCardElement[] {
-    return bookmarkGrid
-      ? queryHtmlTags(bookmarkGrid, '.x-nt-bookmark-card[data-bookmark-draggable="true"]', 'div')
-      : [];
   }
 
   // The card's layout box, with each card of the page measured once.
@@ -219,7 +174,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   }
 
   function getBookmarkCardInsertionIndex(card: HTMLElement): number {
-    return getBookmarkReorderCards().findIndex((item) => item === card);
+    return getBookmarkReorderCards(bookmarkGrid).findIndex((item) => item === card);
   }
 
   function getBookmarkPageStartIndex(): number {
@@ -229,57 +184,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     return Math.max(0, bookmarksShown.currentPage * getBookmarkLimit());
   }
 
-  function getBookmarkCardLayoutRect(card: Element | null): LayoutRect | null {
-    if (!card || !bookmarkGrid) {
-      return null;
-    }
-    const rect = card.getBoundingClientRect();
-    const left = Number(rect && rect.left);
-    const top = Number(rect && rect.top);
-    const width = Number(rect && rect.width);
-    const height = Number(rect && rect.height);
-    if (!Number.isFinite(left) || !Number.isFinite(top) ||
-        !Number.isFinite(width) || !Number.isFinite(height)) {
-      return null;
-    }
-    return {
-      left,
-      top,
-      right: left + width,
-      bottom: top + height,
-      width,
-      height,
-      centerX: left + (width / 2),
-      centerY: top + (height / 2)
-    };
-  }
-
-  function clearBookmarkCardLayoutAnimation(card: HTMLElement): void {
-    const timer = cardLayoutAnimationTimers.get(card);
-    if (timer) {
-      window.clearTimeout(timer);
-      cardLayoutAnimationTimers.delete(card);
-    }
-    card.style.removeProperty('transition');
-    card.style.removeProperty('will-change');
-    if (card.getAttribute('data-bookmark-dragging') !== 'true' &&
-        card.getAttribute('data-bookmark-dropping') !== 'true') {
-      card.style.removeProperty('transform');
-    }
-  }
-
-  function getBookmarkLayoutRectMapById(): Map<string, LayoutRect> {
-    const rects = new Map<string, LayoutRect>();
-    getBookmarkReorderCards().forEach((card) => {
-      const bookmarkId = getBookmarkCardId(card);
-      const rect = getBookmarkCardLayoutRect(card);
-      if (bookmarkId && rect) {
-        rects.set(bookmarkId, rect);
-      }
-    });
-    return rects;
-  }
-
   function getBookmarkDragVisualRect(state: BookmarkDragSession): AnimationRect | null {
     const visualElement = getBookmarkDragVisualElement(state);
     return visualElement
@@ -287,100 +191,12 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       : null;
   }
 
-  // Notes where the cards are, so the next render slides them from there.
-  function queueBookmarkLayoutAnimation(
-    excludedBookmarkId: unknown,
-    animationOptions?: { draggedBookmarkId?: string; draggedRect?: AnimationRect | null }
-  ): void {
-    const options = animationOptions || {};
-    const rects = getBookmarkLayoutRectMapById();
-    const draggedRect = BOOKMARK_DRAG_RULES.normalizeAnimationRect(options.draggedRect);
-    bookmarkPendingLayoutAnimation = rects.size > 0 || draggedRect
-      ? {
-        folderId: String(bookmarksShown.currentFolderId || ''),
-        page: bookmarksShown.currentPage,
-        excludedBookmarkId: String(excludedBookmarkId || ''),
-        draggedBookmarkId: String(options.draggedBookmarkId || ''),
-        draggedRect,
-        rects
-      }
-      : null;
-  }
-
-  function playPendingBookmarkLayoutAnimation(): boolean {
-    const pending = bookmarkPendingLayoutAnimation;
-    bookmarkPendingLayoutAnimation = null;
-    if (!pending || !bookmarkGrid ||
-        pending.folderId !== String(bookmarksShown.currentFolderId || '') ||
-        pending.page !== bookmarksShown.currentPage ||
-        NEWTAB_CROSS_SURFACE_DRAG.prefersReducedMotion(window)) {
-      return false;
-    }
-    const grid = bookmarkGrid;
-    const shifts: { card: BookmarkCardElement; dx: number; dy: number }[] = [];
-    getBookmarkReorderCards().forEach((card) => {
-      const bookmarkId = getBookmarkCardId(card);
-      const isDraggedCard = Boolean(
-        bookmarkId &&
-        bookmarkId === pending.draggedBookmarkId &&
-        pending.draggedRect
-      );
-      if (!bookmarkId ||
-          (bookmarkId === pending.excludedBookmarkId && !isDraggedCard) ||
-          (!isDraggedCard && !pending.rects.has(bookmarkId))) {
-        return;
-      }
-      clearBookmarkCardLayoutAnimation(card);
-      const before = isDraggedCard
-        ? pending.draggedRect
-        : pending.rects.get(bookmarkId);
-      const after = getBookmarkCardLayoutRect(card);
-      if (!before || !after) {
-        return;
-      }
-      const delta = NEWTAB_BOOKMARK_DRAG.getLayoutShiftDelta(before, after, {
-        horizontalOnly: settings.get(bookmarkViewMode) === 'top'
-      });
-      if (!delta) {
-        return;
-      }
-      const { dx, dy } = delta;
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-        return;
-      }
-      shifts.push({ card, dx, dy });
-    });
-    if (shifts.length === 0) {
-      return false;
-    }
-    shifts.forEach(({ card, dx, dy }) => {
-      card.style.transition = 'none';
-      card.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
-      card.style.willChange = 'transform';
-    });
-    void grid.offsetHeight;
-    window.requestAnimationFrame(() => {
-      shifts.forEach(({ card }) => {
-        if (!card.isConnected) {
-          return;
-        }
-        card.style.transition = `transform ${BOOKMARK_REORDER_ANIMATION_MS}ms ${BOOKMARK_REORDER_EASING}`;
-        card.style.transform = 'translate3d(0, 0, 0)';
-        cardLayoutAnimationTimers.set(card, window.setTimeout(() => {
-          cardLayoutAnimationTimers.delete(card);
-          clearBookmarkCardLayoutAnimation(card);
-        }, BOOKMARK_REORDER_ANIMATION_MS + 80));
-      });
-    });
-    return true;
-  }
-
   function updateBookmarkDragLayoutCache(state: BookmarkDragSession | null): void {
     if (!state || !state.card) {
       return;
     }
     const draggedCard = state.card;
-    state.layoutItems = getCardLayoutItems(getBookmarkReorderCards().filter((card) => card !== draggedCard));
+    state.layoutItems = getCardLayoutItems(getBookmarkReorderCards(bookmarkGrid).filter((card) => card !== draggedCard));
     const draggedLayoutRect = getBookmarkCardLayoutRect(draggedCard);
     if (draggedLayoutRect && !state.dragPreviewElement) {
       state.baseLeft = draggedLayoutRect.left;
@@ -611,7 +427,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       // Keep the shared narrow edge zones over folders so their centers can
       // still accept contents. Other points may snap anywhere in the row.
       hitZonePx: folderTarget ? undefined : grid.getBoundingClientRect().width,
-      layoutItems: getCardLayoutItems(getBookmarkReorderCards()),
+      layoutItems: getCardLayoutItems(getBookmarkReorderCards(bookmarkGrid)),
       markerVerticalInsetPx: settings.get(bookmarkViewMode) === 'top' ? 3 : 8,
       pageStartIndex: getBookmarkPageStartIndex(),
       pointerX: surfacePoint.x,
@@ -685,36 +501,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     };
   }
 
-  const {
-    hasShortcutForBookmarkFolder,
-    addBookmarkFolderToShortcuts,
-    moveBookmarkToShortcuts,
-    applyBookmarkShortcutTransfer,
-    applyShortcutStack
-  } = BOOKMARK_SHORTCUT_TRANSFER.createBookmarkShortcutTransfer({
-    historyLock,
-    bookmarkParts,
-    shortcutList,
-    bookmarksRuntime,
-    getShortcutStoreOptions,
-    getShortcutFolderId,
-    getShortcutGroups,
-    bookmarkMoveHistory,
-    shortcutFolderRuntime,
-    getFolderItemIcon,
-    updateFolderItemIcons,
-    persistShortcuts,
-    refreshShortcutFolderReferences,
-    isWebDavBackingUpShortcuts,
-    queueLayoutAnimation: (excludedBookmarkId) => queueBookmarkLayoutAnimation(excludedBookmarkId),
-    dropLayoutAnimation: () => {
-      bookmarkPendingLayoutAnimation = null;
-    },
-    showToast,
-    t,
-    formatMessage
-  });
-
   function isInsertLineDropTarget(target: DragDropTarget | null | undefined): target is InsertLineTarget {
     return Boolean(
       target &&
@@ -734,7 +520,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
   ): { before: HTMLElement | null; after: HTMLElement | null } {
     const isGrid = target.surface === 'grid';
     const dragged = state ? state.card || state.tile : null;
-    const items: HTMLElement[] = (isGrid ? getBookmarkReorderCards() : getShortcutReorderTiles())
+    const items: HTMLElement[] = (isGrid ? getBookmarkReorderCards(bookmarkGrid) : getShortcutReorderTiles())
       .filter((item) => item !== dragged);
     const anchor = target.surface === 'grid' ? target.element : target.anchorElement;
     return NEWTAB_CROSS_SURFACE_DRAG.getInsertionGapNeighbors(
@@ -790,7 +576,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       return;
     }
     bookmarksShown.setItems(state.originalAllItems.slice());
-    const cardsById = new Map(getBookmarkReorderCards().map((card) => [getBookmarkCardId(card), card]));
+    const cardsById = new Map(getBookmarkReorderCards(bookmarkGrid).map((card) => [getBookmarkCardId(card), card]));
     (state.originalPageCardIds || []).forEach((bookmarkId) => {
       const card = cardsById.get(bookmarkId);
       if (grid && card && card.parentNode === grid) {
@@ -1253,32 +1039,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     });
   }
 
-  const {
-    deleteBookmarkFromContextTarget,
-    persistBookmarkDragOrder,
-    persistBookmarkCrossLevelMove,
-    performBookmarkMoveHistoryAction
-  } = BOOKMARK_MOVE_ACTIONS.createBookmarkMoveActions({
-    historyLock,
-    bookmarkParts,
-    bookmarksShown,
-    shortcutList,
-    bookmarksRuntime,
-    bookmarkMoveHistory,
-    transfer: { applyBookmarkShortcutTransfer, applyShortcutStack },
-    applyShortcutGroupDeleteRecord,
-    persistShortcuts,
-    refreshShortcutFolderReferences,
-    queueLayoutAnimation: (excludedBookmarkId) => queueBookmarkLayoutAnimation(excludedBookmarkId),
-    dropLayoutAnimation: () => {
-      bookmarkPendingLayoutAnimation = null;
-    },
-    showToast,
-    t,
-    formatMessage
-  });
-
-
   // Moves the open menu onto its folder's card or shortcut drawn anew.
   function syncOpenBookmarkCascadeAnchorVisual(): boolean {
     if (!bookmarkParts.cascade || !bookmarkParts.cascade.isOpen()) {
@@ -1292,7 +1052,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       tile.getAttribute('data-bookmark-id') === rootFolderId
     );
     const currentShortcutAnchor = shortcutAnchor && shortcutAnchor.getAttribute('aria-expanded') === 'true';
-    const nextAnchor = (currentShortcutAnchor && shortcutAnchor) || getBookmarkReorderCards().find((card) =>
+    const nextAnchor = (currentShortcutAnchor && shortcutAnchor) || getBookmarkReorderCards(bookmarkGrid).find((card) =>
       getBookmarkCardId(card) === rootFolderId
     ) || shortcutAnchor;
     return nextAnchor
@@ -1463,7 +1223,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       if (event) {
         event.preventDefault();
       }
-      queueBookmarkLayoutAnimation(state.bookmarkId, {
+      bookmarkLayoutAnimation.queue(state.bookmarkId, {
         draggedBookmarkId: state.bookmarkId,
         draggedRect: state.draggedVisualRect
       });
@@ -1472,7 +1232,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       if (event) {
         event.preventDefault();
       }
-      queueBookmarkLayoutAnimation(state.bookmarkId, {
+      bookmarkLayoutAnimation.queue(state.bookmarkId, {
         draggedBookmarkId: state.bookmarkId,
         draggedRect: state.draggedVisualRect
       });
@@ -1524,7 +1284,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       bookmarkId,
       parentId,
       pageIndex,
-      pageCardIds: getBookmarkReorderCards().map((reorderCard) => getBookmarkCardId(reorderCard)),
+      pageCardIds: getBookmarkReorderCards(bookmarkGrid).map((reorderCard) => getBookmarkCardId(reorderCard)),
       sourceKind
     });
     dragSessions.setBookmark(session);
@@ -1616,13 +1376,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     }
     syncOpenBookmarkCascadeAnchorVisual();
   });
-  // A move's slide plays once the moved bookmarks are drawn.
-  bookmarkSectionEvents.on('loaded', () => {
-    playPendingBookmarkLayoutAnimation();
-  });
   return {
-    queueBookmarkLayoutAnimation,
-    playPendingBookmarkLayoutAnimation,
     updateBookmarkDragLayoutCache,
     setBookmarkDragCardTransform,
     isEmptyBookmarkRootHidden,
@@ -1632,8 +1386,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getShortcutInsertionDropTarget,
     getExternalBookmarkDropTarget,
     isPointOverShortcutDropSurface,
-    applyBookmarkShortcutTransfer,
-    applyShortcutStack,
     clearDragDropTarget,
     isBookmarkCascadeSurfaceAtPoint,
     setDragDropTarget,
@@ -1643,11 +1395,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     scheduleBookmarkDragFolderSwitch,
     scheduleBookmarkDragPageSwitch,
     scheduleBookmarkDragMove,
-    deleteBookmarkFromContextTarget,
-    addBookmarkFolderToShortcuts,
-    hasShortcutForBookmarkFolder,
     syncOpenBookmarkCascadeAnchorVisual,
-    performBookmarkMoveHistoryAction,
     finishBookmarkDrag,
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown

@@ -1,6 +1,7 @@
 // The bookmark changes the move history records, and undoing or redoing
 // each: a reorder or a move across folders after a drag, a delete from a
 // context menu, and the shortcut changes that share the same history.
+import type { BookmarkLayoutAnimation } from './bookmark-layout-animation';
 import type { DragDropTarget } from '../cross-surface-drag';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
@@ -31,8 +32,7 @@ interface BookmarkMoveActionsDeps {
   refreshShortcutFolderReferences(): Promise<unknown>;
   // Notes where the bookmark cards are, so the next render slides them; and
   // forgets that note when the change failed.
-  queueLayoutAnimation(excludedBookmarkId: unknown): void;
-  dropLayoutAnimation(): void;
+  layoutAnimation: Pick<BookmarkLayoutAnimation, 'queue' | 'drop'>;
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
@@ -63,8 +63,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
     refreshShortcutFolderReferences,
-    queueLayoutAnimation,
-    dropLayoutAnimation,
+    layoutAnimation,
     showToast,
     t,
     formatMessage
@@ -110,7 +109,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         if (!record) {
           throw new Error('Bookmark snapshot is unavailable.');
         }
-        queueLayoutAnimation(record.bookmarkId);
+        layoutAnimation.queue(record.bookmarkId);
         return bookmarksRuntime.remove(record.bookmarkId, {
           recursive: !record.snapshot.url
         }).then(() => {
@@ -120,7 +119,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         });
       });
     }).catch((error) => {
-      dropLayoutAnimation();
+      layoutAnimation.drop();
       console.warn('[Lumno] Failed to delete bookmark', error);
       showToast(t('bookmarks_delete_failed', 'Could not delete bookmark'), true);
     }).finally(() => {
@@ -265,7 +264,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       return true;
     }
     if (record.kind === 'transfer') {
-      queueLayoutAnimation('');
+      layoutAnimation.queue('');
       applyBookmarkShortcutTransfer(record, isUndo).then((saved) => {
         if (!saved) return;
         if (isUndo) bookmarkMoveHistory.commitUndo();
@@ -285,7 +284,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       return true;
     }
     if (record.kind === 'shortcut-stack') {
-      queueLayoutAnimation('');
+      layoutAnimation.queue('');
       applyShortcutStack(record, isUndo).then((saved) => {
         if (!saved) return;
         if (isUndo) bookmarkMoveHistory.commitUndo();
@@ -363,7 +362,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       bookmarkParts.cascade.isOpen()
     );
     if (record.kind === 'delete') {
-      queueLayoutAnimation(
+      layoutAnimation.queue(
         isUndo
           ? ''
           : String((record.runtime && record.runtime.currentBookmarkId) || record.bookmarkId || '')
@@ -406,7 +405,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         }
         bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
       }).catch((error) => {
-        dropLayoutAnimation();
+        layoutAnimation.drop();
         console.warn('[Lumno] Failed to restore bookmark deletion history', error);
         showToast(t('bookmarks_delete_failed', 'Could not delete bookmark'), true);
       }).finally(() => {
@@ -445,7 +444,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       }
       bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
     }).catch((error) => {
-      dropLayoutAnimation();
+      layoutAnimation.drop();
       console.warn('[Lumno] Failed to restore bookmark move history', error);
       showToast(t('bookmarks_move_failed', 'Could not move bookmark'), true);
     }).finally(() => {
@@ -463,5 +462,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
   };
 }
 
+type BookmarkMoveActions = ReturnType<typeof createBookmarkMoveActions>;
+
 export { createBookmarkMoveActions };
-export type { BookmarkDeleteTarget };
+export type { BookmarkDeleteTarget, BookmarkMoveActions };

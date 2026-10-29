@@ -77,7 +77,7 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
-    getProviderHost,
+    getProviderHost
   };
 }
 

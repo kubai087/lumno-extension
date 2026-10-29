@@ -3,6 +3,7 @@
 // shortcuts stacked into a new bookmark folder. Each step writes its
 // destination before it removes its source, rolls back what it wrote when
 // a later step fails, and goes on the move history to undo.
+import type { BookmarkLayoutAnimation } from './bookmark-layout-animation';
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
@@ -43,8 +44,7 @@ interface BookmarkShortcutTransferDeps {
   isWebDavBackingUpShortcuts?(): Promise<boolean>;
   // Notes where the bookmark cards are, so the next render slides them; and
   // forgets that note when the change failed.
-  queueLayoutAnimation(excludedBookmarkId: string): void;
-  dropLayoutAnimation(): void;
+  layoutAnimation: Pick<BookmarkLayoutAnimation, 'queue' | 'drop'>;
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
@@ -76,8 +76,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     persistShortcuts,
     refreshShortcutFolderReferences,
     isWebDavBackingUpShortcuts,
-    queueLayoutAnimation,
-    dropLayoutAnimation,
+    layoutAnimation,
     showToast,
     t,
     formatMessage
@@ -236,7 +235,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     });
     if (!record) return Promise.resolve(false);
     historyLock.hold();
-    queueLayoutAnimation(state.bookmarkId);
+    layoutAnimation.queue(state.bookmarkId);
     return applyBookmarkShortcutTransfer(record, false).then((saved) => {
       if (!saved) return false;
       bookmarkMoveHistory.push(record);
@@ -378,7 +377,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       } catch (rollbackError) {
         console.warn('[Lumno] Failed to roll back bookmark shortcut transfer', rollbackError);
       }
-      dropLayoutAnimation();
+      layoutAnimation.drop();
       console.warn('[Lumno] Failed to transfer bookmark and shortcut', error);
       showToast(t('bookmarks_move_failed', 'Could not move bookmark'), true);
       return false;
@@ -493,7 +492,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
           console.warn('[Lumno] Failed to roll back shortcut stack', rollbackError);
         }
       }
-      dropLayoutAnimation();
+      layoutAnimation.drop();
       console.warn('[Lumno] Failed to stack shortcuts', error);
       showToast(isUndo
         ? t('toast_error', 'Operation failed. Please try again.')

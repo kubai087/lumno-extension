@@ -385,7 +385,7 @@ function createPanelActions(deps: PanelActionsDeps) {
       chromeApi: chrome,
       definition: 'newtab-wallpaper-sources',
       visibilityGate: featureHintVisibilityGate,
-      t,
+      t
     });
     if (!controller || !controller.element) {
       return null;

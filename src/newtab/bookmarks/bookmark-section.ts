@@ -1,5 +1,6 @@
 // Builds the bookmark section around the page structure's header and grid:
 // the bookmark view, the cascade menu runtime and the top bar runtime.
+import { isShortcutFolderAnchor } from '../dom/shortcut-tiles';
 import * as LumnoMenuSurface from '../../shared/ui/menu-surface';
 import type { TooltipController } from '../../shared/ui/tooltip';
 import type { DismissStack } from '../dismiss-stack';
@@ -70,7 +71,6 @@ interface BookmarkSectionDeps {
     options: { openInBackgroundTab?: boolean; openInOtherTab?: boolean; anchor?: HTMLElement | null; surface: string }
   ): unknown;
   dismissStack: DismissStack;
-  isShortcutFolderAnchor(anchor: HTMLElement | null | undefined): boolean;
   getFolderItemIconUrl(bookmarkId: string, url: string): string;
   bookmarksRuntime: BookmarksRuntime;
   bookmarkCascadeCopyTooltipController: TooltipController;
@@ -121,7 +121,6 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     navigateToUrl,
     openUrlFromNewtabCard,
     dismissStack,
-    isShortcutFolderAnchor,
     getFolderItemIconUrl,
     bookmarksRuntime,
     bookmarkCascadeCopyTooltipController,

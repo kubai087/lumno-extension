@@ -1,9 +1,9 @@
 // Bookmark actions started from the page: editing a bookmark in the
 // shortcut dialog, opening a folder as a tab group after confirmation, and
 // the bookmark context menu's copy.
+import { isShortcutFolderAnchor } from '../dom/shortcut-tiles';
 import type { BookmarkTabGroupReply } from '../../domain/messages';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ShortcutDialogOpenOptions } from '../react/shortcut-dialog';
 import type { BookmarkContextTarget } from './bookmark-context-menu';
@@ -20,13 +20,10 @@ type BookmarkEditTarget = Pick<BookmarkContextTarget, 'bookmarkId' | 'isFolder' 
 
 interface BookmarkActionsDeps {
   t: Translate;
-  getBookmarkContextMenuOptions(target?: BookmarkContextTarget | null): SelectMenuOption[];
   bookmarksRuntime: BookmarksRuntime;
   openShortcutDialog(options: ShortcutDialogOpenOptions): unknown;
   formatMessage: FormatMessage;
   showToast: ShowToast;
-  // Whether the open folder menu belongs to a folder shortcut.
-  isShortcutFolderAnchor(anchor: HTMLElement | null): boolean;
   getFolderItemIcon(bookmarkId: string): FolderItemIcon | null;
   getFolderItemIconUrl(bookmarkId: string, url: string): string;
   getBrowserPageFaviconUrl(url: string): string;
@@ -41,7 +38,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
     openShortcutDialog,
     formatMessage,
     showToast,
-    isShortcutFolderAnchor,
     getFolderItemIcon,
     getFolderItemIconUrl,
     getBrowserPageFaviconUrl

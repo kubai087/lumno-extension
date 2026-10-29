@@ -46,7 +46,7 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps) {
     requestSuggestions,
     settings,
     defaultTheme,
-    searchBox,
+    searchBox
   } = deps;
 
 

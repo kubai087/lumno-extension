@@ -167,7 +167,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     warmIconCache,
     setSuggestionsVisible,
     openCommunityQrDialog,
-    openTabs,
+    openTabs
   } = deps;
 
 

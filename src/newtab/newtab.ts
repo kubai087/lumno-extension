@@ -184,6 +184,9 @@ import { createPageFaviconCache } from './theme/page-favicon-cache';
 import { createShortcutFavicons } from './shortcuts/shortcut-favicons';
 import { createShortcutData } from './shortcuts/shortcut-data';
 import { createShortcutDialogActions } from './shortcuts/shortcut-dialog-actions';
+import { BookmarkLayoutAnimation } from './bookmarks/bookmark-layout-animation';
+import * as BOOKMARK_SHORTCUT_TRANSFER from './bookmarks/bookmark-shortcut-transfer';
+import * as BOOKMARK_MOVE_ACTIONS from './bookmarks/bookmark-move-actions';
 import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
@@ -553,6 +556,57 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     bookmarksRuntime,
     bookmarkParts
   });
+
+  // The slide bookmark cards make after a move, and the moves between the
+  // bookmarks and the shortcuts, with their undo.
+  const bookmarkLayoutAnimation = new BookmarkLayoutAnimation(pageStructureRuntime.bookmark.grid, bookmarksShown, settings);
+  const {
+    hasShortcutForBookmarkFolder,
+    addBookmarkFolderToShortcuts,
+    moveBookmarkToShortcuts,
+    applyBookmarkShortcutTransfer,
+    applyShortcutStack
+  } = BOOKMARK_SHORTCUT_TRANSFER.createBookmarkShortcutTransfer({
+    historyLock,
+    bookmarkParts,
+    shortcutList,
+    bookmarksRuntime,
+    getShortcutStoreOptions,
+    getShortcutFolderId,
+    getShortcutGroups,
+    bookmarkMoveHistory,
+    shortcutFolderRuntime,
+    getFolderItemIcon,
+    updateFolderItemIcons,
+    persistShortcuts,
+    refreshShortcutFolderReferences,
+    isWebDavBackingUpShortcuts,
+    layoutAnimation: bookmarkLayoutAnimation,
+    showToast,
+    t,
+    formatMessage
+  });
+  const {
+    deleteBookmarkFromContextTarget,
+    persistBookmarkDragOrder,
+    persistBookmarkCrossLevelMove,
+    performBookmarkMoveHistoryAction
+  } = BOOKMARK_MOVE_ACTIONS.createBookmarkMoveActions({
+    historyLock,
+    bookmarkParts,
+    bookmarksShown,
+    shortcutList,
+    bookmarksRuntime,
+    bookmarkMoveHistory,
+    transfer: { applyBookmarkShortcutTransfer, applyShortcutStack },
+    applyShortcutGroupDeleteRecord,
+    persistShortcuts,
+    refreshShortcutFolderReferences,
+    layoutAnimation: bookmarkLayoutAnimation,
+    showToast,
+    t,
+    formatMessage
+  });
   // The default search engine, which the page's search and navigation follow.
   const searchEngine = new DefaultSearchEngine(settings);
   searchEngine.follow();
@@ -597,12 +651,10 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   } = NEWTAB_BOOKMARK_ACTIONS.createBookmarkActions({
     bookmarkParts,
     t,
-    getBookmarkContextMenuOptions: (...args) => getBookmarkContextMenuOptions(...args),
     bookmarksRuntime,
     openShortcutDialog,
     formatMessage,
     showToast,
-    isShortcutFolderAnchor: (...args) => isShortcutFolderAnchor(...args),
     getFolderItemIcon,
     getFolderItemIconUrl,
     getBrowserPageFaviconUrl
@@ -616,8 +668,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutReorderTiles,
     getShortcutTileById,
     handleShortcutNativeDragStart,
-    openShortcutEditor,
-    isShortcutFolderAnchor
+    openShortcutEditor
   } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
     shortcutGrid,
     shortcutList,
@@ -665,7 +716,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   dismissStack.setShouldIgnore(isFolderColorPickerOpen);
 
   const {
-    getBookmarkContextMenuOptions,
     isBookmarkContextMenuNode,
     closeBookmarkContextMenu,
     handleBookmarkItemContextMenu
@@ -681,11 +731,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openExternalNewTabUrl,
     openBookmarkEditor,
     openBookmarkFolderTabGroupConfirmation,
-    deleteBookmarkFromContextTarget: (...args) => deleteBookmarkFromContextTarget(...args),
+    deleteBookmarkFromContextTarget,
     hasShortcutForSite,
     addSiteToShortcuts,
-    hasShortcutForBookmarkFolder: (...args) => hasShortcutForBookmarkFolder(...args),
-    addBookmarkFolderToShortcuts: (...args) => addBookmarkFolderToShortcuts(...args),
+    hasShortcutForBookmarkFolder,
+    addBookmarkFolderToShortcuts,
     hideCursorTooltip
   });
 
@@ -832,7 +882,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
-    getProviderHost,
+    getProviderHost
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
     getPageFaviconUrlResolver,
     siteSearchIconCache,
@@ -1356,7 +1406,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     settings,
     t,
     getEffectiveBookmarkTopbarSurfaceMode,
-    getBookmarkTopbarLayout,
+    getBookmarkTopbarLayout
   });
 
   const {
@@ -1455,7 +1505,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    queueBookmarkLayoutAnimation,
     isEmptyBookmarkRootHidden,
     getExternalBookmarkSurfacePoint,
     isValidExternalBookmarkDropTarget,
@@ -1463,8 +1512,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutInsertionDropTarget,
     getExternalBookmarkDropTarget,
     isPointOverShortcutDropSurface,
-    applyBookmarkShortcutTransfer,
-    applyShortcutStack,
     clearDragDropTarget,
     isBookmarkCascadeSurfaceAtPoint,
     setDragDropTarget,
@@ -1473,15 +1520,15 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     clearBookmarkDragFolderSwitch,
     scheduleBookmarkDragFolderSwitch,
     scheduleBookmarkDragPageSwitch,
-    deleteBookmarkFromContextTarget,
-    addBookmarkFolderToShortcuts,
-    hasShortcutForBookmarkFolder,
     syncOpenBookmarkCascadeAnchorVisual,
-    performBookmarkMoveHistoryAction,
     finishBookmarkDrag,
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    bookmarkLayoutAnimation,
+    moveBookmarkToShortcuts,
+    persistBookmarkDragOrder,
+    persistBookmarkCrossLevelMove,
     dragSessions,
     historyLock,
     bookmarkPagerNextButton: pageStructureRuntime.bookmark.nextButton,
@@ -1507,14 +1554,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutStoreOptions,
     getShortcutInsertionSlotAt: (...args) => getShortcutInsertionSlotAt(...args),
     getShortcutTileId,
-    bookmarkMoveHistory,
-    showToast,
-    t,
-    refreshShortcutFolderReferences,
-    shortcutFolderRuntime,
-    getFolderItemIcon,
-    updateFolderItemIcons,
-    persistShortcuts,
     getBookmarkPageCount: (...args) => getBookmarkPageCount(...args),
     // A recent card dragged over the bookmarks opens folders like the others.
     isBookmarkSurfaceDragStateActive: (state) => isBookmarkSurfaceDragStateActive(state) ||
@@ -1523,15 +1562,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     navigateBookmarkFolder,
     switchBookmarkPageDuringDrag: (...args) => switchBookmarkPageDuringDrag(...args),
     setShortcutDragTileTransform: (...args) => setShortcutDragTileTransform(...args),
-    formatMessage,
     hideCursorTooltip,
     closeBookmarkCascadeMenu,
     renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
-    applyShortcutGroupDeleteRecord,
     autoScrollShortcutArea: (...args) => autoScrollShortcutArea(...args),
-    closeBookmarkContextMenu,
-    getShortcutGroups,
-    isWebDavBackingUpShortcuts
+    closeBookmarkContextMenu
   });
 
   createShortcutsSection();
@@ -1574,7 +1609,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     navigateToUrl,
     openUrlFromNewtabCard,
     dismissStack,
-    isShortcutFolderAnchor,
     getFolderItemIconUrl,
     bookmarksRuntime,
     bookmarkCascadeCopyTooltipController,
@@ -1724,7 +1758,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     isValidExternalBookmarkDropTarget,
     bookmarksRuntime,
     getShortcutFolderId,
-    queueBookmarkLayoutAnimation,
+    bookmarkLayoutAnimation,
     applyBookmarkShortcutTransfer,
     applyShortcutStack,
     getFolderItemIconForShortcut,
@@ -1768,7 +1802,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     scheduleBookmarkDragFolderSwitch,
     clearBookmarkDragFolderSwitch,
     applyBookmarkShortcutTransfer,
-    queueBookmarkLayoutAnimation,
+    bookmarkLayoutAnimation,
     isEmptyBookmarkRootHidden,
     renderCurrentBookmarkPage,
     closeBookmarkCascadeMenu,

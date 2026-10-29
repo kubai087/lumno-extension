@@ -198,11 +198,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     });
   }
 
-  // Whether a folder menu opened from a folder shortcut, not a bookmark.
-  function isShortcutFolderAnchor(element: HTMLElement | null | undefined): boolean {
-    return Boolean(element && element.classList.contains('x-nt-shortcut-tile'));
-  }
-
   return {
     getShortcutContextMenuOptions,
     getShortcutTileFromNode,
@@ -211,8 +206,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     getShortcutReorderTiles,
     getShortcutTileById,
     handleShortcutNativeDragStart,
-    openShortcutEditor,
-    isShortcutFolderAnchor
+    openShortcutEditor
   };
 }
 

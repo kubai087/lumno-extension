@@ -1,4 +1,6 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
+import type { BookmarkShortcutTransfer } from '../bookmarks/bookmark-shortcut-transfer';
+import type { BookmarkLayoutAnimation } from '../bookmarks/bookmark-layout-animation';
 import { getUndoShortcutLabels } from '../bookmarks/bookmark-drag-rules';
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
@@ -61,9 +63,9 @@ interface ShortcutDragDeps {
   isValidExternalBookmarkDropTarget: BookmarkDragController['isValidExternalBookmarkDropTarget'];
   bookmarksRuntime: Pick<BookmarksRuntime, 'getNode' | 'getFolderItems'>;
   getShortcutFolderId: ShortcutData['getShortcutFolderId'];
-  queueBookmarkLayoutAnimation: BookmarkDragController['queueBookmarkLayoutAnimation'];
-  applyBookmarkShortcutTransfer: BookmarkDragController['applyBookmarkShortcutTransfer'];
-  applyShortcutStack: BookmarkDragController['applyShortcutStack'];
+  bookmarkLayoutAnimation: Pick<BookmarkLayoutAnimation, 'queue'>;
+  applyBookmarkShortcutTransfer: BookmarkShortcutTransfer['applyBookmarkShortcutTransfer'];
+  applyShortcutStack: BookmarkShortcutTransfer['applyShortcutStack'];
   getFolderItemIconForShortcut: ShortcutFavicons['getFolderItemIconForShortcut'];
   showToast: ShowToast;
   hideToast(): void;
@@ -181,7 +183,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     isValidExternalBookmarkDropTarget,
     bookmarksRuntime,
     getShortcutFolderId,
-    queueBookmarkLayoutAnimation,
+    bookmarkLayoutAnimation,
     applyBookmarkShortcutTransfer,
     applyShortcutStack,
     getFolderItemIconForShortcut,
@@ -1172,7 +1174,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       return Promise.resolve(restoreShortcut());
     }
     historyLock.hold();
-    queueBookmarkLayoutAnimation('');
+    bookmarkLayoutAnimation.queue('');
     return applyShortcutStack(record, false).then((stacked) => {
       if (!stacked) return restoreShortcut();
       bookmarkMoveHistory.push({ ...record, bookmarkId: record.runtime.currentBookmarkId });
@@ -1231,7 +1233,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     });
     if (!record) return Promise.resolve(restoreShortcut());
     historyLock.hold();
-    queueBookmarkLayoutAnimation('');
+    bookmarkLayoutAnimation.queue('');
     return applyBookmarkShortcutTransfer(record, false).then((moved) => {
       if (!moved) return restoreShortcut();
       bookmarkMoveHistory.push({

@@ -51,8 +51,10 @@ async function setUp(options) {
     isWebDavBackingUpShortcuts: () => Promise.resolve(Boolean(options.webdavBackup)),
     markBookmarkTreeDirty() {},
     loadBookmarks() {},
-    queueLayoutAnimation: (id) => layoutNotes.push(id),
-    dropLayoutAnimation: () => layoutNotes.push('dropped'),
+    layoutAnimation: {
+      queue: (id) => layoutNotes.push(id),
+      drop: () => layoutNotes.push('dropped')
+    },
     showToast: (message) => toasts.push(message),
     t: (key, fallback) => fallback,
     formatMessage: (key, fallback) => fallback,

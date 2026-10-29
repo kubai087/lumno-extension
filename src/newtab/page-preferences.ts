@@ -148,7 +148,7 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     setNewtabShortcutSize,
     setNewtabShortcutGap,
     initialNewtabInputAutoFocusReadyTask,
-    normalizeZenModeEnabled,
+    normalizeZenModeEnabled
   };
 }
 
