@@ -21,6 +21,8 @@ import * as NEWTAB_LAYOUT from './layout';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX, NEWTAB_WIDTH_MODE_CONFIGS, RECENT_CARD_TARGET_WIDTH_PX, RECENT_GRID_GAP_PX } from './newtab-config';
 import { DEFAULT_MAX_SHORTCUTS } from '../domain/shortcuts/constants';
 import { SEARCH_WIDTH_CONFIG } from './layout';
+import type { ViewportActivity } from './viewport-activity';
+import type { RecentPointer } from './recent/recent-pointer';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -38,12 +40,9 @@ interface PageLayoutState {
   bookmarkCurrentPage: number;
   recentGrid: HTMLElement | null;
   recentSection: HTMLElement | null;
-  recentMouseInsideSection: boolean;
-  recentMouseLeftAt: number;
   shortcutGrid: HTMLElement | null;
   shortcutSection: HTMLElement | null;
   newtabShortcuts: readonly unknown[];
-  newtabResizeLayoutLocked: boolean;
   layoutController: Pick<LayoutController,
     'applyWidthMode' | 'updateBottomDockLayout' | 'updateSearchEntryLayout'> | null;
   layoutMotion: Pick<LayoutMotion, 'commit'> | null;
@@ -61,6 +60,8 @@ interface PageLayoutDeps extends
   preview: Pick<SettingPreview, 'get' | 'show' | 'store'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
   scheduleWallpaperAdaptiveToneUpdate(): void;
+  viewport: Pick<ViewportActivity, 'locked'>;
+  recentPointer: Pick<RecentPointer, 'reset'>;
   pageState: PageLayoutState;
 }
 
@@ -76,7 +77,9 @@ function createPageLayout(deps: PageLayoutDeps) {
     getVisibleShortcuts,
     resetShortcutDockHover,
     closeShortcutContextMenu,
-    closeShortcutDialog
+    closeShortcutDialog,
+    viewport,
+    recentPointer
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -370,14 +373,11 @@ function createPageLayout(deps: PageLayoutDeps) {
     if (pageState.layoutController) {
       pageState.layoutController.updateBottomDockLayout({
         preserveSearchEntryLayout: Boolean(layoutOptions.preserveSearchEntryLayout) ||
-          pageState.newtabResizeLayoutLocked ||
+          viewport.locked ||
           shouldPreserveSearchEntryLayout(),
         // A live resize holds the dock's density until the resize settles.
-        stabilizeDockDensity: Boolean(layoutOptions.stabilizeDockDensity) || pageState.newtabResizeLayoutLocked,
-        onRecentHidden: () => {
-          pageState.recentMouseInsideSection = false;
-          pageState.recentMouseLeftAt = 0;
-        }
+        stabilizeDockDensity: Boolean(layoutOptions.stabilizeDockDensity) || viewport.locked,
+        onRecentHidden: () => recentPointer.reset()
       });
     }
     if (pageState.layoutMotion) {

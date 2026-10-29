@@ -5,14 +5,10 @@ import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import type { BookmarkCardElement } from '../react/bookmarks';
 import type { SiteThemeResolver } from './site-theme-resolver';
 import type { ThemeRgb } from '../../domain/favicon/types';
+import type { RecentPointer } from '../recent/recent-pointer';
 
 // A theme as a card or tile holds it; parts may be missing.
 type CardTheme = Partial<ThemeVariant> | null | undefined;
-
-interface CardThemesState {
-  recentMouseInsideSection: boolean;
-  recentMouseLeftAt: number;
-}
 
 interface CardThemesDeps {
   buildFallbackThemeForHost: typeof FaviconTheme.buildFallbackThemeForHost;
@@ -30,7 +26,7 @@ interface CardThemesDeps {
   normalizeThemeConfidence: SiteThemeResolver['normalizeThemeConfidence'];
   isLowConfidenceTheme: SiteThemeResolver['isLowConfidenceTheme'];
   scheduleWallpaperAdaptiveToneUpdate(): void;
-  pageState: CardThemesState;
+  recentPointer: Pick<RecentPointer, 'wasInsideWithin'>;
 }
 
 function createCardThemes(deps: CardThemesDeps) {
@@ -49,11 +45,10 @@ function createCardThemes(deps: CardThemesDeps) {
     getThemeSource,
     normalizeThemeConfidence,
     isLowConfidenceTheme,
-    scheduleWallpaperAdaptiveToneUpdate
+    scheduleWallpaperAdaptiveToneUpdate,
+    recentPointer
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const BOOKMARK_HOVER_RECENT_TRANSFER_WINDOW_MS = 220;
 
@@ -176,13 +171,7 @@ function createCardThemes(deps: CardThemesDeps) {
     if (pointerType && pointerType !== 'mouse') {
       return false;
     }
-    if (pageState.recentMouseInsideSection) {
-      return true;
-    }
-    if (!pageState.recentMouseLeftAt) {
-      return false;
-    }
-    return (Date.now() - pageState.recentMouseLeftAt) <= BOOKMARK_HOVER_RECENT_TRANSFER_WINDOW_MS;
+    return recentPointer.wasInsideWithin(BOOKMARK_HOVER_RECENT_TRANSFER_WINDOW_MS);
   }
 
   return {
@@ -196,4 +185,4 @@ function createCardThemes(deps: CardThemesDeps) {
 type CardThemes = ReturnType<typeof createCardThemes>;
 
 export { createCardThemes };
-export type { CardThemes, CardThemesDeps, CardThemesState };
+export type { CardThemes, CardThemesDeps };

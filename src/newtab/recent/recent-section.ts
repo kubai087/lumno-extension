@@ -8,13 +8,12 @@ import type { SettingsStore } from '../../platform/settings-store';
 import { recentMode } from '../../domain/settings/recent-sites';
 import type { RecentSitesController } from './recent-sites-controller';
 import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
+import type { RecentPointer } from './recent-pointer';
 
 // An option the recent sites view is handed as it is.
 type ViewOption<K extends keyof RecentSitesViewOptions> = NonNullable<RecentSitesViewOptions[K]>;
 
 interface RecentSectionState {
-  recentMouseInsideSection: boolean;
-  recentMouseLeftAt: number;
   recentHeader: HTMLElement | null;
   // Draws the heading and its mode switch again.
   recentModeMenu: { update(): void } | null;
@@ -63,6 +62,7 @@ interface RecentSectionDeps {
   isCardActivationSuppressed(): boolean;
   getRecentProgressState: ViewOption<'getProgressState'>;
   toggleRecentProgressTracking: ViewOption<'toggleProgressTracking'>;
+  recentPointer: RecentPointer;
   pageState: RecentSectionState;
 }
 
@@ -101,7 +101,8 @@ function createRecentSection(deps: RecentSectionDeps): void {
     handleRecentCardContextMenu,
     isCardActivationSuppressed,
     getRecentProgressState,
-    toggleRecentProgressTracking
+    toggleRecentProgressTracking,
+    recentPointer
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -114,19 +115,17 @@ function createRecentSection(deps: RecentSectionDeps): void {
     if (event.pointerType !== 'mouse') {
       return;
     }
-    pageState.recentMouseInsideSection = true;
-    pageState.recentMouseLeftAt = 0;
+    recentPointer.enter();
   });
   section.addEventListener('pointerleave', (event) => {
     if (event.pointerType !== 'mouse') {
       return;
     }
-    pageState.recentMouseInsideSection = false;
-    pageState.recentMouseLeftAt = Date.now();
+    recentPointer.leave();
     hideTopActionTooltip();
   });
   section.addEventListener('pointercancel', () => {
-    pageState.recentMouseInsideSection = false;
+    recentPointer.cancel();
     hideTopActionTooltip();
   });
   pageState.recentHeader = pageStructureRuntime.recent.header;

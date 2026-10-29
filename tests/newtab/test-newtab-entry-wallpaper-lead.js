@@ -71,10 +71,6 @@ function createEntryMotion({ wallpaperActive, wallpaperShownAgoMs, focusResume }
   }
   const clock = createClock();
   const pageState = {
-    newtabReadyRequested: false,
-    newtabReadyViewportRevision: 0,
-    newtabResizeLayoutLocked: false,
-    resolveNewtabEntryAnimationReady: null,
     wallpaperShownAt: wallpaperShownAgoMs === null ? 0 : clock.performance.now() - wallpaperShownAgoMs
   };
   const sandbox = {
@@ -95,7 +91,9 @@ function createEntryMotion({ wallpaperActive, wallpaperShownAgoMs, focusResume }
     finishWordmarkEntryAnimation() {},
     rememberSearchEntryViewport() {},
     getSearchEntryViewportSnapshot: () => viewport,
-    hasSearchEntryViewportChanged: () => false
+    hasSearchEntryViewportChanged: () => false,
+    viewport: { revision: 0, locked: false, store: { getSnapshot: () => ({ revision: 0, locked: false }), subscribe: () => () => {} } },
+    onEntryDone() {}
   });
   return { body, clock, motion, pageState };
 }
@@ -106,7 +104,7 @@ async function testContentWaitsForTheWallpaperLead() {
   await fresh.clock.advance(20);
   assert.strictEqual(fresh.body.getAttribute('data-nt-ready'), null,
     'content shown right after the wallpaper waits, so the two never land in one moment');
-  assert.strictEqual(fresh.pageState.newtabReadyRequested, false);
+  assert.strictEqual(fresh.body.getAttribute('data-nt-ready'), null, 'the second request waits for the same lead');
   fresh.motion.markNewtabReady();
   await fresh.clock.advance(80);
   assert.strictEqual(fresh.body.getAttribute('data-nt-ready'), '1', 'the content enters once the wallpaper has led');

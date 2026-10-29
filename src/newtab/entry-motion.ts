@@ -1,12 +1,9 @@
 // The New Tab entry animation and the ready signal once the viewport settles.
+import type { ViewportActivity } from './viewport-activity';
 
 interface EntryMotionState {
   // When the wallpaper was revealed (performance.now()).
   wallpaperShownAt: number;
-  resolveNewtabEntryAnimationReady: (() => void) | null;
-  newtabReadyRequested: boolean;
-  newtabReadyViewportRevision: number;
-  newtabResizeLayoutLocked: boolean;
 }
 
 // S is the layout's record of the viewport, which the entry motion only
@@ -20,6 +17,9 @@ interface EntryMotionDeps<S> {
   rememberSearchEntryViewport(): void;
   getSearchEntryViewportSnapshot(): S;
   hasSearchEntryViewportChanged(snapshot: S): boolean;
+  viewport: Pick<ViewportActivity, 'revision' | 'locked' | 'store'>;
+  // Runs once the entry animation finished or was skipped.
+  onEntryDone(): void;
   pageState: EntryMotionState;
 }
 
@@ -31,7 +31,8 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
     finishWordmarkEntryAnimation,
     rememberSearchEntryViewport,
     getSearchEntryViewportSnapshot,
-    hasSearchEntryViewportChanged
+    hasSearchEntryViewportChanged,
+    viewport: viewportActivity
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -47,6 +48,28 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
   let newtabReadySettleTimer = 0;
   let newtabEntryAnimationTimer = 0;
   let newtabWallpaperLeadTimer = 0;
+  // Set once the page asked to be shown; it shows when the viewport settles.
+  let readyRequested = false;
+  let entryDone = false;
+
+  function finishEntry(): void {
+    if (!entryDone) {
+      entryDone = true;
+      deps.onEntryDone();
+    }
+  }
+
+  // A resize while the page waits to show restarts the wait.
+  let lastRevision = viewportActivity.revision;
+  viewportActivity.store.subscribe(() => {
+    if (viewportActivity.revision === lastRevision) {
+      return;
+    }
+    lastRevision = viewportActivity.revision;
+    if (readyRequested && document.body && document.body.getAttribute('data-nt-ready') !== '1') {
+      scheduleNewtabReadyAfterViewportSettle();
+    }
+  });
 
   function getWallpaperLeadDelay(): number {
     const shownAt = Number(pageState.wallpaperShownAt) || 0;
@@ -67,10 +90,7 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
     if (document.body && document.body.getAttribute('data-nt-enter') === 'run') {
       document.body.setAttribute('data-nt-enter', 'done');
       root.setAttribute('data-lumno-search-entry', 'done');
-      if (pageState.resolveNewtabEntryAnimationReady) {
-        pageState.resolveNewtabEntryAnimationReady();
-        pageState.resolveNewtabEntryAnimationReady = null;
-      }
+      finishEntry();
     }
   }
 
@@ -87,10 +107,7 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
     document.body.setAttribute('data-nt-enter', entryState);
     root.setAttribute('data-lumno-search-entry', entryState);
     if (reduceMotion) {
-      if (pageState.resolveNewtabEntryAnimationReady) {
-        pageState.resolveNewtabEntryAnimationReady();
-        pageState.resolveNewtabEntryAnimationReady = null;
-      }
+      finishEntry();
       return;
     }
     newtabEntryAnimationTimer = window.setTimeout(
@@ -112,15 +129,12 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
     root.setAttribute('data-lumno-search-entry', 'done');
     finishWordmarkEntryAnimation();
     document.body.setAttribute('data-nt-ready', '1');
-    if (pageState.resolveNewtabEntryAnimationReady) {
-      pageState.resolveNewtabEntryAnimationReady();
-      pageState.resolveNewtabEntryAnimationReady = null;
-    }
+    finishEntry();
     rememberSearchEntryViewport();
   }
 
   function scheduleNewtabReadyAfterViewportSettle(): void {
-    if (!pageState.newtabReadyRequested ||
+    if (!readyRequested ||
         !document.body ||
         document.body.getAttribute('data-nt-ready') === '1') {
       return;
@@ -133,19 +147,19 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
       window.clearTimeout(newtabReadySettleTimer);
     }
     const viewport = getSearchEntryViewportSnapshot();
-    const viewportRevision = pageState.newtabReadyViewportRevision;
+    const viewportRevision = viewportActivity.revision;
     const revealAfterViewportSettles = () => {
       newtabReadySettleTimer = 0;
-      if (pageState.newtabResizeLayoutLocked ||
-          viewportRevision !== pageState.newtabReadyViewportRevision ||
+      if (viewportActivity.locked ||
+          viewportRevision !== viewportActivity.revision ||
           hasSearchEntryViewportChanged(viewport)) {
         scheduleNewtabReadyAfterViewportSettle();
         return;
       }
       updateBookmarkSectionPosition();
       requestAnimationFrame(() => {
-        if (pageState.newtabResizeLayoutLocked ||
-            viewportRevision !== pageState.newtabReadyViewportRevision ||
+        if (viewportActivity.locked ||
+            viewportRevision !== viewportActivity.revision ||
             hasSearchEntryViewportChanged(viewport)) {
           scheduleNewtabReadyAfterViewportSettle();
           return;
@@ -158,7 +172,7 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
     // The wait only debounces resizes that arrive while the New Tab opens (the resize listener bumps
     // the revision). Without any since the page started, skip it; the frame check below still runs.
     if (viewportRevision === 0 &&
-        !pageState.newtabResizeLayoutLocked &&
+        !viewportActivity.locked &&
         !hasSearchEntryViewportChanged(startupViewport)) {
       revealAfterViewportSettles();
       return;
@@ -174,18 +188,17 @@ function createEntryMotion<S>(deps: EntryMotionDeps<S>) {
     if (leadDelay > 0) {
       newtabWallpaperLeadTimer = window.setTimeout(() => {
         newtabWallpaperLeadTimer = 0;
-        pageState.newtabReadyRequested = true;
+        readyRequested = true;
         scheduleNewtabReadyAfterViewportSettle();
       }, leadDelay);
       return;
     }
-    pageState.newtabReadyRequested = true;
+    readyRequested = true;
     scheduleNewtabReadyAfterViewportSettle();
   }
 
   return {
     finishNewtabEntryAnimation,
-    scheduleNewtabReadyAfterViewportSettle,
     markNewtabReady
   };
 }

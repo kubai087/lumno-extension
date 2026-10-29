@@ -4,6 +4,7 @@ import type { SectionLoaders } from './section-loaders';
 import type { RecentSite } from '../domain/recent-sites-store';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import type { SiteSearchProvider } from '../domain/search/types';
+import type { ViewportActivity } from './viewport-activity';
 
 // A card's place on screen before a layout change.
 type CardLayout = Map<HTMLElement, { left: number; top: number }>;
@@ -12,10 +13,6 @@ interface PageResizeState {
   recentLoadedOnce: boolean;
   bookmarkLoadedOnce: boolean;
   recentSourceItems: RecentSite[];
-  newtabReadyViewportRevision: number;
-  // Holds the search box in place while the window is being resized.
-  newtabResizeLayoutLocked: boolean;
-  newtabReadyRequested: boolean;
 }
 
 interface PageResizeDeps {
@@ -37,7 +34,7 @@ interface PageResizeDeps {
   cancelRecentResizeLayoutAnimations(): void;
   renderRecentSites: SectionLoaders['renderRecentSites'];
   animateRecentResizeLayout(fromPositions: CardLayout | null): void;
-  scheduleNewtabReadyAfterViewportSettle(): void;
+  viewport: Pick<ViewportActivity, 'revision' | 'locked' | 'store'>;
   pageState: PageResizeState;
 }
 
@@ -60,16 +57,13 @@ function createPageResize(deps: PageResizeDeps): void {
     cancelRecentResizeLayoutAnimations,
     renderRecentSites,
     animateRecentResizeLayout,
-    scheduleNewtabReadyAfterViewportSettle
+    viewport
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  const NEWTAB_RESIZE_DENSITY_SETTLE_MS = 140;
-
   let newtabResizeFrame = 0;
-  let newtabResizeSettleTimer = 0;
   function handleNewtabResize(): void {
     newtabResizeFrame = 0;
     const previousBookmarkLimit = getBookmarkLimit();
@@ -99,29 +93,21 @@ function createPageResize(deps: PageResizeDeps): void {
     }
   }
 
-  window.addEventListener('resize', () => {
-    pageState.newtabReadyViewportRevision += 1;
-    pageState.newtabResizeLayoutLocked = true;
-    if (newtabResizeSettleTimer) {
-      window.clearTimeout(newtabResizeSettleTimer);
-    }
+  let last = viewport.store.getSnapshot();
+  viewport.store.subscribe(() => {
+    const next = viewport.store.getSnapshot();
+    const resized = next.revision !== last.revision;
+    const released = last.locked && !next.locked;
+    last = next;
     // Releasing the lock re-centers the search box; layout motion eases it
     // there from where the resize held it.
-    newtabResizeSettleTimer = window.setTimeout(() => {
-      newtabResizeSettleTimer = 0;
-      pageState.newtabResizeLayoutLocked = false;
+    if (released) {
       updateBookmarkSectionPosition();
-    }, NEWTAB_RESIZE_DENSITY_SETTLE_MS);
-    if (pageState.newtabReadyRequested &&
-        document.body &&
-        document.body.getAttribute('data-nt-ready') !== '1') {
-      scheduleNewtabReadyAfterViewportSettle();
     }
-    if (newtabResizeFrame) {
-      return;
+    if (resized && !newtabResizeFrame) {
+      newtabResizeFrame = window.requestAnimationFrame(handleNewtabResize);
     }
-    newtabResizeFrame = window.requestAnimationFrame(handleNewtabResize);
-  }, { passive: true });
+  });
 }
 
 export { createPageResize };

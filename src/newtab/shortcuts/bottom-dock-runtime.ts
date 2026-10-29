@@ -5,6 +5,7 @@ import type { LayoutController } from '../layout';
 import type { LayoutMotion } from '../layout-motion';
 import { createDock } from '../react/dock';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX } from '../newtab-config';
+import type { ViewportActivity } from '../viewport-activity';
 
 // A part of the page that may show an element of its own.
 type ElementOwner = { element?: HTMLElement | null } | null;
@@ -23,7 +24,6 @@ interface BottomDockRuntimeState {
   layoutController: LayoutController | null;
   layoutMotion: LayoutMotion | null;
   // While the window is resized the layout does not animate.
-  newtabResizeLayoutLocked: boolean;
 }
 
 interface BottomDockRuntimeDeps {
@@ -34,6 +34,7 @@ interface BottomDockRuntimeDeps {
   getNewtabTopOccupiedInsetPx(): number;
   shouldAnimateNewtabLayoutShift(): boolean;
   applyNewtabWidthMode(): void;
+  viewport: Pick<ViewportActivity, 'locked'>;
   pageState: BottomDockRuntimeState;
 }
 
@@ -46,6 +47,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     getNewtabTopOccupiedInsetPx,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
+    viewport
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -122,7 +124,7 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
       { key: 'recent', element: recentSection, mover: bottomDock }
     ],
     canAnimate: () => shouldAnimateNewtabLayoutShift() &&
-      !pageState.newtabResizeLayoutLocked &&
+      !viewport.locked &&
       document.visibilityState === 'visible' &&
       document.documentElement.getAttribute('data-lumno-motion-effects') !== 'off'
   });

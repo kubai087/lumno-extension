@@ -165,6 +165,8 @@ import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from './menu-values';
 import { ResultActivation } from '../shared/search-panel/result-activation';
 import { SearchTabKey } from '../shared/search-panel/tab-key';
+import { ViewportActivity } from './viewport-activity';
+import { RecentPointer } from './recent/recent-pointer';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -465,9 +467,15 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
   const recentCards: RecentCardElement[] = [];
   const bookmarkCards: BookmarkCardElement[] = [];
   const suggestionItems: SuggestionElement[] = [];
+  // Settles once the entry animation finished or was skipped.
+  let finishEntryAnimationWait = (): void => {};
   const newtabEntryAnimationReadyPromise = new Promise<void>((resolve) => {
-    pageState.resolveNewtabEntryAnimationReady = resolve;
+    finishEntryAnimationWait = resolve;
   });
+  // The window's resizes, which hold the layout until they settle.
+  const viewportActivity = new ViewportActivity();
+  viewportActivity.follow(window);
+  const recentPointer = new RecentPointer();
   pageState.feedbackLinks = LumnoCommunityLinks.FALLBACK_LINKS;
   const bookmarkMoveHistory = NEWTAB_BOOKMARK_MOVE_HISTORY.createBookmarkMoveHistory({ maxEntries: 30 });
 
@@ -812,7 +820,7 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     normalizeThemeConfidence,
     isLowConfidenceTheme,
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
-    pageState
+    recentPointer
   });
 
   const {
@@ -911,6 +919,8 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     resetShortcutDockHover,
     closeShortcutContextMenu,
     closeShortcutDialog,
+    viewport: viewportActivity,
+    recentPointer,
     pageState
   });
 
@@ -1239,7 +1249,6 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
 
   const {
     finishNewtabEntryAnimation,
-    scheduleNewtabReadyAfterViewportSettle,
     markNewtabReady
   } = NEWTAB_ENTRY_MOTION.createEntryMotion({
     root,
@@ -1249,6 +1258,8 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     rememberSearchEntryViewport,
     getSearchEntryViewportSnapshot,
     hasSearchEntryViewportChanged,
+    viewport: viewportActivity,
+    onEntryDone: () => finishEntryAnimationWait(),
     pageState
   });
 
@@ -1628,6 +1639,7 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     isCardActivationSuppressed,
     getRecentProgressState,
     toggleRecentProgressTracking,
+    recentPointer,
     pageState
   });
 
@@ -1642,6 +1654,7 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     getNewtabTopOccupiedInsetPx,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
+    viewport: viewportActivity,
     pageState
   });
 
@@ -2244,7 +2257,7 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     cancelRecentResizeLayoutAnimations,
     renderRecentSites,
     animateRecentResizeLayout,
-    scheduleNewtabReadyAfterViewportSettle,
+    viewport: viewportActivity,
     pageState
   });
 

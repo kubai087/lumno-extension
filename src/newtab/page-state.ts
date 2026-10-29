@@ -12,7 +12,6 @@ import type { BookmarkDragControllerState } from './bookmarks/bookmark-drag-cont
 import type { BookmarkPagerState } from './bookmarks/bookmark-pager';
 import type { BookmarkSectionState } from './bookmarks/bookmark-section';
 import type { BottomDockRuntimeState } from './shortcuts/bottom-dock-runtime';
-import type { CardThemesState } from './theme/card-themes';
 import type { ClipboardActionsState } from './clipboard-actions';
 import type { EntryMotionState } from './entry-motion';
 import type { FeedbackControlState } from './feedback-control';
@@ -73,7 +72,6 @@ type NewtabPageState =
   BookmarkPagerState &
   BookmarkSectionState &
   BottomDockRuntimeState &
-  CardThemesState &
   ClipboardActionsState &
   EntryMotionState &
   FeedbackControlState &
@@ -130,13 +128,9 @@ function createPageState(): NewtabPageState {
     layoutMotion: null,
     bottomDockScroller: null,
     faviconViewRuntime: null,
-    newtabResizeLayoutLocked: false,
-    newtabReadyRequested: false,
 
     // When the wallpaper was revealed (performance.now()); entry-motion.ts lets it lead the content.
     wallpaperShownAt: 0,
-    newtabReadyViewportRevision: 0,
-    resolveNewtabEntryAnimationReady: null,
     searchLayer: null,
     topContentContainer: null,
     topContentController: null,
@@ -167,8 +161,6 @@ function createPageState(): NewtabPageState {
     bookmarkPagerAvailability: { previous: false, next: false },
     bookmarkPageAnimating: false,
     bookmarkMoveHistoryBusy: false,
-    recentMouseInsideSection: false,
-    recentMouseLeftAt: 0,
     recentSitesView: null,
     bookmarksView: null,
     newtabShortcutIcons: {},
