@@ -94,12 +94,35 @@ function createRuntimeWithSettings(sandbox, options) {
     local: options.localWallpaperStorageArea || undefined
   });
   const previewed = new Map();
+  const listeners = new Set();
+  const notify = () => Array.from(listeners).forEach((listener) => listener());
   const preview = {
     get: (setting) => (previewed.has(setting.key) ? previewed.get(setting.key) : settings.get(setting)),
-    show: (setting, value) => previewed.set(setting.key, value),
-    store: { subscribe: () => () => {} }
+    show: (setting, value) => {
+      previewed.set(setting.key, value);
+      notify();
+    },
+    store: {
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      }
+    }
   };
-  return sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({ ...options, settings, preview });
+  // The page's layout setters write through its preview, which tells its subscribers.
+  const layoutSetters = {};
+  ['setSearchWidth', 'setShortcutColumns', 'setShortcutSize', 'setShortcutGap', 'setShortcutsVisible',
+    'setShortcutAddVisible', 'setShortcutDockMagnificationEnabled'].forEach((name) => {
+    const setter = options[name];
+    if (typeof setter === 'function') {
+      layoutSetters[name] = (...args) => {
+        const result = setter(...args);
+        notify();
+        return result;
+      };
+    }
+  });
+  return sandbox.LumnoNewtabWallpaper.createWallpaperRuntime({ ...options, ...layoutSetters, settings, preview });
 }
 
 function createFakeStyle() {
@@ -1661,8 +1684,10 @@ const switchingRuntime = createRuntimeWithSettings(sandbox, {
   storageArea: null,
   t: (_key, fallback) => fallback || '',
   getThemeScope: () => switchingScope,
+  // As the page does, the scope's change redraws the appearance options.
   setThemeScope: (scope) => {
     switchingScope = scope === 'home' ? 'home' : 'global';
+    switchingRuntime.updateAppearanceSelectionUi();
   }
 });
 switchingRuntime.createControls();

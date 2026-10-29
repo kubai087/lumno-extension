@@ -14,8 +14,7 @@ import type { SearchWidthConfig, SliderConfig } from './runtime/panel-settings';
 import type { CrtParameterKey } from './runtime/panel-state';
 import type { SectionPanelSettings } from './runtime/panel-actions';
 import type {
-  CachedWallpaperImage,
-  WallpaperState
+  CachedWallpaperImage
 } from './runtime/wallpaper-runtime-types';
 import * as LumnoFeatureHints from '../../shared/ui/feature-hints';
 import * as REMOTE_CONTENT from '../remote-content';
@@ -37,9 +36,13 @@ import { WallpaperOverlay } from './runtime/wallpaper-overlay';
 import * as WALLPAPER_WALLPAPER_SELECTION from './runtime/wallpaper-selection';
 import * as WALLPAPER_WALLPAPER_SOURCES from './runtime/wallpaper-sources';
 import * as WALLPAPER_WALLPAPER_STORAGE from './runtime/wallpaper-storage';
+import * as WALLPAPER_PRELOAD_CACHE from './runtime/wallpaper-preload-cache';
+import * as WALLPAPER_IMAGE_COPIES from './runtime/wallpaper-image-copies';
 import * as WALLPAPER_WALLPAPER_VISUAL from './runtime/wallpaper-visual';
 import * as WALLPAPER_ADAPTIVE_TONE from './wallpaper-adaptive-tone';
 import * as WALLPAPER_EFFECTS from './wallpaper-effects';
+import type { WallpaperEffects } from './wallpaper-effects';
+import { createEventBus } from '../../shared/state/events';
 import * as WALLPAPER_LOCAL_STORE from '../../shared/wallpaper-local-store';
 import * as WALLPAPER_CACHES from '../../shared/wallpaper-caches';
 import { readBootValue } from '../../platform/boot-handoff';
@@ -47,9 +50,6 @@ import { newtabFavicon, newtabWallpaperEffect, newtabWallpaperOverlay } from '..
 import { bingDailyCache } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SettingPreview } from '../setting-preview';
-import { NEWTAB_TOP_CONTENT_SETTINGS } from '../../domain/settings/newtab-time';
-import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../domain/settings/newtab-shortcuts';
-import { newtabSearchWidth, newtabWidthMode } from '../../domain/settings/newtab-page';
 import { CRT_PARAMETER_PHYSICAL_MAX } from './wallpaper-options';
 
 function getCrtParameterPercent(key: CrtParameterKey, value: unknown): number {
@@ -70,6 +70,9 @@ function getCrtParameterPhysicalValue(key: CrtParameterKey, percent: unknown): n
   return Math.round((Math.max(0, Math.min(100, number)) / 100) * physicalMax * 1000) / 1000;
 }
 
+// The longest the page's content waits for the wallpaper's tones.
+const WALLPAPER_TONE_REVEAL_WAIT_MAX_MS = 200;
+
 // For failures nothing on the page can recover from but that should not happen,
 // such as IndexedDB refusing a read; expected ones (offline photo requests) are
 // caught where they occur, with the reason.
@@ -77,14 +80,6 @@ function warnWallpaperFailure(message: string): (error: unknown) => void {
   return (error) => {
     console.warn(`[Lumno] ${message}`, error);
   };
-}
-
-// Runs once the next frame has painted: the first frame's callback still runs
-// before that frame paints, so it takes two.
-function afterNextPaint(windowObj: Window, callback: () => void): void {
-  windowObj.requestAnimationFrame(() => {
-    windowObj.requestAnimationFrame(callback);
-  });
 }
 
 function normalizeSingleWallpaperEffectPrefs(value: unknown, inheritedVersion?: unknown): WallpaperEffectPrefs {
@@ -370,222 +365,13 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   // Whether each network image loaded on this page: 'loaded' or 'failed'. A new tab tries again.
   const wallpaperNetworkImageStates = new Map<string, 'loaded' | 'failed'>();
 
-  // Runtime state shared with the parts of this runtime in wallpaper/runtime/:
-  // each receives this one object as `wallpaperState` and reads and writes
-  // the same properties this function does.
   const panelUi = new WallpaperPanelUi();
   const online = new OnlineWallpapers();
   const library = new WallpaperLibrary();
-  const choice = new WallpaperChoice();
+  const choice = new WallpaperChoice(documentObj);
   const initialWallpaper = new InitialWallpaper();
   const overlay = new WallpaperOverlay(documentObj, windowObj, options.settings);
   const panelView = new WallpaperPanelView();
-  const wallpaperState: WallpaperState = {
-    wallpaperEffects: null,
-    wallpaperAdaptiveTone: null
-  };
-
-  const {
-    formatBingCopyright,
-    getBingWallpaperLabel,
-    loadBingCatalog,
-    bindWallpaperPageShownListeners,
-    getActiveDailyWallpaperId,
-    setDailyWallpaperPick,
-    clearDailyWallpaperPick,
-    getCuratedTileItems,
-    showCuratedPageOfSelection,
-    getCuratedPhotoLabel,
-    getCuratedPhotoMeta,
-    getCuratedCategoryLabel,
-    isCuratedDailyWallpaperActive,
-    selectCuratedCategory,
-    setCuratedMixCategory,
-    showMoreCuratedWallpapers,
-    setCuratedDailyWallpaper,
-    selectBingWallpaper
-  } = WALLPAPER_DAILY_WALLPAPERS.createDailyWallpapers({
-    panelView,
-    choice,
-    online,
-    renderWallpaperPanelState: (...args) => renderWallpaperPanelState(...args),
-    remoteClient,
-    getEffectiveWallpaperIdForMode: (...args) => getEffectiveWallpaperIdForMode(...args),
-    getResolvedWallpaperMode: (...args) => getResolvedWallpaperMode(...args),
-    applyResolvedNewtabWallpaper: (...args) => applyResolvedNewtabWallpaper(...args),
-    document,
-    window,
-    getWallpaperSelectionIdForUi: (...args) => getWallpaperSelectionIdForUi(...args),
-    writeSetting: (...args) => writeSetting(...args),
-    showToast,
-    t,
-    getWallpaperTileSelectionId: (...args) => getWallpaperTileSelectionId(...args),
-    formatMessage,
-    playWallpaperEnterMotion: (...args) => playWallpaperEnterMotion(...args),
-    getWallpaperPanelRefs: (...args) => getWallpaperPanelRefs(...args),
-    persistNewtabWallpaper: (...args) => persistNewtabWallpaper(...args),
-    getWallpaperById: (...args) => getWallpaperById(...args),
-    getWallpaperEditMode: (...args) => getWallpaperEditMode(...args),
-    beginToast,
-    wallpaperState
-  });
-
-  const {
-    mountWallpaperPanel,
-    getWallpaperButtonLabel,
-    getWallpaperAppearanceModeLabels,
-    renderWallpaperPanelState,
-    drawWallpaperPanelState,
-    getWallpaperPanelRefs,
-    isWallpaperTileSelected,
-    getWallpaperStyleSliderValue
-  } = WALLPAPER_PANEL_STATE.createPanelState({
-    panelView,
-    overlay,
-    choice,
-    library,
-    online,
-    panelUi,
-    t,
-    getNewtabFaviconUrl: (...args) => getNewtabFaviconUrl(...args),
-    getSearchWidthSnapPoints: (...args) => getSearchWidthSnapPoints(...args),
-    getSearchWidthPercent: (...args) => getSearchWidthPercent(...args),
-    getShortcutColumnsTickValues: (...args) => getShortcutColumnsTickValues(...args),
-    getShortcutColumnsPercent: (...args) => getShortcutColumnsPercent(...args),
-    normalizeShortcutSizeValue: (...args) => normalizeShortcutSizeValue(...args),
-    getShortcutLayoutPercent: (...args) => getShortcutLayoutPercent(...args),
-    shortcutSizeConfig,
-    normalizeShortcutGapValue: (...args) => normalizeShortcutGapValue(...args),
-    shortcutGapConfig,
-    getThemeScope,
-    getRuntimeAssetUrl: (...args) => getRuntimeAssetUrl(...args),
-    getGlobalThemeMode,
-    getWallpaperAppearanceModeLabel: (...args) => getWallpaperAppearanceModeLabel(...args),
-    getThemeMode,
-    formatMessage,
-    settings: options.settings,
-    preview: options.preview,
-    normalizeSearchWidthValue: (...args) => normalizeSearchWidthValue(...args),
-    getSearchWidth,
-    getSearchWidthMin: (...args) => getSearchWidthMin(...args),
-    getSearchWidthMax: (...args) => getSearchWidthMax(...args),
-    formatSearchWidthValue: (...args) => formatSearchWidthValue(...args),
-    getInputAutoFocusEnabled,
-    getShortcutsVisible,
-    getShortcutSize,
-    getShortcutGap,
-    getShortcutAddVisible,
-    getShortcutDockMagnificationEnabled,
-    normalizeShortcutColumnsValue: (...args) => normalizeShortcutColumnsValue(...args),
-    getShortcutColumns,
-    getShortcutColumnsMin: (...args) => getShortcutColumnsMin(...args),
-    getShortcutColumnsMax: (...args) => getShortcutColumnsMax(...args),
-    getShortcutLayoutMin: (...args) => getShortcutLayoutMin(...args),
-    getShortcutLayoutMax: (...args) => getShortcutLayoutMax(...args),
-    getShortcutLayoutDefault: (...args) => getShortcutLayoutDefault(...args),
-    getWallpaperThumbnailUrl: (...args) => getWallpaperThumbnailUrl(...args),
-    getWallpaperDisplayName: (...args) => getWallpaperDisplayName(...args),
-    getLinkWallpaperById: (...args) => getLinkWallpaperById(...args),
-    getWallpaperById: (...args) => getWallpaperById(...args),
-    formatBingCopyright,
-    getBingWallpaperLabel,
-    remoteClient,
-    wallpaperThumbnailCache,
-    fetchCustomWallpaperFile: (...args) => fetchCustomWallpaperFile(...args),
-    localWallpaperStore,
-    warnWallpaperStoreFailure,
-    getCuratedPhotoLabel,
-    isCuratedDailyWallpaperActive,
-    getCuratedCategoryLabel,
-    getCuratedPhotoMeta,
-    getCuratedTileItems,
-    getWallpaperEffectPrefsForEditMode: (...args) => getWallpaperEffectPrefsForEditMode(...args),
-    getWallpaperEffectControlVisibility: (...args) => getWallpaperEffectControlVisibility(...args),
-    getCrtParameterPercent,
-    getWallpaperEffectLabel: (...args) => getWallpaperEffectLabel(...args),
-    getWallpaperEffectInkToneForUi: (...args) => getWallpaperEffectInkToneForUi(...args),
-    getWallpaperEffectInkToneLabel: (...args) => getWallpaperEffectInkToneLabel(...args),
-    getWallpaperEffectStrengthLabel: (...args) => getWallpaperEffectStrengthLabel(...args),
-    getWallpaperEffectSizeLabel: (...args) => getWallpaperEffectSizeLabel(...args),
-    getWallpaperEffectSpacingLabel: (...args) => getWallpaperEffectSpacingLabel(...args),
-    getWallpaperEffectTextureLabel: (...args) => getWallpaperEffectTextureLabel(...args),
-    hasAnyWallpaperEnabled: (...args) => hasAnyWallpaperEnabled(...args),
-    getWallpaperSelectionIdForUi: (...args) => getWallpaperSelectionIdForUi(...args),
-    getWallpaperTileSelectionId: (...args) => getWallpaperTileSelectionId(...args),
-    normalizeWallpaperMode: (...args) => normalizeWallpaperMode(...args),
-    getWallpaperModeLabel: (...args) => getWallpaperModeLabel(...args),
-    getWallpaperLocalPath: (...args) => getWallpaperLocalPath(...args),
-    getGlassStyle,
-    getGlassTheme,
-    buildNewtabFaviconState: (...args) => buildNewtabFaviconState(...args),
-    animateWallpaperPanelResize: (...args) => animateWallpaperPanelResize(...args),
-    document,
-    extensionRoutes,
-    chrome,
-    window
-  });
-
-  const {
-    showLocalWallpaperLimitToast,
-    importCustomWallpaperFile,
-    fetchCustomWallpaperFile,
-    setCustomWallpaperUrlFormOpen,
-    takePreloadedCustomWallpaper,
-    readCachedWallpaperImages,
-    cacheShownWallpaperImages,
-    getNextLocalDayTimestamp,
-    getUpcomingDailyWallpaper,
-    cacheListedLinkWallpapers,
-    isOnlineWallpaperMenuNode,
-    closeOnlineWallpaperMenu,
-    openOnlineWallpaperMenu,
-    submitCustomWallpaperUrl,
-    closeCustomWallpaperUrlForm,
-    deleteCustomWallpaper
-  } = WALLPAPER_CUSTOM_WALLPAPERS.createCustomWallpapers({
-    panelView,
-    choice,
-    library,
-    panelUi,
-    showToast,
-    formatMessage,
-    renderWallpaperPanelState,
-    beginToast,
-    t,
-    buildCustomWallpaperRecordFromFile: (...args) => buildCustomWallpaperRecordFromFile(...args),
-    writeCustomWallpaperRecord: (...args) => writeCustomWallpaperRecord(...args),
-    normalizeCustomWallpaperRecord: (...args) => normalizeCustomWallpaperRecord(...args),
-    persistNewtabWallpaper: (...args) => persistNewtabWallpaper(...args),
-    options,
-    windowObj,
-    getCachedWallpaperImage: (...args) => getCachedWallpaperImage(...args),
-    cachedWallpaperImages,
-    mergeCustomWallpaperRecords: (...args) => mergeCustomWallpaperRecords(...args),
-    wallpaperImageCache,
-    warnWallpaperStoreFailure,
-    applyResolvedNewtabWallpaper: (...args) => applyResolvedNewtabWallpaper(...args),
-    getEffectiveWallpaperIdForMode: (...args) => getEffectiveWallpaperIdForMode(...args),
-    getWallpaperById: (...args) => getWallpaperById(...args),
-    window,
-    writeWallpaperPreloadCache: (...args) => writeWallpaperPreloadCache(...args),
-    waitForDocumentLoad: (...args) => waitForDocumentLoad(...args),
-    getShownWallpaperCopy: (...args) => getShownWallpaperCopy(...args),
-    dailyWallpaperStandIns,
-    writeSetting: (...args) => writeSetting(...args),
-    hideTopActionTooltip,
-    getWritableWallpaperPrefs: (...args) => getWritableWallpaperPrefs(...args),
-    setWallpaperPrefs: (...args) => setWallpaperPrefs(...args),
-    getWritableLocalWallpaperOverrides: (...args) => getWritableLocalWallpaperOverrides(...args),
-    writeCurrentWallpaperPrefs: (...args) => writeCurrentWallpaperPrefs(...args),
-    remoteClient,
-    loadCustomWallpapers: (...args) => loadCustomWallpapers(...args),
-    document,
-    getWallpaperPanelRefs,
-    getCustomWallpaperById: (...args) => getCustomWallpaperById(...args),
-    deleteCustomWallpaperRecord: (...args) => deleteCustomWallpaperRecord(...args),
-    writeLocalWallpaperValue: (...args) => writeLocalWallpaperValue(...args),
-    buildLocalWallpaperStorageValue: (...args) => buildLocalWallpaperStorageValue(...args)
-  });
 
   const {
     getLinkWallpaperById,
@@ -619,8 +405,428 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     wallpaperNetworkImageStates,
     t
   });
-  const wallpaperEffectPreload = readBootValue('wallpaperEffectPreload') || null;
 
+  choice.setPrefs(getDefaultWallpaperPrefs(), getDefaultLocalWallpaperOverrides());
+
+  const {
+    mergeCustomWallpaperRecords,
+    readStoredSetting,
+    writeSetting,
+    isOnlineWallpaperId,
+    mergeOnlineWallpaperValue,
+    writeSyncedWallpaperValue,
+    writeLocalWallpaperValue,
+    getWallpaperStorageRawIds,
+    getStoredCustomWallpaperIds,
+    hasLoadedStoredCustomWallpaper,
+    buildLocalWallpaperStorageValue,
+    resolveSyncedWallpaperValue,
+    resolveLocalWallpaperOverride,
+    getWallpaperLocalOverrideForMode,
+    getEffectiveWallpaperIdForMode,
+    getWallpaperTileSelectionId,
+    getWallpaperSelectionIdForUi,
+    hasAnyWallpaperEnabled,
+    normalizeWallpaperSourceTab,
+    getWallpaperSourceTabForId,
+    getWallpaperModeLabel,
+    getWallpaperModePreferenceOrder,
+    getFirstEnabledWallpaperIdForModes,
+    getCopyableWallpaperLocalOverrideForId,
+    setWallpaperPrefs,
+    getWritableWallpaperPrefs,
+    getWritableLocalWallpaperOverrides,
+    applyLocalWallpaperMigrations,
+    writeCurrentWallpaperPrefs,
+    normalizeCustomWallpaperRecord,
+    readCustomWallpaperRecords,
+    readCustomWallpaperRecordsByIds,
+    writeCustomWallpaperRecord,
+    deleteCustomWallpaperRecord,
+    buildCustomWallpaperRecordFromFile
+  } = WALLPAPER_WALLPAPER_STORAGE.createWallpaperStorage({
+    choice,
+    library,
+    settings: options.settings,
+    showToast,
+    t,
+    normalizeWallpaperMode,
+    isCustomWallpaperId,
+    getCustomWallpaperById,
+    cloneWallpaperPrefs,
+    cloneLocalWallpaperOverrides,
+    normalizeNewtabWallpaperId,
+    getDefaultLocalWallpaperOverrides,
+    getDefaultWallpaperPrefs,
+    getWallpaperById,
+    localWallpaperStore
+  });
+
+  // The effects draw over the wallpaper; the tones follow each render.
+  const effectRenders = createEventBus<{ rendered: null }>();
+  const wallpaperEffectPreload = readBootValue('wallpaperEffectPreload') || null;
+  const wallpaperEffects = createPageWallpaperEffects();
+
+  function createPageWallpaperEffects(): WallpaperEffects {
+    const shouldAnimateTransition = () => Boolean(
+      documentObj.body &&
+      documentObj.body.getAttribute('data-nt-enter') === 'done'
+    );
+    const onRender = () => effectRenders.emit('rendered', null);
+    if (wallpaperEffectPreload && wallpaperEffectPreload.controller) {
+      wallpaperEffectPreload.attach({ onRender, shouldAnimateTransition });
+      return wallpaperEffectPreload.controller;
+    }
+    if (wallpaperEffectPreload) {
+      wallpaperEffectPreload.claimed = true;
+    }
+    return WALLPAPER_EFFECTS.createWallpaperEffects({
+      documentObj,
+      windowObj,
+      getCurrentWallpaper: () => getWallpaperById(choice.state.shownId),
+      getWallpaperImageUrl: getDisplayedWallpaperImageUrl,
+      getWallpaperSample,
+      shouldAnimateTransition,
+      onRender
+    });
+  }
+
+  const {
+    store: effectPrefsStore,
+    getWallpaperEffectPrefsForMode,
+    getWallpaperEffectPrefsForEditMode,
+    getWallpaperEffectStorageValue,
+    setSharedWallpaperEffectPrefs,
+    synchronizeWallpaperEffectPrefsWithWallpaperModes,
+    getWallpaperEffectInkToneForUi,
+    getWallpaperEffectInkToneLabel,
+    getWallpaperEffectLabel,
+    applyWallpaperEffectForResolvedMode,
+    applyWallpaperEffectPrefs,
+    getWallpaperEffectControlVisibility,
+    getWallpaperEffectStrengthLabel,
+    getWallpaperEffectSizeLabel,
+    getWallpaperEffectSpacingLabel,
+    getWallpaperEffectTextureLabel,
+    persistWallpaperEffectPrefs,
+    bootstrapInitialWallpaperEffect,
+    waitForInitialWallpaperEffectVisual
+  } = WALLPAPER_WALLPAPER_EFFECT_PREFS.createWallpaperEffectPrefs({
+    wallpaperEffects,
+    initialWallpaper,
+    choice,
+    normalizeSingleWallpaperEffectPrefs,
+    normalizeWallpaperMode,
+    normalizeWallpaperEffectStoragePrefs,
+    t,
+    document,
+    settings: options.settings,
+    window
+  });
+
+  const { rememberWallpaperLuminance, writeWallpaperPreloadCache } = WALLPAPER_PRELOAD_CACHE.createWallpaperPreloadCache({
+    isCustomWallpaperId,
+    getWallpaperById,
+    getCachedWallpaperImage,
+    getShownWallpaperCopy,
+    getWallpaperRuntimePath,
+    getDisplayedWallpaperImageUrl,
+    getWallpaperImageUrl,
+    getWallpaperSample,
+    getEffectiveWallpaperIdForMode,
+    remoteClient,
+    window,
+    getEffectiveThemeMode,
+    getWallpaperEffectStorageValue,
+    choice,
+    overlay
+  });
+  // The next page's preload paints the chosen effects.
+  effectPrefsStore.subscribe(() => {
+    if (choice.state.loaded) {
+      writeWallpaperPreloadCache();
+    }
+  });
+
+  const {
+    events: imageCopyEvents,
+    fetchWallpaperFile,
+    takePreloadedCustomWallpaper,
+    readCachedWallpaperImages,
+    rememberCachedWallpaperImage,
+    cacheShownWallpaperImages,
+    cacheListedLinkWallpapers
+  } = WALLPAPER_IMAGE_COPIES.createWallpaperImageCopies({
+    writeWallpaperPreloadCache,
+    buildCustomWallpaperRecordFromFile,
+    mergeCustomWallpaperRecords,
+    getEffectiveWallpaperIdForMode,
+    getCachedWallpaperImage,
+    getWallpaperById,
+    getShownWallpaperCopy,
+    fetchRemoteContent: options.fetchRemoteContent,
+    windowObj,
+    window,
+    document,
+    cachedWallpaperImages,
+    dailyWallpaperStandIns,
+    wallpaperImageCache,
+    warnWallpaperStoreFailure,
+    library,
+    choice
+  });
+
+  const {
+    events: visualEvents,
+    beginVisualChange,
+    isLatestVisualChange,
+    getAppliedVisual,
+    getWallpaperOverlayAlphaAtViewportY,
+    getWallpaperAdaptiveToneTargets,
+    getRuntimeAssetUrl,
+    takePreloadedDecodedImage,
+    waitForWallpaperImageReady,
+    applyWallpaperVisualState,
+    scheduleWallpaperVisualRefresh
+  } = WALLPAPER_WALLPAPER_VISUAL.createWallpaperVisual({
+    wallpaperEffects,
+    panelView,
+    overlay,
+    document,
+    window,
+    getAdaptiveToneTargets,
+    chrome,
+    windowObj,
+    isNetworkWallpaperImageUrl,
+    wallpaperNetworkImageStates,
+    getDisplayedWallpaperImageUrl,
+    getWallpaperSample,
+    wallpaperEffectPreload
+  });
+
+  const wallpaperAdaptiveTone = WALLPAPER_ADAPTIVE_TONE.createWallpaperAdaptiveTone({
+    documentObj,
+    windowObj,
+    getTargets: getWallpaperAdaptiveToneTargets,
+    getCurrentWallpaper: () => getWallpaperById(choice.state.shownId),
+    getWallpaperImageUrl: getDisplayedWallpaperImageUrl,
+    getWallpaperSample,
+    getOverlayAlphaAtViewportY: getWallpaperOverlayAlphaAtViewportY,
+    getOverlayLuminance: () => overlay.getResolvedMode() === 'dark' ? 0 : 1,
+    getEffectLuminanceAtViewport: (viewportX, viewportY, baseLuminance) => {
+      return typeof wallpaperEffects.getLuminanceAtViewport === 'function'
+        ? wallpaperEffects.getLuminanceAtViewport(viewportX, viewportY, baseLuminance)
+        : null;
+    },
+    applyWordmarkThemeAppearance,
+    onSamplerReady: rememberWallpaperLuminance,
+    getPreloadedImage: takePreloadedDecodedImage
+  });
+
+  effectRenders.on('rendered', () => wallpaperAdaptiveTone.schedule());
+  visualEvents.on('settled', () => wallpaperAdaptiveTone.refresh());
+
+  function scheduleWallpaperAdaptiveToneUpdate(scheduleOptions?: ToneScheduleOptions | Event | null): void {
+    wallpaperAdaptiveTone.schedule(scheduleOptions);
+  }
+
+  // The page's content shows once the wallpaper's tones are on its controls, so nothing enters in
+  // the theme's default colors and changes a moment later. A slow image never holds it for long.
+  function waitForInitialWallpaperTone(): Promise<void> {
+    return initialWallpaper.ready.then(() => new Promise<void>((resolve) => {
+      const timer = windowObj.setTimeout(resolve, WALLPAPER_TONE_REVEAL_WAIT_MAX_MS);
+      void wallpaperAdaptiveTone.whenSettled().then(() => {
+        windowObj.clearTimeout(timer);
+        resolve();
+      });
+    }));
+  }
+
+  const {
+    events: selectionEvents,
+    primeWallpaperImage,
+    loadCustomWallpapers,
+    refreshCustomWallpapers,
+    applyResolvedNewtabWallpaper,
+    loadStoredWallpaperState,
+    bootstrapInitialWallpaper,
+    persistWallpaperEnabled,
+    persistWallpaperModeConsistency,
+    persistNewtabWallpaper
+  } = WALLPAPER_WALLPAPER_SELECTION.createWallpaperSelection({
+    mergeCustomWallpaperRecords,
+    document,
+    getAppliedVisual,
+    isLatestVisualChange,
+    beginVisualChange,
+    initialWallpaper,
+    choice,
+    library,
+    online,
+    getWallpaperById,
+    waitForWallpaperImageReady,
+    getWallpaperImageUrl,
+    readCachedWallpaperImages,
+    readCustomWallpaperRecords,
+    cacheListedLinkWallpapers,
+    normalizeCustomWallpaperRecord,
+    normalizeNewtabWallpaperId,
+    normalizeWallpaperMode,
+    writeWallpaperPreloadCache,
+    applyWallpaperVisualState,
+    refreshWallpaperAdaptiveSampler: wallpaperAdaptiveTone.refresh,
+    scheduleWallpaperVisualRefresh,
+    getDisplayedWallpaperImageUrl,
+    getEffectiveWallpaperIdForMode,
+    cacheShownWallpaperImages,
+    resolveSyncedWallpaperValue,
+    resolveLocalWallpaperOverride,
+    applyLocalWallpaperMigrations,
+    setWallpaperPrefs,
+    synchronizeWallpaperEffectPrefsWithWallpaperModes,
+    applyWallpaperEffectForResolvedMode,
+    writeSyncedWallpaperValue,
+    getWallpaperStorageRawIds,
+    isOnlineWallpaperId,
+    writeLocalWallpaperValue,
+    buildLocalWallpaperStorageValue,
+    settings: options.settings,
+    getWallpaperEffectStorageValue,
+    readStoredSetting,
+    mergeOnlineWallpaperValue,
+    takePreloadedCustomWallpaper,
+    getStoredCustomWallpaperIds,
+    hasLoadedStoredCustomWallpaper,
+    readCustomWallpaperRecordsByIds,
+    warnWallpaperStoreFailure,
+    remoteClient,
+    getCachedWallpaperImage,
+    dailyWallpaperStandIns,
+    window,
+    getWritableWallpaperPrefs,
+    getWritableLocalWallpaperOverrides,
+    writeCurrentWallpaperPrefs,
+    isCustomWallpaperId,
+    getWallpaperEffectPrefsForEditMode,
+    getWallpaperModePreferenceOrder,
+    hasAnyWallpaperEnabled,
+    getFirstEnabledWallpaperIdForModes,
+    getCopyableWallpaperLocalOverrideForId,
+    setSharedWallpaperEffectPrefs,
+    getWallpaperEffectPrefsForMode,
+    getWallpaperLocalOverrideForMode
+  });
+
+  imageCopyEvents.on('cached', (copy) => {
+    if (copy.shown) {
+      applyResolvedNewtabWallpaper();
+    }
+  });
+
+  const {
+    formatBingCopyright,
+    getBingWallpaperLabel,
+    loadBingCatalog,
+    getActiveDailyWallpaperId,
+    setDailyWallpaperPick,
+    clearDailyWallpaperPick,
+    getCuratedTileItems,
+    showCuratedPageOfSelection,
+    getCuratedPhotoLabel,
+    getCuratedPhotoMeta,
+    getCuratedCategoryLabel,
+    isCuratedDailyWallpaperActive,
+    selectCuratedCategory,
+    setCuratedMixCategory,
+    showMoreCuratedWallpapers,
+    setCuratedDailyWallpaper,
+    selectBingWallpaper
+  } = WALLPAPER_DAILY_WALLPAPERS.createDailyWallpapers({
+    wallpaperEffects,
+    panelView,
+    choice,
+    online,
+    remoteClient,
+    getEffectiveWallpaperIdForMode,
+    applyResolvedNewtabWallpaper,
+    document,
+    window,
+    getWallpaperSelectionIdForUi,
+    writeSetting,
+    showToast,
+    t,
+    getWallpaperTileSelectionId,
+    formatMessage,
+    persistNewtabWallpaper,
+    getWallpaperById,
+    beginToast
+  });
+
+  const {
+    showLocalWallpaperLimitToast,
+    importCustomWallpaperFile,
+    setCustomWallpaperUrlFormOpen,
+    isOnlineWallpaperMenuNode,
+    closeOnlineWallpaperMenu,
+    openOnlineWallpaperMenu,
+    submitCustomWallpaperUrl,
+    closeCustomWallpaperUrlForm,
+    deleteCustomWallpaper
+  } = WALLPAPER_CUSTOM_WALLPAPERS.createCustomWallpapers({
+    rememberCachedWallpaperImage,
+    readCachedWallpaperImages,
+    fetchWallpaperFile,
+    panelView,
+    library,
+    panelUi,
+    showToast,
+    formatMessage,
+    beginToast,
+    t,
+    buildCustomWallpaperRecordFromFile,
+    writeCustomWallpaperRecord,
+    normalizeCustomWallpaperRecord,
+    persistNewtabWallpaper,
+    windowObj,
+    getCachedWallpaperImage,
+    cachedWallpaperImages,
+    wallpaperImageCache,
+    warnWallpaperStoreFailure,
+    applyResolvedNewtabWallpaper,
+    writeSetting,
+    hideTopActionTooltip,
+    getWritableWallpaperPrefs,
+    setWallpaperPrefs,
+    getWritableLocalWallpaperOverrides,
+    writeCurrentWallpaperPrefs,
+    remoteClient,
+    loadCustomWallpapers,
+    document,
+    getCustomWallpaperById,
+    deleteCustomWallpaperRecord,
+    writeLocalWallpaperValue,
+    buildLocalWallpaperStorageValue
+  });
+
+  const {
+    store: faviconStore,
+    normalizeNewtabFaviconId,
+    getNewtabFaviconUrl,
+    applyNewtabFavicon,
+    persistNewtabFavicon,
+    bootstrapInitialNewtabFavicon,
+    buildNewtabFaviconState
+  } = WALLPAPER_FAVICON_CHOOSER.createFaviconChooser({
+    t,
+    getRuntimeAssetUrl,
+    window,
+    BroadcastChannelCtor,
+    document,
+    writeSetting,
+    showToast,
+    readStoredSetting,
+    formatMessage
+  });
 
   const {
     persistTopContentMode,
@@ -655,10 +861,9 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     persistShortcutSizeFromSlider,
     persistShortcutGapFromSlider
   } = WALLPAPER_PANEL_SETTINGS.createPanelSettings({
-    renderWallpaperPanelState,
+    panelView,
     settings: options.settings,
     preview: options.preview,
-    getWallpaperPanelRefs,
     searchWidthConfig,
     setSearchWidth,
     shortcutColumnsConfig,
@@ -670,291 +875,139 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   });
 
   const {
-    primeWallpaperImage,
-    loadCustomWallpapers,
-    refreshCustomWallpapers,
-    mergeCustomWallpaperRecords,
-    applyResolvedNewtabWallpaper,
-    loadStoredWallpaperState,
-    bootstrapInitialWallpaper,
-    persistWallpaperEnabled,
-    persistWallpaperModeConsistency,
-    persistNewtabWallpaper
-  } = WALLPAPER_WALLPAPER_SELECTION.createWallpaperSelection({
-    getAppliedVisual: () => getAppliedVisual(),
-    isLatestVisualChange: (...args) => isLatestVisualChange(...args),
-    beginVisualChange: () => beginVisualChange(),
-    initialWallpaper,
-    choice,
-    library,
-    online,
-    getWallpaperById,
-    waitForWallpaperImageReady: (...args) => waitForWallpaperImageReady(...args),
-    getWallpaperImageUrl,
-    readCachedWallpaperImages,
-    readCustomWallpaperRecords: (...args) => readCustomWallpaperRecords(...args),
-    renderWallpaperPanelState,
-    cacheListedLinkWallpapers,
-    normalizeCustomWallpaperRecord: (...args) => normalizeCustomWallpaperRecord(...args),
-    normalizeNewtabWallpaperId,
-    normalizeWallpaperMode,
-    getResolvedWallpaperMode: (...args) => getResolvedWallpaperMode(...args),
-    writeWallpaperPreloadCache: (...args) => writeWallpaperPreloadCache(...args),
-    applyWallpaperVisualState: (...args) => applyWallpaperVisualState(...args),
-    refreshWallpaperAdaptiveSampler,
-    scheduleWallpaperVisualRefresh: (...args) => scheduleWallpaperVisualRefresh(...args),
-    getDisplayedWallpaperImageUrl,
-    createWallpaperTransitionLayer: (...args) => createWallpaperTransitionLayer(...args),
-    releaseWallpaperTransitionLayer: (...args) => releaseWallpaperTransitionLayer(...args),
-    getEffectiveWallpaperIdForMode: (...args) => getEffectiveWallpaperIdForMode(...args),
-    cacheShownWallpaperImages,
-    resolveSyncedWallpaperValue: (...args) => resolveSyncedWallpaperValue(...args),
-    resolveLocalWallpaperOverride: (...args) => resolveLocalWallpaperOverride(...args),
-    applyLocalWallpaperMigrations: (...args) => applyLocalWallpaperMigrations(...args),
-    setWallpaperPrefs: (...args) => setWallpaperPrefs(...args),
-    bindWallpaperPageShownListeners,
-    synchronizeWallpaperEffectPrefsWithWallpaperModes: (...args) => synchronizeWallpaperEffectPrefsWithWallpaperModes(...args),
-    applyWallpaperEffectForResolvedMode: (...args) => applyWallpaperEffectForResolvedMode(...args),
-    syncWallpaperSourceTabToEditMode: (...args) => syncWallpaperSourceTabToEditMode(...args),
-    writeSyncedWallpaperValue: (...args) => writeSyncedWallpaperValue(...args),
-    getWallpaperStorageRawIds: (...args) => getWallpaperStorageRawIds(...args),
-    isOnlineWallpaperId: (...args) => isOnlineWallpaperId(...args),
-    writeLocalWallpaperValue: (...args) => writeLocalWallpaperValue(...args),
-    buildLocalWallpaperStorageValue: (...args) => buildLocalWallpaperStorageValue(...args),
-    settings: options.settings,
-    getWallpaperEffectStorageValue: (...args) => getWallpaperEffectStorageValue(...args),
-    readStoredSetting: (...args) => readStoredSetting(...args),
-    mergeOnlineWallpaperValue: (...args) => mergeOnlineWallpaperValue(...args),
-    takePreloadedCustomWallpaper,
-    getStoredCustomWallpaperIds: (...args) => getStoredCustomWallpaperIds(...args),
-    hasLoadedStoredCustomWallpaper: (...args) => hasLoadedStoredCustomWallpaper(...args),
-    readCustomWallpaperRecordsByIds: (...args) => readCustomWallpaperRecordsByIds(...args),
-    warnWallpaperStoreFailure,
-    remoteClient,
-    getCachedWallpaperImage,
-    dailyWallpaperStandIns,
-    window,
-    getWritableWallpaperPrefs: (...args) => getWritableWallpaperPrefs(...args),
-    getWritableLocalWallpaperOverrides: (...args) => getWritableLocalWallpaperOverrides(...args),
-    writeCurrentWallpaperPrefs: (...args) => writeCurrentWallpaperPrefs(...args),
-    isCustomWallpaperId,
-    getWallpaperEffectPrefsForEditMode: (...args) => getWallpaperEffectPrefsForEditMode(...args),
-    getWallpaperModePreferenceOrder: (...args) => getWallpaperModePreferenceOrder(...args),
-    hasAnyWallpaperEnabled: (...args) => hasAnyWallpaperEnabled(...args),
-    getFirstEnabledWallpaperIdForModes: (...args) => getFirstEnabledWallpaperIdForModes(...args),
-    getCopyableWallpaperLocalOverrideForId: (...args) => getCopyableWallpaperLocalOverrideForId(...args),
-    setSharedWallpaperEffectPrefs: (...args) => setSharedWallpaperEffectPrefs(...args),
-    getWallpaperEditMode: (...args) => getWallpaperEditMode(...args),
-    getWallpaperEffectPrefsForMode: (...args) => getWallpaperEffectPrefsForMode(...args),
-    getWallpaperLocalOverrideForMode: (...args) => getWallpaperLocalOverrideForMode(...args)
-  });
-
-  const {
     animateWallpaperPanelResize,
     setWallpaperActiveTab,
     syncWallpaperSourceTabToEditMode,
     setWallpaperActiveMode,
     isWallpaperPanelOpen,
     setWallpaperPanelOpenState,
-    getWallpaperAppearanceModeLabel,
-    shouldReduceMotion,
-    playWallpaperEnterMotion,
     animateWallpaperAppearanceScopeChange
   } = WALLPAPER_PANEL_MOTION.createPanelMotion({
+    selectionEvents,
     panelView,
     choice,
     online,
     panelUi,
     window,
-    normalizeWallpaperSourceTab: (...args) => normalizeWallpaperSourceTab(...args),
-    renderWallpaperPanelState,
+    normalizeWallpaperSourceTab,
     loadCustomWallpapers,
     loadBingCatalog,
-    getWallpaperSelectionIdForUi: (...args) => getWallpaperSelectionIdForUi(...args),
+    getWallpaperSelectionIdForUi,
     getWallpaperById,
     showCuratedPageOfSelection,
-    getWallpaperSourceTabForId: (...args) => getWallpaperSourceTabForId(...args),
+    getWallpaperSourceTabForId,
     normalizeWallpaperMode,
     document,
     t,
     getThemeScope,
     getWallpaperAppearanceOptionButtons,
     getWallpaperAppearanceOptionMotionElement,
-    getWallpaperPanelRefs,
-    afterNextPaint,
-    setThemeScope,
-    getWallpaperAppearanceModeLabels
+    setThemeScope
   });
 
   const {
-    store: effectPrefsStore,
-    getWallpaperEffectPrefsForMode,
+    mountWallpaperPanel,
+    getWallpaperButtonLabel,
+    renderWallpaperPanelState,
+    drawWallpaperPanelState,
+    isWallpaperTileSelected,
+    getWallpaperStyleSliderValue
+  } = WALLPAPER_PANEL_STATE.createPanelState({
+    imageCopyEvents,
+    faviconStore,
+    effectPrefsStore,
+    panelView,
+    overlay,
+    choice,
+    library,
+    online,
+    panelUi,
+    t,
+    getNewtabFaviconUrl,
+    getSearchWidthSnapPoints,
+    getSearchWidthPercent,
+    getShortcutColumnsTickValues,
+    getShortcutColumnsPercent,
+    normalizeShortcutSizeValue,
+    getShortcutLayoutPercent,
+    shortcutSizeConfig,
+    normalizeShortcutGapValue,
+    shortcutGapConfig,
+    getThemeScope,
+    getRuntimeAssetUrl,
+    getGlobalThemeMode,
+    getThemeMode,
+    formatMessage,
+    settings: options.settings,
+    preview: options.preview,
+    normalizeSearchWidthValue,
+    getSearchWidth,
+    getSearchWidthMin,
+    getSearchWidthMax,
+    formatSearchWidthValue,
+    getInputAutoFocusEnabled,
+    getShortcutsVisible,
+    getShortcutSize,
+    getShortcutGap,
+    getShortcutAddVisible,
+    getShortcutDockMagnificationEnabled,
+    normalizeShortcutColumnsValue,
+    getShortcutColumns,
+    getShortcutColumnsMin,
+    getShortcutColumnsMax,
+    getShortcutLayoutMin,
+    getShortcutLayoutMax,
+    getShortcutLayoutDefault,
+    getWallpaperThumbnailUrl,
+    getWallpaperDisplayName,
+    getLinkWallpaperById,
+    getWallpaperById,
+    formatBingCopyright,
+    getBingWallpaperLabel,
+    remoteClient,
+    wallpaperThumbnailCache,
+    fetchWallpaperFile,
+    localWallpaperStore,
+    warnWallpaperStoreFailure,
+    getCuratedPhotoLabel,
+    isCuratedDailyWallpaperActive,
+    getCuratedCategoryLabel,
+    getCuratedPhotoMeta,
+    getCuratedTileItems,
     getWallpaperEffectPrefsForEditMode,
-    getWallpaperEffectStorageValue,
-    setSharedWallpaperEffectPrefs,
-    synchronizeWallpaperEffectPrefsWithWallpaperModes,
+    getWallpaperEffectControlVisibility,
+    getCrtParameterPercent,
+    getWallpaperEffectLabel,
     getWallpaperEffectInkToneForUi,
     getWallpaperEffectInkToneLabel,
-    getWallpaperEffectLabel,
-    applyWallpaperEffectForResolvedMode,
-    applyWallpaperEffectPrefs,
-    getWallpaperEffectControlVisibility,
     getWallpaperEffectStrengthLabel,
     getWallpaperEffectSizeLabel,
     getWallpaperEffectSpacingLabel,
     getWallpaperEffectTextureLabel,
-    persistWallpaperEffectPrefs,
-    bootstrapInitialWallpaperEffect,
-    waitForInitialWallpaperEffectVisual,
-    waitForInitialWallpaperTone
-  } = WALLPAPER_WALLPAPER_EFFECT_PREFS.createWallpaperEffectPrefs({
-    initialWallpaper,
-    choice,
-    normalizeSingleWallpaperEffectPrefs,
-    normalizeWallpaperMode,
-    getWallpaperEditMode: (...args) => getWallpaperEditMode(...args),
-    getResolvedWallpaperMode: (...args) => getResolvedWallpaperMode(...args),
-    normalizeWallpaperEffectStoragePrefs,
-    t,
-    createWallpaperTransitionLayer: (...args) => createWallpaperTransitionLayer(...args),
-    document,
-    releaseWallpaperTransitionLayer: (...args) => releaseWallpaperTransitionLayer(...args),
-    writeWallpaperPreloadCache: (...args) => writeWallpaperPreloadCache(...args),
-    settings: options.settings,
-    window,
-    wallpaperState
-  });
-  effectPrefsStore.subscribe(() => renderWallpaperPanelState());
-
-  const {
-    beginVisualChange,
-    isLatestVisualChange,
-    getAppliedVisual,
-    getWallpaperOverlayAlphaAtViewportY,
-    getWallpaperAdaptiveToneTargets,
-    getRuntimeAssetUrl,
-    takePreloadedDecodedImage,
-    waitForWallpaperImageReady,
-    waitForDocumentLoad,
-    createWallpaperTransitionLayer,
-    releaseWallpaperTransitionLayer,
-    applyWallpaperVisualState,
-    scheduleWallpaperVisualRefresh
-  } = WALLPAPER_WALLPAPER_VISUAL.createWallpaperVisual({
-    panelView,
-    overlay,
-    document,
-    window,
-    getAdaptiveToneTargets,
-    chrome,
-    windowObj,
-    isNetworkWallpaperImageUrl,
-    wallpaperNetworkImageStates,
-    shouldReduceMotion,
-    getDisplayedWallpaperImageUrl,
-    getWallpaperSample,
-    wallpaperEffectPreload,
-    refreshWallpaperAdaptiveSampler,
-    afterNextPaint,
-    wallpaperState
-  });
-
-  const {
-    readStoredSetting,
-    writeSetting,
-    isOnlineWallpaperId,
-    mergeOnlineWallpaperValue,
-    writeSyncedWallpaperValue,
-    writeLocalWallpaperValue,
-    getWallpaperStorageRawIds,
-    getStoredCustomWallpaperIds,
-    hasLoadedStoredCustomWallpaper,
-    buildLocalWallpaperStorageValue,
-    resolveSyncedWallpaperValue,
-    resolveLocalWallpaperOverride,
-    getWallpaperLocalOverrideForMode,
-    getEffectiveWallpaperIdForMode,
-    getResolvedWallpaperMode,
-    getWallpaperEditMode,
-    getWallpaperTileSelectionId,
-    getWallpaperSelectionIdForUi,
     hasAnyWallpaperEnabled,
-    normalizeWallpaperSourceTab,
-    getWallpaperSourceTabForId,
-    getWallpaperModeLabel,
-    getWallpaperModePreferenceOrder,
-    getFirstEnabledWallpaperIdForModes,
-    getCopyableWallpaperLocalOverrideForId,
-    setWallpaperPrefs,
-    getWritableWallpaperPrefs,
-    getWritableLocalWallpaperOverrides,
-    applyLocalWallpaperMigrations,
-    writeCurrentWallpaperPrefs,
-    rememberWallpaperLuminance,
-    writeWallpaperPreloadCache,
-    normalizeCustomWallpaperRecord,
-    readCustomWallpaperRecords,
-    readCustomWallpaperRecordsByIds,
-    writeCustomWallpaperRecord,
-    deleteCustomWallpaperRecord,
-    buildCustomWallpaperRecordFromFile
-  } = WALLPAPER_WALLPAPER_STORAGE.createWallpaperStorage({
-    overlay,
-    choice,
-    library,
-    settings: options.settings,
-    showToast,
-    t,
+    getWallpaperSelectionIdForUi,
+    getWallpaperTileSelectionId,
     normalizeWallpaperMode,
-    isCustomWallpaperId,
-    getCustomWallpaperById,
-    cloneWallpaperPrefs,
-    cloneLocalWallpaperOverrides,
-    normalizeNewtabWallpaperId,
-    getDefaultLocalWallpaperOverrides,
-    getDefaultWallpaperPrefs,
+    getWallpaperModeLabel,
+    getWallpaperLocalPath,
+    getGlassStyle,
+    getGlassTheme,
+    buildNewtabFaviconState,
+    animateWallpaperPanelResize,
     document,
-    getWallpaperById,
-    getCachedWallpaperImage,
-    getShownWallpaperCopy,
-    getUpcomingDailyWallpaper,
-    getNextLocalDayTimestamp,
-    getWallpaperRuntimePath,
-    remoteClient,
-    window,
-    getDisplayedWallpaperImageUrl,
-    getWallpaperImageUrl,
-    getWallpaperSample,
-    getEffectiveThemeMode,
-    getWallpaperEffectStorageValue,
-    localWallpaperStore
+    extensionRoutes,
+    chrome,
+    window
   });
 
   const {
-    normalizeNewtabFaviconId,
-    getNewtabFaviconUrl,
-    applyNewtabFavicon,
-    persistNewtabFavicon,
-    bootstrapInitialNewtabFavicon,
-    buildNewtabFaviconState
-  } = WALLPAPER_FAVICON_CHOOSER.createFaviconChooser({
-    t,
-    getRuntimeAssetUrl,
-    window,
-    BroadcastChannelCtor,
-    document,
-    renderWallpaperPanelState,
-    writeSetting,
-    showToast,
-    readStoredSetting,
-    formatMessage
-  });
-
-  const {
+    closeWallpaperPanel,
     updateWallpaperSourcesHintLanguage,
     createWallpaperPanelActions,
     createWallpaperSourcesFeatureHint
   } = WALLPAPER_PANEL_ACTIONS.createPanelActions({
+    drawWallpaperPanelState,
+    closeOnlineWallpaperMenu,
     panelView,
     overlay,
     choice,
@@ -1028,77 +1081,9 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     featureHintVisibilityGate,
     t,
     syncWallpaperSourceTabToEditMode,
-    getResolvedWallpaperMode,
     setWallpaperPanelOpenState,
-    loadCustomWallpapers,
-    closeWallpaperPanel
+    loadCustomWallpapers
   });
-
-  function cancelWallpaperPanelActiveControls(): void {
-    const activeElement = document.activeElement;
-    if (!activeElement || !panelView.panel || !panelView.panel.contains(activeElement)) {
-      return;
-    }
-    if ('blur' in activeElement && typeof activeElement.blur === 'function') {
-      activeElement.blur();
-    }
-  }
-  choice.setPrefs(getDefaultWallpaperPrefs(), getDefaultLocalWallpaperOverrides());
-
-  wallpaperState.wallpaperAdaptiveTone = WALLPAPER_ADAPTIVE_TONE.createWallpaperAdaptiveTone({
-    documentObj,
-    windowObj,
-    getTargets: getWallpaperAdaptiveToneTargets,
-    getCurrentWallpaper: () => getWallpaperById(choice.state.shownId),
-    getWallpaperImageUrl: getDisplayedWallpaperImageUrl,
-    getWallpaperSample,
-    getOverlayAlphaAtViewportY: getWallpaperOverlayAlphaAtViewportY,
-    getOverlayLuminance: () => overlay.getResolvedMode() === 'dark' ? 0 : 1,
-    getEffectLuminanceAtViewport: (viewportX, viewportY, baseLuminance) => {
-      return wallpaperState.wallpaperEffects && typeof wallpaperState.wallpaperEffects.getLuminanceAtViewport === 'function'
-        ? wallpaperState.wallpaperEffects.getLuminanceAtViewport(viewportX, viewportY, baseLuminance)
-        : null;
-    },
-    applyWordmarkThemeAppearance,
-    onSamplerReady: rememberWallpaperLuminance,
-    getPreloadedImage: takePreloadedDecodedImage
-  });
-  const wallpaperEffectRuntimeOptions = {
-      documentObj,
-      windowObj,
-      getCurrentWallpaper: () => getWallpaperById(choice.state.shownId),
-      getWallpaperImageUrl: getDisplayedWallpaperImageUrl,
-      getWallpaperSample,
-      shouldAnimateTransition: () => Boolean(
-        documentObj.body &&
-        documentObj.body.getAttribute('data-nt-enter') === 'done'
-      ),
-      onRender: scheduleWallpaperAdaptiveToneUpdate
-    };
-  if (wallpaperEffectPreload && wallpaperEffectPreload.controller) {
-    wallpaperEffectPreload.attach({
-      onRender: scheduleWallpaperAdaptiveToneUpdate,
-      shouldAnimateTransition: wallpaperEffectRuntimeOptions.shouldAnimateTransition
-    });
-    wallpaperState.wallpaperEffects = wallpaperEffectPreload.controller;
-  } else {
-    if (wallpaperEffectPreload) {
-      wallpaperEffectPreload.claimed = true;
-    }
-    wallpaperState.wallpaperEffects = WALLPAPER_EFFECTS.createWallpaperEffects(wallpaperEffectRuntimeOptions);
-  }
-
-  function scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions | Event | null): void {
-    if (wallpaperState.wallpaperAdaptiveTone) {
-      wallpaperState.wallpaperAdaptiveTone.schedule(options);
-    }
-  }
-
-  function refreshWallpaperAdaptiveSampler(): void {
-    if (wallpaperState.wallpaperAdaptiveTone) {
-      wallpaperState.wallpaperAdaptiveTone.refresh();
-    }
-  }
 
   function updateWallpaperLanguageStrings(): void {
     renderWallpaperPanelState();
@@ -1108,34 +1093,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     const sectionSettings = options.getSectionPanelSettings && options.getSectionPanelSettings();
     if (sectionSettings) sectionSettings.updateLanguage();
   }
-  function closeWallpaperPanel(closeOptions?: { restoreFocus?: boolean } | null): void {
-    const button = panelView.button;
-    if (!panelView.panel || !button) {
-      return;
-    }
-    cancelWallpaperPanelActiveControls();
-    if (panelView.controller) {
-      panelView.controller.closeOpenSelect();
-    }
-    closeOnlineWallpaperMenu();
-    const wasOpen = panelUi.state.open;
-    panelUi.setOpen(false);
-    // The close itself is drawn, so the panel animates out.
-    if (wasOpen) {
-      drawWallpaperPanelState();
-    } else {
-      renderWallpaperPanelState();
-    }
-    setWallpaperPanelOpenState(false);
-    if (closeOptions && closeOptions.restoreFocus) {
-      try {
-        button.focus({ preventScroll: true });
-      } catch {
-        button.focus();
-      }
-    }
-  }
-
   function createWallpaperControls(): void {
     mountWallpaperPanel(createWallpaperPanelActions());
     if (!panelView.controller) {
@@ -1150,14 +1107,11 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
       return;
     }
     if (choice.state.prefs && (choice.state.prefs.sameForModes || !isWallpaperPanelOpen())) {
-      choice.setEditMode(getResolvedWallpaperMode());
+      choice.setEditMode(choice.getResolvedWallpaperMode());
     }
     applyResolvedNewtabWallpaper();
-    renderWallpaperPanelState();
     applyWallpaperEffectForResolvedMode();
-    renderWallpaperPanelState();
     syncWallpaperSourceTabToEditMode();
-    renderWallpaperPanelState();
   }
 
   // Another page's changes: the daily picture it fetched, custom files it
@@ -1170,10 +1124,10 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
         return;
       }
       remoteClient.restoreWallpaper(REMOTE_CONTENT.BING_DAILY_ID).then(() => {
-        if (getEffectiveWallpaperIdForMode(getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
+        if (getEffectiveWallpaperIdForMode(choice.getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
           applyResolvedNewtabWallpaper();
         }
-        renderWallpaperPanelState();
+        online.remoteContentChanged();
       }).catch(warnWallpaperFailure('Could not restore the daily Bing wallpaper another tab saved.'));
     });
     settings.subscribe(SETTINGS.assetRevision, () => {
@@ -1242,13 +1196,6 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     }
     return Boolean(panelView.controller && panelView.controller.containsSelectMenuTarget(target));
   }
-
-  // The panel shows the clock settings as they are, whoever changed them.
-  options.settings.subscribe(
-    [...NEWTAB_TOP_CONTENT_SETTINGS, ...NEWTAB_SHORTCUT_GRID_SETTINGS, newtabWidthMode, newtabSearchWidth],
-    () => renderWallpaperPanelState()
-  );
-  options.preview.store.subscribe(() => renderWallpaperPanelState());
 
   return {
     createControls: createWallpaperControls,

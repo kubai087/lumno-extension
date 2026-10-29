@@ -24,7 +24,7 @@ import type {
 import type { SegmentOption, SliderChange, SliderState, ToggleState } from '../../react/wallpaper-panel/panel-primitives';
 import type { RemoteContentClient } from '../../remote-content';
 import type { RemoteWallpaper } from '../../remote-content-types';
-import type { CustomWallpapers } from './custom-wallpapers';
+import type { WallpaperImageCopies } from './wallpaper-image-copies';
 import type { DailyWallpapers } from './daily-wallpapers';
 import type { FaviconChooser } from './favicon-chooser';
 import type { PanelSettings, SliderConfig } from './panel-settings';
@@ -41,7 +41,7 @@ import type {
 import type { SvgNode } from '../../../shared/ui/svg-tree';
 import type { SettingsStore } from '../../../platform/settings-store';
 import type { SettingPreview } from '../../setting-preview';
-import { newtabTime12Hour, newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeInk, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../../../domain/settings/newtab-time';
+import { NEWTAB_TOP_CONTENT_SETTINGS, newtabTime12Hour, newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeInk, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../../../domain/settings/newtab-time';
 import * as SETTINGS from '../../../domain/settings';
 import * as REMOTE_CONTENT from '../../remote-content';
 import { BLOCK_PARAMETER_MAX, NEWTAB_FAVICON_OPTIONS, NEWTAB_FAVICON_SVG_MAIN_PATH, NEWTAB_FAVICON_SVG_SHADOW_PATH, NEWTAB_WALLPAPER_EFFECT_INK_TONES, NEWTAB_WALLPAPER_EFFECT_TYPES, NEWTAB_WALLPAPER_MODES, NEWTAB_WALLPAPER_MODE_DARK, NEWTAB_WALLPAPER_OPTIONS } from '../wallpaper-options';
@@ -51,6 +51,10 @@ import type { WallpaperLibrary } from './wallpaper-library';
 import type { WallpaperChoice } from './wallpaper-choice';
 import { createWallpaperViewController } from '../../react/wallpaper-view';
 import type { WallpaperPanelView } from './panel-view';
+import { getAppearanceModeLabels } from './appearance-labels';
+import { isLinkWallpaperId } from './wallpaper-library';
+import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../../domain/settings/newtab-shortcuts';
+import { newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -65,7 +69,7 @@ interface PanelStateDeps extends
   Pick<WallpaperSources,
     'getWallpaperThumbnailUrl' | 'getWallpaperDisplayName' | 'getWallpaperById' | 'normalizeWallpaperMode' |
     'getWallpaperLocalPath'>,
-  Pick<CustomWallpapers, 'fetchCustomWallpaperFile'>,
+  Pick<WallpaperImageCopies, 'fetchWallpaperFile'>,
   Pick<WallpaperSources, 'getLinkWallpaperById'>,
   Pick<DailyWallpapers,
     'formatBingCopyright' | 'getBingWallpaperLabel' | 'getCuratedPhotoLabel' | 'isCuratedDailyWallpaperActive' |
@@ -86,10 +90,9 @@ interface PanelStateDeps extends
   getGlobalThemeMode(): string;
   getThemeMode(): string;
   getRuntimeAssetUrl(path: unknown): string;
-  getWallpaperAppearanceModeLabel(mode: AppearanceMode): string;
-  settings: Pick<SettingsStore, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'subscribe'>;
   // The clock's size and opacity as shown, a dragged slider's value included.
-  preview: Pick<SettingPreview, 'get'>;
+  preview: Pick<SettingPreview, 'get' | 'store'>;
   getSearchWidth(): unknown;
   getInputAutoFocusEnabled(): unknown;
   getShortcutsVisible(): unknown;
@@ -117,6 +120,9 @@ interface PanelStateDeps extends
   choice: WallpaperChoice;
   overlay: Pick<WallpaperOverlay, 'store' | 'getOpacityForCurrentMode'>;
   panelView: WallpaperPanelView;
+  effectPrefsStore: WallpaperEffectPrefsRuntime['store'];
+  faviconStore: FaviconChooser['store'];
+  imageCopyEvents: WallpaperImageCopies['events'];
 }
 
 const WALLPAPER_APPEARANCE_MODES: readonly AppearanceMode[] = ['system', 'light', 'dark'];
@@ -142,6 +148,9 @@ function readTileThumbnailRecord(value: unknown): TileThumbnailRecord | null {
 
 function createPanelState(deps: PanelStateDeps) {
   const {
+    imageCopyEvents,
+    faviconStore,
+    effectPrefsStore,
     panelView,
     overlay,
     choice,
@@ -162,7 +171,6 @@ function createPanelState(deps: PanelStateDeps) {
     getThemeScope,
     getRuntimeAssetUrl,
     getGlobalThemeMode,
-    getWallpaperAppearanceModeLabel,
     getThemeMode,
     formatMessage,
     settings,
@@ -193,7 +201,7 @@ function createPanelState(deps: PanelStateDeps) {
     getBingWallpaperLabel,
     remoteClient,
     wallpaperThumbnailCache,
-    fetchCustomWallpaperFile,
+    fetchWallpaperFile,
     localWallpaperStore,
     warnWallpaperStoreFailure,
     getCuratedPhotoLabel,
@@ -320,19 +328,11 @@ function createPanelState(deps: PanelStateDeps) {
     return getRuntimeAssetUrl(`assets/images/newtab-${previewMode}.svg`);
   }
 
-  function getWallpaperAppearanceModeLabels(): Record<AppearanceMode, string> {
-    return {
-      system: getWallpaperAppearanceModeLabel('system'),
-      light: getWallpaperAppearanceModeLabel('light'),
-      dark: getWallpaperAppearanceModeLabel('dark')
-    };
-  }
-
   function buildWallpaperThemeState(): WallpaperPanelState['theme'] {
     const scope: ThemeScope = panelUi.state.pendingThemeScope || (getThemeScope() === 'home' ? 'home' : 'global');
     const themeMode = getThemeMode();
     // While the options slide between scopes they keep the labels they left with.
-    const modeLabels = panelUi.state.heldModeLabels || getWallpaperAppearanceModeLabels();
+    const modeLabels = panelUi.state.heldModeLabels || getAppearanceModeLabels(t, getThemeScope());
     return {
       title: t('settings_theme_title', 'Theme mode'),
       infoLabel: t('newtab_theme_scope_help_label', 'Theme scope info'),
@@ -693,7 +693,7 @@ function createPanelState(deps: PanelStateDeps) {
     if (!thumbnailUrl || !cache) {
       return;
     }
-    void fetchCustomWallpaperFile(thumbnailUrl)
+    void fetchWallpaperFile(thumbnailUrl)
       .then((file) => localWallpaperStore.buildTileThumbnail(file))
       .then((dataUrl) => {
         curatedTileThumbnails.set(item.id, dataUrl);
@@ -1143,12 +1143,25 @@ function createPanelState(deps: PanelStateDeps) {
   library.store.subscribe(() => renderWallpaperPanelState());
   choice.store.subscribe(() => renderWallpaperPanelState());
   overlay.store.subscribe(() => renderWallpaperPanelState());
+  effectPrefsStore.subscribe(() => renderWallpaperPanelState());
+  faviconStore.subscribe(() => renderWallpaperPanelState());
+  // A link's tile shows its copy once cached.
+  imageCopyEvents.on('cached', (copy) => {
+    if (library.state.uploadsLoaded && isLinkWallpaperId(copy.photoId)) {
+      renderWallpaperPanelState();
+    }
+  });
+  // The settings the panel shows, whoever changed them, and the sliders' previews.
+  settings.subscribe(
+    [...NEWTAB_TOP_CONTENT_SETTINGS, ...NEWTAB_SHORTCUT_GRID_SETTINGS, newtabWidthMode, newtabSearchWidth],
+    () => renderWallpaperPanelState()
+  );
+  preview.store.subscribe(() => renderWallpaperPanelState());
 
   return {
     mountWallpaperPanel,
     getWallpaperButtonLabel,
     createWallpaperPanelModel,
-    getWallpaperAppearanceModeLabels,
     buildWallpaperPanelState,
     getWallpaperPanelLayoutKey,
     renderWallpaperPanelState,

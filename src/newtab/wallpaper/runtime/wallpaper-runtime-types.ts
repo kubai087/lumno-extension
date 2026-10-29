@@ -1,10 +1,7 @@
-// The data the wallpaper runtime and its parts in this folder share: the
-// wallpapers they show, the preferences that pick them, and the one state
-// object wallpaper.ts hands every part.
+// The data the wallpaper runtime's parts in this folder share: the
+// wallpapers they show and the preferences that pick them.
 import type { WallpaperRecord } from '../../../shared/wallpaper-records';
 import type { RemoteWallpaper } from '../../remote-content-types';
-import type { WallpaperAdaptiveTone } from '../wallpaper-adaptive-tone';
-import type { WallpaperEffects } from '../wallpaper-effects';
 import type { WallpaperMode } from '../wallpaper-preload-types';
 
 // A wallpaper bundled with the extension, in assets/wallpapers.
@@ -75,12 +72,6 @@ type WallpaperOverlayStops = Readonly<Record<WallpaperMode, Readonly<{ top: numb
 // Saves one setting after its slider settles; a final change saves at once.
 type DebouncedSaver = (key: string, write: () => void, options?: { final?: boolean } | null) => void;
 
-interface WallpaperState {
-  // Created once the runtime's parts exist.
-  wallpaperAdaptiveTone: WallpaperAdaptiveTone | null;
-  wallpaperEffects: WallpaperEffects | null;
-}
-
 export type {
   AppearanceMode,
   BuiltInWallpaper,
@@ -92,6 +83,5 @@ export type {
   WallpaperItem,
   WallpaperMode,
   WallpaperOverlayStops,
-  WallpaperPrefs,
-  WallpaperState
+  WallpaperPrefs
 };

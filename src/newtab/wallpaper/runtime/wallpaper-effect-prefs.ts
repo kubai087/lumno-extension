@@ -4,8 +4,7 @@
 import type { Translate } from '../../newtab-types';
 import type { EffectType, WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from '../wallpaper-effects';
 import type { WallpaperSources } from './wallpaper-sources';
-import type { WallpaperStorage } from './wallpaper-storage';
-import type { WallpaperMode, WallpaperState } from './wallpaper-runtime-types';
+import type { WallpaperMode } from './wallpaper-runtime-types';
 import { newtabWallpaperEffect } from '../../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../../platform/settings-store';
 import * as WALLPAPER_EFFECTS from '../wallpaper-effects';
@@ -14,6 +13,8 @@ import { NEWTAB_WALLPAPER_EFFECT_DEFAULTS, NEWTAB_WALLPAPER_EFFECT_INK_TONES, NE
 import type { WallpaperChoice } from './wallpaper-choice';
 import type { InitialWallpaper } from './initial-wallpaper';
 import { createDebouncedSaver } from './debounced-saver';
+import { createWallpaperTransitionLayer, releaseWallpaperTransitionLayer } from './transition-layer';
+import type { WallpaperEffects } from '../wallpaper-effects';
 
 // The effect per mode as chosen, and the one on screen now.
 interface EffectPrefsState {
@@ -27,50 +28,38 @@ interface EffectLabel {
   fallback: string;
 }
 
-interface WallpaperEffectPrefsDeps extends Pick<WallpaperSources, 'normalizeWallpaperMode'>,
-  Pick<WallpaperStorage, 'getWallpaperEditMode' | 'getResolvedWallpaperMode' | 'writeWallpaperPreloadCache'> {
+interface WallpaperEffectPrefsDeps extends Pick<WallpaperSources, 'normalizeWallpaperMode'> {
   normalizeSingleWallpaperEffectPrefs(value: unknown, inheritedVersion?: unknown): WallpaperEffectPrefs;
   normalizeWallpaperEffectStoragePrefs(value: unknown): WallpaperEffectStoragePrefs;
   t: Translate;
-  // A copy of the shown wallpaper that fades out over the change, or null.
-  createWallpaperTransitionLayer(): HTMLElement | null;
-  releaseWallpaperTransitionLayer(layer: HTMLElement | null): void;
   document: Document;
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'set'>;
   window: Window;
-  wallpaperState: Pick<WallpaperState,
-    'wallpaperEffects' | 'wallpaperAdaptiveTone'>;
   choice: WallpaperChoice;
   initialWallpaper: Pick<InitialWallpaper, 'ready'>;
+  wallpaperEffects: WallpaperEffects;
 }
 
 function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
   const {
+    wallpaperEffects,
     initialWallpaper,
     choice,
     settings,
     normalizeSingleWallpaperEffectPrefs,
     normalizeWallpaperMode,
-    getWallpaperEditMode,
-    getResolvedWallpaperMode,
     normalizeWallpaperEffectStoragePrefs,
     t,
-    createWallpaperTransitionLayer,
     document,
-    releaseWallpaperTransitionLayer,
-    writeWallpaperPreloadCache,
     window
   } = deps;
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
   const saveStyleSetting = createDebouncedSaver(window, 120);
   const store = createStore<EffectPrefsState>({
     byMode: normalizeWallpaperEffectStoragePrefs(NEWTAB_WALLPAPER_EFFECT_DEFAULTS),
     applied: { ...NEWTAB_WALLPAPER_EFFECT_DEFAULTS }
   });
 
-  const WALLPAPER_TONE_REVEAL_WAIT_MAX_MS = 200;
   let initialWallpaperEffectReadyPromise: Promise<void> | null = null;
   let hasStoredWallpaperEffectLoaded = false;
 
@@ -85,8 +74,8 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
 
   function getWallpaperEffectEditMode(): WallpaperMode {
     return choice.state.prefs && choice.state.prefs.sameForModes === false
-      ? getWallpaperEditMode()
-      : getResolvedWallpaperMode();
+      ? choice.getWallpaperEditMode()
+      : choice.getResolvedWallpaperMode();
   }
 
   function getWallpaperEffectPrefsForEditMode(): WallpaperEffectPrefs {
@@ -121,7 +110,7 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
         choice.state.prefs.sameForModes === false) {
       return false;
     }
-    const mode = normalizeWallpaperMode(sourceMode || getResolvedWallpaperMode());
+    const mode = normalizeWallpaperMode(sourceMode || choice.getResolvedWallpaperMode());
     const before = JSON.stringify(getWallpaperEffectStorageValue());
     setSharedWallpaperEffectPrefs(getWallpaperEffectPrefsForMode(mode));
     return before !== JSON.stringify(getWallpaperEffectStorageValue());
@@ -156,9 +145,9 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
   }
   function applyWallpaperEffectForResolvedMode(): void {
     const previousType = store.getSnapshot().applied.type;
-    const nextPrefs = getWallpaperEffectPrefsForMode(getResolvedWallpaperMode());
+    const nextPrefs = getWallpaperEffectPrefsForMode(choice.getResolvedWallpaperMode());
     const transitionLayer = previousType !== nextPrefs.type
-      ? createWallpaperTransitionLayer()
+      ? createWallpaperTransitionLayer(document, window)
       : null;
     if (transitionLayer) {
       transitionLayer.setAttribute('data-wallpaper-filter-transition', 'true');
@@ -167,19 +156,19 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     if (document.body) {
       document.body.setAttribute('data-wallpaper-effect', nextPrefs.type);
     }
-    const effectRenderReady = wallpaperState.wallpaperEffects
-      ? wallpaperState.wallpaperEffects.apply(WALLPAPER_EFFECTS.resolvePrefsForMode(
+    const effectRenderReady = wallpaperEffects
+      ? wallpaperEffects.apply(WALLPAPER_EFFECTS.resolvePrefsForMode(
         nextPrefs,
-        getResolvedWallpaperMode()
+        choice.getResolvedWallpaperMode()
       ))
       : null;
     if (transitionLayer && effectRenderReady && typeof effectRenderReady.then === 'function') {
       Promise.resolve(effectRenderReady).then(
-        () => releaseWallpaperTransitionLayer(transitionLayer),
-        () => releaseWallpaperTransitionLayer(transitionLayer)
+        () => releaseWallpaperTransitionLayer(window, transitionLayer),
+        () => releaseWallpaperTransitionLayer(window, transitionLayer)
       );
     } else {
-      releaseWallpaperTransitionLayer(transitionLayer);
+      releaseWallpaperTransitionLayer(window, transitionLayer);
     }
   }
 
@@ -243,9 +232,6 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     });
     setWallpaperEffectPrefsForModes(nextPrefsByMode);
     applyWallpaperEffectForResolvedMode();
-    if (choice.state.loaded) {
-      writeWallpaperPreloadCache();
-    }
     saveStyleSetting('effect', () => {
       void settings.set(newtabWallpaperEffect, getWallpaperEffectStorageValue());
     });
@@ -260,9 +246,6 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
       const raw = settings.getStored(newtabWallpaperEffect);
       hasStoredWallpaperEffectLoaded = true;
       applyWallpaperEffectPrefs(normalizeWallpaperEffectStoragePrefs(raw));
-      if (choice.state.loaded) {
-        writeWallpaperPreloadCache();
-      }
       const storedPrefs = getWallpaperEffectStorageValue();
       if (raw && JSON.stringify(raw) !== JSON.stringify(storedPrefs)) {
         void settings.set(newtabWallpaperEffect, storedPrefs);
@@ -278,28 +261,13 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
       initialWallpaper.ready,
       effectPreferencesReady
     ]).then(() => {
-      if (!wallpaperState.wallpaperEffects ||
+      if (!wallpaperEffects ||
           !choice.state.shownId ||
           store.getSnapshot().applied.type === 'none') {
         return;
       }
-      return wallpaperState.wallpaperEffects.refresh({ immediate: true });
+      return wallpaperEffects.refresh({ immediate: true });
     });
-  }
-
-  // The page's content shows once the wallpaper's tones are on its controls, so nothing enters in
-  // the theme's default colors and changes a moment later. A slow image never holds it for long.
-  function waitForInitialWallpaperTone(): Promise<void> {
-    return initialWallpaper.ready.then(() => new Promise<void>((resolve) => {
-      const timer = window.setTimeout(resolve, WALLPAPER_TONE_REVEAL_WAIT_MAX_MS);
-      const adaptiveTone = wallpaperState.wallpaperAdaptiveTone;
-      if (adaptiveTone) {
-        void adaptiveTone.whenSettled().then(() => {
-          window.clearTimeout(timer);
-          resolve();
-        });
-      }
-    }));
   }
 
   return {
@@ -321,8 +289,7 @@ function createWallpaperEffectPrefs(deps: WallpaperEffectPrefsDeps) {
     getWallpaperEffectTextureLabel,
     persistWallpaperEffectPrefs,
     bootstrapInitialWallpaperEffect,
-    waitForInitialWallpaperEffectVisual,
-    waitForInitialWallpaperTone
+    waitForInitialWallpaperEffectVisual
   };
 }
 

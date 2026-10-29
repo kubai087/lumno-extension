@@ -7,10 +7,14 @@ import { getWallpaperOverlayStopPercent } from './wallpaper-overlay';
 import type { WallpaperOverlay } from './wallpaper-overlay';
 import { clampNumber } from '../wallpaper-effect-pixels';
 import type { WallpaperSources } from './wallpaper-sources';
-import type { WallpaperItem, WallpaperState } from './wallpaper-runtime-types';
+import type { WallpaperItem } from './wallpaper-runtime-types';
 import { readBootValue } from '../../../platform/boot-handoff';
 import { NEWTAB_WALLPAPER_OVERLAY_STOPS } from '../wallpaper-options';
 import type { WallpaperPanelView } from './panel-view';
+import { afterNextPaint, waitForDocumentLoad } from './motion';
+import { WALLPAPER_FILTER_TRANSITION_MS, WALLPAPER_VISUAL_TRANSITION_MS } from './transition-layer';
+import { createEventBus } from '../../../shared/state/events';
+import type { WallpaperEffects } from '../wallpaper-effects';
 
 interface WallpaperVisualDeps extends
   Pick<WallpaperSources, 'isNetworkWallpaperImageUrl' | 'getDisplayedWallpaperImageUrl' | 'getWallpaperSample'> {
@@ -21,18 +25,20 @@ interface WallpaperVisualDeps extends
   chrome: { runtime?: { getURL?: (path: string) => string } } | null | undefined;
   windowObj: Window & typeof globalThis;
   wallpaperNetworkImageStates: Map<string, 'loaded' | 'failed'>;
-  shouldReduceMotion(): boolean;
   wallpaperEffectPreload: WallpaperEffectPreloadRuntime | null;
-  refreshWallpaperAdaptiveSampler(): void;
-  afterNextPaint(windowObj: Window, callback: () => void): void;
-  wallpaperState: Pick<WallpaperState,
-    'wallpaperEffects'>;
   overlay: Pick<WallpaperOverlay, 'getResolvedMode' | 'getOpacityForCurrentMode'>;
   panelView: WallpaperPanelView;
+  wallpaperEffects: Pick<WallpaperEffects, 'refresh'>;
+}
+
+interface WallpaperVisualEvents {
+  // A wallpaper change has settled on screen: its tones can be sampled.
+  settled: null;
 }
 
 function createWallpaperVisual(deps: WallpaperVisualDeps) {
   const {
+    wallpaperEffects,
     panelView,
     overlay,
     document,
@@ -42,19 +48,13 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
     windowObj,
     isNetworkWallpaperImageUrl,
     wallpaperNetworkImageStates,
-    shouldReduceMotion,
     getDisplayedWallpaperImageUrl,
     getWallpaperSample,
-    wallpaperEffectPreload,
-    refreshWallpaperAdaptiveSampler,
-    afterNextPaint
+    wallpaperEffectPreload
   } = deps;
+  const events = createEventBus<WallpaperVisualEvents>();
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
 
-  const WALLPAPER_VISUAL_TRANSITION_MS = 220;
-  const WALLPAPER_FILTER_TRANSITION_MS = 180;
   const WALLPAPER_VISUAL_REFRESH_DELAY_MS = 80;
   const WALLPAPER_IMAGE_READY_CACHE_LIMIT = 8;
   const WALLPAPER_NETWORK_IMAGE_TIMEOUT_MS = 8000;
@@ -100,8 +100,8 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
   }
 
   function refreshWallpaperEffects(): Promise<void> {
-    if (wallpaperState.wallpaperEffects) {
-      return wallpaperState.wallpaperEffects.refresh();
+    if (wallpaperEffects) {
+      return wallpaperEffects.refresh();
     }
     return Promise.resolve();
   }
@@ -280,78 +280,12 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
       image.onerror = () => finish(false);
       image.src = imageUrl;
     });
-    const promise = isNetwork ? waitForDocumentLoad().then(load) : load();
+    const promise = isNetwork ? waitForDocumentLoad(document, window).then(load) : load();
     cacheWallpaperImageReady(imageUrl, promise);
     return promise;
   }
 
   // Network images start after the page has loaded, so they never hold the tab's spinner.
-  function waitForDocumentLoad(): Promise<void> {
-    if (!document || typeof document.readyState !== 'string' || document.readyState === 'complete') {
-      return Promise.resolve();
-    }
-    return new Promise<void>((resolve) => {
-      window.addEventListener('load', () => resolve(), { once: true });
-    });
-  }
-
-  function createWallpaperTransitionLayer(): HTMLDivElement | null {
-    if (!document.body ||
-        document.body.getAttribute('data-nt-enter') !== 'done' ||
-        shouldReduceMotion()) {
-      return null;
-    }
-    const computedStyle = window.getComputedStyle(document.body);
-    const layer = document.createElement('div');
-    layer.className = 'x-nt-wallpaper-transition-layer';
-    layer.style.backgroundColor = computedStyle.backgroundColor;
-    if (document.body.getAttribute('data-wallpaper-effect') === 'blur') {
-      layer.setAttribute('data-wallpaper-effect', 'blur');
-      layer.style.backgroundImage =
-        computedStyle.getPropertyValue('--x-nt-wallpaper-image').trim() || 'none';
-      layer.style.backgroundSize =
-        computedStyle.getPropertyValue('--x-nt-wallpaper-size').trim() || 'cover';
-      layer.style.backgroundPosition =
-        computedStyle.getPropertyValue('--x-nt-wallpaper-position').trim() || 'center center';
-      [
-        '--x-nt-wallpaper-blur-overscan',
-        '--x-nt-wallpaper-blur-radius',
-        '--x-nt-wallpaper-blur-saturate',
-        '--x-nt-wallpaper-blur-brightness',
-        '--x-nt-wallpaper-blur-contrast'
-      ].forEach((propertyName) => {
-        const propertyValue = computedStyle.getPropertyValue(propertyName).trim();
-        if (propertyValue) {
-          layer.style.setProperty(propertyName, propertyValue);
-        }
-      });
-    } else {
-      layer.style.backgroundImage = computedStyle.backgroundImage;
-      layer.style.backgroundSize = computedStyle.backgroundSize;
-      layer.style.backgroundPosition = computedStyle.backgroundPosition;
-    }
-    layer.style.backgroundRepeat = computedStyle.backgroundRepeat;
-    layer.style.backgroundAttachment = 'fixed';
-    document.body.insertBefore(layer, document.body.firstChild);
-    return layer;
-  }
-
-  function releaseWallpaperTransitionLayer(layer: HTMLElement | null | undefined): void {
-    if (!layer || !layer.parentNode) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      layer.setAttribute('data-exit', 'true');
-      window.setTimeout(() => {
-        if (layer.parentNode) {
-          layer.parentNode.removeChild(layer);
-        }
-      }, (layer.getAttribute('data-wallpaper-filter-transition') === 'true'
-        ? WALLPAPER_FILTER_TRANSITION_MS
-        : WALLPAPER_VISUAL_TRANSITION_MS) + 80);
-    });
-  }
-
   let visualSeq = 0;
   let appliedVisual = { url: '', active: false };
 
@@ -384,7 +318,7 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
     if (seq !== visualSeq) {
       return;
     }
-    refreshWallpaperAdaptiveSampler();
+    events.emit('settled', null);
     void refreshWallpaperEffects();
   }
 
@@ -416,14 +350,12 @@ function createWallpaperVisual(deps: WallpaperVisualDeps) {
   }
 
   return {
+    events,
     getWallpaperOverlayAlphaAtViewportY,
     getWallpaperAdaptiveToneTargets,
     getRuntimeAssetUrl,
     takePreloadedDecodedImage,
     waitForWallpaperImageReady,
-    waitForDocumentLoad,
-    createWallpaperTransitionLayer,
-    releaseWallpaperTransitionLayer,
     applyWallpaperVisualState,
     beginVisualChange,
     isLatestVisualChange,

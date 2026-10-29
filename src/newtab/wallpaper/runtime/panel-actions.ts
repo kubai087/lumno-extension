@@ -40,7 +40,7 @@ interface SectionPanelSettings {
 
 interface PanelActionsDeps extends
   Pick<WallpaperEffectPrefsRuntime, 'getWallpaperEffectPrefsForEditMode' | 'persistWallpaperEffectPrefs'>,
-  Pick<PanelState, 'getWallpaperStyleSliderValue' | 'getWallpaperButtonLabel' | 'renderWallpaperPanelState' |
+  Pick<PanelState, 'getWallpaperStyleSliderValue' | 'getWallpaperButtonLabel' | 'renderWallpaperPanelState' | 'drawWallpaperPanelState' |
     'isWallpaperTileSelected'>,
   Pick<WallpaperSources, 'getWallpaperById'>,
   Pick<DailyWallpapers, 'clearDailyWallpaperPick' | 'selectBingWallpaper' | 'loadBingCatalog' |
@@ -55,9 +55,9 @@ interface PanelActionsDeps extends
     'persistTimeSecondsVisible' | 'persistTime12Hour' | 'persistShortcutColumnsFromSlider' |
     'persistShortcutSizeFromSlider' | 'persistShortcutGapFromSlider' | 'getShortcutLayoutDefault'>,
   Pick<CustomWallpapers, 'deleteCustomWallpaper' | 'importCustomWallpaperFile' | 
-    'showLocalWallpaperLimitToast' | 'setCustomWallpaperUrlFormOpen' | 'openOnlineWallpaperMenu' |
+    'showLocalWallpaperLimitToast' | 'setCustomWallpaperUrlFormOpen' | 'openOnlineWallpaperMenu' | 'closeOnlineWallpaperMenu' |
     'submitCustomWallpaperUrl'>,
-  Pick<WallpaperStorage, 'getWallpaperSelectionIdForUi' | 'getResolvedWallpaperMode'>,
+  Pick<WallpaperStorage, 'getWallpaperSelectionIdForUi'>,
   Pick<FaviconChooser, 'persistNewtabFavicon'> {
   settings: Pick<SettingsStore, 'get'>;
   getCrtParameterPercent(key: CrtParameterKey, value: unknown): number;
@@ -84,7 +84,6 @@ interface PanelActionsDeps extends
   chrome: FeatureHintChromeApi | null | undefined;
   featureHintVisibilityGate: PromiseLike<unknown> | null;
   t: Translate;
-  closeWallpaperPanel(): void;
   panelUi: WallpaperPanelUi;
   library: Pick<WallpaperLibrary, 'isFull'>;
   choice: WallpaperChoice;
@@ -101,6 +100,8 @@ function isCrtParameterKey(key: EffectParameterKey): key is CrtParameterKey {
 
 function createPanelActions(deps: PanelActionsDeps) {
   const {
+    closeOnlineWallpaperMenu,
+    drawWallpaperPanelState,
     panelView,
     overlay,
     choice,
@@ -174,10 +175,8 @@ function createPanelActions(deps: PanelActionsDeps) {
     featureHintVisibilityGate,
     t,
     syncWallpaperSourceTabToEditMode,
-    getResolvedWallpaperMode,
     setWallpaperPanelOpenState,
-    loadCustomWallpapers,
-    closeWallpaperPanel
+    loadCustomWallpapers
   } = deps;
 
 
@@ -417,7 +416,7 @@ function createPanelActions(deps: PanelActionsDeps) {
     // set apart, the mode picked on an earlier open (or the light default
     // a page starts with) would leave every change to the other mode's
     // wallpaper and filter, out of sight.
-    const shownMode = getResolvedWallpaperMode();
+    const shownMode = choice.getResolvedWallpaperMode();
     const modeChanged = choice.state.editMode !== shownMode;
     choice.setEditMode(shownMode);
     if (!wallpaperPanelRendered) {
@@ -443,7 +442,46 @@ function createPanelActions(deps: PanelActionsDeps) {
     openWallpaperPanel();
   }
 
+  function cancelWallpaperPanelActiveControls(): void {
+    const activeElement = document.activeElement;
+    if (!activeElement || !panelView.panel || !panelView.panel.contains(activeElement)) {
+      return;
+    }
+    if ('blur' in activeElement && typeof activeElement.blur === 'function') {
+      activeElement.blur();
+    }
+  }
+
+  function closeWallpaperPanel(closeOptions?: { restoreFocus?: boolean } | null): void {
+    const button = panelView.button;
+    if (!panelView.panel || !button) {
+      return;
+    }
+    cancelWallpaperPanelActiveControls();
+    if (panelView.controller) {
+      panelView.controller.closeOpenSelect();
+    }
+    closeOnlineWallpaperMenu();
+    const wasOpen = panelUi.state.open;
+    panelUi.setOpen(false);
+    // The close itself is drawn, so the panel animates out.
+    if (wasOpen) {
+      drawWallpaperPanelState();
+    } else {
+      renderWallpaperPanelState();
+    }
+    setWallpaperPanelOpenState(false);
+    if (closeOptions && closeOptions.restoreFocus) {
+      try {
+        button.focus({ preventScroll: true });
+      } catch {
+        button.focus();
+      }
+    }
+  }
+
   return {
+    closeWallpaperPanel,
     updateWallpaperSourcesHintLanguage,
     createWallpaperPanelActions,
     createWallpaperSourcesFeatureHint

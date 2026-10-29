@@ -5,7 +5,6 @@ import type { Translate } from '../../newtab-types';
 import type { ThemeScope, WallpaperSourceTab } from '../../react/wallpaper-panel/panel-model';
 import type { DailyWallpapers } from './daily-wallpapers';
 import type { PanelSettings } from './panel-settings';
-import type { PanelState } from './panel-state';
 import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
@@ -15,10 +14,11 @@ import type { WallpaperPanelUi } from './panel-ui';
 import type { OnlineWallpapers } from './online-wallpapers';
 import type { WallpaperChoice } from './wallpaper-choice';
 import type { WallpaperPanelView } from './panel-view';
+import { playEnterMotion, shouldReduceMotion } from './motion';
+import { getAppearanceModeLabels } from './appearance-labels';
 
 interface PanelMotionDeps extends
   Pick<WallpaperStorage, 'normalizeWallpaperSourceTab' | 'getWallpaperSelectionIdForUi' | 'getWallpaperSourceTabForId'>,
-  Pick<PanelState, 'renderWallpaperPanelState' | 'getWallpaperPanelRefs' | 'getWallpaperAppearanceModeLabels'>,
   Pick<WallpaperSelection, 'loadCustomWallpapers'>,
   Pick<DailyWallpapers, 'loadBingCatalog' | 'showCuratedPageOfSelection'>,
   Pick<WallpaperSources, 'getWallpaperById' | 'normalizeWallpaperMode'>,
@@ -27,23 +27,23 @@ interface PanelMotionDeps extends
   document: Document;
   t: Translate;
   getThemeScope(): string;
-  afterNextPaint(windowObj: Window, callback: () => void): void;
   setThemeScope(scope: ThemeScope): void;
   panelUi: WallpaperPanelUi;
   online: OnlineWallpapers;
   choice: WallpaperChoice;
   panelView: WallpaperPanelView;
+  selectionEvents: WallpaperSelection['events'];
 }
 
 function createPanelMotion(deps: PanelMotionDeps) {
   const {
+    selectionEvents,
     panelView,
     choice,
     online,
     panelUi,
     window,
     normalizeWallpaperSourceTab,
-    renderWallpaperPanelState,
     loadCustomWallpapers,
     loadBingCatalog,
     getWallpaperSelectionIdForUi,
@@ -56,10 +56,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
     getThemeScope,
     getWallpaperAppearanceOptionButtons,
     getWallpaperAppearanceOptionMotionElement,
-    getWallpaperPanelRefs,
-    afterNextPaint,
-    setThemeScope,
-    getWallpaperAppearanceModeLabels
+    setThemeScope
   } = deps;
 
 
@@ -109,7 +106,7 @@ function createPanelMotion(deps: PanelMotionDeps) {
     const resizingPanel = panelView.panel;
     const canAnimate = resizingPanel &&
       isWallpaperPanelOpen() &&
-      !shouldReduceMotion();
+      !shouldReduceMotion(window);
     if (!resizingPanel || !canAnimate) {
       mutate();
       return;
@@ -178,13 +175,10 @@ function createPanelMotion(deps: PanelMotionDeps) {
     if (previousTab !== nextTab) {
       panelUi.setTab(nextTab);
       if (nextTab === 'curated') showCuratedCategoryOfSelection();
-      renderWallpaperPanelState();
-      playWallpaperEnterMotion(
+      playEnterMotion(window, 
         getWallpaperGridForTab(nextTab),
         WALLPAPER_SOURCE_TABS.indexOf(nextTab) < WALLPAPER_SOURCE_TABS.indexOf(previousTab) ? 'enter-prev' : 'enter-next'
       );
-    } else {
-      renderWallpaperPanelState();
     }
     if (nextTab === 'local' && isWallpaperPanelOpen()) {
       void loadCustomWallpapers();
@@ -223,13 +217,11 @@ function createPanelMotion(deps: PanelMotionDeps) {
     online.dropSelections();
     const nextMode = normalizeWallpaperMode(mode);
     if (choice.state.editMode === nextMode) {
-      renderWallpaperPanelState();
       return;
     }
     choice.setEditMode(nextMode);
     syncWallpaperSourceTabToEditMode({ force: true });
-    renderWallpaperPanelState();
-    playWallpaperEnterMotion(getWallpaperGridForTab(panelUi.state.tab), 'enter');
+    playEnterMotion(window, getWallpaperGridForTab(panelUi.state.tab), 'enter');
   }
 
   function isWallpaperPanelOpen(): boolean {
@@ -244,19 +236,6 @@ function createPanelMotion(deps: PanelMotionDeps) {
       return;
     }
     document.body.removeAttribute('data-wallpaper-panel-open');
-  }
-
-  function getWallpaperAppearanceModeLabel(mode: string): string {
-    if (mode === 'light') {
-      return t('settings_theme_light', 'Light');
-    }
-    if (mode === 'dark') {
-      return t('settings_theme_dark', 'Dark');
-    }
-    if (getThemeScope() === 'home') {
-      return t('newtab_theme_follow_global', 'Follow "Global"');
-    }
-    return t('settings_theme_system', 'Follow system');
   }
 
   function clearWallpaperAppearanceScopeAnimation(): void {
@@ -275,34 +254,13 @@ function createPanelMotion(deps: PanelMotionDeps) {
       motionElement.style.removeProperty('opacity');
       motionElement.style.removeProperty('will-change');
     });
-    const options = getWallpaperPanelRefs().appearanceOptions;
+    const options = panelView.getRefs().appearanceOptions;
     if (options) {
       options.removeAttribute('data-scope-animating');
     }
   }
-  function shouldReduceMotion(): boolean {
-    return Boolean(window.matchMedia &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
-
-  function playWallpaperEnterMotion(element: HTMLElement | null | undefined, state?: string): void {
-    if (!element) {
-      return;
-    }
-    const nextState = state || 'enter';
-    if (shouldReduceMotion()) {
-      element.removeAttribute('data-motion');
-      return;
-    }
-    element.setAttribute('data-motion', nextState);
-    afterNextPaint(window, () => {
-      if (element.getAttribute('data-motion') === nextState) {
-        element.removeAttribute('data-motion');
-      }
-    });
-  }
   function getWallpaperGridForTab(tab: WallpaperSourceTab): HTMLElement | undefined {
-    const refs = getWallpaperPanelRefs();
+    const refs = panelView.getRefs();
     if (tab === 'bing') return refs.bingPanel;
     if (tab === 'curated') return refs.curatedPanel;
     return tab === 'local' ? refs.localGrid : refs.builtInGrid;
@@ -321,9 +279,8 @@ function createPanelMotion(deps: PanelMotionDeps) {
     const sourceScope: ThemeScope = previousScope === 'home' ? 'home' : 'global';
     const buttons = getWallpaperAppearanceOptionButtons();
     clearWallpaperAppearanceScopeAnimation();
-    if (!buttons.length || sourceScope === targetScope || shouldReduceMotion()) {
+    if (!buttons.length || sourceScope === targetScope || shouldReduceMotion(window)) {
       setThemeScope(targetScope);
-      renderWallpaperPanelState();
       return;
     }
     const direction = getAppearanceScopeDirection(targetScope);
@@ -332,13 +289,12 @@ function createPanelMotion(deps: PanelMotionDeps) {
     const fadeDurationMs = 140;
     const handoffOverlapMs = 70;
     const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
-    const options = getWallpaperPanelRefs().appearanceOptions;
+    const options = panelView.getRefs().appearanceOptions;
     // The tabs move to the new scope at once; the options keep their labels until they swap.
-    panelUi.holdModeLabels(getWallpaperAppearanceModeLabels(), targetScope);
+    panelUi.holdModeLabels(getAppearanceModeLabels(t, getThemeScope()), targetScope);
     if (options) {
       options.setAttribute('data-scope-animating', 'true');
     }
-    renderWallpaperPanelState();
 
     let maxOutDelay = 0;
     buttons.forEach((button, index) => {
@@ -392,12 +348,13 @@ function createPanelMotion(deps: PanelMotionDeps) {
       const cleanupTimer = window.setTimeout(() => {
         wallpaperAppearanceAnimationTimers = wallpaperAppearanceAnimationTimers.filter((timerId) => timerId !== cleanupTimer);
         clearWallpaperAppearanceScopeAnimation();
-        renderWallpaperPanelState();
       }, durationMs + maxInDelay + 24);
       wallpaperAppearanceAnimationTimers.push(cleanupTimer);
     }, handoffDelayMs);
     wallpaperAppearanceAnimationTimers.push(handoffTimer);
   }
+
+  selectionEvents.on('chosen', () => syncWallpaperSourceTabToEditMode());
 
   return {
     animateWallpaperPanelResize,
@@ -406,9 +363,6 @@ function createPanelMotion(deps: PanelMotionDeps) {
     setWallpaperActiveMode,
     isWallpaperPanelOpen,
     setWallpaperPanelOpenState,
-    getWallpaperAppearanceModeLabel,
-    shouldReduceMotion,
-    playWallpaperEnterMotion,
     animateWallpaperAppearanceScopeChange
   };
 }

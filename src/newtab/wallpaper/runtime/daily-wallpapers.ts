@@ -8,38 +8,34 @@ import type { RemoteWallpaper } from '../../remote-content-types';
 import type { WallpaperSelection } from './wallpaper-selection';
 import type { WallpaperSources } from './wallpaper-sources';
 import type { WallpaperStorage } from './wallpaper-storage';
-import type { WallpaperItem, WallpaperState } from './wallpaper-runtime-types';
+import type { WallpaperItem } from './wallpaper-runtime-types';
 import { newtabCuratedMixExcluded, newtabDailyWallpaperPicks } from '../../../domain/settings/newtab-wallpaper';
 import * as REMOTE_CONTENT from '../../remote-content';
 import { NEWTAB_WALLPAPER_DEFAULT_ID, NEWTAB_WALLPAPER_MODES } from '../wallpaper-options';
 import type { OnlineWallpapers } from './online-wallpapers';
 import type { WallpaperChoice } from './wallpaper-choice';
 import type { WallpaperPanelView } from './panel-view';
+import { playEnterMotion } from './motion';
+import type { WallpaperEffects } from '../wallpaper-effects';
 
 interface DailyWallpapersDeps extends
   Pick<WallpaperStorage,
-    'getEffectiveWallpaperIdForMode' | 'getResolvedWallpaperMode' | 'getWallpaperSelectionIdForUi' |
-    'writeSetting' | 'getWallpaperTileSelectionId' | 'getWallpaperEditMode'>,
+    'getEffectiveWallpaperIdForMode' | 'getWallpaperSelectionIdForUi' |
+    'writeSetting' | 'getWallpaperTileSelectionId' >,
   Pick<WallpaperSelection, 'applyResolvedNewtabWallpaper' | 'persistNewtabWallpaper'>,
   Pick<WallpaperSources, 'getWallpaperById'> {
-  renderWallpaperPanelState(): void;
   remoteClient: Pick<RemoteContentClient, 'getCatalog' | 'ensureWallpaper' | 'getWallpaper'>;
   document: Document;
   window: Window;
   showToast: ShowToast;
   t: Translate;
   formatMessage: FormatMessage;
-  // Replays the entry motion of a panel element.
-  playWallpaperEnterMotion(element: HTMLElement | null | undefined, state: string): void;
-  // The appearance panel's elements by data-wallpaper-ref name.
-  getWallpaperPanelRefs(): Readonly<Partial<Record<string, HTMLElement>>>;
   // Shows a toast that follows a task to its end.
   beginToast(message: string): ToastTask;
-  wallpaperState: Pick<WallpaperState,
-    'wallpaperEffects'>;
   online: OnlineWallpapers;
   choice: WallpaperChoice;
   panelView: WallpaperPanelView;
+  wallpaperEffects: Pick<WallpaperEffects, 'isSourceStale' | 'refresh'>;
 }
 
 // Category names when their messages are missing.
@@ -54,13 +50,12 @@ const CURATED_CATEGORY_FALLBACKS: Readonly<Record<string, string>> = {
 
 function createDailyWallpapers(deps: DailyWallpapersDeps) {
   const {
+    wallpaperEffects,
     panelView,
     choice,
     online,
-    renderWallpaperPanelState,
     remoteClient,
     getEffectiveWallpaperIdForMode,
-    getResolvedWallpaperMode,
     applyResolvedNewtabWallpaper,
     document,
     window,
@@ -70,21 +65,15 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     t,
     getWallpaperTileSelectionId,
     formatMessage,
-    playWallpaperEnterMotion,
-    getWallpaperPanelRefs,
     persistNewtabWallpaper,
     getWallpaperById,
-    getWallpaperEditMode,
     beginToast
   } = deps;
 
-  // The runtime state object shared with wallpaper.ts and the other modules.
-  const wallpaperState = deps.wallpaperState;
 
   let bingCatalogSeq = 0;
   // Three full rows; the refresh button pages through the category.
   const CURATED_TILE_LIMIT = 9;
-  let curatedPage = 0;
   let dailyWallpaperCheckedDay = '';
   let hasWallpaperPageShownListeners = false;
 
@@ -117,7 +106,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
           // The list loaded; if the daily photo still fails, the current wallpaper simply stays.
         });
         if (seq !== bingCatalogSeq) return;
-        if (getEffectiveWallpaperIdForMode(getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
+        if (getEffectiveWallpaperIdForMode(choice.getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
           applyResolvedNewtabWallpaper();
         }
       }
@@ -143,14 +132,14 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     // Curated picks follow the date alone, so the new one is ready without a request.
     if (dailyIds.some((id) => id !== REMOTE_CONTENT.BING_DAILY_ID)) {
       applyResolvedNewtabWallpaper();
-      renderWallpaperPanelState();
+      online.remoteContentChanged();
     }
     if (!dailyIds.includes(REMOTE_CONTENT.BING_DAILY_ID)) return;
     void remoteClient.ensureWallpaper(REMOTE_CONTENT.BING_DAILY_ID).then(() => {
-      if (getEffectiveWallpaperIdForMode(getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
+      if (getEffectiveWallpaperIdForMode(choice.getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
         applyResolvedNewtabWallpaper();
       }
-      renderWallpaperPanelState();
+      online.remoteContentChanged();
     }).catch(() => {
       // Offline at midnight: yesterday's photo stays until the next check.
     });
@@ -158,7 +147,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
 
   // A background tab can miss the effect redraw for a photo that changed while it was hidden.
   function syncWallpaperEffectSource(): void {
-    const effects = wallpaperState.wallpaperEffects;
+    const effects = wallpaperEffects;
     if (document.visibilityState === 'hidden' || !effects ||
         typeof effects.isSourceStale !== 'function' || !effects.isSourceStale()) {
       return;
@@ -204,7 +193,6 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
         showToast(t('newtab_wallpaper_save_error', 'Failed to save wallpaper'), true);
       });
     applyResolvedNewtabWallpaper();
-    renderWallpaperPanelState();
   }
 
   function clearDailyWallpaperPick(dailyId: string): void {
@@ -215,7 +203,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     const items = REMOTE_CONTENT.getCuratedWallpapers(online.state.curatedCategory);
     if (!items.length) return [];
     // Wrap around the end of the category so every page fills both rows.
-    const start = (curatedPage * CURATED_TILE_LIMIT) % items.length;
+    const start = (online.state.curatedPage * CURATED_TILE_LIMIT) % items.length;
     return Array.from({ length: Math.min(CURATED_TILE_LIMIT, items.length) },
       (_, index) => items[(start + index) % items.length]);
   }
@@ -225,7 +213,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
   function showCuratedPageOfSelection(): void {
     const selectedId = getWallpaperTileSelectionId(getWallpaperSelectionIdForUi());
     const index = REMOTE_CONTENT.getCuratedWallpapers(online.state.curatedCategory).findIndex((item) => item.id === selectedId);
-    curatedPage = index >= 0 ? Math.floor(index / CURATED_TILE_LIMIT) : 0;
+    online.setCuratedPage(index >= 0 ? Math.floor(index / CURATED_TILE_LIMIT) : 0);
   }
 
   // Paintings are named by title, photos by photographer.
@@ -257,8 +245,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     if (!REMOTE_CONTENT.CURATED_CATEGORIES.includes(category) || category === online.state.curatedCategory) return;
     online.setCuratedCategory(category);
     showCuratedPageOfSelection();
-    renderWallpaperPanelState();
-    playWallpaperEnterMotion(getWallpaperPanelRefs().curatedItemsHost, 'enter');
+    playEnterMotion(window, panelView.getRefs().curatedItemsHost, 'enter');
   }
   function setCuratedMixCategory(category: string, included: boolean): void {
     const excluded = REMOTE_CONTENT.CURATED_CATEGORIES
@@ -274,13 +261,12 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     showCuratedPageOfSelection();
     // The random daily photo may now come from another category.
     applyResolvedNewtabWallpaper();
-    renderWallpaperPanelState();
-    playWallpaperEnterMotion(getWallpaperPanelRefs().curatedItemsHost, 'enter');
+    online.remoteContentChanged();
+    playEnterMotion(window, panelView.getRefs().curatedItemsHost, 'enter');
   }
   function showMoreCuratedWallpapers(): void {
-    curatedPage += 1;
-    renderWallpaperPanelState();
-    playWallpaperEnterMotion(getWallpaperPanelRefs().curatedItemsHost, 'enter');
+    online.setCuratedPage(online.state.curatedPage + 1);
+    playEnterMotion(window, panelView.getRefs().curatedItemsHost, 'enter');
   }
   function setCuratedDailyWallpaper(enabled: boolean): void {
     if (enabled) {
@@ -293,7 +279,6 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
       const daily = getWallpaperById(getWallpaperSelectionIdForUi());
       persistNewtabWallpaper(daily && daily.dailyId || NEWTAB_WALLPAPER_DEFAULT_ID);
     }
-    renderWallpaperPanelState();
   }
 
   // Whether the two modes share one wallpaper.
@@ -306,7 +291,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     // A tile chosen while the daily photo is on replaces it for today only.
     const dailyId = options && options.asDailyPick ? getActiveDailyWallpaperId('bing') : '';
     const seq = online.beginSelection();
-    const mode = getWallpaperEditMode();
+    const mode = choice.getWallpaperEditMode();
     const sameForModes = isSameForModes();
     online.setBingSelecting(true);
     // The new wallpaper is its own success signal, so only a failure leaves a message.
@@ -314,7 +299,7 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     try {
       await remoteClient.ensureWallpaper(id);
       toastTask.done();
-      if (!online.isLatestSelection(seq) || mode !== getWallpaperEditMode() ||
+      if (!online.isLatestSelection(seq) || mode !== choice.getWallpaperEditMode() ||
           sameForModes !== isSameForModes()) return;
       if (dailyId) setDailyWallpaperPick(dailyId, id);
       else persistNewtabWallpaper(id);
@@ -327,11 +312,17 @@ function createDailyWallpapers(deps: DailyWallpapersDeps) {
     }
   }
 
+  // A New Tab left open is checked for a new day's photo once the stored choice is in.
+  choice.store.subscribe(() => {
+    if (choice.state.loaded) {
+      bindWallpaperPageShownListeners();
+    }
+  });
+
   return {
     formatBingCopyright,
     getBingWallpaperLabel,
     loadBingCatalog,
-    bindWallpaperPageShownListeners,
     getActiveDailyWallpaperId,
     setDailyWallpaperPick,
     clearDailyWallpaperPick,

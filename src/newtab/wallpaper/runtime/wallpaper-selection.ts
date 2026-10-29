@@ -22,39 +22,37 @@ import { isLinkWallpaperId } from './wallpaper-library';
 import type { WallpaperLibrary } from './wallpaper-library';
 import type { WallpaperChoice } from './wallpaper-choice';
 import type { InitialWallpaper } from './initial-wallpaper';
+import { createWallpaperTransitionLayer, releaseWallpaperTransitionLayer } from './transition-layer';
+import type { WallpaperPreloadCache } from './wallpaper-preload-cache';
+import { createEventBus } from '../../../shared/state/events';
 
 interface WallpaperSelectionDeps extends
+  Pick<WallpaperPreloadCache, 'writeWallpaperPreloadCache'>,
   Pick<WallpaperSources,
     'getWallpaperById' | 'getWallpaperImageUrl' | 'normalizeNewtabWallpaperId' | 'normalizeWallpaperMode' |
     'getDisplayedWallpaperImageUrl' | 'getCachedWallpaperImage' | 'isCustomWallpaperId'>,
-  Pick<WallpaperStorage,
-    'readCustomWallpaperRecords' | 'normalizeCustomWallpaperRecord' | 'getResolvedWallpaperMode' |
-    'writeWallpaperPreloadCache' | 'getEffectiveWallpaperIdForMode' | 'resolveSyncedWallpaperValue' |
+  Pick<WallpaperStorage, 'mergeCustomWallpaperRecords' |
+    'readCustomWallpaperRecords' | 'normalizeCustomWallpaperRecord' | 'getEffectiveWallpaperIdForMode' | 'resolveSyncedWallpaperValue' |
     'resolveLocalWallpaperOverride' | 'applyLocalWallpaperMigrations' | 'setWallpaperPrefs' |
     'writeSyncedWallpaperValue' | 'getWallpaperStorageRawIds' | 'isOnlineWallpaperId' | 'writeLocalWallpaperValue' |
     'buildLocalWallpaperStorageValue' | 'readStoredSetting' | 'mergeOnlineWallpaperValue' |
     'getStoredCustomWallpaperIds' | 'hasLoadedStoredCustomWallpaper' | 'readCustomWallpaperRecordsByIds' |
     'getWritableWallpaperPrefs' | 'getWritableLocalWallpaperOverrides' | 'writeCurrentWallpaperPrefs' |
     'getWallpaperModePreferenceOrder' | 'hasAnyWallpaperEnabled' | 'getFirstEnabledWallpaperIdForModes' |
-    'getCopyableWallpaperLocalOverrideForId' | 'getWallpaperEditMode' | 'getWallpaperLocalOverrideForMode'>,
+    'getCopyableWallpaperLocalOverrideForId' | 'getWallpaperLocalOverrideForMode'>,
   Pick<WallpaperVisual,
-    'waitForWallpaperImageReady' | 'applyWallpaperVisualState' | 'scheduleWallpaperVisualRefresh' |
-    'createWallpaperTransitionLayer' | 'releaseWallpaperTransitionLayer'>,
+    'waitForWallpaperImageReady' | 'applyWallpaperVisualState' | 'scheduleWallpaperVisualRefresh' >,
   Pick<WallpaperEffectPrefsRuntime,
     'synchronizeWallpaperEffectPrefsWithWallpaperModes' | 'applyWallpaperEffectForResolvedMode' |
     'getWallpaperEffectStorageValue' | 'getWallpaperEffectPrefsForEditMode' | 'setSharedWallpaperEffectPrefs' |
     'getWallpaperEffectPrefsForMode'> {
   // Reads this device's copies of these network images into the cache map.
   readCachedWallpaperImages(ids: string[]): Promise<void>;
-  renderWallpaperPanelState(): void;
   // Starts caching every link wallpaper's image on this device.
   cacheListedLinkWallpapers(): void;
   refreshWallpaperAdaptiveSampler(): void;
   // Starts caching the images the modes show, and tomorrow's daily photos.
   cacheShownWallpaperImages(): void;
-  bindWallpaperPageShownListeners(): void;
-  // Shows the source tab of the wallpaper the edited mode uses.
-  syncWallpaperSourceTabToEditMode(): void;
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'set'>;
   // Adds the upload the preload already read, if any, to the loaded ones.
   takePreloadedCustomWallpaper(): Promise<void>;
@@ -69,14 +67,22 @@ interface WallpaperSelectionDeps extends
   beginVisualChange(): number;
   isLatestVisualChange(seq: number): boolean;
   getAppliedVisual(): { url: string; active: boolean };
+  document: Document;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
 
+interface WallpaperSelectionEvents {
+  // The wallpaper the edited mode uses may have moved to another source.
+  chosen: null;
+}
+
 function createWallpaperSelection(deps: WallpaperSelectionDeps) {
   const {
+    mergeCustomWallpaperRecords,
+    document,
     initialWallpaper,
     beginVisualChange,
     isLatestVisualChange,
@@ -90,29 +96,22 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     getWallpaperImageUrl,
     readCachedWallpaperImages,
     readCustomWallpaperRecords,
-    renderWallpaperPanelState,
     cacheListedLinkWallpapers,
-    normalizeCustomWallpaperRecord,
     normalizeNewtabWallpaperId,
     normalizeWallpaperMode,
-    getResolvedWallpaperMode,
     writeWallpaperPreloadCache,
     applyWallpaperVisualState,
     refreshWallpaperAdaptiveSampler,
     scheduleWallpaperVisualRefresh,
     getDisplayedWallpaperImageUrl,
-    createWallpaperTransitionLayer,
-    releaseWallpaperTransitionLayer,
     getEffectiveWallpaperIdForMode,
     cacheShownWallpaperImages,
     resolveSyncedWallpaperValue,
     resolveLocalWallpaperOverride,
     applyLocalWallpaperMigrations,
     setWallpaperPrefs,
-    bindWallpaperPageShownListeners,
     synchronizeWallpaperEffectPrefsWithWallpaperModes,
     applyWallpaperEffectForResolvedMode,
-    syncWallpaperSourceTabToEditMode,
     writeSyncedWallpaperValue,
     getWallpaperStorageRawIds,
     isOnlineWallpaperId,
@@ -140,10 +139,10 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     getFirstEnabledWallpaperIdForModes,
     getCopyableWallpaperLocalOverrideForId,
     setSharedWallpaperEffectPrefs,
-    getWallpaperEditMode,
     getWallpaperEffectPrefsForMode,
     getWallpaperLocalOverrideForMode
   } = deps;
+  const events = createEventBus<WallpaperSelectionEvents>();
 
 
   let hasWallpaperBootstrapStarted = false;
@@ -173,7 +172,6 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
       // Wait for cached link images so the tiles do not load full images from the links first.
       return library.state.links.length ? linkImagesTask.then(showRecords) : showRecords();
     }).catch(() => {
-      renderWallpaperPanelState();
       return library.state.uploads;
     }).finally(() => {
       customWallpaperCatalogPromise = null;
@@ -185,23 +183,6 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
   function refreshCustomWallpapers(): Promise<WallpaperRecord[]> {
     library.invalidateUploads();
     return loadCustomWallpapers();
-  }
-
-  function mergeCustomWallpaperRecords(records: readonly unknown[] | null | undefined): WallpaperRecord[] {
-    const recordsById = new Map<string, WallpaperRecord>();
-    library.state.uploads.forEach((record) => {
-      if (record && record.id) {
-        recordsById.set(record.id, record);
-      }
-    });
-    (records || []).forEach((record) => {
-      const normalized = normalizeCustomWallpaperRecord(record);
-      if (normalized) {
-        recordsById.set(normalized.id, normalized);
-      }
-    });
-    library.setUploads(Array.from(recordsById.values()).sort((a, b) => a.updatedAt - b.updatedAt));
-    return library.state.uploads;
   }
 
   function rememberActiveWallpaperId(mode: unknown, id: unknown): void {
@@ -221,7 +202,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
 
   function applyNewtabWallpaper(value: unknown, options?: { mode?: WallpaperMode } | null): void {
     const config = options || {};
-    const mode = normalizeWallpaperMode(config.mode || getResolvedWallpaperMode());
+    const mode = normalizeWallpaperMode(config.mode || choice.getResolvedWallpaperMode());
     const nextId = normalizeNewtabWallpaperId(value);
     const wallpaper = getWallpaperById(nextId);
     const imageUrl = wallpaper ? getWallpaperImageUrl(wallpaper) : '';
@@ -232,7 +213,6 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
       rememberActiveWallpaperId(mode, choice.state.shownId);
     }
     writeWallpaperPreloadCache();
-    renderWallpaperPanelState();
     if (isInitialWallpaperApply) {
       applyWallpaperVisualState(wallpaper);
       refreshWallpaperAdaptiveSampler();
@@ -258,15 +238,15 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
       const displayedUrl = wallpaper ? getDisplayedWallpaperImageUrl(wallpaper) : '';
       const applied = getAppliedVisual();
       const shouldAnimateVisualChange = displayedUrl !== applied.url || Boolean(wallpaper) !== applied.active;
-      const transitionLayer = shouldAnimateVisualChange ? createWallpaperTransitionLayer() : null;
+      const transitionLayer = shouldAnimateVisualChange ? createWallpaperTransitionLayer(document, window) : null;
       applyWallpaperVisualState(wallpaper);
-      releaseWallpaperTransitionLayer(transitionLayer);
+      releaseWallpaperTransitionLayer(window, transitionLayer);
       scheduleWallpaperVisualRefresh(visualSeq);
     });
   }
 
   function applyResolvedNewtabWallpaper(options?: { mode?: WallpaperMode } | null): void {
-    const mode = getResolvedWallpaperMode();
+    const mode = choice.getResolvedWallpaperMode();
     applyNewtabWallpaper(getEffectiveWallpaperIdForMode(mode), { ...options, mode });
     if (choice.state.loaded) cacheShownWallpaperImages();
   }
@@ -280,15 +260,13 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     );
     setWallpaperPrefs(syncedResolution.prefs, migrated.overrides);
     choice.markLoaded();
-    bindWallpaperPageShownListeners();
     choice.setEditMode(syncedResolution.prefs.sameForModes
-      ? getResolvedWallpaperMode()
+      ? choice.getResolvedWallpaperMode()
       : normalizeWallpaperMode(choice.state.editMode));
     const didSyncWallpaperEffects = synchronizeWallpaperEffectPrefsWithWallpaperModes();
     applyWallpaperEffectForResolvedMode();
     applyResolvedNewtabWallpaper();
-    syncWallpaperSourceTabToEditMode();
-    renderWallpaperPanelState();
+    events.emit('chosen', null);
     if (syncedResolution.sanitizedValue !== null) {
       writeSyncedWallpaperValue(syncedResolution.sanitizedValue);
     } else if (!syncedValue.fromOnlineKey && getWallpaperStorageRawIds(syncedValue.value).some(isOnlineWallpaperId)) {
@@ -355,16 +333,15 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
         applyStoredWallpaperState(results[0], results[1]);
         cacheShownWallpaperImages();
         if (linksChanged && library.state.uploadsLoaded) {
-          renderWallpaperPanelState();
           cacheListedLinkWallpapers();
         }
         remoteClient.setPinnedIds(remoteIds);
         if (remoteIds.includes(REMOTE_CONTENT.BING_DAILY_ID)) {
           void remoteClient.ensureWallpaper(REMOTE_CONTENT.BING_DAILY_ID).then(() => {
-            if (getEffectiveWallpaperIdForMode(getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
+            if (getEffectiveWallpaperIdForMode(choice.getResolvedWallpaperMode()) === REMOTE_CONTENT.BING_DAILY_ID) {
               applyResolvedNewtabWallpaper();
             }
-            renderWallpaperPanelState();
+            online.remoteContentChanged();
           }).catch(() => {
             // Offline or Bing is down: the built-in stand-in stays until the next visit.
           });
@@ -427,15 +404,14 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
         prefs[mode] = normalizeWallpaperRestoreId(mode);
       });
       if (prefs.sameForModes) {
-        const sharedId = prefs.light || prefs.dark || normalizeWallpaperRestoreId(getResolvedWallpaperMode());
+        const sharedId = prefs.light || prefs.dark || normalizeWallpaperRestoreId(choice.getResolvedWallpaperMode());
         prefs.light = sharedId;
         prefs.dark = sharedId;
         overrides.dark = overrides.light;
       }
       setWallpaperPrefs(prefs, overrides);
       applyResolvedNewtabWallpaper();
-      syncWallpaperSourceTabToEditMode();
-      renderWallpaperPanelState();
+      events.emit('chosen', null);
       writeCurrentWallpaperPrefs({ showError: true });
       return;
     }
@@ -457,8 +433,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     }
     setWallpaperPrefs(prefs, overrides);
     applyResolvedNewtabWallpaper();
-    syncWallpaperSourceTabToEditMode();
-    renderWallpaperPanelState();
+    events.emit('chosen', null);
     writeCurrentWallpaperPrefs({ showError: true });
   }
 
@@ -467,7 +442,6 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     const prefs = getWritableWallpaperPrefs();
     const overrides = getWritableLocalWallpaperOverrides();
     if (prefs.sameForModes === nextSameForModes) {
-      renderWallpaperPanelState();
       return;
     }
     if (!nextSameForModes) {
@@ -489,10 +463,10 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
         overrides.light = null;
         overrides.dark = null;
       }
-      choice.setEditMode(getResolvedWallpaperMode());
+      choice.setEditMode(choice.getResolvedWallpaperMode());
       setSharedWallpaperEffectPrefs(sharedEffectPrefs);
     } else {
-      const sharedMode = getWallpaperEditMode();
+      const sharedMode = choice.getWallpaperEditMode();
       const sharedEffectPrefs = getWallpaperEffectPrefsForMode(sharedMode);
       const sharedId = getEffectiveWallpaperIdForMode(sharedMode);
       const sharedOverride = getWallpaperLocalOverrideForMode(sharedMode);
@@ -503,14 +477,13 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
       prefs.dark = prefs.light;
       overrides.light = sharedOverride || null;
       overrides.dark = overrides.light;
-      choice.setEditMode(getResolvedWallpaperMode());
+      choice.setEditMode(choice.getResolvedWallpaperMode());
       setSharedWallpaperEffectPrefs(sharedEffectPrefs);
     }
     setWallpaperPrefs(prefs, overrides);
     applyWallpaperEffectForResolvedMode();
     applyResolvedNewtabWallpaper();
-    syncWallpaperSourceTabToEditMode();
-    renderWallpaperPanelState();
+    events.emit('chosen', null);
     writeCurrentWallpaperPrefs({ showError: true });
     void settings.set(newtabWallpaperEffect, getWallpaperEffectStorageValue());
   }
@@ -523,7 +496,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     const overrides = getWritableLocalWallpaperOverrides();
     const targetModes = prefs.sameForModes
       ? NEWTAB_WALLPAPER_MODES.slice()
-      : [getWallpaperEditMode()];
+      : [choice.getWallpaperEditMode()];
     targetModes.forEach((mode) => {
       if (nextId && isCustomWallpaperId(nextId)) {
         overrides[mode] = nextId;
@@ -543,7 +516,6 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     setWallpaperPrefs(prefs, overrides);
     remoteClient.setPinnedIds([prefs.light, prefs.dark]);
     applyResolvedNewtabWallpaper();
-    renderWallpaperPanelState();
     if (nextId && isCustomWallpaperId(nextId)) {
       writeLocalWallpaperValue(
         buildLocalWallpaperStorageValue(choice.state.overrides, prefs.sameForModes),
@@ -555,10 +527,10 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
   }
 
   return {
+    events,
     primeWallpaperImage,
     loadCustomWallpapers,
     refreshCustomWallpapers,
-    mergeCustomWallpaperRecords,
     applyResolvedNewtabWallpaper,
     loadStoredWallpaperState,
     bootstrapInitialWallpaper,

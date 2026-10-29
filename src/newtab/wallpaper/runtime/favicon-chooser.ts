@@ -8,6 +8,7 @@ import type { WallpaperVisual } from './wallpaper-visual';
 import { newtabFaviconPreload } from '../../../domain/settings/newtab-wallpaper';
 import { newtabFavicon } from '../../../domain/settings/newtab-wallpaper';
 import { NEWTAB_FAVICON_DEFAULT_ID, NEWTAB_FAVICON_OPTIONS, NEWTAB_FAVICON_SVG_MAIN_PATH, NEWTAB_FAVICON_SVG_SHADOW_PATH } from '../wallpaper-options';
+import { createStore } from '../../../shared/state/store';
 
 // A favicon the panel offers.
 interface NewtabFaviconOption {
@@ -31,7 +32,6 @@ interface FaviconChooserDeps extends Pick<WallpaperVisual, 'getRuntimeAssetUrl'>
   window: Window;
   BroadcastChannelCtor: typeof BroadcastChannel | null;
   document: Document;
-  renderWallpaperPanelState(): void;
   showToast: ShowToast;
   formatMessage: FormatMessage;
 }
@@ -47,14 +47,14 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
     window,
     BroadcastChannelCtor,
     document,
-    renderWallpaperPanelState,
     writeSetting,
     showToast,
     readStoredSetting,
     formatMessage
   } = deps;
 
-  let currentFaviconId = NEWTAB_FAVICON_DEFAULT_ID;
+  // The icon chosen; the panel draws again when it changes.
+  const store = createStore({ id: NEWTAB_FAVICON_DEFAULT_ID });
 
   const NEWTAB_FAVICON_THEME_QUERY = '(prefers-color-scheme: dark)';
   const NEWTAB_FAVICON_THEME_BROADCAST_CHANNEL = 'lumno:newtab-favicon-theme';
@@ -181,7 +181,7 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
   }
 
   function refreshNewtabFaviconLink(): void {
-    const item = getNewtabFaviconById(currentFaviconId) ||
+    const item = getNewtabFaviconById(store.getSnapshot().id) ||
       getNewtabFaviconById(NEWTAB_FAVICON_DEFAULT_ID);
     const link = getNewtabFaviconLink();
     if (link && item) {
@@ -190,7 +190,7 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
   }
 
   function refreshNewtabFaviconLinkIfThemeAware(): void {
-    const item = getNewtabFaviconById(currentFaviconId);
+    const item = getNewtabFaviconById(store.getSnapshot().id);
     if (item && item.themeAwareSvg) {
       refreshNewtabFaviconLink();
     }
@@ -309,14 +309,13 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
   function applyNewtabFavicon(value: unknown): void {
     const nextId = normalizeNewtabFaviconId(value);
     const item = getNewtabFaviconById(nextId) || getNewtabFaviconById(NEWTAB_FAVICON_DEFAULT_ID);
-    currentFaviconId = item ? item.id : NEWTAB_FAVICON_DEFAULT_ID;
-    cacheNewtabFaviconPreloadId(currentFaviconId);
+    store.setState({ id: item ? item.id : NEWTAB_FAVICON_DEFAULT_ID });
+    cacheNewtabFaviconPreloadId(store.getSnapshot().id);
     bindNewtabFaviconThemeListener(item);
     const link = getNewtabFaviconLink();
     if (link && item) {
       applyNewtabFaviconLinkAttributes(link, item);
     }
-    renderWallpaperPanelState();
   }
 
   function persistNewtabFavicon(value: unknown): void {
@@ -343,7 +342,7 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
   }
 
   function buildNewtabFaviconState() {
-    const currentItem = getNewtabFaviconById(currentFaviconId) ||
+    const currentItem = getNewtabFaviconById(store.getSnapshot().id) ||
       getNewtabFaviconById(NEWTAB_FAVICON_DEFAULT_ID);
     return {
       title: t('newtab_favicon_title', 'New Tab favicon'),
@@ -358,6 +357,7 @@ function createFaviconChooser(deps: FaviconChooserDeps) {
   }
 
   return {
+    store,
     normalizeNewtabFaviconId,
     getNewtabFaviconUrl,
     applyNewtabFavicon,

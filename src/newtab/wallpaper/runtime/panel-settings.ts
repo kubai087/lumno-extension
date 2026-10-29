@@ -15,6 +15,7 @@ import {
   newtabTopContentMode
 } from '../../../domain/settings/newtab-time';
 import { createDebouncedSaver } from './debounced-saver';
+import type { WallpaperPanelView } from './panel-view';
 
 // A slider's range and its value when none is saved.
 interface SliderConfig {
@@ -36,11 +37,8 @@ type PersistOptions = { persist: boolean };
 type SliderSaveOptions = { final?: boolean } | null | undefined;
 
 interface PanelSettingsDeps {
-  renderWallpaperPanelState(): void;
   settings: Pick<SettingsStore, 'set' | 'setMany'>;
   preview: Pick<SettingPreview, 'show'>;
-  // The appearance panel's elements by data-wallpaper-ref name.
-  getWallpaperPanelRefs(): Readonly<Partial<Record<string, HTMLElement>>>;
   searchWidthConfig: SearchWidthConfig;
   setSearchWidth(width: number, options: PersistOptions): void;
   shortcutColumnsConfig: SliderConfig;
@@ -49,14 +47,14 @@ interface PanelSettingsDeps {
   shortcutGapConfig: SliderConfig;
   setShortcutSize(size: number, options: PersistOptions): void;
   setShortcutGap(gap: number, options: PersistOptions): void;
+  panelView: WallpaperPanelView;
 }
 
 function createPanelSettings(deps: PanelSettingsDeps) {
   const {
-    renderWallpaperPanelState,
+    panelView,
     settings,
     preview,
-    getWallpaperPanelRefs,
     searchWidthConfig,
     setSearchWidth,
     shortcutColumnsConfig,
@@ -81,14 +79,12 @@ function createPanelSettings(deps: PanelSettingsDeps) {
   function persistTimeFontSizeFromSlider(value: unknown, change?: SliderSaveOptions): void {
     const size = newtabTimeFontSize.parse(value);
     preview.show(newtabTimeFontSize, size);
-    renderWallpaperPanelState();
     saveSliderSetting('timeFontSize', () => void settings.set(newtabTimeFontSize, size), change);
   }
 
   function persistTimeOpacityFromSlider(value: unknown, change?: SliderSaveOptions): void {
     const opacity = newtabTimeOpacity.parse(value);
     preview.show(newtabTimeOpacity, opacity);
-    renderWallpaperPanelState();
     saveSliderSetting('timeOpacity', () => void settings.set(newtabTimeOpacity, opacity), change);
   }
 
@@ -115,7 +111,7 @@ function createPanelSettings(deps: PanelSettingsDeps) {
   }
 
   function getWallpaperAppearanceOptionButtons(): HTMLElement[] {
-    const options = getWallpaperPanelRefs().appearanceOptions;
+    const options = panelView.getRefs().appearanceOptions;
     return options ? queryHtmlElements(options, '.x-nt-appearance-option') : [];
   }
   // The part of an appearance option that moves; the option itself when it has none.
@@ -179,7 +175,6 @@ function createPanelSettings(deps: PanelSettingsDeps) {
       : Number(searchWidthConfig.snapThreshold || 14);
     const width = snapSearchWidthValue(value, threshold);
     setSearchWidth(width, { persist: false });
-    renderWallpaperPanelState();
     saveSliderSetting('searchWidth', () => setSearchWidth(width, { persist: true }), { final });
   }
   function getShortcutColumnsMin(): number {
@@ -227,7 +222,6 @@ function createPanelSettings(deps: PanelSettingsDeps) {
   function persistShortcutColumnsFromSlider(value: unknown, options?: SliderSaveOptions): void {
     const columns = normalizeShortcutColumnsValue(value);
     setShortcutColumns(columns, { persist: false });
-    renderWallpaperPanelState();
     saveSliderSetting('shortcutColumns', () => setShortcutColumns(columns, { persist: true }), options);
   }
   function getShortcutLayoutMin(config: SliderConfig | null | undefined, fallback: number): number {
@@ -310,13 +304,11 @@ function createPanelSettings(deps: PanelSettingsDeps) {
   function persistShortcutSizeFromSlider(value: unknown, options?: SliderSaveOptions): void {
     const size = normalizeShortcutSizeValue(value);
     setShortcutSize(size, { persist: false });
-    renderWallpaperPanelState();
     saveSliderSetting('shortcutSize', () => setShortcutSize(size, { persist: true }), options);
   }
   function persistShortcutGapFromSlider(value: unknown, options?: SliderSaveOptions): void {
     const gap = normalizeShortcutGapValue(value);
     setShortcutGap(gap, { persist: false });
-    renderWallpaperPanelState();
     saveSliderSetting('shortcutGap', () => setShortcutGap(gap, { persist: true }), options);
   }
 
