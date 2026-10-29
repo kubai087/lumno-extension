@@ -1,9 +1,8 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { SuggestionElement } from './suggestions';
 import { getTag } from '../../../../tests/react/dom';
 import { queryHtmlElement } from '../../dom-lookup';
-import { createView, destroyViews, render } from '../../../../tests/react/suggestions';
+import { createView, destroyViews, render, rowPart } from '../../../../tests/react/suggestions';
 
 afterEach(destroyViews);
 
@@ -107,11 +106,11 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
     expect(items[0]._xIsSearchSuggestion).toBe(true);
     expect(items[0]._xIsAutocompleteTop).toBe(true);
     expect(items[0]._xThemeHost).toBe('example.com');
-    expect(items[0]._xTitle?.textContent).toBe('Example result');
+    expect(rowPart(items[0], 'suggestion-title')?.textContent).toBe('Example result');
     expect(items[0].dataset.themed).toBe('true');
     expect(items[0].dataset.rowState).toBe('active');
-    expect(items[0]._xTagContainer?.dataset.visible).toBe('true');
-    expect(items[0]._xVisitButton?.dataset.visible).toBe('false');
+    expect(rowPart(items[0], 'suggestion-action-tags')?.dataset.visible).toBe('true');
+    expect(rowPart(items[0], 'suggestion-visit-button')?.dataset.visible).toBe('false');
     expect(
       items[0].querySelector('mark')?.textContent
     ).toBe('Exa');
@@ -166,7 +165,7 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
   it('lays a help center result\'s passage out in a card beside the list while it is picked', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-    const { view: passageView } = createView({ getHelpPassageHost: () => host });
+    const { view: passageView, select } = createView({ getHelpPassageHost: () => host });
 
     act(() => {
       passageView.render({
@@ -192,7 +191,7 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
     const card = () => queryHtmlElement(host, '._x_extension_help_passage_2026_unique_');
     expect(card()).toBeNull();
 
-    act(() => passageView.updateSelection(0));
+    select(0);
     expect(card()?.getAttribute('data-visible')).toBe('true');
     expect(card()?.querySelector('._x_extension_help_passage_heading_2026_unique_')?.textContent).toBe('Default shortcuts');
     expect([...(card()?.querySelectorAll('th') || [])].map((cell) => cell.textContent)).toEqual(['Action', 'Shortcut']);
@@ -200,7 +199,7 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
     expect(card()?.querySelector('ol')?.getAttribute('start')).toBe('2');
     expect(card()?.querySelector('mark')?.textContent?.toLowerCase()).toBe('shortcut');
 
-    act(() => passageView.updateSelection(1));
+    select(1);
     expect(card()?.getAttribute('data-visible')).toBe('false');
   });
 
@@ -229,7 +228,7 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
     });
 
     expect(items[1]._xVisitButtonAction).toBe('switch');
-    expect(items[1]._xHasSwitchAction).toBe(true);
+    expect(items[1].querySelector('[data-tag-type="open-tab"]')?.getAttribute('data-visible')).toBe('true');
     expect(
       items[1].querySelector('[data-tag-type="open-tab"]')?.textContent
     ).toBe('已打开');
@@ -262,11 +261,11 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
       items[0].querySelector('[data-tag-type="history"]')
     ).toBeNull();
     expect(items[0].querySelector('.x-ov-action-tag__key')).toBeNull();
-    expect(items[0]._xVisitButton?.dataset.visible).toBe('false');
-    expect(items[0]._xVisitButton?.style.getPropertyValue(
+    expect(rowPart(items[0], 'suggestion-visit-button')?.dataset.visible).toBe('false');
+    expect(rowPart(items[0], 'suggestion-visit-button')?.style.getPropertyValue(
       '--x-ov-suggestion-action-button-bg'
     )).toBe('#eee');
-    expect(items[0]._xVisitButton?.style.getPropertyValue(
+    expect(rowPart(items[0], 'suggestion-visit-button')?.style.getPropertyValue(
       '--x-ov-suggestion-action-button-border'
     )).toBe('#ddd');
     expect(
@@ -312,10 +311,10 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
         ?.getAttribute('data-visible')
     ).toBe('true');
     expect(items[0].querySelector('.x-ov-action-tag__key')).toBeNull();
-    expect(items[0]._xVisitButton?.style.getPropertyValue(
+    expect(rowPart(items[0], 'suggestion-visit-button')?.style.getPropertyValue(
       '--x-ov-suggestion-action-button-bg'
     )).toBe('transparent');
-    expect(items[0]._xVisitButton?.style.getPropertyValue(
+    expect(rowPart(items[0], 'suggestion-visit-button')?.style.getPropertyValue(
       '--x-ov-suggestion-action-button-border'
     )).toBe('transparent');
   });
@@ -398,11 +397,11 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
 
     render(view, [suggestion], { query: 'ShiPin' });
     expect(
-      Array.from(items[0]._xTitle?.querySelectorAll('mark') || []).map((mark) => mark.textContent)
+      Array.from(rowPart(items[0], 'suggestion-title')?.querySelectorAll('mark') || []).map((mark) => mark.textContent)
     ).toEqual(['视频']);
 
     render(view, [suggestion], { query: 'shipinx' });
-    expect(items[0]._xTitle?.querySelectorAll('mark')).toHaveLength(0);
+    expect(rowPart(items[0], 'suggestion-title')?.querySelectorAll('mark')).toHaveLength(0);
   });
 
   it('marks a short typed term only where a word starts', () => {
@@ -435,11 +434,11 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
     expect(
       Array.from(items[0].querySelectorAll('mark')).map((mark) => mark.textContent)
     ).toEqual(['да']);
-    expect(items[0]._xTitle?.textContent).toBe('Когда да');
+    expect(rowPart(items[0], 'suggestion-title')?.textContent).toBe('Когда да');
   });
 
   it('reports whether highlighted text belongs to the selected row', () => {
-    const markStates = new Map<SuggestionElement, unknown>();
+    const markStates = new Map<HTMLElement, unknown>();
     const { view, items } = createView({
       applyMarkVariables: (item, _theme, active) => {
         markStates.set(item, active);

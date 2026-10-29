@@ -388,7 +388,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
         applyThemeVariables(item, item._xTheme);
       }
     });
-    updateSelection();
+    refreshRowStyles();
     updateModeBadge(overlayState.searchInput ? overlayState.searchInput.value : '');
     if (previousResolvedTheme !== nextResolvedTheme) {
       refreshOverlayThemeAwareFavicons();
@@ -462,7 +462,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     ensureOverlaySuggestionsView: (...args) => ensureOverlaySuggestionsView(...args),
     setOverlayResultsCollapsed: (...args) => setOverlayResultsCollapsed(...args),
     syncSuggestionLastState: (...args) => syncSuggestionLastState(...args),
-    updateSelection: (...args) => updateSelection(...args),
     commitSuggestionsNaturalHeightAfterRender: (...args) => commitSuggestionsNaturalHeightAfterRender(...args),
     cancelPendingOverlaySuggestionRequests,
     shouldShowOpenTabsForEmptyQuery: (...args) => shouldShowOpenTabsForEmptyQuery(...args),
@@ -486,7 +485,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    updateSelection,
+    refreshRowStyles,
     syncSuggestionLastState,
     scrollSelectedSuggestionIntoView,
     getSearchPanelsLayoutTransitionMenu,
@@ -576,7 +575,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     numberShortcutOptions,
     removeOverlay,
     closeOverlayWithMotion,
-    updateSelection,
     scrollSelectedSuggestionIntoView,
     getCommandMatch: (...args) => getCommandMatch(...args),
     applyThemeModeChange: (...args) => applyThemeModeChange(...args),
@@ -617,7 +615,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     cancelPendingOverlaySuggestionRequests,
     notifyOverlayLoadingSession,
     updateModeBadge: (...args) => updateModeBadge(...args),
-    updateSelection,
     updateSearchSuggestions,
     renderCachedTabsOrRequest,
     getDirectUrlSuggestion,
@@ -811,7 +808,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setInputScopedStyle,
     ensureOverlaySuggestionsView,
     suggestionItems,
-    updateSelection,
     overlayState
   });
 
@@ -1261,7 +1257,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // Focusing the input hands the selection back to it.
   overlayState.searchInput.addEventListener('focus', function() {
     searchResults.select(-1);
-    updateSelection();
     overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
   });
 

@@ -36,7 +36,6 @@ interface ResultsLayoutDeps {
   ensureOverlaySuggestionsView(): Pick<SuggestionsViewController, 'clear'>;
   // The rendered rows; emptied with the list.
   suggestionItems: unknown[];
-  updateSelection(): void;
   overlayState: ResultsLayoutState;
 }
 
@@ -54,7 +53,6 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     setInputScopedStyle,
     ensureOverlaySuggestionsView,
     suggestionItems,
-    updateSelection
   } = deps;
 
   // The panel state object shared with search-panel.ts and the other modules.
@@ -264,7 +262,6 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     overlayState.lastRenderedActionContextKey = '';
     searchResults.select(-1);
     setOverlayResultsCollapsed(true);
-    updateSelection();
   }
 
   function updateInputRightPadding(): void {

@@ -69,7 +69,6 @@ interface PanelKeysDeps {
   numberShortcutOptions: NumberShortcutOptions;
   removeOverlay(overlay: HTMLElement | null): void;
   closeOverlayWithMotion(overlay: HTMLElement | null): void;
-  updateSelection(): void;
   scrollSelectedSuggestionIntoView(direction: 'up' | 'down', didWrap: boolean): void;
   getCommandMatch(rawInput: string): { command: SlashCommand; completion: string } | null;
   applyThemeModeChange(mode: string): void;
@@ -114,7 +113,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     numberShortcutOptions,
     removeOverlay,
     closeOverlayWithMotion,
-    updateSelection,
     scrollSelectedSuggestionIntoView,
     getCommandMatch,
     applyThemeModeChange,
@@ -192,7 +190,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
       e.preventDefault();
       e.stopPropagation();
       searchResults.select(-1);
-      updateSelection();
       return;
     }
     // Leaving a site search lists the query's ordinary results.
@@ -378,7 +375,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
         searchResults.select((searchResults.selectedIndex + 1) % suggestionItems.length);
         didWrap = previousIndex === suggestionItems.length - 1 && searchResults.selectedIndex === 0;
       }
-      updateSelection();
       previewSelectedSuggestion(input);
       scrollSelectedSuggestionIntoView('down', didWrap);
       input.focus();
@@ -408,7 +404,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
         // Move to previous suggestion
         searchResults.select(searchResults.selectedIndex - 1);
       }
-      updateSelection();
       previewSelectedSuggestion(input);
       scrollSelectedSuggestionIntoView('up', didWrap);
       input.focus();

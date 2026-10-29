@@ -65,7 +65,7 @@ interface AppearanceModesDeps extends
   Pick<WallpaperPage, 'updateWallpaperLanguageStrings' | 'updateWallpaperAppearanceSelectionUi'>,
   Pick<FeedbackControlRuntime, 'updateFeedbackLanguageStrings'>,
   Pick<ModeCommands, 'updateModeBadge'>,
-  Pick<SuggestionsController, 'renderSuggestions' | 'updateSelection'>,
+  Pick<SuggestionsController, 'renderSuggestions' | 'refreshRowStyles'>,
   Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'>,
   Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -127,7 +127,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     applyThemeVariables,
     applyRecentCardTheme,
     applyBookmarkCardTheme,
-    updateSelection,
+    refreshRowStyles,
     addMediaQueryChangeListener,
     mediaQuery,
     removeMediaQueryChangeListener,
@@ -257,7 +257,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     });
     refreshShortcutTileThemes();
     applyLanguageStrings();
-    updateSelection();
+    refreshRowStyles();
     updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
     refreshFallbackIcons();
     if (didResolvedThemeChange) {

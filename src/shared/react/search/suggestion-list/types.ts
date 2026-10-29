@@ -1,6 +1,7 @@
 // Types the suggestion list shares between its rows, its runtime and the
 // New Tab and overlay adapters that create it.
 import type { RemixIconName } from '../../../ui/remix-icon';
+import type { Store } from '../../../state/store';
 import type { TabRankFields } from '../../../../domain/messages';
 import type {
   DisplayedSuggestion,
@@ -120,15 +121,6 @@ export interface ModeTheme {
   tagBorder?: string;
 }
 
-export interface SuggestionActionTagElement extends HTMLSpanElement {
-  _xActionLabel?: HTMLSpanElement | null;
-  _xAction?: string;
-  _xSuggestion?: Suggestion;
-  _xDefaultBg?: string;
-  _xDefaultText?: string;
-  _xDefaultBorder?: string;
-}
-
 export interface SuggestionUtilityActionElements {
   slot: HTMLDivElement;
   button: HTMLButtonElement;
@@ -143,31 +135,9 @@ export interface SuggestionElement extends HTMLDivElement {
   _xIsAutocompleteTop?: boolean;
   _xTheme?: ThemeValue;
   _xThemeHost?: string;
-  _xIconWrap?: HTMLSpanElement | null;
-  _xIconIsFavicon?: boolean;
-  _xDirectIconWrap?: HTMLSpanElement | null;
-  _xTitle?: HTMLSpanElement | null;
-  _xCommandLabel?: HTMLSpanElement | null;
-  _xSwitchButton?: HTMLButtonElement | null;
-  _xHistoryTag?: SuggestionActionTagElement | null;
-  _xBookmarkTag?: SuggestionActionTagElement | null;
-  _xTopSiteTag?: SuggestionActionTagElement | null;
-  _xOpenTabTag?: SuggestionActionTagElement | null;
-  _xTagContainer?: HTMLDivElement | null;
-  _xActionModel?: SuggestionActionModelResult;
-  _xHasActionTags?: boolean;
-  _xVisitButton?: HTMLButtonElement | null;
-  _xVisitButtonLabel?: HTMLSpanElement | null;
   _xVisitButtonAction?: string;
-  _xActionTags?: SuggestionActionTagElement[];
   _xSuggestion?: Suggestion;
-  _xAlwaysHideVisitButton?: boolean;
-  _xHasSwitchAction?: boolean;
-  _xHistoryDeleteButton?: HTMLButtonElement | null;
-  _xUtilityActions?: SuggestionUtilityActionElements[];
-  _xIsHovering?: boolean;
   _xTabId?: number | null;
-  _xSimpleMode?: boolean;
 }
 
 export interface SuggestionsRenderPayload {
@@ -235,7 +205,7 @@ export interface SuggestionsViewOptions {
     theme: ThemeValue
   ) => void;
   applyMarkVariables?: (
-    target: SuggestionElement,
+    target: HTMLElement,
     theme: ThemeValue,
     active: boolean
   ) => void;
@@ -260,8 +230,10 @@ export interface SuggestionsViewOptions {
   ) => FaviconCandidates;
   preloadIcon?: (favicon: string, url: string) => void;
   setSuggestionsVisible?: (visible: boolean) => void;
-  onSetSelectedIndex?: (index: number) => void;
-  getSelectedIndex?: () => number;
+  // The selected row, which the list follows and clears.
+  selection?: SuggestionSelection;
+  // The modifier keys held, which change the rows' action labels.
+  modifiers?: { readonly store: Store<ModifierState> };
   onSwitchToTab?: (
     tab: OpenTabSuggestion,
     event: MouseEvent
@@ -326,10 +298,8 @@ export interface SuggestionsViewOptions {
 export interface SuggestionsViewController {
   render(payload?: SuggestionsRenderPayload): void;
   renderTabs(tabList?: OpenTabSuggestion[]): void;
-  updateSelection(selectedIndex?: number): void;
-  setOpenInCurrentTabModifierActive(active: boolean): void;
-  setOpenSwitchInNewTabModifierActive(active: boolean): void;
-  setOpenInBackgroundTabModifierActive(active: boolean): void;
+  // Draws the rows again after their themes changed outside the list.
+  refreshRowStyles(): void;
   clear(): void;
   destroy(): void;
   getAutoHighlightIndex(): number;
@@ -407,12 +377,8 @@ export interface NormalizedOptions {
   setSuggestionsVisible: NonNullable<
     SuggestionsViewOptions['setSuggestionsVisible']
   >;
-  onSetSelectedIndex: NonNullable<
-    SuggestionsViewOptions['onSetSelectedIndex']
-  >;
-  getSelectedIndex: NonNullable<
-    SuggestionsViewOptions['getSelectedIndex']
-  >;
+  selection: SuggestionSelection;
+  modifiers: { readonly store: Store<ModifierState> };
   onSwitchToTab: NonNullable<SuggestionsViewOptions['onSwitchToTab']>;
   onActivateSuggestion: NonNullable<
     SuggestionsViewOptions['onActivateSuggestion']
@@ -472,11 +438,22 @@ export interface ModifierState {
   openInBackgroundTab: boolean;
 }
 
+// The list's own state: the row under the pointer, and a revision bumped
+// when a row's theme changed outside the list.
+export interface SuggestionListState {
+  hoveredIndex: number;
+  revision: number;
+}
+
+export interface SuggestionSelection {
+  readonly store: Pick<Store<{ selectedIndex: number }>, 'getSnapshot' | 'subscribe'>;
+  select(index: number): void;
+}
+
 export interface SuggestionsRuntime {
   options: NormalizedOptions;
-  modifiers: ModifierState;
   queryStore: QueryStore;
-  updateSelection: (selectedIndex?: number) => void;
+  listState: Store<SuggestionListState>;
 }
 
 export interface QueryStore {

@@ -621,7 +621,7 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     shortcutTiles,
     applyShortcutTileTheme: (...args) => applyShortcutTileTheme(...args),
     suggestionItems,
-    updateSelection: (...args) => updateSelection(...args),
+    refreshRowStyles: (...args) => refreshRowStyles(...args),
     setPersistedSiteThemeEntry: (...args) => setPersistedSiteThemeEntry(...args),
     getPersistedSiteThemeEntry: (...args) => getPersistedSiteThemeEntry(...args),
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
@@ -857,7 +857,7 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     applyThemeVariables,
     applyRecentCardTheme,
     applyBookmarkCardTheme,
-    updateSelection: (...args) => updateSelection(...args),
+    refreshRowStyles: (...args) => refreshRowStyles(...args),
     addMediaQueryChangeListener,
     mediaQuery,
     removeMediaQueryChangeListener,
@@ -1909,7 +1909,7 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
 
   const {
     getAutoHighlightIndex,
-    updateSelection,
+    refreshRowStyles,
     activateRenderedSuggestion,
     deleteRenderedHistorySuggestion,
     scrollSelectedSuggestionIntoView,
@@ -1924,7 +1924,6 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
     suggestionSource,
-    suggestionModifiers,
     siteSearchRunner,
     modeActions,
     searchMatching,
@@ -2098,7 +2097,6 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
     isImeCompositionEvent,
     getNextSuggestionIndex,
     getAutoHighlightIndex,
-    updateSelection,
     scrollSelectedSuggestionIntoView,
     submitSearchQuery,
     root,

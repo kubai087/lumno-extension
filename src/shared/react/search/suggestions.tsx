@@ -10,8 +10,7 @@ import type {
   OpenTabSuggestion,
   SuggestionsViewController,
   SuggestionValueRef,
-  SuggestionsRenderPayload,
-  ModifierState
+  SuggestionsRenderPayload
 } from './suggestion-list/types';
 import {
   surfaceClass,
@@ -19,17 +18,16 @@ import {
   createQueryStore
 } from './suggestion-list/surface-options';
 import { getHighlightedParts } from './suggestion-list/highlight';
-import { updateSelectionForRuntime, syncModifierLabels } from './suggestion-list/action-styles';
 import { SearchSuggestionRow } from './suggestion-list/search-suggestion-row';
 import { OpenTabRow } from './suggestion-list/open-tab-row';
 import { EmptyState, getHelpGroupCaptionStart } from './suggestion-list/empty-state';
 import { queryHtmlTags } from '../../dom-lookup';
+import { createStore } from '../../state/store';
 export type {
   SuggestionsSurface,
   SuggestionUpdateKind,
   Suggestion,
   OpenTabSuggestion,
-  SuggestionActionTagElement,
   SuggestionElement,
   SuggestionsRenderPayload,
   SuggestionsViewOptions,
@@ -51,10 +49,7 @@ function createNoopController(
   return {
     render() {},
     renderTabs() {},
-    updateSelection() {},
-    setOpenInCurrentTabModifierActive() {},
-    setOpenSwitchInNewTabModifierActive() {},
-    setOpenInBackgroundTabModifierActive() {},
+    refreshRowStyles() {},
     clear() {
       items.length = 0;
     },
@@ -114,9 +109,6 @@ function syncLatestSuggestionMetadata(
       return;
     }
     item._xSuggestion = suggestion;
-    item._xActionTags?.forEach((tag) => {
-      tag._xSuggestion = suggestion;
-    });
   });
 }
 
@@ -232,6 +224,7 @@ class SuggestionsView implements SuggestionsViewController {
   private readonly helpPassage: ReturnType<typeof createHelpPassageCard>;
   private readonly getStructureIdentity: StructureIdentity;
   private readonly getPresentationFingerprint: PresentationFingerprint;
+  private readonly unsubscribes: Array<() => void>;
 
   constructor(options: NormalizedOptions, rawOptions: SuggestionsViewOptions, getStructureIdentity: StructureIdentity,
     getPresentationFingerprint: PresentationFingerprint) {
@@ -253,12 +246,13 @@ class SuggestionsView implements SuggestionsViewController {
     this.runtime = {
       options,
       queryStore,
-      modifiers: { openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false },
-      updateSelection: (index) => {
-        updateSelectionForRuntime(this.runtime, index);
-        this.syncHelpPassage(index);
-      }
+      listState: createStore({ hoveredIndex: -1, revision: 0 })
     };
+    // A help center row shows its passage while hovered or selected.
+    this.unsubscribes = [
+      options.selection.store.subscribe(() => this.syncHelpPassage()),
+      this.runtime.listState.subscribe(() => this.syncHelpPassage())
+    ];
   }
 
   readonly render = (payload: SuggestionsRenderPayload = {}): void => {
@@ -281,7 +275,8 @@ class SuggestionsView implements SuggestionsViewController {
     runtime.queryStore.set(query);
     const preserveSelection = payload.updateKind ? payload.updateKind !== 'structure' : Boolean(payload.canAppend);
     if (!preserveSelection) {
-      options.onSetSelectedIndex(-1);
+      options.selection.select(-1);
+      runtime.listState.setState({ hoveredIndex: -1 });
     }
     if (suggestions.length === 0 && payload.emptyMessage) {
       this.renderEmpty(payload);
@@ -307,7 +302,7 @@ class SuggestionsView implements SuggestionsViewController {
     syncLatestSuggestionMetadata(options, suggestions);
     this.lastRenderWasSuggestions = true;
     this.lastSimpleModeEnabled = simpleMode;
-    runtime.updateSelection(options.getSelectedIndex());
+    this.syncHelpPassage();
   };
 
   // Renders the open tabs: the first batch now, the rest in idle time.
@@ -323,7 +318,7 @@ class SuggestionsView implements SuggestionsViewController {
     const renderKeys = getStableRenderKeys(tabs, getTabRenderIdentity);
     const hasWindow = Boolean(options.document.defaultView);
     let renderedCount = hasWindow ? Math.min(tabs.length, Math.max(1, options.getOpenTabInitialRenderLimit())) : tabs.length;
-    options.onSetSelectedIndex(-1);
+    options.selection.select(-1);
     this.preloadTabIcons(tabs.slice(0, renderedCount));
     this.commitTabRows(tabs, renderKeys, renderedCount, simpleMode);
     this.lastRenderWasSuggestions = false;
@@ -344,20 +339,10 @@ class SuggestionsView implements SuggestionsViewController {
     });
   };
 
-  readonly updateSelection = (index?: number): void => {
-    this.runtime.updateSelection(index);
-  };
-
-  readonly setOpenInCurrentTabModifierActive = (active: boolean): void => {
-    this.setModifier('openInCurrentTab', active);
-  };
-
-  readonly setOpenSwitchInNewTabModifierActive = (active: boolean): void => {
-    this.setModifier('openSwitchInNewTab', active);
-  };
-
-  readonly setOpenInBackgroundTabModifierActive = (active: boolean): void => {
-    this.setModifier('openInBackgroundTab', active);
+  // Draws the rows again after their themes changed outside the list.
+  readonly refreshRowStyles = (): void => {
+    const state = this.runtime.listState.getSnapshot();
+    this.runtime.listState.setState({ revision: state.revision + 1 });
   };
 
   readonly clear = (): void => {
@@ -372,7 +357,7 @@ class SuggestionsView implements SuggestionsViewController {
     this.lastRenderWasSuggestions = false;
     this.suggestionValueRefs.clear();
     options.items.length = 0;
-    options.onSetSelectedIndex(-1);
+    options.selection.select(-1);
     options.setSuggestionsVisible(false);
   };
 
@@ -382,13 +367,14 @@ class SuggestionsView implements SuggestionsViewController {
     }
     const { options } = this;
     this.tabBatches.cancel();
+    this.unsubscribes.forEach((unsubscribe) => unsubscribe());
     options.hideTopActionTooltip();
     this.helpPassage.destroy();
     flushSync(() => this.root.unmount());
     this.destroyed = true;
     this.lastRenderWasSuggestions = false;
     options.items.length = 0;
-    options.onSetSelectedIndex(-1);
+    options.selection.select(-1);
     options.setSuggestionsVisible(false);
   };
 
@@ -405,10 +391,13 @@ class SuggestionsView implements SuggestionsViewController {
   readonly getItems = () => this.options.items;
 
   // A help center result shows its passage while it is hovered, or picked with the arrow keys.
-  private syncHelpPassage(selectedIndex?: number): void {
-    const { items } = this.options;
-    const hovered = items.find((item) => item._xIsHovering);
-    const row = hovered || (Number.isInteger(selectedIndex) ? items[Number(selectedIndex)] : undefined);
+  private syncHelpPassage(): void {
+    if (this.destroyed) {
+      return;
+    }
+    const { items, selection } = this.options;
+    const hovered = items[this.runtime.listState.getSnapshot().hoveredIndex];
+    const row = hovered || items[selection.store.getSnapshot().selectedIndex];
     const suggestion = row?._xSuggestion;
     if (!row || suggestion?.type !== 'helpArticle' || !isHelpPassage(suggestion.context)) {
       this.helpPassage.hide();
@@ -424,7 +413,7 @@ class SuggestionsView implements SuggestionsViewController {
     });
     options.items.length = 0;
     this.lastRenderWasSuggestions = false;
-    options.onSetSelectedIndex(-1);
+    options.selection.select(-1);
     options.setSuggestionsVisible(true);
   }
 
@@ -452,17 +441,8 @@ class SuggestionsView implements SuggestionsViewController {
       );
     });
     syncItems(this.options);
-    this.runtime.updateSelection(this.options.getSelectedIndex());
   }
 
-  private setModifier(key: keyof ModifierState, active: boolean): void {
-    const next = Boolean(active);
-    if (this.runtime.modifiers[key] === next) {
-      return;
-    }
-    this.runtime.modifiers[key] = next;
-    syncModifierLabels(this.runtime);
-  }
 }
 
 export function createSuggestionsView(rawOptions: SuggestionsViewOptions = {}): SuggestionsViewController {

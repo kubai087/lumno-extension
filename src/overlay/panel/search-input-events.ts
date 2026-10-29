@@ -46,7 +46,6 @@ interface SearchInputEventsDeps {
   cancelPendingOverlaySuggestionRequests(): void;
   notifyOverlayLoadingSession(input: HTMLInputElement | null): void;
   updateModeBadge(rawValue: string): void;
-  updateSelection(): void;
   // Called with no rows: the list rebuilds from the typed command.
   updateSearchSuggestions(rows: never[], query: string): void;
   renderCachedTabsOrRequest(query: string): void;
@@ -77,7 +76,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     cancelPendingOverlaySuggestionRequests,
     notifyOverlayLoadingSession,
     updateModeBadge,
-    updateSelection,
     updateSearchSuggestions,
     renderCachedTabsOrRequest,
     getDirectUrlSuggestion,
@@ -199,7 +197,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       updateModeBadge(rawValue);
       if (searchResults.selectedIndex >= 0) {
         searchResults.select(-1);
-        updateSelection();
       }
       searchQuery.set(rawValue, query);
       searchAutocomplete.clear();
@@ -254,7 +251,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       }
       if (searchResults.selectedIndex >= 0) {
         searchResults.select(-1);
-        updateSelection();
       }
       if (!query && searchMode.site) {
         searchQuery.clear();

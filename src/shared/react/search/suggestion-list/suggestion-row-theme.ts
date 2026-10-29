@@ -2,7 +2,7 @@
 // the primary search row, the URL highlight for typed addresses, and
 // otherwise its site's theme, shown at once as far as known and replaced
 // once the site's icon has been read.
-import { useLayoutEffect, useMemo } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import type { RefObject } from 'react';
 import { isLocalUrlSuggestion, resolveTheme } from './action-model';
 import type { Suggestion, SuggestionElement, SuggestionsRuntime, SuggestionValueRef, ThemeValue } from './types';
@@ -54,9 +54,10 @@ function readImmediateTheme(runtime: SuggestionsRuntime, suggestion: Suggestion,
 }
 
 // Shows the row in its known theme, then in its site's theme once that has
-// been read (when `load`); returns the function that stops waiting.
+// been read (when `load`), telling `onChange`; returns the function that
+// stops waiting.
 function followSiteTheme(runtime: SuggestionsRuntime, item: SuggestionElement, suggestion: Suggestion,
-  immediateTheme: ThemeValue, load: boolean): () => void {
+  immediateTheme: ThemeValue, load: boolean, onChange: () => void): () => void {
   const { options } = runtime;
   item._xTheme = immediateTheme;
   options.applyThemeVariables(item, immediateTheme);
@@ -69,7 +70,7 @@ function followSiteTheme(runtime: SuggestionsRuntime, item: SuggestionElement, s
       const nextTheme = resolveTheme(options, suggestion, theme);
       item._xTheme = nextTheme;
       options.applyThemeVariables(item, nextTheme);
-      runtime.updateSelection(options.getSelectedIndex());
+      onChange();
     });
   }
   return () => {
@@ -77,7 +78,8 @@ function followSiteTheme(runtime: SuggestionsRuntime, item: SuggestionElement, s
   };
 }
 
-function useRowTheme(input: RowThemeInput): RowThemeSource {
+// Returns a count that rises each time the row's site theme arrives.
+function useRowTheme(input: RowThemeInput): number {
   const { runtime, suggestionRef, suggestionFingerprint, isPrimary, onlyKeywordSuggestions, simpleMode, itemRef } = input;
   const { options } = runtime;
   const suggestion = suggestionRef.current;
@@ -96,11 +98,14 @@ function useRowTheme(input: RowThemeInput): RowThemeSource {
     (!onlyKeywordSuggestions || suggestion.type !== 'newtab') &&
     !source.usesUrlFallbackTheme;
 
+  const [themeVersion, setThemeVersion] = useState(0);
   useLayoutEffect(() => {
     const item = itemRef.current;
-    return item ? followSiteTheme(runtime, item, suggestionRef.current, immediateTheme, shouldLoadTheme) : undefined;
+    return item
+      ? followSiteTheme(runtime, item, suggestionRef.current, immediateTheme, shouldLoadTheme, () => setThemeVersion((version) => version + 1))
+      : undefined;
   }, [immediateTheme, itemRef, runtime, simpleMode, shouldLoadTheme, suggestionRef]);
-  return source;
+  return themeVersion;
 }
 
 export { followSiteTheme, useRowTheme };

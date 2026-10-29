@@ -80,7 +80,7 @@ const resolver = sandbox.LumnoNewtabSiteThemeResolver.createSiteThemeResolver({
   applyShortcutTileTheme: (tile, theme) => tile.applied.push(theme),
   suggestionItems: [],
   setSiteSearchPrefix: () => {},
-  updateSelection: () => {},
+  refreshRowStyles: () => {},
   setPersistedSiteThemeEntry: (host, theme) => persistedThemes.set(host, theme),
   getPersistedSiteThemeEntry: (host) => persistedThemes.get(host) || null,
   getPageFaviconUrlResolver: () => ({ getSafeFaviconCandidateUrl: (url) => url }),

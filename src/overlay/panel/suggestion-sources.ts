@@ -87,7 +87,6 @@ interface SuggestionSourcesDeps {
   ensureOverlaySuggestionsView(): Pick<SuggestionsViewController, 'render'>;
   setOverlayResultsCollapsed(collapsed: boolean, options?: { deferLayoutSync?: boolean } | null): void;
   syncSuggestionLastState(): void;
-  updateSelection(): void;
   commitSuggestionsNaturalHeightAfterRender(): void;
   cancelPendingOverlaySuggestionRequests(): void;
   shouldShowOpenTabsForEmptyQuery(): boolean;
@@ -140,7 +139,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     ensureOverlaySuggestionsView,
     setOverlayResultsCollapsed,
     syncSuggestionLastState,
-    updateSelection,
     commitSuggestionsNaturalHeightAfterRender,
     cancelPendingOverlaySuggestionRequests,
     shouldShowOpenTabsForEmptyQuery,
@@ -535,7 +533,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           container.scrollTop = previousScrollTop;
         }
         syncSuggestionLastState();
-        updateSelection();
       }
       // Rows shown while the search engine's suggestions are pending keep
       // the list's height; any other answer lets the list take its own.

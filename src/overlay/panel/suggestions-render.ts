@@ -192,14 +192,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   // The panel state object shared with search-panel.ts and the other modules.
   const overlayState = deps.overlayState;
 
-  // The rows show what the held modifier keys make of their action.
-  suggestionModifiers.store.subscribe(() => {
-    const view = ensureOverlaySuggestionsView();
-    const modifiers = suggestionModifiers.store.getSnapshot();
-    view.setOpenInCurrentTabModifierActive(modifiers.openInCurrentTab);
-    view.setOpenSwitchInNewTabModifierActive(modifiers.openSwitchInNewTab);
-    view.setOpenInBackgroundTabModifierActive(modifiers.openInBackgroundTab);
-  });
 
   // A tab's switch ranking, shown under it while score debugging is on.
   function formatTabRankDebugText(tab: OpenTabSuggestion & { _xTabFetchSeq?: number }): string {
@@ -273,8 +265,9 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     });
   }
 
-  function updateSelection(): void {
-    ensureOverlaySuggestionsView().updateSelection(searchResults.selectedIndex);
+  // Draws the rows again after their themes changed (the page theme).
+  function refreshRowStyles(): void {
+    ensureOverlaySuggestionsView().refreshRowStyles();
   }
 
   function syncSuggestionLastState(): void {
@@ -494,13 +487,18 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       applyFaviconOpticalAlignment: favicons.applyFaviconOpticalAlignment,
       attachFaviconWithFallbacks: attachReactOverlayFavicon,
       preloadIcon: favicons.preloadIcon,
-      onSetSelectedIndex: (nextIndex) => {
-        searchResults.select(nextIndex);
-        if (nextIndex < 0) {
-          overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
+      // A list drawn anew drops the selection, and the input shows what
+      // was typed again.
+      selection: {
+        store: searchResults.store,
+        select: (nextIndex) => {
+          searchResults.select(nextIndex);
+          if (nextIndex < 0) {
+            overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
+          }
         }
       },
-      getSelectedIndex: () => searchResults.selectedIndex,
+      modifiers: suggestionModifiers,
       onSwitchToTab: (tab, event) => {
         const suggestion: OverlaySuggestion = {
           type: 'openTab',
@@ -603,7 +601,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     }
     setOverlayResultsCollapsed(false, { deferLayoutSync: true });
     searchResults.select(-1);
-    updateSelection();
     commitSuggestionsNaturalHeightAfterRender();
   }
 
@@ -688,7 +685,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   return {
-    updateSelection,
+    refreshRowStyles,
     syncSuggestionLastState,
     scrollSelectedSuggestionIntoView,
     getSearchPanelsLayoutTransitionMenu,

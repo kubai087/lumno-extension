@@ -1,11 +1,11 @@
 // An open tab row.
-import { useRef, useMemo, useLayoutEffect, type MouseEvent as ReactMouseEvent, type RefObject, memo } from 'react';
+import { useRef, useMemo, useLayoutEffect, useState, type MouseEvent as ReactMouseEvent, type RefObject, memo } from 'react';
 import type {
   SuggestionsRuntime,
   OpenTabSuggestion,
   SuggestionElement,
-  SuggestionActionTagElement,
   IconSpec,
+  ModifierState,
   NormalizedOptions,
   Suggestion
 } from './types';
@@ -13,11 +13,12 @@ import { getBrowserFallbackIcon } from './icon-spec';
 import { SuggestionIcon } from './suggestion-icon';
 import { SuggestionUtilityAction } from './utility-action';
 import { isLocalUrlSuggestion, getActionLabel, getModifierAction } from './action-model';
-import { surfaceClass, setSurfaceStyle } from './surface-options';
+import { surfaceClass } from './surface-options';
 import { bindRowTooltip } from './highlight';
-import { setIconEmphasis } from './action-styles';
+import { applyRowStyles } from './action-styles';
+import type { RowSelection } from './action-styles';
 import { followSiteTheme } from './suggestion-row-theme';
-import { queryHtmlTag } from '../../../dom-lookup';
+import { setHoveredRow, useRowView } from './row-state';
 import { RemixIcon } from '../../remix-icon';
 
 interface OpenTabRowProps {
@@ -33,11 +34,9 @@ interface OpenTabRefs {
   iconSlot: RefObject<HTMLSpanElement | null>;
   title: RefObject<HTMLSpanElement | null>;
   switchButton: RefObject<HTMLButtonElement | null>;
-  switchButtonLabel: RefObject<HTMLSpanElement | null>;
   copySlot: RefObject<HTMLDivElement | null>;
   copyButton: RefObject<HTMLButtonElement | null>;
   actionTags: RefObject<HTMLDivElement | null>;
-  switchActionTag: RefObject<SuggestionActionTagElement | null>;
 }
 
 function useOpenTabRefs(): OpenTabRefs {
@@ -46,11 +45,9 @@ function useOpenTabRefs(): OpenTabRefs {
     iconSlot: useRef<HTMLSpanElement>(null),
     title: useRef<HTMLSpanElement>(null),
     switchButton: useRef<HTMLButtonElement>(null),
-    switchButtonLabel: useRef<HTMLSpanElement>(null),
     copySlot: useRef<HTMLDivElement>(null),
     copyButton: useRef<HTMLButtonElement>(null),
-    actionTags: useRef<HTMLDivElement>(null),
-    switchActionTag: useRef<SuggestionActionTagElement>(null)
+    actionTags: useRef<HTMLDivElement>(null)
   };
 }
 
@@ -81,71 +78,34 @@ function readOpenTabIcon(options: NormalizedOptions, tab: OpenTabSuggestion): Ic
   };
 }
 
-// Puts the row's elements and state on its element, for the selection styles.
-function publishOpenTabElements(options: NormalizedOptions, item: SuggestionElement, refs: OpenTabRefs,
-  tab: OpenTabSuggestion, facts: { index: number; iconIsFavicon: boolean; tabSuggestion: Suggestion; simpleMode: boolean }): void {
-  const switchTag = refs.switchActionTag.current;
+// Puts what the surfaces read on the row's element.
+function publishOpenTab(item: SuggestionElement, tabId: number | null, autoTop: boolean, tabSuggestion: Suggestion): void {
   item._xIsSearchSuggestion = false;
-  item._xIsAutocompleteTop = options.autoHighlightFirstTab && facts.index === 0;
-  item._xIconWrap = refs.iconSlot.current;
-  item._xIconIsFavicon = facts.iconIsFavicon;
-  item._xTitle = refs.title.current;
-  item._xSwitchButton = refs.switchButton.current;
-  item._xVisitButton = refs.switchButton.current;
-  item._xVisitButtonLabel = refs.switchButtonLabel.current;
+  item._xIsAutocompleteTop = autoTop;
   item._xVisitButtonAction = 'switch';
-  item._xSuggestion = facts.tabSuggestion;
-  item._xTabId = typeof tab.id === 'number' ? tab.id : null;
-  item._xSimpleMode = facts.simpleMode;
-  item._xUtilityActions = refs.copySlot.current && refs.copyButton.current
-    ? [{ slot: refs.copySlot.current, button: refs.copyButton.current }]
-    : [];
-  item._xTagContainer = refs.actionTags.current;
-  item._xActionTags = switchTag ? [switchTag] : [];
-  item._xHasActionTags = options.surface === 'overlay';
-  if (switchTag) {
-    switchTag._xAction = 'switch';
-    switchTag._xSuggestion = facts.tabSuggestion;
-    switchTag._xActionLabel = queryHtmlTag(switchTag, `.${surfaceClass(options, 'x-nt-suggestion-action-tag__label')}`, 'span');
-  }
+  item._xSuggestion = tabSuggestion;
+  item._xTabId = tabId;
 }
 
-// Hover marks the row, in its brand's hover color where it has one.
-function markOpenTabHover(runtime: SuggestionsRuntime, item: SuggestionElement, simpleMode: boolean): void {
-  const { options } = runtime;
-  item._xIsHovering = true;
-  setIconEmphasis(item, true);
-  runtime.updateSelection(options.getSelectedIndex());
-  const selectedIndex = options.getSelectedIndex();
-  if (options.items.indexOf(item) === selectedIndex || (selectedIndex === -1 && item._xIsAutocompleteTop)) {
-    return;
-  }
-  const theme = item._xTheme;
-  if (!simpleMode && theme?._xIsBrand) {
-    setSurfaceStyle(options, item, '--x-nt-suggestion-hover-bg', options.getHoverColors(theme).bg || '');
-  } else if (options.surface === 'overlay') {
-    setSurfaceStyle(options, item, '--x-nt-suggestion-hover-bg', 'var(--x-ov-hover-bg, #F3F4F6)');
-  }
-  item.setAttribute('data-row-state', 'hover');
-}
-
-function OpenTabActions({ runtime, tabSuggestion, simpleMode, refs, copyableUrl, activate, onAuxClick }: {
+function OpenTabActions({ runtime, tabSuggestion, simpleMode, refs, modifiers, readRow, copyableUrl, activate, onAuxClick }: {
   runtime: SuggestionsRuntime;
   tabSuggestion: Suggestion;
   simpleMode: boolean;
   refs: OpenTabRefs;
+  modifiers: ModifierState;
+  readRow(): RowSelection | null;
   copyableUrl: string;
   activate(event: ReactMouseEvent<HTMLElement>): void;
   onAuxClick(event: ReactMouseEvent<HTMLElement>): void;
 }) {
   const { options } = runtime;
   const overlay = options.surface === 'overlay';
-  const switchLabel = getActionLabel(runtime, getModifierAction(runtime, 'switch'), tabSuggestion);
+  const switchLabel = getActionLabel(runtime, getModifierAction(runtime, 'switch', modifiers), tabSuggestion);
   return (
     <div className={surfaceClass(options, 'x-nt-suggestion-right')} data-action-column="true">
       {overlay && (
         <div ref={refs.actionTags} className={surfaceClass(options, 'x-nt-suggestion-action-tags')} data-visible="false">
-          <span ref={refs.switchActionTag} className={surfaceClass(options, 'x-nt-suggestion-action-tag')}>
+          <span className={surfaceClass(options, 'x-nt-suggestion-action-tag')}>
             <span className={surfaceClass(options, 'x-nt-suggestion-action-tag__label')}>{switchLabel}</span>
           </span>
         </div>
@@ -161,7 +121,7 @@ function OpenTabActions({ runtime, tabSuggestion, simpleMode, refs, copyableUrl,
         }}
         onAuxClick={onAuxClick}
       >
-        <span ref={refs.switchButtonLabel} className={overlay ? 'x-ov-inline-label' : undefined}>
+        <span className={overlay ? 'x-ov-inline-label' : undefined}>
           {overlay ? switchLabel : options.t('switch_to_tab', '切换到标签页')}
         </span>
         {simpleMode && (
@@ -176,7 +136,7 @@ function OpenTabActions({ runtime, tabSuggestion, simpleMode, refs, copyableUrl,
       {copyableUrl && (
         <SuggestionUtilityAction
           options={options}
-          itemRef={refs.item}
+          readRow={readRow}
           slotRef={refs.copySlot}
           buttonRef={refs.copyButton}
           leading
@@ -218,19 +178,57 @@ function OpenTabRowComponent({ runtime, tab, index, last, simpleMode }: OpenTabR
     [tab.favIconUrl, tab.id, tab.url, titleText]
   );
   const iconIsFavicon = iconSpec.kind === 'favicon';
+  const autoTop = options.autoHighlightFirstTab && index === 0;
+  const tabId = typeof tab.id === 'number' ? tab.id : null;
+  const view = useRowView(runtime, index);
+  const rowSelection = useRef<RowSelection | null>(null);
+  const [themeVersion, setThemeVersion] = useState(0);
 
   useLayoutEffect(() => {
     const item = itemRef.current;
     if (!item) {
       return undefined;
     }
-    publishOpenTabElements(options, item, refs, tab, { index, iconIsFavicon, tabSuggestion, simpleMode });
+    publishOpenTab(item, tabId, autoTop, tabSuggestion);
     item._xThemeHost = options.getThemeHostForSuggestion(themeSuggestion);
     bindRowTooltip(options, item, { getElement: () => refs.title.current });
-    return followSiteTheme(runtime, item, themeSuggestion, immediateTheme, !localFallback);
-    // The refs are stable; the row republishes when the tab or its theme changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [iconIsFavicon, immediateTheme, index, localFallback, options, runtime, simpleMode, tab.id, tabSuggestion, themeSuggestion, titleText]);
+    return followSiteTheme(runtime, item, themeSuggestion, immediateTheme, !localFallback,
+      () => setThemeVersion((version) => version + 1));
+  }, [autoTop, immediateTheme, itemRef, localFallback, options, refs.title, runtime, tabId, tabSuggestion, themeSuggestion]);
+
+  useLayoutEffect(() => {
+    const item = itemRef.current;
+    if (!item) {
+      return;
+    }
+    rowSelection.current = applyRowStyles(options, {
+      item,
+      iconSlot: refs.iconSlot.current,
+      iconIsFavicon,
+      directIconWrap: null,
+      title: refs.title.current,
+      visitButton: refs.switchButton.current,
+      switchButton: refs.switchButton.current,
+      sourceTags: [],
+      openTabTag: null,
+      tagContainer: refs.actionTags.current,
+      utilityActions: refs.copySlot.current && refs.copyButton.current
+        ? [{ slot: refs.copySlot.current, button: refs.copyButton.current }]
+        : []
+    }, {
+      isSearch: false,
+      actionModel: null,
+      hasActionTags: options.surface === 'overlay',
+      alwaysHideVisitButton: false,
+      hasSwitchAction: true
+    }, {
+      selection: view.selection,
+      hovering: view.hovering,
+      autoTop,
+      theme: item._xTheme || options.defaultTheme,
+      simpleMode
+    });
+  }, [autoTop, iconIsFavicon, itemRef, options, refs, simpleMode, themeVersion, view.hovering, view.revision, view.selection]);
 
   const activate = (event: ReactMouseEvent<HTMLElement>): void => {
     options.onSwitchToTab(tab, event.nativeEvent);
@@ -251,15 +249,10 @@ function OpenTabRowComponent({ runtime, tab, index, last, simpleMode }: OpenTabR
       className={surfaceClass(options, 'x-nt-suggestion-item')}
       data-last={last ? 'true' : 'false'}
       data-simple-mode={simpleMode ? 'true' : 'false'}
-      onMouseEnter={() => {
-        if (itemRef.current) {
-          markOpenTabHover(runtime, itemRef.current, simpleMode);
-        }
-      }}
+      onMouseEnter={() => setHoveredRow(runtime, index)}
       onMouseLeave={() => {
-        if (itemRef.current) {
-          itemRef.current._xIsHovering = false;
-          runtime.updateSelection(options.getSelectedIndex());
+        if (runtime.listState.getSnapshot().hoveredIndex === index) {
+          setHoveredRow(runtime, -1);
         }
       }}
       onClick={activate}
@@ -277,6 +270,8 @@ function OpenTabRowComponent({ runtime, tab, index, last, simpleMode }: OpenTabR
       <OpenTabActions
         activate={activate}
         copyableUrl={String(tab.url || '').trim()}
+        modifiers={view.modifiers}
+        readRow={() => rowSelection.current}
         onAuxClick={handleAuxClick}
         refs={refs}
         runtime={runtime}

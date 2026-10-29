@@ -43,7 +43,6 @@ import { getKeywordSearchSuggestionState } from '../../domain/search/utils/engin
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
-import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
@@ -67,7 +66,6 @@ interface SuggestionsControllerState {
 
 interface SuggestionsControllerDeps {
   suggestionSource: SuggestionSource;
-  suggestionModifiers: SuggestionModifiers;
   siteSearchRunner: SiteSearchRunner;
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchMatching: SearchMatching;
@@ -136,7 +134,6 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
     suggestionSource,
-    suggestionModifiers,
     siteSearchRunner,
     modeActions,
     searchMatching,
@@ -193,16 +190,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     renderSuggestions(searchResults.lastResponse, query);
   });
   let pendingProviderReload = false;
-  // The rows show what the held modifier keys make of their action.
-  suggestionModifiers.store.subscribe(() => {
-    const view = pageState.suggestionsView;
-    if (view) {
-      const modifiers = suggestionModifiers.store.getSnapshot();
-      view.setOpenInCurrentTabModifierActive(modifiers.openInCurrentTab);
-      view.setOpenSwitchInNewTabModifierActive(modifiers.openSwitchInNewTab);
-      view.setOpenInBackgroundTabModifierActive(modifiers.openInBackgroundTab);
-    }
-  });
 
 
 
@@ -221,11 +208,11 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     return SUGGESTION_ACTION_MODEL.getActionContextKey(options);
   }
 
-  function updateSelection(): void {
-    if (!pageState.suggestionsView) {
-      return;
+  // Draws the rows again after their themes changed outside the list.
+  function refreshRowStyles(): void {
+    if (pageState.suggestionsView) {
+      pageState.suggestionsView.refreshRowStyles();
     }
-    pageState.suggestionsView.updateSelection(searchResults.selectedIndex);
   }
 
   function activateRenderedSuggestion(
@@ -719,9 +706,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       // list take its own height, and the frame follows it.
       const heightReleased = !(options && options.pendingRemote) &&
         releaseSuggestionsHeight(suggestionsContainer, window);
-      if (updateKind !== 'highlight') {
-        updateSelection();
-      }
       if (updateKind !== 'highlight' || heightReleased) {
         setSuggestionsVisible(true);
       }
@@ -838,7 +822,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
 
   return {
     getAutoHighlightIndex,
-    updateSelection,
+    refreshRowStyles,
     activateRenderedSuggestion,
     deleteRenderedHistorySuggestion,
     scrollSelectedSuggestionIntoView,

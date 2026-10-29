@@ -121,7 +121,6 @@ interface SearchBoxDeps {
   // The row a step from `selectedIndex` lands on, and whether it wrapped.
   getNextSuggestionIndex(direction: number, selectedIndex: number, itemCount: number, autoIndex: number): { index: number; didWrap: boolean };
   getAutoHighlightIndex(): number;
-  updateSelection(): void;
   scrollSelectedSuggestionIntoView(direction: 'up' | 'down', didWrap: boolean): void;
   submitSearchQuery(query: string, event: KeyboardEvent): unknown;
   root: HTMLElement | null;
@@ -207,7 +206,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     isImeCompositionEvent,
     getNextSuggestionIndex,
     getAutoHighlightIndex,
-    updateSelection,
     scrollSelectedSuggestionIntoView,
     submitSearchQuery,
     root,
@@ -284,16 +282,21 @@ function createSearchBox(deps: SearchBoxDeps) {
     getBrowserPageFaviconUrl,
     getPageFaviconRenderCandidates,
     setSuggestionsVisible,
-    onSetSelectedIndex: (nextIndex) => {
-      searchResults.select(nextIndex);
-      if (nextIndex < 0) {
-        pageState.suggestionInputPreview.restore(
-          pageState.inputParts ? pageState.inputParts.input : null,
-          searchQuery.raw
-        );
+    // A list drawn anew drops the selection, and the input shows what was
+    // typed again.
+    selection: {
+      store: searchResults.store,
+      select: (nextIndex) => {
+        searchResults.select(nextIndex);
+        if (nextIndex < 0) {
+          pageState.suggestionInputPreview.restore(
+            pageState.inputParts ? pageState.inputParts.input : null,
+            searchQuery.raw
+          );
+        }
       }
     },
-    getSelectedIndex: () => searchResults.selectedIndex,
+    modifiers: suggestionModifiers,
     onSwitchToTab: (tab, event) => {
       if (resultActivation.opensInBackground(event) && tab.url) {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
@@ -479,7 +482,6 @@ function createSearchBox(deps: SearchBoxDeps) {
       if (event.key === 'Escape' && pageState.suggestionInputPreview.restore(input, searchQuery.raw)) {
         event.preventDefault();
         searchResults.select(-1);
-        updateSelection();
         return;
       }
       // Leaving a site search lists the query's ordinary results.
@@ -557,7 +559,6 @@ function createSearchBox(deps: SearchBoxDeps) {
         );
         searchResults.select(next.index);
         const didWrap = next.didWrap;
-        updateSelection();
         // A search suggestion shows in the input; other rows keep what was typed.
         const selectedItem = suggestionItems[next.index];
         pageState.suggestionInputPreview.show(

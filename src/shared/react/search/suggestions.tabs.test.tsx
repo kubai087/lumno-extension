@@ -1,8 +1,9 @@
 import { act } from 'react';
+import { queryHtmlElement } from '../../dom-lookup';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Suggestion, SuggestionElement } from './suggestions';
 import { expectTag, getElements, getTag, getTags, required } from '../../../../tests/react/dom';
-import { createView, destroyViews, render } from '../../../../tests/react/suggestions';
+import { createView, destroyViews, render, rowPart, rowParts } from '../../../../tests/react/suggestions';
 
 afterEach(destroyViews);
 
@@ -28,7 +29,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
       }]);
     });
     const row = items[0];
-    const button = expectTag(row._xSwitchButton, 'button');
+    const button = expectTag(rowPart(row, 'tab-switch-button'), 'button');
     const copyButton = getTag(row, '.x-nt-suggestion-utility-button', 'button');
     act(() => {
       row.dispatchEvent(new MouseEvent('mouseover', {
@@ -255,7 +256,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     };
     render(view, [suggestion]);
     const button =
-      expectTag(items[0]._xHistoryDeleteButton, 'button');
+      expectTag(rowParts(items[0], 'suggestion-utility-button').at(-1), 'button');
 
     act(() => {
       button.dispatchEvent(new MouseEvent('click', {
@@ -293,7 +294,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     const row = items[0];
     const utilityButtons = getTags(row, '.x-nt-suggestion-utility-button', 'button');
     const copyButton = utilityButtons[0];
-    const deleteButton = expectTag(row._xHistoryDeleteButton, 'button');
+    const deleteButton = expectTag(rowParts(row, 'suggestion-utility-button').at(-1), 'button');
     const utilitySlots = Array.from(getElements(row, '.x-nt-suggestion-utility-slot'));
 
     expect(utilitySlots.map((slot) => slot.dataset.leading)).toEqual([
@@ -489,8 +490,8 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
       }]);
     });
     expect(items[0]._xIsAutocompleteTop).toBe(true);
-    expect(items[0]._xTagContainer?.dataset.visible).toBe('true');
-    expect(items[0]._xSwitchButton?.dataset.visible).toBe('false');
+    expect(rowPart(items[0], 'suggestion-action-tags')?.dataset.visible).toBe('true');
+    expect(rowPart(items[0], 'suggestion-switch-button')?.dataset.visible).toBe('false');
     expect(items[0].querySelector('.x-ov-action-tag__key')).toBeNull();
   });
 
@@ -543,7 +544,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
       markText: '#14532d'
     };
     const markThemes: unknown[] = [];
-    const { view, items } = createView({
+    const { view, items, select } = createView({
       surface: 'overlay',
       getImmediateThemeForSuggestion: () => brandTheme,
       getThemeForMode: (theme) => theme || brandTheme,
@@ -584,8 +585,8 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     });
 
     const row = items[0];
-    const visitButton = expectTag(row._xVisitButton, 'button');
-    const historyTag = expectTag(row._xHistoryTag, 'span');
+    const visitButton = expectTag(rowPart(row, 'suggestion-visit-button'), 'button');
+    const historyTag = expectTag(queryHtmlElement(row, '[data-tag-type="history"]'), 'span');
 
     expect(row.style.getPropertyValue('--x-ext-mark-bg')).toBe(
       'var(--x-ov-neutral-mark-bg, #E5E7EB)'
@@ -627,9 +628,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     )).toBe('#14532d');
     expect(markThemes[markThemes.length - 1]).toBe(brandTheme);
 
-    act(() => {
-      view.updateSelection(0);
-    });
+    select(0);
 
     expect(row.dataset.rowState).toBe('active');
     expect(row.style.getPropertyValue('--x-ext-mark-bg'))

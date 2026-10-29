@@ -1,7 +1,8 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Suggestion } from './suggestions';
-import { createView, destroyViews, render } from '../../../../tests/react/suggestions';
+import { createView, destroyViews, render, rowPart, rowParts } from '../../../../tests/react/suggestions';
+import { createStore } from '../../state/store';
 
 afterEach(destroyViews);
 
@@ -72,7 +73,7 @@ describe('Suggestion rows: updates, labels and commands', () => {
     const onSetSelectedIndex = vi.fn();
     const { view, items } = createView({
       bindCursorTooltip,
-      onSetSelectedIndex
+      selection: { store: createStore({ selectedIndex: -1 }), select: onSetSelectedIndex }
     });
     const suggestion: Suggestion = {
       type: 'history',
@@ -112,7 +113,7 @@ describe('Suggestion rows: updates, labels and commands', () => {
       applyThemeVariables,
       getImmediateThemeForSuggestion,
       onActivateSuggestion,
-      onSetSelectedIndex
+      selection: { store: createStore({ selectedIndex: -1 }), select: onSetSelectedIndex }
     });
     const firstSuggestion: Suggestion = {
       type: 'directUrl',
@@ -347,16 +348,16 @@ describe('Suggestion rows: updates, labels and commands', () => {
     ]);
 
     expect(
-      items.map((item) => item._xActionTags?.[0]._xActionLabel?.textContent)
+      items.map((item) => rowPart(rowParts(item, 'suggestion-action-tag')[0], 'suggestion-action-tag__label')?.textContent)
     ).toEqual(['搜索', '搜索']);
     expect(
-      items.map((item) => item._xVisitButtonLabel?.textContent)
+      items.map((item) => rowPart(item, 'suggestion-action-button__label')?.textContent)
     ).toEqual(['搜索', '搜索']);
     expect(
-      items.map((item) => item._xActionTags?.[0].dataset.action)
+      items.map((item) => rowParts(item, 'suggestion-action-tag')[0].dataset.action)
     ).toEqual(['search', 'search']);
     expect(
-      items.map((item) => item._xActionTags?.[0].querySelector(
+      items.map((item) => rowParts(item, 'suggestion-action-tag')[0].querySelector(
         '.x-nt-suggestion-action-tag__key'
       ))
     ).toEqual([null, null]);
@@ -379,7 +380,7 @@ describe('Suggestion rows: updates, labels and commands', () => {
           ? 'go'
           : action
     };
-    const { view, items } = createView({ actionModel });
+    const { view, items, setModifiers } = createView({ actionModel });
     render(view, [{
       type: 'history',
       title: 'Example',
@@ -387,14 +388,12 @@ describe('Suggestion rows: updates, labels and commands', () => {
     }]);
     const row = items[0];
 
-    act(() => {
-      view.setOpenInCurrentTabModifierActive(true);
-    });
+    setModifiers({ openInCurrentTab: true });
 
     expect(items[0]).toBe(row);
-    expect(items[0]._xVisitButtonLabel?.textContent).toBe('前往');
+    expect(rowPart(items[0], 'suggestion-action-button__label')?.textContent).toBe('前往');
     expect(
-      items[0]._xActionTags?.[0]._xActionLabel?.textContent
+      rowPart(rowParts(items[0], 'suggestion-action-tag')[0], 'suggestion-action-tag__label')?.textContent
     ).toBe('前往');
   });
 

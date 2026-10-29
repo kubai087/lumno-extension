@@ -1,8 +1,11 @@
 // Surface options: the class and CSS variable names that differ between New
 // Tab and the overlay, and normalizing the options a surface passes in.
+import { createStore } from '../../../state/store';
 import type {
+  ModifierState,
   QueryStore,
   NormalizedOptions,
+  SuggestionSelection,
   SuggestionsViewOptions
 } from './types';
 
@@ -268,14 +271,20 @@ function readFaviconOptions(raw: SuggestionsViewOptions): OptionGroup<'shouldBlo
   };
 }
 
+// A selection of the list's own, for a surface that does not keep one.
+function createLocalSelection(): SuggestionSelection {
+  const store = createStore({ selectedIndex: -1 });
+  return { store, select: (selectedIndex) => store.setState({ selectedIndex }) };
+}
+
 // What the surface does when a row is chosen, selected or acted on.
-function readCallbacks(raw: SuggestionsViewOptions): OptionGroup<'setSuggestionsVisible' | 'onSetSelectedIndex' | 'getSelectedIndex' |
+function readCallbacks(raw: SuggestionsViewOptions): OptionGroup<'setSuggestionsVisible' | 'selection' | 'modifiers' |
   'onSwitchToTab' | 'onActivateSuggestion' | 'onDeleteHistory' | 'onCopyUrl' | 'shouldSwitchMatchedTabSuggestion' |
   'showTopActionTooltip' | 'hideTopActionTooltip' | 'bindCursorTooltip'> {
   return {
     setSuggestionsVisible: raw.setSuggestionsVisible || noop,
-    onSetSelectedIndex: raw.onSetSelectedIndex || noop,
-    getSelectedIndex: raw.getSelectedIndex || (() => -1),
+    selection: raw.selection || createLocalSelection(),
+    modifiers: raw.modifiers || { store: createStore<ModifierState>({ openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false }) },
     onSwitchToTab: raw.onSwitchToTab || noop,
     onActivateSuggestion: raw.onActivateSuggestion || noop,
     onDeleteHistory: raw.onDeleteHistory || noop,

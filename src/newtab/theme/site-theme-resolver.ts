@@ -54,7 +54,7 @@ interface SiteThemeResolverDeps {
   shortcutTiles: ShortcutTileElement[];
   applyShortcutTileTheme: ApplyElementTheme<ShortcutTileElement>;
   suggestionItems: SuggestionElement[];
-  updateSelection(): void;
+  refreshRowStyles(): void;
   setPersistedSiteThemeEntry(hostKey: string, theme: ThemeVariant): unknown;
   getPersistedSiteThemeEntry(hostKey: string): SiteThemeEntry | null;
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getSafeFaviconCandidateUrl' | 'resolveFaviconSource'> | null;
@@ -122,7 +122,7 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     shortcutTiles,
     applyShortcutTileTheme,
     suggestionItems,
-    updateSelection,
+    refreshRowStyles,
     setPersistedSiteThemeEntry,
     getPersistedSiteThemeEntry,
     getPageFaviconUrlResolver,
@@ -397,7 +397,7 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     if (searchMode.site && getProviderThemeHost(searchMode.site) === normalizedHost) {
       modeActions.setSiteSearchPrefix(searchMode.site, theme);
     }
-    updateSelection();
+    refreshRowStyles();
   }
 
   function setResolvedThemeForHost(hostKey: string, theme: ThemeVariant | null | undefined, options?: ResolvedThemeOptions): ThemeVariant {

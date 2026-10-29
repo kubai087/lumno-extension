@@ -5,6 +5,7 @@ import type {
   Suggestion,
   ThemeValue,
   SuggestionsRuntime,
+  ModifierState,
   SuggestionActionModelResult,
   SuggestionActionTagModel
 } from './types';
@@ -83,34 +84,20 @@ export function resolveTheme(
 
 export function getModifierAction(
   runtime: SuggestionsRuntime,
-  action: string
+  action: string,
+  modifiers: ModifierState
 ): string {
   const { actionModel } = runtime.options;
   if (actionModel.getModifierAdjustedAction) {
-    return actionModel.getModifierAdjustedAction(
-      action,
-      runtime.modifiers
-    );
+    return actionModel.getModifierAdjustedAction(action, modifiers);
   }
-  if (
-    runtime.modifiers.openSwitchInNewTab &&
-    action === 'switch'
-  ) {
-    return runtime.modifiers.openInBackgroundTab &&
-      !runtime.modifiers.openInCurrentTab
-      ? 'openBackgroundTab'
-      : 'openNewTab';
+  if (modifiers.openSwitchInNewTab && action === 'switch') {
+    return modifiers.openInBackgroundTab && !modifiers.openInCurrentTab ? 'openBackgroundTab' : 'openNewTab';
   }
-  if (
-    runtime.modifiers.openInBackgroundTab &&
-    !runtime.modifiers.openInCurrentTab &&
-    ['openNewTab', 'go', 'switch'].includes(action)
-  ) {
+  if (modifiers.openInBackgroundTab && !modifiers.openInCurrentTab && ['openNewTab', 'go', 'switch'].includes(action)) {
     return 'openBackgroundTab';
   }
-  return runtime.modifiers.openInCurrentTab && action === 'openNewTab'
-    ? 'go'
-    : action;
+  return modifiers.openInCurrentTab && action === 'openNewTab' ? 'go' : action;
 }
 
 export function getActionLabel(

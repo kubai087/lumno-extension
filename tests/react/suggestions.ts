@@ -1,6 +1,8 @@
 // What the suggestion list tests share: the options a surface passes, a
 // view made from them, and rendering suggestions into it.
 import { act } from 'react';
+import { createStore } from '../../src/shared/state/store';
+import { queryHtmlElement, queryHtmlElements } from '../../src/shared/dom-lookup';
 import * as suggestionActionModel from '../../src/domain/search/suggestion-action-model';
 import {
   createSuggestionsView,
@@ -21,11 +23,17 @@ export function createOptions(
   container: HTMLElement;
   items: SuggestionElement[];
   getSelectedIndex: () => number;
+  // Selects a row as the surface would.
+  select: (index: number) => void;
+  // Sets the modifier keys held.
+  setModifiers: (modifiers: Partial<{ openInCurrentTab: boolean; openSwitchInNewTab: boolean; openInBackgroundTab: boolean }>) => void;
 } {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const items: SuggestionElement[] = [];
-  let selectedIndex = -1;
+  const selectionStore = createStore({ selectedIndex: -1 });
+  const modifierStore = createStore({ openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false });
+  const select = (selectedIndex: number) => selectionStore.setState({ selectedIndex });
   const defaultTheme = {
     buttonText: '#111',
     buttonBg: '#eee',
@@ -93,10 +101,8 @@ export function createOptions(
         candidates.primaryUrl ||
         'data:image/png;base64,dGVzdA==';
     },
-    onSetSelectedIndex: (index) => {
-      selectedIndex = index;
-    },
-    getSelectedIndex: () => selectedIndex,
+    selection: { store: selectionStore, select },
+    modifiers: { store: modifierStore },
     ...overrides,
     actionModel
   };
@@ -104,7 +110,9 @@ export function createOptions(
     options,
     container,
     items,
-    getSelectedIndex: () => selectedIndex
+    getSelectedIndex: () => selectionStore.getSnapshot().selectedIndex,
+    select: (index) => act(() => select(index)),
+    setModifiers: (modifiers) => act(() => modifierStore.setState(modifiers))
   };
 }
 
@@ -140,4 +148,14 @@ export function destroyViews(): void {
   });
   views = [];
   document.body.textContent = '';
+}
+
+// A part of a row by its class on either surface (x-nt- or x-ov-).
+export function rowPart(item: Element | undefined, name: string): HTMLElement | null {
+  return item ? queryHtmlElement(item, `.x-nt-${name}, .x-ov-${name}`) : null;
+}
+
+// Every part of a row with that class.
+export function rowParts(item: Element | undefined, name: string): HTMLElement[] {
+  return item ? queryHtmlElements(item, `.x-nt-${name}, .x-ov-${name}`) : [];
 }

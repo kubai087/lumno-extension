@@ -1,5 +1,5 @@
 // A search, history, bookmark or help center suggestion row.
-import { useMemo, useLayoutEffect, type MouseEvent as ReactMouseEvent, type RefObject, memo } from 'react';
+import { useMemo, useLayoutEffect, useRef, type MouseEvent as ReactMouseEvent, type RefObject, memo } from 'react';
 import type { NormalizedOptions, SearchSuggestionRowProps, SuggestionElement, SuggestionsRuntime,
   SuggestionValueRef } from './types';
 import { createActionModel } from './action-model';
@@ -8,9 +8,11 @@ import { SuggestionIcon } from './suggestion-icon';
 import { surfaceClass } from './surface-options';
 import { bindRowTooltip } from './highlight';
 import { isHelpPassage } from '../help-passage-card';
-import { setIconEmphasis } from './action-styles';
+import { applyRowStyles } from './action-styles';
+import type { RowSelection } from './action-styles';
 import { queryHtmlElement } from '../../../dom-lookup';
-import { publishRowElements, useRowRefs } from './suggestion-row-elements';
+import { publishRow, readRowStyleElements, useRowRefs } from './suggestion-row-elements';
+import { setHoveredRow, useRowView } from './row-state';
 import { RowActions, RowText } from './suggestion-row-parts';
 import { useRowTheme } from './suggestion-row-theme';
 
@@ -52,23 +54,12 @@ function useRowPointer(runtime: SuggestionsRuntime, itemRef: RefObject<Suggestio
   return {
     activate,
     onMouseEnter(): void {
-      const item = itemRef.current;
-      if (!item) {
-        return;
-      }
-      item._xIsHovering = true;
-      setIconEmphasis(item, true);
-      runtime.updateSelection(options.getSelectedIndex());
-      const selectedIndex = options.getSelectedIndex();
-      if (options.items.indexOf(item) !== selectedIndex && !(selectedIndex === -1 && item._xIsAutocompleteTop)) {
-        item.setAttribute('data-row-state', 'hover');
-      }
+      setHoveredRow(runtime, index);
     },
     onMouseLeave(): void {
-      if (itemRef.current) {
-        itemRef.current._xIsHovering = false;
+      if (runtime.listState.getSnapshot().hoveredIndex === index) {
+        setHoveredRow(runtime, -1);
       }
-      runtime.updateSelection(options.getSelectedIndex());
     },
     onMouseDown(event: ReactMouseEvent<HTMLElement>): void {
       if (command) {
@@ -101,7 +92,9 @@ function SearchSuggestionRowComponent({
   const suggestion = suggestionRef.current;
   const refs = useRowRefs();
   const itemRef = refs.item;
-  useRowTheme({ runtime, suggestionRef, suggestionFingerprint, isPrimary, onlyKeywordSuggestions, simpleMode, itemRef });
+  const themeVersion = useRowTheme({ runtime, suggestionRef, suggestionFingerprint, isPrimary, onlyKeywordSuggestions, simpleMode, itemRef });
+  const view = useRowView(runtime, index);
+  const rowSelection = useRef<RowSelection | null>(null);
   const iconSpecKey = suggestion.type === 'directUrl' ? '' : suggestionFingerprint;
   const iconSpec = useMemo(
     () => getSuggestionIconSpec(options, suggestionRef.current),
@@ -132,13 +125,30 @@ function SearchSuggestionRowComponent({
   useLayoutEffect(() => {
     const item = itemRef.current;
     if (item) {
-      publishRowElements(options, item, refs, {
-        themeHost, isPrimary, iconKind: iconSpec.kind, directIcon, command, actionModel, simpleMode
-      }, suggestionRef);
+      publishRow(item, { themeHost, isPrimary, visitButtonAction: actionModel.visitButtonAction }, suggestionRef);
     }
-    // The refs are stable; the row republishes when what it shows changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actionModel, command, directIcon, iconSpec.kind, isPrimary, options, suggestion, suggestionRef, simpleMode, themeHost]);
+  }, [actionModel, isPrimary, itemRef, suggestion, suggestionRef, themeHost]);
+
+  useLayoutEffect(() => {
+    const item = itemRef.current;
+    if (!item) {
+      return;
+    }
+    rowSelection.current = applyRowStyles(options, readRowStyleElements(item, refs, { command, directIcon }), {
+      isSearch: true,
+      actionModel,
+      hasActionTags: actionModel.hasActionTags,
+      alwaysHideVisitButton: actionModel.alwaysHideVisitButton,
+      hasSwitchAction: actionModel.hasSwitchAction
+    }, {
+      selection: view.selection,
+      hovering: view.hovering,
+      autoTop: isPrimary,
+      theme: item._xTheme || options.defaultTheme,
+      simpleMode
+    });
+  }, [actionModel, command, directIcon, isPrimary, itemRef, options, refs, simpleMode, themeVersion, view.hovering,
+    view.revision, view.selection]);
 
   useRowTooltip(options, suggestionRef, itemRef, refs.title);
 
@@ -173,6 +183,8 @@ function SearchSuggestionRowComponent({
       <RowActions
         actionModel={actionModel}
         activate={pointer.activate}
+        modifiers={view.modifiers}
+        readRow={() => rowSelection.current}
         refs={refs}
         runtime={runtime}
         simpleMode={simpleMode}

@@ -6,11 +6,11 @@ import { RemixIcon } from '../../remix-icon';
 import { getActionLabel, getModifierAction, getSuggestionUrlLineText } from './action-model';
 import { HighlightedText } from './highlight';
 import { canDeleteHistory, isTopSite, SuggestionUtilityAction } from './utility-action';
-import { setDefaultTagColors } from './suggestion-row-elements';
 import type { RowRefs } from './suggestion-row-elements';
+import type { RowSelection } from './action-styles';
 import { surfaceClass } from './surface-options';
-import type { NormalizedOptions, QueryStore, Suggestion, SuggestionActionModelResult, SuggestionActionTagElement,
-  SuggestionsRuntime, SuggestionValueRef } from './types';
+import type { ModifierState, NormalizedOptions, QueryStore, Suggestion, SuggestionActionModelResult, SuggestionsRuntime,
+  SuggestionValueRef } from './types';
 
 interface RowTextProps {
   options: NormalizedOptions;
@@ -26,7 +26,7 @@ interface RowTextProps {
 // or an open tab.
 function SourceTag({ options, tagRef, type, label }: {
   options: NormalizedOptions;
-  tagRef: RefObject<SuggestionActionTagElement | null>;
+  tagRef: RefObject<HTMLSpanElement | null>;
   type: string;
   label: string;
 }) {
@@ -122,39 +122,26 @@ interface RowActionsProps {
   actionModel: SuggestionActionModelResult;
   simpleMode: boolean;
   refs: RowRefs;
+  modifiers: ModifierState;
+  // How the row stands in the selection as last drawn.
+  readRow(): RowSelection | null;
   activate(event: ReactMouseEvent<HTMLElement>): void;
 }
 
 // The tags that show what the held modifier keys would do.
-function ActionTags({ runtime, suggestion, suggestionRef, actionModel, refs }: Omit<RowActionsProps, 'simpleMode' | 'activate'>) {
+function ActionTags({ runtime, suggestion, actionModel, refs, modifiers }:
+  Pick<RowActionsProps, 'runtime' | 'suggestion' | 'actionModel' | 'refs' | 'modifiers'>) {
   const { options } = runtime;
   return (
     <div ref={refs.actionTags} className={surfaceClass(options, 'x-nt-suggestion-action-tags')} data-visible="false">
       {actionModel.actionTags.map((tag, tagIndex) => (
         <span
-          ref={(node) => {
-            if (node) {
-              const actionTag: SuggestionActionTagElement = node;
-              refs.actionTagList.current[tagIndex] = actionTag;
-              actionTag._xAction = tag.action;
-              actionTag._xSuggestion = suggestionRef.current;
-              setDefaultTagColors(options, actionTag, '#6B7280');
-            }
-          }}
           key={`${tag.action}:${tagIndex}`}
           className={surfaceClass(options, 'x-nt-suggestion-action-tag')}
           data-action={tag.action}
         >
-          <span
-            ref={(node) => {
-              const tagNode = refs.actionTagList.current[tagIndex];
-              if (tagNode) {
-                tagNode._xActionLabel = node;
-              }
-            }}
-            className={surfaceClass(options, 'x-nt-suggestion-action-tag__label')}
-          >
-            {getActionLabel(runtime, getModifierAction(runtime, tag.action), suggestion)}
+          <span className={surfaceClass(options, 'x-nt-suggestion-action-tag__label')}>
+            {getActionLabel(runtime, getModifierAction(runtime, tag.action, modifiers), suggestion)}
           </span>
         </span>
       ))}
@@ -162,9 +149,10 @@ function ActionTags({ runtime, suggestion, suggestionRef, actionModel, refs }: O
   );
 }
 
-function VisitButton({ runtime, suggestion, actionModel, simpleMode, refs, activate }: Omit<RowActionsProps, 'suggestionRef'>) {
+function VisitButton({ runtime, suggestion, actionModel, simpleMode, refs, modifiers, activate }:
+  Pick<RowActionsProps, 'runtime' | 'suggestion' | 'actionModel' | 'simpleMode' | 'refs' | 'modifiers' | 'activate'>) {
   const { options } = runtime;
-  const label = getActionLabel(runtime, getModifierAction(runtime, actionModel.visitButtonAction), suggestion);
+  const label = getActionLabel(runtime, getModifierAction(runtime, actionModel.visitButtonAction, modifiers), suggestion);
   return (
     <button
       ref={refs.visitButton}
@@ -185,7 +173,7 @@ function VisitButton({ runtime, suggestion, actionModel, simpleMode, refs, activ
         activate(event);
       }}
     >
-      <span ref={refs.visitLabel} className={surfaceClass(options, 'x-nt-suggestion-action-button__label')}>
+      <span className={surfaceClass(options, 'x-nt-suggestion-action-button__label')}>
         {label}
       </span>
       {simpleMode && (
@@ -198,7 +186,7 @@ function VisitButton({ runtime, suggestion, actionModel, simpleMode, refs, activ
 }
 
 function RowActions(props: RowActionsProps) {
-  const { runtime, suggestion, suggestionRef, actionModel, refs } = props;
+  const { runtime, suggestion, suggestionRef, actionModel, refs, modifiers, readRow } = props;
   const { options, queryStore } = runtime;
   const copyableUrl = suggestion.commandText ? '' : String(suggestion.url || '').trim();
   const deleteTooltip = isTopSite(suggestion)
@@ -209,12 +197,12 @@ function RowActions(props: RowActionsProps) {
       className={surfaceClass(options, 'x-nt-suggestion-right')}
       data-action-column={!actionModel.alwaysHideVisitButton || actionModel.hasActionTags ? 'true' : undefined}
     >
-      <ActionTags actionModel={actionModel} refs={refs} runtime={runtime} suggestion={suggestion} suggestionRef={suggestionRef} />
+      <ActionTags actionModel={actionModel} modifiers={modifiers} refs={refs} runtime={runtime} suggestion={suggestion} />
       <VisitButton {...props} />
       {copyableUrl && (
         <SuggestionUtilityAction
           options={options}
-          itemRef={refs.item}
+          readRow={readRow}
           slotRef={refs.copySlot}
           buttonRef={refs.copyButton}
           leading
@@ -228,7 +216,7 @@ function RowActions(props: RowActionsProps) {
       {canDeleteHistory(suggestion) && (
         <SuggestionUtilityAction
           options={options}
-          itemRef={refs.item}
+          readRow={readRow}
           slotRef={refs.deleteSlot}
           buttonRef={refs.deleteButton}
           leading={!copyableUrl}

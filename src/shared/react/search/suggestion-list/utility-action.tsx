@@ -5,7 +5,8 @@ import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import { RemixIcon } from '../../remix-icon';
 import type { RemixIconName } from '../../../ui/remix-icon';
 import { setSurfaceStyle, surfaceClass } from './surface-options';
-import type { NormalizedOptions, Suggestion, SuggestionElement } from './types';
+import type { NormalizedOptions, Suggestion } from './types';
+import type { RowSelection } from './action-styles';
 
 function isTopSite(suggestion: Suggestion): boolean {
   return Boolean(suggestion.type === 'topSite' || suggestion.isTopSite);
@@ -15,22 +16,10 @@ function canDeleteHistory(suggestion: Suggestion): boolean {
   return Boolean(suggestion.url && (suggestion.type === 'history' || isTopSite(suggestion)));
 }
 
-// Whether the button takes the row's theme: the row is selected (or is the
-// top row with nothing selected), or hovered with a brand theme.
-function usesRowTheme(options: NormalizedOptions, item: SuggestionElement): boolean {
-  const theme = item._xTheme || options.defaultTheme;
-  const itemIndex = options.items.indexOf(item);
-  const selectedIndex = options.getSelectedIndex();
-  return !item._xSimpleMode && (
-    itemIndex === selectedIndex ||
-    (selectedIndex === -1 && Boolean(item._xIsAutocompleteTop)) ||
-    (Boolean(item._xIsHovering) && Boolean(theme?._xIsBrand))
-  );
-}
-
-function applyUtilityHover(options: NormalizedOptions, item: SuggestionElement, button: HTMLButtonElement): void {
-  const theme = item._xTheme || options.defaultTheme;
-  const useTheme = usesRowTheme(options, item);
+// The button takes the row's theme while the row is drawn in it.
+function applyUtilityHover(options: NormalizedOptions, row: RowSelection | null, button: HTMLButtonElement): void {
+  const theme = row ? row.theme : options.defaultTheme;
+  const useTheme = Boolean(row && row.themed && !row.simpleMode);
   const hover = useTheme ? options.getHoverColors(theme) : options.getNeutralHoverActionColors();
   const color = useTheme ? options.getThemeForMode(theme).buttonText || '' : ('text' in hover ? hover.text || '' : '');
   button.style.removeProperty('transform');
@@ -46,7 +35,7 @@ function releasePress(event: ReactPointerEvent<HTMLButtonElement>): void {
 
 function SuggestionUtilityAction({
   options,
-  itemRef,
+  readRow,
   slotRef,
   buttonRef,
   leading = false,
@@ -55,7 +44,8 @@ function SuggestionUtilityAction({
   onActivate
 }: {
   options: NormalizedOptions;
-  itemRef: RefObject<SuggestionElement | null>;
+  // How the row stands in the selection as last drawn.
+  readRow(): RowSelection | null;
   slotRef: RefObject<HTMLDivElement | null>;
   buttonRef: RefObject<HTMLButtonElement | null>;
   leading?: boolean;
@@ -64,13 +54,12 @@ function SuggestionUtilityAction({
   onActivate: () => void;
 }) {
   const applyHover = (): void => {
-    const item = itemRef.current;
     const button = buttonRef.current;
-    if (!item || !button) {
+    if (!button) {
       return;
     }
     options.showTopActionTooltip(button, tooltip);
-    applyUtilityHover(options, item, button);
+    applyUtilityHover(options, readRow(), button);
   };
 
   const reset = (): void => {
