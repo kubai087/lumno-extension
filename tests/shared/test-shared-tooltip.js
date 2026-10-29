@@ -1,13 +1,13 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { readOverlayPanelSource } = require('../helpers/overlay-source');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const tooltipJsPath = path.join(repoRoot, 'src/shared/ui/tooltip.ts');
 const tooltipCssPath = path.join(repoRoot, 'src/shared/ui/tooltip.css');
 const newtabHtmlPath = path.join(repoRoot, 'newtab.html');
 const optionsHtmlPath = path.join(repoRoot, 'src/options/options.html');
-const overlayPanelPath = path.join(repoRoot, 'src/overlay/search-panel.ts');
 
 const tooltipView = {
   implementation: 'react-test-double',
@@ -241,18 +241,18 @@ assert.strictEqual(
 
 const newtabHtml = fs.readFileSync(newtabHtmlPath, 'utf8');
 const optionsHtml = fs.readFileSync(optionsHtmlPath, 'utf8');
-const overlayPanel = fs.readFileSync(overlayPanelPath, 'utf8');
+const overlayPanel = readOverlayPanelSource();
 
 assert.ok(newtabHtml.includes('../shared/ui/tooltip.css'), 'newtab should load the shared tooltip stylesheet');
 assert.ok(getPageScripts('newtab.html').includes('src/shared/ui/tooltip.ts'), 'newtab should load the shared tooltip component');
 assert.ok(optionsHtml.includes('../shared/ui/tooltip.css'), 'options should load the shared tooltip stylesheet');
 assert.ok(getPageScripts('src/options/options.html').includes('src/shared/ui/tooltip.ts'), 'options should load the shared tooltip component');
 assert.ok(
-  runsBefore(getInjectedScripts('overlay'), 'src/shared/ui/tooltip.ts', 'src/overlay/search-panel.ts'),
-  'overlay injection should load the shared tooltip component before search-panel'
+  runsBefore(getInjectedScripts('overlay'), 'src/shared/ui/tooltip.ts', 'src/overlay/app/main.ts'),
+  'overlay injection should load the shared tooltip component before the overlay entry'
 );
 assert.ok(
-  overlayPanel.includes("LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/tooltip.css')"),
+  overlayPanel.includes("getRuntimeUrl(chrome, 'src/shared/ui/tooltip.css')"),
   'overlay should resolve the shared tooltip stylesheet URL'
 );
 assert.ok(

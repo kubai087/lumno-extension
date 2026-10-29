@@ -1,25 +1,23 @@
 // The suggestions: the mode actions, the site search tab hint and results
 // layout, the rendering, the slash commands, the sources and remote
 // suggestions, the search modes and the mode menu.
-import { buildTheme } from '../../shared/favicon/favicon-theme';
-import * as PANEL_REMOTE_SUGGESTIONS from '../panel/remote-suggestions';
-import * as PANEL_RESULTS_LAYOUT from '../panel/results-layout';
-import * as PANEL_SEARCH_MODES from '../panel/search-modes';
-import * as PANEL_SLASH_COMMANDS from '../panel/slash-commands';
-import * as PANEL_SUGGESTION_SOURCES from '../panel/suggestion-sources';
-import * as PANEL_SUGGESTIONS_RENDER from '../panel/suggestions-render';
-import { SearchModeMenu } from '../../shared/search-panel/mode-menu';
-import { SearchModeActions } from '../../shared/search-panel/mode-actions';
-import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
-import type { OverlayContext } from '../app/context';
-import type { SessionFeature } from './session';
-import type { SearchFeature } from './search';
-import type { PanelFeature } from './panel';
+import { buildTheme } from '../../../shared/favicon/favicon-theme';
+import * as PANEL_REMOTE_SUGGESTIONS from '../../panel/remote-suggestions';
+import * as PANEL_RESULTS_LAYOUT from '../../panel/results-layout';
+import * as PANEL_SEARCH_MODES from '../../panel/search-modes';
+import * as PANEL_SLASH_COMMANDS from '../../panel/slash-commands';
+import * as PANEL_SUGGESTION_SOURCES from '../../panel/suggestion-sources';
+import * as PANEL_SUGGESTIONS_RENDER from '../../panel/suggestions-render';
+import { SearchModeMenu } from '../../../shared/search-panel/mode-menu';
+import { SearchModeActions } from '../../../shared/search-panel/mode-actions';
+import type { InputModeProvider } from '../../../shared/search/input-mode/types';
+import * as SearchSiteSearchMatching from '../../../domain/search/utils/site-search-matching';
+import type { OverlayContext } from '../../app/context';
+import type { CoreFeature } from '../core';
+import type { PanelFeature } from '../panel';
 
 interface SuggestionsFeatureDeps {
-  session: SessionFeature;
-  search: SearchFeature;
+  core: CoreFeature;
   panel: PanelFeature;
 }
 
@@ -38,7 +36,7 @@ function createSuggestionsFeature(ctx: OverlayContext, deps: SuggestionsFeatureD
     shouldSwitchMatchedTabSuggestion,
     suggestionInputPreview,
     urlHighlightTheme
-  } = deps.session;
+  } = deps.core;
   const {
     colorScheme,
     menuOrder,
@@ -54,7 +52,7 @@ function createSuggestionsFeature(ctx: OverlayContext, deps: SuggestionsFeatureD
     suggestionItems,
     suggestionModifiers,
     suggestionSource
-  } = deps.search;
+  } = deps.core;
   const {
     applyMarkVariables,
     applyThemeVariables,

@@ -100,8 +100,8 @@ function testBrowserProfileUsesClientHintBrand() {
 
 function testBrowserProfileRuntimeWiring() {
   assert(
-    runsBefore(getInjectedScripts('overlay'), 'src/platform/browser-profile.ts', 'src/overlay/search-panel.ts'),
-    'overlay injection should load browser-profile before search-panel'
+    runsBefore(getInjectedScripts('overlay'), 'src/platform/browser-profile.ts', 'src/overlay/app/main.ts'),
+    'overlay injection should load browser-profile before the overlay entry'
   );
   assert(
     runsBefore(getPageScripts('newtab.html'), 'src/platform/browser-profile.ts', 'src/newtab/app/main.ts'),

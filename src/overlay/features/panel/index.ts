@@ -2,21 +2,23 @@
 // session (mount host, removal, key router and reveal gate), result
 // activation, the panel's theme from the page, the site search provider icons
 // and the suggestion themes.
-import { buildTheme, defaultAccentColor } from '../../shared/favicon/favicon-theme';
-import { parseCssColor } from '../../domain/color';
-import * as LumnoOverlayFaviconView from '../favicon-view';
-import * as PANEL_FAVICON_POLICY from '../panel/favicon-policy';
-import * as PANEL_PANEL_SESSION from '../panel/panel-session';
-import * as PANEL_PANEL_THEME from '../panel/panel-theme';
-import * as PANEL_RESULT_ACTIVATION from '../panel/result-activation';
-import * as PANEL_SITE_SEARCH_PROVIDERS from '../panel/site-search-providers';
-import * as PANEL_SUGGESTION_THEMES from '../panel/suggestion-themes';
-import { themeColorCache, themeHostCache } from '../../shared/favicon/theme-caches';
-import * as FaviconDecisionLog from '../../domain/favicon/decision-log';
-import * as FaviconHostPolicy from '../../domain/favicon/host-policy';
-import type { OverlayContext } from '../app/context';
-import type { SessionFeature } from './session';
-import type { SearchFeature } from './search';
+import { buildTheme, defaultAccentColor } from '../../../shared/favicon/favicon-theme';
+import { parseCssColor } from '../../../domain/color';
+import * as LumnoOverlayFaviconView from '../../favicon-view';
+import * as PANEL_FAVICON_POLICY from '../../panel/favicon-policy';
+import * as PANEL_PANEL_SESSION from '../../panel/panel-session';
+import * as PANEL_PANEL_THEME from '../../panel/panel-theme';
+import * as PANEL_RESULT_ACTIVATION from '../../panel/result-activation';
+import * as PANEL_SITE_SEARCH_PROVIDERS from '../../panel/site-search-providers';
+import * as PANEL_SUGGESTION_THEMES from '../../panel/suggestion-themes';
+import { themeColorCache, themeHostCache } from '../../../shared/favicon/theme-caches';
+import * as FaviconDecisionLog from '../../../domain/favicon/decision-log';
+import * as FaviconHostPolicy from '../../../domain/favicon/host-policy';
+import { setOverlayOpenState } from '../../../platform/content-registry';
+import { findOverlayPanel } from '../../react/shell';
+import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../../../domain/injected-commands';
+import type { OverlayContext } from '../../app/context';
+import type { CoreFeature } from '../core';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -25,8 +27,7 @@ const faviconDataPending = new Map<string, Promise<string | null>>();
 const iconPreloadCache = new Map<string, HTMLImageElement>();
 
 interface PanelFeatureDeps {
-  session: SessionFeature;
-  search: SearchFeature;
+  core: CoreFeature;
 }
 
 function createPanelFeature(ctx: OverlayContext, deps: PanelFeatureDeps) {
@@ -42,8 +43,8 @@ function createPanelFeature(ctx: OverlayContext, deps: PanelFeatureDeps) {
     overlayViewportSizeSync,
     pauseOverlayAntiTranslateObserverForScroll,
     stopOverlayAntiTranslateObserver
-  } = deps.session;
-  const { colorScheme, siteSearchIconCache, siteSearchRunner, suggestionSource } = deps.search;
+  } = deps.core;
+  const { colorScheme, siteSearchIconCache, siteSearchRunner, suggestionSource } = deps.core;
 
   const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
 
@@ -199,7 +200,34 @@ function createPanelFeature(ctx: OverlayContext, deps: PanelFeatureDeps) {
     getThemeForMode
   });
 
+  // Finds a panel already on this page. An open one closes, or stays when
+  // this opening must not toggle it; one still playing its exit, or left
+  // stale, is dropped for this session's own. True when this session mounts
+  // its panel.
+  function claimPage(): boolean {
+    elements.holdExisting(findOverlayPanel(document, {
+      hostId: OVERLAY_HOST_ID,
+      id: OVERLAY_PANEL_ID
+    }));
+    if (!elements.overlay) {
+      return true;
+    }
+    const shouldReplaceExistingOverlay =
+      elements.overlay.getAttribute('data-lumno-overlay-exit') === 'running' ||
+      isStaleOverlay(elements.overlay);
+    if (openOptions.ensureOpen && !shouldReplaceExistingOverlay) {
+      setOverlayOpenState(true);
+      return false;
+    }
+    destroyExistingOverlaySession(elements.overlay, {
+      preserveLoadingIntent: shouldReplaceExistingOverlay,
+      animateExit: !shouldReplaceExistingOverlay
+    });
+    return shouldReplaceExistingOverlay;
+  }
+
   return {
+    claimPage,
     applyMarkVariables,
     applyOverlayFontFamily,
     applyOverlayThemeVariables,

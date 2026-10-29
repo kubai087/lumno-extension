@@ -100,8 +100,8 @@ assert.ok(
   'New Tab should load the IME key guard before newtab.js'
 );
 assert.ok(
-  runsBefore(getInjectedScripts('overlay'), 'src/domain/search/ime-key-guard.ts', 'src/overlay/search-panel.ts'),
-  'overlay injection should load the IME key guard before search-panel.ts'
+  runsBefore(getInjectedScripts('overlay'), 'src/domain/search/ime-key-guard.ts', 'src/overlay/app/main.ts'),
+  'overlay injection should load the IME key guard before the overlay entry'
 );
 
 const newtabRoot = parseCss(readStylesheet('src/newtab/styles/page.css')).rule('#_x_extension_newtab_root_2024_unique_');

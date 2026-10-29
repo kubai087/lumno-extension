@@ -14,7 +14,7 @@ const siteSearchSource = fs.readFileSync('assets/data/site-search.json', 'utf8')
 const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 
 assert.ok(
-  runsBefore(getInjectedScripts('overlay'), 'src/domain/favicon/shortcut-favicon/bundled-icons.ts', 'src/overlay/search-panel.ts'),
+  runsBefore(getInjectedScripts('overlay'), 'src/domain/favicon/shortcut-favicon/bundled-icons.ts', 'src/overlay/app/main.ts'),
   'the injected overlay should load the shared high-resolution shortcut favicon runtime first'
 );
 

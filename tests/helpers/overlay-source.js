@@ -4,7 +4,7 @@ const { withoutExports } = require('./closure-source');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 // The parts of the overlay panel split out into src/overlay/panel/, then
-// search-panel.ts, in the order the overlay injection list loads them.
+// its features and entry.
 const OVERLAY_PANEL_FILES = [
   'src/overlay/panel/entry-motion.ts',
   'src/overlay/panel/panel-language.ts',
@@ -33,7 +33,13 @@ const OVERLAY_PANEL_FILES = [
   'src/overlay/panel/copy-actions.ts',
   'src/overlay/panel/panel-notices.ts',
   'src/overlay/panel/settings-sync.ts',
-  'src/overlay/search-panel.ts'
+  'src/overlay/style-urls.ts',
+  'src/overlay/app/context.ts',
+  ...fs.readdirSync(path.join(repoRoot, 'src/overlay/features'), { recursive: true })
+    .filter((file) => file.endsWith('.ts') && !file.includes('.test.'))
+    .sort()
+    .map((file) => `src/overlay/features/${file.split(path.sep).join('/')}`),
+  'src/overlay/app/main.ts'
 ];
 
 // The panel source for source checks and extracted functions.

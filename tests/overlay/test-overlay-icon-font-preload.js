@@ -136,7 +136,7 @@ assert.strictEqual(
 );
 
 assert(
-  runsBefore(getInjectedScripts('overlay'), 'src/shared/icon-font-preload.ts', 'src/overlay/search-panel.ts'),
+  runsBefore(getInjectedScripts('overlay'), 'src/shared/icon-font-preload.ts', 'src/overlay/app/main.ts'),
   'existing tabs should start warming the icon font before Overlay React/runtime injection'
 );
 assert(

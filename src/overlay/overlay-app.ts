@@ -3,7 +3,7 @@
 // CJK font faces its text falls back to, then the search panel, which imports
 // its views. The worker calls run() with each toggle (src/platform/injection.ts).
 import '../shared/cjk-font-faces';
-import { toggleSearchOverlay } from './search-panel';
+import { toggleSearchOverlay } from './app/main';
 import { isOverlayOpenState, setOverlayOpenState } from '../platform/content-registry';
 import { OVERLAY_HOST_ID, readOverlayCommand } from '../domain/injected-commands';
 import type { OverlayReply } from '../domain/injected-commands';

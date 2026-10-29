@@ -362,7 +362,7 @@ function testSuggestionSource() {
 }
 
 assert.ok(
-  runsBefore(getInjectedScripts('overlay'), 'src/domain/search/help-center/search.ts', 'src/overlay/search-panel.ts'),
+  runsBefore(getInjectedScripts('overlay'), 'src/domain/search/help-center/search.ts', 'src/overlay/app/main.ts'),
   'the overlay should load the help center module before the search panel'
 );
 assert.ok(

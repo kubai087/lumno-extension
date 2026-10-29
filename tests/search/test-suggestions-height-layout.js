@@ -62,7 +62,7 @@ assert.ok(
   'New Tab should load the shared height policy before its layout and page runtimes'
 );
 assert.ok(
-  runsBefore(getInjectedScripts('overlay'), 'src/shared/search/suggestions-height-layout.ts', 'src/overlay/search-panel.ts'),
+  runsBefore(getInjectedScripts('overlay'), 'src/shared/search/suggestions-height-layout.ts', 'src/overlay/app/main.ts'),
   'Overlay injection should load the shared height policy before the panel runtime'
 );
 // Both surfaces leave their result list at its natural height.

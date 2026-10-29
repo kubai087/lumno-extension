@@ -160,7 +160,7 @@ assert.ok(
 );
 
 assert.ok(
-  runsBefore(getInjectedScripts('overlay'), 'src/shared/favicon/favicon-theme.ts', 'src/overlay/search-panel.ts'),
+  runsBefore(getInjectedScripts('overlay'), 'src/shared/favicon/favicon-theme.ts', 'src/overlay/app/main.ts'),
   'overlay injection should load the shared theme algorithm before the search panel'
 );
 // Softened passive borders keep a strong keyboard focus ring on both surfaces.

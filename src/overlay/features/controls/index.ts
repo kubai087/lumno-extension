@@ -1,23 +1,21 @@
 // The panel's controls: the command actions, the keys, the input's events,
 // the language, the theme the panel is drawn in, the font faces and the
 // viewport size sync.
-import * as OVERLAY_FONT_FACES from '../../shared/overlay-font-faces';
-import * as PANEL_PANEL_KEYS from '../panel/panel-keys';
-import * as PANEL_PANEL_LANGUAGE from '../panel/panel-language';
-import * as PANEL_SEARCH_INPUT_EVENTS from '../panel/search-input-events';
-import * as PANEL_COMMAND_ACTIONS from '../panel/command-actions';
-import type { ThemeMode } from '../../domain/settings/appearance';
-import * as LumnoOverlayRuntime from '../runtime';
-import { getSystemLocale } from '../../shared/i18n/surface-locale';
-import type { OverlayContext } from '../app/context';
-import type { SessionFeature } from './session';
-import type { SearchFeature } from './search';
-import type { PanelFeature } from './panel';
-import type { SuggestionsFeature } from './suggestions';
+import * as OVERLAY_FONT_FACES from '../../../shared/overlay-font-faces';
+import * as PANEL_PANEL_KEYS from '../../panel/panel-keys';
+import * as PANEL_PANEL_LANGUAGE from '../../panel/panel-language';
+import * as PANEL_SEARCH_INPUT_EVENTS from '../../panel/search-input-events';
+import * as PANEL_COMMAND_ACTIONS from '../../panel/command-actions';
+import type { ThemeMode } from '../../../domain/settings/appearance';
+import * as LumnoOverlayRuntime from '../../runtime';
+import { getSystemLocale } from '../../../shared/i18n/surface-locale';
+import type { OverlayContext } from '../../app/context';
+import type { CoreFeature } from '../core';
+import type { PanelFeature } from '../panel';
+import type { SuggestionsFeature } from '../suggestions';
 
 interface ControlsFeatureDeps {
-  session: SessionFeature;
-  search: SearchFeature;
+  core: CoreFeature;
   panel: PanelFeature;
   suggestions: SuggestionsFeature;
 }
@@ -36,7 +34,7 @@ function createControlsFeature(ctx: OverlayContext, deps: ControlsFeatureDeps) {
     overlayViewportSizeSync,
     shouldSwitchMatchedTabSuggestion,
     suggestionInputPreview
-  } = deps.session;
+  } = deps.core;
   const {
     colorScheme,
     numberShortcutOptions,
@@ -49,7 +47,7 @@ function createControlsFeature(ctx: OverlayContext, deps: ControlsFeatureDeps) {
     suggestionItems,
     suggestionModifiers,
     suggestionSource
-  } = deps.search;
+  } = deps.core;
   const {
     applyOverlayThemeVariables,
     closeOverlayWithMotion,

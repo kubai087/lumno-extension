@@ -90,7 +90,7 @@ builtScripts.forEach((bundlePath) => {
 [
   'src/newtab/app/main.ts',
   'src/options/app/main.ts',
-  'src/overlay/search-panel.ts',
+  'src/overlay/app/main.ts',
   'src/content/selection-quick-actions.ts'
 ].forEach((file) => {
   assert(!entries.includes(file), `store package should ship ${file} only inside its bundle`);

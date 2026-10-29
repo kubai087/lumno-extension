@@ -733,8 +733,8 @@ assert.ok(
   'newtab should load shared tooltip before cursor tooltip'
 );
 assert.ok(
-  runsBefore(getInjectedScripts('overlay'), 'src/shared/ui/cursor-tooltip.ts', 'src/overlay/search-panel.ts'),
-  'overlay injection should load cursor tooltip behavior before search-panel'
+  runsBefore(getInjectedScripts('overlay'), 'src/shared/ui/cursor-tooltip.ts', 'src/overlay/app/main.ts'),
+  'overlay injection should load cursor tooltip behavior before the overlay entry'
 );
 
 // In the overlay the input's action icons share one cursor tooltip, styled
