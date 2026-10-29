@@ -1168,26 +1168,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
 
-  NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
-    bookmarkParts,
-    bookmarksShown,
-    recentShown,
-    preview,
-    settings,
-    renderRecentSites: (...args) => renderRecentSites(...args),
-    markRecentDataDirty: (...args) => markRecentDataDirty(...args),
-    loadRecentSites: (...args) => loadRecentSites(...args),
-    getBookmarkLimit,
-    applyNewtabWidthMode,
-    applyRecentGridColumns,
-    applyBookmarkGridColumns,
-    keepBookmarkPageAnchorAfterLimitChange,
-    renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
-    updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
-    updateBookmarkSectionPosition,
-    markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
-    loadBookmarks: (...args) => loadBookmarks(...args)
-  });
   const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
   const searchInputHistoryController =
     SEARCH_INPUT_HISTORY.createSearchInputHistoryController({
@@ -1196,24 +1176,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   function isImeCompositionEvent(event: KeyboardEvent): boolean {
     return imeKeyGuard.shouldIgnoreKeydown(event);
   }
-
-  NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
-    suggestionsContainer,
-    searchBox,
-    modeActions,
-    searchResults,
-    searchMode,
-    searchQuery,
-    settings,
-    searchEngine,
-    renderSuggestions: (...args) => renderSuggestions(...args),
-    requestSuggestions: (...args) => requestSuggestions(...args),
-    markRecentDataDirty: (...args) => markRecentDataDirty(...args),
-    scheduleRecentReloadIfVisible: (...args) => scheduleRecentReloadIfVisible(...args),
-    scheduleBookmarkReloadIfVisible: (...args) => scheduleBookmarkReloadIfVisible(...args),
-    refreshThemeAwareFavicons,
-    getImmediateThemeForSuggestion
-  });
 
   migrateLocalSettingsIfNeeded(SYNCED_PAGE_STORAGE_KEYS.slice());
 
@@ -1449,8 +1411,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     showToast,
     formatMessage,
     getShortcutById,
-    markBookmarkTreeDirty: (...args) => markBookmarkTreeDirty(...args),
-    loadBookmarks: (...args) => loadBookmarks(...args),
     refreshOpenBookmarkCascadeMenu: (...args) => refreshOpenBookmarkCascadeMenu(...args),
     bookmarkMoveHistory,
     getBookmarkUndoShortcutLabel: (...args) => getBookmarkUndoShortcutLabel(...args),
@@ -1546,8 +1506,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getFolderItemIcon,
     updateFolderItemIcons,
     persistShortcuts,
-    markBookmarkTreeDirty: (...args) => markBookmarkTreeDirty(...args),
-    loadBookmarks: (...args) => loadBookmarks(...args),
     getBookmarkPageCount: (...args) => getBookmarkPageCount(...args),
     // A recent card dragged over the bookmarks opens folders like the others.
     isBookmarkSurfaceDragStateActive: (state) => isBookmarkSurfaceDragStateActive(state) ||
@@ -1865,6 +1823,27 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getRecentSourceLimit,
     getRecentSites,
     beginSearchEntryRestoreLayoutLock
+  });
+
+  NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
+    bookmarkParts,
+    bookmarksShown,
+    recentShown,
+    preview,
+    settings,
+    renderRecentSites,
+    markRecentDataDirty,
+    loadRecentSites,
+    getBookmarkLimit,
+    applyNewtabWidthMode,
+    applyRecentGridColumns,
+    applyBookmarkGridColumns,
+    keepBookmarkPageAnchorAfterLimitChange,
+    renderCurrentBookmarkPage,
+    updateBookmarkGridHeightLock,
+    updateBookmarkSectionPosition,
+    markBookmarkDataDirty,
+    loadBookmarks
   });
 
   const numberShortcutOptions = {
@@ -2420,6 +2399,24 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     markBookmarkTreeDirty,
     bookmarkMoveHistory,
     refreshOpenBookmarkCascadeMenu
+  });
+
+  NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
+    suggestionsContainer,
+    searchBox,
+    modeActions,
+    searchResults,
+    searchMode,
+    searchQuery,
+    settings,
+    searchEngine,
+    renderSuggestions,
+    requestSuggestions,
+    markRecentDataDirty,
+    scheduleRecentReloadIfVisible,
+    scheduleBookmarkReloadIfVisible,
+    refreshThemeAwareFavicons,
+    getImmediateThemeForSuggestion
   });
 
   window.addEventListener('blur', () => {

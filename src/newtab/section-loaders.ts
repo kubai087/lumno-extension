@@ -377,6 +377,11 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       bookmarks: loadBookmarks({ force: true, sectionDataRevision })
     };
   }
+
+  bookmarkSectionEvents.on('changed', ({ keepCascadeOpen }) => {
+    markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
+    void loadBookmarks({ force: true });
+  });
   return {
     startSectionDataPass,
     renderRecentSites,

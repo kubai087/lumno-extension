@@ -20,6 +20,7 @@ import type { BookmarksShown } from './bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
 import type { MoveHistoryLock } from './move-history-lock';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
+import { bookmarkSectionEvents } from './bookmark-section-events';
 
 
 interface BookmarkMoveActionsDeps {
@@ -29,8 +30,6 @@ interface BookmarkMoveActionsDeps {
   applyShortcutGroupDeleteRecord(record: ShortcutGroupDeleteRecord, isUndo: boolean): Promise<boolean>;
   persistShortcuts: PersistShortcuts;
   refreshShortcutFolderReferences(): Promise<unknown>;
-  markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
-  loadBookmarks(options?: { force?: boolean }): unknown;
   refreshOpenBookmarkCascadeMenu(refreshOptions?: CascadeRefreshOptions): Promise<boolean>;
   // Notes where the bookmark cards are, so the next render slides them; and
   // forgets that note when the change failed.
@@ -66,8 +65,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
     refreshShortcutFolderReferences,
-    markBookmarkTreeDirty,
-    loadBookmarks,
     refreshOpenBookmarkCascadeMenu,
     queueLayoutAnimation,
     dropLayoutAnimation,
@@ -121,8 +118,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
           recursive: !record.snapshot.url
         }).then(() => {
           bookmarkMoveHistory.push(record);
-          markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
-          loadBookmarks({ force: true });
+          bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
           if (keepCascadeOpen) {
             refreshOpenBookmarkCascadeMenu();
           }
@@ -180,8 +176,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       bookmarkMoveHistory.push(record);
     }
     const keepCascadeOpen = Boolean(state.keepCascadeOpenAfterDrop);
-    markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
-    loadBookmarks({ force: true });
+    bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
     if (keepCascadeOpen) {
       refreshOpenBookmarkCascadeMenu({
         draggedBookmarkId: String(state.bookmarkId || ''),
@@ -205,8 +200,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       });
     }).catch((error) => {
       console.warn('[Lumno] Failed to reorder bookmark', error);
-      markBookmarkTreeDirty();
-      loadBookmarks({ force: true });
+      bookmarkSectionEvents.emit('changed', { keepCascadeOpen: false });
       showToast(t('bookmarks_move_failed', 'Could not move bookmark'), true);
       return false;
     });
@@ -243,8 +237,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       });
     }).catch((error) => {
       console.warn('[Lumno] Failed to move bookmark across folders', error);
-      markBookmarkTreeDirty();
-      loadBookmarks({ force: true });
+      bookmarkSectionEvents.emit('changed', { keepCascadeOpen: false });
       showToast(t('bookmarks_move_failed', 'Could not move bookmark'), true);
       return false;
     });
@@ -420,8 +413,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
             { shortcut: getBookmarkUndoShortcutLabel() }
           ));
         }
-        markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
-        loadBookmarks({ force: true });
+        bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
         if (keepCascadeOpen) {
           refreshOpenBookmarkCascadeMenu();
         }
@@ -463,8 +455,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
           { shortcut: getBookmarkUndoShortcutLabel() }
         ));
       }
-      markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
-      loadBookmarks({ force: true });
+      bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
       if (keepCascadeOpen) {
         refreshOpenBookmarkCascadeMenu();
       }

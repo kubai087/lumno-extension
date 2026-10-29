@@ -73,8 +73,6 @@ interface BookmarkDragControllerDeps {
   getFolderItemIcon?(bookmarkId: string): FolderItemIcon | null;
   updateFolderItemIcons(changes: Readonly<Record<string, FolderItemIcon | null>>): Promise<FolderItemIconMap>;
   persistShortcuts: PersistShortcuts;
-  markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
-  loadBookmarks(options?: { force?: boolean }): unknown;
   getBookmarkPageCount(): number;
   isBookmarkSurfaceDragStateActive(state: SurfaceDragState): boolean;
   openBookmarkCascadeMenu(...args: Parameters<BookmarkCascadeRuntime['open']>): void;
@@ -158,8 +156,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getFolderItemIcon,
     updateFolderItemIcons,
     persistShortcuts,
-    markBookmarkTreeDirty,
-    loadBookmarks,
     getBookmarkPageCount,
     isBookmarkSurfaceDragStateActive,
     openBookmarkCascadeMenu,
@@ -712,8 +708,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     persistShortcuts,
     refreshShortcutFolderReferences,
     isWebDavBackingUpShortcuts,
-    markBookmarkTreeDirty,
-    loadBookmarks,
     refreshOpenBookmarkCascadeMenu: () => refreshOpenBookmarkCascadeMenu(),
     queueLayoutAnimation: (excludedBookmarkId) => queueBookmarkLayoutAnimation(excludedBookmarkId),
     dropLayoutAnimation: () => {
@@ -1279,8 +1273,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
     refreshShortcutFolderReferences,
-    markBookmarkTreeDirty,
-    loadBookmarks,
     refreshOpenBookmarkCascadeMenu: (refreshOptions) => refreshOpenBookmarkCascadeMenu(refreshOptions),
     queueLayoutAnimation: (excludedBookmarkId) => queueBookmarkLayoutAnimation(excludedBookmarkId),
     dropLayoutAnimation: () => {

@@ -103,8 +103,6 @@ interface ShortcutsControllerDeps {
   showToast: ShowToast;
   formatMessage: FormatMessage;
   getShortcutById(shortcutId: unknown): ShortcutItem | null;
-  markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
-  loadBookmarks(options?: { force?: boolean }): unknown;
   refreshOpenBookmarkCascadeMenu(): unknown;
   bookmarkMoveHistory: Pick<BookmarkMoveHistory, 'push'>;
   getBookmarkUndoShortcutLabel(): string;
@@ -267,8 +265,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     showToast,
     formatMessage,
     getShortcutById,
-    markBookmarkTreeDirty,
-    loadBookmarks,
     refreshOpenBookmarkCascadeMenu,
     bookmarkMoveHistory,
     getBookmarkUndoShortcutLabel,
@@ -1673,8 +1669,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     }).then(() => {
       return iconEntry === undefined ? null : updateFolderItemIcons({ [itemId]: iconEntry });
     }).then(() => {
-      markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
-      loadBookmarks({ force: true });
+      bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
       if (keepCascadeOpen) {
         refreshOpenBookmarkCascadeMenu();
       }

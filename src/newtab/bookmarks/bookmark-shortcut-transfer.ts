@@ -25,6 +25,7 @@ import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from '../shortcuts/shortcut-list';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
 import type { MoveHistoryLock } from './move-history-lock';
+import { bookmarkSectionEvents } from './bookmark-section-events';
 
 
 interface BookmarkShortcutTransferDeps {
@@ -40,8 +41,6 @@ interface BookmarkShortcutTransferDeps {
   persistShortcuts: PersistShortcuts;
   refreshShortcutFolderReferences(): Promise<unknown>;
   isWebDavBackingUpShortcuts?(): Promise<boolean>;
-  markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
-  loadBookmarks(options?: { force?: boolean }): unknown;
   refreshOpenBookmarkCascadeMenu(): Promise<boolean>;
   // Notes where the bookmark cards are, so the next render slides them; and
   // forgets that note when the change failed.
@@ -78,8 +77,6 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     persistShortcuts,
     refreshShortcutFolderReferences,
     isWebDavBackingUpShortcuts,
-    markBookmarkTreeDirty,
-    loadBookmarks,
     refreshOpenBookmarkCascadeMenu,
     queueLayoutAnimation,
     dropLayoutAnimation,
@@ -388,8 +385,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       showToast(t('bookmarks_move_failed', 'Could not move bookmark'), true);
       return false;
     } finally {
-      markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
-      loadBookmarks({ force: true });
+      bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
       if (keepCascadeOpen) refreshOpenBookmarkCascadeMenu();
     }
   }
@@ -507,8 +503,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
         : t('newtab_shortcuts_stack_failed', 'Could not create the folder'), true);
       return false;
     } finally {
-      markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
-      loadBookmarks({ force: true });
+      bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
       if (keepCascadeOpen) refreshOpenBookmarkCascadeMenu();
     }
   }
