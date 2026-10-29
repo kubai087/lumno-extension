@@ -28,6 +28,7 @@
     "audit:style": "node scripts/check/audit-style-debt.js",
     "audit:i18n": "node scripts/check/audit-i18n.js",
     "profile:newtab-data": "node --expose-gc scripts/dev/profile-newtab-data-performance.js",
+    "profile:gates": "node scripts/dev/profile-page-gates.js",
     "e2e:shortcut-groups": "node scripts/dev/e2e-newtab-shortcut-groups.js",
     "smoke": "npm run build && node tests/e2e/run.js surfaces",
     "cleanup:browsers": "node scripts/dev/cleanup-test-browsers.js",
