@@ -2,7 +2,6 @@
 // results and where they come from, matching, autocomplete, result
 // activation, site search providers and their icons, the slash commands,
 // and the site themes the results, cards and tiles are tinted with.
-import * as ShortcutIconCache from '../../../domain/favicon/shortcut-favicon/persisted';
 import * as LumnoShortcutFaviconStore from '../../../platform/shortcut-favicon-store';
 import * as NEWTAB_SITE_SEARCH_PROVIDERS from '../../search/site-search-providers';
 import { createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../../../shared/favicon/favicon-theme';
@@ -13,7 +12,6 @@ import * as NEWTAB_SITE_THEME_RESOLVER from '../../theme/site-theme-resolver';
 import { newtabOpenInNewTab } from '../../../domain/settings';
 import { SiteSearchIconCache } from '../../../shared/search/site-search-icon-cache';
 import { SiteSearchCatalog } from '../../../shared/search-panel/site-search/catalog';
-import * as SearchSettings from '../../../domain/settings/search';
 import { SearchQuery } from '../../../shared/search-panel/search-query';
 import { SuggestionSource } from '../../../shared/search-panel/suggestion-source';
 import { SuggestionModifiers } from '../../../shared/search-panel/suggestion-modifiers';
@@ -77,11 +75,9 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
     buildZenSuggestion
   } = commandCatalog;
 
-  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
+  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createSiteSearchIconStore({
     chromeApi: typeof chrome !== 'undefined' ? chrome : null,
-    storageArea: localStorageArea,
-    storageKey: SearchSettings.siteSearchIconCache.key,
-    ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
+    storageArea: localStorageArea
   }));
   void siteSearchIconCache.load();
   const searchQuery = new SearchQuery();

@@ -6,7 +6,6 @@
 
 const shortcutFavicon = require('./shortcut-favicon.ts');
 const shortcutFaviconStore = require('../../src/platform/shortcut-favicon-store.ts');
-const { siteSearchIconCache } = require('../../src/domain/settings/search.ts');
 
 // entries: [{ provider, dataUrl }]
 async function siteSearchIconCacheStorage(entries) {
@@ -24,11 +23,9 @@ async function siteSearchIconCacheStorage(entries) {
       if (callback) callback();
     }
   };
-  const store = shortcutFaviconStore.createShortcutFaviconStore({
+  const store = shortcutFaviconStore.createSiteSearchIconStore({
     chromeApi: { runtime: {} },
     storageArea: area,
-    storageKey: siteSearchIconCache.key,
-    ...shortcutFavicon.SITE_SEARCH_CACHE_OPTIONS
   });
   const cache = entries.reduce((current, { provider, dataUrl }) => {
     const pageUrl = shortcutFavicon.getSiteSearchProviderPageUrl(provider);

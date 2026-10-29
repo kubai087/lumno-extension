@@ -1,8 +1,11 @@
 // The saved icon snapshots (domain/favicon/shortcut-favicon.ts) in the
-// extension's local storage. Updates run one at a time across pages when
+// extension's local storage: the shortcuts' icons, and the site search
+// providers' icons kept longer. Updates run one at a time across pages when
 // the page has Web Locks, so two pages never overwrite each other's icons.
 import type { StorageAreaLike } from '../domain/storage-port';
 import { newtabShortcutFaviconCache } from '../domain/settings/newtab-shortcuts';
+import { siteSearchIconCache } from '../domain/settings/search';
+import { SITE_SEARCH_CACHE_OPTIONS } from '../domain/favicon/shortcut-favicon/persisted';
 import { normalizeCacheMap, normalizeCacheOptions, retainCachedIcons } from '../domain/favicon/shortcut-favicon/persisted';
 import type { CachedIconMap, IconCacheOptions } from '../domain/favicon/shortcut-favicon/types';
 import type { StorageChromeApi } from './settings-storage';
@@ -14,7 +17,6 @@ interface LockManagerLike {
 
 interface ShortcutFaviconStoreOptions extends Partial<IconCacheOptions> {
   storageArea?: StorageAreaLike | null;
-  storageKey?: string;
   chromeApi?: StorageChromeApi | null;
   lockManager?: LockManagerLike | null;
 }
@@ -31,10 +33,9 @@ interface ShortcutFaviconStore {
   retainAll(pageUrls: unknown): Promise<CachedIconMap>;
 }
 
-function createShortcutFaviconStore(options?: ShortcutFaviconStoreOptions | null): Readonly<ShortcutFaviconStore> {
-  const settings = options || {};
+function createIconStore(storageKey: string, options: ShortcutFaviconStoreOptions): Readonly<ShortcutFaviconStore> {
+  const settings = options;
   const storageArea = settings.storageArea || null;
-  const storageKey = String(settings.storageKey || newtabShortcutFaviconCache.key);
   const chromeApi = settings.chromeApi || null;
   const lockManager = settings.lockManager || null;
   const lockName = `lumno-shortcut-favicon-store:${storageKey}`;
@@ -104,5 +105,13 @@ function createShortcutFaviconStore(options?: ShortcutFaviconStoreOptions | null
   return Object.freeze({ storageKey, cacheOptions, readAll, writeAll, mergeAll, retainAll });
 }
 
-export { createShortcutFaviconStore };
+function createShortcutFaviconStore(options?: ShortcutFaviconStoreOptions | null): Readonly<ShortcutFaviconStore> {
+  return createIconStore(newtabShortcutFaviconCache.key, options || {});
+}
+
+function createSiteSearchIconStore(options?: ShortcutFaviconStoreOptions | null): Readonly<ShortcutFaviconStore> {
+  return createIconStore(siteSearchIconCache.key, { ...SITE_SEARCH_CACHE_OPTIONS, ...(options || {}) });
+}
+
+export { createShortcutFaviconStore, createSiteSearchIconStore };
 export type { LockManagerLike, ShortcutFaviconStore, ShortcutFaviconStoreOptions };

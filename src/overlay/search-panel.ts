@@ -74,7 +74,6 @@ import { createOverlaySettings } from './overlay-settings';
 import * as FaviconDecisionLog from '../domain/favicon/decision-log';
 import * as FaviconHostPolicy from '../domain/favicon/host-policy';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
-import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
@@ -127,11 +126,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // Web clip needs Document Picture-in-Picture, which Firefox does not ship.
   const documentPipSupported = 'documentPictureInPicture' in window;
   // Warm local icon lookup immediately, but never put it on the overlay reveal path.
-  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
+  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createSiteSearchIconStore({
     chromeApi: chrome,
-    storageArea: chrome && chrome.storage ? chrome.storage.local : null,
-    storageKey: siteSearchIconCacheSetting.key,
-    ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
+    storageArea: chrome && chrome.storage ? chrome.storage.local : null
   }));
   void siteSearchIconCache.load();
 

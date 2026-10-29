@@ -46,11 +46,9 @@ function getSiteSearchIconStore(): Readonly<ShortcutFaviconStore> {
   if (siteSearchIconStore) {
     return siteSearchIconStore;
   }
-  siteSearchIconStore = LumnoShortcutFaviconStore.createShortcutFaviconStore({
+  siteSearchIconStore = LumnoShortcutFaviconStore.createSiteSearchIconStore({
     chromeApi: chrome,
-    storageArea: (chrome && chrome.storage && chrome.storage.local) ? chrome.storage.local : null,
-    storageKey: SITE_SEARCH_ICON_STORAGE_KEY,
-    ...SITE_SEARCH_ICON_CACHE_OPTIONS
+    storageArea: (chrome && chrome.storage && chrome.storage.local) ? chrome.storage.local : null
   });
   return siteSearchIconStore;
 }

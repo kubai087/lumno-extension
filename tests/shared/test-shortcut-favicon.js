@@ -368,11 +368,9 @@ async function testDedicatedSiteSearchCachePolicy() {
   const storage = createMemoryStorage({
     [siteSearchIconCache.key]: cache
   });
-  const store = shortcutFaviconStore.createShortcutFaviconStore({
+  const store = shortcutFaviconStore.createSiteSearchIconStore({
     storageArea: storage,
-    storageKey: siteSearchIconCache.key,
-    chromeApi: { runtime: {} },
-    ...shortcutFavicon.SITE_SEARCH_CACHE_OPTIONS
+    chromeApi: { runtime: {} }
   });
   assert.strictEqual(Object.keys(await store.readAll()).length, 30);
 }
