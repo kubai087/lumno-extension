@@ -1,6 +1,7 @@
 // The Toast the in-page surfaces share, drawn straight into its element.
 import { NOOP_CONTROLLER, ToastScreen } from './toast-screen';
-import type { ToastController, ToastControllerOptions, ToastSurface, ToastTone } from './toast-screen';
+import type { ToastController, ToastControllerOptions, ToastMessage, ToastSurface, ToastTone } from './toast-screen';
+import { createStore } from '../state/store';
 
 // The toast element, or a test double; the optional members may be missing.
 interface ToastElement {
@@ -33,10 +34,16 @@ function renderToast(element: ToastElement, text: string, tone: ToastTone): void
 }
 
 function createDomSurface(element: ToastElement): ToastSurface {
-  return {
-    render: (text, tone) => renderToast(element, text, tone),
-    hide: () => element.setAttribute('data-show', 'false')
-  };
+  const message = createStore<ToastMessage>({ visible: false, text: '', tone: '' });
+  message.subscribe(() => {
+    const { visible, text, tone } = message.getSnapshot();
+    if (visible) {
+      renderToast(element, text, tone);
+    } else {
+      element.setAttribute('data-show', 'false');
+    }
+  });
+  return { message };
 }
 
 function createToastController(

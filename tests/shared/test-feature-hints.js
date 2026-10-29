@@ -133,6 +133,17 @@ const featureHintView = {
     const closeButton = documentObj.createElement('button');
     closeButton.className = 'x-lumno-feature-hint__close';
     element.appendChild(closeButton);
+    // Shows the copy the hint sets in its store.
+    const applyLabels = ({ labels }) => {
+        badge.setAttribute('aria-label', labels.badge);
+        text.textContent = labels.text;
+        closeButton.setAttribute('aria-label', labels.close);
+        if (linkButton) {
+          linkButton.setAttribute('aria-label', labels.link || '');
+        }
+    };
+    applyLabels(options.labels.getSnapshot());
+    options.labels.subscribe(() => applyLabels(options.labels.getSnapshot()));
     return {
       arrowTip,
       badge,
@@ -140,15 +151,7 @@ const featureHintView = {
       destroy() {},
       element,
       linkButton,
-      text,
-      updateLabels(labels) {
-        badge.setAttribute('aria-label', labels.badge);
-        text.textContent = labels.text;
-        closeButton.setAttribute('aria-label', labels.close);
-        if (linkButton) {
-          linkButton.setAttribute('aria-label', labels.link || '');
-        }
-      }
+      text
     };
   }
 };

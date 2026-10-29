@@ -1,3 +1,4 @@
+import { useStore } from './use-store';
 import type {
   FeatureHintViewController,
   FeatureHintViewLabels,
@@ -154,7 +155,7 @@ function HintLink({ labels, onLinkClick }: { labels: FeatureHintViewLabels; onLi
   );
 }
 
-function FeatureHintContent({ labels, model, onDismiss, onLinkClick, onActionClick }: Omit<FeatureHintViewOptions, 'documentObj' | 'portals'>) {
+function FeatureHintContent({ labels, model, onDismiss, onLinkClick, onActionClick }: Omit<FeatureHintViewOptions, 'documentObj' | 'portals' | 'labels'> & { labels: FeatureHintViewLabels }) {
   const actions = model.actions || [];
   const inline = Boolean(model.inlineActions) && actions.length > 0;
   return (
@@ -219,6 +220,20 @@ function createHintElement(documentObj: Document, model: FeatureHintViewModel): 
   return element;
 }
 
+// The hint in the copy its store holds.
+function FeatureHintLabels({ model, options }: { model: FeatureHintViewModel; options: FeatureHintViewOptions }) {
+  const { labels } = useStore(options.labels);
+  return (
+    <FeatureHintContent
+      labels={labels}
+      model={model}
+      onActionClick={options.onActionClick}
+      onDismiss={options.onDismiss}
+      onLinkClick={options.onLinkClick}
+    />
+  );
+}
+
 export function createFeatureHintView(options: FeatureHintViewOptions): FeatureHintViewController | null {
   const documentObj = options.documentObj || document;
   if (!documentObj || !options.model) {
@@ -226,23 +241,8 @@ export function createFeatureHintView(options: FeatureHintViewOptions): FeatureH
   }
   const model = options.model;
   const element = createHintElement(documentObj, model);
-  let labels = options.labels;
   let destroyed = false;
-  const render = (): void => {
-    if (destroyed) {
-      return;
-    }
-    options.portals.show(element, (
-      <FeatureHintContent
-        labels={labels}
-        model={model}
-        onActionClick={options.onActionClick}
-        onDismiss={options.onDismiss}
-        onLinkClick={options.onLinkClick}
-      />
-    ));
-  };
-  render();
+  options.portals.show(element, <FeatureHintLabels model={model} options={options} />);
 
   const badge = queryHtmlTag(element, '.x-lumno-feature-hint__badge', 'span');
   const text = queryHtmlTag(element, '.x-lumno-feature-hint__text', 'span');
@@ -266,10 +266,6 @@ export function createFeatureHintView(options: FeatureHintViewOptions): FeatureH
     },
     element,
     linkButton: queryHtmlTag(element, '.x-lumno-feature-hint__link', 'button'),
-    text,
-    updateLabels(nextLabels) {
-      labels = nextLabels;
-      render();
-    }
+    text
   };
 }

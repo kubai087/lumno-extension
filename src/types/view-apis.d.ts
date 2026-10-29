@@ -3,6 +3,7 @@
 
 import type { RemixIconSpec } from '../shared/ui/remix-icon';
 import type { PortalHost } from '../shared/react/portal-host';
+import type { Store } from '../shared/state/store';
 
 export interface TooltipElementOptions {
   className?: string;
@@ -71,7 +72,8 @@ export interface FeatureHintViewLabels {
 export interface FeatureHintViewOptions {
   portals: PortalHost;
   documentObj?: Document;
-  labels: FeatureHintViewLabels;
+  // The hint's copy in the page's language, as the hint sets it.
+  labels: Store<{ labels: FeatureHintViewLabels }>;
   model: FeatureHintViewModel;
   onActionClick?(actionId: string, event: MouseEvent): void;
   onDismiss?(): void;
@@ -87,6 +89,5 @@ export interface FeatureHintViewController {
   element: HTMLSpanElement;
   linkButton: HTMLButtonElement | null;
   text: HTMLSpanElement;
-  updateLabels(labels: FeatureHintViewLabels): void;
 }
 

@@ -2,6 +2,7 @@
 // short result messages, and loading messages for tasks that take a moment,
 // shown only once the task has run past a short delay. The newest task that
 // has passed its delay owns the Toast whenever no result message covers it.
+import type { Store } from '../state/store';
 
 // The page window, or a test double with its timers.
 interface ToastWindow {
@@ -45,10 +46,17 @@ interface ToastController {
 
 type ToastTone = 'loading' | 'error' | '';
 
-// How a surface draws the Toast.
+// What the Toast shows; a hidden Toast keeps its last text while it fades.
+interface ToastMessage {
+  visible: boolean;
+  text: string;
+  tone: ToastTone;
+}
+
+// How a surface draws the Toast: the message store it follows, which the
+// Toast sets.
 interface ToastSurface {
-  render(text: string, tone: ToastTone): void;
-  hide(): void;
+  message: Store<ToastMessage>;
   // Called once, when the Toast is destroyed.
   destroy?(): void;
 }
@@ -99,7 +107,7 @@ class ToastScreen implements ToastController {
     const nextOptions: ToastShowOptions = showOptions || {};
     this.stopTimer();
     this.messageShowing = true;
-    this.surface.render(text, nextOptions.error ? 'error' : '');
+    this.surface.message.setState({ visible: true, text, tone: nextOptions.error ? 'error' : '' });
     const duration = readDelay(nextOptions.duration, this.defaultDuration);
     if (duration > 0) {
       this.timer = this.win.setTimeout(() => {
@@ -118,9 +126,9 @@ class ToastScreen implements ToastController {
     }
     const task = this.visibleTask();
     if (task) {
-      this.surface.render(task.text, 'loading');
+      this.surface.message.setState({ visible: true, text: task.text, tone: 'loading' });
     } else {
-      this.surface.hide();
+      this.surface.message.setState({ visible: false });
     }
   };
 
@@ -167,7 +175,7 @@ class ToastScreen implements ToastController {
 
   showLoading(task: PendingTask): void {
     if (this.isOnScreen(task)) {
-      this.surface.render(task.text, 'loading');
+      this.surface.message.setState({ visible: true, text: task.text, tone: 'loading' });
     }
   }
 
@@ -255,6 +263,7 @@ class RunningToastTask implements ToastTask {
 }
 
 export type {
+  ToastMessage,
   ToastBeginOptions,
   ToastController,
   ToastControllerOptions,

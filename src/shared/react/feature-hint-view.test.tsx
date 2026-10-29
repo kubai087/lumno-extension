@@ -1,8 +1,10 @@
 import { act } from 'react';
+import { createViewStore } from './view-store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createFeatureHintView,
-  type FeatureHintViewController
+  type FeatureHintViewController,
+  type FeatureHintViewLabels
 } from './feature-hint-view';
 import { queryHtmlTag } from '../dom-lookup';
 import { required } from '../../../tests/react/dom';
@@ -21,20 +23,21 @@ describe('Feature hint React view', () => {
     const onDismiss = vi.fn();
     const onLinkClick = vi.fn();
     const onActionClick = vi.fn();
+    const labels = createViewStore<{ labels: FeatureHintViewLabels }>({ labels: {
+      actions: {
+        community: 'Join community',
+        review: 'Rate Lumno'
+      },
+      badge: 'New',
+      close: 'Dismiss',
+      link: 'Details',
+      text: 'A new feature'
+    } });
     const created: { controller: FeatureHintViewController | null } = { controller: null };
     act(() => {
       created.controller = createFeatureHintView({
         portals: getTestPortals(),
-        labels: {
-          actions: {
-            community: 'Join community',
-            review: 'Rate Lumno'
-          },
-          badge: 'New',
-          close: 'Dismiss',
-          link: 'Details',
-          text: 'A new feature'
-        },
+        labels,
         model: {
           actions: [
             {
@@ -89,7 +92,7 @@ describe('Feature hint React view', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
 
     act(() => {
-      view.updateLabels({
+      labels.setState({ labels: {
         actions: {
           community: 'Community',
           review: 'Review'
@@ -98,7 +101,7 @@ describe('Feature hint React view', () => {
         close: 'Close',
         link: 'Read',
         text: 'Updated copy'
-      });
+      } });
     });
     expect(view.text.textContent).toBe('Updated copy');
     expect(view.badge.getAttribute('aria-label')).toBe('Updated');
@@ -111,7 +114,7 @@ describe('Feature hint React view', () => {
     act(() => {
       created.controller = createFeatureHintView({
         portals: getTestPortals(),
-        labels: {
+        labels: createViewStore<{ labels: FeatureHintViewLabels }>({ labels: {
           actions: {
             community: '进群',
             review: '满分好评'
@@ -121,7 +124,7 @@ describe('Feature hint React view', () => {
           connector: '，或者',
           text: '如果用得开心，诚邀',
           trailing: '和我们聊聊。'
-        },
+        } }),
         model: {
           actions: [
             {

@@ -6,6 +6,8 @@ import { createFeatureHintAlignment, destroyAlignment, disconnectAlignmentObserv
 import type { FeatureHintAlignment } from './feature-hint-alignment';
 import type { NavigatorLike } from '../../domain/shortcut-display';
 import { createFeatureHintView } from '../react/feature-hint-view';
+import { createViewStore } from '../react/view-store';
+import type { Store } from '../state/store';
 import { formatShortcutText, getDomIdPart, getFeatureHint, getMessage, normalizeAlignMode, normalizeArrowAlign, normalizeArrowSide, normalizeDismissStorage, normalizeWidthMode } from './feature-hint-catalog';
 import type {
   FeatureHintActionItem,
@@ -70,9 +72,13 @@ class HintVisibility {
 
 // One hint on one page, from its view's creation to destroy(): what its
 // options and definition settled, its view, and whether it shows.
+type FeatureHintLabelsStore = Store<{ labels: FeatureHintViewLabels }>;
+
 interface FeatureHintContext {
   readonly settings: FeatureHintSettings;
   readonly view: FeatureHintViewController;
+  // The copy the view shows, set in the page's language.
+  readonly labels: FeatureHintLabelsStore;
   readonly element: HTMLSpanElement;
   readonly alignment: FeatureHintAlignment;
   readonly visibility: HintVisibility;
@@ -226,13 +232,13 @@ function buildViewModel(setup: FeatureHintSetup): FeatureHintViewModel {
   };
 }
 
-function createHintView(setup: FeatureHintSetup, onDismiss: () => void): FeatureHintViewController | null {
+function createHintView(setup: FeatureHintSetup, labels: FeatureHintLabelsStore, onDismiss: () => void): FeatureHintViewController | null {
   const { config, hint, actions } = setup;
   return createFeatureHintView({
     portals: config.portals,
     documentObj: setup.page,
     model: buildViewModel(setup),
-    labels: { actions: {}, badge: '', close: '', connector: '', link: '', text: '', trailing: '' },
+    labels,
     onDismiss,
     onActionClick(actionId, event) {
       const action = actions.find((item) => item.id === actionId);
@@ -350,7 +356,7 @@ function updateHintLanguage(ctx: FeatureHintContext): void {
   if (ctx.visibility.destroyed) {
     return;
   }
-  ctx.view.updateLabels(readLabels(ctx));
+  ctx.labels.setState({ labels: readLabels(ctx) });
   scheduleContentAlignmentUpdate(ctx.alignment);
 }
 
@@ -385,7 +391,7 @@ function loadDismissState(ctx: FeatureHintContext): void {
   });
 }
 
-function createFeatureHintContext(setup: FeatureHintSetup, view: FeatureHintViewController): FeatureHintContext {
+function createFeatureHintContext(setup: FeatureHintSetup, view: FeatureHintViewController, labels: FeatureHintLabelsStore): FeatureHintContext {
   const { config, hint, page, dismissStorage } = setup;
   const windowObj: FeatureHintWindow | null = config.windowObj || page.defaultView ||
     (typeof window !== 'undefined' ? window : null);
@@ -404,6 +410,7 @@ function createFeatureHintContext(setup: FeatureHintSetup, view: FeatureHintView
       actions: setup.actions
     },
     view,
+    labels,
     element: view.element,
     alignment: createFeatureHintAlignment(setup.alignMode, windowObj, view, setup.hasLink),
     visibility: new HintVisibility(config.initiallyVisible !== false, Boolean(config.initiallyDismissed), dismissStorage === 'none')
@@ -419,7 +426,10 @@ function createFeatureHint(options: FeatureHintOptions): FeatureHintController |
   }
   const setup = readSetup(config, definition, documentObj);
   let controller: FeatureHintController | null = null;
-  const view = createHintView(setup, () => {
+  const labels = createViewStore<{ labels: FeatureHintViewLabels }>({
+    labels: { actions: {}, badge: '', close: '', connector: '', link: '', text: '', trailing: '' }
+  });
+  const view = createHintView(setup, labels, () => {
     if (controller) {
       controller.dismiss();
     }
@@ -427,7 +437,7 @@ function createFeatureHint(options: FeatureHintOptions): FeatureHintController |
   if (!view) {
     return null;
   }
-  const ctx = createFeatureHintContext(setup, view);
+  const ctx = createFeatureHintContext(setup, view, labels);
   const visibilityGate = config.visibilityGate && typeof config.visibilityGate.then === 'function'
     ? config.visibilityGate
     : null;
