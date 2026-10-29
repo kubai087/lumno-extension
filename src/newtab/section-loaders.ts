@@ -61,7 +61,7 @@ interface SectionLoadersDeps extends
   shortcutList: Pick<ShortcutList, 'items'>;
   recentShown: Pick<RecentSitesShown, 'drawn' | 'forgetSignature' | 'items' | 'loadedOnce' | 'markLoaded' | 'setItems' | 'signature'>;
   bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'renderSignature' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
-  bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'view' | 'cascade'>;
   bookmarkGrid: HTMLElement;
   dragSessions: Pick<DragSessions, 'bookmark' | 'recentCardDragging' | 'shortcut' | 'shortcutDragging'>;
   recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'>;
@@ -381,9 +381,15 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     };
   }
 
-  bookmarkSectionEvents.on('changed', ({ keepCascadeOpen }) => {
+  bookmarkSectionEvents.on('changed', ({ keepCascadeOpen, cascadeRefresh }) => {
     markBookmarkTreeDirty({ preserveCascadeOpen: keepCascadeOpen });
     void loadBookmarks({ force: true });
+    const cascade = bookmarkParts.cascade;
+    if (keepCascadeOpen && cascade && cascade.isOpen()) {
+      cascade.refresh(cascadeRefresh).catch((error: unknown) => {
+        console.warn('[Lumno] Failed to refresh bookmark cascade after move', error);
+      });
+    }
   });
 
   // New messages load the sections again: their names and dates are in them.

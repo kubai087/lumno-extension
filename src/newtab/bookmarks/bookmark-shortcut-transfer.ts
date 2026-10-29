@@ -41,7 +41,6 @@ interface BookmarkShortcutTransferDeps {
   persistShortcuts: PersistShortcuts;
   refreshShortcutFolderReferences(): Promise<unknown>;
   isWebDavBackingUpShortcuts?(): Promise<boolean>;
-  refreshOpenBookmarkCascadeMenu(): Promise<boolean>;
   // Notes where the bookmark cards are, so the next render slides them; and
   // forgets that note when the change failed.
   queueLayoutAnimation(excludedBookmarkId: string): void;
@@ -77,7 +76,6 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     persistShortcuts,
     refreshShortcutFolderReferences,
     isWebDavBackingUpShortcuts,
-    refreshOpenBookmarkCascadeMenu,
     queueLayoutAnimation,
     dropLayoutAnimation,
     showToast,
@@ -386,7 +384,6 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       return false;
     } finally {
       bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
-      if (keepCascadeOpen) refreshOpenBookmarkCascadeMenu();
     }
   }
 
@@ -504,7 +501,6 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       return false;
     } finally {
       bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
-      if (keepCascadeOpen) refreshOpenBookmarkCascadeMenu();
     }
   }
 

@@ -54,7 +54,6 @@ const controller = LumnoNewtabShortcutsController.createShortcutsController({
   closeShortcutContextMenu: noop,
   syncOpenBookmarkCascadeAnchorVisual: noop,
   applyNewtabShortcutsVisibility: noop,
-  updateShortcutLanguageStrings: noop,
   updateBookmarkSectionPosition: noop,
   applyNewtabShortcutDockMagnification: noop,
   scheduleWallpaperAdaptiveToneUpdate: noop,

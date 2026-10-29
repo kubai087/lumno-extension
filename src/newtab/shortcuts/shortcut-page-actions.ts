@@ -1,20 +1,11 @@
 // Shortcut tiles on the page: finding a tile and its shortcut, the
-// context menu's options, opening the shortcut dialog to add or edit, the
-// icon plate color picker, and the copy the dialog and menus show.
+// context menu's options, and opening a shortcut to edit.
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
-import type { FolderColorPicker } from '../bookmarks/folder-colors';
-import type { BindTooltip, ShowToast, Translate } from '../newtab-types';
-import { createFolderColorPicker } from '../react/folder-color-picker-lazy';
-import type {
-  IconPlateColorRequest,
-  ShortcutDialogCloseOptions,
-  ShortcutDialogController,
-  ShortcutDialogOpenOptions
-} from '../react/shortcut-dialog';
+import type { Translate } from '../newtab-types';
 import type { ShortcutContextTarget } from './shortcut-types';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
@@ -24,114 +15,40 @@ import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from './shortcut-list';
 import type { ShortcutData } from './shortcut-data';
-import { shortcutEvents } from './shortcut-events';
-import type { SettingsStore } from '../../platform/settings-store';
-import { bookmarkFolderColorPresets } from '../../domain/settings/bookmarks';
+import type { ShortcutDialogActions } from './shortcut-dialog-actions';
 
 
 interface ShortcutPageActionsDeps {
   t: Translate;
-  bindShortcutDialogTooltip: BindTooltip;
-  hideShortcutDialogTooltip(): void;
   getShortcutGroups(): ShortcutGroup[];
   bookmarksRuntime: BookmarksRuntime;
   getShortcutFolderId(shortcut: ShortcutItem): string;
   getShortcutById: ShortcutData['getShortcutById'];
-  createShortcutDialogComponent(): Promise<ShortcutDialogController | null>;
-  showToast: ShowToast;
+  openShortcutDialog: ShortcutDialogActions['openShortcutDialog'];
   // The tiles drawn now, kept in DOM order.
   shortcutTiles: HTMLElement[];
   openBookmarkEditor(target: BookmarkEditTarget): void;
   getShortcutTitle(shortcut: ShortcutItem): string;
   getShortcutIconDataUrl(shortcutId: string): string;
   shortcutList: Pick<ShortcutList, 'items'>;
-  shortcutSection: HTMLElement;
   shortcutGrid: HTMLElement;
-  settings: Pick<SettingsStore, 'get' | 'include' | 'set'>;
 }
 
 function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   const {
     shortcutGrid,
-    shortcutSection,
     shortcutList,
     t,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
     getShortcutGroups,
     bookmarksRuntime,
     getShortcutFolderId,
     getShortcutById,
-    createShortcutDialogComponent,
-    showToast,
+    openShortcutDialog,
     shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle,
-    getShortcutIconDataUrl,
-    settings
+    getShortcutIconDataUrl
   } = deps;
-
-  // The shortcut dialog, loaded on first use.
-  let shortcutDialogController: ShortcutDialogController | null = null;
-  // Settles the plate color request that is open.
-  let shortcutPlateColorPick: ((color: string | null | undefined) => void) | null = null;
-  // The folder color picker, made the first time a plate color is picked.
-  let shortcutPlateColorPicker: FolderColorPicker | null = null;
-
-  let shortcutDialogLoadPromise: Promise<void> | null = null;
-  let shortcutDialogOpenRevision = 0;
-
-  // The folder color picker, over the shortcut dialog, for an icon's plate.
-  // It shares the saved colors with folders; the shortcut dialog saves the
-  // result. Resolves with a color, null to follow the icon, or undefined.
-  async function pickShortcutIconPlateColor(request: IconPlateColorRequest): Promise<string | null | undefined> {
-    if (!shortcutPlateColorPicker) {
-      try {
-        shortcutPlateColorPicker = await createFolderColorPicker({
-          documentObj: document, t,
-          bindTooltip: bindShortcutDialogTooltip,
-          hideTooltip: hideShortcutDialogTooltip,
-          readSavedColors: () => settings.include(bookmarkFolderColorPresets).then(() => settings.get(bookmarkFolderColorPresets)),
-          saveSavedColors: (colors) => settings.set(bookmarkFolderColorPresets, colors),
-          onSubmit: (_id, color) => {
-            shortcutPlateColorPick?.(color);
-            return Promise.resolve();
-          },
-          onClose: () => shortcutPlateColorPick?.(undefined)
-        });
-      } catch {
-        return undefined;
-      }
-    }
-    // Narrowed here, for the promise below.
-    const picker = shortcutPlateColorPicker;
-    return new Promise((resolve) => {
-      shortcutPlateColorPick = (color) => {
-        shortcutPlateColorPick = null;
-        resolve(color);
-      };
-      const label = t('newtab_shortcuts_icon_plate_color_label', 'Background color');
-      picker.open({
-        folderId: 'shortcut-icon-plate',
-        title: request.title,
-        color: request.color,
-        presets: request.presets,
-        previewImageUrl: request.imageUrl,
-        labels: {
-          dialog: label,
-          picker: label,
-          defaultColor: t('newtab_shortcuts_icon_plate_color_auto', 'From the icon')
-        },
-        sourceElement: request.sourceElement
-      });
-    });
-  }
-
-  function updateShortcutDialogLanguageStrings(): void {
-    if (shortcutDialogController) {
-      shortcutDialogController.updateLanguage();
-    }
-  }
 
   function getShortcutContextMenuOptions(target?: ShortcutContextTarget | null): SelectMenuOption[] {
     const createGroupOption: SelectMenuOption = {
@@ -219,65 +136,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     ];
   }
 
-  // The tiles draw their own labels; this names the section's host and
-  // updates the dialog and the menus.
-  function updateShortcutLanguageStrings(): void {
-    if (shortcutSection) {
-      shortcutSection.setAttribute('aria-label', t('newtab_shortcuts_section_label', 'Shortcuts'));
-    }
-    updateShortcutDialogLanguageStrings();
-  }
-
-  function setShortcutError(message: string): void {
-    if (shortcutDialogController) {
-      shortcutDialogController.setError(message);
-    }
-  }
-
-  function setShortcutIconError(message: string): void {
-    if (shortcutDialogController) {
-      shortcutDialogController.setIconError(message);
-    }
-  }
-
-  shortcutEvents.on('iconSaveFailed', () => {
-    setShortcutIconError(t(
-      'newtab_shortcuts_icon_storage_error',
-      'The local icon could not be saved. Try another image.'
-    ));
-  });
-
-  function closeShortcutDialog(options?: ShortcutDialogCloseOptions): void {
-    shortcutDialogOpenRevision += 1;
-    if (shortcutDialogController) {
-      shortcutDialogController.close({
-        ...(options || {}),
-        force: true
-      });
-    }
-  }
-
-  async function openShortcutDialog(options: ShortcutDialogOpenOptions): Promise<void> {
-    const revision = ++shortcutDialogOpenRevision;
-    try {
-      if (!shortcutDialogController) {
-        if (!shortcutDialogLoadPromise) {
-          shortcutDialogLoadPromise = createShortcutDialogComponent().then((controller) => {
-            if (!controller) throw new Error('Shortcut dialog unavailable');
-            shortcutDialogController = controller;
-            controller.mount(document.body);
-          }).finally(() => { shortcutDialogLoadPromise = null; });
-        }
-        await shortcutDialogLoadPromise;
-      }
-      if (revision === shortcutDialogOpenRevision && shortcutDialogController) {
-        shortcutDialogController.open(options);
-      }
-    } catch (error) {
-      console.warn('[Lumno] Failed to load shortcut dialog', error);
-      if (revision === shortcutDialogOpenRevision) showToast(t('toast_error', 'Operation failed. Please try again.'), true);
-    }
-  }
 
   function getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null {
     if (!shortcutGrid || !isElementNode(node)) {
@@ -346,12 +204,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   }
 
   return {
-    setShortcutError,
-    pickShortcutIconPlateColor,
     getShortcutContextMenuOptions,
-    updateShortcutLanguageStrings,
-    closeShortcutDialog,
-    openShortcutDialog,
     getShortcutTileFromNode,
     getShortcutTileId,
     refreshShortcutTileCacheFromDom,

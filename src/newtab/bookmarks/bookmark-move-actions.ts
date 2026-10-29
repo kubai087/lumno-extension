@@ -4,7 +4,6 @@
 import type { DragDropTarget } from '../cross-surface-drag';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
-import type { CascadeRefreshOptions } from './bookmark-cascade-menu';
 import type { BookmarkDragSession } from './bookmark-drag';
 import { getMoveDestination, getUndoShortcutLabels } from './bookmark-drag-rules';
 import type { BookmarkLocation, BookmarkMoveHistory, ShortcutGroupDeleteRecord } from './bookmark-move-history';
@@ -30,7 +29,6 @@ interface BookmarkMoveActionsDeps {
   applyShortcutGroupDeleteRecord(record: ShortcutGroupDeleteRecord, isUndo: boolean): Promise<boolean>;
   persistShortcuts: PersistShortcuts;
   refreshShortcutFolderReferences(): Promise<unknown>;
-  refreshOpenBookmarkCascadeMenu(refreshOptions?: CascadeRefreshOptions): Promise<boolean>;
   // Notes where the bookmark cards are, so the next render slides them; and
   // forgets that note when the change failed.
   queueLayoutAnimation(excludedBookmarkId: unknown): void;
@@ -65,7 +63,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
     refreshShortcutFolderReferences,
-    refreshOpenBookmarkCascadeMenu,
     queueLayoutAnimation,
     dropLayoutAnimation,
     showToast,
@@ -119,9 +116,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         }).then(() => {
           bookmarkMoveHistory.push(record);
           bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
-          if (keepCascadeOpen) {
-            refreshOpenBookmarkCascadeMenu();
-          }
           return true;
         });
       });
@@ -176,13 +170,10 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       bookmarkMoveHistory.push(record);
     }
     const keepCascadeOpen = Boolean(state.keepCascadeOpenAfterDrop);
-    bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
-    if (keepCascadeOpen) {
-      refreshOpenBookmarkCascadeMenu({
-        draggedBookmarkId: String(state.bookmarkId || ''),
-        draggedRect: state.draggedVisualRect
-      });
-    }
+    bookmarkSectionEvents.emit('changed', {
+      keepCascadeOpen,
+      cascadeRefresh: { draggedBookmarkId: String(state.bookmarkId || ''), draggedRect: state.draggedVisualRect }
+    });
     return true;
   }
 
@@ -414,9 +405,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
           ));
         }
         bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
-        if (keepCascadeOpen) {
-          refreshOpenBookmarkCascadeMenu();
-        }
       }).catch((error) => {
         dropLayoutAnimation();
         console.warn('[Lumno] Failed to restore bookmark deletion history', error);
@@ -456,9 +444,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         ));
       }
       bookmarkSectionEvents.emit('changed', { keepCascadeOpen: keepCascadeOpen });
-      if (keepCascadeOpen) {
-        refreshOpenBookmarkCascadeMenu();
-      }
     }).catch((error) => {
       dropLayoutAnimation();
       console.warn('[Lumno] Failed to restore bookmark move history', error);

@@ -17,7 +17,7 @@ import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { BookmarkCardElement } from '../react/bookmarks';
 import type { PersistShortcuts, ShortcutInsertionSlot } from '../shortcuts/shortcut-types';
-import type { BookmarkCascadeRuntime, CascadeItemEventDetail, CascadeRefreshOptions } from './bookmark-cascade-menu';
+import type { BookmarkCascadeRuntime, CascadeItemEventDetail } from './bookmark-cascade-menu';
 import type { BookmarkDragSession, BookmarkDragSource, BookmarkLayoutItem } from './bookmark-drag';
 import type * as FolderIcon from './bookmark-folder-icon';
 import { describeFolderIcon } from './bookmark-folder-icon';
@@ -706,7 +706,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     persistShortcuts,
     refreshShortcutFolderReferences,
     isWebDavBackingUpShortcuts,
-    refreshOpenBookmarkCascadeMenu: () => refreshOpenBookmarkCascadeMenu(),
     queueLayoutAnimation: (excludedBookmarkId) => queueBookmarkLayoutAnimation(excludedBookmarkId),
     dropLayoutAnimation: () => {
       bookmarkPendingLayoutAnimation = null;
@@ -1270,7 +1269,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
     refreshShortcutFolderReferences,
-    refreshOpenBookmarkCascadeMenu: (refreshOptions) => refreshOpenBookmarkCascadeMenu(refreshOptions),
     queueLayoutAnimation: (excludedBookmarkId) => queueBookmarkLayoutAnimation(excludedBookmarkId),
     dropLayoutAnimation: () => {
       bookmarkPendingLayoutAnimation = null;
@@ -1280,15 +1278,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     formatMessage
   });
 
-  function refreshOpenBookmarkCascadeMenu(refreshOptions?: CascadeRefreshOptions): Promise<boolean> {
-    if (!bookmarkParts.cascade || !bookmarkParts.cascade.isOpen()) {
-      return Promise.resolve(false);
-    }
-    return bookmarkParts.cascade.refresh(refreshOptions).catch((error: unknown) => {
-      console.warn('[Lumno] Failed to refresh bookmark cascade after move', error);
-      return false;
-    });
-  }
 
   // Moves the open menu onto its folder's card or shortcut drawn anew.
   function syncOpenBookmarkCascadeAnchorVisual(): boolean {
@@ -1657,7 +1646,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     deleteBookmarkFromContextTarget,
     addBookmarkFolderToShortcuts,
     hasShortcutForBookmarkFolder,
-    refreshOpenBookmarkCascadeMenu,
     syncOpenBookmarkCascadeAnchorVisual,
     performBookmarkMoveHistoryAction,
     finishBookmarkDrag,

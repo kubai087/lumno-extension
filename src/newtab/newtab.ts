@@ -183,6 +183,7 @@ import { FaviconParts } from './theme/favicon-parts';
 import { createPageFaviconCache } from './theme/page-favicon-cache';
 import { createShortcutFavicons } from './shortcuts/shortcut-favicons';
 import { createShortcutData } from './shortcuts/shortcut-data';
+import { createShortcutDialogActions } from './shortcuts/shortcut-dialog-actions';
 import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
@@ -528,6 +529,30 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutById
   } = shortcutData;
   followStoredShortcutData();
+
+  // The shortcut dialog, which adds and edits shortcuts and names groups.
+  const {
+    openShortcutDialog,
+    closeShortcutDialog,
+    openShortcutAddDialog,
+    openShortcutGroupDialog,
+    confirmDeleteShortcutGroupWithSites
+  } = createShortcutDialogActions({
+    settings,
+    locale,
+    t,
+    formatMessage,
+    showToast,
+    hideShortcutTooltip,
+    bindShortcutDialogTooltip,
+    hideShortcutDialogTooltip,
+    shortcutList,
+    shortcutIconStore,
+    shortcutData,
+    shortcutFavicons,
+    bookmarksRuntime,
+    bookmarkParts
+  });
   // The default search engine, which the page's search and navigation follow.
   const searchEngine = new DefaultSearchEngine(settings);
   searchEngine.follow();
@@ -574,7 +599,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     t,
     getBookmarkContextMenuOptions: (...args) => getBookmarkContextMenuOptions(...args),
     bookmarksRuntime,
-    openShortcutDialog: (...args) => openShortcutDialog(...args),
+    openShortcutDialog,
     formatMessage,
     showToast,
     isShortcutFolderAnchor: (...args) => isShortcutFolderAnchor(...args),
@@ -584,12 +609,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    setShortcutError,
-    pickShortcutIconPlateColor,
     getShortcutContextMenuOptions,
-    updateShortcutLanguageStrings,
-    closeShortcutDialog,
-    openShortcutDialog,
     getShortcutTileFromNode,
     getShortcutTileId,
     refreshShortcutTileCacheFromDom,
@@ -599,19 +619,14 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openShortcutEditor,
     isShortcutFolderAnchor
   } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
-    settings,
     shortcutGrid,
-    shortcutSection,
     shortcutList,
     t,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
     getShortcutGroups,
     bookmarksRuntime,
     getShortcutFolderId,
     getShortcutById,
-    createShortcutDialogComponent: (...args) => createShortcutDialogComponent(...args),
-    showToast,
+    openShortcutDialog,
     shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle,
@@ -783,11 +798,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutContextMenuOptions,
     hideShortcutTooltip,
     getShortcutTileId,
-    openShortcutGroupDialog: (...args) => openShortcutGroupDialog(...args),
-    openShortcutAddDialog: (...args) => openShortcutAddDialog(...args),
+    openShortcutGroupDialog,
+    openShortcutAddDialog,
     moveShortcutGroup,
     deleteShortcutGroup,
-    confirmDeleteShortcutGroupWithSites: (...args) => confirmDeleteShortcutGroupWithSites(...args)
+    confirmDeleteShortcutGroupWithSites
   });
 
   const {
@@ -1387,11 +1402,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     followNewtabShortcutPreferences,
     hideShortcutAddFromContextMenu,
     createShortcutsSection,
-    createShortcutDialogComponent,
-    fitShortcutGroupColumns,
-    openShortcutAddDialog,
-    openShortcutGroupDialog,
-    confirmDeleteShortcutGroupWithSites
+    fitShortcutGroupColumns
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
     shortcutData,
     shortcutFavicons,
@@ -1400,28 +1411,22 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openBookmarkCascadeMenu,
     getShortcutTileById,
     dragSessions,
-    bookmarkParts,
-    setShortcutError,
     shortcutList,
     settings,
     shortcutFolderRuntime,
     bookmarksRuntime,
     moveShortcutByKeyboard: (...args) => moveShortcutByKeyboard(...args),
-    shortcutIconStore,
     t,
     hideShortcutTooltip,
     closeShortcutContextMenu,
     syncOpenBookmarkCascadeAnchorVisual: (...args) => syncOpenBookmarkCascadeAnchorVisual(...args),
     applyNewtabShortcutsVisibility,
-    updateShortcutLanguageStrings,
     updateBookmarkSectionPosition,
-    pickShortcutIconPlateColor,
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
     inferNewtabShortcutColumnsFromWidth,
     showToast,
     formatMessage,
-    refreshOpenBookmarkCascadeMenu: (...args) => refreshOpenBookmarkCascadeMenu(...args),
     resetShortcutDockHover,
     pageStructureRuntime,
     shortcutTiles,
@@ -1438,14 +1443,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     isCardActivationSuppressed,
     handleShortcutContextMenu,
     handleShortcutNativeDragStart,
-    openShortcutDialog,
+    openShortcutAddDialog,
+    openShortcutGroupDialog,
     openShortcutAddContextMenu,
     handleShortcutDragPointerDown: (...args) => handleShortcutDragPointerDown(...args),
     handleShortcutDockPointerOver,
     handleShortcutDockPointerMove,
     syncShortcutDockFolderMenu,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
     handleShortcutGroupMenu: openShortcutGroupMenu,
     animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args)
   });
@@ -1472,7 +1476,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     deleteBookmarkFromContextTarget,
     addBookmarkFolderToShortcuts,
     hasShortcutForBookmarkFolder,
-    refreshOpenBookmarkCascadeMenu,
     syncOpenBookmarkCascadeAnchorVisual,
     performBookmarkMoveHistoryAction,
     finishBookmarkDrag,
@@ -2385,8 +2388,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     refreshShortcutFolderReferences,
     scheduleFolderColorSync,
     markBookmarkTreeDirty,
-    bookmarkMoveHistory,
-    refreshOpenBookmarkCascadeMenu
+    bookmarkMoveHistory
   });
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({

@@ -55,7 +55,6 @@ async function setUp() {
     scheduleWallpaperAdaptiveToneUpdate() {},
     markBookmarkTreeDirty() {},
     loadBookmarks() {},
-    refreshOpenBookmarkCascadeMenu: () => Promise.resolve(false),
     queueLayoutAnimation() {},
     dropLayoutAnimation() {},
     showToast: (message) => toasts.push(message),

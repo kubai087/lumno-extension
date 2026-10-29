@@ -17,7 +17,6 @@ interface SectionReloadDeps {
   scheduleFolderColorSync(): void;
   markBookmarkTreeDirty(options: { preserveCascadeOpen: boolean; skipRuntimeInvalidate: boolean }): void;
   bookmarkMoveHistory: { clear(): void };
-  refreshOpenBookmarkCascadeMenu(): void;
   shortcutList: Pick<ShortcutList, 'items'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
 }
@@ -34,8 +33,7 @@ function createSectionReload(deps: SectionReloadDeps) {
     refreshShortcutFolderReferences,
     scheduleFolderColorSync,
     markBookmarkTreeDirty,
-    bookmarkMoveHistory,
-    refreshOpenBookmarkCascadeMenu
+    bookmarkMoveHistory
   } = deps;
 
 
@@ -108,8 +106,10 @@ function createSectionReload(deps: SectionReloadDeps) {
         skipRuntimeInvalidate: true
       });
       scheduleBookmarkReloadIfVisible();
-      if (shouldRefreshOpenCascade) {
-        refreshOpenBookmarkCascadeMenu();
+      if (shouldRefreshOpenCascade && bookmarkParts.cascade) {
+        bookmarkParts.cascade.refresh().catch((error: unknown) => {
+          console.warn('[Lumno] Failed to refresh bookmark cascade after an outside change', error);
+        });
       }
     });
   }
