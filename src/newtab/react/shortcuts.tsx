@@ -1,14 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type DragEvent as ReactDragEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent
-} from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { flushSync } from 'react-dom';
 import {
   getIconPlateStyle,
@@ -20,7 +10,9 @@ import {
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlElements, queryHtmlTag, queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
-import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
+import { createViewStore } from '../../shared/react/view-store';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import type { ShortcutGroup, ShortcutLink, VisibleShortcutFolder, VisibleShortcutItem } from '../../domain/shortcuts/types';
@@ -148,7 +140,7 @@ export interface ShortcutsViewController {
 }
 
 interface NormalizedOptions {
-  contextMenuMark: RenderStore<ShortcutContextMenuMark | null>;
+  contextMenuMark: Store<{ mark: ShortcutContextMenuMark | null }>;
   initFolderIcon: (icon: HTMLElement) => void;
   animateFolderIcon: (icon: HTMLElement, active: boolean) => void;
   onFolderMenuChange: (tile: HTMLElement) => void;
@@ -227,7 +219,7 @@ function normalizeOptions(
     return null;
   }
   return {
-    contextMenuMark: createRenderStore<ShortcutContextMenuMark | null>(null),
+    contextMenuMark: createViewStore<{ mark: ShortcutContextMenuMark | null }>({ mark: null }),
     initFolderIcon: options.initFolderIcon || (() => {}),
     animateFolderIcon: options.animateFolderIcon || (() => {}),
     onFolderMenuChange: options.onFolderMenuChange || (() => {}),
@@ -288,7 +280,7 @@ function isFolderShortcut(shortcut: VisibleShortcutItem): shortcut is VisibleSho
 }
 
 function useContextMenuMark(options: NormalizedOptions): ShortcutContextMenuMark | null {
-  return useSyncExternalStore(options.contextMenuMark.subscribe, options.contextMenuMark.getSnapshot);
+  return useStore(options.contextMenuMark).mark;
 }
 
 function ShortcutFavicon({
@@ -903,7 +895,7 @@ export function createShortcutsView(
       return addButtonRef.current;
     },
     setContextMenuMark(mark) {
-      options.contextMenuMark.render(mark);
+      options.contextMenuMark.setState({ mark });
     }
   };
 }

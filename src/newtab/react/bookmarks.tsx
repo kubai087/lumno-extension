@@ -1,15 +1,4 @@
-import {
-  Fragment,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type FocusEvent as ReactFocusEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent
-} from 'react';
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { isElementTextTruncated } from '../../shared/react/text-overflow';
 import { followEmptyStateArtTheme } from '../../shared/ui/empty-state-art';
@@ -18,7 +7,9 @@ import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlTags } from '../../shared/dom-lookup';
 import { EmptyStateArt } from '../../shared/react/empty-state-art';
 import { FaviconFallback, FolderPreviewFaviconFallback } from '../../shared/react/favicon-fallback';
-import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
+import { createViewStore } from '../../shared/react/view-store';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import { getPagePortals } from '../app/portals';
@@ -164,7 +155,7 @@ interface NormalizedBookmarksOptions {
   grid: HTMLElement;
   cards: BookmarkCardElement[];
   cardElementCache: Map<string, BookmarkCardElement>;
-  contextMenuBookmark: RenderStore<string | null>;
+  contextMenuBookmark: Store<{ id: string | null }>;
   folderIconsVisible: { current: boolean };
   t: NonNullable<BookmarksViewOptions['t']>;
   formatMessage: NonNullable<BookmarksViewOptions['formatMessage']>;
@@ -326,7 +317,7 @@ function normalizeOptions(
     windowObj,
     grid,
     cards: Array.isArray(rawOptions.cards) ? rawOptions.cards : [],
-    contextMenuBookmark: createRenderStore<string | null>(null),
+    contextMenuBookmark: createViewStore<{ id: string | null }>({ id: null }),
     cardElementCache:
       rawOptions.cardElementCache instanceof Map
         ? rawOptions.cardElementCache
@@ -548,10 +539,7 @@ function BookmarkCard({
 
   const isTopbarMode = viewMode === 'top';
   const isFolder = item.type === 'folder';
-  const contextMenuBookmark = useSyncExternalStore(
-    options.contextMenuBookmark.subscribe,
-    options.contextMenuBookmark.getSnapshot
-  );
+  const contextMenuBookmark = useStore(options.contextMenuBookmark).id;
   const contextMenuOpen = contextMenuBookmark !== null && contextMenuBookmark === String(item.id || '');
   const folderIconId = String(item.id || `folder-${index}`);
   const themeUrl = String(item.themeUrl || item.url || '');
@@ -1285,7 +1273,7 @@ export function createBookmarksView(
       return options.cards;
     },
     setContextMenuBookmark(id) {
-      options.contextMenuBookmark.render(id);
+      options.contextMenuBookmark.setState({ id });
     }
   };
 }

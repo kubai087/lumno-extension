@@ -221,20 +221,20 @@ const modeMenuFooter = new FakeElement('div');
 modeMenu.appendChild(modeMenuContent);
 modeMenu.appendChild(modeMenuFooter);
 container.appendChild(modeMenu);
-const modeMenuView = { render() {} };
-// The tag's and hint's views, standing in for React: they show what the
-// controller draws, as far as the layout reads it.
+// The menu's, tag's and hint's stores, standing in for React: they show what
+// the controller sets, as far as the layout reads it.
+const modeMenuStore = { setState() {} };
 const modePrefixIconFrame = new FakeElement('span');
 const modePrefixGlyph = new FakeElement('i');
 const modePrefixLineIcon = new FakeElement('svg');
 const modePrefixCurrent = new FakeElement('span');
-const modeTagView = {
-  render(model) {
+const modeTagStore = {
+  setState({ model }) {
     modePrefix.style.setProperty('display', model.visible ? 'inline-flex' : 'none');
   }
 };
-const tabHintView = {
-  render(model) {
+const tabHintStore = {
+  setState(model) {
     modeTabHint.style.setProperty('display', model.visible ? 'inline-flex' : 'none');
   }
 };
@@ -253,13 +253,13 @@ const controller = LumnoSearchInputMode.createInputModeController(
     modeMenu,
     modeMenuContent,
     modeMenuFooter,
-    modeMenuView,
+    modeMenuStore,
     modePrefixIconFrame,
     modePrefixGlyph,
     modePrefixLineIcon,
     modePrefixCurrent,
-    modeTagView,
-    tabHintView
+    modeTagStore,
+    tabHintStore
   },
   {
     document: documentObj,

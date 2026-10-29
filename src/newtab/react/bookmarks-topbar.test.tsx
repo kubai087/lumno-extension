@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRenderStore } from '../../shared/react/render-store';
+import { createViewStore } from '../../shared/react/view-store';
 import type { BookmarkHeaderModel } from './bookmark-header';
 import { createBookmarkHeaderModel } from './bookmark-header.fixtures';
 import {
@@ -32,7 +32,7 @@ describe('New Tab React bookmarks topbar', () => {
     section.append(header, grid);
     document.body.appendChild(section);
     const onVisibilityChange = vi.fn();
-    const headerStore = createRenderStore<BookmarkHeaderModel | null>(null);
+    const headerStore = createViewStore<{ model: BookmarkHeaderModel | null }>({ model: null });
     act(() => {
       runtime = createBookmarksTopbar({
         documentObj: document,
@@ -54,7 +54,7 @@ describe('New Tab React bookmarks topbar', () => {
     expect(runtime.itemsHost.firstElementChild).toBe(grid);
     expect(runtime.actions.children).toHaveLength(0);
     const showTooltip = vi.fn();
-    act(() => headerStore.render(createBookmarkHeaderModel({ actionsInTopbar: true, showTooltip })));
+    act(() => headerStore.setState({ model: createBookmarkHeaderModel({ actionsInTopbar: true, showTooltip }) }));
     const manager = getTag(runtime.actions, '.x-nt-bookmarks-pager-btn', 'button');
     expect(manager.dataset.tooltip).toBe('Open bookmark manager');
     expect(runtime.actions.querySelector('#bookmark-mode')).not.toBeNull();
@@ -65,7 +65,7 @@ describe('New Tab React bookmarks topbar', () => {
       true,
       expect.objectContaining({ height: 36 })
     );
-    act(() => headerStore.render(createBookmarkHeaderModel({ actionsInTopbar: false })));
+    act(() => headerStore.setState({ model: createBookmarkHeaderModel({ actionsInTopbar: false }) }));
     expect(runtime.actions.children).toHaveLength(0);
     expect(runtime.deactivate()).toBe(true);
     expect(Array.from(section.children)).toEqual([header, grid]);

@@ -1,20 +1,12 @@
-import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type FocusEvent as ReactFocusEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent
-} from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useExclusiveAsyncAction } from '../../shared/react/use-exclusive-async-action';
 import { isElementTextTruncated } from '../../shared/react/text-overflow';
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import { queryHtmlTags } from '../../shared/dom-lookup';
 import { FaviconFallback } from '../../shared/react/favicon-fallback';
-import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
+import { createViewStore } from '../../shared/react/view-store';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RecentSite } from '../../domain/recent-sites-store';
 import { getPagePortals } from '../app/portals';
@@ -169,7 +161,7 @@ interface NormalizedRecentSitesOptions {
   windowObj: Window;
   grid: HTMLElement;
   cards: RecentCardElement[];
-  contextMenuSite: RenderStore<string | null>;
+  contextMenuSite: Store<{ url: string | null }>;
   t: Translate;
   formatMessage: NonNullable<RecentSitesViewOptions['formatMessage']>;
   sanitizeDisplayText: NonNullable<RecentSitesViewOptions['sanitizeDisplayText']>;
@@ -315,7 +307,7 @@ function normalizeOptions(
     windowObj,
     grid,
     cards: Array.isArray(rawOptions.cards) ? rawOptions.cards : [],
-    contextMenuSite: createRenderStore<string | null>(null),
+    contextMenuSite: createViewStore<{ url: string | null }>({ url: null }),
     t: typeof rawOptions.t === 'function'
       ? rawOptions.t
       : (_key, fallback) => fallback || '',
@@ -479,7 +471,7 @@ function RecentSiteCard({
   const safeTitleText = options.sanitizeDisplayText(titleText);
   const shouldEager = index < options.getCurrentRecentCount();
   const initiallyPinned = options.isPinned(item);
-  const contextMenuSite = useSyncExternalStore(options.contextMenuSite.subscribe, options.contextMenuSite.getSnapshot);
+  const contextMenuSite = useStore(options.contextMenuSite).url;
   const contextMenuOpen = contextMenuSite !== null && contextMenuSite === String(item.url || '');
   const progressState = options.getProgressState(item);
   const progressTracked = progressState === 'tracking';
@@ -1108,7 +1100,7 @@ export function createRecentSitesView(
       return options.cards;
     },
     setContextMenuSite(url) {
-      options.contextMenuSite.render(url);
+      options.contextMenuSite.setState({ url });
     }
   };
 }

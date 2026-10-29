@@ -2,14 +2,15 @@
 // the model built here from the menu's state, with the filter's matches,
 // the tiles' icons and colors and the copy. The view reports what the user
 // does through the handlers the menu gives it.
-import type { ModeMenuHandlers, ModeMenuLabels, ModeMenuModel, ModeMenuTile, ModeMenuView } from '../mode-menu-model';
+import type { ModeMenuHandlers, ModeMenuLabels, ModeMenuModel, ModeMenuTile } from '../mode-menu-model';
+import type { ModeMenuStore } from '../../../react/search/mode-menu';
 import type { ModeMenuEntry } from '../types';
 import type { ModeMenuIcons } from './icons';
 import type { ModeMenuSearchApi } from './search';
 import type { ModeMenuState } from './state';
 
 interface ModeMenuDrawingParts {
-  view: ModeMenuView;
+  store: ModeMenuStore;
   state: ModeMenuState;
   search: Pick<ModeMenuSearchApi, 'normalizeModeMenuSearchText' | 'getModeMenuItemMatch'>;
   icons: ModeMenuIcons;
@@ -32,7 +33,7 @@ class ModeMenuDrawing {
   // committed when this returns, so the menu can measure and focus it.
   draw(): ModeMenuModel {
     const model = this.buildModel();
-    this.parts.view.render(model, this.handlers);
+    this.parts.store.setState({ model, handlers: this.handlers });
     return model;
   }
 

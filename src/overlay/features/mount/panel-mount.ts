@@ -31,6 +31,7 @@ function createPanelMountPart(ctx: OverlayContext, deps: PanelMountPartDeps) {
   const {
     attachRevealGate,
     closeOverlayWithMotion,
+    panelLook,
     detectPageTheme,
     removeOverlay,
     setOverlayMountVisibility,
@@ -54,7 +55,7 @@ function createPanelMountPart(ctx: OverlayContext, deps: PanelMountPartDeps) {
     width: initialOverlaySizePreset.width,
     maxHeightVh: initialOverlaySizePreset.maxHeightVh,
     ...overlayStyleUrls
-  });
+  }, panelLook);
   if (!overlayMount) {
     console.warn('Lumno: overlay mount could not be created.');
     return null;

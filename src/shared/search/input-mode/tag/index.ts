@@ -9,7 +9,7 @@ import { getModeTagVisual } from '../colors';
 import type { ModeTagVisual } from '../colors';
 import type { InputPlaceholder } from '../placeholder';
 import type { InputModeProvider, InputModeTheme, PrefixContentOptions } from '../types';
-import type { ModeTagViews } from './drawing';
+import type { ModeTagStores } from './drawing';
 import { ModeTagDrawing } from './drawing';
 import { ModeTagFace } from './face';
 import { ModeTagLayout } from './layout';
@@ -30,7 +30,7 @@ interface ModeTagOptions extends PrefixContentOptions {
   preserveModeMenuDoubleTab?: boolean;
 }
 
-interface ModeTagParts extends ModeTagViews {
+interface ModeTagParts extends ModeTagStores {
   container: HTMLElement;
   input: HTMLInputElement;
   modePrefix: HTMLElement;

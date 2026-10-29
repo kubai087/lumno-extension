@@ -4,7 +4,7 @@ import type { SelectMenuOption } from '../shared/react/select-menu/menu-options'
 import type { BookmarkCascadeActions } from './bookmarks/bookmark-cascade-actions';
 import type { Translate } from './newtab-types';
 import type { PageLayout } from './page-layout';
-import type { BookmarkHeaderModel } from './react/bookmark-header';
+import type { BookmarkHeaderStore } from './react/bookmark-header';
 import type { TooltipBindings } from './tooltip-bindings';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
@@ -28,7 +28,7 @@ interface SectionHeadersDeps extends
   t: Translate;
   bookmarkSection: HTMLElement | null;
   bookmarkCards: readonly HTMLElement[];
-  renderBookmarkHeader(model: BookmarkHeaderModel): void;
+  bookmarkHeaderStore: BookmarkHeaderStore;
   getBookmarkModeMenuOptions(): SelectMenuOption[];
   handleBookmarkModeMenuAction(action: string): void;
   openBookmarkManager(): void;
@@ -53,7 +53,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     closeBookmarkCascadeMenu,
     showTopActionTooltip,
     hideTopActionTooltip,
-    renderBookmarkHeader,
+    bookmarkHeaderStore,
     getBookmarkModeMenuOptions,
     handleBookmarkModeMenuAction,
     openBookmarkManager,
@@ -188,7 +188,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     const path = Array.isArray(bookmarksShown.folderPath) ? bookmarksShown.folderPath : [];
     const menuTitle = t('display_mode_title', 'Display mode');
     const topbar = bookmarkParts.topbar;
-    renderBookmarkHeader({
+    bookmarkHeaderStore.setState({ model: {
       heading: rootLabel,
       rootFolderId: String(bookmarksShown.rootFolderId || '1'),
       crumbs: path.length > 1
@@ -224,7 +224,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
       hideTooltip: hideTopActionTooltip,
       onMenuBeforeOpen: hideTopActionTooltip,
       getMenuViewportTopInset: getNewtabViewportTopPaddingPx
-    });
+    } });
   }
 
 

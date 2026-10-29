@@ -1,17 +1,16 @@
-import { useRef, useSyncExternalStore, type RefObject } from 'react';
+import { useRef, type RefObject } from 'react';
 import { queryHtmlElement, queryHtmlTag, querySvgElement } from '../dom-lookup';
-import { createRenderStore, type RenderStore } from './render-store';
+import { createViewStore } from './view-store';
+import { useStore } from './use-store';
+import type { Store } from '../state/store';
 import { ModeMenu, createModeMenuStore, type ModeMenuStore } from './search/mode-menu';
-import type { ModeMenuView } from '../search/input-mode/mode-menu-model';
 import {
   ModeTag,
   TabHint,
   createModeTagStore,
   createTabHintStore,
-  type ModeTagView,
   type ModeTagStore,
-  type TabHintStore,
-  type TabHintView
+  type TabHintStore
 } from './search/mode-tag';
 import { ClearAction, RightIcon, ScopeIcon } from './search-input-parts/buttons';
 import type { ClearActionConfig, SearchScopeAction } from './search-input-parts/buttons';
@@ -89,9 +88,10 @@ export interface SearchInputParts {
   modeMenu: HTMLDivElement;
   modeMenuContent: HTMLDivElement;
   modeMenuFooter: HTMLDivElement;
-  modeMenuView: ModeMenuView;
-  modeTagView: ModeTagView;
-  tabHintView: TabHintView;
+  // What the input mode controller sets for the mode menu, tag and hint.
+  modeMenuStore: ModeMenuStore;
+  modeTagStore: ModeTagStore;
+  tabHintStore: TabHintStore;
   modePrefix: HTMLButtonElement;
   modePrefixChevron: HTMLElement;
   modePrefixCurrent: HTMLSpanElement;
@@ -105,7 +105,8 @@ export interface SearchInputParts {
   modeTabHintText: HTMLSpanElement;
   rightIcon: HTMLButtonElement;
   secondaryAction: HTMLButtonElement | null;
-  setChrome(patch: Partial<SearchInputChrome>): void;
+  // The labels, buttons and badge around the field, as the surface sets them.
+  chrome: Store<SearchInputChrome>;
   syncClearAction(): boolean;
 }
 
@@ -119,8 +120,8 @@ interface InputStores {
   modeMenu: ModeMenuStore;
   modeTag: ModeTagStore;
   tabHint: TabHintStore;
-  value: RenderStore<string>;
-  chrome: RenderStore<SearchInputChrome>;
+  value: Store<{ text: string }>;
+  chrome: Store<SearchInputChrome>;
 }
 
 // The ids of the mode tag and Tab hint, which differ between the surfaces.
@@ -178,8 +179,8 @@ function TrailingActions({ config, chrome, value, inputRef }: {
 }
 
 function SearchInput({ config, stores }: { config: SearchInputConfig; stores: InputStores }) {
-  const value = useSyncExternalStore(stores.value.subscribe, stores.value.getSnapshot);
-  const chrome = useSyncExternalStore(stores.chrome.subscribe, stores.chrome.getSnapshot);
+  const value = useStore(stores.value).text;
+  const chrome = useStore(stores.chrome);
   const inputRef = useRef<HTMLInputElement>(null);
   const modeSurface = config.modeBadge?.surface === 'overlay' ? 'overlay' : 'newtab';
   const modeIds = MODE_IDS[modeSurface];
@@ -191,7 +192,7 @@ function SearchInput({ config, stores }: { config: SearchInputConfig; stores: In
         autoComplete="off"
         className={CLASSES.input}
         id={config.inputId || '_x_extension_search_input_2024_unique_'}
-        onInput={(event) => stores.value.render(event.currentTarget.value)}
+        onInput={(event) => stores.value.setState({ text: event.currentTarget.value })}
         placeholder={config.placeholder || 'Search or enter URL…'}
         ref={inputRef}
         type="text"
@@ -270,8 +271,8 @@ function createStores(config: SearchInputConfig): InputStores {
     modeMenu: createModeMenuStore(),
     modeTag: createModeTagStore(),
     tabHint: createTabHintStore(),
-    value: createRenderStore(''),
-    chrome: createRenderStore<SearchInputChrome>({
+    value: createViewStore({ text: '' }),
+    chrome: createViewStore<SearchInputChrome>({
       rightIconLabel: config.rightIconAlt || 'Settings',
       clearLabel: config.clearAction?.ariaLabel || 'Clear',
       secondaryLabel: config.secondaryAction?.ariaLabel || '',
@@ -352,17 +353,15 @@ export function createSearchInput(config: SearchInputConfig): SearchInputParts {
     ...mode,
     container,
     portals,
-    modeMenuView: { render: (model, handlers) => stores.modeMenu.render({ model, handlers }) },
-    modeTagView: { render: (model, handlers) => stores.modeTag.render({ model, handlers }) },
-    tabHintView: { render: stores.tabHint.render },
-    setChrome(patch: Partial<SearchInputChrome>) {
-      stores.chrome.render({ ...stores.chrome.getSnapshot(), ...patch });
-    },
+    modeMenuStore: stores.modeMenu,
+    modeTagStore: stores.modeTag,
+    tabHintStore: stores.tabHint,
+    chrome: stores.chrome,
     // Brings the chrome up to date after the surface set the field's text
     // itself; returns whether the clear button shows.
     syncClearAction() {
-      if (input.value !== stores.value.getSnapshot()) {
-        stores.value.render(input.value);
+      if (input.value !== stores.value.getSnapshot().text) {
+        stores.value.setState({ text: input.value });
       }
       return Boolean(clearAction) && input.value !== '';
     }

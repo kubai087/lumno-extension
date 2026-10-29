@@ -21,7 +21,7 @@ interface RecentSectionDeps {
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
   setContentSectionVisible(section: HTMLElement | null, visible: boolean): void;
   hideTopActionTooltip(): void;
-  pageStructureRuntime: { recent: Pick<PageStructureRuntime['recent'], 'section' | 'header' | 'grid' | 'renderHeader'> };
+  pageStructureRuntime: { recent: Pick<PageStructureRuntime['recent'], 'section' | 'header' | 'grid' | 'headerStore'> };
   t: Translate;
   applyRecentGridColumns(): void;
   recentCards: ViewOption<'cards'>;
@@ -119,7 +119,7 @@ function createRecentSection(deps: RecentSectionDeps) {
   function renderRecentHeader(): void {
     const latest = t('recent_heading_latest', 'Recent visits');
     const most = t('recent_heading_most', 'Most visited');
-    pageStructureRuntime.recent.renderHeader({
+    pageStructureRuntime.recent.headerStore.setState({
       heading: settings.get(recentMode) === 'most' ? most : latest,
       modeSwitch: {
         title: t('display_mode_title', 'Display mode'),

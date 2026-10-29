@@ -6,7 +6,7 @@ import type { EventBus } from '../../../state/events';
 import type { CursorTooltipController } from '../../../ui/cursor-tooltip-model';
 import type { NavigatorLike } from '../../../../domain/shortcut-display';
 import type { PinyinApi } from '../../../../domain/search/pinyin-api';
-import type { ModeMenuView } from '../mode-menu-model';
+import type { ModeMenuStore } from '../../../react/search/mode-menu';
 import type { ModeMenuIconOptions } from './icons';
 import { ModeMenuIcons } from './icons';
 import { ModeMenuDrawing } from './drawing';
@@ -62,7 +62,7 @@ interface ModeMenuParts {
   menu: HTMLElement;
   content: HTMLElement;
   footer: HTMLElement;
-  view: ModeMenuView;
+  store: ModeMenuStore;
   container: HTMLElement;
   input: HTMLInputElement;
   // The mode tag, which opens the menu and takes focus back when it closes.
@@ -165,7 +165,7 @@ class ModeMenu {
     });
     this.icons = new ModeMenuIcons(options, () => this.drawing.draw());
     this.drawing = new ModeMenuDrawing({
-      view: parts.view,
+      store: parts.store,
       state: this.state,
       search: this.search,
       icons: this.icons,

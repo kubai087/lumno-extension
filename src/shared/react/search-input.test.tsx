@@ -191,7 +191,7 @@ describe('Shared search input React island', () => {
     const onActivate = vi.fn();
     expect(parts.icon.getAttribute('role')).toBeNull();
 
-    act(() => parts.setChrome({ scopeAction: { enabled: true, label: 'Open scopes', onActivate } }));
+    act(() => parts.chrome.setState({ scopeAction: { enabled: true, label: 'Open scopes', onActivate } }));
     expect(parts.icon.getAttribute('role')).toBe('button');
     expect(parts.icon.tabIndex).toBe(0);
     expect(parts.icon.getAttribute('aria-label')).toBe('Open scopes');
@@ -211,7 +211,7 @@ describe('Shared search input React island', () => {
 
     act(() => parts.icon.focus());
     expect(document.activeElement).toBe(parts.icon);
-    act(() => parts.setChrome({ scopeAction: { enabled: false, label: 'Open scopes', onActivate } }));
+    act(() => parts.chrome.setState({ scopeAction: { enabled: false, label: 'Open scopes', onActivate } }));
     expect(parts.icon.getAttribute('aria-disabled')).toBe('true');
     expect(parts.icon.tabIndex).toBe(-1);
     expect(parts.icon.dataset.tooltip).toBeUndefined();
@@ -226,14 +226,14 @@ describe('Shared search input React island', () => {
       secondaryAction: { ariaLabel: 'Close other tabs', icon: { name: 'ri-brush-2-line' }, id: 'close-tabs' }
     });
 
-    act(() => parts.setChrome({ rightIconLabel: '设置', clearLabel: '清空', secondaryLabel: '关闭其他标签页', underline: true }));
+    act(() => parts.chrome.setState({ rightIconLabel: '设置', clearLabel: '清空', secondaryLabel: '关闭其他标签页', underline: true }));
 
     expect(parts.rightIcon.getAttribute('aria-label')).toBe('设置');
     expect(parts.clearAction?.getAttribute('aria-label')).toBe('清空');
     expect(parts.secondaryAction?.getAttribute('aria-label')).toBe('关闭其他标签页');
     expect(parts.secondaryAction?.dataset.tooltip).toBe('关闭其他标签页');
     expect(parts.divider.dataset.visible).toBe('true');
-    act(() => parts.setChrome({ underline: false }));
+    act(() => parts.chrome.setState({ underline: false }));
     act(() => {
       parts.input.value = 'lumno';
       parts.input.dispatchEvent(new InputEvent('input', { bubbles: true }));
@@ -269,13 +269,13 @@ describe('Shared search input React island', () => {
     };
     const onActivate = vi.fn();
 
-    act(() => parts.setChrome({ tooltip, scopeAction: { enabled: true, label: 'Open scopes', onActivate } }));
+    act(() => parts.chrome.setState({ tooltip, scopeAction: { enabled: true, label: 'Open scopes', onActivate } }));
     const secondary = required(parts.secondaryAction, 'parts.secondaryAction');
     expect(texts.get(parts.icon)?.()).toBe('Open scopes');
     expect(texts.get(parts.rightIcon)?.()).toBe('Settings');
     expect(texts.get(secondary)?.()).toBe('Close other tabs');
 
-    act(() => parts.setChrome({ rightIconLabel: '设置', scopeAction: { enabled: false, label: 'Open scopes', onActivate } }));
+    act(() => parts.chrome.setState({ rightIconLabel: '设置', scopeAction: { enabled: false, label: 'Open scopes', onActivate } }));
     expect(texts.get(parts.rightIcon)?.()).toBe('设置');
     expect(texts.get(parts.icon)?.()).toBe('');
 
@@ -289,11 +289,11 @@ describe('Shared search input React island', () => {
     const badge = required(parts.modeBadge, 'parts.modeBadge');
     expect(badge.dataset.visible).toBe('false');
 
-    act(() => parts.setChrome({ badgeVisible: true, badgeText: '模式：深色' }));
+    act(() => parts.chrome.setState({ badgeVisible: true, badgeText: '模式：深色' }));
     expect(badge.dataset.visible).toBe('true');
     expect(badge.textContent).toBe('模式：深色');
 
-    act(() => parts.setChrome({ badgeVisible: false }));
+    act(() => parts.chrome.setState({ badgeVisible: false }));
     expect(badge.dataset.visible).toBe('false');
     expect(badge.textContent).toBe('模式：深色');
   });

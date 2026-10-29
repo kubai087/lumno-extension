@@ -8,13 +8,12 @@ import type { SearchInputParts } from '../../shared/react/search-input';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { CursorTooltipController } from '../../shared/ui/cursor-tooltip-model';
 import type { TooltipController } from '../../shared/ui/tooltip';
-import type { OverlayMount, OverlayPanelView } from '../react/shell';
+import type { OverlayMount } from '../react/shell';
 
 type InputHistoryController = ReturnType<typeof createSearchInputHistoryController>;
 
 class OverlayPanelElements {
   private overlayPart: HTMLElement | null = null;
-  private overlayPanelViewPart: OverlayPanelView | null = null;
   private overlayPortalsPart: PortalHost | null = null;
   private overlayStyleRootPart: ShadowRoot | null = null;
   private inputPartsPart: SearchInputParts | null = null;
@@ -29,10 +28,6 @@ class OverlayPanelElements {
 
   get overlay(): HTMLElement | null {
     return this.overlayPart;
-  }
-
-  get overlayPanelView(): OverlayPanelView | null {
-    return this.overlayPanelViewPart;
   }
 
   get overlayPortals(): PortalHost | null {
@@ -84,9 +79,8 @@ class OverlayPanelElements {
     this.overlayPart = panel;
   }
 
-  mountShell(mount: Pick<OverlayMount, 'panel' | 'view' | 'portals' | 'root'>): void {
+  mountShell(mount: Pick<OverlayMount, 'panel' | 'portals' | 'root'>): void {
     this.overlayPart = mount.panel;
-    this.overlayPanelViewPart = mount.view;
     this.overlayPortalsPart = mount.portals;
     this.overlayStyleRootPart = mount.root;
   }

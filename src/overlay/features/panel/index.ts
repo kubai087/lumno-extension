@@ -139,6 +139,7 @@ function createPanelFeature(ctx: OverlayContext, deps: PanelFeatureDeps) {
   });
 
   const {
+    panelLook,
     events: panelThemeEvents,
     getHighlightColors,
     detectPageTheme,
@@ -228,6 +229,7 @@ function createPanelFeature(ctx: OverlayContext, deps: PanelFeatureDeps) {
 
   return {
     claimPage,
+    panelLook,
     applyMarkVariables,
     applyOverlayFontFamily,
     applyOverlayThemeVariables,

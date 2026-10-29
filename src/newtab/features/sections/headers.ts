@@ -60,7 +60,7 @@ function createHeadersPart(ctx: PageContext, deps: HeadersPartDeps) {
     closeBookmarkCascadeMenu,
     showTopActionTooltip,
     hideTopActionTooltip,
-    renderBookmarkHeader: pageStructureRuntime.bookmark.renderHeader,
+    bookmarkHeaderStore: pageStructureRuntime.bookmark.headerStore,
     getBookmarkModeMenuOptions,
     handleBookmarkModeMenuAction,
     openBookmarkManager: () => {

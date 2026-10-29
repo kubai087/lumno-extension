@@ -1,6 +1,7 @@
 import { OVERLAY_HOST_ID } from '../../domain/injected-commands';
-import { useCallback, useRef, useSyncExternalStore } from 'react';
-import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
+import { useCallback, useRef } from 'react';
+import { createStore, type Store } from '../../shared/state/store';
+import { useStore } from '../../shared/react/use-store';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { PortalHost } from '../../shared/react/portal-host';
 
@@ -33,7 +34,6 @@ export interface OverlayMount {
   inputContainer: HTMLDivElement;
   suggestionsContainer: HTMLDivElement;
   root: ShadowRoot;
-  view: OverlayPanelView;
 }
 
 function findById(
@@ -605,10 +605,6 @@ export interface OverlayPanelModel {
   vars: Readonly<Partial<Record<`--${string}`, string>>>;
 }
 
-export interface OverlayPanelView {
-  render(model: OverlayPanelModel): void;
-}
-
 // The panel's parts once it mounted.
 interface OverlayPanelParts {
   panel: HTMLDivElement;
@@ -627,11 +623,11 @@ function OverlayPanel({
   suggestionsContainerId: string;
   declarations: StyleDeclaration[];
   onMount(parts: OverlayPanelParts): void;
-  store: RenderStore<OverlayPanelModel>;
+  store: Store<OverlayPanelModel>;
 }) {
   const inputContainerRef = useRef<HTMLDivElement>(null);
   const suggestionsContainerRef = useRef<HTMLDivElement>(null);
-  const model = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const model = useStore(store);
   // Runs once: the static look goes on beside the theme's properties.
   const mountPanel = useCallback((panel: HTMLDivElement | null) => {
     if (!panel) {
@@ -679,9 +675,11 @@ interface OverlayPanelElement extends HTMLDivElement {
 const hosts = new WeakMap<HTMLElement, PortalHost>();
 const panels = new WeakMap<HTMLElement, HTMLElement>();
 
+// `look` is the panel's theme, as its owner sets it.
 export function createOverlayMount(
   doc: Document,
-  options: OverlayShellOptions = {}
+  options: OverlayShellOptions = {},
+  look: Store<OverlayPanelModel> = createStore<OverlayPanelModel>({ theme: '', vars: {} })
 ): OverlayMount | null {
   if (!doc || typeof doc.createElement !== 'function') {
     return null;
@@ -700,7 +698,6 @@ export function createOverlayMount(
   const registerPanel = (parts: OverlayPanelParts) => {
     mounted.parts = parts;
   };
-  const store = createRenderStore<OverlayPanelModel>({ theme: '', vars: {} });
   const portals = new PortalHost(shadowRoot);
   portals.show(shadowRoot, (
     <OverlayPanel
@@ -709,7 +706,7 @@ export function createOverlayMount(
         options.id || '_x_extension_overlay_2024_unique_'
       )}
       onMount={registerPanel}
-      store={store}
+      store={look}
       suggestionsContainerId={String(
         options.suggestionsContainerId || '_x_extension_suggestions_container_2024_unique_'
       )}
@@ -726,15 +723,13 @@ export function createOverlayMount(
   mountedPanel._lumnoOverlayRoot = shadowRoot;
   hosts.set(host, portals);
   panels.set(host, mountedPanel);
-  const view: OverlayPanelView = { render: store.render };
   return {
     host,
     portals,
     panel: mountedPanel,
     inputContainer: parts.inputContainer,
     suggestionsContainer: parts.suggestionsContainer,
-    root: shadowRoot,
-    view
+    root: shadowRoot
   };
 }
 

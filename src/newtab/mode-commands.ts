@@ -83,12 +83,12 @@ function createModeCommands(deps: ModeCommandsDeps) {
     const zenCommandActive = catalog.isZenCommand(rawValue || '');
     const webAppearanceCommandActive = catalog.isWebAppearanceCommand(rawValue || '');
     if (catalog.isModeCommand(rawValue || '') || zenCommandActive || webAppearanceCommandActive) {
-      inputParts.setChrome({
+      inputParts.chrome.setState({
         badgeVisible: true,
         badgeText: catalog.getModeBadgeText(zenCommandActive, webAppearanceCommandActive)
       });
     } else {
-      inputParts.setChrome({ badgeVisible: false });
+      inputParts.chrome.setState({ badgeVisible: false });
     }
     if (searchBox.modeController) {
       searchBox.modeController.updateLayout();

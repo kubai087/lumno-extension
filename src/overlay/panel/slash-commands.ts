@@ -245,9 +245,9 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     }
     const webAppearanceCommandActive = isWebAppearanceCommand(rawValue || '');
     if (isModeCommand(rawValue || '') || webAppearanceCommandActive) {
-      elements.inputParts.setChrome({ badgeVisible: true, badgeText: getModeBadgeText(webAppearanceCommandActive) });
+      elements.inputParts.chrome.setState({ badgeVisible: true, badgeText: getModeBadgeText(webAppearanceCommandActive) });
     } else {
-      elements.inputParts.setChrome({ badgeVisible: false });
+      elements.inputParts.chrome.setState({ badgeVisible: false });
     }
     updateInputRightPadding();
   }

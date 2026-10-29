@@ -133,7 +133,7 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
 
   function setInputDividerVisible(visible: boolean): void {
     if (elements.inputParts) {
-      elements.inputParts.setChrome({ underline: visible });
+      elements.inputParts.chrome.setState({ underline: visible });
     }
   }
 

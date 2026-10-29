@@ -625,7 +625,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     if (!searchScopeIconEnabled) {
       hideSearchInputCursorTooltip();
     }
-    inputParts.setChrome({
+    inputParts.chrome.setState({
       scopeAction: {
         enabled: searchScopeIconEnabled,
         label: searchScopeTooltipText(),
@@ -636,7 +636,7 @@ function createSearchBox(deps: SearchBoxDeps) {
   locale.store.subscribe(() => {
     setSearchScopeIconEnabled(searchScopeIconEnabled);
   });
-  inputParts.setChrome({
+  inputParts.chrome.setState({
     tooltip: { bind: bindSearchInputCursorTooltip, hide: hideSearchInputCursorTooltip }
   });
   setSearchScopeIconEnabled(true);

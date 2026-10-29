@@ -1,23 +1,24 @@
 // Draws the mode tag and the Tab hint: the React view
-// (react/search/mode-tag.tsx) shows their models, kept here. Each change
-// commits before it returns, so the tag can be measured and animated at once.
-import type { ModeTagHandlers, ModeTagView, TabHintView } from '../../../react/search/mode-tag';
+// (react/search/mode-tag.tsx) shows the models set here in its stores. Each
+// change commits before it returns, so the tag can be measured and animated
+// at once.
+import type { ModeTagHandlers, ModeTagStore, TabHintStore } from '../../../react/search/mode-tag';
 import { EMPTY_MODE_TAG } from '../mode-tag-model';
 import type { ModeTagModel, TabHintModel } from '../mode-tag-model';
 
-interface ModeTagViews {
-  modeTagView: ModeTagView;
-  tabHintView: TabHintView;
+interface ModeTagStores {
+  modeTagStore: ModeTagStore;
+  tabHintStore: TabHintStore;
 }
 
 class ModeTagDrawing {
   private tagModel: ModeTagModel = EMPTY_MODE_TAG;
   private hintModel: TabHintModel = { visible: false, label: '', title: '' };
-  private readonly views: ModeTagViews;
+  private readonly stores: ModeTagStores;
   private readonly handlers: ModeTagHandlers;
 
-  constructor(views: ModeTagViews, handlers: ModeTagHandlers) {
-    this.views = views;
+  constructor(stores: ModeTagStores, handlers: ModeTagHandlers) {
+    this.stores = stores;
     this.handlers = handlers;
   }
 
@@ -31,14 +32,14 @@ class ModeTagDrawing {
 
   update(patch: Partial<ModeTagModel>): void {
     this.tagModel = { ...this.tagModel, ...patch };
-    this.views.modeTagView.render(this.tagModel, this.handlers);
+    this.stores.modeTagStore.setState({ model: this.tagModel, handlers: this.handlers });
   }
 
   updateTabHint(patch: Partial<TabHintModel>): void {
     this.hintModel = { ...this.hintModel, ...patch };
-    this.views.tabHintView.render(this.hintModel);
+    this.stores.tabHintStore.setState(this.hintModel);
   }
 }
 
-export type { ModeTagViews };
+export type { ModeTagStores };
 export { ModeTagDrawing };

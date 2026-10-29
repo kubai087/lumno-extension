@@ -1,6 +1,7 @@
 // The panel's own theme: light or dark from the setting or the page,
 // watching the page for theme changes, the font family, and the CSS
 // variables the panel draws with.
+import { createViewStore } from '../../shared/react/view-store';
 import { createEventBus } from '../../shared/state/events';
 import { getHoverColors as getModeHoverColors, getThemeForMode as getThemeVariantForMode } from '../../shared/favicon/favicon-theme';
 import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
@@ -22,7 +23,7 @@ interface PanelThemeDeps {
   settings: Pick<OverlaySettings, 'get'>;
   overlayMediaQuery: MediaQueryList;
   defaultTheme: ThemeVariant;
-  elements: Pick<OverlayPanelElements, 'overlay' | 'overlayPanelView'>;
+  elements: Pick<OverlayPanelElements, 'overlay'>;
   overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
   overlaySessionCleanups: Pick<ReturnType<typeof createSessionCleanupRegistry>, 'add'>;
 }
@@ -210,17 +211,15 @@ function createPanelTheme(deps: PanelThemeDeps) {
 
   // The scheme and colors last worked out; the font is added as it is drawn.
   let panelTheme: OverlayPanelModel = { theme: '', vars: {} };
+  // The look the panel draws with, once it mounts.
+  const panelLook = createViewStore<OverlayPanelModel>({ theme: '', vars: {} });
 
   // The chosen families reach every text rule through the shared
   // --lumno-font-sans token, set on the panel. Without one the panel falls
   // back to the bundled stack its shadow-root stylesheet defines.
   function renderOverlayPanel(): void {
-    const view = elements.overlayPanelView;
-    if (!view) {
-      return;
-    }
     const fontFamily = SETTINGS.getOverlayFontFamilyCssValue(settings.get(overlayFontFamily), settings.get(overlayFontFallback));
-    view.render({
+    panelLook.setState({
       theme: panelTheme.theme,
       vars: fontFamily
         ? { ...panelTheme.vars, [OVERLAY_FONT_FAMILY_CSS_VAR]: fontFamily }
@@ -309,6 +308,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
 
   return {
     events,
+    panelLook,
     stopOverlayPageThemeObserver,
     getHighlightColors,
     detectPageTheme,

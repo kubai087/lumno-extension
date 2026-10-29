@@ -20,7 +20,8 @@ import { EmptyStateArt } from '../empty-state-art';
 import { className as MENU_SURFACE_CLASS } from '../../ui/menu-surface';
 import { HOST_CLASS as CURSOR_TOOLTIP_HOST_CLASS } from '../../ui/cursor-tooltip-model';
 import { getModeLineIconPaths } from '../../search/input-mode/line-icons';
-import { createRenderStore, type RenderStore } from '../render-store';
+import { createViewStore } from '../view-store';
+import type { Store } from '../../state/store';
 import { FONT_STACK, NO_TRANSLATE, SURFACE_VARS, type ModeSurface } from './mode-surface';
 import type { ModeMenuRange } from '../../search/input-mode/types';
 import { CLOSED_MODEL } from '../../search/input-mode/mode-menu-model';
@@ -32,10 +33,10 @@ export interface ModeMenuSnapshot {
   handlers: ModeMenuHandlers | null;
 }
 
-export type ModeMenuStore = RenderStore<ModeMenuSnapshot>;
+export type ModeMenuStore = Store<ModeMenuSnapshot>;
 
 export function createModeMenuStore(): ModeMenuStore {
-  return createRenderStore<ModeMenuSnapshot>({ model: CLOSED_MODEL, handlers: null });
+  return createViewStore<ModeMenuSnapshot>({ model: CLOSED_MODEL, handlers: null });
 }
 
 // The panel sits below the input, pushed down by the results shown above

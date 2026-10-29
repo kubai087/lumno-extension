@@ -1,6 +1,8 @@
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
+import { createViewStore } from '../../shared/react/view-store';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 import { BookmarkHeader, type BookmarkHeaderElements, type BookmarkHeaderModel, type BookmarkHeaderStore } from './bookmark-header';
 import { RecentModeSwitch, type RecentModeSwitchModel } from './recent-mode-switch';
 import { newtabShortcutsLegacy } from '../../domain/settings/newtab-shortcuts';
@@ -54,9 +56,9 @@ function RecentStructure({
   store
 }: {
   register(elements: RecentElements): void;
-  store: RenderStore<RecentHeaderModel>;
+  store: Store<RecentHeaderModel>;
 }) {
-  const header = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const header = useStore(store);
   const gridRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -121,12 +123,11 @@ export interface PageStructureRuntime {
     // A plain host: the bookmarks view draws into it, and the top bar holds it in top bar mode.
     grid: HTMLDivElement;
     headerStore: BookmarkHeaderStore;
-    renderHeader(model: BookmarkHeaderModel): void;
   };
   destroy(): void;
   recent: RecentElements & {
     section: HTMLElement;
-    renderHeader(model: RecentHeaderModel): void;
+    headerStore: Store<RecentHeaderModel>;
   };
   searchLayer: HTMLDivElement;
   shortcut: ShortcutElements & { section: HTMLElement };
@@ -164,7 +165,8 @@ export function createPageStructure(config: {
   const bookmarkGrid = documentObj.createElement('div');
   bookmarkGrid.id = PAGE_STRUCTURE_IDS.bookmarkGrid;
   bookmarkSection.append(bookmarkHeader, bookmarkGrid);
-  const bookmarkHeaderStore = createRenderStore<BookmarkHeaderModel | null>(null);
+  // The headers' models, as the section headers set them.
+  const bookmarkHeaderStore: BookmarkHeaderStore = createViewStore<{ model: BookmarkHeaderModel | null }>({ model: null });
   const bookmarkRender = renderStatic<BookmarkHeaderElements>(
     bookmarkHeader,
     (register) => <BookmarkHeader register={register} store={bookmarkHeaderStore} />
@@ -175,7 +177,7 @@ export function createPageStructure(config: {
     island: 'newtab-recent-section',
     visible: false
   });
-  const recentHeaderStore = createRenderStore<RecentHeaderModel>({ heading: '', modeSwitch: null });
+  const recentHeaderStore = createViewStore<RecentHeaderModel>({ heading: '', modeSwitch: null });
   const recentRender = renderStatic<RecentElements>(
     recentSection,
     (register) => <RecentStructure register={register} store={recentHeaderStore} />
@@ -208,10 +210,7 @@ export function createPageStructure(config: {
       ...bookmarkRender,
       section: bookmarkSection,
       grid: bookmarkGrid,
-      headerStore: bookmarkHeaderStore,
-      renderHeader: (model: BookmarkHeaderModel) => {
-        if (!destroyed) bookmarkHeaderStore.render(model);
-      }
+      headerStore: bookmarkHeaderStore
     },
     destroy() {
       if (destroyed) {
@@ -223,9 +222,7 @@ export function createPageStructure(config: {
     recent: {
       ...recentRender,
       section: recentSection,
-      renderHeader: (model: RecentHeaderModel) => {
-        if (!destroyed) recentHeaderStore.render(model);
-      }
+      headerStore: recentHeaderStore
     },
     searchLayer,
     shortcut: {

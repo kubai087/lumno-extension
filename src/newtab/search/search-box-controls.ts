@@ -90,7 +90,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
       { name: 'Lumno' }
     );
     const applySettingsTooltip = () => {
-      inputParts.setChrome({ rightIconLabel: settingsTooltipText() });
+      inputParts.chrome.setState({ rightIconLabel: settingsTooltipText() });
     };
     applySettingsTooltip();
     locale.store.subscribe(applySettingsTooltip);
@@ -148,7 +148,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   if (searchClearButton) {
     const searchClearTooltipText = (): string => t('search_input_clear', '清空');
     const applySearchClearTooltip = () => {
-      inputParts.setChrome({ clearLabel: searchClearTooltipText() });
+      inputParts.chrome.setState({ clearLabel: searchClearTooltipText() });
     };
     applySearchClearTooltip();
     locale.store.subscribe(applySearchClearTooltip);
@@ -159,7 +159,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   if (closeOtherTabsButton) {
     const closeOtherTabsTooltipText = (): string => t('overlay_close_other_tabs_tooltip', '关闭其他标签页');
     const applyCloseOtherTabsTooltip = () => {
-      inputParts.setChrome({ secondaryLabel: closeOtherTabsTooltipText() });
+      inputParts.chrome.setState({ secondaryLabel: closeOtherTabsTooltipText() });
     };
     applyCloseOtherTabsTooltip();
     locale.store.subscribe(applyCloseOtherTabsTooltip);

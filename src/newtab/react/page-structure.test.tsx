@@ -45,7 +45,7 @@ describe('New Tab React page structure', () => {
   it('draws the bookmark header from its model', () => {
     const page = mount();
     const model = createBookmarkHeaderModel({ onPage: vi.fn(), onOpenManager: vi.fn(), showTooltip: vi.fn() });
-    act(() => page.bookmark.renderHeader(model));
+    act(() => page.bookmark.headerStore.setState({ model }));
 
     const heading = getElement(page.bookmark.titleWrap, '.x-nt-bookmarks-heading');
     expect(heading.textContent).toBe('Bookmarks');
@@ -77,7 +77,7 @@ describe('New Tab React page structure', () => {
       crumbs: [{ id: '5', title: 'Work' }, { id: '9', title: 'Docs' }],
       onNavigate: vi.fn()
     });
-    act(() => page.bookmark.renderHeader(model));
+    act(() => page.bookmark.headerStore.setState({ model }));
 
     const heading = getElement(page.bookmark.titleWrap, '.x-nt-bookmarks-heading');
     expect(heading.classList.contains('x-nt-bookmarks-heading--link')).toBe(true);
@@ -99,7 +99,7 @@ describe('New Tab React page structure', () => {
 
   it('leaves the actions to the top bar while it holds the bookmarks', () => {
     const page = mount();
-    act(() => page.bookmark.renderHeader(createBookmarkHeaderModel({ actionsInTopbar: true })));
+    act(() => page.bookmark.headerStore.setState({ model: createBookmarkHeaderModel({ actionsInTopbar: true }) }));
 
     expect(getTags(page.bookmark.pager, '.x-nt-bookmarks-pager-btn', 'button')).toHaveLength(2);
     expect(page.bookmark.pager.querySelector('#bookmark-mode')).toBeNull();
@@ -108,12 +108,12 @@ describe('New Tab React page structure', () => {
   it('gives a pager button that turns unavailable up from focus', () => {
     const page = mount();
     const model = createBookmarkHeaderModel({ hideTooltip: vi.fn() });
-    act(() => page.bookmark.renderHeader(model));
+    act(() => page.bookmark.headerStore.setState({ model }));
     const next = getTags(page.bookmark.pager, '.x-nt-bookmarks-pager-btn', 'button')[1];
     next.focus();
     expect(document.activeElement).toBe(next);
 
-    act(() => page.bookmark.renderHeader({ ...model, next: { label: 'Next page', enabled: false } }));
+    act(() => page.bookmark.headerStore.setState({ model: { ...model, next: { label: 'Next page', enabled: false } } }));
     expect(document.activeElement).not.toBe(next);
     expect(next.tabIndex).toBe(-1);
     expect(model.hideTooltip).toHaveBeenCalled();
@@ -121,12 +121,12 @@ describe('New Tab React page structure', () => {
 
   it('draws the recent heading, or the mode switch in its place', () => {
     const page = mount();
-    act(() => page.recent.renderHeader({ heading: 'Recent visits', modeSwitch: null }));
+    act(() => page.recent.headerStore.setState({ heading: 'Recent visits', modeSwitch: null }));
     const heading = getElement(page.recent.header, '.x-nt-recent-heading');
     expect(heading.textContent).toBe('Recent visits');
     expect(heading.hidden).toBe(false);
 
-    act(() => page.recent.renderHeader({
+    act(() => page.recent.headerStore.setState({
       heading: 'Recent visits',
       modeSwitch: {
         title: 'Display mode',

@@ -11,7 +11,8 @@ import {
   type CSSProperties
 } from 'react';
 import { getModeLineIconPaths } from '../../search/input-mode/line-icons';
-import { createRenderStore, type RenderStore } from '../render-store';
+import { createViewStore } from '../view-store';
+import type { Store } from '../../state/store';
 import { FONT_STACK, NO_TRANSLATE, SURFACE_VARS, type ModeSurface } from './mode-surface';
 import {
   EMPTY_MODE_TAG,
@@ -38,24 +39,16 @@ export interface ModeTagSnapshot {
   handlers: ModeTagHandlers | null;
 }
 
-export type ModeTagStore = RenderStore<ModeTagSnapshot>;
-export type TabHintStore = RenderStore<TabHintModel>;
-
-// What the controller draws through; each render commits before it returns.
-export interface ModeTagView {
-  render(model: ModeTagModel, handlers: ModeTagHandlers): void;
-}
-
-export interface TabHintView {
-  render(model: TabHintModel): void;
-}
+// The input mode controller sets them; each change commits before it returns.
+export type ModeTagStore = Store<ModeTagSnapshot>;
+export type TabHintStore = Store<TabHintModel>;
 
 export function createModeTagStore(): ModeTagStore {
-  return createRenderStore<ModeTagSnapshot>({ model: EMPTY_MODE_TAG, handlers: null });
+  return createViewStore<ModeTagSnapshot>({ model: EMPTY_MODE_TAG, handlers: null });
 }
 
 export function createTabHintStore(): TabHintStore {
-  return createRenderStore<TabHintModel>({ visible: false, label: '', title: '' });
+  return createViewStore<TabHintModel>({ visible: false, label: '', title: '' });
 }
 
 const ICON_SIZE = '20px';

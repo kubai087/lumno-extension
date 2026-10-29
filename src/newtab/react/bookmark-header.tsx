@@ -3,11 +3,12 @@
 // and the section's actions (the bookmark manager button and the display mode
 // menu). In top bar mode the actions show in the top bar instead, drawn there
 // from the same model.
-import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { SelectMenu, type SelectMenuControls } from '../../shared/react/select-menu';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
-import type { RenderStore } from '../../shared/react/render-store';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 
 export interface BookmarkCrumb {
   id: string;
@@ -49,7 +50,8 @@ export interface BookmarkHeaderModel {
   getMenuViewportTopInset(): number;
 }
 
-export type BookmarkHeaderStore = Pick<RenderStore<BookmarkHeaderModel | null>, 'getSnapshot' | 'subscribe'>;
+// The header's model as the section headers set it; null before the first.
+export type BookmarkHeaderStore = Store<{ model: BookmarkHeaderModel | null }>;
 
 export interface BookmarkHeaderElements {
   pager: HTMLDivElement;
@@ -212,7 +214,7 @@ export function BookmarkHeaderActions({
 
 // The actions as the top bar shows them while it holds the bookmarks.
 export function TopbarBookmarkActions({ store }: { store: BookmarkHeaderStore }) {
-  const model = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const { model } = useStore(store);
   return model && model.actionsInTopbar ? <BookmarkHeaderActions model={model} placement="bottom" /> : null;
 }
 
@@ -283,7 +285,7 @@ export function BookmarkHeader({
   register(elements: BookmarkHeaderElements): void;
   store: BookmarkHeaderStore;
 }) {
-  const model = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const { model } = useStore(store);
   const pagerRef = useRef<HTMLDivElement>(null);
   const previousButtonRef = useRef<HTMLButtonElement>(null);
   const nextButtonRef = useRef<HTMLButtonElement>(null);

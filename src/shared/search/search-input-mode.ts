@@ -83,7 +83,7 @@ function createModeMenu(config: InputModeConfig, parts: InputModeParts, doc: Doc
       menu: parts.modeMenu,
       content: parts.modeMenuContent,
       footer: parts.modeMenuFooter,
-      view: parts.modeMenuView,
+      store: parts.modeMenuStore,
       container: parts.container,
       input: parts.input,
       tag: parts.modePrefix

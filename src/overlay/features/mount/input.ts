@@ -331,7 +331,7 @@ function createInputPart(ctx: OverlayContext, deps: InputPartDeps) {
     overlayCursorTooltipController.hide();
   };
   const searchClearButton = inputParts.clearAction;
-  inputParts.setChrome({
+  inputParts.chrome.setState({
     tooltip: { bind: bindInputActionCursorTooltip, hide: hideInputActionCursorTooltip }
   });
 
@@ -380,7 +380,7 @@ function createInputPart(ctx: OverlayContext, deps: InputPartDeps) {
     if (!elements.inputParts) {
       return;
     }
-    elements.inputParts.setChrome({
+    elements.inputParts.chrome.setState({
       rightIconLabel: formatMessage('command_settings', '打开设置', { name: 'Lumno' }),
       secondaryLabel: t('overlay_close_other_tabs_tooltip', '关闭其他标签页'),
       clearLabel: t('search_input_clear', '清空'),

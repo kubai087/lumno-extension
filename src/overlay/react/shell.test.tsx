@@ -1,7 +1,8 @@
 import { act } from 'react';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { appendOverlayStyleNodes, createOverlayMount, destroyOverlayMount, findOverlayPanel } from './shell';
+import { appendOverlayStyleNodes, createOverlayMount, destroyOverlayMount, findOverlayPanel, type OverlayPanelModel } from './shell';
+import { createViewStore } from '../../shared/react/view-store';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 afterEach(() => {
@@ -64,15 +65,16 @@ describe('Overlay React shell', () => {
 
   it('draws the panel\'s theme from its model beside its own look', () => {
     const holder: { value: ReturnType<typeof createOverlayMount> } = { value: null };
+    const look = createViewStore<OverlayPanelModel>({ theme: '', vars: {} });
     act(() => {
-      holder.value = createOverlayMount(document, { hostId: 'overlay-host', id: 'overlay-panel' });
+      holder.value = createOverlayMount(document, { hostId: 'overlay-host', id: 'overlay-panel' }, look);
     });
     const mount = holder.value;
     if (!mount) {
       throw new Error('Expected overlay mount');
     }
 
-    act(() => mount.view.render({
+    act(() => look.setState({
       theme: 'dark',
       vars: { '--x-ov-text': '#E5E7EB', '--lumno-font-sans': 'Inter, sans-serif' }
     }));
@@ -80,7 +82,7 @@ describe('Overlay React shell', () => {
     expect(mount.panel.style.getPropertyValue('--x-ov-text')).toBe('#E5E7EB');
     expect(mount.panel.style.getPropertyValue('--lumno-font-sans')).toBe('Inter, sans-serif');
 
-    act(() => mount.view.render({ theme: 'light', vars: { '--x-ov-text': '#111827' } }));
+    act(() => look.setState({ theme: 'light', vars: { '--x-ov-text': '#111827' } }));
     expect(mount.panel.dataset.theme).toBe('light');
     expect(mount.panel.style.getPropertyValue('--x-ov-text')).toBe('#111827');
     expect(mount.panel.style.getPropertyValue('--lumno-font-sans')).toBe('');

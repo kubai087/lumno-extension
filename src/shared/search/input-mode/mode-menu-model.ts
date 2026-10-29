@@ -94,12 +94,6 @@ interface ModeMenuHandlers {
   attachIconData(image: HTMLImageElement, iconUrl: string, iconHost: string): void;
 }
 
-interface ModeMenuView {
-  // Draws the model before returning, so the controller can measure and
-  // focus what it drew.
-  render(model: ModeMenuModel, handlers: ModeMenuHandlers): void;
-}
-
 const EMPTY_LABELS: ModeMenuLabels = Object.freeze({
   filter: Object.freeze({ before: '', mark: '', after: '' }),
   navigationKey: '',
@@ -136,7 +130,6 @@ export type {
   ModeMenuModel,
   ModeMenuTile,
   ModeMenuTileColors,
-  ModeMenuTileIcon,
-  ModeMenuView
+  ModeMenuTileIcon
 };
 export { CLOSED_MODEL };
