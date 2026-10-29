@@ -1027,6 +1027,25 @@ function testNewtabFaviconPreloadAppliesCachedAlternateBeforeMainRuntime() {
     'lumno-newtab fallback should redirect into the primary New Tab, keeping its query and hash and focusing the search');
 }
 
+// Nothing is cached before a profile's first New Tab: the theme then follows
+// the system, and the first frame paints a dark system's base, not white.
+async function testWallpaperPreloadPaintsTheSystemBaseWithNothingCached() {
+  const run = (prefersDark) => {
+    const documentObj = createFakeDocument();
+    const windowObj = createFakeWindow();
+    windowObj.__setMediaMatchSilently('(prefers-color-scheme: dark)', prefersDark);
+    vm.runInNewContext(moduleScript('src/newtab/dom/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), {
+      ...REAL_WALLPAPER_DEPENDENCIES,
+      document: documentObj,
+      window: windowObj,
+      chrome: { runtime: { getURL: (path) => `chrome-extension://abc/${String(path || '').replace(/^\/+/, '')}` } }
+    }, { filename: 'src/newtab/dom/wallpaper-preload.ts' });
+    return documentObj.documentElement.getAttribute('data-wallpaper-preload-theme');
+  };
+  assert.strictEqual(run(true), 'dark', 'a dark system paints the dark base before anything is cached');
+  assert.strictEqual(run(false), 'light', 'a light system keeps the light base');
+}
+
 async function testWallpaperPreloadUsesTheCachedResolvedMode() {
   const runWallpaperPreload = (documentObj, windowObj) => {
     const preloadSandbox = {
@@ -4573,6 +4592,7 @@ Promise.resolve()
   .then(testCuratedTilesComeFromTheThumbnailCache)
   .then(testWallpaperSourcesHintWaitsForFinalFocusRoute)
   .then(testNewtabFaviconPreloadAppliesCachedAlternateBeforeMainRuntime)
+  .then(testWallpaperPreloadPaintsTheSystemBaseWithNothingCached)
   .then(testWallpaperPreloadUsesTheCachedResolvedMode)
   .then(testBuiltInWallpaperBootstrapDefersCustomCatalogRead)
   .then(testWallpaperTileIntentReusesDecodedImagePromise)

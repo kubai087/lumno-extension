@@ -79,15 +79,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
       return themeMode;
     }
     if (themeMode === 'system') {
-      try {
-        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light';
-      } catch {
-        return normalizeWallpaperMode(data.mode);
-      }
+      return getSystemWallpaperMode() || normalizeWallpaperMode(data.mode);
     }
     return normalizeWallpaperMode(data.mode);
+  }
+
+  // The system's scheme; null where the page cannot read it.
+  function getSystemWallpaperMode(): WallpaperMode | null {
+    try {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return null;
+    }
   }
 
   function normalizeEffectPrefs(value: unknown, inheritedVersion?: unknown): WallpaperEffectPrefs {
@@ -425,6 +428,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
   const cachedWallpaper = readCachedWallpaper();
   if (!cachedWallpaper) {
+    // Nothing is cached before a profile's first New Tab. Its theme then
+    // follows the system, so the first frame paints that scheme's base
+    // instead of a white page.
+    const systemMode = getSystemWallpaperMode();
+    if (systemMode && document.documentElement) {
+      document.documentElement.setAttribute('data-wallpaper-preload-theme', systemMode);
+    }
     return;
   }
   const root = document.documentElement;
