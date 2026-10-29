@@ -1,10 +1,9 @@
 // The shortcut tiles: drawing them as the shortcuts change, opening a
 // shortcut, and the add tile.
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
-import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
-import type { BindTooltip, FormatMessage, ShowToast, Translate } from '../newtab-types';
+import type { BindTooltip, FormatMessage, Translate } from '../newtab-types';
 import type { PageStructureRuntime } from '../react/page-structure';
-import type { ShortcutContextMenuMark, ShortcutsViewController, ShortcutsViewOptions } from '../react/shortcuts';
+import type { ShortcutsViewController, ShortcutsViewOptions } from '../react/shortcuts';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
 import type { ShortcutDock } from './shortcut-dock';
 import type { ShortcutPageActions } from './shortcut-page-actions';
@@ -12,7 +11,6 @@ import type { ShortcutFavicons } from './shortcut-favicons';
 import type { ShortcutData } from './shortcut-data';
 import type { ShortcutDialogActions } from './shortcut-dialog-actions';
 import { shortcutEvents } from './shortcut-events';
-import type { ShortcutItem, VisibleShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutWidth } from '../../domain/settings/newtab-shortcuts';
 import type { SettingsStore } from '../../platform/settings-store';
@@ -22,10 +20,6 @@ import { createShortcutsView } from '../react/shortcuts';
 import type { ShortcutList } from './shortcut-list';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 import type { DragSessions } from '../drag-sessions';
-import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
-import type { PageNavigation } from '../page-navigation';
-import type { BookmarkNode } from '../bookmarks/bookmarks-store';
-import type { OpenEvent } from '../../domain/navigation-disposition';
 import { playFolderPathMorph } from '../bookmarks/bookmark-folder-icon';
 import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
@@ -37,8 +31,6 @@ type ViewOption<K extends keyof ShortcutsViewOptions> = NonNullable<ShortcutsVie
 interface ShortcutsControllerDeps {
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'set' | 'subscribe'>;
   shortcutFolderRuntime: Pick<FolderBindingRuntime, 'ready' | 'flush' | 'getNode' | 'reconcile' | 'visibleItems'>;
-  bookmarksRuntime: Pick<BookmarksRuntime,
-    'getNode' | 'getNodeMap' | 'getSnapshot' | 'ensureReady' | 'runControlledMutation' | 'update'>;
   moveShortcutByKeyboard: ViewOption<'moveShortcut'>;
   t: Translate;
   hideShortcutTooltip(): void;
@@ -50,7 +42,6 @@ interface ShortcutsControllerDeps {
   applyNewtabShortcutDockMagnification(): void;
   // The column count an older version's width setting stands for.
   inferNewtabShortcutColumnsFromWidth(value: unknown): number;
-  showToast: ShowToast;
   formatMessage: FormatMessage;
   resetShortcutDockHover: ShortcutDock['resetShortcutDockHover'];
   pageStructureRuntime: { shortcut: Pick<PageStructureRuntime['shortcut'], 'section' | 'grid'> };
@@ -80,12 +71,10 @@ interface ShortcutsControllerDeps {
   animateShortcutLayoutChange?(apply: () => void): void;
   shortcutList: Pick<ShortcutList, 'icons' | 'items' | 'replaceIcons' | 'replaceItems'>;
   dragSessions: Pick<DragSessions, 'shortcutDragging'>;
-  getShortcutTileById(id: string): HTMLElement | null;
-  openBookmarkCascadeMenu(folder: BookmarkNode & { type: 'folder' }, anchor: HTMLElement | null): void;
-  openUrlFromNewtabCard: PageNavigation['openUrlFromNewtabCard'];
   locale: Pick<SurfaceLocale, 'store'>;
   shortcutFavicons: ShortcutFavicons;
   shortcutData: ShortcutData;
+  openShortcutUrl: ShortcutPageActions['openShortcutUrl'];
 }
 
 function createShortcutsController(deps: ShortcutsControllerDeps) {
@@ -93,7 +82,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     shortcutList,
     settings,
     shortcutFolderRuntime,
-    bookmarksRuntime,
     moveShortcutByKeyboard,
     t,
     hideShortcutTooltip,
@@ -104,7 +92,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
     inferNewtabShortcutColumnsFromWidth,
-    showToast,
     formatMessage,
     resetShortcutDockHover,
     pageStructureRuntime,
@@ -132,12 +119,10 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     handleShortcutGroupMenu,
     animateShortcutLayoutChange,
     dragSessions,
-    getShortcutTileById,
-    openBookmarkCascadeMenu,
-    openUrlFromNewtabCard,
     locale,
     shortcutFavicons,
-    shortcutData
+    shortcutData,
+    openShortcutUrl
   } = deps;
   const {
     getShortcutFaviconCandidateUrl,
@@ -146,7 +131,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     getShortcutFaviconPolicyRevision
   } = shortcutFavicons;
   const {
-    getShortcutFolderId,
     getShortcutStoreOptions,
     getVisibleShortcuts,
     isShortcutGroupLayoutActive,
@@ -223,25 +207,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     });
   }
 
-  function hideShortcutAddFromContextMenu(sourceElement?: HTMLElement | null): void {
-    if (!settings.get(newtabShortcutAddVisible)) {
-      return;
-    }
-    void settings.set(newtabShortcutAddVisible, false);
-    const addButton = sourceElement || getAddShortcutButton();
-    if (addButton) {
-      addButton.hidden = true;
-    }
-    hideShortcutTooltip();
-    resetShortcutDockHover();
-    applyNewtabShortcutsVisibility();
-    updateBookmarkSectionPosition({ preserveSearchEntryLayout: true });
-    adaptiveToneEvents.emit('stale', {});
-    showToast(t(
-      'newtab_shortcuts_add_hidden',
-      '“+” hidden. Re-enable it in Settings → Appearance → Shortcuts → Show “+”.'
-    ));
-  }
 
   function createShortcutsSection(): void {
     const section = pageStructureRuntime.shortcut.section;
@@ -303,40 +268,12 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     grid.addEventListener('pointerleave', resetShortcutDockHover);
   }
 
-  // A link opens its site; a folder opens its bookmarks in the folder menu.
-  function openShortcutUrl(shortcut: ShortcutItem | VisibleShortcutItem | null | undefined, event?: OpenEvent | null): void {
-    if (shortcut && shortcut.type === 'folder') {
-      const tile = getShortcutTileById(shortcut.id);
-      void bookmarksRuntime.ensureReady(false).then((ready) => {
-        const node = ready && bookmarksRuntime.getNode(getShortcutFolderId(shortcut));
-        if (!node || node.url) {
-          showToast(t('newtab_shortcuts_folder_missing', 'This bookmark folder is no longer available.'), true);
-          return;
-        }
-        openBookmarkCascadeMenu({ ...node, type: 'folder' }, tile);
-      });
-      return;
-    }
-    if (!shortcut || !('url' in shortcut) || !shortcut.url) {
-      return;
-    }
-    openUrlFromNewtabCard(shortcut.url, {
-      openInBackgroundTab: NAVIGATION_DISPOSITION.isBackgroundOpenEvent(event),
-      openInOtherTab: Boolean(event && event.altKey),
-      surface: 'shortcuts'
-    });
-  }
 
   // The add tile, while the grid shows one.
   function getAddShortcutButton(): HTMLButtonElement | null {
     return shortcutsView ? shortcutsView.getAddButton() : null;
   }
 
-  function setShortcutContextMenuMark(mark: ShortcutContextMenuMark | null): void {
-    if (shortcutsView) {
-      shortcutsView.setContextMenuMark(mark);
-    }
-  }
 
 
   // Folder shortcuts show what their bookmark folders hold.
@@ -349,6 +286,11 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   // The tiles draw their labels and menus in the page's language.
   locale.store.subscribe(() => renderShortcuts());
   shortcutEvents.on('stale', () => renderShortcuts());
+  shortcutEvents.on('menuMarked', ({ mark }) => {
+    if (shortcutsView) {
+      shortcutsView.setContextMenuMark(mark);
+    }
+  });
   shortcutEvents.on('changed', ({ animateLayout }) => {
     if (animateLayout && animateShortcutLayoutChange) {
       animateShortcutLayoutChange(renderShortcuts);
@@ -357,13 +299,10 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     }
   });
   return {
-    openShortcutUrl,
     getAddShortcutButton,
-    setShortcutContextMenuMark,
     renderShortcuts,
     flushDeferredShortcutRender,
     followNewtabShortcutPreferences,
-    hideShortcutAddFromContextMenu,
     createShortcutsSection,
     fitShortcutGroupColumns
   };

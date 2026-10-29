@@ -1,12 +1,13 @@
 // The page's wallpaper: the wallpaper runtime and its panel controls, the
 // first wallpaper, overlay and effect shown at startup, and the adaptive
 // tone targets that keep text and glass surfaces readable on it.
+import { getTopContentSample } from '../dom/top-content';
+import { getShortcutTileIcon } from '../dom/shortcut-tiles';
 import type { StorageAreaLike } from '../../domain/storage-port';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import type { ToastTask } from '../../shared/ui/toast-screen';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ThemeScope } from '../react/wallpaper-panel/panel-model';
-import type { TopContentController } from '../react/wordmark';
 import type { QuoteRuntime } from '../top-content/quotes';
 import type { AdaptiveToneTarget } from './wallpaper-adaptive-tone';
 import * as NEWTAB_WALLPAPER from './wallpaper';
@@ -41,7 +42,6 @@ interface WallpaperPageDeps {
   preview: SettingPreview;
   shortcutTiles: readonly HTMLElement[];
   // A dock tile's icon, which its tone samples.
-  getShortcutDockIcon(tile: HTMLElement): HTMLElement | null;
   shortcutGroupHeaders: readonly HTMLElement[];
   getEffectiveBookmarkTopbarSurfaceMode(): string;
   // The search box.
@@ -79,7 +79,6 @@ interface WallpaperPageDeps {
   bookmarkTitleWrap: HTMLElement;
   bookmarkPagerPrevButton: HTMLElement;
   topContentContainer: HTMLElement;
-  topContentController: TopContentController;
   getFeedbackButton(): HTMLElement | null;
   sectionPanelSettings: SectionPanelSettings & { updateLanguage(): void };
   appliedTheme: Pick<AppliedThemeMode, 'events'>;
@@ -88,7 +87,6 @@ interface WallpaperPageDeps {
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
-    topContentController,
     topContentContainer,
     bookmarkPagerPrevButton,
     bookmarkTitleWrap,
@@ -100,7 +98,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     settings,
     preview,
     shortcutTiles,
-    getShortcutDockIcon,
     shortcutGroupHeaders,
     getEffectiveBookmarkTopbarSurfaceMode,
     root,
@@ -156,7 +153,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     // The dock's icons read one sample over the whole row and keep one ink, so a
     // folder or the add button never flips tone against its neighbor where the
     // wallpaper under the row changes from light to dark.
-    const shortcutIconSample = shortcutIconTargets.map(({ element }) => getShortcutDockIcon(element) || element);
+    const shortcutIconSample = shortcutIconTargets.map(({ element }) => getShortcutTileIcon(element) || element);
     const shortcutToneTargets = shortcutIconTargets.map(({ element, forcedIconBackground }): AdaptiveToneTarget => ({
       element,
       sampleElement: shortcutIconSample,
@@ -177,7 +174,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
         iconButton: true
       });
     });
-    const topContentSample: HTMLElement | null = topContentController.getContent() || topContentContainer;
+    const topContentSample = getTopContentSample(topContentContainer);
     const quoteElement = quoteRuntime.element;
     const quoteSample = quoteRuntime.getTextElement() || quoteElement;
     // A quote at the top is the wordmark's caption: both read the wallpaper under

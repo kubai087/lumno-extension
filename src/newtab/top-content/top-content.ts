@@ -1,7 +1,10 @@
 // The wordmark/clock area above the search box. Moving the blocks around
 // it when it shows, hides or changes height is layout-motion.ts's job.
 import { queryHtmlElement } from '../../shared/dom-lookup';
-import type { TopContentController, WordmarkAppearance } from '../react/wordmark';
+import { createTopContentController } from '../react/wordmark';
+import type { WordmarkAppearance } from '../react/wordmark';
+import type { PageNavigation } from '../page-navigation';
+import { WORDMARK_ENTRY_ANIMATION_NAME } from '../newtab-config';
 import * as SettingsStorage from '../../platform/settings-storage';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SettingPreview } from '../setting-preview';
@@ -36,7 +39,7 @@ interface TopContentDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   preview: SettingPreview;
   topContentContainer: HTMLElement;
-  topContentController: TopContentController;
+  openExternalNewTabUrl: PageNavigation['openExternalNewTabUrl'];
   locale: Pick<SurfaceLocale, 'store'>;
   appliedTheme: Pick<AppliedThemeMode, 'events'>;
 }
@@ -44,7 +47,7 @@ interface TopContentDeps {
 function createTopContentRuntime(deps: TopContentDeps) {
   const {
     topContentContainer,
-    topContentController,
+    openExternalNewTabUrl,
     recentCards,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
@@ -54,6 +57,18 @@ function createTopContentRuntime(deps: TopContentDeps) {
     appliedTheme
   } = deps;
 
+
+  // The wordmark or clock, which draws nothing until it is rendered.
+  const topContentController = createTopContentController(topContentContainer, {
+    onActivate(disposition) {
+      openExternalNewTabUrl(COMMUNITY_LINKS.getStoreListing().url, disposition);
+    },
+    onEntryAnimationComplete(animationName) {
+      if (!animationName || animationName === WORDMARK_ENTRY_ANIMATION_NAME) {
+        finishWordmarkEntryAnimation();
+      }
+    }
+  });
 
   // What the clock area last drew with.
   let shown = readTopContentSettings();

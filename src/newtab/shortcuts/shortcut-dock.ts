@@ -5,8 +5,9 @@
 // jumps as the pointer crosses from one tile to the next. A frame loop eases
 // each icon toward that target (CSS transitions restarted on every move
 // stuttered); leaving hands the icons back to the CSS transition.
+import { getShortcutTileIcon } from '../dom/shortcut-tiles';
 import { isElementNode } from '../../shared/dom-guards';
-import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
+import { queryHtmlElements } from '../../shared/dom-lookup';
 import { newtabShortcutDockMagnificationEnabled } from '../../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from '../setting-preview';
 import type { SettingsStore } from '../../platform/settings-store';
@@ -40,13 +41,8 @@ interface DockMagnitude {
 interface ShortcutDockDeps {
   settings: Pick<SettingsStore, 'subscribe'>;
   preview: Pick<SettingPreview, 'get'>;
-  isShortcutContextMenuOpen(): boolean;
-  applyShortcutContextMenuDockHover(tile: HTMLElement): void;
-  clearShortcutContextMenuTileActive(): void;
   getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null;
   shortcutGrid: HTMLElement;
-  // The tile the open shortcut menu acts on; null while it is closed.
-  getShortcutContextMenuTile(): HTMLElement | null;
   dragSessions: Pick<DragSessions, 'bookmarkDragging' | 'recentCardDragging' | 'shortcutDragging'>;
 }
 
@@ -55,10 +51,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     shortcutGrid,
     settings,
     preview,
-    applyShortcutContextMenuDockHover,
-    clearShortcutContextMenuTileActive,
     getShortcutTileFromNode,
-    getShortcutContextMenuTile,
     dragSessions
   } = deps;
 
@@ -76,15 +69,14 @@ function createShortcutDock(deps: ShortcutDockDeps) {
   let shortcutDockMagnitude: DockMagnitude | null = null;
   // Folder tile whose menu is open; it keeps its hover look like a pressed dock item.
   let shortcutDockFolderMenuTile: HTMLElement | null = null;
+  // The tile a shortcut's context menu is open for, which stays magnified.
+  let shortcutDockHeldTile: HTMLElement | null = null;
 
   function getShortcutDockPointerX(event: PointerEvent): number | null {
     const value = Number(event && event.clientX);
     return Number.isFinite(value) ? value : null;
   }
 
-  function getShortcutDockIcon(tile: HTMLElement | null | undefined): HTMLElement | null {
-    return tile ? queryHtmlElement(tile, '.x-nt-shortcut-icon') : null;
-  }
 
   function prefersReducedMotion(): boolean {
     return typeof window.matchMedia === 'function' &&
@@ -279,7 +271,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
   }
 
   function getShortcutDockIconCenterX(tile: HTMLElement): number | null {
-    const icon = getShortcutDockIcon(tile) || tile;
+    const icon = getShortcutTileIcon(tile) || tile;
     const rect = icon.getBoundingClientRect();
     const centerX = rect.left + (rect.width / 2);
     return Number.isFinite(centerX) ? centerX : null;
@@ -321,9 +313,9 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     if (!shortcutGrid) {
       return;
     }
-    const activeTile = getShortcutContextMenuTile();
-    if (activeTile) {
-      applyShortcutContextMenuDockHover(activeTile);
+    const heldTile = shortcutDockHeldTile;
+    if (heldTile) {
+      setShortcutDockHover(heldTile, getShortcutDockIconCenterX(heldTile), { settle: true });
       return;
     }
     const folderMenuTile = getOpenShortcutFolderMenuTile();
@@ -332,7 +324,15 @@ function createShortcutDock(deps: ShortcutDockDeps) {
       return;
     }
     clearShortcutDockMagnificationState();
-    clearShortcutContextMenuTileActive();
+  }
+
+  // Keeps a tile magnified while its context menu is open; null lets it go.
+  // Only a shortcut tile magnifies; a group title's menu button does not.
+  function holdShortcutDockHover(tile: HTMLElement | null): void {
+    shortcutDockHeldTile = tile && tile.classList.contains('x-nt-shortcut-tile') ? tile : null;
+    if (shortcutDockHeldTile) {
+      setShortcutDockHover(shortcutDockHeldTile, getShortcutDockIconCenterX(shortcutDockHeldTile), { settle: true });
+    }
   }
 
   // Without a pointer position the tiles take the CSS steps by distance.
@@ -384,7 +384,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
     shortcutDockMagnitude = magnitude;
     const activeRect = activeTile.getBoundingClientRect();
     const targets = tiles.map((tile) => {
-      const icon = getShortcutDockIcon(tile);
+      const icon = getShortcutTileIcon(tile);
       if (!icon) {
         return null;
       }
@@ -467,7 +467,7 @@ function createShortcutDock(deps: ShortcutDockDeps) {
 
   return {
     followShortcutDockMagnification,
-    getShortcutDockIcon,
+    holdShortcutDockHover,
     applyNewtabShortcutDockMagnification,
     resetShortcutDockHover,
     setShortcutDockHover,

@@ -9,7 +9,6 @@ import type { NewtabThemeScope, Translate } from './newtab-types';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import { localeToHtmlLang } from '../domain/settings/locale';
 import { cacheNewtabLocale } from '../platform/settings-storage';
-import type { TopContentController } from './react/wordmark';
 import type { SettingsStore } from '../platform/settings-store';
 import { themeMode } from '../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
@@ -48,7 +47,6 @@ interface AppearanceModesDeps extends
   notices: Pick<PageNoticeControllers, 'updateLanguage'>;
   appliedTheme: Pick<AppliedThemeMode, 'firstApplied' | 'markApplied' | 'mode' | 'set'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
-  topContentController: TopContentController;
   faviconParts: Pick<FaviconParts, 'view'>;
 }
 

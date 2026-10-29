@@ -1,6 +1,5 @@
 import * as FOLDER_BINDINGS from '../platform/bookmark-folder-bindings';
 import * as LumnoBrowserProfile from '../platform/browser-profile';
-import * as LumnoCommunityLinks from '../platform/community-links';
 import * as LumnoShortcutFaviconStore from '../platform/shortcut-favicon-store';
 import * as LumnoBrowserIcons from '../platform/browser-icons';
 import * as PROGRESS_HISTORY from '../domain/progress-history';
@@ -102,7 +101,6 @@ import {
 } from '../domain/settings';
 import {
   SYNCED_PAGE_STORAGE_KEYS,
-  WORDMARK_ENTRY_ANIMATION_NAME,
   createSiteDisplayNameOptions
 } from './newtab-config';
 import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
@@ -116,7 +114,6 @@ import type { ShortcutTileElement } from './react/shortcuts';
 import { readBootValue } from '../platform/boot-handoff';
 import { createToastController } from '../shared/react/toast';
 import { createSelectMenuController } from './react/select-menu';
-import { createTopContentController } from './react/wordmark';
 import { createPageStructure } from './react/page-structure';
 import { createSearchInput } from '../shared/react/search-input';
 import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
@@ -221,19 +218,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const searchLayer = pageStructureRuntime.searchLayer;
   const shortcutSection = pageStructureRuntime.shortcut.section;
   const shortcutGrid = pageStructureRuntime.shortcut.grid;
-  // The wordmark or clock above the search box. Its controller draws nothing
-  // until the top content runtime renders it.
+  // The wordmark or clock above the search box, drawn by the top content runtime.
   const topContentContainer = pageStructureRuntime.topContent;
-  const topContentController = createTopContentController(topContentContainer, {
-    onActivate(disposition) {
-      openExternalNewTabUrl(LumnoCommunityLinks.getStoreListing().url, disposition);
-    },
-    onEntryAnimationComplete(animationName) {
-      if (!animationName || animationName === WORDMARK_ENTRY_ANIMATION_NAME) {
-        finishWordmarkEntryAnimation();
-      }
-    }
-  });
   const recentSection = pageStructureRuntime.recent.section;
   // The search box's parts, mounted by the search box below.
   const searchBox = new SearchBoxParts();
@@ -661,6 +647,19 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
+    openBookmarkCascadeMenu,
+    closeBookmarkCascadeMenu,
+    positionBookmarkCascadeLevels,
+    getTopBookmarks
+  } = NEWTAB_BOOKMARK_CASCADE_ACTIONS.createBookmarkCascadeActions({
+    bookmarkParts,
+    bookmarksShown,
+    bookmarksRuntime,
+    t
+  });
+
+  const {
+    openShortcutUrl,
     getShortcutContextMenuOptions,
     getShortcutTileFromNode,
     getShortcutTileId,
@@ -670,6 +669,9 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     handleShortcutNativeDragStart,
     openShortcutEditor
   } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
+    showToast,
+    openBookmarkCascadeMenu,
+    openUrlFromNewtabCard,
     shortcutGrid,
     shortcutList,
     t,
@@ -682,18 +684,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openBookmarkEditor,
     getShortcutTitle,
     getShortcutIconDataUrl
-  });
-
-  const {
-    openBookmarkCascadeMenu,
-    closeBookmarkCascadeMenu,
-    positionBookmarkCascadeLevels,
-    getTopBookmarks
-  } = NEWTAB_BOOKMARK_CASCADE_ACTIONS.createBookmarkCascadeActions({
-    bookmarkParts,
-    bookmarksShown,
-    bookmarksRuntime,
-    t
   });
 
   const {
@@ -762,14 +752,14 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
   const menuOrder = new SearchModeMenuOrder(settings);
   const searchMatching = new SearchMatching({
-    settings: settings,
+    settings,
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
   const searchResults = new SearchResults<Suggestion>();
   const suggestionSource = new SuggestionSource(searchQuery, searchResults);
   const searchMode = new SearchMode<SiteSearchProvider>();
   const searchAutocomplete = new SearchAutocomplete({
-    settings: settings,
+    settings,
     query: searchQuery,
     getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
     preview: suggestionInputPreview,
@@ -816,11 +806,24 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const recentPointer = new RecentPointer();
 
   const {
-    getShortcutContextMenuTile,
-    isShortcutContextMenuOpen,
+    applyNewtabShortcutDockMagnification,
+    resetShortcutDockHover,
+    setShortcutDockHover,
+    holdShortcutDockHover,
+    handleShortcutDockPointerOver,
+    handleShortcutDockPointerMove,
+    syncShortcutDockFolderMenu,
+    followShortcutDockMagnification
+  } = NEWTAB_SHORTCUT_DOCK.createShortcutDock({
+    dragSessions,
+    shortcutGrid,
+    settings,
+    preview,
+    getShortcutTileFromNode
+  });
+
+  const {
     isShortcutContextMenuNode,
-    clearShortcutContextMenuTileActive,
-    applyShortcutContextMenuDockHover,
     closeShortcutContextMenu,
     handleShortcutContextMenu,
     openShortcutAddContextMenu,
@@ -828,19 +831,19 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   } = NEWTAB_SHORTCUT_CONTEXT_MENU.createShortcutContextMenu({
     otherContextMenus: [bookmarkContextMenuSelectController, recentContextMenuSelectController],
     locale,
+    settings,
+    showToast,
     shortcutContextMenuSelectController,
     shortcutSection,
-    setShortcutContextMenuMark: (mark) => setShortcutContextMenuMark(mark),
-    getShortcutDockIcon: (...args) => getShortcutDockIcon(...args),
-    setShortcutDockHover: (...args) => setShortcutDockHover(...args),
-    resetShortcutDockHover: (...args) => resetShortcutDockHover(...args),
+    setShortcutDockHover,
+    resetShortcutDockHover,
+    holdShortcutDockHover,
     getShortcutTileFromNode,
     getShortcutById,
-    hideShortcutAddFromContextMenu: (...args) => hideShortcutAddFromContextMenu(...args),
     openFolderColorPicker,
     getShortcutFolderId,
     openShortcutEditor,
-    openShortcutUrl: (...args) => openShortcutUrl(...args),
+    openShortcutUrl,
     openExternalNewTabUrl,
     removeShortcutById,
     openBookmarkFolderTabGroupConfirmation,
@@ -853,27 +856,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     moveShortcutGroup,
     deleteShortcutGroup,
     confirmDeleteShortcutGroupWithSites
-  });
-
-  const {
-    getShortcutDockIcon,
-    applyNewtabShortcutDockMagnification,
-    resetShortcutDockHover,
-    setShortcutDockHover,
-    handleShortcutDockPointerOver,
-    handleShortcutDockPointerMove,
-    syncShortcutDockFolderMenu,
-    followShortcutDockMagnification
-  } = NEWTAB_SHORTCUT_DOCK.createShortcutDock({
-    dragSessions,
-    getShortcutContextMenuTile,
-    shortcutGrid,
-    settings,
-    preview,
-    isShortcutContextMenuOpen,
-    applyShortcutContextMenuDockHover,
-    clearShortcutContextMenuTileActive,
-    getShortcutTileFromNode
   });
 
   const shortcutGroupHeaders: HTMLElement[] = [];
@@ -1062,7 +1044,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
     faviconParts,
-    topContentController,
     bookmarkParts,
     appliedTheme,
     notices,
@@ -1213,7 +1194,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     markInitialWallpaperVisualReady,
     getWallpaperShownAt
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
-    topContentController,
     topContentContainer,
     bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
     bookmarkTitleWrap: pageStructureRuntime.bookmark.titleWrap,
@@ -1229,7 +1209,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     settings,
     preview,
     shortcutTiles,
-    getShortcutDockIcon,
     shortcutGroupHeaders,
     getEffectiveBookmarkTopbarSurfaceMode,
     root,
@@ -1375,7 +1354,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     appliedTheme,
     locale,
     topContentContainer,
-    topContentController,
+    openExternalNewTabUrl,
     recentCards,
     updateSearchEntryLayout,
     updateSuggestionsFloatingLayout,
@@ -1444,27 +1423,21 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    openShortcutUrl,
     getAddShortcutButton,
-    setShortcutContextMenuMark,
     renderShortcuts,
     flushDeferredShortcutRender,
     followNewtabShortcutPreferences,
-    hideShortcutAddFromContextMenu,
     createShortcutsSection,
     fitShortcutGroupColumns
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    openShortcutUrl,
     shortcutData,
     shortcutFavicons,
     locale,
-    openUrlFromNewtabCard,
-    openBookmarkCascadeMenu,
-    getShortcutTileById,
     dragSessions,
     shortcutList,
     settings,
     shortcutFolderRuntime,
-    bookmarksRuntime,
     moveShortcutByKeyboard: (...args) => moveShortcutByKeyboard(...args),
     t,
     hideShortcutTooltip,
@@ -1475,7 +1448,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     applyNewtabShortcutLayoutPreferences,
     applyNewtabShortcutDockMagnification,
     inferNewtabShortcutColumnsFromWidth,
-    showToast,
     formatMessage,
     resetShortcutDockHover,
     pageStructureRuntime,
@@ -1974,7 +1946,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shouldSwitchMatchedTabSuggestion,
     resultActivation,
     navigateToQuery,
-    suggestionsContainer: suggestionsContainer,
+    suggestionsContainer,
     suggestionItems,
     refreshTabsForSearchContext,
     isSlashCommandInput,

@@ -1,12 +1,16 @@
 // Right-click menu for shortcut tiles and the add-shortcut tile.
+import { getShortcutTileIcon } from '../dom/shortcut-tiles';
+import { shortcutEvents } from './shortcut-events';
+import { adaptiveToneEvents } from '../wallpaper/tone-requests';
+import { newtabShortcutAddVisible } from '../../domain/settings/newtab-shortcuts';
+import type { SettingsStore } from '../../platform/settings-store';
 import type { Disposition } from '../../domain/navigation-disposition';
 import { isElementNode, isNode } from '../../shared/dom-guards';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
-import type { ContextMenuParts, SelectMenuController, Translate } from '../newtab-types';
+import type { ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
 import type { SelectMenuInstance } from '../react/select-menu';
-import type { ShortcutContextMenuMark } from '../react/shortcuts';
 import type { ShortcutDock } from './shortcut-dock';
 import type { ShortcutContextTarget } from './shortcut-types';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
@@ -16,14 +20,13 @@ import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 
 interface ShortcutContextMenuDeps {
-  // Draws the mark on what the menu is open for, or clears it.
-  setShortcutContextMenuMark(mark: ShortcutContextMenuMark | null): void;
-  getShortcutDockIcon: ShortcutDock['getShortcutDockIcon'];
   setShortcutDockHover: ShortcutDock['setShortcutDockHover'];
   resetShortcutDockHover(): void;
+  holdShortcutDockHover: ShortcutDock['holdShortcutDockHover'];
+  settings: Pick<SettingsStore, 'get' | 'set'>;
+  showToast: ShowToast;
   getShortcutTileFromNode(node: EventTarget | null): HTMLElement | null;
   getShortcutById(shortcutId: unknown): ShortcutItem | null;
-  hideShortcutAddFromContextMenu(sourceElement: HTMLElement): void;
   openFolderColorPicker(folderId: string, title: string, sourceElement?: HTMLElement | null): Promise<void>;
   getShortcutFolderId(shortcut: ShortcutItem): string;
   openShortcutEditor(shortcut: ShortcutItem, sourceElement: HTMLElement | null): void;
@@ -54,13 +57,13 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   const {
     shortcutContextMenuSelectController,
     shortcutSection,
-    setShortcutContextMenuMark,
-    getShortcutDockIcon,
     setShortcutDockHover,
     resetShortcutDockHover,
+    holdShortcutDockHover,
+    settings,
+    showToast,
     getShortcutTileFromNode,
     getShortcutById,
-    hideShortcutAddFromContextMenu,
     openFolderColorPicker,
     getShortcutFolderId,
     openShortcutEditor,
@@ -108,35 +111,33 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   }
 
   function clearShortcutContextMenuTileActive(): void {
-    setShortcutContextMenuMark(null);
+    shortcutEvents.emit('menuMarked', { mark: null });
   }
 
   function setShortcutContextMenuTileActive(target: ShortcutContextTarget): void {
-    clearShortcutContextMenuTileActive();
-    setShortcutContextMenuMark(target.kind === 'shortcut'
+    shortcutEvents.emit('menuMarked', { mark: target.kind === 'shortcut'
       ? { kind: 'shortcut', shortcutId: target.shortcutId }
       : target.kind === 'group'
         ? { kind: 'group', groupId: target.groupId }
-        : { kind: 'add' });
+        : { kind: 'add' } });
   }
 
   function getShortcutContextMenuAnchorElement(tile: HTMLElement): HTMLElement {
-    return getShortcutDockIcon(tile) || tile;
+    return getShortcutTileIcon(tile) || tile;
   }
 
-  function getShortcutContextMenuAnchorX(tile: HTMLElement): number | null {
-    const anchor = getShortcutContextMenuAnchorElement(tile);
-    const rect = anchor.getBoundingClientRect();
-    const centerX = rect.left + (rect.width / 2);
-    return Number.isFinite(centerX) ? centerX : null;
-  }
-
-  // Only a shortcut tile magnifies; a group title's menu button does not.
-  function applyShortcutContextMenuDockHover(tile: HTMLElement | null): void {
-    if (!tile || !tile.classList.contains('x-nt-shortcut-tile')) {
+  // Hides the add tile, which can be shown again in Settings.
+  function hideShortcutAdd(addButton: HTMLElement): void {
+    if (!settings.get(newtabShortcutAddVisible)) {
       return;
     }
-    setShortcutDockHover(tile, getShortcutContextMenuAnchorX(tile), { settle: true });
+    void settings.set(newtabShortcutAddVisible, false);
+    addButton.hidden = true;
+    adaptiveToneEvents.emit('stale', {});
+    showToast(t(
+      'newtab_shortcuts_add_hidden',
+      '“+” hidden. Re-enable it in Settings → Appearance → Shortcuts → Show “+”.'
+    ));
   }
 
   function syncShortcutDockHoverFromPoint(clientX: unknown, clientY: unknown): void {
@@ -158,6 +159,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   // `syncHoverFromPointer` hands the dock to the pointer at the press that closed it.
   function closeShortcutContextMenu(options?: { syncHoverFromPointer?: boolean; clientX?: number; clientY?: number }): void {
     const closeOptions = options || {};
+    holdShortcutDockHover(null);
     if (!shortcutContextMenu || !shortcutContextMenuSelectController) {
       shortcutContextMenuTarget = null;
       clearShortcutContextMenuTileActive();
@@ -207,7 +209,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     }
     const sourceElement = target.tile;
     if (target.kind === 'add' && action === SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE) {
-      hideShortcutAddFromContextMenu(sourceElement);
+      hideShortcutAdd(sourceElement);
       return;
     }
     if (action === SHORTCUT_GROUP_MENU_VALUES.create) {
@@ -399,7 +401,7 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
     resetShortcutDockHover();
     shortcutContextMenuTarget = target;
     setShortcutContextMenuTileActive(target);
-    applyShortcutContextMenuDockHover(tile);
+    holdShortcutDockHover(tile);
     setShortcutContextMenuPosition(tile);
     const defaultValue = target.kind === 'add'
       ? SHORTCUT_GROUP_MENU_VALUES.addShortcut
@@ -476,20 +478,12 @@ function createShortcutContextMenu(deps: ShortcutContextMenuDeps) {
   locale.store.subscribe(updateShortcutContextMenuLanguageStrings);
 
 
-  // The tile the open menu acts on; null while it is closed.
-  function getShortcutContextMenuTile(): HTMLElement | null {
-    return isShortcutContextMenuOpen() && shortcutContextMenuTarget ? shortcutContextMenuTarget.tile || null : null;
-  }
 
   otherContextMenus.forEach((menu) => {
     menu.events.on('opening', () => closeShortcutContextMenu());
   });
   return {
-    getShortcutContextMenuTile,
-    isShortcutContextMenuOpen,
     isShortcutContextMenuNode,
-    clearShortcutContextMenuTileActive,
-    applyShortcutContextMenuDockHover,
     closeShortcutContextMenu,
     handleShortcutContextMenu,
     openShortcutAddContextMenu,

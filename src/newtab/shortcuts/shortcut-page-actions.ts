@@ -1,14 +1,18 @@
 // Shortcut tiles on the page: finding a tile and its shortcut, the
-// context menu's options, and opening a shortcut to edit.
+// context menu's options, and opening a shortcut or its editor.
+import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
+import type { OpenEvent } from '../../domain/navigation-disposition';
+import type { BookmarkCascadeActions } from '../bookmarks/bookmark-cascade-actions';
+import type { PageNavigation } from '../page-navigation';
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { BookmarkEditTarget } from '../bookmarks/bookmark-actions';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
-import type { Translate } from '../newtab-types';
+import type { ShowToast, Translate } from '../newtab-types';
 import type { ShortcutContextTarget } from './shortcut-types';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
-import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
+import type { ShortcutGroup, ShortcutItem, VisibleShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutConstants from '../../domain/shortcuts/constants';
 import * as NEWTAB_BOOKMARKS_STORE from '../bookmarks/bookmarks-store';
 import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_CONTEXT_MENU_EDIT_VALUE, SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE, SHORTCUT_CONTEXT_MENU_REMOVE_VALUE, SHORTCUT_GROUP_MENU_VALUES } from '../menu-values';
@@ -22,8 +26,11 @@ interface ShortcutPageActionsDeps {
   t: Translate;
   getShortcutGroups(): ShortcutGroup[];
   bookmarksRuntime: BookmarksRuntime;
-  getShortcutFolderId(shortcut: ShortcutItem): string;
+  getShortcutFolderId: ShortcutData['getShortcutFolderId'];
   getShortcutById: ShortcutData['getShortcutById'];
+  showToast: ShowToast;
+  openBookmarkCascadeMenu: BookmarkCascadeActions['openBookmarkCascadeMenu'];
+  openUrlFromNewtabCard: PageNavigation['openUrlFromNewtabCard'];
   openShortcutDialog: ShortcutDialogActions['openShortcutDialog'];
   // The tiles drawn now, kept in DOM order.
   shortcutTiles: HTMLElement[];
@@ -43,6 +50,9 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     bookmarksRuntime,
     getShortcutFolderId,
     getShortcutById,
+    showToast,
+    openBookmarkCascadeMenu,
+    openUrlFromNewtabCard,
     openShortcutDialog,
     shortcutTiles,
     openBookmarkEditor,
@@ -175,6 +185,30 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   }
 
   // Tiles are dragged by pointer events, never natively.
+  // A link opens its site; a folder opens its bookmarks in the folder menu.
+  function openShortcutUrl(shortcut: ShortcutItem | VisibleShortcutItem | null | undefined, event?: OpenEvent | null): void {
+    if (shortcut && shortcut.type === 'folder') {
+      const tile = getShortcutTileById(shortcut.id);
+      void bookmarksRuntime.ensureReady(false).then((ready) => {
+        const node = ready && bookmarksRuntime.getNode(getShortcutFolderId(shortcut));
+        if (!node || node.url) {
+          showToast(t('newtab_shortcuts_folder_missing', 'This bookmark folder is no longer available.'), true);
+          return;
+        }
+        openBookmarkCascadeMenu(node, tile);
+      });
+      return;
+    }
+    if (!shortcut || !('url' in shortcut) || !shortcut.url) {
+      return;
+    }
+    openUrlFromNewtabCard(shortcut.url, {
+      openInBackgroundTab: NAVIGATION_DISPOSITION.isBackgroundOpenEvent(event),
+      openInOtherTab: Boolean(event && event.altKey),
+      surface: 'shortcuts'
+    });
+  }
+
   function handleShortcutNativeDragStart(event: Pick<Event, 'preventDefault'>): void {
     event.preventDefault();
   }
@@ -199,6 +233,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
   }
 
   return {
+    openShortcutUrl,
     getShortcutContextMenuOptions,
     getShortcutTileFromNode,
     getShortcutTileId,
