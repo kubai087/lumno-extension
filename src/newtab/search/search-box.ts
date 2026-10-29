@@ -121,7 +121,7 @@ interface SearchBoxDeps {
   hideSearchInputCursorTooltip(): void;
   modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   bindSearchInputCursorTooltip: BindCursorTooltip;
-  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController' | 'mountInput' | 'mountSuggestionsView'>;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController' | 'mountInput' | 'mountSuggestionsView' | 'suggestionList'>;
   // The search suggestion the arrows show in the input.
   suggestionInputPreview: SuggestionInputPreview;
   suggestionsContainer: HTMLElement;
@@ -243,6 +243,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     portals: getPagePortals(),
     document,
     container: suggestionsContainer,
+    list: searchBox.suggestionList,
     items: suggestionItems,
     t,
     formatMessage,

@@ -3,7 +3,16 @@ import { queryHtmlElement } from '../../dom-lookup';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Suggestion, SuggestionElement } from './suggestions';
 import { expectTag, getElements, getTag, getTags, required } from '../../../../tests/react/dom';
-import { createView, destroyViews, render, rowPart, rowParts } from '../../../../tests/react/suggestions';
+import {
+  createView,
+  destroyViews,
+  render,
+  rowPart,
+  rowParts,
+  showTabs,
+  showSuggestions,
+  showNothing
+} from '../../../../tests/react/suggestions';
 
 afterEach(destroyViews);
 
@@ -21,7 +30,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     });
 
     act(() => {
-      view.renderTabs([{
+      showTabs(view, [{
         id: 42,
         title: 'Example tab',
         url: 'https://example.com/',
@@ -100,7 +109,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     });
 
     act(() => {
-      view.renderTabs([{
+      showTabs(view, [{
         id: 42,
         title: 'Dribbble',
         url: 'https://dribbble.com/',
@@ -150,7 +159,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
       url: `https://example.com/${index + 1}`
     }));
 
-    act(() => view.renderTabs(tabs));
+    act(() => showTabs(view, tabs));
     expect(items).toHaveLength(3);
     expect(requestIdle).toHaveBeenCalledOnce();
     expect(requestFrame).not.toHaveBeenCalled();
@@ -164,7 +173,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     }));
     expect(items).toHaveLength(5);
 
-    act(() => view.renderTabs([tabs[0]]));
+    act(() => showTabs(view, [tabs[0]]));
     expect(items).toHaveLength(1);
     expect(cancelIdle).toHaveBeenCalled();
     expect(idleCallbacks.size).toBe(0);
@@ -187,11 +196,11 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
       url: `https://example.com/${index + 1}`
     }));
 
-    act(() => view.renderTabs(tabs));
+    act(() => showTabs(view, tabs));
     expect(items).toHaveLength(5);
 
     visibleResultLimit = 8;
-    act(() => view.renderTabs(tabs));
+    act(() => showTabs(view, tabs));
     expect(items).toHaveLength(8);
   });
 
@@ -228,7 +237,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
       }));
     };
 
-    act(() => view.renderTabs(tabs));
+    act(() => showTabs(view, tabs));
     expect(items).toHaveLength(2);
     runNextIdleBatch();
     expect(items).toHaveLength(4);
@@ -413,7 +422,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
       createView({ setSuggestionsVisible });
 
     act(() => {
-      view.render({
+      showSuggestions(view, {
         suggestions: [],
         emptyMessage: 'No results'
       });
@@ -425,7 +434,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     expect(setSuggestionsVisible).toHaveBeenLastCalledWith(true);
 
     act(() => {
-      view.clear();
+      showNothing(view);
     });
     expect(container.childElementCount).toBe(0);
     expect(setSuggestionsVisible).toHaveBeenLastCalledWith(false);
@@ -482,7 +491,7 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     ).not.toBeNull();
 
     act(() => {
-      view.renderTabs([{
+      showTabs(view, [{
         id: 9,
         title: 'Overlay tab',
         url: 'https://example.com/tab'
@@ -505,10 +514,10 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     });
     const tabs = [{ id: 1, title: 'First tab', url: 'https://example.com/first' }];
 
-    act(() => view.renderTabs(tabs));
+    act(() => showTabs(view, tabs));
     const applied = applyThemeVariables.mock.calls.length;
     // The page passes a fresh list of tab objects on every update.
-    act(() => view.renderTabs(tabs.map((tab) => ({ ...tab }))));
+    act(() => showTabs(view, tabs.map((tab) => ({ ...tab }))));
     expect(applyThemeVariables.mock.calls.length).toBe(applied);
   });
 
@@ -520,11 +529,11 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     const first = { id: 1, title: 'First tab', url: 'https://example.com/first' };
     const second = { id: 2, title: 'Second tab', url: 'https://example.com/second' };
 
-    act(() => view.renderTabs([first, second]));
+    act(() => showTabs(view, [first, second]));
     const [firstRow, secondRow] = items;
     expect([firstRow._xIsAutocompleteTop, secondRow._xIsAutocompleteTop]).toEqual([true, false]);
 
-    act(() => view.renderTabs([second, first]));
+    act(() => showTabs(view, [second, first]));
     expect(items[0]).toBe(secondRow);
     expect([secondRow._xIsAutocompleteTop, firstRow._xIsAutocompleteTop]).toEqual([true, false]);
   });

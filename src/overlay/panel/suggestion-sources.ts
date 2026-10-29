@@ -3,7 +3,8 @@
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import { themeMode } from '../../domain/settings/appearance';
-import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
+import type { SuggestionsShownState } from '../../shared/react/search/suggestion-list/types';
+import type { Store } from '../../shared/state/store';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import { releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
@@ -78,7 +79,7 @@ interface SuggestionSourcesDeps {
   getSearchPanelsLayoutTransitionMenu(): unknown;
   pauseOverlayAntiTranslateObserverForMutationBurst(): void;
   setOpenTabsResultsViewport(active: boolean, itemCount?: number): void;
-  ensureOverlaySuggestionsView(): Pick<SuggestionsViewController, 'render'>;
+  suggestionList: Store<SuggestionsShownState>;
   setOverlayResultsCollapsed(collapsed: boolean, options?: { deferLayoutSync?: boolean } | null): void;
   syncSuggestionLastState(): void;
   commitSuggestionsNaturalHeightAfterRender(): void;
@@ -142,7 +143,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     getSearchPanelsLayoutTransitionMenu,
     pauseOverlayAntiTranslateObserverForMutationBurst,
     setOpenTabsResultsViewport,
-    ensureOverlaySuggestionsView,
+    suggestionList,
     setOverlayResultsCollapsed,
     syncSuggestionLastState,
     commitSuggestionsNaturalHeightAfterRender,
@@ -488,7 +489,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       const startIndex = canAppend ? searchResults.rows.length : 0;
       pauseOverlayAntiTranslateObserverForMutationBurst();
       setOpenTabsResultsViewport(false);
-      const reactView = ensureOverlaySuggestionsView();
       searchResults.show(allSuggestions);
       lastRender.record(query, actionContextKey);
       if (updateKind !== 'highlight') {
@@ -501,7 +501,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         : (localSearchQueryModeActive && allSuggestions.length === 0
           ? t('overlay_empty_result', '无匹配结果')
           : '');
-      reactView.render({
+      suggestionList.setState({ shown: { kind: 'suggestions', payload: {
         suggestions: allSuggestions,
         query,
         updateKind,
@@ -514,7 +514,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         mergedProvider,
         emptyMessage,
         emptyArt: slashCommandModeActive ? 'noCommands' : 'noResults'
-      });
+      } } });
       // Reveal only after the target rows render, then adopt their natural
       // height directly in the same commit.
       setOverlayResultsCollapsed(false, {

@@ -2,13 +2,16 @@
 // suggestions view and the mode controller that drives the input's prefix
 // and mode menu. Each is null until the search box mounts it.
 import type { SearchInputParts } from '../../shared/react/search-input';
-import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
+import type { SuggestionsShownState, SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
+import { createStore } from '../../shared/state/store';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 
 class SearchBoxParts {
   private input: SearchInputParts | null = null;
   private view: SuggestionsViewController | null = null;
   private mode: InputModeController | null = null;
+  // What the suggestions view shows, as the suggestions controller sets it.
+  readonly suggestionList = createStore<SuggestionsShownState>({ shown: { kind: 'nothing' } });
 
   get inputParts(): SearchInputParts | null {
     return this.input;

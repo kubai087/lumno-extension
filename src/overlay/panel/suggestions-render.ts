@@ -10,6 +10,7 @@ import type {
   Suggestion,
   SuggestionElement,
   SuggestionsRenderPayload,
+  SuggestionsShownState,
   SuggestionsViewController,
   SuggestionsViewOptions,
   ThemeValue
@@ -17,6 +18,7 @@ import type {
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { OverlaySuggestion } from './types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
+import { createStore } from '../../shared/state/store';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import { searchResultDisplayLimit, tabRankScoreDebug } from '../../domain/settings/search';
@@ -267,7 +269,13 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   // The view, made on first use; it goes with the session.
+  // What the results list shows; the list mounts the first time it shows
+  // something, and draws each change.
+  const suggestionList = createStore<SuggestionsShownState>({ shown: { kind: 'nothing' } });
   let suggestionsView: SuggestionsViewController | null = null;
+  suggestionList.subscribe(() => {
+    ensureOverlaySuggestionsView();
+  });
   function ensureOverlaySuggestionsView(): SuggestionsViewController {
     if (suggestionsView) {
       return suggestionsView;
@@ -280,6 +288,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       surface: 'overlay',
       document,
       portals,
+      list: suggestionList,
       container: elements.suggestionsContainer,
       items: suggestionItems,
       t,
@@ -376,12 +385,12 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
 
   function renderOverlayEmptyState(message: string, art?: SuggestionsRenderPayload['emptyArt']): void {
     pauseOverlayAntiTranslateObserverForMutationBurst();
-    ensureOverlaySuggestionsView().render({
+    suggestionList.setState({ shown: { kind: 'suggestions', payload: {
       suggestions: [],
       query: searchQuery.text,
       emptyMessage: message || t('overlay_empty_result', '无匹配结果'),
       emptyArt: art || 'noResults'
-    });
+    } } });
   }
 
   function renderTabSuggestions(tabList: OverlayTab[]): void {
@@ -390,7 +399,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     if (container) {
       container.removeAttribute('data-scope-result-enter');
     }
-    const reactView = ensureOverlaySuggestionsView();
     suggestionItems.length = 0;
     searchResults.show([]);
     lastRender.clear();
@@ -405,7 +413,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       commitSuggestionsNaturalHeightAfterRender();
       return;
     }
-    reactView.renderTabs(list);
+    suggestionList.setState({ shown: { kind: 'tabs', tabs: list } });
     if (container) {
       container.scrollTop = 0;
     }
@@ -493,7 +501,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   function clearDefaultOpenTabsSuggestions(): void {
-    ensureOverlaySuggestionsView().clear();
+    suggestionList.setState({ shown: { kind: 'nothing' } });
     setOpenTabsResultsViewport(false);
     if (elements.suggestionsContainer) {
       elements.suggestionsContainer.removeAttribute('data-scope-result-enter');
@@ -512,7 +520,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     scrollSelectedSuggestionIntoView,
     getSearchPanelsLayoutTransitionMenu,
     commitSuggestionsNaturalHeightAfterRender,
-    ensureOverlaySuggestionsView,
+    suggestionList,
     renderTabSuggestions,
     renderCachedTabsForOverlay,
     renderCachedTabsOrRequest,

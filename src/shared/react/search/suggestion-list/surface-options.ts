@@ -6,6 +6,7 @@ import type {
   ModifierState,
   QueryStore,
   NormalizedOptions,
+  SuggestionsShownState,
   SuggestionSelection,
   SuggestionsViewOptions
 } from './types';
@@ -307,6 +308,7 @@ export function normalizeOptions(raw: SuggestionsViewOptions): NormalizedOptions
     surface: raw.surface === 'overlay' ? 'overlay' : 'newtab',
     document: documentRef,
     container: raw.container,
+    list: raw.list || createStore<SuggestionsShownState>({ shown: { kind: 'nothing' } }),
     portals: raw.portals,
     items: Array.isArray(raw.items) ? raw.items : [],
     actionModel: raw.actionModel || {},

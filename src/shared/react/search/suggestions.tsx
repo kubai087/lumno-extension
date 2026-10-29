@@ -9,7 +9,8 @@ import type {
   OpenTabSuggestion,
   SuggestionsViewController,
   SuggestionValueRef,
-  SuggestionsRenderPayload
+  SuggestionsRenderPayload,
+  SuggestionListShown
 } from './suggestion-list/types';
 import {
   surfaceClass,
@@ -30,7 +31,9 @@ export type {
   SuggestionElement,
   SuggestionsRenderPayload,
   SuggestionsViewOptions,
-  SuggestionsViewController
+  SuggestionsViewController,
+  SuggestionListShown,
+  SuggestionsShownState
 } from './suggestion-list/types';
 
 function syncItems(options: NormalizedOptions): void {
@@ -46,11 +49,6 @@ function createNoopController(
     ? rawOptions.items
     : [];
   return {
-    render() {},
-    renderTabs() {},
-    clear() {
-      items.length = 0;
-    },
     destroy() {
       items.length = 0;
     },
@@ -247,11 +245,28 @@ class SuggestionsView implements SuggestionsViewController {
     // A help center row shows its passage while hovered or selected.
     this.unsubscribes = [
       options.selection.store.subscribe(() => this.syncHelpPassage()),
-      this.runtime.listState.subscribe(() => this.syncHelpPassage())
+      this.runtime.listState.subscribe(() => this.syncHelpPassage()),
+      options.list.subscribe(() => this.drawShown(options.list.getSnapshot().shown))
     ];
+    // A list made after its owner set what it shows draws that at once.
+    const { shown } = options.list.getSnapshot();
+    if (shown.kind !== 'nothing') {
+      this.drawShown(shown);
+    }
   }
 
-  readonly render = (payload: SuggestionsRenderPayload = {}): void => {
+  // Draws what the list's store shows.
+  private drawShown(shown: SuggestionListShown): void {
+    if (shown.kind === 'suggestions') {
+      this.drawSuggestions(shown.payload);
+    } else if (shown.kind === 'tabs') {
+      this.drawTabs(shown.tabs);
+    } else {
+      this.drawNothing();
+    }
+  }
+
+  private drawSuggestions(payload: SuggestionsRenderPayload = {}): void {
     if (this.destroyed) {
       return;
     }
@@ -297,10 +312,10 @@ class SuggestionsView implements SuggestionsViewController {
     this.lastRenderWasSuggestions = true;
     this.lastSimpleModeEnabled = simpleMode;
     this.syncHelpPassage();
-  };
+  }
 
-  // Renders the open tabs: the first batch now, the rest in idle time.
-  readonly renderTabs = (tabList: OpenTabSuggestion[] = []): void => {
+  // Draws the open tabs: the first batch now, the rest in idle time.
+  private drawTabs(tabList: OpenTabSuggestion[] = []): void {
     if (this.destroyed) {
       return;
     }
@@ -331,9 +346,9 @@ class SuggestionsView implements SuggestionsViewController {
       this.commitTabRows(tabs, renderKeys, renderedCount, simpleMode);
       return renderedCount < tabs.length;
     });
-  };
+  }
 
-  readonly clear = (): void => {
+  private drawNothing(): void {
     if (this.destroyed) {
       return;
     }
@@ -347,7 +362,7 @@ class SuggestionsView implements SuggestionsViewController {
     options.items.length = 0;
     options.selection.select(-1);
     options.setSuggestionsVisible(false);
-  };
+  }
 
   readonly destroy = (): void => {
     if (this.destroyed) {

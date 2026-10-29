@@ -6,14 +6,21 @@ import { queryHtmlElement, queryHtmlElements } from '../../src/shared/dom-lookup
 import * as suggestionActionModel from '../../src/domain/search/suggestion-action-model';
 import {
   createSuggestionsView,
+  type OpenTabSuggestion,
   type Suggestion,
   type SuggestionElement,
+  type SuggestionsRenderPayload,
   type SuggestionsViewController,
   type SuggestionsViewOptions
 } from '../../src/shared/react/search/suggestions';
+import type { SuggestionsShownState } from '../../src/shared/react/search/suggestion-list/types';
+import type { Store } from '../../src/shared/state/store';
+
+// A list view with the store its surface sets to show suggestions or tabs.
+export type SuggestionsHarness = SuggestionsViewController & { list: Store<SuggestionsShownState> };
 import { getTestPortals } from './portals';
 
-let views: SuggestionsViewController[] = [];
+let views: SuggestionsHarness[] = [];
 export const sharedSuggestionActionModel: NonNullable<SuggestionsViewOptions['actionModel']> =
   suggestionActionModel;
 
@@ -121,19 +128,33 @@ export function createOptions(
 export function createView(
   overrides: Partial<SuggestionsViewOptions> = {}
 ) {
-  const result = createOptions(overrides);
-  const view = createSuggestionsView(result.options);
+  const list = createStore<SuggestionsShownState>({ shown: { kind: 'nothing' } });
+  const result = createOptions({ list, ...overrides });
+  const view: SuggestionsHarness = { ...createSuggestionsView(result.options), list };
   views.push(view);
   return { view, ...result };
 }
 
+// What a surface does to show suggestions, tabs or nothing in the list.
+export function showSuggestions(view: SuggestionsHarness, payload: SuggestionsRenderPayload): void {
+  view.list.setState({ shown: { kind: 'suggestions', payload } });
+}
+
+export function showTabs(view: SuggestionsHarness, tabs: OpenTabSuggestion[]): void {
+  view.list.setState({ shown: { kind: 'tabs', tabs } });
+}
+
+export function showNothing(view: SuggestionsHarness): void {
+  view.list.setState({ shown: { kind: 'nothing' } });
+}
+
 export function render(
-  view: SuggestionsViewController,
+  view: SuggestionsHarness,
   suggestions: Suggestion[],
   extra: Record<string, unknown> = {}
 ): void {
   act(() => {
-    view.render({
+    showSuggestions(view, {
       suggestions,
       query: 'exa',
       primaryHighlightIndex: 0,

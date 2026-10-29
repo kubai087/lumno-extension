@@ -2,7 +2,14 @@ import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getTag } from '../../../../tests/react/dom';
 import { queryHtmlElement } from '../../dom-lookup';
-import { createView, destroyViews, render, rowPart } from '../../../../tests/react/suggestions';
+import {
+  createView,
+  destroyViews,
+  render,
+  rowPart,
+  showTabs,
+  showSuggestions
+} from '../../../../tests/react/suggestions';
 
 afterEach(destroyViews);
 
@@ -167,7 +174,7 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
     const { view: passageView, select } = createView({ getHelpPassageHost: () => host });
 
     act(() => {
-      passageView.render({
+      showSuggestions(passageView, {
         query: 'shortcut',
         suggestions: [{
           type: 'helpArticle',
@@ -337,7 +344,7 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
       ).toBeNull();
 
       act(() => {
-        view.renderTabs([{
+        showTabs(view, [{
           id: 42,
           title: 'Example tab',
           url: 'https://example.com/tab'
@@ -350,7 +357,7 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
 
       simpleModeEnabled = true;
       act(() => {
-        view.renderTabs([{
+        showTabs(view, [{
           id: 42,
           title: 'Example tab',
           url: 'https://example.com/tab'

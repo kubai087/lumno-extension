@@ -101,7 +101,7 @@ interface SuggestionsControllerDeps {
   warmIconCache(list: Suggestion[]): void;
   setSuggestionsVisible(visible: boolean): void;
   openCommunityQrDialog?(url: string | undefined): void;
-  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController' | 'suggestionsView'>;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController' | 'suggestionList' | 'suggestionsView'>;
   openTabs: Pick<OpenTabs, 'clear' | 'currentTabId' | 'tabs'>;
   appliedTheme: Pick<AppliedThemeMode, 'mode'>;
 }
@@ -332,9 +332,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     releaseSuggestionsHeight(suggestionsContainer, window);
     searchMode.clearHints();
     clearSiteSearchTabHint();
-    if (searchBox.suggestionsView) {
-      searchBox.suggestionsView.clear();
-    }
+    searchBox.suggestionList.setState({ shown: { kind: 'nothing' } });
     searchResults.show([]);
     searchResults.setLastResponse([]);
     searchResults.select(-1);
@@ -687,7 +685,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           item && item.type !== 'directUrl'
         )));
       }
-      view.render({
+      searchBox.suggestionList.setState({ shown: { kind: 'suggestions', payload: {
         suggestions: allSuggestions,
         query,
         updateKind,
@@ -700,7 +698,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         mergedProvider,
         emptyMessage,
         emptyArt: slashCommandModeActive ? 'noCommands' : 'noResults'
-      });
+      } } });
       // Any answer but rows shown while suggestions are pending lets the
       // list take its own height, and the frame follows it.
       const heightReleased = !(options && options.pendingRemote) &&

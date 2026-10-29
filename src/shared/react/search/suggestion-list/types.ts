@@ -160,6 +160,8 @@ export interface SuggestionsViewOptions {
   surface?: SuggestionsSurface;
   document?: Document;
   container?: HTMLElement | null;
+  // What the list shows; it draws each change.
+  list?: Store<SuggestionsShownState>;
   // The page's React root, which draws the list into its container.
   portals: PortalHost;
   items?: SuggestionElement[];
@@ -299,11 +301,18 @@ export interface SuggestionsViewOptions {
   autoHighlightFirstTab?: boolean;
 }
 
+// What the list shows, as its owner sets it: suggestions (or an empty
+// note), the open tabs, or nothing.
+export type SuggestionListShown =
+  | { kind: 'suggestions'; payload: SuggestionsRenderPayload }
+  | { kind: 'tabs'; tabs: OpenTabSuggestion[] }
+  | { kind: 'nothing' };
+
+export interface SuggestionsShownState {
+  shown: SuggestionListShown;
+}
+
 export interface SuggestionsViewController {
-  render(payload?: SuggestionsRenderPayload): void;
-  renderTabs(tabList?: OpenTabSuggestion[]): void;
-  // Draws the rows again after their themes changed outside the list.
-  clear(): void;
   destroy(): void;
   getAutoHighlightIndex(): number;
   markAutocompleteTop(primaryHighlightIndex: number): void;
@@ -314,6 +323,7 @@ export interface NormalizedOptions {
   surface: SuggestionsSurface;
   document: Document;
   container: HTMLElement;
+  list: Store<SuggestionsShownState>;
   portals: PortalHost;
   items: SuggestionElement[];
   t: Translate;
