@@ -417,8 +417,7 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
   const menuOrder = new SearchModeMenuOrder(settings);
   const searchMatching = new SearchMatching({
     settings: settings,
-    getUrlDisplay: (url) => getUrlDisplay(url),
-    getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args)
+    getUrlDisplay: (url) => getUrlDisplay(url)
   });
   const searchResults = new SearchResults<Suggestion>();
   const suggestionSource = new SuggestionSource(searchQuery, searchResults);
@@ -1197,7 +1196,6 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     t,
     openBookmarkCascadeMenu,
     navigateBookmarkFolder: (...args) => navigateBookmarkFolder(...args),
-    getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args),
     searchEngine
   });
 
@@ -1868,17 +1866,14 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
-    getShortcutRules: (...args) => getShortcutRules(...args),
     modeMenu,
     pageState
   });
 
   const { getNextSuggestionIndex } = NEWTAB_SEARCH_NAVIGATION;
   const {
-    getShortcutRules,
-    buildKeywordSuggestions,
+    quickNavigation,
     getDirectUrlSuggestion,
-    getDirectNavigationUrl,
     getMatchedOpenTabIdForSuggestion,
     shouldSwitchMatchedTabSuggestion,
     refreshTabsForSearchContext,
@@ -1892,7 +1887,6 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     searchQuery,
     settings,
     formatMessage,
-    getExtensionResourceUrl,
     getPageFaviconCandidateUrl,
     resultActivation,
     suggestionItems,
@@ -1950,7 +1944,6 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     refreshTabsForSearchContext,
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    getShortcutRules,
     isModeCommand: (...args) => isModeCommand(...args),
     isZenCommand: (...args) => isZenCommand(...args),
     getScopedThemeMode,
@@ -1960,7 +1953,7 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     buildZenSuggestion: (...args) => buildZenSuggestion(...args),
     buildCommandSuggestion: (...args) => buildCommandSuggestion(...args),
     getDirectUrlSuggestion,
-    buildKeywordSuggestions,
+    quickNavigation,
     siteSearchCatalog,
     searchEngine,
     getProviderIcon,
@@ -1968,7 +1961,6 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
     getUrlDisplay,
-    getDirectNavigationUrl,
     setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
     limitSuggestionsForDisplay,
     t,

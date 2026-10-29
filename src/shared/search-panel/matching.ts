@@ -8,14 +8,12 @@ import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
-
-type NavigationOptions = NonNullable<Parameters<typeof SearchNavigationMatching.promoteStrongNavigationMatch>[2]>;
+import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 
 interface SearchMatchingOptions {
   settings: Pick<SettingsStore, 'get'>;
   // An address as the surface shows it.
   getUrlDisplay(url: string): string;
-  getDirectNavigationUrl: NavigationOptions['getDirectNavigationUrl'];
 }
 
 class SearchMatching {
@@ -92,7 +90,7 @@ class SearchMatching {
 
   readonly promoteStrongNavigationMatch = <T extends SuggestionLike>(list: T[] | null | undefined, rawQuery: unknown): T | null => (
     SearchNavigationMatching.promoteStrongNavigationMatch(list, rawQuery, {
-      getDirectNavigationUrl: this.options.getDirectNavigationUrl,
+      getDirectNavigationUrl: SearchDirectNavigation.getDirectNavigationUrl,
       getUrlDisplay: this.options.getUrlDisplay
     })
   );

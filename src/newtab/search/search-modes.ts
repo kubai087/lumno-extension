@@ -1,11 +1,9 @@
 // Search mode menu and site-search / local-scope activation for the input.
-import type { ShortcutRule } from '../../domain/messages';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { LocalSearchScope, SiteSearchProvider } from '../../domain/search/types';
 import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
-import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
@@ -14,6 +12,7 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
+import { getLoadedShortcutRules, loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -41,7 +40,6 @@ interface SearchModesDeps {
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
-  getShortcutRules(): Promise<ShortcutRule[]>;
   modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   pageState: SearchModesState;
 }
@@ -56,7 +54,6 @@ function createSearchModes(deps: SearchModesDeps) {
     searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
-    getShortcutRules,
     modeMenu
   } = deps;
 
@@ -153,7 +150,7 @@ function createSearchModes(deps: SearchModesDeps) {
         modeActions.activateSiteSearch(directProvider);
         return true;
       }
-      const cachedRules = shortcutRulesCache.rules;
+      const cachedRules = getLoadedShortcutRules();
       const directLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, cachedRules);
       if (siteSearchCatalog.loadedProviders && directLocalScope) {
         modeActions.activateLocalSearchScope(directLocalScope);
@@ -162,7 +159,7 @@ function createSearchModes(deps: SearchModesDeps) {
       void Promise.all([
         siteSearchCatalog.loadProviders(),
         siteSearchCatalog.loadAggregates(),
-        getShortcutRules()
+        loadShortcutRules()
       ]).then(([, , rules]) => {
         if (searchMode.site || searchMode.local ||
             String(getSearchInput().value || '').trim() !== triggerInput) {

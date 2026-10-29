@@ -12,6 +12,7 @@ import { newtabOpenInNewTab } from '../domain/settings/newtab-page';
 import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
 import * as NAVIGATION_DISPOSITION from '../domain/navigation-disposition';
+import * as SearchDirectNavigation from '../domain/search/utils/direct-navigation';
 
 // A shortcut as the page opens it: a site, or a bookmark folder.
 type OpenableShortcut = ShortcutItem | VisibleShortcutItem;
@@ -28,7 +29,6 @@ interface PageNavigationDeps {
   t: Translate;
   openBookmarkCascadeMenu(folder: BookmarkNode & { type: 'folder' }, anchor: HTMLElement | null): void;
   navigateBookmarkFolder(id: string): void;
-  getDirectNavigationUrl(query: string): string;
   searchEngine: Pick<DefaultSearchEngine, 'searchUrl'>;
 }
 
@@ -42,7 +42,6 @@ function createPageNavigation(deps: PageNavigationDeps) {
     t,
     openBookmarkCascadeMenu,
     navigateBookmarkFolder,
-    getDirectNavigationUrl,
     searchEngine
   } = deps;
 
@@ -219,7 +218,7 @@ function createPageNavigation(deps: PageNavigationDeps) {
       });
       return;
     }
-    const directUrl = !forceSearch ? getDirectNavigationUrl(query) : '';
+    const directUrl = !forceSearch ? SearchDirectNavigation.getDirectNavigationUrl(query) : '';
     let targetUrl = query;
     if (directUrl) {
       navigateToUrl(directUrl);

@@ -1,6 +1,6 @@
 // Keys inside the panel: Tab into modes and autocomplete, the input's
 // keydown, and navigating, opening and deleting results.
-import type { ShortcutRule, WebAppearanceMode } from '../../domain/messages';
+import type { WebAppearanceMode } from '../../domain/messages';
 import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
@@ -13,7 +13,6 @@ import type { NumberShortcutOptions } from '../../shared/search/suggestion-navig
 import type { ActivationEvent } from './result-activation';
 import type { SlashCommand } from './slash-commands';
 import type { OverlaySuggestion } from './types';
-import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { macosCtrlSuggestionNavigationEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
@@ -30,6 +29,8 @@ import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history'
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
+import type { QuickNavigation } from '../../shared/search-panel/quick-navigation';
+import { getLoadedShortcutRules, loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -60,7 +61,6 @@ interface PanelKeysDeps {
   cancelPendingOpenTabsPrefixEntry(): boolean;
   modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
-  getShortcutRules(): Promise<ShortcutRule[]>;
   requestOverlaySearchSuggestions(query: string): void;
   clearSearchSuggestions(): void;
   clearOpenTabsSearchMode(): void;
@@ -87,7 +87,7 @@ interface PanelKeysDeps {
   // Called with no rows: the list rebuilds from the typed command.
   updateSearchSuggestions(rows: never[], query: string): void;
   // The address a query leads straight to, or '' to search it.
-  resolveQuickNavigation(query: string): Promise<string>;
+  quickNavigation: Pick<QuickNavigation, 'resolve'>;
   overlayState: PanelKeysState;
 }
 
@@ -108,7 +108,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     cancelPendingOpenTabsPrefixEntry,
     modeMenu,
     activateOpenTabsSearchMode,
-    getShortcutRules,
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode,
@@ -132,7 +131,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     resultActivation,
     isSlashCommandInput,
     updateSearchSuggestions,
-    resolveQuickNavigation
+    quickNavigation
   } = deps;
 
   // The panel state object shared with search-panel.ts and the other modules.
@@ -226,7 +225,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
         modeActions.activateSiteSearch(directProvider);
         return true;
       }
-      const cachedRules = shortcutRulesCache.rules;
+      const cachedRules = getLoadedShortcutRules();
       const directLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, cachedRules);
       if (siteSearchCatalog.loadedProviders && directLocalScope) {
         modeActions.activateLocalSearchScope(directLocalScope);
@@ -235,7 +234,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       void Promise.all([
         siteSearchCatalog.loadProviders(),
         siteSearchCatalog.loadAggregates(),
-        getShortcutRules()
+        loadShortcutRules()
       ]).then(([, , rules]) => {
         // The input may have been replaced while the lists loaded.
         const liveInput = overlayState.searchInput;
@@ -709,7 +708,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
           finishOverlayResultActivation(e, true);
           return;
         }
-        void resolveQuickNavigation(query).then((targetUrl) => {
+        void quickNavigation.resolve(query).then((targetUrl) => {
           if (targetUrl) {
             LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
               action: 'createTab',

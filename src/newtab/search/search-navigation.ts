@@ -1,16 +1,13 @@
 // Keyword and direct-URL suggestions, open-tab matching and quick navigation.
-import type { OverlayTab, ShortcutRule } from '../../domain/messages';
+import type { OverlayTab } from '../../domain/messages';
 import type { Disposition } from '../../domain/navigation-disposition';
 import type { SiteSearchProvider } from '../../domain/search/types';
-import type { BrowserInternalProfile } from '../../platform/browser-profile';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion, SuggestionElement } from '../../shared/react/search/suggestion-list/types';
 import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
 import type { RenderSuggestions, SlashCommand } from './search-types';
-import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
-import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { SettingsStore } from '../../platform/settings-store';
@@ -23,7 +20,7 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
-import * as BROWSER_PROFILE from '../../platform/browser-profile';
+import { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 
 interface SearchNavigationState {
   tabs: OverlayTab[];
@@ -47,7 +44,6 @@ interface SearchNavigationDeps {
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'set'>;
   formatMessage: FormatMessage;
-  getExtensionResourceUrl(resourcePath: string): string;
   getPageFaviconCandidateUrl(pageUrl: string): string;
   resultActivation: ResultActivation;
   suggestionItems: SuggestionElement[];
@@ -80,7 +76,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     searchQuery,
     settings,
     formatMessage,
-    getExtensionResourceUrl,
     getPageFaviconCandidateUrl,
     resultActivation,
     suggestionItems,
@@ -101,97 +96,16 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  function getBrowserPageSuggestionTitle(browserProfile: Readonly<BrowserInternalProfile> | null, targetUrl: string): string {
-    const browserName = browserProfile && browserProfile.name ? browserProfile.name : '';
-    if (browserName) {
-      return formatMessage('open_browser_url', '打开 {browser}：{url}', {
-        browser: browserName,
-        url: targetUrl
-      });
-    }
-    return formatMessage('open_url', '打开 {url}', { url: targetUrl });
-  }
+  const quickNavigation = new QuickNavigation({ locale: { formatMessage }, getFaviconUrl: getPageFaviconCandidateUrl });
 
-  function getShortcutRules(): Promise<ShortcutRule[]> {
-    const cached = shortcutRulesCache.rules;
-    if (cached) {
-      return Promise.resolve(cached);
-    }
-    if (shortcutRulesCache.pending) {
-      return shortcutRulesCache.pending;
-    }
-    const rulesUrl = getExtensionResourceUrl('assets/data/shortcut-rules.json');
-    const rulesPromise = fetch(rulesUrl)
-      .then((response) => response.json())
-      .then((data: unknown) => {
-        const items = readShortcutRules(isRecord(data) ? data.items : null);
-        shortcutRulesCache.rules = items;
-        return items;
-      })
-      .catch(() => new Promise<ShortcutRule[]>((resolve) => {
-        if (!chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
-          shortcutRulesCache.rules = [];
-          resolve([]);
-          return;
-        }
-        LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'getShortcutRules' }, (response) => {
-          const items = response ? readShortcutRules(response.items) : [];
-          shortcutRulesCache.rules = items;
-          resolve(items);
-        });
-      }));
-    shortcutRulesCache.pending = rulesPromise;
-    return rulesPromise;
-  }
 
-  function buildKeywordSuggestions(input: string, rules: readonly ShortcutRule[]): Suggestion[] {
-    const queryLower = input.toLowerCase();
-    const browserProfile = BROWSER_PROFILE.getBrowserInternalProfile(navigator);
-    const scheme = browserProfile.scheme;
-    const matches: Suggestion[] = [];
-    rules.forEach((rule) => {
-      const keys = rule.keys;
-      if (!keys) {
-        return;
-      }
-      const isMatch = keys.some((key) => queryLower.startsWith(key));
-      if (!isMatch) {
-        return;
-      }
-      if (rule.type === 'browserPage' && rule.path) {
-        if (!BROWSER_PROFILE.canOpenBrowserPages(scheme)) {
-          return;
-        }
-        const targetUrl = `${scheme}${rule.path}`;
-        matches.push({
-          type: 'browserPage',
-          title: getBrowserPageSuggestionTitle(browserProfile, targetUrl),
-          url: targetUrl,
-          favicon: getPageFaviconCandidateUrl(targetUrl)
-        });
-      } else if (rule.type === 'url' && rule.url) {
-        matches.push({
-          type: 'browserPage',
-          title: formatMessage('open_url', '打开 {url}', { url: rule.url }),
-          url: rule.url,
-          favicon: getPageFaviconCandidateUrl(rule.url)
-        });
-      }
-    });
-    return matches;
-  }
+
 
   function getDirectUrlSuggestion(input: string): Suggestion | null {
-    const targetUrl = getDirectNavigationUrl(input);
-    if (!targetUrl) {
+    const suggestion: Suggestion | null = quickNavigation.directUrlRow(input);
+    if (!suggestion) {
       return null;
     }
-    const suggestion: Suggestion = {
-      type: 'directUrl',
-      title: formatMessage('open_url', '打开 {url}', { url: targetUrl }),
-      url: targetUrl,
-      favicon: getPageFaviconCandidateUrl(targetUrl)
-    };
     const matchedTab = getMatchedOpenTabForSuggestion(suggestion);
     if (!matchedTab) {
       return suggestion;
@@ -204,9 +118,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     };
   }
 
-  function getDirectNavigationUrl(input: unknown): string {
-    return SearchDirectNavigation.getDirectNavigationUrl(input);
-  }
 
   function normalizeTabMatchUrl(url: unknown): string {
     return SearchNavigationMatching.buildTabMatchUrl(url);
@@ -293,21 +204,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
   // with its final title and switch action on the first visible frame.
   refreshTabsForSearchContext(() => {});
 
-  // The address Enter goes to without a search: a typed address or a
-  // keyword's page; null for neither.
-  function resolveQuickNavigation(query: string): Promise<string | null> {
-    const directUrlSuggestion = getDirectUrlSuggestion(query);
-    if (directUrlSuggestion) {
-      return Promise.resolve(directUrlSuggestion.url || null);
-    }
-    return getShortcutRules().then((rules) => {
-      const keywordSuggestions = buildKeywordSuggestions(query, rules);
-      if (keywordSuggestions.length > 0) {
-        return keywordSuggestions[0].url || null;
-      }
-      return null;
-    });
-  }
 
   // Enter in the search box: a typed command, the highlighted (or
   // automatically highlighted) suggestion, the active search scope, an
@@ -453,7 +349,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       }, query, event);
       return;
     }
-    void resolveQuickNavigation(query).then((targetUrl) => {
+    void quickNavigation.resolve(query).then((targetUrl) => {
       if (targetUrl) {
         resultActivation.openUrl({
           url: targetUrl,
@@ -468,44 +364,16 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
 
   return {
     submitSearchQuery,
-    getShortcutRules,
-    buildKeywordSuggestions,
+    quickNavigation,
     getDirectUrlSuggestion,
-    getDirectNavigationUrl,
     getMatchedOpenTabIdForSuggestion,
     shouldSwitchMatchedTabSuggestion,
-    refreshTabsForSearchContext,
-    resolveQuickNavigation
+    refreshTabsForSearchContext
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
 }
 
 // The shortcut rules in a list read from the bundled file or the
 // background; entries that are not rules are left out.
-function readShortcutRules(value: unknown): ShortcutRule[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const rules: ShortcutRule[] = [];
-  value.forEach((item: unknown) => {
-    if (!isRecord(item)) {
-      return;
-    }
-    const keys = Array.isArray(item.keys) ? item.keys.filter((key: unknown): key is string => typeof key === 'string') : undefined;
-    rules.push({
-      ...(typeof item.type === 'string' ? { type: item.type } : {}),
-      ...(keys ? { keys } : {}),
-      ...(typeof item.path === 'string' ? { path: item.path } : {}),
-      ...(typeof item.url === 'string' ? { url: item.url } : {}),
-      ...(typeof item.searchSourceType === 'string' ? { searchSourceType: item.searchSourceType } : {})
-    });
-  });
-  return rules;
-}
-
 // Whether a row's provider names a site search; rows may leave out its key.
 function isSiteSearchProvider(provider: Partial<SiteSearchProvider> | null | undefined): provider is SiteSearchProvider {
   return Boolean(provider) && typeof provider?.key === 'string';

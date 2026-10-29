@@ -181,8 +181,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const menuOrder = pageMenuOrder;
   const searchMatching = new SearchMatching({
     settings: overlayState.settings.store,
-    getUrlDisplay: (url) => getUrlDisplay(url),
-    getDirectNavigationUrl: (...args) => getDirectNavigationUrl(...args)
+    getUrlDisplay: (url) => getUrlDisplay(url)
   });
   const searchResults = new SearchResults<OverlaySuggestion>();
   const suggestionSource = new SuggestionSource(searchQuery, searchResults);
@@ -422,10 +421,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   };
 
   const {
-    getShortcutRules,
-    getDirectNavigationUrl,
+    quickNavigation,
     getDirectUrlSuggestion,
-    resolveQuickNavigation,
     getHelpCenterLocale,
     updateSearchSuggestions,
     clearSearchSuggestions
@@ -574,7 +571,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     modeMenu,
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
     siteSearchCatalog,
-    getShortcutRules,
     requestOverlaySearchSuggestions,
     clearSearchSuggestions,
     clearOpenTabsSearchMode: (...args) => clearOpenTabsSearchMode(...args),
@@ -598,7 +594,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     resultActivation,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     updateSearchSuggestions,
-    resolveQuickNavigation,
+    quickNavigation,
     overlayState
   });
 

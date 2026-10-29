@@ -7,7 +7,6 @@ import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
@@ -18,6 +17,7 @@ import { getLocalSearchScopeTabHintProvider } from '../../shared/search-panel/la
 import type { SearchLocale } from '../../shared/search-panel/labels';
 import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-search-matching';
 import type { SearchMatching } from '../../shared/search-panel/matching';
+import { getLoadedShortcutRules } from '../../shared/search-panel/shortcut-rules';
 
 interface SearchInputEventsState {
   searchInput: HTMLInputElement | null;
@@ -166,7 +166,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       return;
     }
 
-    const shortcutRules = shortcutRulesCache.rules;
+    const shortcutRules = getLoadedShortcutRules();
     const localScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, shortcutRules);
     if (localScope) {
       searchMode.setTriggers(null, { scope: localScope, rawInput: triggerInput });

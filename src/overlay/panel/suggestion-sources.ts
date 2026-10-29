@@ -1,12 +1,8 @@
 // Building suggestions: keywords, direct navigation, help center
 // answers, and the update that merges local, tab and remote results.
-import type { ShortcutRule } from '../../domain/messages';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import { themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
-import { readShortcutRules } from '../../domain/shortcut-rules-reader';
-import * as BROWSER_PROFILE from '../../platform/browser-profile';
-import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import { releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
@@ -18,7 +14,6 @@ import type {
   OverlaySuggestion,
   Translate
 } from './types';
-import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
@@ -40,6 +35,8 @@ import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
 import { HelpCenterRows } from '../../shared/search-panel/help-center-rows';
+import { QuickNavigation } from '../../shared/search-panel/quick-navigation';
+import { loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
 
 interface SuggestionSourcesState {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
@@ -157,122 +154,22 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   // Lumno Help Center search lists the matching help pages under its search row.
   let pendingProviderReload = false;
 
-  function getBrowserPageSuggestionTitle(browserProfile: { name: string } | null, targetUrl: string): string {
-    const browserName = browserProfile && browserProfile.name ? browserProfile.name : '';
-    if (browserName) {
-      return formatMessage('open_browser_url', '打开 {browser}：{url}', {
-        browser: browserName,
-        url: targetUrl
-      });
-    }
-    return formatMessage('open_url', '打开 {url}', { url: targetUrl });
-  }
-
-  // The shortcut rules, read once per page; through the worker when this
-  // page's copy of the extension cannot fetch its own files.
-  function getShortcutRules(): Promise<ShortcutRule[]> {
-    const cachedRules = shortcutRulesCache.rules;
-    if (cachedRules) {
-      return Promise.resolve(cachedRules);
-    }
-    const pendingRules = shortcutRulesCache.pending;
-    if (pendingRules) {
-      return pendingRules;
-    }
-    const rulesUrl = chrome.runtime.getURL('assets/data/shortcut-rules.json');
-    const rulesPromise = fetch(rulesUrl)
-      .then((response) => response.json())
-      .then((data: unknown) => {
-        const items = readShortcutRules(data);
-        shortcutRulesCache.rules = items;
-        return items;
-      })
-      .catch(() => new Promise<ShortcutRule[]>((resolve) => {
-        LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'getShortcutRules' }, (response) => {
-          const items = response && Array.isArray(response.items) ? response.items : [];
-          shortcutRulesCache.rules = items;
-          resolve(items);
-        });
-      }));
-    shortcutRulesCache.pending = rulesPromise;
-    return rulesPromise;
-  }
-
-  function buildKeywordSuggestions(input: string, rules: ShortcutRule[]): OverlaySuggestion[] {
-    const queryLower = input.toLowerCase();
-    const browserProfile = BROWSER_PROFILE.getBrowserInternalProfile(navigator);
-    const scheme = browserProfile.scheme;
-    const matches: OverlaySuggestion[] = [];
-    rules.forEach((rule) => {
-      if (!rule || !Array.isArray(rule.keys)) {
-        return;
-      }
-      const isMatch = rule.keys.some((key: string) => queryLower.startsWith(key));
-      if (!isMatch) {
-        return;
-      }
-      if (rule.type === 'browserPage' && rule.path) {
-        if (!BROWSER_PROFILE.canOpenBrowserPages(scheme)) {
-          return;
-        }
-        const targetUrl = `${scheme}${rule.path}`;
-        matches.push({
-          type: 'browserPage',
-          title: getBrowserPageSuggestionTitle(browserProfile, targetUrl),
-          url: targetUrl,
-          favicon: getPageFaviconCandidateUrl(targetUrl)
-        });
-      } else if (rule.type === 'url' && rule.url) {
-        matches.push({
-          type: 'browserPage',
-          title: formatMessage('open_url', '打开 {url}', { url: rule.url }),
-          url: rule.url,
-          favicon: getPageFaviconCandidateUrl(rule.url)
-        });
-      }
-    });
-    return matches;
-  }
-
-  function getDirectNavigationUrl(input: string): string {
-    return SearchDirectNavigation.getDirectNavigationUrl(input);
-  }
+  const quickNavigation = new QuickNavigation({ locale, getFaviconUrl: getPageFaviconCandidateUrl });
 
   // The row that opens a typed address, or null when it is no address.
   function getDirectUrlSuggestion(input: string): OverlaySuggestion | null {
-    const targetUrl = getDirectNavigationUrl(input);
-    if (!targetUrl) {
+    const row = quickNavigation.directUrlRow(input);
+    if (!row) {
       return null;
     }
-    let isLocalNetwork = isLocalNetworkInput(input);
-    if (!isLocalNetwork) {
-      const host = getHostFromUrl(targetUrl);
-      isLocalNetwork = isLocalNetworkHost(host);
-    }
     return {
-      type: 'directUrl',
-      title: formatMessage('open_url', '打开 {url}', { url: targetUrl }),
-      url: targetUrl,
-      favicon: getPageFaviconCandidateUrl(targetUrl),
-      isLocalNetwork: isLocalNetwork
+      ...row,
+      isLocalNetwork: isLocalNetworkInput(input) || isLocalNetworkHost(getHostFromUrl(row.url))
     };
   }
 
-  // The address a query opens without searching: a typed address or a
-  // shortcut rule's page; '' when there is none.
-  function resolveQuickNavigation(query: string): Promise<string> {
-    const directUrlSuggestion = getDirectUrlSuggestion(query);
-    if (directUrlSuggestion) {
-      return Promise.resolve(directUrlSuggestion.url || '');
-    }
-    return getShortcutRules().then((rules) => {
-      const keywordSuggestions = buildKeywordSuggestions(query, rules);
-      if (keywordSuggestions.length > 0) {
-        return keywordSuggestions[0].url || '';
-      }
-      return '';
-    });
-  }
+
+
 
   function getSuggestionUpdateKind(
     options: Parameters<typeof SUGGESTION_ACTION_MODEL.getSuggestionUpdateKind>[0]
@@ -341,7 +238,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         forceSearch: true
       };
 
-    void getShortcutRules().then((rules) => {
+    void loadShortcutRules().then((rules) => {
       if (query !== searchQuery.text) {
         return;
       }
@@ -364,7 +261,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
         if (directUrlSuggestion && !isCurrentOverlayTabUrl(directUrlSuggestion.url || '')) {
           preSuggestions.push(directUrlSuggestion);
         }
-        const keywordSuggestions = buildKeywordSuggestions(query, rules);
+        const keywordSuggestions = quickNavigation.keywordRows(query, rules);
         preSuggestions.push(...keywordSuggestions);
       }
 
@@ -484,7 +381,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
                 prioritizeCurrentPageMatch: overlayState.prioritizeCurrentPageMatch,
                 currentTabId: overlayState.currentOverlayTabId === null ? undefined : overlayState.currentOverlayTabId,
                 openTabQuickSwitchEnabled: overlayState.settings.get(overlayTabPriority),
-                getDirectNavigationUrl
+                getDirectNavigationUrl: SearchDirectNavigation.getDirectNavigationUrl
               }
             : null,
           matchers: {
@@ -665,10 +562,8 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   }
 
   return {
-    getShortcutRules,
-    getDirectNavigationUrl,
+    quickNavigation,
     getDirectUrlSuggestion,
-    resolveQuickNavigation,
     getHelpCenterLocale,
     updateSearchSuggestions,
     clearSearchSuggestions

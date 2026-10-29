@@ -1,5 +1,5 @@
 // Requesting, rendering and activating search suggestions.
-import type { OverlayTab, ShortcutRule } from '../../domain/messages';
+import type { OverlayTab } from '../../domain/messages';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings';
@@ -51,6 +51,9 @@ import * as NEWTAB_DIRECT_NAVIGATION_SETTLE from './direct-navigation-settle';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import { HelpCenterRows } from '../../shared/search-panel/help-center-rows';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import type { QuickNavigation } from '../../shared/search-panel/quick-navigation';
+import { loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
+import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 
 interface SuggestionsControllerState {
   suggestionsView: SuggestionsViewController | null;
@@ -88,7 +91,6 @@ interface SuggestionsControllerDeps {
   refreshTabsForSearchContext: SearchNavigation['refreshTabsForSearchContext'];
   clearSiteSearchTabHint: SearchModeController['clearSiteSearchTabHint'];
   isSlashCommandInput(query: string): boolean;
-  getShortcutRules(): Promise<ShortcutRule[]>;
   isModeCommand(query: string): boolean;
   isZenCommand(query: string): boolean;
   // The theme mode the page follows: its own, or the global one.
@@ -99,14 +101,13 @@ interface SuggestionsControllerDeps {
   buildZenSuggestion(): Suggestion;
   buildCommandSuggestion(command: SlashCommand): Suggestion;
   getDirectUrlSuggestion: SearchNavigation['getDirectUrlSuggestion'];
-  buildKeywordSuggestions: SearchNavigation['buildKeywordSuggestions'];
+  quickNavigation: Pick<QuickNavigation, 'keywordRows'>;
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   formatMessage: FormatMessage;
   getMatchedOpenTabIdForSuggestion: SearchNavigation['getMatchedOpenTabIdForSuggestion'];
   // The suggestions the search blacklist does not leave out.
   filterBlacklistedSuggestions(list: Suggestion[], query: string): Suggestion[];
   getUrlDisplay(url: string | undefined): string;
-  getDirectNavigationUrl: SearchNavigation['getDirectNavigationUrl'];
   setSiteSearchTabHint: SearchModeController['setSiteSearchTabHint'];
   // The rows the list shows; `uncapped` keeps every command.
   limitSuggestionsForDisplay(list: Suggestion[], options: { uncapped: boolean }): Suggestion[];
@@ -159,7 +160,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     refreshTabsForSearchContext,
     clearSiteSearchTabHint,
     isSlashCommandInput,
-    getShortcutRules,
     isModeCommand,
     isZenCommand,
     getScopedThemeMode,
@@ -169,13 +169,12 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     buildZenSuggestion,
     buildCommandSuggestion,
     getDirectUrlSuggestion,
-    buildKeywordSuggestions,
+    quickNavigation,
     getProviderIcon,
     formatMessage,
     getMatchedOpenTabIdForSuggestion,
     filterBlacklistedSuggestions,
     getUrlDisplay,
-    getDirectNavigationUrl,
     setSiteSearchTabHint,
     limitSuggestionsForDisplay,
     t,
@@ -400,7 +399,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }
     searchResults.setLastResponse(suggestions);
 
-    return getShortcutRules().then((rules) => {
+    return loadShortcutRules().then((rules) => {
       const view = pageState.suggestionsView;
       if (pageState.searchSuggestionsDismissed || query !== searchQuery.text || !view) {
         return;
@@ -440,7 +439,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         if (directUrlSuggestion) {
           preSuggestions.push(directUrlSuggestion);
         }
-        const keywordSuggestions = buildKeywordSuggestions(query, rules);
+        const keywordSuggestions = quickNavigation.keywordRows(query, rules);
         preSuggestions.push(...keywordSuggestions);
       }
 
@@ -591,7 +590,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
             ? {
                 ...(pageState.currentNewtabTabId === null ? {} : { currentTabId: pageState.currentNewtabTabId }),
                 openTabQuickSwitchEnabled: settings.get(overlayTabPriority),
-                getDirectNavigationUrl
+                getDirectNavigationUrl: SearchDirectNavigation.getDirectNavigationUrl
               }
             : null,
           matchers: {

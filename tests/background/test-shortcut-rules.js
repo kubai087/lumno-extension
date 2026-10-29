@@ -109,22 +109,20 @@ function testBrowserProfileRuntimeWiring() {
   );
 }
 
-// New Tab's keyword suggestions ("ext " opens the extensions page) should
+// The search panels' keyword rows ("ext " opens the extensions page) should
 // point at the browser the page runs in.
-function testNewtabKeywordSuggestionsFollowTheBrowser() {
+function testKeywordRowsFollowTheBrowser() {
   const rules = [{ type: 'browserPage', keys: ['ext '], path: 'extensions' }];
   const suggestionsFor = (userAgent) => {
     const context = vm.createContext({ navigator: { userAgent }, URL, chrome: null });
     context.window = context;
     context.globalThis = context;
-    const BROWSER_PROFILE = runModuleInContext('src/platform/browser-profile.ts', context, '__profile');
-    const { createSearchNavigation } = runModuleInContext('src/newtab/search/search-navigation.ts', context, '__navigation');
-    const navigation = createSearchNavigation({
-      BROWSER_PROFILE,
-      formatMessage: (_key, fallback, values) => fallback.replace(/\{(\w+)\}/g, (_match, name) => values[name]),
-      getPageFaviconCandidateUrl: () => ''
+    const { QuickNavigation } = runModuleInContext('src/shared/search-panel/quick-navigation.ts', context, '__navigation');
+    const navigation = new QuickNavigation({
+      locale: { formatMessage: (_key, fallback, values) => fallback.replace(/\{(\w+)\}/g, (_match, name) => values[name]) },
+      getFaviconUrl: () => ''
     });
-    return Array.from(navigation.buildKeywordSuggestions('ext lumno', rules), (item) => ({ url: item.url, title: item.title }));
+    return Array.from(navigation.keywordRows('ext lumno', rules), (item) => ({ url: item.url, title: item.title }));
   };
   assert.deepStrictEqual(
     suggestionsFor('Mozilla/5.0 Chrome/149 Safari/537.36 Edg/149'),
@@ -209,7 +207,7 @@ function testBundledChromePageRules() {
   testBrowserScheme();
   testBrowserProfileUsesClientHintBrand();
   testBrowserProfileRuntimeWiring();
-  testNewtabKeywordSuggestionsFollowTheBrowser();
+  testKeywordRowsFollowTheBrowser();
   testShortcutUrlMatching();
   await testInstanceShortcutUrl();
   testBundledChromePageRules();
