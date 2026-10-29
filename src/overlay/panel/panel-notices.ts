@@ -15,6 +15,7 @@ import type { ActivationEvent } from './result-activation';
 import type { Translate } from './types';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import * as COMMUNITY_LINKS from '../../platform/community-links';
+import type { PortalHost } from '../../shared/react/portal-host';
 
 interface PanelNoticesState {
   overlay: HTMLElement | null;
@@ -25,6 +26,8 @@ interface PanelNoticesState {
 }
 
 interface PanelNoticesDeps {
+  // The panel's React root, which draws the notices.
+  portals: PortalHost;
   removeOverlay(overlay: HTMLElement | null): void;
   t: Translate;
   getOpenDisposition(event: ActivationEvent | null, fallback?: Disposition): Disposition;
@@ -34,6 +37,7 @@ interface PanelNoticesDeps {
 
 function createPanelNotices(deps: PanelNoticesDeps) {
   const {
+    portals,
     removeOverlay,
     t,
     getOpenDisposition,
@@ -65,6 +69,7 @@ function createPanelNotices(deps: PanelNoticesDeps) {
     );
   }
   overlayState.overlayUpdateNoticeController = UPDATE_NOTICE.createUpdateNotice({
+    portals,
     documentObj: document,
     featureHints: FEATURE_HINTS,
     chromeApi: chrome,
@@ -92,6 +97,7 @@ function createPanelNotices(deps: PanelNoticesDeps) {
   }
   // Shows only when the update notice leaves this session's slot free.
   overlayState.overlayGraphicsNoticeController = GRAPHICS_NOTICE.createGraphicsNotice({
+    portals,
     documentObj: document,
     chromeApi: chrome,
     surface: 'overlay',
@@ -117,6 +123,7 @@ function createPanelNotices(deps: PanelNoticesDeps) {
   });
   overlayState.overlayEngagementNoticeController =
     ENGAGEMENT_NOTICE.createEngagementNotice({
+      portals,
       documentObj: document,
       featureHints: FEATURE_HINTS,
       chromeApi: chrome,

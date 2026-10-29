@@ -1,26 +1,20 @@
-// The Toast of the extension's own pages, drawn by React.
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+// The Toast of the extension's own pages, drawn by the page's React root.
+import type { PortalHost } from './portal-host';
 import { NOOP_CONTROLLER, ToastScreen } from '../ui/toast-screen';
 import type { ToastController, ToastControllerOptions, ToastSurface } from '../ui/toast-screen';
 
-function createReactSurface(host: HTMLElement): ToastSurface {
-  const reactRoot = createRoot(host);
+function createReactSurface(host: HTMLElement, portals: PortalHost): ToastSurface {
   host.setAttribute('data-react-island', 'toast');
   return {
     render(text, tone) {
-      flushSync(() => {
-        reactRoot.render(
-          tone === 'loading' ? (
-            <>
-              <span aria-hidden="true" className="x-lumno-toast-spinner" />
-              {text}
-            </>
-          ) : (
-            text
-          )
-        );
-      });
+      portals.show(host, tone === 'loading' ? (
+        <>
+          <span aria-hidden="true" className="x-lumno-toast-spinner" />
+          {text}
+        </>
+      ) : (
+        text
+      ));
       if (tone) {
         host.setAttribute('data-tone', tone);
       } else {
@@ -32,16 +26,15 @@ function createReactSurface(host: HTMLElement): ToastSurface {
       host.setAttribute('data-show', 'false');
     },
     destroy() {
-      flushSync(() => {
-        reactRoot.unmount();
-      });
+      portals.remove(host);
     }
   };
 }
 
 export function createToastController(
   toastElement: HTMLElement | null,
+  portals: PortalHost,
   options?: ToastControllerOptions | null
 ): ToastController {
-  return toastElement ? new ToastScreen(createReactSurface(toastElement), options) : NOOP_CONTROLLER;
+  return toastElement ? new ToastScreen(createReactSurface(toastElement, portals), options) : NOOP_CONTROLLER;
 }

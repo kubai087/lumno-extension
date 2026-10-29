@@ -10,7 +10,7 @@ import type {
   CursorPointInput,
   CursorTooltipController,
   CursorTooltipHideOptions,
-  CursorTooltipOptions,
+  CursorTooltipControllerOptions, CursorTooltipOptions,
   CursorTooltipTextSource,
   CursorTooltipWindow,
   ListenerTarget
@@ -200,8 +200,8 @@ function listenToBoundTarget(
   target.addEventListener('blur', onLeave);
 }
 
-function createController(options?: CursorTooltipOptions | null): CursorTooltipController {
-  const config: CursorTooltipOptions = options || {};
+function createController(options: CursorTooltipControllerOptions): CursorTooltipController {
+  const config = options;
   const surface = createCursorSurface(config);
   let activeBinding: ActiveBinding | null = null;
   let detachModifierListeners: (() => void) | null = null;

@@ -9,6 +9,7 @@ import type { SettingsStoreChromeApi } from '../platform/settings-areas';
 import * as LumnoFeatureHints from './ui/feature-hints';
 import type { FeatureHintController, FeatureHintDefinition } from './ui/feature-hint-catalog';
 import { engagementNoticeState } from '../domain/settings/features';
+import type { PortalHost } from './react/portal-host';
 
 type EngagementSurface = 'newtab' | 'overlay';
 
@@ -44,6 +45,8 @@ interface EngagementChromeApi extends SettingsStoreChromeApi {
 type EngagementAction = 'review' | 'community';
 
 interface EngagementNoticeOptions {
+  // The surface's React root, which draws the notice.
+  portals: PortalHost;
   documentObj?: Document | null;
   windowObj?: Partial<Pick<Window, 'setTimeout' | 'clearTimeout'>> | null;
   chromeApi?: EngagementChromeApi | null;
@@ -444,6 +447,7 @@ function createNoticeHint(invitation: EngagementInvitation, settings: Engagement
   const communityChannel = getCommunityChannel(config.locale);
   const wordmarkSrc = getExtensionAssetUrl(chromeApi, 'assets/images/lumno-wordmark-mask.svg', '../../assets/images/lumno-wordmark-mask.svg');
   return featureHints.createFeatureHint({
+    portals: config.portals,
     documentObj,
     definition: createEngagementNoticeDefinition(settings.surface),
     chromeApi,
@@ -479,8 +483,8 @@ function createNoticeHint(invitation: EngagementInvitation, settings: Engagement
   });
 }
 
-function createEngagementNotice(options?: EngagementNoticeOptions | null): EngagementNoticeController | null {
-  const config: EngagementNoticeOptions = options || {};
+function createEngagementNotice(options: EngagementNoticeOptions): EngagementNoticeController | null {
+  const config = options;
   if (!ENGAGEMENT_NOTICE_ENABLED && config.forceEnabledForTesting !== true) {
     return null;
   }

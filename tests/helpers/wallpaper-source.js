@@ -10,7 +10,8 @@ const WALLPAPER_DEPENDENCY_GLOBALS = Object.freeze({
   'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore',
   'src/shared/wallpaper-caches.ts': 'LumnoNewtabWallpaperLocalStore',
   'src/newtab/react/wallpaper-view.tsx': 'LumnoNewtabWallpaperViewModule',
-  'src/shared/react/feature-hint-view.tsx': 'LumnoFeatureHintViewModule'
+  'src/shared/react/feature-hint-view.tsx': 'LumnoFeatureHintViewModule',
+  'src/newtab/app/portals.ts': 'LumnoNewtabPortalsModule'
 });
 
 // The runtime as the page runs it, for evaluating in a test context: a

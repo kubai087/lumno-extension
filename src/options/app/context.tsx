@@ -12,8 +12,11 @@ import type { BrowserCommands } from '../features/shortcuts/browser-commands';
 import type { SiteSearchProviders } from '../features/site-search/providers';
 import type { createSearchSourceOrderController } from '../options-search-source-order';
 import type { GetMessage } from '../options-types';
+import type { PortalHost } from '../../shared/react/portal-host';
 
 interface OptionsPage {
+  // The page's React root, which draws its tooltips too.
+  portals: PortalHost;
   settingsStore: SettingsStore;
   locale: SurfaceLocale;
   commands: BrowserCommands;

@@ -229,6 +229,7 @@ function buildViewModel(setup: FeatureHintSetup): FeatureHintViewModel {
 function createHintView(setup: FeatureHintSetup, onDismiss: () => void): FeatureHintViewController | null {
   const { config, hint, actions } = setup;
   return createFeatureHintView({
+    portals: config.portals,
     documentObj: setup.page,
     model: buildViewModel(setup),
     labels: { actions: {}, badge: '', close: '', connector: '', link: '', text: '', trailing: '' },
@@ -409,8 +410,8 @@ function createFeatureHintContext(setup: FeatureHintSetup, view: FeatureHintView
   };
 }
 
-function createFeatureHint(options?: FeatureHintOptions | null): FeatureHintController | null {
-  const config: FeatureHintOptions = options || {};
+function createFeatureHint(options: FeatureHintOptions): FeatureHintController | null {
+  const config = options;
   const documentObj = config.documentObj || (typeof document !== 'undefined' ? document : null);
   const definition = getFeatureHint(config.definition || config.id || config.hint);
   if (!definition || !documentObj) {

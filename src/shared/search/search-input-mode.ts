@@ -62,6 +62,7 @@ function createModeMenuTooltip(config: InputModeConfig, parts: InputModeParts, d
     return { controller: provided, owned: null };
   }
   const owned = LumnoCursorTooltip.createController({
+    portals: parts.portals,
     documentObj: doc,
     windowObj: win,
     appendTo: doc.body,

@@ -24,7 +24,9 @@ const REAL_WALLPAPER_DEPENDENCIES = {
   LumnoNewtabWallpaperEffects: LumnoNewtabWallpaperEffects,
   LumnoNewtabWallpaperLocalStore: LumnoNewtabWallpaperLocalStore,
   LumnoNewtabWallpaperViewModule: { createWallpaperViewController: createRecordingWallpaperViewController },
-  LumnoFeatureHintViewModule: { createFeatureHintView: () => null }
+  LumnoFeatureHintViewModule: { createFeatureHintView: () => null },
+  // The hint view above draws nothing, so the page's root is never asked for.
+  LumnoNewtabPortalsModule: { getPagePortals: () => null }
 };
 
 const WALLPAPER_STORAGE_KEY = '_x_extension_newtab_wallpaper_2026_unique_';

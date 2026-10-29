@@ -5,7 +5,7 @@ import { getElementRect, getNumber, placeTooltipAt, prepareTooltipFrame } from '
 import { renderCursorTag } from '../react/tooltip-view';
 import { removeTooltipElement } from './tooltip';
 import { DEFAULT_VISIBLE_ATTRIBUTE, TAG_CLASS } from './cursor-tooltip-model';
-import type { CursorPointInput, CursorTooltipOptions, CursorTooltipPosition } from './cursor-tooltip-model';
+import type { CursorPointInput, CursorTooltipControllerOptions, CursorTooltipOptions, CursorTooltipPosition } from './cursor-tooltip-model';
 import { createElement, getWindow } from './cursor-tooltip-points';
 
 interface CursorTag {
@@ -63,7 +63,7 @@ function drawTag(tag: HTMLElement, text: string, options: CursorTooltipOptions):
 
 function createCursorTag(
   documentObj: Document | null,
-  config: CursorTooltipOptions,
+  config: CursorTooltipControllerOptions,
   appendToPage: (node: HTMLElement) => void
 ): CursorTag {
   let tagElement: HTMLElement | null = null;

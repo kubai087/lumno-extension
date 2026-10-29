@@ -6,23 +6,28 @@ import * as LumnoTooltip from '../../shared/ui/tooltip';
 import type { InteractionBrowserAvatars, InteractionInfoTooltip } from '../react/interactions';
 import type { OnboardingFlow } from '../features/flow';
 import { getRuntimeMiscText } from '../features/visual-model';
+import type { PortalHost } from '../../shared/react/portal-host';
 
 class OnboardingTooltips {
-  private readonly info = LumnoTooltip.createController({
-    id: '_x_extension_onboarding_info_tooltip_2026_unique_',
-    className: 'onboarding-info-tooltip',
-    maxWidth: 360
-  });
-  private readonly action = LumnoTooltip.createController({
-    id: '_x_extension_onboarding_action_tooltip_2026_unique_',
-    className: 'onboarding-info-tooltip',
-    maxWidth: 360
-  });
+  private readonly info: LumnoTooltip.TooltipController;
+  private readonly action: LumnoTooltip.TooltipController;
   private readonly win: Window;
   // Whose copy the browser names are joined with.
   private readonly flow: OnboardingFlow;
 
-  constructor(win: Window, flow: OnboardingFlow) {
+  constructor(win: Window, flow: OnboardingFlow, portals: PortalHost) {
+    this.info = LumnoTooltip.createController({
+      portals,
+      id: '_x_extension_onboarding_info_tooltip_2026_unique_',
+      className: 'onboarding-info-tooltip',
+      maxWidth: 360
+    });
+    this.action = LumnoTooltip.createController({
+      portals,
+      id: '_x_extension_onboarding_action_tooltip_2026_unique_',
+      className: 'onboarding-info-tooltip',
+      maxWidth: 360
+    });
     this.win = win;
     this.flow = flow;
   }

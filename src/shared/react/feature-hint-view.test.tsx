@@ -6,6 +6,7 @@ import {
 } from './feature-hint-view';
 import { queryHtmlTag } from '../dom-lookup';
 import { required } from '../../../tests/react/dom';
+import { getTestPortals } from '../../../tests/react/portals';
 
 let controllers: FeatureHintViewController[] = [];
 
@@ -23,6 +24,7 @@ describe('Feature hint React view', () => {
     const created: { controller: FeatureHintViewController | null } = { controller: null };
     act(() => {
       created.controller = createFeatureHintView({
+        portals: getTestPortals(),
         labels: {
           actions: {
             community: 'Join community',
@@ -108,6 +110,7 @@ describe('Feature hint React view', () => {
     const created: { controller: FeatureHintViewController | null } = { controller: null };
     act(() => {
       created.controller = createFeatureHintView({
+        portals: getTestPortals(),
         labels: {
           actions: {
             community: '进群',

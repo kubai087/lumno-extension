@@ -2,6 +2,7 @@
 // and the feature hint view (src/shared/react/feature-hint-view.tsx).
 
 import type { RemixIconSpec } from '../shared/ui/remix-icon';
+import type { PortalHost } from '../shared/react/portal-host';
 
 export interface TooltipElementOptions {
   className?: string;
@@ -68,6 +69,7 @@ export interface FeatureHintViewLabels {
 }
 
 export interface FeatureHintViewOptions {
+  portals: PortalHost;
   documentObj?: Document;
   labels: FeatureHintViewLabels;
   model: FeatureHintViewModel;

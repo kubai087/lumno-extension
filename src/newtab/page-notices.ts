@@ -21,6 +21,7 @@ import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import * as FEATURE_HINTS from '../shared/ui/feature-hints';
 import * as COMMUNITY_LINKS from '../platform/community-links';
+import { getPagePortals } from './app/portals';
 
 interface PageNoticesState {
   updateNoticeController: UpdateNoticeController | null;
@@ -164,6 +165,7 @@ function createPageNotices(deps: PageNoticesDeps) {
     return Boolean(pageState.graphicsNoticeController && pageState.graphicsNoticeController.hasSessionSlot());
   }
   pageState.updateNoticeController = UPDATE_NOTICE.createUpdateNotice({
+    portals: getPagePortals(),
     documentObj: document,
     featureHints: FEATURE_HINTS,
     chromeApi: chrome,
@@ -186,6 +188,7 @@ function createPageNotices(deps: PageNoticesDeps) {
   // Shows only when the update notice leaves this page view's slot free.
   function createNewtabGraphicsNoticeController(): GraphicsNoticeController | null {
     return GRAPHICS_NOTICE.createGraphicsNotice({
+      portals: getPagePortals(),
       documentObj: document,
       chromeApi: chrome,
       surface: 'newtab',
@@ -210,6 +213,7 @@ function createPageNotices(deps: PageNoticesDeps) {
   }
   function createNewtabEngagementNoticeController(): EngagementNoticeController | null {
     return ENGAGEMENT_NOTICE.createEngagementNotice({
+      portals: getPagePortals(),
       documentObj: document,
       featureHints: FEATURE_HINTS,
       chromeApi: chrome,
@@ -290,6 +294,7 @@ function createPageNotices(deps: PageNoticesDeps) {
       return newtabEntryAnimationReadyPromise.then(() => false);
     }
     const askHint = FEATURE_HINTS.createFeatureHint({
+      portals: getPagePortals(),
       documentObj: document,
       windowObj: window,
       chromeApi: chrome,

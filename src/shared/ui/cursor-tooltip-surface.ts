@@ -4,7 +4,7 @@
 import * as LumnoTooltip from './tooltip';
 import { getClearTimeout, getNumber, getRequestAnimationFrame, getSetTimeout } from './tooltip-frame';
 import { DEFAULT_VISIBLE_ATTRIBUTE } from './cursor-tooltip-model';
-import type { CursorPoint, CursorPointInput, CursorTooltipOptions, CursorTooltipWindow } from './cursor-tooltip-model';
+import type { CursorPoint, CursorPointInput, CursorTooltipControllerOptions, CursorTooltipOptions, CursorTooltipWindow } from './cursor-tooltip-model';
 import {
   createElement,
   getDocument,
@@ -119,7 +119,7 @@ interface CursorDrawing {
   destroy(): void;
 }
 
-function createCursorDrawing(config: CursorTooltipOptions, documentObj: Document | null): CursorDrawing {
+function createCursorDrawing(config: CursorTooltipControllerOptions, documentObj: Document | null): CursorDrawing {
   const appendToPage = (node: HTMLElement): void => {
     const appendTo = config.appendTo || (documentObj && documentObj.body);
     if (appendTo) {
@@ -215,7 +215,7 @@ function hideDrawing(drawing: CursorDrawing, turns: Turns, deferVisibility: bool
   return tooltip;
 }
 
-function createCursorSurface(config: CursorTooltipOptions): CursorSurface {
+function createCursorSurface(config: CursorTooltipControllerOptions): CursorSurface {
   const documentObj = getDocument(config);
   const windowObj = getWindow(config);
   const turns = createTurns(windowObj, getNumber(config.hideDelay, 120));

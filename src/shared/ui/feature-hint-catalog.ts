@@ -4,6 +4,7 @@ import * as LumnoShortcutDisplay from '../../domain/shortcut-display';
 import type { RemixIconName, RemixIconSpec } from './remix-icon';
 import type { NavigatorLike } from '../../domain/shortcut-display';
 import type { SettingsStoreChromeApi } from '../../platform/settings-areas';
+import type { PortalHost } from '../react/portal-host';
 
 type FeatureHintArrowSide = 'top' | 'right' | 'bottom' | 'left';
 type FeatureHintArrowAlign = 'start' | 'center' | 'end';
@@ -82,6 +83,8 @@ type FeatureHintWindow = Partial<Pick<Window,
 type Translate = (key: string, fallback: string) => string;
 
 interface FeatureHintOptions {
+  // The surface's React root, which draws the hint.
+  portals: PortalHost;
   documentObj?: Document | null;
   windowObj?: FeatureHintWindow | null;
   chromeApi?: FeatureHintChromeApi | null;

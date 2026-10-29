@@ -6,8 +6,9 @@ import { isHtmlElement } from '../../shared/dom-guards';
 import * as LumnoCursorTooltip from '../../shared/ui/cursor-tooltip';
 import type { CursorTooltipController } from '../../shared/ui/cursor-tooltip-model';
 import type { GetMessage } from '../options-types';
+import type { PortalHost } from '../../shared/react/portal-host';
 
-function markBrowserUnsupportedSettings(getMessage: GetMessage): void {
+function markBrowserUnsupportedSettings(getMessage: GetMessage, portals: PortalHost): void {
   const family = document.documentElement.getAttribute('data-browser-family');
   let reasonTooltip: CursorTooltipController | null = null;
   document.querySelectorAll('[data-browser-unsupported]').forEach((row) => {
@@ -17,6 +18,7 @@ function markBrowserUnsupportedSettings(getMessage: GetMessage): void {
     row.setAttribute('data-unsupported', 'true');
     row.setAttribute('aria-disabled', 'true');
     reasonTooltip = reasonTooltip || LumnoCursorTooltip.createController({
+      portals,
       documentObj: document,
       windowObj: window,
       id: '_x_extension_options_unsupported_cursor_tooltip_2026_unique_',

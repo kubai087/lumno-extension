@@ -2,6 +2,7 @@ import { queryHtmlElements } from '../dom-lookup';
 import { createTooltipElement, destroyTooltipElement, renderTooltipText } from '../react/tooltip-view';
 import { getClearTimeout, getElementRect, getNumber, getRequestAnimationFrame, getSetTimeout, placeTooltipAt, prepareTooltipFrame } from './tooltip-frame';
 import type { TooltipPosition, TooltipRect, TooltipWindow } from './tooltip-frame';
+import type { PortalHost } from '../react/portal-host';
 // The shared tooltip: one element per controller, placed beside its target
 // and drawn by the React tooltip view (tooltip-view.tsx).
 const TOOLTIP_CLASS = '_x_extension_tooltip_2026_unique_';
@@ -53,7 +54,12 @@ interface TooltipBindOptions extends TooltipShowOptions {
   selector?: string;
 }
 
-interface TooltipControllerOptions extends TooltipElementOptions, TooltipShowOptions {
+// What a tooltip is drawn with: the surface's React root.
+interface TooltipDrawing {
+  portals: PortalHost;
+}
+
+interface TooltipControllerOptions extends TooltipElementOptions, TooltipShowOptions, TooltipDrawing {
   appendTo?: Node | null;
   hideDelay?: number;
 }
@@ -87,13 +93,14 @@ function getDynamicNumber(
   return getNumber(resolved, fallback);
 }
 
-function createElement(doc: Document | null | undefined, options?: TooltipElementOptions | null): HTMLElement | null {
+function createElement(doc: Document | null | undefined, options: TooltipElementOptions & TooltipDrawing): HTMLElement | null {
   const documentObj = doc || getDocument(options);
   if (!documentObj) {
     return null;
   }
-  const config: TooltipElementOptions = options || {};
+  const config = options;
   const element = createTooltipElement({
+    portals: config.portals,
     className: config.className || '',
     documentObj,
     id: config.id ? String(config.id) : '',
@@ -293,8 +300,8 @@ function createAttachedElement(documentObj: Document | null, config: TooltipCont
   return element;
 }
 
-function createController(options?: TooltipControllerOptions | null): TooltipController {
-  const config: TooltipControllerOptions = options || {};
+function createController(options: TooltipControllerOptions): TooltipController {
+  const config = options;
   const documentObj = getDocument(config);
   const windowObj = getWindow(config);
   const requestFrame = getRequestAnimationFrame(windowObj);
@@ -402,6 +409,7 @@ export type {
   TooltipBindOptions,
   TooltipController,
   TooltipControllerOptions,
+  TooltipDrawing,
   TooltipElementOptions,
   TooltipPlacement,
   TooltipPositionOptions,

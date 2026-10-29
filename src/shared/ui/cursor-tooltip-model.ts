@@ -1,5 +1,5 @@
 // The cursor tooltip's class names, options, controller and state.
-import type { TooltipElementOptions } from './tooltip';
+import type { TooltipDrawing, TooltipElementOptions } from './tooltip';
 import type { TooltipWindow } from './tooltip-frame';
 
 
@@ -148,11 +148,16 @@ export {
   TAG_LABEL_CLASS,
   WINDOWS_LOGO_CLASS
 };
+// The options a controller is made with: the ones above, and the surface's
+// React root that draws it.
+type CursorTooltipControllerOptions = CursorTooltipOptions & TooltipDrawing;
+
 export type {
   ActiveBinding,
   CursorPoint,
   CursorPointInput,
   CursorTooltipController,
+  CursorTooltipControllerOptions,
   CursorTooltipHideOptions,
   CursorTooltipOptions,
   CursorTooltipPosition,

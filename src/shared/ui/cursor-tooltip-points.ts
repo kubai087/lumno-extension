@@ -3,7 +3,7 @@
 import * as LumnoTooltip from './tooltip';
 import { getElementRect, getNumber, placeTooltipAt, prepareTooltipFrame } from './tooltip-frame';
 
-import type { CursorPoint, CursorPointInput, CursorTooltipOptions, CursorTooltipPosition, CursorTooltipWindow, HandoffNode } from './cursor-tooltip-model';
+import type { CursorPoint, CursorPointInput, CursorTooltipControllerOptions, CursorTooltipOptions, CursorTooltipPosition, CursorTooltipWindow, HandoffNode } from './cursor-tooltip-model';
 
 // The global timers with the DOM's numeric ids.
 function getDocument(options: CursorTooltipOptions | null | undefined): Document | null {
@@ -88,7 +88,7 @@ function shouldShowTarget(target: HTMLElement, options: CursorTooltipOptions): b
   }
 }
 
-function createElement(doc: Document | null, options: CursorTooltipOptions, tooltipKind?: string): HTMLElement | null {
+function createElement(doc: Document | null, options: CursorTooltipControllerOptions, tooltipKind?: string): HTMLElement | null {
   return LumnoTooltip.createElement(doc, { ...options, tooltipKind: tooltipKind || 'cursor' });
 }
 

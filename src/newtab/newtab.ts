@@ -167,6 +167,7 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
 import { SearchTabKey } from '../shared/search-panel/tab-key';
 import { ViewportActivity } from './viewport-activity';
 import { RecentPointer } from './recent/recent-pointer';
+import { getPagePortals } from './app/portals';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -874,7 +875,7 @@ import { RecentPointer } from './recent/recent-pointer';
     pageState
   });
   const toastElement = document.getElementById('_x_extension_toast_2024_unique_');
-  pageState.toastController = createToastController(toastElement, { windowObj: window });
+  pageState.toastController = createToastController(toastElement, getPagePortals(), { windowObj: window });
 
   const {
     syncSearchModeMenuResultOffset,

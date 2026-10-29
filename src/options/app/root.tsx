@@ -71,7 +71,7 @@ function VersionBadge() {
 }
 
 function OptionsLayout({ navigation, panelMotion, host }: Omit<OptionsAppProps, 'page'>) {
-  const { pageTheme } = useOptionsPage();
+  const { pageTheme, portals } = useOptionsPage();
   const getMessage = useMessages();
   const { activeTab } = useStore(navigation.store);
   const { resolved } = useStore(pageTheme.store);
@@ -89,8 +89,8 @@ function OptionsLayout({ navigation, panelMotion, host }: Omit<OptionsAppProps, 
     }
   }, [panelMotion, host]);
   useLayoutEffect(() => {
-    markBrowserUnsupportedSettings(getMessage);
-  }, [getMessage]);
+    markBrowserUnsupportedSettings(getMessage, portals);
+  }, [getMessage, portals]);
   useEffect(() => {
     document.title = getMessage('options_page_title', 'Lumno 设置');
   }, [getMessage]);

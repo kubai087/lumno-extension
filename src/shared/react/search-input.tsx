@@ -81,6 +81,7 @@ export interface SearchInputConfig {
 export interface SearchInputParts {
   clearAction: HTMLButtonElement | null;
   container: HTMLDivElement;
+  portals: PortalHost;
   divider: HTMLDivElement;
   icon: HTMLDivElement;
   input: HTMLInputElement;
@@ -350,6 +351,7 @@ export function createSearchInput(config: SearchInputConfig): SearchInputParts {
     ...field,
     ...mode,
     container,
+    portals,
     modeMenuView: { render: (model, handlers) => stores.modeMenu.render({ model, handlers }) },
     modeTagView: { render: (model, handlers) => stores.modeTag.render({ model, handlers }) },
     tabHintView: { render: stores.tabHint.render },

@@ -3,7 +3,6 @@
 // then reads the slides in the reader's language and opens the one the link
 // names.
 import { createElement } from 'react';
-import { createRoot } from 'react-dom/client';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { captureCursorTransitionStart } from '../dom/cursor-transition';
 import { OnboardingLayout } from '../dom/layout';
@@ -16,6 +15,7 @@ import { loadOnboardingBlueprint } from '../features/locale';
 import { followSearchCommand } from '../features/overlay-demo';
 import { SearchShortcut } from '../features/search-shortcut';
 import { OnboardingApp } from './root';
+import { PortalHost } from '../../shared/react/portal-host';
 
 function start(shell: HTMLElement): void {
   const layout = new OnboardingLayout(shell, document, window);
@@ -41,11 +41,12 @@ function start(shell: HTMLElement): void {
     }
   });
   const shortcut = new SearchShortcut();
-  const tooltips = new OnboardingTooltips(window, flow);
+  const portals = new PortalHost(shell);
+  const tooltips = new OnboardingTooltips(window, flow, portals);
 
   // The frame shows at once; its columns fill in once the slides are read.
   shell.dataset.reactIsland = 'onboarding-page';
-  createRoot(shell).render(createElement(OnboardingApp, { flow, shortcut, layout, tooltips }));
+  portals.update(shell, createElement(OnboardingApp, { flow, shortcut, layout, tooltips }));
   layout.follow();
   followKeys(document, flow, shortcut);
   followSearchCommand();

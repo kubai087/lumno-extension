@@ -15,6 +15,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
+import { getPagePortals } from '../app/portals';
 
 interface SearchBoxControlsState {
   inputParts: SearchInputParts | null;
@@ -122,6 +123,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
     // It shares the space above the input with the Help Center tip, so it waits its turn.
     if (document.documentElement.getAttribute('data-nt-focus-route-pending') !== 'true') {
       const hint = FEATURE_HINTS.createFeatureHint({
+        portals: getPagePortals(),
         documentObj: document,
         windowObj: window,
         chromeApi: chrome,

@@ -25,6 +25,7 @@ import { newtabTimeFont } from '../../../domain/settings/newtab-time';
 import * as REMOTE_CONTENT from '../../remote-content';
 import * as SETTINGS from '../../../domain/settings';
 import { CRT_PARAMETER_PHYSICAL_MAX, NEWTAB_WALLPAPER_DEFAULT_ID } from '../wallpaper-options';
+import { getPagePortals } from '../../app/portals';
 
 // Whether a layout change is only shown or also saved.
 type PersistOptions = { persist: boolean };
@@ -377,6 +378,7 @@ function createPanelActions(deps: PanelActionsDeps) {
       return wallpaperState.wallpaperSourcesHintController;
     }
     const controller = featureHints.createFeatureHint({
+      portals: getPagePortals(),
       documentObj: document,
       windowObj: window,
       chromeApi: chrome,

@@ -1,5 +1,3 @@
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { useState, type ReactNode } from 'react';
 import type {
   BrowserAvatar,
@@ -7,6 +5,7 @@ import type {
   CursorTagModel,
   TooltipElementOptions
 } from '../../types/view-apis';
+import type { PortalHost } from './portal-host';
 
 const TOOLTIP_CLASS = '_x_extension_tooltip_2026_unique_';
 const LINE_CLASS = '_x_extension_tooltip_line_2026_unique_';
@@ -26,11 +25,6 @@ const TOOLTIP_RENDER_HOOK =
 const TOOLTIP_DESTROY_HOOK =
   '_x_lumnoTooltipDestroyReact_2026_unique_';
 
-interface TooltipRootState {
-  destroyed: boolean;
-  root: Root;
-}
-
 type TooltipRenderHook = (content: ReactNode) => void;
 
 function isRenderHook(value: unknown): value is TooltipRenderHook {
@@ -41,8 +35,9 @@ function isDestroyHook(value: unknown): value is () => void {
   return typeof value === 'function';
 }
 
-// The copy of this view that owns an element (another bundle may have its
-// own) leaves these hooks on it for the others to call.
+// The copy of this view that made an element (another bundle may have its
+// own) leaves these hooks on it for the others to call; they draw through
+// the root of the surface that made it.
 function readRenderHook(element: HTMLElement): TooltipRenderHook | null {
   const hook: unknown = Reflect.get(element, TOOLTIP_RENDER_HOOK);
   return isRenderHook(hook) ? hook : null;
@@ -53,7 +48,6 @@ function readDestroyHook(element: HTMLElement): (() => void) | null {
   return isDestroyHook(hook) ? hook : null;
 }
 
-const roots = new WeakMap<HTMLElement, TooltipRootState>();
 const browserClassById: Record<string, string> = {
   chrome: 'browser-avatar--chrome',
   edge: 'browser-avatar--edge',
@@ -176,11 +170,6 @@ function renderInto(
   element: HTMLElement,
   content: ReactNode
 ): boolean {
-  const state = roots.get(element);
-  if (state && !state.destroyed) {
-    flushSync(() => state.root.render(content));
-    return true;
-  }
   const ownerRender = readRenderHook(element);
   if (!ownerRender) {
     return false;
@@ -198,7 +187,7 @@ export function renderTooltipContent(
 }
 
 export function createTooltipElement(
-  options: TooltipElementOptions = {}
+  options: TooltipElementOptions & { portals: PortalHost }
 ): HTMLDivElement | null {
   const documentObj = options.documentObj || document;
   if (!documentObj) {
@@ -221,33 +210,21 @@ export function createTooltipElement(
   if (options.kind) {
     element.setAttribute('data-tooltip-kind', options.kind);
   }
-  const root = createRoot(element);
-  roots.set(element, { destroyed: false, root });
+  const { portals } = options;
   Object.defineProperty(element, TOOLTIP_RENDER_HOOK, {
     configurable: true,
     value(content: ReactNode) {
-      const state = roots.get(element);
-      if (!state || state.destroyed) {
-        return;
-      }
-      flushSync(() => state.root.render(content));
+      portals.show(element, content);
     }
   });
   Object.defineProperty(element, TOOLTIP_DESTROY_HOOK, {
     configurable: true,
     value() {
-      const state = roots.get(element);
-      if (!state || state.destroyed) {
-        return;
-      }
-      state.destroyed = true;
-      flushSync(() => state.root.unmount());
-      roots.delete(element);
+      portals.remove(element);
       Reflect.deleteProperty(element, TOOLTIP_RENDER_HOOK);
       Reflect.deleteProperty(element, TOOLTIP_DESTROY_HOOK);
     }
   });
-  renderInto(element, null);
   return element;
 }
 
@@ -278,18 +255,7 @@ export function renderBrowserAvatarTooltip(
 export function destroyTooltipElement(
   element: HTMLElement | null
 ): void {
-  if (!element) {
-    return;
-  }
-  const state = roots.get(element);
-  if (state && !state.destroyed) {
-    const ownerDestroy = readDestroyHook(element);
-    if (ownerDestroy) {
-      ownerDestroy();
-    }
-    return;
-  }
-  const ownerDestroy = readDestroyHook(element);
+  const ownerDestroy = element ? readDestroyHook(element) : null;
   if (ownerDestroy) {
     ownerDestroy();
   }

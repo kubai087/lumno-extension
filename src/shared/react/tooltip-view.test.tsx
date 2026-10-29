@@ -8,6 +8,7 @@ import {
   renderTooltipText
 } from './tooltip-view';
 import { expectTag } from '../../../tests/react/dom';
+import { getTestPortals } from '../../../tests/react/portals';
 
 let elements: HTMLElement[] = [];
 
@@ -23,10 +24,12 @@ describe('Tooltip React view', () => {
     let tag: HTMLDivElement | null = null;
     act(() => {
       tooltip = createTooltipElement({
+        portals: getTestPortals(),
         id: 'tooltip',
         kind: 'cursor'
       });
       tag = createTooltipElement({
+        portals: getTestPortals(),
         className: '_x_extension_cursor_tooltip_tag_2026_unique_',
         id: 'tooltip-tag',
         kind: 'cursor-tag'
@@ -50,7 +53,6 @@ describe('Tooltip React view', () => {
 
     expect(tooltipElement.dataset.reactIsland).toBe('tooltip');
     expect(tooltipElement.dataset.tooltipKind).toBe('cursor');
-    expect(typeof Reflect.get(tooltipElement, '_x_lumnoTooltipRenderReact_2026_unique_')).toBe('function');
     expect(
       tooltipElement.querySelectorAll(
         '._x_extension_tooltip_line_2026_unique_'

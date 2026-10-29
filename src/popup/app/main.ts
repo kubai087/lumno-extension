@@ -16,11 +16,13 @@ import { loadPageFacts } from '../page-facts';
 import { followOverflow, followTheme, syncOverflow } from './document-state';
 import { POPUP_READ_SETTINGS, mountPopup } from './root';
 import type { PopupTooltips } from './root';
+import { PortalHost } from '../../shared/react/portal-host';
 
 // Lumno's tooltip for the controls, and the cursor tooltip that shows a
 // page title or address cut short in full beside the pointer.
-function createTooltips(doc: Document, win: Window): PopupTooltips {
+function createTooltips(doc: Document, win: Window, portals: PortalHost): PopupTooltips {
   const tooltip = LumnoTooltip.createController({
+    portals,
     documentObj: doc,
     windowObj: win,
     id: 'x-lumno-popup-tooltip',
@@ -28,6 +30,7 @@ function createTooltips(doc: Document, win: Window): PopupTooltips {
     maxWidth: 272
   });
   const cursorTooltip = LumnoCursorTooltip.createController({
+    portals,
     documentObj: doc,
     windowObj: win,
     id: 'x-lumno-popup-cursor-tooltip',
@@ -61,12 +64,13 @@ async function start(chromeApi: typeof chrome, host: HTMLElement): Promise<void>
   const [facts, locale] = await Promise.all([loadPageFacts(chromeApi), localeLoaded]);
   doc.documentElement.lang = locale.lang;
   followTheme(settingsStore, doc, window);
-  mountPopup(host, {
+  const portals = new PortalHost(host);
+  mountPopup(portals, host, {
     facts,
     locale,
     settingsStore,
     actions: new PopupActions(createPopupPorts(chromeApi, window), facts, locale.t, new PopupToast(doc, window)),
-    tooltips: createTooltips(doc, window),
+    tooltips: createTooltips(doc, window, portals),
     onRendered: () => {
       window.requestAnimationFrame(() => syncOverflow(doc, window));
     }

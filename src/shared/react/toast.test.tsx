@@ -2,6 +2,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createToastController } from './toast';
 import type { ToastController } from '../ui/toast-screen';
+import { getTestPortals } from '../../../tests/react/portals';
 
 let controllers: ToastController[] = [];
 
@@ -12,7 +13,7 @@ function createController(duration = 2200): {
   const element = document.createElement('div');
   element.setAttribute('data-show', 'false');
   document.body.appendChild(element);
-  const controller = createToastController(element, {
+  const controller = createToastController(element, getTestPortals(), {
     windowObj: window,
     duration
   });
@@ -157,7 +158,7 @@ describe('Toast React island', () => {
   });
 
   it('returns a safe no-op controller when no host exists', () => {
-    const controller = createToastController(null);
+    const controller = createToastController(null, getTestPortals());
     expect(() => {
       controller.show('Ignored');
       controller.hide();

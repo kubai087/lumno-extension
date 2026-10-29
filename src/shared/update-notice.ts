@@ -10,12 +10,15 @@ import type { FeatureHintController, FeatureHintDefinition } from './ui/feature-
 import { getFeatureHintSyncDismissKey } from './ui/feature-hint-dismiss';
 import type { Setting } from '../domain/settings/define';
 import { featureHintDismissedEverywhere, updateNoticeEnabled as updateNoticeEnabledSetting, updateNoticeState } from '../domain/settings/features';
+import type { PortalHost } from './react/portal-host';
 
 type UpdateNoticeSurface = 'newtab' | 'overlay' | 'shared';
 
 type Translate = (key: string, fallback: string) => string;
 
 interface UpdateNoticeOptions {
+  // The surface's React root, which draws the notice.
+  portals: PortalHost;
   documentObj?: Document | null;
   windowObj?: Partial<Pick<Window, 'open'>> | null;
   chromeApi?: UpdateNoticeChromeApi | null;
@@ -341,8 +344,8 @@ function readUpdateNoticeSettings(config: UpdateNoticeOptions, chromeApi: Update
   };
 }
 
-function createUpdateNotice(options?: UpdateNoticeOptions | null): UpdateNoticeController | null {
-  const config: UpdateNoticeOptions = options || {};
+function createUpdateNotice(options: UpdateNoticeOptions): UpdateNoticeController | null {
+  const config = options;
   const documentObj = config.documentObj || (typeof document !== 'undefined' ? document : null);
   const chromeApi: UpdateNoticeChromeApi | null = config.chromeApi || (typeof chrome !== 'undefined' ? chrome : null);
   const currentVersion = normalizeVersionTag(config.version || getCurrentVersionTag(chromeApi));
@@ -351,6 +354,7 @@ function createUpdateNotice(options?: UpdateNoticeOptions | null): UpdateNoticeC
   }
   const session = new UpdateNoticeSession(readUpdateNoticeSettings(config, chromeApi, currentVersion));
   const hint = (config.featureHints || LumnoFeatureHints).createFeatureHint({
+    portals: config.portals,
     documentObj,
     definition: createUpdateNoticeDefinition(currentVersion, { surface: readSurface(config.surface) }),
     chromeApi,

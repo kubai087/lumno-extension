@@ -1072,6 +1072,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const {
     openOverlayCommunityQrDialog
   } = PANEL_PANEL_NOTICES.createPanelNotices({
+    portals: overlayMount.portals,
     removeOverlay,
     t,
     getOpenDisposition,
@@ -1083,6 +1084,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   applyNoTranslate(overlayState.inputContainer);
   applyNoTranslate(rightIcon);
   const topActionTooltipController = LumnoTooltip.createController({
+    portals: overlayMount.portals,
     documentObj: document,
     windowObj: window,
     id: '_x_extension_top_action_tooltip_2026_unique_',
@@ -1094,6 +1096,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
   overlayState.topActionTooltipController = topActionTooltipController;
   const overlayCursorTooltipController = LumnoCursorTooltip.createController({
+    portals: overlayMount.portals,
     documentObj: document,
     windowObj: window,
     id: '_x_extension_overlay_cursor_tooltip_2026_unique_',
@@ -1107,6 +1110,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
   overlayState.overlayCursorTooltipController = overlayCursorTooltipController;
   const overlayModeMenuCursorTooltipController = LumnoCursorTooltip.createController({
+    portals: overlayMount.portals,
     documentObj: document,
     windowObj: window,
     id: '_x_extension_overlay_mode_menu_cursor_tooltip_2026_unique_',

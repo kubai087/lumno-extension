@@ -2,8 +2,6 @@
 // store and the actions' state, and builds its model from them on every
 // render; nothing outside calls into it.
 import { useLayoutEffect, useState } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
 import * as AppearanceSettings from '../../domain/settings/appearance';
 import * as FeatureSettings from '../../domain/settings/features';
 import * as OverlayPanelSettings from '../../domain/settings/overlay-panel';
@@ -20,6 +18,7 @@ import type { PopupSettingId, PopupSettingValues } from '../model';
 import type { PopupPageFacts } from '../page-facts';
 import { PopupView } from '../react/popup-view';
 import type { PopupHandlers } from '../react/popup-view';
+import type { PortalHost } from '../../shared/react/portal-host';
 
 type PopupSettings = { [K in PopupSettingId]: Setting<PopupSettingValues[K]> };
 
@@ -123,13 +122,10 @@ function PopupApp({ facts, locale, settingsStore, actions, tooltips, onRendered 
   return <PopupView handlers={handlers} model={model} />;
 }
 
-// Draws the popup into its host. The first render is synchronous, so the
-// browser sizes the popup to it.
-function mountPopup(host: HTMLElement, props: PopupAppProps): void {
-  const root = createRoot(host);
-  flushSync(() => {
-    root.render(<PopupApp {...props} />);
-  });
+// Draws the popup into its host through the page's root. The first render
+// is synchronous, so the browser sizes the popup to it.
+function mountPopup(portals: PortalHost, host: HTMLElement, props: PopupAppProps): void {
+  portals.show(host, <PopupApp {...props} />);
 }
 
 export { POPUP_READ_SETTINGS, mountPopup };

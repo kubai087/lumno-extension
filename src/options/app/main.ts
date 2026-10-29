@@ -3,8 +3,6 @@
 // skeleton theme-preload.ts painted, then starts what follows storage and
 // marks the page ready once its settings are read.
 import { createElement } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
 import * as SETTINGS from '../../domain/settings';
 import * as LumnoShortcutDisplay from '../../domain/shortcut-display';
 import * as LumnoBrowserProfile from '../../platform/browser-profile';
@@ -37,21 +35,23 @@ import { PanelMotion } from './panel-motion';
 import { OptionsApp } from './root';
 import { markReadyOnceRead, markRuntimeStart } from './startup';
 import { getTabsRowInset } from '../dom/sticky-tabs';
+import { PortalHost } from '../../shared/react/portal-host';
 
 type PageFeedback = ReturnType<typeof createPageFeedback>;
 
-function createFeedback(): PageFeedback {
+function createFeedback(portals: PortalHost): PageFeedback {
   const toastElement = document.getElementById('_x_extension_toast_2024_unique_');
   return createPageFeedback({
     doc: document,
     tooltip: LumnoTooltip.createController({
+      portals,
       documentObj: document,
       windowObj: window,
       id: '_x_extension_options_tooltip_2026_unique_',
       appendTo: document.body,
       maxWidth: 'min(360px, calc(100vw - 24px))'
     }),
-    toast: createToastController(toastElement, { windowObj: window, duration: 2200 }),
+    toast: createToastController(toastElement, portals, { windowObj: window, duration: 2200 }),
     toastElement
   });
 }
@@ -88,10 +88,10 @@ function createAccount(
 }
 
 // The page's owners and the context every view reads them from.
-function createPage(host: HTMLElement) {
+function createPage(portals: PortalHost, host: HTMLElement) {
   const settingsStore = getContextSettingsStore(chrome, window);
   const locale = new SurfaceLocale(settingsStore, loadExtensionLocaleMessages);
-  const feedback = createFeedback();
+  const feedback = createFeedback(portals);
   const showLoadError = (what: string) => (error: unknown) => {
     console.warn(`[Lumno] Could not load ${what}.`, error);
     feedback.showToast(locale.t('toast_error', '操作失败，请重试。'), true);
@@ -108,6 +108,7 @@ function createPage(host: HTMLElement) {
     onSearchSourcesOpened: () => void siteSearchProviders.refresh()
   });
   const page: OptionsPage = {
+    portals,
     settingsStore,
     locale,
     commands: new BrowserCommands(),
@@ -158,11 +159,9 @@ function follow(page: OptionsPage, navigation: OptionsNavigation, providerStorag
 
 function start(host: HTMLElement): void {
   const startedAt = markRuntimeStart(document);
-  const { page, navigation, panelMotion, providerStorage } = createPage(host);
-  const root = createRoot(host);
-  flushSync(() => {
-    root.render(createElement(OptionsApp, { page, navigation, panelMotion, host }));
-  });
+  const portals = new PortalHost(host);
+  const { page, navigation, panelMotion, providerStorage } = createPage(portals, host);
+  portals.show(host, createElement(OptionsApp, { page, navigation, panelMotion, host }));
   follow(page, navigation, providerStorage);
   markReadyOnceRead(page.settingsStore.include([
     ...GENERAL_TAB_SETTINGS,

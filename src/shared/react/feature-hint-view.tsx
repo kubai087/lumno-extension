@@ -1,5 +1,3 @@
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import type {
   FeatureHintViewController,
   FeatureHintViewLabels,
@@ -156,7 +154,7 @@ function HintLink({ labels, onLinkClick }: { labels: FeatureHintViewLabels; onLi
   );
 }
 
-function FeatureHintContent({ labels, model, onDismiss, onLinkClick, onActionClick }: Omit<FeatureHintViewOptions, 'documentObj'>) {
+function FeatureHintContent({ labels, model, onDismiss, onLinkClick, onActionClick }: Omit<FeatureHintViewOptions, 'documentObj' | 'portals'>) {
   const actions = model.actions || [];
   const inline = Boolean(model.inlineActions) && actions.length > 0;
   return (
@@ -228,24 +226,21 @@ export function createFeatureHintView(options: FeatureHintViewOptions): FeatureH
   }
   const model = options.model;
   const element = createHintElement(documentObj, model);
-  const root: Root = createRoot(element);
   let labels = options.labels;
   let destroyed = false;
   const render = (): void => {
     if (destroyed) {
       return;
     }
-    flushSync(() => {
-      root.render(
-        <FeatureHintContent
-          labels={labels}
-          model={model}
-          onActionClick={options.onActionClick}
-          onDismiss={options.onDismiss}
-          onLinkClick={options.onLinkClick}
-        />
-      );
-    });
+    options.portals.show(element, (
+      <FeatureHintContent
+        labels={labels}
+        model={model}
+        onActionClick={options.onActionClick}
+        onDismiss={options.onDismiss}
+        onLinkClick={options.onLinkClick}
+      />
+    ));
   };
   render();
 
@@ -253,7 +248,7 @@ export function createFeatureHintView(options: FeatureHintViewOptions): FeatureH
   const text = queryHtmlTag(element, '.x-lumno-feature-hint__text', 'span');
   const closeButton = queryHtmlTag(element, '.x-lumno-feature-hint__close', 'button');
   if (!badge || !text || !closeButton) {
-    flushSync(() => root.unmount());
+    options.portals.remove(element);
     return null;
   }
 
@@ -267,7 +262,7 @@ export function createFeatureHintView(options: FeatureHintViewOptions): FeatureH
         return;
       }
       destroyed = true;
-      flushSync(() => root.unmount());
+      options.portals.remove(element);
     },
     element,
     linkButton: queryHtmlTag(element, '.x-lumno-feature-hint__link', 'button'),

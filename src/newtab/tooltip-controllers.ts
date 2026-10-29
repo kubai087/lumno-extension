@@ -3,9 +3,11 @@
 // the search input's cursor tooltip.
 import * as LumnoCursorTooltip from '../shared/ui/cursor-tooltip';
 import * as LumnoTooltip from '../shared/ui/tooltip';
+import { getPagePortals } from './app/portals';
 
 function createTooltipControllers() {
   const topActionTooltipController = LumnoTooltip.createController({
+    portals: getPagePortals(),
     documentObj: document,
     windowObj: window,
     id: '_x_extension_newtab_top_action_tooltip_2026_unique_',
@@ -13,6 +15,7 @@ function createTooltipControllers() {
     maxWidth: 420
   });
   const shortcutTooltipController = LumnoTooltip.createController({
+    portals: getPagePortals(),
     documentObj: document,
     windowObj: window,
     id: '_x_extension_newtab_shortcut_tooltip_2026_unique_',
@@ -21,6 +24,7 @@ function createTooltipControllers() {
     maxWidth: 360
   });
   const shortcutDialogTooltipController = LumnoTooltip.createController({
+    portals: getPagePortals(),
     documentObj: document,
     windowObj: window,
     id: '_x_extension_newtab_shortcut_dialog_tooltip_2026_unique_',
@@ -29,6 +33,7 @@ function createTooltipControllers() {
     maxWidth: 320
   });
   const bookmarkCascadeCopyTooltipController = LumnoTooltip.createController({
+    portals: getPagePortals(),
     documentObj: document,
     windowObj: window,
     id: '_x_extension_newtab_bookmark_cascade_copy_tooltip_2026_unique_',
@@ -37,6 +42,7 @@ function createTooltipControllers() {
     maxWidth: 200
   });
   const bookmarkCursorTooltipController = LumnoCursorTooltip.createController({
+    portals: getPagePortals(),
     documentObj: document,
     windowObj: window,
     id: '_x_extension_newtab_bookmark_cursor_tooltip_2026_unique_',
@@ -47,6 +53,7 @@ function createTooltipControllers() {
     offsetY: 16
   });
   const searchInputCursorTooltipController = LumnoCursorTooltip.createController({
+    portals: getPagePortals(),
     documentObj: document,
     windowObj: window,
     id: '_x_extension_newtab_search_input_cursor_tooltip_2026_unique_',

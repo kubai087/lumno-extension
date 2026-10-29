@@ -14,6 +14,7 @@ import { BrowserCommands } from '../../src/options/features/shortcuts/browser-co
 import { SiteSearchProviders } from '../../src/options/features/site-search/providers';
 import { createSearchSourceOrderController } from '../../src/options/options-search-source-order';
 import { createOptionsTestSettings } from './options-settings';
+import { getTestPortals } from './portals';
 
 interface OptionsViewOptions {
   sync?: StorageItems;
@@ -54,6 +55,7 @@ function renderOptionsView(view: ReactNode, options: OptionsViewOptions = {}) {
   const showToast = vi.fn<OptionsPage['showToast']>();
   const notifyNewtab = vi.fn<OptionsPage['notifyNewtab']>();
   const page: OptionsPage = {
+    portals: getTestPortals(),
     settingsStore: settings.store,
     locale: new SurfaceLocale(settings.store, loadExtensionLocaleMessages),
     commands: new BrowserCommands(),

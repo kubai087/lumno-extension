@@ -11,12 +11,15 @@ import { getContextSettingsStore } from '../platform/settings-store';
 import type { SettingsStore } from '../platform/settings-store';
 import type { FeatureHintChromeApi, FeatureHintController, FeatureHintDefinition } from './ui/feature-hint-catalog';
 import { getFeatureHintLocalDismissKey } from './ui/feature-hint-dismiss';
+import type { PortalHost } from './react/portal-host';
 
 type GraphicsNoticeSurface = 'newtab' | 'overlay';
 
 type Translate = (key: string, fallback: string) => string;
 
 interface GraphicsNoticeOptions {
+  // The surface's React root, which draws the notice.
+  portals: PortalHost;
   documentObj?: Document | null;
   chromeApi?: FeatureHintChromeApi | null;
   // The context's settings store by default.
@@ -108,8 +111,8 @@ function confirmSoftwareRendering(store: SettingsStore, checkRendering: () => Pr
   });
 }
 
-function createGraphicsNotice(options?: GraphicsNoticeOptions | null): GraphicsNoticeController | null {
-  const config: GraphicsNoticeOptions = options || {};
+function createGraphicsNotice(options: GraphicsNoticeOptions): GraphicsNoticeController | null {
+  const config = options;
   const documentObj = config.documentObj || (typeof document !== 'undefined' ? document : null);
   const featureHints = config.featureHints || LumnoFeatureHints;
   const chromeApi = config.chromeApi || (typeof chrome !== 'undefined' ? chrome : null);
@@ -126,6 +129,7 @@ function createGraphicsNotice(options?: GraphicsNoticeOptions | null): GraphicsN
   let hint: FeatureHintController | null = null;
 
   hint = featureHints.createFeatureHint({
+    portals: config.portals,
     documentObj,
     definition,
     chromeApi,
