@@ -139,10 +139,30 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const lastRender = new LastRender();
   const overlayThemeChoice = new OverlayThemeMode();
   const settings = createOverlaySettings(chrome);
+  // A custom width replaces the size's own; the size keeps its height cap
+  // and content scale.
+  function getOverlaySizePreset(mode: unknown): OverlaySizePreset {
+    const preset = SETTINGS.getOverlaySizePreset(mode);
+    const customWidth = SETTINGS.overlayWidth.parse(settings.get(overlayWidth));
+    return customWidth ? { ...preset, width: customWidth } : preset;
+  }
+
   // Teardown steps owned by this invocation's overlay session. Controllers
   // created deep inside the mount block register here so removeOverlay can
   // release them without stashing them on DOM expandos.
   const overlaySessionCleanups = overlayLifecycle.createSessionCleanupRegistry();
+  const {
+    applyOverlayInputExtensionIsolation,
+    applyNoTranslate,
+    applyNoTranslateDeep,
+    stopOverlayAntiTranslateObserver,
+    pauseOverlayAntiTranslateObserverForScroll,
+    pauseOverlayAntiTranslateObserverForMutationBurst,
+    startOverlayAntiTranslateObserver
+  } = PANEL_PAGE_GUARDS.createPageGuards({
+    window
+  });
+
   const overlayNoticeLayer = OVERLAY_NOTICES.createNoticeLayer(window, {
     getUpdateNotice: () => notices.update,
     getGraphicsNotice: () => notices.graphics,
@@ -163,6 +183,19 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const prioritizeCurrentPageMatch = openOptions.prioritizeCurrentPageMatch;
   const currentTabPinned = openOptions.currentTabPinned;
   const initialContextTabUrl = openOptions.currentTabUrl;
+  const {
+    shouldSwitchMatchedTabSuggestion,
+    getUrlDisplay,
+    filterTabsForOverlay,
+    getMatchedOpenTabIdForSuggestion,
+    isCurrentOverlayTabUrl
+  } = PANEL_TAB_MATCHING.createTabMatching({
+    settings,
+    overlayTabs,
+    initialContextTabUrl,
+    prioritizeCurrentPageMatch
+  });
+
   // They follow storage only once the panel mounts, below.
   const locale = new SurfaceLocale(settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
@@ -347,18 +380,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    applyOverlayInputExtensionIsolation,
-    applyNoTranslate,
-    applyNoTranslateDeep,
-    stopOverlayAntiTranslateObserver,
-    pauseOverlayAntiTranslateObserverForScroll,
-    pauseOverlayAntiTranslateObserverForMutationBurst,
-    startOverlayAntiTranslateObserver
-  } = PANEL_PAGE_GUARDS.createPageGuards({
-    window
-  });
-
-  const {
     attachKeyRouter,
     attachRevealGate,
     isLoadingSessionTracked,
@@ -398,19 +419,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     currentTabPinned,
     settings,
     removeOverlay
-  });
-
-  const {
-    shouldSwitchMatchedTabSuggestion,
-    getUrlDisplay,
-    filterTabsForOverlay,
-    getMatchedOpenTabIdForSuggestion,
-    isCurrentOverlayTabUrl
-  } = PANEL_TAB_MATCHING.createTabMatching({
-    settings,
-    overlayTabs,
-    initialContextTabUrl,
-    prioritizeCurrentPageMatch
   });
 
   const {
@@ -885,14 +893,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     // guessed from the browser language. The language setting changes it
     // later only when it calls for another script.
     applyOverlayCjkFontFace(getSystemLocale());
-  }
-
-  // A custom width replaces the size's own; the size keeps its height cap
-  // and content scale.
-  function getOverlaySizePreset(mode: unknown): OverlaySizePreset {
-    const preset = SETTINGS.getOverlaySizePreset(mode);
-    const customWidth = SETTINGS.overlayWidth.parse(settings.get(overlayWidth));
-    return customWidth ? { ...preset, width: customWidth } : preset;
   }
 
   function startOverlayViewportSizeSync(overlayElement: HTMLElement): void {
