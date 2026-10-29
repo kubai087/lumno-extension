@@ -24,7 +24,6 @@ import type { RemoteSuggestionsState } from './panel/remote-suggestions';
 import type { ResultActivationState } from './panel/result-activation';
 import type { ResultsLayoutState } from './panel/results-layout';
 import type { SearchInputEventsState } from './panel/search-input-events';
-import type { SearchModeMenuState } from './panel/search-mode-menu';
 import type { SearchModesState } from './panel/search-modes';
 import type { SettingsSyncState } from './panel/settings-sync';
 import type { SlashCommandsState } from './panel/slash-commands';
@@ -65,7 +64,6 @@ type OverlayState =
   ResultActivationState &
   ResultsLayoutState &
   SearchInputEventsState &
-  SearchModeMenuState &
   SearchModesState &
   SettingsSyncState &
   SlashCommandsState &

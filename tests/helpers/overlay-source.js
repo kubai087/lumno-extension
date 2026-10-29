@@ -23,7 +23,7 @@ const OVERLAY_PANEL_FILES = [
   'src/shared/search-panel/autocomplete.ts',
   'src/shared/search-panel/search-query.ts',
   'src/overlay/panel/site-search-providers.ts',
-  'src/overlay/panel/search-mode-menu.ts',
+  'src/shared/search-panel/mode-menu.ts',
   'src/overlay/panel/search-modes.ts',
   'src/overlay/panel/search-input-events.ts',
   'src/overlay/panel/panel-keys.ts',

@@ -6,15 +6,14 @@ import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import { shortcutRulesCache } from '../../shared/search/shortcut-rules-cache';
-import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
-import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 
 // A site search the typed text turns into on Tab.
 interface SiteSearchTrigger {
@@ -42,8 +41,8 @@ interface SearchModesDeps {
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
-  searchEngine: DefaultSearchEngine;
   getShortcutRules(): Promise<ShortcutRule[]>;
+  modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   pageState: SearchModesState;
 }
 
@@ -57,8 +56,8 @@ function createSearchModes(deps: SearchModesDeps) {
     searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
-    searchEngine,
     getShortcutRules,
+    modeMenu
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -81,34 +80,6 @@ function createSearchModes(deps: SearchModesDeps) {
 
 
 
-  // With an empty or typed input, a double Tab starts the default engine's
-  // mode and opens the menu; false when it did not.
-  function openSearchModeMenuFromDoubleTab(): boolean | Promise<boolean> {
-    const expectedInputValue = String(getSearchInput().value || '');
-    const activateDefaultProvider = (providers: readonly SiteSearchProvider[]): boolean => {
-      const controller = pageState.inputModeController;
-      if (!controller || searchMode.site || searchMode.local ||
-          String(getSearchInput().value || '') !== expectedInputValue) {
-        return false;
-      }
-      const provider = SearchSiteSearchProviders.getSearchEngineSiteSearchProvider(searchEngine.engine, providers);
-      if (!provider) {
-        return false;
-      }
-      if (expectedInputValue.trim()) {
-        modeActions.activateSiteSearch(provider, {
-          preserveResults: Boolean(String(expectedInputValue || '').trim())
-        });
-        modeActions.restoreSearchModeQuery(expectedInputValue);
-      } else {
-        modeActions.activateSiteSearch(provider);
-      }
-      controller.openModeMenu('none');
-      return true;
-    };
-    const loaded = siteSearchCatalog.loadedProviders;
-    return loaded ? activateDefaultProvider(loaded) : siteSearchCatalog.loadProviders().then(activateDefaultProvider);
-  }
 
 
 
@@ -156,7 +127,7 @@ function createSearchModes(deps: SearchModesDeps) {
     if (!triggerInput && controller) {
       const shouldOpenModeMenu = controller.shouldOpenModeMenuOnDoubleTab(event);
       if (shouldOpenModeMenu) {
-        void openSearchModeMenuFromDoubleTab();
+        void modeMenu.openFromDoubleTab();
       }
       return Boolean(event.defaultPrevented);
     }
@@ -228,7 +199,6 @@ function createSearchModes(deps: SearchModesDeps) {
 
   return {
     handleSearchTabKey,
-    openSearchModeMenuFromDoubleTab,
   };
 }
 

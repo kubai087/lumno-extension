@@ -1,18 +1,21 @@
-// The mode menu's items and what choosing one does. The items are the
-// aggregate searches, the site searches by group and the local sources, in
-// the stored order, each marked when it is the active mode; choosing one
-// starts its mode and runs what was typed in it. A surface may add an item
-// of its own ahead of the local sources (the overlay's open tabs).
+// The mode menu's items, what choosing one does, and opening the menu with
+// a double Tab. The items are the aggregate searches, the site searches by
+// group and the local sources, in the stored order, each marked when it is
+// the active mode; choosing one starts its mode and runs what was typed in
+// it. A surface may add an item of its own ahead of the local sources (the
+// overlay's open tabs).
 import { createScopeProvider, isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { rankScopeItems } from '../../domain/search/search-source-order';
 import type { SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
+import type { InputModeController } from '../search/search-input-mode';
 import type { InputModeProvider, ModeMenuItem } from '../search/input-mode/types';
 import type { SiteSearchIconCache } from '../search/site-search-icon-cache';
 import { getLocalSearchScopeIconName, getLocalSearchScopeLabel, getSiteSearchDisplayName } from './labels';
 import type { SearchLocale } from './labels';
+import type { DefaultSearchEngine } from './default-engine';
 import type { SearchModeActions } from './mode-actions';
 import type { SearchModeMenuOrder } from './mode-menu-order';
 import type { SearchMode } from './search-mode';
@@ -29,21 +32,29 @@ const LOCAL_SEARCH_TERMS: Readonly<Record<SearchSourceType, string[]>> = {
 // What differs per surface.
 interface SearchModeMenuSurface {
   getInput(): HTMLInputElement | null;
+  getModeController(): Pick<InputModeController, 'openModeMenu'> | null;
   // A site search's icon as this surface may draw it.
   getProviderIcon(provider: SiteSearchProvider): string;
   // An item of the surface's own ahead of the local sources.
   getOwnItem?(localGroup: string): ModeMenuItem | null;
   // Chooses the surface's own item; false for any other.
   selectOwnItem?(item: ModeMenuItem, rawQuery: string): boolean;
+  // The site search of the page the surface is on, which a double Tab
+  // starts ahead of the default engine's.
+  getPageProvider?(providers: readonly SiteSearchProvider[]): SiteSearchProvider | null;
+  // Runs before a double Tab reads the mode (the overlay drops an open tabs
+  // mode still waiting to start).
+  beforeDoubleTab?(): void;
 }
 
 interface SearchModeMenuOptions {
   settings: Pick<SettingsStore, 'get'>;
   locale: SearchLocale;
   catalog: SiteSearchCatalog;
+  engine: Pick<DefaultSearchEngine, 'ready' | 'engine'>;
   iconCache: Pick<SiteSearchIconCache, 'load'>;
   order: Pick<SearchModeMenuOrder, 'load'>;
-  mode: Pick<SearchMode<InputModeProvider>, 'site' | 'local'>;
+  mode: Pick<SearchMode<InputModeProvider>, 'site' | 'local' | 'openTabs'>;
   actions: Pick<SearchModeActions<SiteSearchProvider>, 'activateSiteSearch' | 'activateLocalSearchScope' | 'restoreSearchModeQuery'>;
   surface: SearchModeMenuSurface;
 }
@@ -87,6 +98,41 @@ class SearchModeMenu {
       actions.activateSiteSearch(item.provider, { preserveResults });
       actions.restoreSearchModeQuery(rawQuery);
     }
+  };
+
+  // With no mode, a double Tab starts the page's site search, or the
+  // default engine's, and opens the menu; resolves to whether it opened.
+  // Nothing happens if the mode or the typed text changed meanwhile.
+  readonly openFromDoubleTab = (): Promise<boolean> => {
+    const { catalog, engine, iconCache, mode, actions, surface } = this.options;
+    if (surface.beforeDoubleTab) {
+      surface.beforeDoubleTab();
+    }
+    const readInput = () => {
+      const input = surface.getInput();
+      return input ? String(input.value || '') : '';
+    };
+    const expected = { site: mode.site, local: mode.local, openTabs: mode.openTabs, input: readInput() };
+    const isCurrent = () => !mode.site && !mode.local && mode.site === expected.site &&
+      mode.local === expected.local && mode.openTabs === expected.openTabs && readInput() === expected.input;
+    return Promise.all([engine.ready, catalog.loadProviders(), iconCache.load()]).then(([, providers]) => {
+      const controller = surface.getModeController();
+      if (!controller || !isCurrent()) {
+        return false;
+      }
+      const pageProvider = surface.getPageProvider ? surface.getPageProvider(providers) : null;
+      const provider = pageProvider || SearchSiteSearchProviders.getSearchEngineSiteSearchProvider(engine.engine, providers);
+      if (!provider) {
+        return false;
+      }
+      if (expected.input.trim()) {
+        actions.activateSiteSearch(provider, { animatePrefix: false, preserveResults: true });
+        actions.restoreSearchModeQuery(expected.input);
+      } else {
+        actions.activateSiteSearch(provider, { animatePrefix: false });
+      }
+      return Promise.resolve(controller.openModeMenu(pageProvider ? 'input' : 'none')).then(Boolean);
+    });
   };
 
   private buildItems(sourceOrder: unknown): ModeMenuItem[] {

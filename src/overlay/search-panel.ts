@@ -32,7 +32,6 @@ import * as PANEL_REMOTE_SUGGESTIONS from './panel/remote-suggestions';
 import * as PANEL_RESULT_ACTIVATION from './panel/result-activation';
 import * as PANEL_RESULTS_LAYOUT from './panel/results-layout';
 import * as PANEL_SEARCH_INPUT_EVENTS from './panel/search-input-events';
-import * as PANEL_SEARCH_MODE_MENU from './panel/search-mode-menu';
 import * as PANEL_SEARCH_MODES from './panel/search-modes';
 import * as PANEL_SETTINGS_SYNC from './panel/settings-sync';
 import * as PANEL_SITE_SEARCH_PROVIDERS from './panel/site-search-providers';
@@ -88,6 +87,7 @@ import type { OverlaySuggestion } from './panel/types';
 import { isAggregateSearchProvider } from '../domain/search/aggregate-search-store';
 import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../shared/search-panel/labels';
 import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../domain/injected-commands';
+import * as SearchSiteSearchMatching from '../domain/search/utils/site-search-matching';
 
 // Favicon data and preloaded icons the overlay resolved, kept across its
 // openings in this page.
@@ -218,12 +218,21 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     settings: overlayState.settings.store,
     locale,
     catalog: siteSearchCatalog,
+    engine: searchEngine,
     iconCache: siteSearchIconCache,
     order: menuOrder,
     mode: searchMode,
     actions: modeActions,
     surface: {
       getInput: () => overlayState.searchInput,
+      getModeController: () => overlayState.inputModeController,
+      getPageProvider: (providers) => SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
+        overlayState.initialContextTabUrl,
+        providers
+      ),
+      beforeDoubleTab: () => {
+        cancelPendingOpenTabsPrefixEntry();
+      },
       getProviderIcon: (provider) => getPageRenderableProviderIcon(provider),
       // The open tabs lead the browser content and do not move.
       getOwnItem: (localGroup) => ({
@@ -562,7 +571,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchAutocomplete,
     searchQuery,
     cancelPendingOpenTabsPrefixEntry: (...args) => cancelPendingOpenTabsPrefixEntry(...args),
-    openSearchModeMenuFromDoubleTab: (...args) => openSearchModeMenuFromDoubleTab(...args),
+    modeMenu,
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
     siteSearchCatalog,
     getShortcutRules,
@@ -660,18 +669,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
     siteSearchIconCache,
     faviconDataCache
-  });
-
-  const {
-    openSearchModeMenuFromDoubleTab,
-  } = PANEL_SEARCH_MODE_MENU.createSearchModeMenu({
-    modeActions,
-    searchMode,
-    searchEngine,
-    siteSearchIconCache,
-    siteSearchCatalog,
-    cancelPendingOpenTabsPrefixEntry,
-    overlayState
   });
 
   const overlaySiteFixes = LumnoOverlaySiteFixes;
@@ -1196,7 +1193,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     if (overlayState.inputModeController) {
       overlayState.inputModeController.resetModeMenuDoubleTab();
     }
-    openSearchModeMenuFromDoubleTab();
+    void modeMenu.openFromDoubleTab();
   }
   function setSearchScopeIconEnabled(enabled: boolean): void {
     searchScopeIconEnabled = enabled;

@@ -566,12 +566,14 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     settings,
     locale,
     catalog: siteSearchCatalog,
+    engine: searchEngine,
     iconCache: siteSearchIconCache,
     order: menuOrder,
     mode: searchMode,
     actions: modeActions,
     surface: {
       getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
+      getModeController: () => pageState.inputModeController,
       getProviderIcon: (provider) => getProviderIcon(provider)
     }
   });
@@ -1857,7 +1859,6 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
 
   const {
-    openSearchModeMenuFromDoubleTab,
     handleSearchTabKey
   } = NEWTAB_SEARCH_MODES.createSearchModes({
     modeActions,
@@ -1867,8 +1868,8 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
-    searchEngine,
     getShortcutRules: (...args) => getShortcutRules(...args),
+    modeMenu,
     pageState
   });
 
@@ -2137,7 +2138,7 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     refreshFallbackShortcut,
     restoreDismissedSearchSuggestions,
     hideSearchInputCursorTooltip,
-    openSearchModeMenuFromDoubleTab,
+    modeMenu,
     bindSearchInputCursorTooltip,
     pageState
   });

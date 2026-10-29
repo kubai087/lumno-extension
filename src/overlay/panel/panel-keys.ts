@@ -29,6 +29,7 @@ import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-m
 import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
+import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -57,7 +58,7 @@ interface PanelKeysDeps {
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
   cancelPendingOpenTabsPrefixEntry(): boolean;
-  openSearchModeMenuFromDoubleTab(): Promise<boolean>;
+  modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
   getShortcutRules(): Promise<ShortcutRule[]>;
   requestOverlaySearchSuggestions(query: string): void;
@@ -105,7 +106,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     searchQuery,
     siteSearchCatalog,
     cancelPendingOpenTabsPrefixEntry,
-    openSearchModeMenuFromDoubleTab,
+    modeMenu,
     activateOpenTabsSearchMode,
     getShortcutRules,
     requestOverlaySearchSuggestions,
@@ -162,7 +163,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
         overlayState.inputModeController.shouldCompleteModeMenuDoubleTab(e);
       if (shouldOpenModeMenu) {
         cancelPendingOpenTabsPrefixEntry();
-        void openSearchModeMenuFromDoubleTab();
+        void modeMenu.openFromDoubleTab();
         return true;
       }
       if (e.defaultPrevented) {
@@ -193,7 +194,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       const shouldOpenModeMenu = overlayState.inputModeController.shouldOpenModeMenuOnDoubleTab(e);
       if (shouldOpenModeMenu) {
         cancelPendingOpenTabsPrefixEntry();
-        void openSearchModeMenuFromDoubleTab();
+        void modeMenu.openFromDoubleTab();
         return true;
       }
       if (e.defaultPrevented) {

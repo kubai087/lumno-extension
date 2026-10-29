@@ -17,7 +17,6 @@ import type {
 import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import * as NEWTAB_BACKGROUND_SEARCH_FOCUS from './background-search-focus';
-import type { SearchModes } from './search-modes';
 import type { RenderSuggestions, RequestSuggestions } from './search-types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
 import { macosCtrlSuggestionNavigationEnabled, tabRankScoreDebug } from '../../domain/settings/search';
@@ -35,6 +34,7 @@ import type { SuggestionSource } from '../../shared/search-panel/suggestion-sour
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
+import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -133,7 +133,7 @@ interface SearchBoxDeps {
   refreshFallbackShortcut(force: boolean): void;
   restoreDismissedSearchSuggestions(): void;
   hideSearchInputCursorTooltip(): void;
-  openSearchModeMenuFromDoubleTab: SearchModes['openSearchModeMenuFromDoubleTab'];
+  modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   bindSearchInputCursorTooltip: BindCursorTooltip;
   pageState: SearchBoxState;
 }
@@ -220,7 +220,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     refreshFallbackShortcut,
     restoreDismissedSearchSuggestions,
     hideSearchInputCursorTooltip,
-    openSearchModeMenuFromDoubleTab,
+    modeMenu,
     bindSearchInputCursorTooltip
   } = deps;
 
@@ -626,7 +626,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     if (pageState.inputModeController) {
       pageState.inputModeController.resetModeMenuDoubleTab();
     }
-    void openSearchModeMenuFromDoubleTab();
+    void modeMenu.openFromDoubleTab();
   }
   // The search icon opens the scope panel, except while a scope is set.
   let searchScopeIconEnabled = true;
