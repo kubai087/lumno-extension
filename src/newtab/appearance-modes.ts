@@ -55,7 +55,6 @@ interface AppearanceModesDeps extends
   settings: Pick<SettingsStore, 'get' | 'set' | 'include' | 'subscribe'>;
   t: Translate;
   renderShortcuts(): void;
-  updateRecentModeMenu: SectionHeaders['updateRecentModeMenu'];
   updateBookmarkModeMenu: SectionHeaders['updateBookmarkModeMenu'];
   forceReloadRecentSitesForI18n: SectionLoaders['forceReloadRecentSitesForI18n'];
   // { resetInk: true } when a setting changed what the glass ink should be.
@@ -87,7 +86,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     settings,
     t,
     renderNewtabTopContent,
-    updateRecentModeMenu,
     updateBookmarkModeMenu,
     updateFeedbackLanguageStrings,
     renderShortcuts,
@@ -116,7 +114,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     if (pageState.bookmarkTopbarRuntime) {
       pageState.bookmarkTopbarRuntime.updateLanguage(t('bookmark_view_mode_top', 'Top bookmarks bar'));
     }
-    updateRecentModeMenu();
     // Also draws the bookmark header with the new language.
     updateBookmarkModeMenu();
     quoteRuntime.updateLanguage();

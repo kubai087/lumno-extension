@@ -4,24 +4,18 @@ import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { PageLayout } from './page-layout';
 import type { PagePreferences } from './page-preferences';
 import type { BookmarksViewController } from './react/bookmarks';
-import type { RecentHistoryDialogController } from './react/recent-history-dialog';
-import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
-import type { RecentSite } from '../domain/recent-sites-store';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
 import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible } from '../domain/settings/bookmarks';
 import { progressTrackingEnabled, recentCount, recentMode } from '../domain/settings/recent-sites';
 import type { SettingPreview } from './setting-preview';
+import type { RecentSitesShown } from './recent/recent-sites-shown';
 
 const SECTION_SETTINGS = [recentCount, recentMode, bookmarkCount, bookmarkColumns, bookmarkFolderIconsVisible, progressTrackingEnabled];
 
 interface StartupPreferencesState {
-  recentHistoryDialogController: Pick<RecentHistoryDialogController, 'close'> | null;
   bookmarkCurrentPage: number;
-  recentSourceItems: RecentSite[];
-  recentRenderSignature: string;
-  recentLoadedOnce: boolean;
   bookmarkLoadedOnce: boolean;
   bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
 }
@@ -37,16 +31,17 @@ interface StartupPreferencesDeps extends
   renderRecentSites: SectionLoaders['renderRecentSites'];
   markRecentDataDirty: SectionLoaders['markRecentDataDirty'];
   loadRecentSites: SectionLoaders['loadRecentSites'];
-  updateRecentModeMenu: SectionHeaders['updateRecentModeMenu'];
   renderCurrentBookmarkPage: BookmarkPager['renderCurrentBookmarkPage'];
   updateBookmarkGridHeightLock: BookmarkPager['updateBookmarkGridHeightLock'];
   markBookmarkDataDirty: SectionLoaders['markBookmarkDataDirty'];
   loadBookmarks: SectionLoaders['loadBookmarks'];
+  recentShown: Pick<RecentSitesShown, 'forgetSignature' | 'items' | 'loadedOnce'>;
   pageState: StartupPreferencesState;
 }
 
 function createStartupPreferences(deps: StartupPreferencesDeps) {
   const {
+    recentShown,
     settings,
     preview,
     renderRecentSites,
@@ -60,7 +55,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     renderCurrentBookmarkPage,
     updateBookmarkGridHeightLock,
     updateBookmarkSectionPosition,
-    updateRecentModeMenu,
     markBookmarkDataDirty,
     loadBookmarks
   } = deps;
@@ -110,20 +104,14 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     const previous = shown;
     const next = readSectionPreferences();
     shown = next;
-    if (first || next.recentMode !== previous.recentMode) {
-      updateRecentModeMenu();
-    }
     if (next.recentCount !== previous.recentCount || next.recentMode !== previous.recentMode ||
-        (first && !pageState.recentLoadedOnce)) {
+        (first && !recentShown.loadedOnce)) {
       markRecentDataDirty();
       void loadRecentSites({ force: !first });
     }
     if (next.progressTrackingEnabled !== previous.progressTrackingEnabled) {
-      if (!next.progressTrackingEnabled && pageState.recentHistoryDialogController) {
-        pageState.recentHistoryDialogController.close({ restoreFocus: false });
-      }
-      pageState.recentRenderSignature = '';
-      renderRecentSites(pageState.recentSourceItems);
+      recentShown.forgetSignature();
+      renderRecentSites(recentShown.items);
     }
     if (next.bookmarkFolderIconsVisible !== previous.bookmarkFolderIconsVisible && pageState.bookmarksView) {
       pageState.bookmarksView.setFolderIconsVisible(next.bookmarkFolderIconsVisible);

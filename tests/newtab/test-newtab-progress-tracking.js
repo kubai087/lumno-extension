@@ -85,12 +85,8 @@ function createArea(initial) {
 }
 
 async function createController(pinned, history, options = {}) {
-  const state = {
-    pinnedRecentSites: store.normalizePinnedRecentSites(pinned),
-    hiddenRecentSites: [],
-    recentSourceItems: [],
-    recentRenderSignature: 'x'
-  };
+  // The recent sites last drawn, which a progress change draws again.
+  const recentShown = { items: [], forgetSignature() {} };
   const syncArea = createArea({ [PINNED_KEY]: pinned });
   const localArea = createArea({ [HISTORY_KEY]: history });
   const settings = createSettings(syncArea, localArea, options.enabled !== false);
@@ -123,10 +119,11 @@ async function createController(pinned, history, options = {}) {
     openProgressHistory: (item) => opened.push(item),
     recentContextMenuSelectController: { isOpen: () => false, setOpen() {}, setOptions() {} },
     locale: { store: { subscribe: () => () => {} } },
-    pageState: state
+    recentShown,
+    pageState: {}
   });
   await controller.followStoredSites();
-  return { controller, state, syncArea, localArea, toasts, opened, getRenders: () => renders };
+  return { controller, syncArea, localArea, toasts, opened, getRenders: () => renders };
 }
 
 const tracked = {

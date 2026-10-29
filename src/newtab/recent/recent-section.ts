@@ -2,33 +2,27 @@
 // switch, grid and the recent sites view.
 import type { BindCursorTooltip, FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PageStructureRuntime } from '../react/page-structure';
-import type { RecentSitesViewController, RecentSitesViewOptions } from '../react/recent-sites';
+import type { RecentSitesViewOptions } from '../react/recent-sites';
 import { createRecentSitesView } from '../react/recent-sites';
 import type { SettingsStore } from '../../platform/settings-store';
 import { recentMode } from '../../domain/settings/recent-sites';
 import type { RecentSitesController } from './recent-sites-controller';
 import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
 import type { RecentPointer } from './recent-pointer';
+import { recentEvents } from './recent-events';
+import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 
 // An option the recent sites view is handed as it is.
 type ViewOption<K extends keyof RecentSitesViewOptions> = NonNullable<RecentSitesViewOptions[K]>;
 
 interface RecentSectionState {
-  recentHeader: HTMLElement | null;
-  // Draws the heading and its mode switch again.
-  recentModeMenu: { update(): void } | null;
-  recentGrid: HTMLElement | null;
-  recentSitesView: RecentSitesViewController | null;
   // Starts a drag when a press on a card moves far enough.
   recentCardDragRuntime: { handleRecentCardPointerDown: ViewOption<'onCardPointerDown'> } | null;
-  // The items the grid shows, to skip renders that change nothing.
-  recentRenderSignature: string;
-  recentLoadedOnce: boolean;
 }
 
 interface RecentSectionDeps {
   getPinnedRecentSites: RecentSitesController['getPinnedRecentSites'];
-  settings: Pick<SettingsStore, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'subscribe'>;
   setContentSectionVisible(section: HTMLElement | null, visible: boolean): void;
   hideTopActionTooltip(): void;
   pageStructureRuntime: { recent: Pick<PageStructureRuntime['recent'], 'section' | 'header' | 'grid' | 'renderHeader'> };
@@ -64,9 +58,10 @@ interface RecentSectionDeps {
   toggleRecentProgressTracking: ViewOption<'toggleProgressTracking'>;
   recentPointer: RecentPointer;
   pageState: RecentSectionState;
+  locale: Pick<SurfaceLocale, 'store'>;
 }
 
-function createRecentSection(deps: RecentSectionDeps): void {
+function createRecentSection(deps: RecentSectionDeps) {
   const {
     getPinnedRecentSites,
     settings,
@@ -102,7 +97,8 @@ function createRecentSection(deps: RecentSectionDeps): void {
     isCardActivationSuppressed,
     getRecentProgressState,
     toggleRecentProgressTracking,
-    recentPointer
+    recentPointer,
+    locale
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -128,7 +124,6 @@ function createRecentSection(deps: RecentSectionDeps): void {
     recentPointer.cancel();
     hideTopActionTooltip();
   });
-  pageState.recentHeader = pageStructureRuntime.recent.header;
   // The mode switch shows the current mode's name, so it stands in for the plain heading.
   function renderRecentHeader(): void {
     const latest = t('recent_heading_latest', 'Recent visits');
@@ -143,14 +138,15 @@ function createRecentSection(deps: RecentSectionDeps): void {
       }
     });
   }
-  pageState.recentModeMenu = { update: renderRecentHeader };
   renderRecentHeader();
-  pageState.recentGrid = pageStructureRuntime.recent.grid;
+  // The heading follows the language and the mode, whoever changed it.
+  locale.store.subscribe(renderRecentHeader);
+  settings.subscribe(recentMode, renderRecentHeader);
   applyRecentGridColumns();
-  pageState.recentSitesView = createRecentSitesView({
+  const recentSitesView = createRecentSitesView({
     documentObj: document,
     windowObj: window,
-    grid: pageState.recentGrid,
+    grid: pageStructureRuntime.recent.grid,
     cards: recentCards,
     t,
     formatMessage,
@@ -185,8 +181,9 @@ function createRecentSection(deps: RecentSectionDeps): void {
     getProgressState: getRecentProgressState,
     toggleProgressTracking: toggleRecentProgressTracking
   });
-  pageState.recentRenderSignature = '';
-  pageState.recentLoadedOnce = false;
+  // The card a context menu is open on shows as its target.
+  recentEvents.on('contextMenuSite', (url) => recentSitesView.setContextMenuSite(url));
+  return { recentSitesView };
 }
 
 export { createRecentSection };

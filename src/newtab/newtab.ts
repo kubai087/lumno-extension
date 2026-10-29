@@ -174,6 +174,7 @@ import { PageNoticeControllers } from './notice-controllers';
 import { AppliedThemeMode } from './theme/applied-theme-mode';
 import { ShortcutList } from './shortcuts/shortcut-list';
 import { BottomDockParts } from './shortcuts/bottom-dock-parts';
+import { RecentSitesShown } from './recent/recent-sites-shown';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
@@ -210,6 +211,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const searchLayer = pageStructureRuntime.searchLayer;
   const shortcutSection = pageStructureRuntime.shortcut.section;
   const shortcutGrid = pageStructureRuntime.shortcut.grid;
+  const recentSection = pageStructureRuntime.recent.section;
   // The search box's parts, mounted by the search box below.
   const searchBox = new SearchBoxParts();
   // The search suggestion the arrows show in the input.
@@ -224,18 +226,27 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const shortcutList = new ShortcutList();
   // The bottom dock's parts and the layout it drives, mounted with the dock.
   const bottomDockParts = new BottomDockParts();
+  // The recent sites the section last drew.
+  const recentShown = new RecentSitesShown();
 
 
+  // Firefox: index the browser's own cached icons, which stand in for the
+  // missing _favicon endpoint (see createBrowserIconIndex).
+  const firefoxBrowserIcons = LumnoBrowserProfile.isFirefoxExtensionRuntime()
+    ? FaviconBrowserIconIndex.createBrowserIconIndex()
+    : null;
+  const firefoxBrowserIconsReady = firefoxBrowserIcons
+    ? LumnoBrowserIcons.loadBrowserIcons(firefoxBrowserIcons, chrome).catch(() => {})
+    : Promise.resolve();
   const startupRecentSourceReadsAt = Date.now();
 
   const {
     openRecentHistoryDialog,
-    readRecentOpenTabs,
-    readRecentTopSites,
-    readRecentHistoryItems,
     releaseStartupRecentSourceReads,
     getRecentSites
   } = NEWTAB_RECENT_SOURCES.createRecentSources({
+    firefoxBrowserIconsReady,
+    firefoxBrowserIcons,
     settings,
     t: (...args) => t(...args),
     getRecentContextMenuOptions: (...args) => getRecentContextMenuOptions(...args),
@@ -243,15 +254,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     showToast: (...args) => showToast(...args),
     startupRecentSourceReadsAt,
     getRecentStoreOptions: (...args) => getRecentStoreOptions(...args),
-    isBrowserPageRecentUrl: (...args) => isBrowserPageRecentUrl(...args),
-    pageState
+    isBrowserPageRecentUrl: (...args) => isBrowserPageRecentUrl(...args)
   });
-
-  pageState.startupRecentSourceReads = {
-    historyItems: readRecentHistoryItems(),
-    topSites: readRecentTopSites(),
-    tabs: readRecentOpenTabs()
-  };
 
   const localStorageArea = (chrome && chrome.storage && chrome.storage.local)
     ? chrome.storage.local
@@ -285,7 +289,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getNewtabVisualViewportInsets
   } = NEWTAB_VIEWPORT_INSETS.createViewportInsets();
 
-  const BROWSER_PROFILE = LumnoBrowserProfile;
   const COMMUNITY_LINKS = LumnoCommunityLinks;
   // Escape closes only the top open layer (menus, popovers, panels, drags).
   // The folder color dialog handles its own Escape.
@@ -699,14 +702,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     pageState
   });
 
-  // Firefox: index the browser's own cached icons, which stand in for the
-  // missing _favicon endpoint (see createBrowserIconIndex).
-  pageState.firefoxBrowserIcons = BROWSER_PROFILE.isFirefoxExtensionRuntime()
-    ? FaviconBrowserIconIndex.createBrowserIconIndex()
-    : null;
-  pageState.firefoxBrowserIconsReady = pageState.firefoxBrowserIcons
-    ? LumnoBrowserIcons.loadBrowserIcons(pageState.firefoxBrowserIcons, chrome).catch(() => {})
-    : Promise.resolve();
   const {
     getUrlDisplay,
     isBrowserPageRecentUrl,
@@ -731,7 +726,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     settings,
     t,
     getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
-    getBrowserIconUrl: pageState.firefoxBrowserIcons ? pageState.firefoxBrowserIcons.get : undefined
+    getBrowserIconUrl: firefoxBrowserIcons ? firefoxBrowserIcons.get : undefined
   });
 
   const { isCardActivationSuppressed } = NEWTAB_CARD_ACTIVATION_GUARD.createCardActivationGuard({ documentObj: document });
@@ -755,6 +750,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     toggleRecentProgressTracking,
     restoreProgressVersion
   } = NEWTAB_RECENT_SITES_CONTROLLER.createRecentSitesController({
+    recentShown,
     locale,
     recentContextMenuSelectController,
     settings,
@@ -777,8 +773,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     renderRecentSites: (...args) => renderRecentSites(...args),
     progressMatch: PROGRESS_MATCH,
     progressHistory: PROGRESS_HISTORY,
-    openProgressHistory: (item) => openRecentHistoryDialog(item),
-    pageState
+    openProgressHistory: (item) => openRecentHistoryDialog(item)
   });
   const recentSitesReadyTask = followStoredSites();
 
@@ -893,7 +888,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     settings,
     t,
     renderNewtabTopContent: (...args) => renderNewtabTopContent(...args),
-    updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     updateFeedbackLanguageStrings,
     renderShortcuts: () => renderShortcuts(),
@@ -943,6 +937,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followShortcutGridLayout,
     followNewtabSearchWidth
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
+    recentSection,
+    recentGrid: pageStructureRuntime.recent.grid,
     bottomDockParts,
     shortcutGrid,
     shortcutSection,
@@ -1030,6 +1026,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getWallpaperShownAt,
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
+    recentHeader: pageStructureRuntime.recent.header,
     bottomDockParts,
     shortcutGrid,
     locale,
@@ -1113,6 +1110,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
 
 
   NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
+    recentShown,
     preview,
     settings,
     renderRecentSites: (...args) => renderRecentSites(...args),
@@ -1126,7 +1124,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
     updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
     updateBookmarkSectionPosition,
-    updateRecentModeMenu: (...args) => updateRecentModeMenu(...args),
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
     pageState
@@ -1241,7 +1238,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const suggestionsSurface = pageStructureRuntime.suggestions.surface;
   const suggestionsOutline = pageStructureRuntime.suggestions.outline;
   const bookmarkSection = pageStructureRuntime.bookmark.section;
-  pageState.recentSection = pageStructureRuntime.recent.section;
 
   const {
     captureRecentCardLayout,
@@ -1321,7 +1317,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   const {
-    updateRecentModeMenu,
     setRecentMode,
     canDismissRecentCard,
     updateBookmarkHeader,
@@ -1631,7 +1626,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     pageState
   });
 
-  NEWTAB_RECENT_SECTION.createRecentSection({
+  const { recentSitesView } = NEWTAB_RECENT_SECTION.createRecentSection({
+    locale,
     getPinnedRecentSites,
     settings,
     setContentSectionVisible,
@@ -1674,6 +1670,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bottomDockRuntime,
     bottomDock
   } = NEWTAB_BOTTOM_DOCK_RUNTIME.createBottomDockRuntime({
+    recentSection,
     bottomDockParts,
     shortcutSection,
     quoteRuntime,
@@ -1833,6 +1830,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleRecentVisibilityChange,
     forceReloadRecentSitesForI18n
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    recentSitesView,
+    recentShown,
     shortcutList,
     appliedTheme,
     getHiddenRecentSites,
@@ -1859,7 +1858,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     mergeRecentSitesWithPinned,
     getRecentLimit,
     setContentSectionVisible,
-    recentSection: pageState.recentSection,
+    recentSection,
     bookmarksRuntime,
     closeBookmarkCascadeMenu,
     followTheme,
@@ -2081,7 +2080,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     applyNewtabTopContentVisibility,
     applyNewtabShortcutsVisibility,
     bookmarkSection,
-    recentSection: pageState.recentSection,
+    recentSection,
     isBookmarkTopbarMode,
     bookmarkCards,
     closeBookmarkCascadeMenu,
@@ -2307,6 +2306,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   NEWTAB_PAGE_RESIZE.createPageResize({
+    recentShown,
     modeActions,
     getBookmarkLimit,
     applyNewtabWidthMode,

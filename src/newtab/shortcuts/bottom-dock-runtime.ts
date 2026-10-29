@@ -12,7 +12,6 @@ import type { BottomDockParts } from './bottom-dock-parts';
 
 interface BottomDockRuntimeState {
   topContentContainer: HTMLElement | null;
-  recentSection: HTMLElement | null;
   // While the window is resized the layout does not animate.
 }
 
@@ -31,12 +30,14 @@ interface BottomDockRuntimeDeps {
   notices: Pick<PageNoticeControllers, 'engagement' | 'update'>;
   quoteRuntime: { element: HTMLElement | null };
   shortcutSection: HTMLElement;
+  recentSection: HTMLElement;
   pageState: BottomDockRuntimeState;
   bottomDockParts: Pick<BottomDockParts, 'mount'>;
 }
 
 function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const {
+    recentSection,
     shortcutSection,
     quoteRuntime,
     searchLayer,
@@ -57,9 +58,8 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
-  const recentSection = pageState.recentSection;
-  if (!bookmarkSection || !recentSection) {
-    throw new Error('The New Tab dock, bookmark or recent section is unavailable.');
+  if (!bookmarkSection) {
+    throw new Error('The New Tab dock or bookmark section is unavailable.');
   }
   const SEARCH_LAYOUT_MIN_TOP_PX = 28;
   const SEARCH_LAYOUT_MIN_BOTTOM_PX = 20;

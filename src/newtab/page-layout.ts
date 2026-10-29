@@ -39,8 +39,6 @@ interface ViewportSnapshot {
 interface PageLayoutState {
   bookmarkGrid: HTMLElement | null;
   bookmarkCurrentPage: number;
-  recentGrid: HTMLElement | null;
-  recentSection: HTMLElement | null;
 }
 
 interface PageLayoutDeps extends
@@ -61,11 +59,15 @@ interface PageLayoutDeps extends
   shortcutSection: HTMLElement;
   shortcutGrid: HTMLElement;
   bottomDockParts: Pick<BottomDockParts, 'layoutController' | 'layoutMotion'>;
+  recentGrid: HTMLElement;
+  recentSection: HTMLElement;
   pageState: PageLayoutState;
 }
 
 function createPageLayout(deps: PageLayoutDeps) {
   const {
+    recentSection,
+    recentGrid,
     bottomDockParts,
     shortcutGrid,
     shortcutSection,
@@ -185,13 +187,13 @@ function createPageLayout(deps: PageLayoutDeps) {
 
   // Reports whether the column count changed.
   function applyRecentGridColumns(): boolean {
-    if (!pageState.recentGrid) {
+    if (!recentGrid) {
       return false;
     }
     const columns = getRecentGridColumnCount();
     const changed = currentRecentGridColumns !== columns;
     currentRecentGridColumns = columns;
-    pageState.recentGrid.style.setProperty('--x-nt-recent-columns', String(columns));
+    recentGrid.style.setProperty('--x-nt-recent-columns', String(columns));
     return changed;
   }
 
@@ -227,7 +229,7 @@ function createPageLayout(deps: PageLayoutDeps) {
     }
     section.setAttribute('data-content-visible', visible ? 'true' : 'false');
     section.setAttribute('data-visible', visible && !settings.get(newtabZenMode) ? 'true' : 'false');
-    if (section === pageState.recentSection && (!visible || settings.get(newtabZenMode))) {
+    if (section === recentSection && (!visible || settings.get(newtabZenMode))) {
       closeRecentContextMenu();
     }
     scheduleWallpaperAdaptiveToneUpdate();

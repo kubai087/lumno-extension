@@ -1,18 +1,16 @@
 // Window resizes: re-measures the layout once per frame, and once more
 // after the resize settles, without animating the blocks.
 import type { SectionLoaders } from './section-loaders';
-import type { RecentSite } from '../domain/recent-sites-store';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { ViewportActivity } from './viewport-activity';
+import type { RecentSitesShown } from './recent/recent-sites-shown';
 
 // A card's place on screen before a layout change.
 type CardLayout = Map<HTMLElement, { left: number; top: number }>;
 
 interface PageResizeState {
-  recentLoadedOnce: boolean;
   bookmarkLoadedOnce: boolean;
-  recentSourceItems: RecentSite[];
 }
 
 interface PageResizeDeps {
@@ -35,11 +33,13 @@ interface PageResizeDeps {
   renderRecentSites: SectionLoaders['renderRecentSites'];
   animateRecentResizeLayout(fromPositions: CardLayout | null): void;
   viewport: Pick<ViewportActivity, 'revision' | 'locked' | 'store'>;
+  recentShown: Pick<RecentSitesShown, 'items' | 'loadedOnce'>;
   pageState: PageResizeState;
 }
 
 function createPageResize(deps: PageResizeDeps): void {
   const {
+    recentShown,
     modeActions,
     getBookmarkLimit,
     applyNewtabWidthMode,
@@ -69,7 +69,7 @@ function createPageResize(deps: PageResizeDeps): void {
     const previousBookmarkLimit = getBookmarkLimit();
     applyNewtabWidthMode();
     applyNewtabShortcutColumns();
-    const recentLayoutBefore = pageState.recentLoadedOnce && shouldAnimateNewtabLayoutShift()
+    const recentLayoutBefore = recentShown.loadedOnce && shouldAnimateNewtabLayoutShift()
       ? captureRecentCardLayout()
       : null;
     const recentColumnsChanged = applyRecentGridColumns();
@@ -86,9 +86,9 @@ function createPageResize(deps: PageResizeDeps): void {
     });
     positionBookmarkCascadeLevels();
     updateSuggestionsFloatingLayout();
-    if (recentColumnsChanged && pageState.recentLoadedOnce) {
+    if (recentColumnsChanged && recentShown.loadedOnce) {
       cancelRecentResizeLayoutAnimations();
-      renderRecentSites(pageState.recentSourceItems);
+      renderRecentSites(recentShown.items);
       animateRecentResizeLayout(recentLayoutBefore);
     }
   }

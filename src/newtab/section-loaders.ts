@@ -28,6 +28,7 @@ import { isRecord } from '../platform/storage-call';
 import { FAVICON_CACHE_BOOT_WAIT_MS, MAX_PINNED_RECENT_SITES } from './newtab-config';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
 import type { ShortcutList } from './shortcuts/shortcut-list';
+import type { RecentSitesShown } from './recent/recent-sites-shown';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -52,10 +53,6 @@ interface SectionLoadersState {
   bookmarkRootVisibleCount: number;
   bookmarkCurrentPage: number;
   bookmarkLoadedOnce: boolean;
-  recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'> | null;
-  recentSourceItems: RecentSite[];
-  recentRenderSignature: string;
-  recentLoadedOnce: boolean;
 }
 
 interface SectionLoadersDeps extends
@@ -89,11 +86,14 @@ interface SectionLoadersDeps extends
   bookmarksRuntime: Pick<BookmarksRuntime, 'invalidate'>;
   appliedTheme: Pick<AppliedThemeMode, 'applied'>;
   shortcutList: Pick<ShortcutList, 'items'>;
+  recentShown: Pick<RecentSitesShown, 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'setItems' | 'signature'>;
   pageState: SectionLoadersState;
+  recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'>;
 }
 
 function createSectionLoaders(deps: SectionLoadersDeps) {
   const {
+    recentShown,
     shortcutList,
     appliedTheme,
     settings,
@@ -135,7 +135,8 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     renderShortcuts,
     getRecentSourceLimit,
     getRecentSites,
-    beginSearchEntryRestoreLayoutLock
+    beginSearchEntryRestoreLayoutLock,
+    recentSitesView
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -155,13 +156,6 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       throw new Error('Bookmarks view unavailable');
     }
     return pageState.bookmarksView;
-  }
-
-  function getRecentSitesView(): Pick<RecentSitesViewController, 'render' | 'clear'> {
-    if (!pageState.recentSitesView) {
-      throw new Error('Recent sites view unavailable');
-    }
-    return pageState.recentSitesView;
   }
 
   function isDragActive(): boolean {
@@ -297,10 +291,10 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
         const url = item && item.url ? String(item.url) : '';
         return !shouldExcludeFromRecentSites(url) && !isRecentSiteHidden(item);
       });
-    pageState.recentSourceItems = normalizedSourceItems.slice();
+    recentShown.setItems(normalizedSourceItems.slice());
     const mergedItems = mergeRecentSitesWithPinned(normalizedSourceItems, getRecentLimit());
-    const renderResult = getRecentSitesView().render(mergedItems, {
-      signature: pageState.recentRenderSignature
+    const renderResult = recentSitesView.render(mergedItems, {
+      signature: recentShown.signature
     });
     if (!renderResult.changed) {
       if (mergedItems.length === 0) {
@@ -311,7 +305,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       updateBookmarkSectionPosition();
       return;
     }
-    pageState.recentRenderSignature = renderResult.signature;
+    recentShown.drawn(renderResult.signature);
     if (mergedItems.length === 0) {
       setContentSectionVisible(recentSection, false);
       updateBookmarkSectionPosition();
@@ -450,19 +444,19 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
         })
       ));
     }
-    if (!forceReload && !recentDataDirty && pageState.recentLoadedOnce) {
+    if (!forceReload && !recentDataDirty && recentShown.loadedOnce) {
       updateBookmarkSectionPosition();
       return Promise.resolve();
     }
     const requestToken = ++recentLoadToken;
     const recentSourceLimit = getRecentSourceLimit();
     if (!recentSourceLimit || recentSourceLimit <= 0) {
-      pageState.recentRenderSignature = '';
-      pageState.recentSourceItems = [];
-      getRecentSitesView().clear();
+      recentShown.forgetSignature();
+      recentShown.setItems([]);
+      recentSitesView.clear();
       setContentSectionVisible(recentSection, false);
       recentDataDirty = false;
-      pageState.recentLoadedOnce = true;
+      recentShown.markLoaded();
       updateBookmarkSectionPosition();
       return Promise.resolve();
     }
@@ -474,7 +468,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       const normalizedItems = Array.isArray(items) ? items : [];
       renderRecentSites(normalizedItems);
       recentDataDirty = false;
-      pageState.recentLoadedOnce = true;
+      recentShown.markLoaded();
     });
   }
 
@@ -482,7 +476,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     if (document.visibilityState !== 'visible') {
       return;
     }
-    const shouldReloadRecent = recentDataDirty || !pageState.recentLoadedOnce;
+    const shouldReloadRecent = recentDataDirty || !recentShown.loadedOnce;
     const shouldReloadBookmarks = bookmarkDataDirty || !pageState.bookmarkLoadedOnce;
     if (shouldReloadRecent || shouldReloadBookmarks) {
       beginSearchEntryRestoreLayoutLock();
@@ -496,7 +490,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
   }
 
   function forceReloadRecentSitesForI18n(): void {
-    pageState.recentRenderSignature = '';
+    recentShown.forgetSignature();
     pageState.bookmarkRenderSignature = '';
     markRecentDataDirty();
     markBookmarkDataDirty();

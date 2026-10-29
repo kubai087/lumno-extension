@@ -22,7 +22,6 @@ import { BOOKMARK_TOPBAR_HEIGHT_PX } from './react/bookmarks-topbar';
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
 
 interface SectionHeadersState {
-  recentModeMenu: { update(): void } | null;
   bookmarkGrid: HTMLElement | null;
   bookmarkCascadeRuntime: Pick<BookmarkCascadeRuntime, 'positionLevels' | 'isOpen'> | null;
   bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'activate' | 'deactivate' | 'setVisible' | 'isActive'> | null;
@@ -86,16 +85,9 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
   // Matches the floating bar's 8px top offset and 40px height in styles/bookmarks-topbar.css.
   const BOOKMARK_TOPBAR_FLOATING_OCCUPIED_PX = 48;
 
-  function updateRecentModeMenu(): void {
-    if (pageState.recentModeMenu) {
-      pageState.recentModeMenu.update();
-    }
-  }
-
   // The follow in startup-preferences loads the recent sites again.
   function setRecentMode(nextMode: unknown): void {
     void settings.set(recentMode, recentMode.parse(nextMode)).catch(() => {});
-    updateRecentModeMenu();
   }
 
   function canDismissRecentCard(): boolean {
@@ -297,7 +289,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
   }
 
   return {
-    updateRecentModeMenu,
     setRecentMode,
     canDismissRecentCard,
     updateBookmarkHeader,

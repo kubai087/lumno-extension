@@ -9,7 +9,7 @@ import type { SelectMenuOption } from '../../shared/react/select-menu/menu-optio
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import type { ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
 import type { RecentHistoryItem } from '../react/recent-history-dialog';
-import type { RecentProgressState, RecentSitesViewController, RecentSitesViewOptions } from '../react/recent-sites';
+import type { RecentProgressState, RecentSitesViewOptions } from '../react/recent-sites';
 import type { SelectMenuInstance } from '../react/select-menu';
 import type { ShortcutSite } from '../shortcuts/shortcut-types';
 import type { RecentContextTarget } from './recent-types';
@@ -22,13 +22,9 @@ import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
 import { NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
 import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import type { RecentSitesShown } from './recent-sites-shown';
+import { recentEvents } from './recent-events';
 
-interface RecentSitesControllerState {
-  recentSitesView: Pick<RecentSitesViewController, 'setContextMenuSite'> | null;
-  // The items the grid shows, to skip renders that change nothing.
-  recentRenderSignature: string;
-  recentSourceItems: RecentSite[];
-}
 
 interface RecentSitesControllerDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
@@ -53,7 +49,7 @@ interface RecentSitesControllerDeps {
   progressHistory: Pick<typeof ProgressHistory, 'createProgressId' | 'getHistoryId' | 'normalizeHistoryMap' | 'restoreVersion'>;
   openProgressHistory?(item: RecentHistoryItem): unknown;
   recentContextMenuSelectController: SelectMenuController;
-  pageState: RecentSitesControllerState;
+  recentShown: Pick<RecentSitesShown, 'forgetSignature' | 'items'>;
   locale: Pick<SurfaceLocale, 'store'>;
 }
 
@@ -77,6 +73,7 @@ type CardContextMenuPayload = Parameters<NonNullable<RecentSitesViewOptions['onI
 
 function createRecentSitesController(deps: RecentSitesControllerDeps) {
   const {
+    recentShown,
     recentContextMenuSelectController,
     settings,
     t,
@@ -102,8 +99,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     locale
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   // What the open menu acts on.
   let recentContextMenuTarget: RecentContextTarget | null = null;
   // The menu, made the first time it opens.
@@ -123,8 +118,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function redrawRecentSites(): void {
-    pageState.recentRenderSignature = '';
-    renderRecentSites(pageState.recentSourceItems);
+    recentShown.forgetSignature();
+    renderRecentSites(recentShown.items);
   }
 
   // Follows the stored lists, redrawing the cards when the sites change;
@@ -141,7 +136,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     return settings.include([...sites, RecentSiteSettings.progressHistory]).then(() => {
       readStoredSiteLists();
       historyMap = progressHistory.normalizeHistoryMap(settings.get(RecentSiteSettings.progressHistory));
-      if (pageState.recentSourceItems.length > 0) {
+      if (recentShown.items.length > 0) {
         redrawRecentSites();
       }
     });
@@ -219,9 +214,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function setRecentContextMenuSite(url: string | null): void {
-    if (pageState.recentSitesView) {
-      pageState.recentSitesView.setContextMenuSite(url);
-    }
+    recentEvents.emit('contextMenuSite', url);
   }
 
   function closeRecentContextMenu(): void {
@@ -476,8 +469,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       ? writePinnedRecentSites(nextPinnedItems)
       : Promise.resolve(pinnedSites.slice());
     return persistPinned.then(() => writeHiddenRecentSites(nextHiddenItems)).then(() => {
-      pageState.recentRenderSignature = '';
-      renderRecentSites(pageState.recentSourceItems);
+      recentShown.forgetSignature();
+      renderRecentSites(recentShown.items);
       return { hidden: true, wasPinned };
     });
   }
@@ -576,8 +569,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     if (existingIndex >= 0) {
       const nextItems = pinnedSites.filter((_, index) => index !== existingIndex);
       return writePinnedRecentSites(nextItems).then((savedItems) => {
-        pageState.recentRenderSignature = '';
-        renderRecentSites(pageState.recentSourceItems);
+        recentShown.forgetSignature();
+        renderRecentSites(recentShown.items);
         return {
           pinned: false,
           limitReached: false,
@@ -598,8 +591,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     };
     const nextItems = [pinned].concat(pinnedSites);
     return writePinnedRecentSites(nextItems).then((savedItems) => {
-      pageState.recentRenderSignature = '';
-      renderRecentSites(pageState.recentSourceItems);
+      recentShown.forgetSignature();
+      renderRecentSites(recentShown.items);
       if (autoTrack) {
         showToast(t('recent_progress_auto_toast', '已置顶，并开始跟踪进度。点击卡片上的雷达图标可停止。'), false);
       }
@@ -719,8 +712,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       nextItems = [tracked].concat(pinnedSites);
     }
     return writePinnedRecentSites(nextItems).then(() => {
-      pageState.recentRenderSignature = '';
-      renderRecentSites(pageState.recentSourceItems);
+      recentShown.forgetSignature();
+      renderRecentSites(recentShown.items);
       showToast(enabled
         ? t('recent_progress_track_toast', '已开始跟踪，看下一集或下一章时卡片会自动更新')
         : t('recent_progress_stop_toast', '已停止跟踪进度'), false);
@@ -775,8 +768,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     return writeProgressHistory(restored.map).then(() => {
       return writePinnedRecentSites(nextItems);
     }).then(() => {
-      pageState.recentRenderSignature = '';
-      renderRecentSites(pageState.recentSourceItems);
+      recentShown.forgetSignature();
+      renderRecentSites(recentShown.items);
       return true;
     }).catch(() => {
       showToast(t('recent_history_restore_failed', '无法恢复此版本'), true);
@@ -831,4 +824,4 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
 type RecentSitesController = ReturnType<typeof createRecentSitesController>;
 
 export { createRecentSitesController };
-export type { RecentSitesController, RecentSitesControllerDeps, RecentSitesControllerState };
+export type { RecentSitesController, RecentSitesControllerDeps };

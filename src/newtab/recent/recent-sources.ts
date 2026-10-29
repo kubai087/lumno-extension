@@ -21,16 +21,9 @@ import { getBrowserInternalScheme } from '../../platform/browser-profile';
 // ranks most-visited from history visit counts alone.
 const TOP_SITES_FOLLOW_HISTORY = getBrowserInternalScheme(navigator.userAgent) !== 'edge://';
 
-interface RecentSourcesState {
-  recentHistoryDialogController: RecentHistoryDialogController | null;
-  startupRecentSourceReads: StartupRecentSourceReads | null;
-  // Firefox's own cached icons, which recent cards wait for there.
-  firefoxBrowserIcons: Readonly<BrowserIconIndex> | null;
-  firefoxBrowserIconsReady: Promise<unknown>;
-}
 
 interface RecentSourcesDeps {
-  settings: Pick<SettingsStore, 'get'>;
+  settings: Pick<SettingsStore, 'get' | 'subscribe'>;
   t: Translate;
   getRecentContextMenuOptions(target?: RecentContextTarget | null): SelectMenuOption[];
   restoreProgressVersion: NonNullable<RecentHistoryDialogOptions['onRestore']>;
@@ -38,7 +31,9 @@ interface RecentSourcesDeps {
   startupRecentSourceReadsAt: number;
   getRecentStoreOptions(): RecentSiteOptions;
   isBrowserPageRecentUrl(url: string | undefined): boolean;
-  pageState: RecentSourcesState;
+  // Firefox's own cached icons, which recent cards wait for there.
+  firefoxBrowserIcons: Readonly<BrowserIconIndex> | null;
+  firefoxBrowserIconsReady: Promise<unknown>;
 }
 
 // What a merge reads, without the list settings each merge sets itself.
@@ -46,6 +41,8 @@ type RecentSourceReads = Pick<RecentSiteSources, 'tabs' | 'topSites' | 'historyI
 
 function createRecentSources(deps: RecentSourcesDeps) {
   const {
+    firefoxBrowserIconsReady,
+    firefoxBrowserIcons,
     settings,
     t,
     restoreProgressVersion,
@@ -55,8 +52,10 @@ function createRecentSources(deps: RecentSourcesDeps) {
     isBrowserPageRecentUrl
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
+  // The browser reads the first recent-sites pass shares, started below.
+  let startupRecentSourceReads: StartupRecentSourceReads | null = null;
+  // The change history dialog, loaded the first time it opens.
+  let recentHistoryDialogController: RecentHistoryDialogController | null = null;
 
   // The first recent-sites pass waits for every layout preference, so the browser reads start now.
   // Preferences that arrive before it start passes of their own, which it then discards, so every
@@ -79,7 +78,7 @@ function createRecentSources(deps: RecentSourcesDeps) {
       }).then((controller) => {
         if (!controller) throw new Error('Recent history dialog unavailable');
         controller.mount(document.body);
-        pageState.recentHistoryDialogController = controller;
+        recentHistoryDialogController = controller;
         return controller;
       }).catch((error: unknown) => {
         recentHistoryDialogLoadPromise = null;
@@ -135,14 +134,14 @@ function createRecentSources(deps: RecentSourcesDeps) {
   }
 
   function releaseStartupRecentSourceReads(): void {
-    pageState.startupRecentSourceReads = null;
+    startupRecentSourceReads = null;
   }
 
   function takeStartupRecentSourceRead<K extends keyof StartupRecentSourceReads>(
     name: K,
     read: () => StartupRecentSourceReads[K]
   ): StartupRecentSourceReads[K] {
-    const pending = pageState.startupRecentSourceReads ? pageState.startupRecentSourceReads[name] : null;
+    const pending = startupRecentSourceReads ? startupRecentSourceReads[name] : null;
     return pending && Date.now() - startupRecentSourceReadsAt <= STARTUP_RECENT_SOURCE_MAX_AGE_MS
       ? pending
       : read();
@@ -150,9 +149,9 @@ function createRecentSources(deps: RecentSourcesDeps) {
 
   function getRecentSites(limit: number, mode: string): Promise<RecentSite[]> {
     const safeLimit = Math.max(0, Number(limit) || 0);
-    if (safeLimit > 0 && pageState.firefoxBrowserIcons) {
+    if (safeLimit > 0 && firefoxBrowserIcons) {
       // Render recent cards once Firefox's own icons are indexed.
-      return pageState.firefoxBrowserIconsReady.then(() => getRecentSitesNow(safeLimit, mode));
+      return firefoxBrowserIconsReady.then(() => getRecentSitesNow(safeLimit, mode));
     }
     return getRecentSitesNow(limit, mode);
   }
@@ -225,6 +224,19 @@ function createRecentSources(deps: RecentSourcesDeps) {
     return loadLatestRecentSites();
   }
 
+
+  // Turning progress tracking off closes the change history it shows.
+  settings.subscribe(progressTrackingEnabled, () => {
+    if (!settings.get(progressTrackingEnabled) && recentHistoryDialogController) {
+      recentHistoryDialogController.close({ restoreFocus: false });
+    }
+  });
+
+  startupRecentSourceReads = {
+    historyItems: readRecentHistoryItems(),
+    topSites: readRecentTopSites(),
+    tabs: readRecentOpenTabs()
+  };
   return {
     openRecentHistoryDialog,
     readRecentOpenTabs,
@@ -238,4 +250,4 @@ function createRecentSources(deps: RecentSourcesDeps) {
 type RecentSources = ReturnType<typeof createRecentSources>;
 
 export { createRecentSources };
-export type { RecentSources, RecentSourcesDeps, RecentSourcesState };
+export type { RecentSources, RecentSourcesDeps };

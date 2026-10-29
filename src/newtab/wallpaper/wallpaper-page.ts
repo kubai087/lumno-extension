@@ -39,7 +39,6 @@ interface WallpaperPageState {
   topContentController: TopContentController | null;
   topContentContainer: HTMLElement | null;
   wordmarkImageEl: HTMLImageElement | null;
-  recentHeader: HTMLElement | null;
 }
 
 interface WallpaperPageDeps {
@@ -82,6 +81,7 @@ interface WallpaperPageDeps {
   quoteRuntime: Pick<QuoteRuntime, 'element' | 'getTextElement' | 'bindSettings' | 'getProviderLabel' | 'updateLanguage'>;
   shortcutGrid: HTMLElement;
   bottomDockParts: Pick<BottomDockParts, 'scroller'>;
+  recentHeader: HTMLElement;
   pageState: WallpaperPageState;
   getFeedbackButton(): HTMLElement | null;
   sectionPanelSettings: SectionPanelSettings & { updateLanguage(): void };
@@ -91,6 +91,7 @@ interface WallpaperPageDeps {
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
+    recentHeader,
     bottomDockParts,
     shortcutGrid,
     quoteRuntime,
@@ -241,8 +242,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       // The recent mode switch is the heading's text, so it takes the header's tone,
       // including the solid fill it shows while pointed at or open.
       {
-        element: pageState.recentHeader,
-        sampleElement: pageState.recentHeader,
+        element: recentHeader,
+        sampleElement: recentHeader,
         minWidth: 112,
         minHeight: 44,
         iconButton: true

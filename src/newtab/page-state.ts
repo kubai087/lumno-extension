@@ -20,8 +20,6 @@ import type { PageLayoutState } from './page-layout';
 import type { PageResizeState } from './page-resize';
 import type { RecentCardDrag, RecentCardDragState } from './recent/recent-card-drag';
 import type { RecentSectionState } from './recent/recent-section';
-import type { RecentSitesControllerState } from './recent/recent-sites-controller';
-import type { RecentSourcesState } from './recent/recent-sources';
 import type { SectionHeadersState } from './section-headers';
 import type { SectionLoadersState } from './section-loaders';
 import type { SectionReloadState } from './section-reload';
@@ -59,8 +57,6 @@ type NewtabPageState =
   PageResizeState &
   RecentCardDragState &
   RecentSectionState &
-  RecentSitesControllerState &
-  RecentSourcesState &
   SectionHeadersState &
   SectionLoadersState &
   SectionReloadState &
@@ -74,7 +70,6 @@ type NewtabPageState =
 function createPageState(): NewtabPageState {
   return {
 
-    recentSourceItems: [],
     faviconViewRuntime: null,
 
     topContentContainer: null,
@@ -89,15 +84,11 @@ function createPageState(): NewtabPageState {
     bookmarkRootVisibleCount: 0,
     bookmarkTitleWrap: null,
     bookmarkGrid: null,
-    recentHeader: null,
-    recentModeMenu: null,
-    recentGrid: null,
     bookmarkPagerPrevButton: null,
     bookmarkPagerNextButton: null,
     bookmarkPagerAvailability: { previous: false, next: false },
     bookmarkPageAnimating: false,
     bookmarkMoveHistoryBusy: false,
-    recentSitesView: null,
     bookmarksView: null,
     shortcutDragState: null,
 
@@ -111,18 +102,11 @@ function createPageState(): NewtabPageState {
     bookmarkCascadeRuntime: null,
     bookmarkDragState: null,
     bookmarkTopbarRuntime: null,
-    recentSection: null,
     folderColorPicker: null,
-    recentHistoryDialogController: null,
-    startupRecentSourceReads: null,
-    firefoxBrowserIcons: null,
-    firefoxBrowserIconsReady: Promise.resolve(null),
 
     bookmarkLoadedOnce: false,
     bookmarkRenderSignature: '',
-    sectionDataRevision: 0,
-    recentLoadedOnce: false,
-    recentRenderSignature: ''
+    sectionDataRevision: 0
   };
 }
 
