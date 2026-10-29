@@ -2,6 +2,7 @@
 // New Tab and overlay adapters that create it.
 import type { RemixIconName } from '../../../ui/remix-icon';
 import type { Store } from '../../../state/store';
+import type { ColorSchemeState } from '../../../ui/color-scheme';
 import type { PortalHost } from '../../portal-host';
 import type { TabRankFields } from '../../../../domain/messages';
 import type {
@@ -134,8 +135,6 @@ export interface SuggestionIconSlotElement extends HTMLSpanElement {
 export interface SuggestionElement extends HTMLDivElement {
   _xIsSearchSuggestion?: boolean;
   _xIsAutocompleteTop?: boolean;
-  _xTheme?: ThemeValue;
-  _xThemeHost?: string;
   _xVisitButtonAction?: string;
   _xSuggestion?: Suggestion;
   _xTabId?: number | null;
@@ -237,6 +236,8 @@ export interface SuggestionsViewOptions {
   selection?: SuggestionSelection;
   // The modifier keys held, which change the rows' action labels.
   modifiers?: { readonly store: Store<ModifierState> };
+  // Whether the surface is drawn dark; rows redraw their colors when it changes.
+  colorScheme?: Pick<Store<ColorSchemeState>, 'getSnapshot' | 'subscribe'>;
   onSwitchToTab?: (
     tab: OpenTabSuggestion,
     event: MouseEvent
@@ -302,7 +303,6 @@ export interface SuggestionsViewController {
   render(payload?: SuggestionsRenderPayload): void;
   renderTabs(tabList?: OpenTabSuggestion[]): void;
   // Draws the rows again after their themes changed outside the list.
-  refreshRowStyles(): void;
   clear(): void;
   destroy(): void;
   getAutoHighlightIndex(): number;
@@ -383,6 +383,7 @@ export interface NormalizedOptions {
   >;
   selection: SuggestionSelection;
   modifiers: { readonly store: Store<ModifierState> };
+  colorScheme: Pick<Store<ColorSchemeState>, 'getSnapshot' | 'subscribe'>;
   onSwitchToTab: NonNullable<SuggestionsViewOptions['onSwitchToTab']>;
   onActivateSuggestion: NonNullable<
     SuggestionsViewOptions['onActivateSuggestion']
@@ -442,11 +443,9 @@ export interface ModifierState {
   openInBackgroundTab: boolean;
 }
 
-// The list's own state: the row under the pointer, and a revision bumped
-// when a row's theme changed outside the list.
+// The list's own state: the row under the pointer.
 export interface SuggestionListState {
   hoveredIndex: number;
-  revision: number;
 }
 
 export interface SuggestionSelection {

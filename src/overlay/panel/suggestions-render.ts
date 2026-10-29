@@ -40,6 +40,7 @@ import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigatio
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
+import type { ColorScheme } from '../../shared/ui/color-scheme';
 import type { PortalHost } from '../../shared/react/portal-host';
 
 // What the view takes for an option this module passes straight through.
@@ -74,6 +75,7 @@ interface SuggestionsRenderState {
 
 interface SuggestionsRenderDeps {
   suggestionModifiers: SuggestionModifiers;
+  colorScheme: ColorScheme;
   modeActions: SearchModeActions<InputModeProvider>;
   locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
@@ -142,6 +144,7 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
     suggestionModifiers,
+    colorScheme,
     modeActions,
     locale,
     searchResults,
@@ -266,11 +269,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       }
       refreshOverlaySuggestionsAfterHistoryDelete();
     });
-  }
-
-  // Draws the rows again after their themes changed (the page theme).
-  function refreshRowStyles(): void {
-    ensureOverlaySuggestionsView().refreshRowStyles();
   }
 
   function syncSuggestionLastState(): void {
@@ -507,6 +505,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
         }
       },
       modifiers: suggestionModifiers,
+      colorScheme,
       onSwitchToTab: (tab, event) => {
         const suggestion: OverlaySuggestion = {
           type: 'openTab',
@@ -693,7 +692,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   return {
-    refreshRowStyles,
     syncSuggestionLastState,
     scrollSelectedSuggestionIntoView,
     getSearchPanelsLayoutTransitionMenu,

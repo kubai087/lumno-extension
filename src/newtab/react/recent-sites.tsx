@@ -1,5 +1,6 @@
 import {
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -17,6 +18,7 @@ import { createRenderStore, type RenderStore } from '../../shared/react/render-s
 import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RecentSite } from '../../domain/recent-sites-store';
 import { getPagePortals } from '../app/portals';
+import { useCardTheme } from './card-theme';
 
 type Translate = (key: string, fallback: string) => string;
 // A site's theme as the page resolves it; the view passes it through.
@@ -42,8 +44,6 @@ interface ThemeSuggestion {
 }
 
 export interface RecentCardElement extends HTMLDivElement {
-  _xHost?: string;
-  _xTheme?: ThemeValue;
   _xTitleText?: string;
   _xDisposeRecentCard?: () => void;
   // Set while a drag of the card ends, so its click does not open the site.
@@ -496,10 +496,18 @@ function RecentSiteCard({
       'recent_progress_track_tooltip',
       '跟踪观看进度\n────────\n适合追剧、看连载小说时打开。\n打开后，在同一部作品里看到下一集或下一章，这张卡片会自动更新到最新进度。'
     );
-  const immediateTheme = options.getImmediateThemeForSuggestion({
-    type: 'history',
-    url: faviconPageUrl,
-    title: itemTitle
+  const themeSubject = useMemo<ThemeSuggestion>(
+    () => ({ type: 'history', url: faviconPageUrl, title: itemTitle }),
+    [faviconPageUrl, itemTitle]
+  );
+  const immediateTheme = useMemo(() => options.getImmediateThemeForSuggestion(themeSubject), [options, themeSubject]);
+  useCardTheme(cardRef, {
+    immediateTheme,
+    host,
+    subject: themeSubject,
+    priority: shouldEager ? 0 : 2,
+    queue: options.queueThemeForTarget,
+    apply: options.applyCardTheme
   });
   const pinAction = useExclusiveAsyncAction(
     () => options.togglePinned(item)
@@ -749,12 +757,9 @@ function RecentSiteCard({
       return;
     }
     const disposeCard = () => disposeRef.current();
-    card._xHost = host;
-    card._xTheme = immediateTheme;
     card._xTitleText = safeTitleText;
     card._xDisposeRecentCard = disposeCard;
 
-    options.applyCardTheme(card, immediateTheme, host);
     options.attachFaviconWithFallbacks(favicon, faviconPageUrl, host, {
       primaryUrl: browserPageFaviconUrl
     });
@@ -768,36 +773,16 @@ function RecentSiteCard({
           isRecentTitleTruncated(titleRef.current)
       }
     );
-    options.queueThemeForTarget(
-      card,
-      {
-        type: 'history',
-        url: faviconPageUrl,
-        title: itemTitle
-      },
-      (theme) => {
-        if (!card.isConnected) {
-          return;
-        }
-        card._xTheme = theme || card._xTheme;
-        options.applyCardTheme(card, theme, host);
-      },
-      { priority: shouldEager ? 0 : 2 }
-    );
-
     return disposeCard;
   }, [
     browserPageFaviconUrl,
     faviconPageUrl,
     host,
-    immediateTheme,
     index,
     initiallyPinned,
     item,
-    itemTitle,
     options,
-    safeTitleText,
-    shouldEager
+    safeTitleText
   ]);
 
   function handlePointerDown(

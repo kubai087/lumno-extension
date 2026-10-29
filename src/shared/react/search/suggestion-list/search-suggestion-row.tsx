@@ -92,7 +92,7 @@ function SearchSuggestionRowComponent({
   const suggestion = suggestionRef.current;
   const refs = useRowRefs();
   const itemRef = refs.item;
-  const themeVersion = useRowTheme({ runtime, suggestionRef, suggestionFingerprint, isPrimary, onlyKeywordSuggestions, simpleMode, itemRef });
+  const theme = useRowTheme({ runtime, suggestionRef, suggestionFingerprint, isPrimary, onlyKeywordSuggestions });
   const view = useRowView(runtime, index);
   const rowSelection = useRef<RowSelection | null>(null);
   const iconSpecKey = suggestion.type === 'directUrl' ? '' : suggestionFingerprint;
@@ -119,15 +119,21 @@ function SearchSuggestionRowComponent({
     [isPrimary, isMergedHighlight, onlyKeywordSuggestions, options, primaryHighlightReason, primarySearch, simpleMode,
       shouldSwitchMatchedTab, suggestion]
   );
-  const themeHost = options.getThemeHostForSuggestion(suggestion);
   const directIcon = suggestion.type === 'directUrl' || suggestion.type === 'browserPage';
 
   useLayoutEffect(() => {
     const item = itemRef.current;
     if (item) {
-      publishRow(item, { themeHost, isPrimary, visitButtonAction: actionModel.visitButtonAction }, suggestionRef);
+      publishRow(item, { isPrimary, visitButtonAction: actionModel.visitButtonAction }, suggestionRef);
     }
-  }, [actionModel, isPrimary, itemRef, suggestion, suggestionRef, themeHost]);
+  }, [actionModel, isPrimary, itemRef, suggestion, suggestionRef]);
+
+  useLayoutEffect(() => {
+    const item = itemRef.current;
+    if (item) {
+      options.applyThemeVariables(item, theme);
+    }
+  }, [itemRef, options, theme, view.dark]);
 
   useLayoutEffect(() => {
     const item = itemRef.current;
@@ -144,11 +150,11 @@ function SearchSuggestionRowComponent({
       selection: view.selection,
       hovering: view.hovering,
       autoTop: isPrimary,
-      theme: item._xTheme || options.defaultTheme,
+      theme: theme || options.defaultTheme,
       simpleMode
     });
-  }, [actionModel, command, directIcon, isPrimary, itemRef, options, refs, simpleMode, themeVersion, view.hovering,
-    view.revision, view.selection]);
+  }, [actionModel, command, directIcon, isPrimary, itemRef, options, refs, simpleMode, theme, view.dark, view.hovering,
+    view.selection]);
 
   useRowTooltip(options, suggestionRef, itemRef, refs.title);
 

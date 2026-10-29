@@ -208,13 +208,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     return SUGGESTION_ACTION_MODEL.getActionContextKey(options);
   }
 
-  // Draws the rows again after their themes changed outside the list.
-  function refreshRowStyles(): void {
-    if (pageState.suggestionsView) {
-      pageState.suggestionsView.refreshRowStyles();
-    }
-  }
-
   function activateRenderedSuggestion(
     suggestion: Suggestion,
     query: string,
@@ -822,7 +815,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
 
   return {
     getAutoHighlightIndex,
-    refreshRowStyles,
     activateRenderedSuggestion,
     deleteRenderedHistorySuggestion,
     scrollSelectedSuggestionIntoView,

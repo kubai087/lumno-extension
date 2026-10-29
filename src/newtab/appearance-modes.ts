@@ -2,7 +2,7 @@
 // following the system theme.
 import type { ThemeMode } from '../domain/settings';
 import type { SiteSearchProvider } from '../domain/search/types';
-import type { Suggestion, SuggestionElement, SuggestionsViewOptions } from '../shared/react/search/suggestion-list/types';
+import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import type { InputModeController } from '../shared/search/search-input-mode';
 import type { FeatureHintController } from '../shared/ui/feature-hint-catalog';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
@@ -12,15 +12,11 @@ import type { NewtabThemeScope, Translate } from './newtab-types';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import { localeToHtmlLang } from '../domain/settings/locale';
 import { cacheNewtabLocale } from '../platform/settings-storage';
-import type { BookmarkCardElement } from './react/bookmarks';
 import type { BookmarksTopbarRuntime } from './react/bookmarks-topbar';
-import type { RecentCardElement } from './react/recent-sites';
-import type { ShortcutTileElement } from './react/shortcuts';
 import type { TopContentController } from './react/wordmark';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
 import type { SuggestionsController } from './search/suggestions-controller';
-import type { CardThemes } from './theme/card-themes';
 import type { FaviconViewRuntime } from './theme/favicon-view';
 import type { QuoteRuntime } from './top-content/quotes';
 import type { TopContentRuntime } from './top-content/top-content';
@@ -35,6 +31,7 @@ import type { SearchQuery } from '../shared/search-panel/search-query';
 import type { SearchMode } from '../shared/search-panel/search-mode';
 import type { SearchResults } from '../shared/search-panel/search-results';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
+import { pageColorScheme } from './theme/page-color-scheme';
 
 type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
@@ -65,9 +62,8 @@ interface AppearanceModesDeps extends
   Pick<WallpaperPage, 'updateWallpaperLanguageStrings' | 'updateWallpaperAppearanceSelectionUi'>,
   Pick<FeedbackControlRuntime, 'updateFeedbackLanguageStrings'>,
   Pick<ModeCommands, 'updateModeBadge'>,
-  Pick<SuggestionsController, 'renderSuggestions' | 'refreshRowStyles'>,
-  Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'>,
-  Pick<CardThemes, 'applyRecentCardTheme' | 'applyBookmarkCardTheme' | 'applyShortcutTileTheme'> {
+  Pick<SuggestionsController, 'renderSuggestions'>,
+  Pick<BookmarkDisplaySettings, 'syncBookmarkTopbarSurfaceAppearance'> {
   modeActions: SearchModeActions<SiteSearchProvider>;
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
@@ -81,11 +77,6 @@ interface AppearanceModesDeps extends
   forceReloadRecentSitesForI18n: SectionLoaders['forceReloadRecentSitesForI18n'];
   // { resetInk: true } when a setting changed what the glass ink should be.
   scheduleWallpaperAdaptiveToneUpdate(options?: ToneScheduleOptions): void;
-  recentCards: readonly RecentCardElement[];
-  bookmarkCards: readonly BookmarkCardElement[];
-  shortcutTiles: readonly ShortcutTileElement[];
-  suggestionItems: readonly SuggestionElement[];
-  applyThemeVariables: NonNullable<SuggestionsViewOptions['applyThemeVariables']>;
   // Resolves "system" through the media query unless a match is given.
   resolveTheme(mode: ThemeMode, mediaMatchesOverride?: boolean | null): ResolvedTheme;
   mediaQuery: MediaQueryList;
@@ -114,20 +105,11 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     updateFeedbackLanguageStrings,
     renderShortcuts,
     updateModeBadge,
-    recentCards,
-    bookmarkCards,
     renderSuggestions,
     forceReloadRecentSitesForI18n,
-    shortcutTiles,
-    applyShortcutTileTheme,
     resolveTheme,
     syncBookmarkTopbarSurfaceAppearance,
     applyWordmarkThemeAppearance,
-    suggestionItems,
-    applyThemeVariables,
-    applyRecentCardTheme,
-    applyBookmarkCardTheme,
-    refreshRowStyles,
     addMediaQueryChangeListener,
     mediaQuery,
     removeMediaQueryChangeListener,
@@ -190,15 +172,6 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     }
   }
 
-  function refreshShortcutTileThemes(): void {
-    shortcutTiles.forEach((tile) => {
-      if (!tile) {
-        return;
-      }
-      applyShortcutTileTheme(tile, tile._xTheme, tile._xHost || '');
-    });
-  }
-
   function refreshFallbackIcons(): void {
     if (pageState.faviconViewRuntime) {
       pageState.faviconViewRuntime.refreshFallbackIcons();
@@ -237,27 +210,8 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     }
     applyWordmarkThemeAppearance(resolved);
     const didResolvedThemeChange = previousResolved !== resolved;
-    suggestionItems.forEach((item) => {
-      if (item && item._xTheme) {
-        applyThemeVariables(item, item._xTheme);
-      }
-    });
-    recentCards.forEach((card) => {
-      if (!card) {
-        return;
-      }
-      applyRecentCardTheme(card, card._xTheme, card._xHost || '');
-    });
-    bookmarkCards.forEach((card) => {
-      if (!card) {
-        return;
-      }
-      // 文件夹卡片通常没有 host/theme，也需要在主题切换时重算阴影与变量。
-      applyBookmarkCardTheme(card, card._xTheme, card._xHost || '');
-    });
-    refreshShortcutTileThemes();
+    pageColorScheme.setState({ dark: resolved === 'dark' });
     applyLanguageStrings();
-    refreshRowStyles();
     updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
     refreshFallbackIcons();
     if (didResolvedThemeChange) {

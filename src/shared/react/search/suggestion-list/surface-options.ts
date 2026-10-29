@@ -1,6 +1,7 @@
 // Surface options: the class and CSS variable names that differ between New
 // Tab and the overlay, and normalizing the options a surface passes in.
 import { createStore } from '../../../state/store';
+import { createColorScheme } from '../../../ui/color-scheme';
 import type {
   ModifierState,
   QueryStore,
@@ -278,13 +279,14 @@ function createLocalSelection(): SuggestionSelection {
 }
 
 // What the surface does when a row is chosen, selected or acted on.
-function readCallbacks(raw: SuggestionsViewOptions): OptionGroup<'setSuggestionsVisible' | 'selection' | 'modifiers' |
+function readCallbacks(raw: SuggestionsViewOptions): OptionGroup<'setSuggestionsVisible' | 'selection' | 'modifiers' | 'colorScheme' |
   'onSwitchToTab' | 'onActivateSuggestion' | 'onDeleteHistory' | 'onCopyUrl' | 'shouldSwitchMatchedTabSuggestion' |
   'showTopActionTooltip' | 'hideTopActionTooltip' | 'bindCursorTooltip'> {
   return {
     setSuggestionsVisible: raw.setSuggestionsVisible || noop,
     selection: raw.selection || createLocalSelection(),
     modifiers: raw.modifiers || { store: createStore<ModifierState>({ openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false }) },
+    colorScheme: raw.colorScheme || createColorScheme(),
     onSwitchToTab: raw.onSwitchToTab || noop,
     onActivateSuggestion: raw.onActivateSuggestion || noop,
     onDeleteHistory: raw.onDeleteHistory || noop,

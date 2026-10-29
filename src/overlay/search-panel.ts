@@ -74,6 +74,7 @@ import { numberShortcutInstantEnabled } from '../domain/settings/search';
 import { SearchQuery } from '../shared/search-panel/search-query';
 import { SuggestionSource } from '../shared/search-panel/suggestion-source';
 import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
+import { createColorScheme } from '../shared/ui/color-scheme';
 import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
 import { SearchModeMenu } from '../shared/search-panel/mode-menu';
 import { SearchModeActions } from '../shared/search-panel/mode-actions';
@@ -167,6 +168,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
   const suggestionModifiers = new SuggestionModifiers(overlayState.settings.store);
+  const colorScheme = createColorScheme();
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
     showToast: (message, isError) => showOverlayToast(message, isError),
@@ -383,12 +385,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyOverlayThemeVariables(mode);
     overlayState.overlayNoticeLayer.sync(overlayState.overlay);
     const nextResolvedTheme = overlayState.overlay ? overlayState.overlay.getAttribute('data-theme') : '';
-    suggestionItems.forEach((item) => {
-      if (item && item._xTheme) {
-        applyThemeVariables(item, item._xTheme);
-      }
-    });
-    refreshRowStyles();
+    colorScheme.setState({ dark: nextResolvedTheme === 'dark' });
     updateModeBadge(overlayState.searchInput ? overlayState.searchInput.value : '');
     if (previousResolvedTheme !== nextResolvedTheme) {
       refreshOverlayThemeAwareFavicons();
@@ -485,7 +482,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
-    refreshRowStyles,
     syncSuggestionLastState,
     scrollSelectedSuggestionIntoView,
     getSearchPanelsLayoutTransitionMenu,
@@ -497,6 +493,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
     suggestionModifiers,
+    colorScheme,
     modeActions,
     locale,
     searchResults,

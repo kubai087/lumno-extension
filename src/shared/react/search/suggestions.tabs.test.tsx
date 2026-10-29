@@ -119,7 +119,6 @@ describe('Suggestion rows: open tabs, utility actions and the overlay', () => {
     });
 
     expect(items[0]).toBe(row);
-    expect(row._xTheme).toBe(brandTheme);
     expect(row.style.getPropertyValue('--x-ext-tag-bg'))
       .toBe(brandTheme.tagBg);
     expect(applyThemeVariables).toHaveBeenCalledTimes(2);

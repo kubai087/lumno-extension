@@ -1,11 +1,11 @@
-// The theme a search suggestion row takes: the search engine's brand for
-// the primary search row, the URL highlight for typed addresses, and
-// otherwise its site's theme, shown at once as far as known and replaced
-// once the site's icon has been read.
+// The theme a suggestion row takes: the search engine's brand for the
+// primary search row, the URL highlight for typed addresses, and otherwise
+// its site's theme, shown at once as far as known and replaced once the
+// site's icon has been read or the site's theme changes.
 import { useLayoutEffect, useMemo, useState } from 'react';
-import type { RefObject } from 'react';
+import { siteThemeEvents } from '../../../favicon/theme-caches';
 import { isLocalUrlSuggestion, resolveTheme } from './action-model';
-import type { Suggestion, SuggestionElement, SuggestionsRuntime, SuggestionValueRef, ThemeValue } from './types';
+import type { Suggestion, SuggestionsRuntime, SuggestionValueRef, ThemeValue } from './types';
 
 interface RowThemeInput {
   runtime: SuggestionsRuntime;
@@ -13,8 +13,6 @@ interface RowThemeInput {
   suggestionFingerprint: string;
   isPrimary: boolean;
   onlyKeywordSuggestions: boolean;
-  simpleMode: boolean;
-  itemRef: RefObject<SuggestionElement | null>;
 }
 
 // Where a row's theme comes from.
@@ -23,6 +21,12 @@ interface RowThemeSource {
   searchTheme: boolean;
   // The URL highlight theme of typed addresses and local pages.
   usesUrlFallbackTheme: boolean;
+}
+
+// A theme the row followed after it drew, and the known theme it replaced.
+interface FollowedTheme {
+  from: ThemeValue;
+  theme: ThemeValue;
 }
 
 function readRowThemeSource(runtime: SuggestionsRuntime, suggestion: Suggestion, isPrimary: boolean,
@@ -53,34 +57,45 @@ function readImmediateTheme(runtime: SuggestionsRuntime, suggestion: Suggestion,
   return theme;
 }
 
-// Shows the row in its known theme, then in its site's theme once that has
-// been read (when `load`), telling `onChange`; returns the function that
-// stops waiting.
-function followSiteTheme(runtime: SuggestionsRuntime, item: SuggestionElement, suggestion: Suggestion,
-  immediateTheme: ThemeValue, load: boolean, onChange: () => void): () => void {
+// Returns `immediateTheme` until the site's theme is read (when `follow`)
+// or changes, then that theme. Reads the suggestion through its ref, so
+// the theme is looked up again only when `immediateTheme` or the ref change.
+function useSiteTheme(runtime: SuggestionsRuntime, suggestionRef: SuggestionValueRef, immediateTheme: ThemeValue,
+  follow: boolean): ThemeValue {
   const { options } = runtime;
-  item._xTheme = immediateTheme;
-  options.applyThemeVariables(item, immediateTheme);
-  let active = true;
-  if (load) {
+  const [followed, setFollowed] = useState<FollowedTheme | null>(null);
+  useLayoutEffect(() => {
+    if (!follow) {
+      return undefined;
+    }
+    const suggestion = suggestionRef.current;
+    let active = true;
+    const take = (theme: ThemeValue) => setFollowed({ from: immediateTheme, theme: resolveTheme(options, suggestion, theme) });
     void options.getThemeForSuggestion(suggestion).then((theme) => {
-      if (!active || !item.isConnected) {
-        return;
+      if (active) {
+        take(theme);
       }
-      const nextTheme = resolveTheme(options, suggestion, theme);
-      item._xTheme = nextTheme;
-      options.applyThemeVariables(item, nextTheme);
-      onChange();
     });
-  }
-  return () => {
-    active = false;
-  };
+    const host = options.getThemeHostForSuggestion(suggestion);
+    const stopFollowing = host
+      ? siteThemeEvents.on('changed', (change) => {
+        if (change.host === host) {
+          take(change.theme);
+        }
+      })
+      : undefined;
+    return () => {
+      active = false;
+      if (stopFollowing) {
+        stopFollowing();
+      }
+    };
+  }, [follow, immediateTheme, options, suggestionRef]);
+  return followed && followed.from === immediateTheme ? followed.theme : immediateTheme;
 }
 
-// Returns a count that rises each time the row's site theme arrives.
-function useRowTheme(input: RowThemeInput): number {
-  const { runtime, suggestionRef, suggestionFingerprint, isPrimary, onlyKeywordSuggestions, simpleMode, itemRef } = input;
+function useRowTheme(input: RowThemeInput): ThemeValue {
+  const { runtime, suggestionRef, suggestionFingerprint, isPrimary, onlyKeywordSuggestions } = input;
   const { options } = runtime;
   const suggestion = suggestionRef.current;
   const source = readRowThemeSource(runtime, suggestion, isPrimary, onlyKeywordSuggestions);
@@ -94,18 +109,10 @@ function useRowTheme(input: RowThemeInput): number {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on immediateThemeKey
     [options, immediateThemeKey]
   );
-  const shouldLoadTheme = !source.searchTheme &&
+  const follow = !source.searchTheme &&
     (!onlyKeywordSuggestions || suggestion.type !== 'newtab') &&
     !source.usesUrlFallbackTheme;
-
-  const [themeVersion, setThemeVersion] = useState(0);
-  useLayoutEffect(() => {
-    const item = itemRef.current;
-    return item
-      ? followSiteTheme(runtime, item, suggestionRef.current, immediateTheme, shouldLoadTheme, () => setThemeVersion((version) => version + 1))
-      : undefined;
-  }, [immediateTheme, itemRef, runtime, simpleMode, shouldLoadTheme, suggestionRef]);
-  return themeVersion;
+  return useSiteTheme(runtime, suggestionRef, immediateTheme, follow);
 }
 
-export { followSiteTheme, useRowTheme };
+export { useRowTheme, useSiteTheme };

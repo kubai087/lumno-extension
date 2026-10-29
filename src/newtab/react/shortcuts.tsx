@@ -25,6 +25,9 @@ import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import type { ShortcutGroup, ShortcutLink, VisibleShortcutFolder, VisibleShortcutItem } from '../../domain/shortcuts/types';
 import { getPagePortals } from '../app/portals';
+import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
+import { shortcutIconEvents } from '../shortcuts/shortcut-icon-events';
+import { useCardTheme } from './card-theme';
 
 // A site's theme as the page resolves it; the view passes it through.
 type ThemeValue = Partial<ThemeVariant> | null;
@@ -45,8 +48,6 @@ interface ThemeSuggestion {
 }
 
 export interface ShortcutTileElement extends HTMLButtonElement {
-  _xHost?: string;
-  _xTheme?: ThemeValue;
   _xSetBookmarkMenuVisualActive?: (active: boolean) => void;
 }
 
@@ -81,6 +82,8 @@ export interface ShortcutsViewOptions {
     onTheme: (theme: ThemeValue) => void,
     options: { priority: number }
   ) => void;
+  // The theme a tile takes when its site's theme changes.
+  getTileThemeOnSiteChange?: (suggestion: ThemeSuggestion, siteTheme: ThemeVariant) => Promise<ThemeValue>;
   attachFaviconWithFallbacks?: (
     image: HTMLImageElement,
     pageUrl: string,
@@ -175,6 +178,7 @@ interface NormalizedOptions {
     onTheme: (theme: ThemeValue) => void,
     options: { priority: number }
   ) => void;
+  getTileThemeOnSiteChange: NonNullable<ShortcutsViewOptions['getTileThemeOnSiteChange']>;
   attachFaviconWithFallbacks: (
     image: HTMLImageElement,
     pageUrl: string,
@@ -249,6 +253,7 @@ function normalizeOptions(
       options.getImmediateThemeForSuggestion || (() => null),
     applyShortcutTileTheme: options.applyShortcutTileTheme || (() => {}),
     queueThemeForTarget: options.queueThemeForTarget || (() => {}),
+    getTileThemeOnSiteChange: options.getTileThemeOnSiteChange || ((_suggestion, siteTheme) => Promise.resolve(siteTheme)),
     attachFaviconWithFallbacks:
       options.attachFaviconWithFallbacks || (() => {}),
     bindTooltip: options.bindTooltip || (() => null),
@@ -444,16 +449,35 @@ function ShortcutTile({
     customIconDataUrl: localIconDataUrl
   }), [localIconDataUrl, title, url]);
 
+  const immediateTheme = useMemo(() => options.getImmediateThemeForSuggestion(themeSuggestion), [options, themeSuggestion]);
+  // Counts the icon snapshots saved for this page after the tile drew.
+  const [snapshotCount, setSnapshotCount] = useState(0);
+  useEffect(() => {
+    const pageUrl = !isFolder && !localIconDataUrl ? ShortcutIconCache.normalizePageUrl(url) : '';
+    return pageUrl
+      ? shortcutIconEvents.on('snapshotSaved', (saved) => {
+        if (saved.pageUrl === pageUrl) {
+          setSnapshotCount((count) => count + 1);
+        }
+      })
+      : undefined;
+  }, [isFolder, localIconDataUrl, url]);
+  useCardTheme(tileRef, {
+    immediateTheme,
+    host,
+    subject: isFolder ? null : themeSuggestion,
+    priority: 0,
+    queue: options.queueThemeForTarget,
+    apply: options.applyShortcutTileTheme,
+    followSite: options.getTileThemeOnSiteChange,
+    readKey: snapshotCount
+  });
+
   useLayoutEffect(() => {
     const tile = tileRef.current;
     if (!tile) {
       return;
     }
-    const immediateTheme =
-      options.getImmediateThemeForSuggestion(themeSuggestion);
-    tile._xHost = host;
-    tile._xTheme = immediateTheme;
-    options.applyShortcutTileTheme(tile, immediateTheme, host);
     options.bindTooltip(
       tile,
       () => tile.getAttribute('data-shortcut-title') || title,
@@ -465,19 +489,8 @@ function ShortcutTile({
       tile._xSetBookmarkMenuVisualActive = (active) => flushSync(() => setMenuOpen(active));
       return () => { delete tile._xSetBookmarkMenuVisualActive; };
     }
-    options.queueThemeForTarget(
-      tile,
-      themeSuggestion,
-      (theme) => {
-        if (!tile.isConnected) {
-          return;
-        }
-        tile._xTheme = theme || tile._xTheme;
-        options.applyShortcutTileTheme(tile, theme, host);
-      },
-      { priority: 0 }
-    );
-  }, [host, isFolder, options, themeSuggestion, title]);
+    return undefined;
+  }, [isFolder, options, title]);
 
   useLayoutEffect(() => {
     if (folderOpenRef.current === folderOpen) {

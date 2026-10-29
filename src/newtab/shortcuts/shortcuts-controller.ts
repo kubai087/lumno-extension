@@ -1,6 +1,7 @@
 // Shortcut storage, favicons, loading, persistence, rendering and the add/edit
 // dialog.
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
+import { shortcutIconEvents } from './shortcut-icon-events';
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
 import type { FaviconDataEntry } from '../../domain/favicon/favicon-cache';
 import type { StorageAreaLike, StorageItems } from '../../domain/storage-port';
@@ -128,6 +129,7 @@ interface ShortcutsControllerDeps {
   getImmediateThemeForSuggestion: ViewOption<'getImmediateThemeForSuggestion'>;
   applyShortcutTileTheme: ViewOption<'applyShortcutTileTheme'>;
   queueThemeForTarget: ViewOption<'queueThemeForTarget'>;
+  getTileThemeOnSiteChange: ViewOption<'getTileThemeOnSiteChange'>;
   attachFaviconWithFallbacks: ViewOption<'attachFaviconWithFallbacks'>;
   bindShortcutTooltip: BindTooltip;
   isMiddleClick: ViewOption<'isMiddleClick'>;
@@ -285,6 +287,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     getImmediateThemeForSuggestion,
     applyShortcutTileTheme,
     queueThemeForTarget,
+    getTileThemeOnSiteChange,
     attachFaviconWithFallbacks,
     bindShortcutTooltip,
     isMiddleClick,
@@ -595,34 +598,8 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       pageState.newtabShortcutFavicons, pageUrl, normalizedDataUrl, sourceUrl
     );
     scheduleShortcutFaviconCacheWrite(pageUrl);
-    refreshShortcutTileThemesForPage(pageUrl);
+    shortcutIconEvents.emit('snapshotSaved', { pageUrl: ShortcutIconCache.normalizePageUrl(pageUrl) });
     return normalizedDataUrl;
-  }
-
-  // A tile that mounted before its snapshot arrived took its tint with no
-  // artwork to read; tint it again from the icon it now shows.
-  function refreshShortcutTileThemesForPage(pageUrl: string): void {
-    shortcutTiles.forEach((tile) => {
-      const url = tile.isConnected ? tile.getAttribute('data-shortcut-url') || '' : '';
-      if (!url || tile.getAttribute('data-shortcut-custom-icon') === 'true' ||
-          ShortcutIconCache.normalizePageUrl(url) !== pageUrl) {
-        return;
-      }
-      // Tiles with an uploaded icon are skipped above, so none is passed.
-      const suggestion: Parameters<typeof queueThemeForTarget>[1] = {
-        type: 'shortcut',
-        url,
-        title: tile.getAttribute('data-shortcut-title') || '',
-        customIconDataUrl: ''
-      };
-      queueThemeForTarget(tile, suggestion, (theme) => {
-        if (!tile.isConnected) {
-          return;
-        }
-        tile._xTheme = theme || tile._xTheme;
-        applyShortcutTileTheme(tile, theme, tile._xHost || '');
-      }, { priority: 0 });
-    });
   }
 
   function areShortcutFaviconEntriesEqual(left: CachedIconMap[string] | undefined, right: CachedIconMap[string] | undefined): boolean {
@@ -1793,6 +1770,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       getImmediateThemeForSuggestion,
       applyShortcutTileTheme,
       queueThemeForTarget,
+      getTileThemeOnSiteChange,
       attachFaviconWithFallbacks,
       bindTooltip: bindShortcutTooltip,
       hideTooltip: hideShortcutTooltip,

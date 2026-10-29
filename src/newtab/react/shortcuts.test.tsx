@@ -215,7 +215,6 @@ describe('Shortcuts React island', () => {
     expect(tile.dataset.shortcutDraggable).toBe('true');
     expect(tile.dataset.themed).toBe('true');
     expect(tile.getAttribute('aria-label')).toBe('Open Docs');
-    expect(tile._xHost).toBe('example.com');
     expect(view.getAddButton()?.dataset.tooltip).toBe('Add shortcut');
     expect(attachFavicon).toHaveBeenCalledWith(
       expect.any(HTMLImageElement),

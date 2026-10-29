@@ -8,13 +8,9 @@ import type * as Color from '../../domain/color';
 import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
 import type { FaviconCacheRuntime } from '../../platform/favicon-cache';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { SuggestionElement } from '../../shared/react/search/suggestion-list/types';
-import type { BookmarkCardElement } from '../react/bookmarks';
-import type { RecentCardElement } from '../react/recent-sites';
-import type { ShortcutTileElement } from '../react/shortcuts';
 import type { SiteSearchProviders } from '../search/site-search-providers';
 import type { ThemeConfidence, ThemeSource, ThemeSubject } from './theme-types';
-import { themeColorCache, themeHostCache } from '../../shared/favicon/theme-caches';
+import { siteThemeEvents, themeColorCache, themeHostCache } from '../../shared/favicon/theme-caches';
 import * as FaviconCanonical from '../../domain/favicon/canonical';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as FaviconThemeColor from '../../domain/favicon/theme-color';
@@ -33,11 +29,9 @@ interface SiteThemeResolverState {
   faviconCacheRuntime: Pick<FaviconCacheRuntime, 'ensureCachesReady'> | null;
 }
 
-// Applies a theme to an element that shows a site.
 // A theme as the card and suggestion views hold it: possibly partial, where
 // a missing color clears its variable.
 type ViewTheme = Partial<ThemeVariant> | null | undefined;
-type ApplyElementTheme<E> = (element: E, theme: ThemeVariant, host: string) => void;
 
 interface SiteThemeResolverDeps {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -47,14 +41,6 @@ interface SiteThemeResolverDeps {
   defaultAccentColor: ThemeRgb;
   defaultTheme: ThemeVariant;
   getProviderHost: SiteSearchProviders['getProviderHost'];
-  recentCards: RecentCardElement[];
-  applyRecentCardTheme: ApplyElementTheme<RecentCardElement>;
-  bookmarkCards: BookmarkCardElement[];
-  applyBookmarkCardTheme: ApplyElementTheme<BookmarkCardElement>;
-  shortcutTiles: ShortcutTileElement[];
-  applyShortcutTileTheme: ApplyElementTheme<ShortcutTileElement>;
-  suggestionItems: SuggestionElement[];
-  refreshRowStyles(): void;
   setPersistedSiteThemeEntry(hostKey: string, theme: ThemeVariant): unknown;
   getPersistedSiteThemeEntry(hostKey: string): SiteThemeEntry | null;
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getSafeFaviconCandidateUrl' | 'resolveFaviconSource'> | null;
@@ -115,14 +101,6 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     defaultAccentColor,
     defaultTheme,
     getProviderHost,
-    recentCards,
-    applyRecentCardTheme,
-    bookmarkCards,
-    applyBookmarkCardTheme,
-    shortcutTiles,
-    applyShortcutTileTheme,
-    suggestionItems,
-    refreshRowStyles,
     setPersistedSiteThemeEntry,
     getPersistedSiteThemeEntry,
     getPageFaviconUrlResolver,
@@ -343,61 +321,15 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     return host ? `https://${host}/` : '';
   }
 
-  // Tiles showing a custom upload, saved snapshot or bundled glyph take their
-  // tint from that artwork rather than from whichever icon set the host theme.
-  function refreshShortcutTileTheme(tile: ShortcutTileElement, hostTheme: ThemeVariant, normalizedHost: string): void {
-    if (tile.getAttribute('data-shortcut-custom-icon') === 'true') {
-      return;
-    }
-    const suggestion = { type: 'shortcut', url: tile.getAttribute('data-shortcut-url') || '' };
-    if (!suggestion.url || !getThemeSourceForSuggestion(suggestion)) {
-      tile._xTheme = hostTheme;
-      applyShortcutTileTheme(tile, hostTheme, normalizedHost);
-      return;
-    }
-    // A snapshot saved after the tile mounted is picked up here.
-    void getThemeForSuggestion(suggestion).then((iconTheme) => {
-      if (!tile.isConnected || normalizeHost(tile._xHost || '') !== normalizedHost) {
-        return;
-      }
-      const theme = iconTheme || defaultTheme;
-      tile._xTheme = theme;
-      applyShortcutTileTheme(tile, theme, normalizedHost);
-    });
-  }
-
   function refreshThemeConsumersForHost(hostKey: string, theme: ThemeVariant): void {
     const normalizedHost = normalizeHost(hostKey);
     if (!normalizedHost || !theme) {
       return;
     }
-    recentCards.forEach((card) => {
-      if (card && normalizeHost(card._xHost || '') === normalizedHost) {
-        card._xTheme = theme;
-        applyRecentCardTheme(card, theme, normalizedHost);
-      }
-    });
-    bookmarkCards.forEach((card) => {
-      if (card && normalizeHost(card._xHost || '') === normalizedHost) {
-        card._xTheme = theme;
-        applyBookmarkCardTheme(card, theme, normalizedHost);
-      }
-    });
-    shortcutTiles.forEach((tile) => {
-      if (tile && normalizeHost(tile._xHost || '') === normalizedHost) {
-        refreshShortcutTileTheme(tile, theme, normalizedHost);
-      }
-    });
-    suggestionItems.forEach((item) => {
-      if (item && normalizeHost(item._xThemeHost || '') === normalizedHost) {
-        item._xTheme = theme;
-        applyThemeVariables(item, theme);
-      }
-    });
     if (searchMode.site && getProviderThemeHost(searchMode.site) === normalizedHost) {
       modeActions.setSiteSearchPrefix(searchMode.site, theme);
     }
-    refreshRowStyles();
+    siteThemeEvents.emit('changed', { host: normalizedHost, theme });
   }
 
   function setResolvedThemeForHost(hostKey: string, theme: ThemeVariant | null | undefined, options?: ResolvedThemeOptions): ThemeVariant {
@@ -796,6 +728,15 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     return theme || defaultTheme;
   }
 
+  // The theme a shortcut tile takes when its site's theme changes: the one
+  // read from the upload, snapshot or glyph it shows, or else the site's.
+  function getTileThemeOnSiteChange(suggestion: ThemeSubject, siteTheme: ThemeVariant): Promise<ThemeVariant> {
+    if (!suggestion.customIconDataUrl && (!suggestion.url || !getThemeSourceForSuggestion(suggestion))) {
+      return Promise.resolve(siteTheme);
+    }
+    return getThemeForSuggestion(suggestion).then((iconTheme) => iconTheme || defaultTheme);
+  }
+
   function getThemeForSuggestion(suggestion: ThemeSubject | null | undefined): Promise<ThemeVariant> {
     if (!shouldUseBrandTheme(suggestion)) {
       return Promise.resolve(defaultTheme);
@@ -1112,6 +1053,7 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     setResolvedThemeForHost,
     getThemeForProvider,
     getThemeForSuggestion,
+    getTileThemeOnSiteChange,
     getImmediateThemeForSuggestion,
     shouldUseUrlFallbackThemeForSuggestion,
     scheduleThemeResolutionFlush,

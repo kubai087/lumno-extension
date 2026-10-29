@@ -22,6 +22,7 @@ import { createRenderStore, type RenderStore } from '../../shared/react/render-s
 import { RemixIcon } from '../../shared/react/remix-icon';
 import { FolderIcon } from './folder-icon';
 import { getPagePortals } from '../app/portals';
+import { useCardTheme } from './card-theme';
 
 // A site's theme as the page resolves it; the view passes it through.
 type ThemeValue = Partial<ThemeVariant> | null;
@@ -51,8 +52,6 @@ export interface BookmarkCardElement extends HTMLDivElement {
   _xBookmarkPageIndex?: number;
   _xTitleText?: string;
   _xNoThemeTint?: boolean;
-  _xTheme?: ThemeValue;
-  _xHost?: string;
   _xDeactivateBookmarkHoverVisual?: () => void;
   _xSyncBookmarkFolderExpandedState?: (
     options?: VisualOptions
@@ -576,9 +575,10 @@ function BookmarkCard({
     url: themeUrl,
     title: titleText
   }), [themeUrl, titleText]);
-  const immediateTheme = isTopbarMode
-    ? null
-    : options.getImmediateThemeForSuggestion(themeSuggestion);
+  const immediateTheme = useMemo(
+    () => (isTopbarMode ? null : options.getImmediateThemeForSuggestion(themeSuggestion)),
+    [isTopbarMode, options, themeSuggestion]
+  );
   const previewUrls = item.previewUrls;
   const previewItems = useMemo(() => (isFolder && !isTopbarMode
     ? (Array.isArray(previewUrls) ? previewUrls : [])
@@ -805,8 +805,6 @@ function BookmarkCard({
     applyBookmarkCardMetadata(card, item, index);
     card._xTitleText = titleText;
     card._xNoThemeTint = isFolder;
-    card._xTheme = immediateTheme;
-    card._xHost = host;
     // Called from outside React (drag controllers, the folder menu), so each
     // draws its change before returning; they read the card right after.
     card._xDeactivateBookmarkHoverVisual = () =>
@@ -821,9 +819,6 @@ function BookmarkCard({
       : undefined;
     card._xDisposeBookmarkCard = disposeCard;
 
-    if (!isTopbarMode) {
-      options.applyCardTheme(card, immediateTheme, host);
-    }
     if (isFolder && icon) {
       options.initFolderPathMorph(icon);
     }
@@ -874,25 +869,9 @@ function BookmarkCard({
         }
       }
     );
-    if (!isTopbarMode && themeUrl) {
-      options.queueThemeForTarget(
-        card,
-        themeSuggestion,
-        (theme) => {
-          if (!card.isConnected) {
-            return;
-          }
-          const nextTheme = theme || card._xTheme || null;
-          card._xTheme = nextTheme;
-          options.applyCardTheme(card, nextTheme, host);
-        },
-        { priority: index < 4 ? 0 : 2 }
-      );
-    }
     return disposeCard;
   }, [
     host,
-    immediateTheme,
     index,
     isFolder,
     isTopbarMode,
@@ -900,10 +879,18 @@ function BookmarkCard({
     menuMode,
     options,
     previewItems,
-    themeSuggestion,
-    themeUrl,
     titleText
   ]);
+
+  // After the card effect above, which marks a folder card untinted.
+  useCardTheme(cardRef, {
+    immediateTheme,
+    host,
+    subject: !isTopbarMode && themeUrl ? themeSuggestion : null,
+    priority: index < 4 ? 0 : 2,
+    queue: options.queueThemeForTarget,
+    apply: isTopbarMode ? null : options.applyCardTheme
+  });
 
   const bookmarkId = item.id ? String(item.id) : '';
   const parentId = item.parentId ? String(item.parentId) : '';

@@ -30,6 +30,7 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
+import { pageColorScheme } from '../theme/page-color-scheme';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
@@ -299,6 +300,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       }
     },
     modifiers: suggestionModifiers,
+    colorScheme: pageColorScheme,
     onSwitchToTab: (tab, event) => {
       if (resultActivation.opensInBackground(event) && tab.url) {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, {

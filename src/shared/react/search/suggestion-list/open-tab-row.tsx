@@ -1,5 +1,5 @@
 // An open tab row.
-import { useRef, useMemo, useLayoutEffect, useState, type MouseEvent as ReactMouseEvent, type RefObject, memo } from 'react';
+import { useRef, useMemo, useLayoutEffect, type MouseEvent as ReactMouseEvent, type RefObject, memo } from 'react';
 import type {
   SuggestionsRuntime,
   OpenTabSuggestion,
@@ -17,7 +17,7 @@ import { surfaceClass } from './surface-options';
 import { bindRowTooltip } from './highlight';
 import { applyRowStyles } from './action-styles';
 import type { RowSelection } from './action-styles';
-import { followSiteTheme } from './suggestion-row-theme';
+import { useSiteTheme } from './suggestion-row-theme';
 import { setHoveredRow, useRowView } from './row-state';
 import { RemixIcon } from '../../remix-icon';
 
@@ -162,10 +162,15 @@ function OpenTabRowComponent({ runtime, tab, index, last, simpleMode }: OpenTabR
     () => ({ url: tab.url || '', favicon: tab.favIconUrl || '' }),
     [tab.favIconUrl, tab.url]
   );
+  const themeSuggestionRef = useMemo(() => ({ current: themeSuggestion }), [themeSuggestion]);
   const localFallback = isLocalUrlSuggestion(options, themeSuggestion);
-  const immediateTheme = localFallback
-    ? options.urlHighlightTheme
-    : options.getImmediateThemeForSuggestion(themeSuggestion) || options.defaultTheme;
+  const immediateTheme = useMemo(
+    () => (localFallback
+      ? options.urlHighlightTheme
+      : options.getImmediateThemeForSuggestion(themeSuggestion) || options.defaultTheme),
+    [localFallback, options, themeSuggestion]
+  );
+  const theme = useSiteTheme(runtime, themeSuggestionRef, immediateTheme, !localFallback);
   const titleText = options.sanitizeDisplayText(tab.title || options.t('untitled', '无标题'));
   const tabSuggestion = useMemo<Suggestion>(
     () => ({
@@ -182,19 +187,21 @@ function OpenTabRowComponent({ runtime, tab, index, last, simpleMode }: OpenTabR
   const tabId = typeof tab.id === 'number' ? tab.id : null;
   const view = useRowView(runtime, index);
   const rowSelection = useRef<RowSelection | null>(null);
-  const [themeVersion, setThemeVersion] = useState(0);
 
   useLayoutEffect(() => {
     const item = itemRef.current;
-    if (!item) {
-      return undefined;
+    if (item) {
+      publishOpenTab(item, tabId, autoTop, tabSuggestion);
+      bindRowTooltip(options, item, { getElement: () => refs.title.current });
     }
-    publishOpenTab(item, tabId, autoTop, tabSuggestion);
-    item._xThemeHost = options.getThemeHostForSuggestion(themeSuggestion);
-    bindRowTooltip(options, item, { getElement: () => refs.title.current });
-    return followSiteTheme(runtime, item, themeSuggestion, immediateTheme, !localFallback,
-      () => setThemeVersion((version) => version + 1));
-  }, [autoTop, immediateTheme, itemRef, localFallback, options, refs.title, runtime, tabId, tabSuggestion, themeSuggestion]);
+  }, [autoTop, itemRef, options, refs.title, tabId, tabSuggestion]);
+
+  useLayoutEffect(() => {
+    const item = itemRef.current;
+    if (item) {
+      options.applyThemeVariables(item, theme);
+    }
+  }, [itemRef, options, theme, view.dark]);
 
   useLayoutEffect(() => {
     const item = itemRef.current;
@@ -225,10 +232,10 @@ function OpenTabRowComponent({ runtime, tab, index, last, simpleMode }: OpenTabR
       selection: view.selection,
       hovering: view.hovering,
       autoTop,
-      theme: item._xTheme || options.defaultTheme,
+      theme: theme || options.defaultTheme,
       simpleMode
     });
-  }, [autoTop, iconIsFavicon, itemRef, options, refs, simpleMode, themeVersion, view.hovering, view.revision, view.selection]);
+  }, [autoTop, iconIsFavicon, itemRef, options, refs, simpleMode, theme, view.dark, view.hovering, view.selection]);
 
   const activate = (event: ReactMouseEvent<HTMLElement>): void => {
     options.onSwitchToTab(tab, event.nativeEvent);

@@ -147,7 +147,6 @@ describe('Recent Sites React island', () => {
     });
     expect(grid.dataset.reactIsland).toBe('recent-sites');
     expect(view.getCards()).toEqual([card]);
-    expect(card?._xHost).toBe('example.com');
     expect(card?._xTitleText).toBe('Example Docs');
     expect(card?.querySelector('.x-nt-recent-action')?.textContent).toContain('前往');
     const pin = card ? pinButtonOf(card) : null;

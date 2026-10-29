@@ -48,7 +48,6 @@ function createNoopController(
   return {
     render() {},
     renderTabs() {},
-    refreshRowStyles() {},
     clear() {
       items.length = 0;
     },
@@ -243,7 +242,7 @@ class SuggestionsView implements SuggestionsViewController {
     this.runtime = {
       options,
       queryStore,
-      listState: createStore({ hoveredIndex: -1, revision: 0 })
+      listState: createStore({ hoveredIndex: -1 })
     };
     // A help center row shows its passage while hovered or selected.
     this.unsubscribes = [
@@ -332,12 +331,6 @@ class SuggestionsView implements SuggestionsViewController {
       this.commitTabRows(tabs, renderKeys, renderedCount, simpleMode);
       return renderedCount < tabs.length;
     });
-  };
-
-  // Draws the rows again after their themes changed outside the list.
-  readonly refreshRowStyles = (): void => {
-    const state = this.runtime.listState.getSnapshot();
-    this.runtime.listState.setState({ revision: state.revision + 1 });
   };
 
   readonly clear = (): void => {

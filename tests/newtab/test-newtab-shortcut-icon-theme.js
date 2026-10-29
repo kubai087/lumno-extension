@@ -49,17 +49,6 @@ const COLOR = sandbox.LumnoColor;
 const BRAND_ACCENTS = sandbox.LumnoBrandAccents;
 const defaultTheme = NEWTAB_FAVICON_THEME.createDefaultTheme();
 
-function createTile(url) {
-  const attributes = { 'data-shortcut-url': url };
-  return {
-    isConnected: true,
-    _xHost: 'xiaohongshu.com',
-    getAttribute: (name) => (name in attributes ? attributes[name] : null),
-    applied: []
-  };
-}
-
-const shortcutTiles = [];
 const persistedThemes = new Map();
 const shortcutIconSources = new Map([['https://www.xiaohongshu.com/', SNAPSHOT_URL]]);
 
@@ -72,15 +61,7 @@ const resolver = sandbox.LumnoNewtabSiteThemeResolver.createSiteThemeResolver({
   defaultAccentColor: NEWTAB_FAVICON_THEME.defaultAccentColor,
   defaultTheme,
   getProviderHost: () => '',
-  recentCards: [],
-  applyRecentCardTheme: () => {},
-  bookmarkCards: [],
-  applyBookmarkCardTheme: () => {},
-  shortcutTiles,
-  applyShortcutTileTheme: (tile, theme) => tile.applied.push(theme),
-  suggestionItems: [],
   setSiteSearchPrefix: () => {},
-  refreshRowStyles: () => {},
   setPersistedSiteThemeEntry: (host, theme) => persistedThemes.set(host, theme),
   getPersistedSiteThemeEntry: (host) => persistedThemes.get(host) || null,
   getPageFaviconUrlResolver: () => ({ getSafeFaviconCandidateUrl: (url) => url }),
@@ -96,10 +77,6 @@ const resolver = sandbox.LumnoNewtabSiteThemeResolver.createSiteThemeResolver({
     requestFaviconData: () => Promise.resolve(null)
   }
 });
-
-function flush() {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 function accentOf(theme) {
   return Array.from(theme.accentRgb).join(',');
@@ -134,23 +111,14 @@ function accentOf(theme) {
     'first paint reuses the snapshot theme'
   );
 
-  // Host-wide refreshes repaint a snapshot tile with its own artwork.
-  const tile = createTile('https://www.xiaohongshu.com/');
-  shortcutTiles.push(tile);
-  resolver.themeHostCache.delete('xiaohongshu.com');
-  resolver.setResolvedThemeForHost('xiaohongshu.com', resolver.buildThemeFromAccent([40, 120, 200], 'meta'));
-  await flush();
-  assert.strictEqual(tile.applied.length, 1);
-  assert.strictEqual(accentOf(tile.applied[0]), RED.join(','), 'host refresh keeps the tile on its own artwork');
+  // A site theme change keeps a snapshot tile on its own artwork.
+  const siteTheme = resolver.buildThemeFromAccent([40, 120, 200], 'meta');
+  const tileTheme = await resolver.getTileThemeOnSiteChange({ type: 'shortcut', url: 'https://www.xiaohongshu.com/' }, siteTheme);
+  assert.strictEqual(accentOf(tileTheme), RED.join(','), 'host refresh keeps the tile on its own artwork');
 
-  // Tiles still waiting for a snapshot follow the host theme as before.
-  const pendingTile = createTile('https://www.xiaohongshu.com/pending');
-  shortcutTiles.push(pendingTile);
-  const hostTheme = resolver.buildThemeFromAccent([0, 160, 90], 'meta');
-  resolver.themeHostCache.delete('xiaohongshu.com');
-  resolver.setResolvedThemeForHost('xiaohongshu.com', hostTheme);
-  await flush();
-  assert.strictEqual(pendingTile.applied[pendingTile.applied.length - 1], hostTheme);
+  // Tiles still waiting for a snapshot follow the site theme.
+  const pendingTheme = await resolver.getTileThemeOnSiteChange({ type: 'shortcut', url: 'https://www.xiaohongshu.com/pending' }, siteTheme);
+  assert.strictEqual(pendingTheme, siteTheme);
 
   console.log('newtab shortcut icon theme tests passed');
 })().catch((error) => {

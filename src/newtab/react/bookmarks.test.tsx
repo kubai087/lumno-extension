@@ -209,7 +209,6 @@ describe('Bookmarks React island', () => {
     expect(initialCards[0]._xBookmarkItem).toBe(first);
     expect(initialCards[0]._xBookmarkPageIndex).toBe(0);
     expect(initialCards[0]._xTitleText).toBe('First');
-    expect(initialCards[0]._xHost).toBe('example.com');
     expect(initialCards[0].dataset.bookmarkDraggable).toBe('true');
     expect(initialCards[0].dataset.themed).toBe('true');
     expect(attachFavicon).toHaveBeenCalledTimes(2);

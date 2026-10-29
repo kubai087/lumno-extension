@@ -105,7 +105,6 @@ describe('Suggestion rows: shortcuts, tags, text and highlights', () => {
     expect(items).toHaveLength(1);
     expect(items[0]._xIsSearchSuggestion).toBe(true);
     expect(items[0]._xIsAutocompleteTop).toBe(true);
-    expect(items[0]._xThemeHost).toBe('example.com');
     expect(rowPart(items[0], 'suggestion-title')?.textContent).toBe('Example result');
     expect(items[0].dataset.themed).toBe('true');
     expect(items[0].dataset.rowState).toBe('active');

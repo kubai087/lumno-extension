@@ -25,7 +25,6 @@ interface RowRefs {
 
 // What the surfaces read off the row's element.
 interface PublishedRow {
-  themeHost: string;
   isPrimary: boolean;
   visitButtonAction: string;
 }
@@ -77,7 +76,6 @@ function readRowStyleElements(item: SuggestionElement, refs: RowRefs, facts: { c
 // Puts what the surfaces read on the row's element.
 function publishRow(item: SuggestionElement, row: PublishedRow, suggestionRef: SuggestionValueRef): void {
   item._xIsSearchSuggestion = true;
-  item._xThemeHost = row.themeHost;
   item._xIsAutocompleteTop = row.isPrimary;
   item._xVisitButtonAction = row.visitButtonAction;
   item._xSuggestion = suggestionRef.current;
