@@ -9,17 +9,17 @@ class OverlayToast {
     this.controller = controller;
   }
 
-  show(message: string, isError?: boolean, options?: ToastShowOptions): void {
+  readonly show = (message: string, isError?: boolean, options?: ToastShowOptions): void => {
     if (this.controller) {
       this.controller.show(message, { ...options, error: Boolean(isError) });
     }
-  }
+  };
 
-  hide(): void {
+  readonly hide = (): void => {
     if (this.controller) {
       this.controller.hide();
     }
-  }
+  };
 }
 
 export { OverlayToast };

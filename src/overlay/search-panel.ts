@@ -1,835 +1,166 @@
-import { OverlayToast } from './panel/overlay-toast';
-import { buildTheme, createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../shared/favicon/favicon-theme';
+import { defaultAccentColor } from '../shared/favicon/favicon-theme';
 import { parseCssColor, rgbToCss } from '../domain/color';
-import * as OVERLAY_FONT_FACES from '../shared/overlay-font-faces';
-import * as LumnoShortcutFaviconStore from '../platform/shortcut-favicon-store';
 import * as AGGREGATE_SEARCH_STORE from '../domain/search/aggregate-search-store';
-import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
 import * as SEARCH_INPUT_MODE from '../shared/search/search-input-mode';
-import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
-import * as SETTINGS from '../domain/settings';
 import * as LumnoCursorTooltip from '../shared/ui/cursor-tooltip';
-import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
 import * as OVERLAY_TOAST from '../shared/ui/toast';
 import { createToastStyleGate } from '../shared/ui/toast-style-gate';
 import * as LumnoTooltip from '../shared/ui/tooltip';
-import * as LumnoOverlayFaviconView from './favicon-view';
 import * as OVERLAY_KEYBOARD from './keyboard';
 import { createFullscreenEscapeLock } from '../shared/ui/fullscreen-escape-lock';
 import * as LumnoOverlayLifecycle from './lifecycle';
-import * as OVERLAY_NOTICES from './notices';
 import * as PANEL_COPY_ACTIONS from './panel/copy-actions';
-import * as PANEL_ENTRY_MOTION from './panel/entry-motion';
-import * as PANEL_FAVICON_POLICY from './panel/favicon-policy';
-import * as PANEL_PAGE_GUARDS from './panel/page-guards';
-import * as PANEL_PANEL_KEYS from './panel/panel-keys';
-import * as PANEL_PANEL_LANGUAGE from './panel/panel-language';
 import * as PANEL_PANEL_NOTICES from './panel/panel-notices';
-import * as PANEL_PANEL_SESSION from './panel/panel-session';
-import * as PANEL_PANEL_THEME from './panel/panel-theme';
-import * as PANEL_REMOTE_SUGGESTIONS from './panel/remote-suggestions';
-import * as PANEL_RESULT_ACTIVATION from './panel/result-activation';
-import * as PANEL_RESULTS_LAYOUT from './panel/results-layout';
-import * as PANEL_SEARCH_INPUT_EVENTS from './panel/search-input-events';
-import * as PANEL_SEARCH_MODES from './panel/search-modes';
 import * as PANEL_SETTINGS_SYNC from './panel/settings-sync';
-import { OverlayPanelElements } from './panel/panel-elements';
-import { OpenTabs } from '../shared/search-panel/open-tabs';
-import { OverlayNotices } from './panel/overlay-notices';
-import { LastRender } from './panel/last-render';
-import { OverlayThemeMode } from './panel/overlay-theme-mode';
-import * as PANEL_SITE_SEARCH_PROVIDERS from './panel/site-search-providers';
-import * as PANEL_SLASH_COMMANDS from './panel/slash-commands';
-import * as PANEL_COMMAND_ACTIONS from './panel/command-actions';
 import * as PANEL_ROW_ACTIONS from './panel/row-actions';
-import * as PANEL_SUGGESTION_SOURCES from './panel/suggestion-sources';
-import * as PANEL_SUGGESTION_THEMES from './panel/suggestion-themes';
-import * as PANEL_SUGGESTIONS_RENDER from './panel/suggestions-render';
-import * as PANEL_TAB_MATCHING from './panel/tab-matching';
-import * as OVERLAY_CONTEXT from './overlay-context';
 import { TAB_SWITCHER_HOST_ID } from '../shared/tab-switcher/host';
-import type { OverlaySizePreset } from './lifecycle';
-import type { ThemeMode } from '../domain/settings/appearance';
-import type { SuggestionElement } from '../shared/react/search/suggestion-list/types';
-import type { NumberShortcutOptions } from '../shared/search/suggestion-navigation';
 import * as LumnoOverlayRuntime from './runtime';
 import * as LumnoOverlaySiteFixes from './site-fixes';
 import * as LumnoMessaging from '../platform/messaging';
 import { isOverlayOpenState, setOverlayOpenState } from '../platform/content-registry';
+import { createOverlayContext } from './app/context';
 import { appendOverlayStyleNodes, createOverlayMount, findOverlayPanel } from './react/shell';
 import { createSearchInput } from '../shared/react/search-input';
-import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
-import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
-import { SurfaceLocale, getSystemLocale } from '../shared/i18n/surface-locale';
-import { loadExtensionLocaleMessages } from '../shared/i18n/locale-messages';
-import { themeColorCache, themeHostCache } from '../shared/favicon/theme-caches';
 import {
   searchInputHistory,
   searchSourceOrder,
   siteSearchIconCache as siteSearchIconCacheSetting
 } from '../domain/settings/search';
 import { createSettingPort } from '../platform/settings-store';
-import { createOverlaySettings } from './overlay-settings';
-import * as FaviconDecisionLog from '../domain/favicon/decision-log';
-import * as FaviconHostPolicy from '../domain/favicon/host-policy';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
-import { overlaySizeMode, overlayWidth } from '../domain/settings/overlay-panel';
-import { numberShortcutInstantEnabled } from '../domain/settings/search';
-import { SearchQuery } from '../shared/search-panel/search-query';
-import { SuggestionSource } from '../shared/search-panel/suggestion-source';
-import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
-import { createColorScheme } from '../shared/ui/color-scheme';
-import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
-import { SearchModeMenu } from '../shared/search-panel/mode-menu';
-import { SearchModeActions } from '../shared/search-panel/mode-actions';
-import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
-import { SearchMatching } from '../shared/search-panel/matching';
-import { SearchResults } from '../shared/search-panel/search-results';
-import { SearchMode } from '../shared/search-panel/search-mode';
-import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
-import type { InputModeProvider } from '../shared/search/input-mode/types';
-import type { OverlaySuggestion } from './panel/types';
+import { overlaySizeMode } from '../domain/settings/overlay-panel';
 import { isAggregateSearchProvider } from '../domain/search/aggregate-search-store';
 import { getSiteSearchDisplayName, getSiteSearchPrefixText } from '../shared/search-panel/labels';
 import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../domain/injected-commands';
-import * as SearchSiteSearchMatching from '../domain/search/utils/site-search-matching';
-
-// Favicon data and preloaded icons the overlay resolved, kept across its
-// openings in this page.
-const faviconDataCache = new Map<string, string>();
-const faviconDataPending = new Map<string, Promise<string | null>>();
-const iconPreloadCache = new Map<string, HTMLImageElement>();
+import { createSessionFeature } from './features/session';
+import { createSearchFeature } from './features/search';
+import { createPanelFeature } from './features/panel';
+import { createSuggestionsFeature } from './features/suggestions';
+import { createControlsFeature } from './features/controls';
 
 // Opens or closes the search overlay with the window's tabs and the context
 // it was opened with, both read as untrusted.
-let pageMenuOrder: SearchModeMenuOrder | null = null;
 
 function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): void {
-  const openOptions = OVERLAY_CONTEXT.readOverlayOpenOptions(overlayContext, Date.now());
-  const initialOverlayTabs = OVERLAY_CONTEXT.readOverlayTabs(requestedTabs);
-  const shouldIgnoreTabZoomCompensation = OVERLAY_CONTEXT.isLocalFileLikeUrl(openOptions.currentTabUrl);
-  // Web clip needs Document Picture-in-Picture, which Firefox does not ship.
-  const documentPipSupported = 'documentPictureInPicture' in window;
-  // Warm local icon lookup immediately, but never put it on the overlay reveal path.
-  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createSiteSearchIconStore({
-    chromeApi: chrome,
-    storageArea: chrome && chrome.storage ? chrome.storage.local : null
-  }));
-  void siteSearchIconCache.load();
-
-  // The session's parts that hold what it shows and lists.
-  const elements = new OverlayPanelElements();
-  const notices = new OverlayNotices();
-  // The toast, drawn once the panel mounts its element.
-  const overlayToast = new OverlayToast();
-  const overlayTabs = new OpenTabs(initialOverlayTabs, openOptions.currentTabId);
-  const lastRender = new LastRender();
-  const overlayThemeChoice = new OverlayThemeMode();
-  const settings = createOverlaySettings(chrome);
-  // A custom width replaces the size's own; the size keeps its height cap
-  // and content scale.
-  function getOverlaySizePreset(mode: unknown): OverlaySizePreset {
-    const preset = SETTINGS.getOverlaySizePreset(mode);
-    const customWidth = SETTINGS.overlayWidth.parse(settings.get(overlayWidth));
-    return customWidth ? { ...preset, width: customWidth } : preset;
-  }
-
-  // Teardown steps owned by this invocation's overlay session. Controllers
-  // created deep inside the mount block register here so removeOverlay can
-  // release them without stashing them on DOM expandos.
-  const overlaySessionCleanups = LumnoOverlayLifecycle.createSessionCleanupRegistry();
+  const ctx = createOverlayContext(requestedTabs, overlayContext);
+  const { openOptions, settings, locale, t, formatMessage, elements, overlayTabs, overlaySessionCleanups } = ctx;
+  const sessionFeature = createSessionFeature(ctx);
   const {
-    applyOverlayInputExtensionIsolation,
     applyNoTranslate,
     applyNoTranslateDeep,
-    stopOverlayAntiTranslateObserver,
-    pauseOverlayAntiTranslateObserverForScroll,
-    pauseOverlayAntiTranslateObserverForMutationBurst,
-    startOverlayAntiTranslateObserver
-  } = PANEL_PAGE_GUARDS.createPageGuards({
-    window
-  });
-
-  const overlayNoticeLayer = OVERLAY_NOTICES.createNoticeLayer(window, {
-    getUpdateNotice: () => notices.update,
-    getGraphicsNotice: () => notices.graphics,
-    getEngagementNotice: () => notices.engagement,
-    getSizePreset: () => getOverlaySizePreset(settings.get(overlaySizeMode)),
-    decorate: (element) => applyNoTranslateDeep(element)
-  });
-  const overlayViewportSizeSync = LumnoOverlayLifecycle.createViewportSizeSync(window, {
-    getSizePreset: () => getOverlaySizePreset(settings.get(overlaySizeMode)),
-    getRequestedTabZoomFactor: () => openOptions.tabZoomFactor,
-    shouldIgnoreTabZoomCompensation: () => shouldIgnoreTabZoomCompensation
-  });
-  const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
-  const suggestionInputPreview = SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview();
-  const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  const defaultTheme = createDefaultTheme();
-  const urlHighlightTheme = createUrlHighlightTheme();
-  const {
-    shouldSwitchMatchedTabSuggestion,
-    getUrlDisplay,
+    applyOverlayEnterAnimationInitialState,
+    applyOverlayInputExtensionIsolation,
+    clearOverlayEnterAnimationFrames,
+    defaultTheme,
     filterTabsForOverlay,
-    getMatchedOpenTabIdForSuggestion,
-    isCurrentOverlayTabUrl
-  } = PANEL_TAB_MATCHING.createTabMatching({
-    settings,
-    overlayTabs,
-    initialContextTabUrl: openOptions.currentTabUrl,
-    prioritizeCurrentPageMatch: openOptions.prioritizeCurrentPageMatch
-  });
-
-  // They follow storage only once the panel mounts, below.
-  const locale = new SurfaceLocale(settings.store, loadExtensionLocaleMessages);
-  const { t, formatMessage } = locale;
-  const searchQuery = new SearchQuery();
-  const suggestionModifiers = new SuggestionModifiers(settings.store);
-  const colorScheme = createColorScheme();
-  const siteSearchRunner = new SiteSearchRunner({
-    t: (key, fallback) => locale.t(key, fallback),
-    showToast: (message, isError) => overlayToast.show(message, isError),
-    getHelpCenterLocale: () => locale.store.getSnapshot().locale,
-    openInCurrentTab: (url) => LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'createTab', url, disposition: 'currentTab' })
-  });
-  // The mode menu's moves can be undone for as long as the page lives,
-  // across panel openings.
-  if (!pageMenuOrder) {
-    pageMenuOrder = new SearchModeMenuOrder(settings.store);
-  }
-  const menuOrder = pageMenuOrder;
-  const searchMatching = new SearchMatching({
-    settings: settings.store,
-    getUrlDisplay: (url) => getUrlDisplay(url)
-  });
-  const searchResults = new SearchResults<OverlaySuggestion>();
-  const suggestionSource = new SuggestionSource(searchQuery, searchResults);
-  const searchMode = new SearchMode<InputModeProvider>();
-  const searchAutocomplete = new SearchAutocomplete({
-    settings: settings.store,
-    query: searchQuery,
-    getInput: () => elements.searchInput,
-    preview: suggestionInputPreview,
-    isModeActive: () => Boolean(searchMode.site || searchMode.local),
-    getUrlDisplay: (url) => getUrlDisplay(url)
-  });
-  const searchEngine = new DefaultSearchEngine(settings.store);
-  const siteSearchCatalog = new SiteSearchCatalog(settings.store, searchEngine, openOptions.siteSearchProviders);
-  const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
-
-  const suggestionItems: SuggestionElement[] = [];
-
-  const numberShortcutOptions: NumberShortcutOptions = {
-    onHoldStart: function() {
-      overlayToast.show(t(
-        'search_number_jump_release_hint',
-        'Release to show numbers'
-      ), false, { duration: 0 });
-    },
-    onHoldEnd: () => overlayToast.hide(),
-    instantActive: () => settings.get(numberShortcutInstantEnabled)
-  };
-
-  const overlayFrameTracker = LumnoOverlayLifecycle.createFrameTracker(window);
-
-  const setInputScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
-    if (!element) {
-      return;
-    }
-    element.style.setProperty(property, value);
-  };
-
-  const {
-    getOverlayStrictFaviconReason,
-    isOverlayEnhancedFaviconFetchEnabled,
-    filterOverlayBlacklistedSuggestions,
-    normalizeSearchResultDisplayLimit,
-    limitOverlaySuggestionsForDisplay,
-    isLocalNetworkHost,
-    shouldBlockOverlayFaviconForHost,
-    getOverlayFaviconUrlResolver,
-    isBlockedOverlayFaviconUrl,
-    isLocalNetworkInput,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    getPageFaviconCandidateUrl,
-    getHostFromUrl,
-    isFaviconProxyUrl,
-    isChromeMonogramFaviconUrl
-  } = PANEL_FAVICON_POLICY.createFaviconPolicy({
-    settings,
-    logOverlayFaviconDecision
-  });
-
-  const faviconRuntime = LumnoOverlayFaviconView.createOverlayFaviconViewRuntime({
-    document,
-    windowObj: window,
-    chromeApi: chrome,
-    getHostFromUrl,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    shouldBlockFaviconForHost: shouldBlockOverlayFaviconForHost,
-    shouldAvoidDirectFaviconForHost: FaviconHostPolicy.shouldAvoidDirectFaviconForHost,
-    shouldBlockOverlayFaviconForHost,
-    isEnhancedFaviconFetchEnabled: isOverlayEnhancedFaviconFetchEnabled,
-    getStrictFaviconReason: getOverlayStrictFaviconReason,
-    logFaviconDecision: logOverlayFaviconDecision,
-    isBlockedLocalFaviconUrl: isBlockedOverlayFaviconUrl,
-    isFaviconProxyUrl,
-    isChromeMonogramFaviconUrl,
-    faviconDataCache,
-    faviconDataPending,
-    iconPreloadCache,
-    getOverlayPanel: () => elements.overlay,
-    getSuggestionRowsRoot: () => elements.suggestionsContainer,
-    hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
-  });
-  // Themed icons follow the scheme the panel is drawn in.
-  colorScheme.subscribe(() => faviconRuntime.refreshOverlayThemeAwareFavicons());
-
-  const {
+    finishOverlayPanelEnterAnimation,
+    getOverlayEnterAnimationRevealTransform,
+    getOverlaySizePreset,
+    imeKeyGuard,
+    notices,
+    overlayFrameTracker,
+    overlayNoticeLayer,
+    overlayThemeChoice,
+    overlayToast,
+    overlayViewportSizeSync,
+    pauseOverlayAntiTranslateObserverForScroll,
+    playOverlayPanelEnterAnimation,
     shouldSkipOverlayEntryMotion,
     shouldSkipOverlayEntryMotionForSlowStartup,
-    getOverlayEnterAnimationRevealTransform,
-    clearOverlayPanelEnterCleanup,
-    finishOverlayPanelEnterAnimation,
-    applyOverlayEnterAnimationInitialState,
-    playOverlayPanelEnterAnimation,
-    clearOverlayEnterAnimationFrames
-  } = PANEL_ENTRY_MOTION.createEntryMotion({
-    settings,
-    initialOverlayOpenStartedAt: openOptions.openedAt,
-    overlayFrameTracker
-  });
-
+    shouldSwitchMatchedTabSuggestion,
+    startOverlayAntiTranslateObserver,
+    suggestionInputPreview
+  } = sessionFeature;
+  const searchFeature = createSearchFeature(ctx, { session: sessionFeature });
   const {
-    attachKeyRouter,
-    attachRevealGate,
-    isLoadingSessionTracked,
-    replayWithoutLoadingNotification,
-    getOverlayMountHost,
-    setOverlayStoredContextToken,
-    setOverlayMountVisibility,
-    isStaleOverlay,
-    createOverlayWheelIsolationHandler,
-    notifyOverlayLoadingSession,
-    removeOverlay,
-    closeOverlayWithMotion,
-    destroyExistingOverlaySession
-  } = PANEL_PANEL_SESSION.createPanelSession({
-    notices,
-    elements,
-    loadingSessionTrackingActive: openOptions.loadingSessionTracked,
-    overlayViewportSizeSync,
-    overlayNoticeLayer,
-    overlaySessionCleanups,
-    settings,
-    pauseOverlayAntiTranslateObserverForScroll,
-    clearOverlayEnterAnimationFrames,
-    clearOverlayPanelEnterCleanup,
-    suggestionSource,
-    stopOverlayAntiTranslateObserver
-  });
-
+    colorScheme,
+    menuOrder,
+    numberShortcutOptions,
+    searchEngine,
+    searchMode,
+    searchQuery,
+    searchResults,
+    siteSearchCatalog,
+    siteSearchIconCache,
+    suggestionItems,
+    suggestionModifiers
+  } = searchFeature;
+  const panelFeature = createPanelFeature(ctx, { session: sessionFeature, search: searchFeature });
   const {
-    resultActivation,
-    finishOverlayResultActivation,
-    getOpenDisposition
-  } = PANEL_RESULT_ACTIVATION.createResultActivation({
-    elements,
-    currentTabPinned: openOptions.currentTabPinned,
-    settings,
-    removeOverlay
-  });
-
-  const {
-    events: panelThemeEvents,
-    getHighlightColors,
-    detectPageTheme,
-    invalidatePageTheme,
-    syncOverlayPageThemeObservation,
     applyOverlayFontFamily,
     applyOverlayThemeVariables,
-    isOverlayDarkMode,
-    getThemeForMode,
-    getHoverColors,
-    getNeutralHoverActionColors
-  } = PANEL_PANEL_THEME.createPanelTheme({
-    overlayThemeChoice,
-    overlaySessionCleanups,
-    elements,
-    defaultTheme,
-    overlayMediaQuery,
-    settings,
-    parseCssColor
-  });
-
-  const {
-    openSiteSearchProviderQuery,
-    getProviderIcon,
-    toPageRenderableIconUrl,
-    getPageRenderableProviderIcon
-  } = PANEL_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
-    siteSearchRunner,
-    favicons: faviconRuntime,
-    resultActivation,
+    attachKeyRouter,
+    attachRevealGate,
+    closeOverlayWithMotion,
+    createOverlayWheelIsolationHandler,
+    destroyExistingOverlaySession,
+    detectPageTheme,
+    faviconRuntime,
     finishOverlayResultActivation,
+    getImmediateThemeForSuggestion,
+    getOpenDisposition,
     getOverlayFaviconUrlResolver,
-    siteSearchIconCache,
-    faviconDataCache
-  });
-
-  const {
-    getBrandAccentForUrl,
+    getOverlayMountHost,
+    getPageRenderableProviderIcon,
     getProviderThemeHost,
-    getThemeForProvider,
-    getThemeForSuggestion,
-    getImmediateThemeForSuggestion,
-    applyThemeVariables,
-    applyMarkVariables,
-    preloadThemeFromFavicon
-  } = PANEL_SUGGESTION_THEMES.createSuggestionThemes({
-    defaultTheme,
-    favicons: faviconRuntime,
-    getHostFromUrl,
-    isFaviconProxyUrl,
-    themeColorCache,
-    themeHostCache,
-    getOverlayFaviconUrlResolver,
-    buildTheme,
-    defaultAccentColor,
-    shouldBlockOverlayFaviconForHost,
-    faviconDataCache,
-    getProviderIcon,
-    getThemeForMode
-  });
-
-  const modeActions = new SearchModeActions<InputModeProvider>({
-    settings: settings.store,
-    locale,
-    mode: searchMode,
-    query: searchQuery,
-    autocomplete: searchAutocomplete,
-    source: suggestionSource,
-    surface: {
-      getInput: () => elements.searchInput,
-      getModeController: () => elements.inputModeController,
-      defaultTheme: defaultTheme,
-      getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || defaultTheme,
-      getThemeForProvider: (provider) => getThemeForProvider(provider)
-    }
-  });
-  const {
-    syncOpenTabsScrollbarGutter,
-    setOpenTabsResultsViewport,
-    syncSearchModeMenuResultOffset,
-    setOverlayResultsCollapsed,
-    shouldShowOpenTabsForEmptyQuery,
-    updateInputRightPadding,
-    setSiteSearchTabHint,
-    clearSiteSearchTabHint
-  } = PANEL_RESULTS_LAYOUT.createResultsLayout({
-    elements,
-    settings,
-    searchMode,
-    normalizeSearchResultDisplayLimit,
-    setInputScopedStyle
-  });
-
-  const {
-    rowEvents,
-    clearDefaultOpenTabsSuggestions,
-    syncSuggestionLastState,
-    scrollSelectedSuggestionIntoView,
-    getSearchPanelsLayoutTransitionMenu,
-    commitSuggestionsNaturalHeightAfterRender,
-    ensureOverlaySuggestionsView,
-    renderTabSuggestions,
-    renderCachedTabsForOverlay,
-    renderCachedTabsOrRequest,
-    requestTabsAndRender
-  } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
-    lastRender,
-    isLoadingSessionTracked,
-    overlaySessionCleanups,
-    overlayTabs,
-    elements,
-    urlHighlightTheme,
-    defaultTheme,
-    suggestionInputPreview,
-    settings,
-    suggestionModifiers,
-    colorScheme,
-    locale,
-    searchResults,
-    searchMode,
-    searchQuery,
-    favicons: faviconRuntime,
-    suggestionItems,
-    syncSearchModeMenuResultOffset,
-    shouldSwitchMatchedTabSuggestion,
-    resultActivation,
-    getOverlayFaviconUrlResolver,
-    t,
-    formatMessage,
-    shouldBlockOverlayFaviconForHost,
-    isLocalNetworkHost,
-    getChromeFaviconUrl,
-    getPageFaviconCandidateUrl,
-    getHostFromUrl,
-    getUrlDisplay,
-    getImmediateThemeForSuggestion,
-    getThemeForSuggestion,
     getThemeForMode,
-    getHoverColors,
-    getHighlightColors,
-    getNeutralHoverActionColors,
-    applyThemeVariables,
-    applyMarkVariables,
-    searchEngine,
-    getBrandAccentForUrl,
-    buildTheme,
-    normalizeSearchResultDisplayLimit,
-    pauseOverlayAntiTranslateObserverForMutationBurst,
-    setOpenTabsResultsViewport,
-    setOverlayResultsCollapsed,
-    filterTabsForOverlay,
-    shouldShowOpenTabsForEmptyQuery
-  });
-
+    getThemeForProvider,
+    isOverlayDarkMode,
+    isStaleOverlay,
+    notifyOverlayLoadingSession,
+    openSiteSearchProviderQuery,
+    removeOverlay,
+    replayWithoutLoadingNotification,
+    resultActivation,
+    setOverlayMountVisibility,
+    setOverlayStoredContextToken,
+    toPageRenderableIconUrl
+  } = panelFeature;
+  const suggestionsFeature = createSuggestionsFeature(ctx, { session: sessionFeature, search: searchFeature, panel: panelFeature });
   const {
-    getWebAppearanceMode,
-    setWebAppearanceState,
-    getNextWebAppearanceMode,
-    setDocumentPipEnabled,
-    getCommandMatches,
-    isSlashCommandInput,
-    getCommandMatch,
-    buildCommandSuggestion,
-    updateModeBadge,
-    getNextThemeMode,
-    isModeCommand,
-    buildModeSuggestion
-  } = PANEL_SLASH_COMMANDS.createSlashCommands({
-    overlayThemeChoice,
-    documentPipEnabledAtOpen: documentPipSupported && openOptions.documentPipEnabled,
-    elements,
-    overlayMediaQuery,
-    t,
-    formatMessage,
-    updateInputRightPadding,
-    detectPageTheme
-  });
-
-  const {
-    quickNavigation,
-    getDirectUrlSuggestion,
-    updateSearchSuggestions,
-    clearSearchSuggestions
-  } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
-    modeActions,
-    overlayThemeChoice,
-    lastRender,
-    overlayTabs,
-    elements,
-    prioritizeCurrentPageMatch: openOptions.prioritizeCurrentPageMatch,
-    settings,
-    siteSearchRunner,
-    searchMatching,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    favicons: faviconRuntime,
-    formatMessage,
-    getPageFaviconCandidateUrl,
-    isLocalNetworkInput,
-    getHostFromUrl,
-    isLocalNetworkHost,
-    locale,
-    getProviderIcon,
-    t,
-    isSlashCommandInput,
-    isModeCommand,
-    searchEngine,
-    getCommandMatches,
-    buildModeSuggestion,
-    buildCommandSuggestion,
-    isCurrentOverlayTabUrl,
-    siteSearchCatalog,
-    getMatchedOpenTabIdForSuggestion,
-    filterOverlayBlacklistedSuggestions,
-    getUrlDisplay,
-    setSiteSearchTabHint,
-    clearSiteSearchTabHint,
-    limitOverlaySuggestionsForDisplay,
-    getSearchPanelsLayoutTransitionMenu,
-    pauseOverlayAntiTranslateObserverForMutationBurst,
-    setOpenTabsResultsViewport,
-    ensureOverlaySuggestionsView,
-    setOverlayResultsCollapsed,
-    syncSuggestionLastState,
-    commitSuggestionsNaturalHeightAfterRender,
-    suggestionSource,
-    shouldShowOpenTabsForEmptyQuery,
-    requestTabsAndRender,
-    clearDefaultOpenTabsSuggestions
-  });
-
-  const {
-    updatePendingSearchSuggestions,
-    requestOverlaySearchSuggestions
-  } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
-    lastRender,
-    elements,
-    settings,
-    suggestionSource,
-    searchResults,
-    searchMode,
-    searchQuery,
-    updateSearchSuggestions,
-    isSlashCommandInput,
-    getDirectUrlSuggestion
-  });
-
-  const {
-    cancelPendingOpenTabsPrefixEntry,
     activateOpenTabsSearchMode,
-    clearOpenTabsSearchMode
-  } = PANEL_SEARCH_MODES.createSearchModes({
-    elements,
-    defaultTheme,
+    clearDefaultOpenTabsSuggestions,
+    documentPipSupported,
     modeActions,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    t,
-    suggestionSource,
-    clearSearchSuggestions,
-    renderCachedTabsForOverlay,
+    modeMenu,
+    renderTabSuggestions,
+    requestOverlaySearchSuggestions,
     requestTabsAndRender,
-    isSlashCommandInput,
-    updateSearchSuggestions,
-    requestOverlaySearchSuggestions
-  });
-
-  const modeMenu = new SearchModeMenu({
-    settings: settings.store,
-    locale,
-    catalog: siteSearchCatalog,
-    engine: searchEngine,
-    iconCache: siteSearchIconCache,
-    order: menuOrder,
-    mode: searchMode,
-    actions: modeActions,
-    surface: {
-      getInput: () => elements.searchInput,
-      getModeController: () => elements.inputModeController,
-      getPageProvider: (providers) => SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
-        openOptions.currentTabUrl,
-        providers
-      ),
-      beforeDoubleTab: () => {
-        cancelPendingOpenTabsPrefixEntry();
-      },
-      getProviderIcon: (provider) => getPageRenderableProviderIcon(provider),
-      // The open tabs lead the browser content and do not move.
-      getOwnItem: (localGroup) => ({
-        id: 'openTabs',
-        kind: 'openTabs',
-        label: t('search_open_tabs_only_entry', '搜索已打开标签页'),
-        searchTerms: ['open tabs', 'tabs', 'browser'],
-        group: localGroup,
-        groupKey: 'local',
-        orderList: 'pinned',
-        iconName: 'ri-window-line',
-        menuIconName: 'browser',
-        active: searchMode.openTabs
-      }),
-      selectOwnItem: (item, rawQuery) => {
-        if (item.kind !== 'openTabs') {
-          return false;
-        }
-        activateOpenTabsSearchMode({ deferResults: true });
-        modeActions.restoreSearchModeQuery(rawQuery);
-        return true;
-      }
-    }
-  });
-
+    rowEvents,
+    setDocumentPipEnabled,
+    setInputScopedStyle,
+    shouldShowOpenTabsForEmptyQuery,
+    syncOpenTabsScrollbarGutter,
+    syncSearchModeMenuResultOffset,
+    updateModeBadge,
+    updateSearchSuggestions
+  } = suggestionsFeature;
+  const controlsFeature = createControlsFeature(ctx, { session: sessionFeature, search: searchFeature, panel: panelFeature, suggestions: suggestionsFeature });
   const {
-    openOverlayCommunityQrDialog,
-    openDocumentPipPickerFromOverlay,
+    applyLanguageStrings,
+    applyOverlayCjkFontFace,
     applyThemeModeChange,
     applyWebAppearanceMode,
-    applyNextWebAppearanceMode
-  } = PANEL_COMMAND_ACTIONS.createCommandActions({
-    removeOverlay,
-    t,
-    isModeCommand,
-    isSlashCommandInput,
-    updateModeBadge,
-    getWebAppearanceMode,
-    setWebAppearanceState,
-    getNextWebAppearanceMode,
-    settings,
-    overlayThemeChoice,
-    updateSearchSuggestions,
-    elements
-  });
-
-  const {
-    isApplyingInputHistory,
-    handleTabKey,
-    handleSearchInputKeydown,
+    ensureOverlayFontFaces,
+    getDefaultPlaceholderText,
     getSuggestionNavigationKey,
     handleOverlayKeydown,
     handleOverlayKeyup,
-    isSearchInputActive
-  } = PANEL_PANEL_KEYS.createPanelKeys({
-    shouldSwitchMatchedTabSuggestion,
-    overlayThemeChoice,
-    elements,
-    suggestionInputPreview,
-    settings,
-    suggestionModifiers,
-    modeActions,
-    searchMatching,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    modeMenu,
-    activateOpenTabsSearchMode,
-    siteSearchCatalog,
-    requestOverlaySearchSuggestions,
-    clearSearchSuggestions,
-    clearOpenTabsSearchMode,
-    imeKeyGuard,
-    suggestionItems,
-    numberShortcutOptions,
-    removeOverlay,
-    closeOverlayWithMotion,
-    scrollSelectedSuggestionIntoView,
-    getCommandMatch,
-    applyThemeModeChange,
-    getNextThemeMode,
-    applyWebAppearanceMode,
-    applyNextWebAppearanceMode,
-    openDocumentPipPickerFromOverlay,
-    isModeCommand,
-    openOverlayCommunityQrDialog,
-    openSiteSearchProviderQuery,
-    finishOverlayResultActivation,
-    resultActivation,
-    isSlashCommandInput,
-    updateSearchSuggestions,
-    quickNavigation
-  });
-
-  const {
-    syncLiveSearchInputFromEvent,
-    syncSearchTriggerHintFromInput,
-    handleSearchInputCompositionStart,
     handleSearchInputCompositionEnd,
-    handleSearchInputEvent
-  } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
-    isApplyingInputHistory,
-    notices,
-    elements,
-    suggestionInputPreview,
-    imeKeyGuard,
-    searchMatching,
-    locale,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    siteSearchCatalog,
-    applyNoTranslate,
-    clearSiteSearchTabHint,
-    isSlashCommandInput,
-    setSiteSearchTabHint,
-    suggestionSource,
-    notifyOverlayLoadingSession,
-    updateModeBadge,
-    updateSearchSuggestions,
-    renderCachedTabsOrRequest,
-    getDirectUrlSuggestion,
-    updatePendingSearchSuggestions,
-    requestOverlaySearchSuggestions,
-    clearSearchSuggestions
-  });
-
-  const {
-    getDefaultPlaceholderText,
-    applyOverlayCjkFontFace,
-    applyLanguageStrings
-  } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
-    notices,
-    elements,
-    defaultTheme,
-    modeActions,
-    searchResults,
-    searchMode,
-    searchQuery,
-    locale,
-    updateModeBadge,
-    getThemeForProvider,
-    updateSearchSuggestions,
-    requestTabsAndRender
-  });
-
-
-  // Follows the system's scheme while the theme follows the system.
-  let overlayThemeMediaListener: (() => void) | null = null;
-
-  function stopFollowingSystemTheme(): void {
-    if (overlayThemeMediaListener) {
-      overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
-      overlayThemeMediaListener = null;
-    }
-  }
-
-  function applyOverlayTheme(mode: ThemeMode): void {
-    applyOverlayThemeVariables(mode);
-    overlayNoticeLayer.sync(elements.overlay);
-    const resolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
-    colorScheme.setState({ dark: resolvedTheme === 'dark' });
-    updateModeBadge(elements.searchInput ? elements.searchInput.value : '');
-    syncOverlayPageThemeObservation();
-    if (mode === 'system') {
-      if (!overlayThemeMediaListener) {
-        const listener = () => {
-          if (overlayThemeChoice.mode === 'system') {
-            // Re-apply in full: updating only the panel's variables would leave
-            // the rows on the previous scheme's colors.
-            // A page that follows the system theme may have switched too.
-            invalidatePageTheme();
-            applyOverlayTheme('system');
-          }
-        };
-        overlayThemeMediaListener = listener;
-        overlayMediaQuery.addEventListener('change', listener);
-      }
-      return;
-    }
-    stopFollowingSystemTheme();
-  }
-
-  // A page that changed its own theme is followed at once.
-  panelThemeEvents.on('pageThemeChanged', () => applyOverlayTheme(overlayThemeChoice.mode));
-
-  // The panel draws the mode applied to it.
-  overlayThemeChoice.events.on('applied', ({ mode }) => applyOverlayTheme(mode));
-
+    handleSearchInputCompositionStart,
+    handleSearchInputEvent,
+    handleSearchInputKeydown,
+    handleTabKey,
+    isSearchInputActive,
+    openDocumentPipPickerFromOverlay,
+    openOverlayCommunityQrDialog,
+    startOverlayViewportSizeSync,
+    syncLiveSearchInputFromEvent,
+    syncSearchTriggerHintFromInput
+  } = controlsFeature;
   const addOverlaySessionCleanup = overlaySessionCleanups.add;
-  addOverlaySessionCleanup(stopFollowingSystemTheme);
-
   const OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS = 700;
   const RI_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'assets/remixicon/fonts/remixicon.css');
   const SEARCH_INPUT_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/search/search-input.css');
@@ -840,39 +171,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const EXTERNAL_LINK_ICON_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/external-link-icon.css');
   const OVERLAY_SUGGESTIONS_CSS_URL = LumnoOverlayRuntime.getRuntimeUrl(chrome, 'src/overlay/suggestions-view.css');
 
-  faviconRuntime.onFaviconData(preloadThemeFromFavicon);
-
   // The search icon opens the scope panel, except while a scope is set.
   let searchScopeIconEnabled = true;
-
-  // The overlay's faces on the host document (see overlay-font-faces.ts),
-  // unless the page registered them while it loaded. The icon class rules
-  // load inside the overlay's shadow root (remixicon.css, re-pointed at the
-  // scoped face by suggestions-view.css).
-  function ensureOverlayFontFaces() {
-    const styleId = '_x_extension_overlay_font_faces_2026_unique_';
-    const host = document.head || document.documentElement;
-    if (!host || document.getElementById(styleId) ||
-        OVERLAY_FONT_FACES.hasEarlyOverlayFontFaces(window)) {
-      return;
-    }
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = OVERLAY_FONT_FACES.buildOverlayFontFaceCss(
-      (assetPath) => LumnoOverlayRuntime.getRuntimeUrl(chrome, assetPath)
-    );
-    host.appendChild(style);
-    // Every face added to a page that has already laid out restyles and
-    // relays out the whole page, so the CJK face joins in the same task,
-    // guessed from the browser language. The language setting changes it
-    // later only when it calls for another script.
-    applyOverlayCjkFontFace(getSystemLocale());
-  }
-
-  function startOverlayViewportSizeSync(overlayElement: HTMLElement): void {
-    overlayViewportSizeSync.start(overlayElement);
-    overlayNoticeLayer.sync(overlayElement);
-  }
 
   // Check if the overlay already exists
   elements.holdExisting(findOverlayPanel(document, {
