@@ -28,6 +28,7 @@ import { recentEvents } from './recent-events';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 import type { SettingsStore } from '../../platform/settings-store';
 import { bookmarkViewMode } from '../../domain/settings/bookmarks';
+import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 
 
 interface RecentCardDragDeps {
@@ -791,11 +792,11 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
 
 
   recentEvents.on('cardPointerDown', handleRecentCardPointerDown);
+  bookmarkSectionEvents.on('drawn', ({ folderId }) => resumeRecentCardDragAfterFolderSwitch(folderId));
   return {
     finishRecentCardDrag,
     isRecentCardDragState,
     hasRecentCardDragSession: () => Boolean(dragSessions.recentCard),
-    resumeRecentCardDragAfterFolderSwitch
   };
 }
 

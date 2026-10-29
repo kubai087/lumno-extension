@@ -46,6 +46,7 @@ import type { BookmarkSectionParts } from './bookmark-section-parts';
 import type { MoveHistoryLock } from './move-history-lock';
 import type { DragSessions } from '../drag-sessions';
 import { setFolderPathMorphState } from './bookmark-folder-icon';
+import { bookmarkSectionEvents } from './bookmark-section-events';
 
 
 interface BookmarkDragControllerDeps {
@@ -1617,6 +1618,30 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     finishBookmarkDrag(event, { canceled: true });
   }
 
+
+  // A bookmark drag waiting for a folder to open moves on once its cards are drawn.
+  bookmarkSectionEvents.on('drawn', ({ folderId }) => {
+    const activeDragState = dragSessions.bookmark;
+    if (activeDragState && activeDragState.isDragging && activeDragState.folderSwitchPendingId === folderId) {
+      activeDragState.folderSwitchPendingId = '';
+      updateBookmarkDragLayoutCache(activeDragState);
+      setBookmarkDragCardTransform(
+        activeDragState,
+        Number(activeDragState.pendingPointerX),
+        Number(activeDragState.pendingPointerY)
+      );
+      scheduleBookmarkDragMove(
+        activeDragState,
+        Number(activeDragState.pendingPointerX),
+        Number(activeDragState.pendingPointerY)
+      );
+    }
+    syncOpenBookmarkCascadeAnchorVisual();
+  });
+  // A move's slide plays once the moved bookmarks are drawn.
+  bookmarkSectionEvents.on('loaded', () => {
+    playPendingBookmarkLayoutAnimation();
+  });
   return {
     queueBookmarkLayoutAnimation,
     playPendingBookmarkLayoutAnimation,

@@ -32,8 +32,8 @@ function setup() {
     settings: { get: () => 'grid' }, getBookmarkLimit: () => 2,
     NEWTAB_BOOKMARKS_STORE: { getBookmarkPageItems: (items, page, limit) => items.slice(page * limit, (page + 1) * limit) },
     updateBookmarkHeader() {}, getBookmarkGridColumnCount: () => 2, updateBookmarkSectionPosition() {},
-    renderBookmarks(items) {
-      // Like React, remove only owned cards, leaving foreign nodes alone.
+    // The bookmarks view: like React, it removes only owned cards, leaving foreign nodes alone.
+    bookmarkParts: { view: { render(items) {
       [...grid.children].filter(child => child.tagName === 'BUTTON').forEach(card => card.remove());
       grid.append(...items.map(item => {
         const card = window.document.createElement('button');
@@ -42,7 +42,11 @@ function setup() {
         card.style.setProperty('--x-nt-glass-refraction', `url(#lens-${item.id})`);
         return card;
       }));
-    }
+      return { changed: true, signature: '' };
+    } } },
+    dragSessions: { bookmark: null, shortcutDragging: false, recentCardDragging: false },
+    shortcutSection: window.document.createElement('section'),
+    setBookmarkSurfaceVisible() {}
   });
   env.pager.renderCurrentBookmarkPage();
   return env;

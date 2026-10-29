@@ -25,6 +25,7 @@ import type { DragSessions } from '../drag-sessions';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 import type { SettingsStore } from '../../platform/settings-store';
 import { bookmarkViewMode } from '../../domain/settings/bookmarks';
+import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 
 
 interface ShortcutDragDeps {
@@ -1503,6 +1504,15 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     finishShortcutDrag(event, { cancel: true });
   }
 
+
+  // A shortcut drag waiting for a bookmark folder to open moves on once its cards are drawn.
+  bookmarkSectionEvents.on('drawn', ({ folderId }) => {
+    const state = dragSessions.shortcut;
+    if (state && state.isDragging && state.folderSwitchPendingId === folderId) {
+      state.folderSwitchPendingId = '';
+      scheduleShortcutDragMove(state, state.pendingPointerX, state.pendingPointerY);
+    }
+  });
   return {
     getShortcutTileLayoutRect,
     setShortcutDragTileTransform,

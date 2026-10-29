@@ -1485,9 +1485,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
 
   const {
     queueBookmarkLayoutAnimation,
-    playPendingBookmarkLayoutAnimation,
-    updateBookmarkDragLayoutCache,
-    setBookmarkDragCardTransform,
     isEmptyBookmarkRootHidden,
     getExternalBookmarkSurfacePoint,
     isValidExternalBookmarkDropTarget,
@@ -1505,7 +1502,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     clearBookmarkDragFolderSwitch,
     scheduleBookmarkDragFolderSwitch,
     scheduleBookmarkDragPageSwitch,
-    scheduleBookmarkDragMove,
     deleteBookmarkFromContextTarget,
     addBookmarkFolderToShortcuts,
     hasShortcutForBookmarkFolder,
@@ -1701,13 +1697,16 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     switchBookmarkPage,
     handleBookmarkWheel
   } = NEWTAB_BOOKMARK_PAGER.createBookmarkPager({
+    setBookmarkSurfaceVisible,
+    shortcutSection,
+    dragSessions,
+    bookmarkParts,
     settings,
     bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarksShown,
     getBookmarkLimit,
     updateBookmarkHeader,
     getBookmarkGridColumnCount,
-    renderBookmarks: (...args) => renderBookmarks(...args),
     updateBookmarkSectionPosition
   });
 
@@ -1717,7 +1716,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutInsertionSlotAt,
     autoScrollShortcutArea,
     animateShortcutLayoutChange,
-    scheduleShortcutDragMove,
     finishShortcutDrag,
     moveShortcutByKeyboard,
     isBookmarkSurfaceDragStateActive,
@@ -1821,7 +1819,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
 
   const {
     startSectionDataPass,
-    renderBookmarks,
     renderRecentSites,
     markBookmarkDataDirty,
     markBookmarkTreeDirty,
@@ -1842,12 +1839,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getHiddenRecentSites,
     settings,
     preview,
-    resumeRecentCardDragAfterFolderSwitch: recentCardDrag.resumeRecentCardDragAfterFolderSwitch,
-    scheduleShortcutDragMove,
-    updateBookmarkDragLayoutCache,
-    setBookmarkDragCardTransform,
-    scheduleBookmarkDragMove,
-    syncOpenBookmarkCascadeAnchorVisual,
     setBookmarkSurfaceVisible,
     updateBookmarkGridHeightLock,
     updateBookmarkSectionPosition,
@@ -1871,8 +1862,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getBookmarkPageCount,
     updateBookmarkHeader,
     renderCurrentBookmarkPage,
-    playPendingBookmarkLayoutAnimation,
-    renderShortcuts,
     getRecentSourceLimit,
     getRecentSites,
     beginSearchEntryRestoreLayoutLock

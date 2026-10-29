@@ -7,18 +7,24 @@ import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 import type { BookmarksShown } from './bookmarks-shown';
 import type { SettingsStore } from '../../platform/settings-store';
 import { bookmarkViewMode } from '../../domain/settings/bookmarks';
+import type { BookmarkSectionParts } from './bookmark-section-parts';
+import type { DragSessions } from '../drag-sessions';
+import { bookmarkSectionEvents } from './bookmark-section-events';
 
 
 interface BookmarkPagerDeps {
   getBookmarkLimit(): number;
   updateBookmarkHeader(): void;
   getBookmarkGridColumnCount(): number;
-  renderBookmarks(items: BookmarkItem[]): void;
-  updateBookmarkSectionPosition(): void;
+  updateBookmarkSectionPosition(options?: { preserveSearchEntryLayout?: boolean }): void;
   now?: () => number;
-  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'currentFolderId' | 'currentPage' | 'pageAnimating' | 'pagerAvailability' | 'rootFolderId' | 'rootTotalCount' | 'rootVisibleCount' | 'setPageAnimating' | 'setPagerAvailability' | 'showPage'>;
+  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'currentFolderId' | 'currentPage' | 'drawn' | 'pageAnimating' | 'pagerAvailability' | 'renderSignature' | 'rootFolderId' | 'rootTotalCount' | 'rootVisibleCount' | 'setPageAnimating' | 'setPagerAvailability' | 'showPage'>;
   bookmarkGrid: HTMLElement;
   settings: Pick<SettingsStore, 'get'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
+  dragSessions: Pick<DragSessions, 'bookmark' | 'recentCardDragging' | 'shortcutDragging'>;
+  shortcutSection: HTMLElement;
+  setBookmarkSurfaceVisible(visible: boolean): void;
 }
 
 interface PageSlide {
@@ -34,9 +40,12 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     getBookmarkLimit,
     updateBookmarkHeader,
     getBookmarkGridColumnCount,
-    renderBookmarks,
     updateBookmarkSectionPosition,
-    settings
+    settings,
+    bookmarkParts,
+    dragSessions,
+    shortcutSection,
+    setBookmarkSurfaceVisible
   } = deps;
 
 
@@ -345,6 +354,86 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     }
   }
 
+
+  function isDragActive(): boolean {
+    return Boolean((dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
+      dragSessions.shortcutDragging || dragSessions.recentCardDragging);
+  }
+
+  function getShortcutAreaLimit(): string {
+    return shortcutSection.style.getPropertyValue('--x-nt-shortcuts-max-height');
+  }
+
+  function showEmptyBookmarkRoot(visible: boolean, keepForDrag: boolean): void {
+    const limitBefore = getShortcutAreaLimit();
+    const layoutOptions = isDragActive() ? { preserveSearchEntryLayout: true } : undefined;
+    setBookmarkSurfaceVisible(visible);
+    updateBookmarkGridHeightLock();
+    updateBookmarkSectionPosition(layoutOptions);
+    const limitAfter = getShortcutAreaLimit();
+    const coversShortcuts = keepForDrag && limitAfter &&
+      (!limitBefore || Number.parseFloat(limitAfter) < Number.parseFloat(limitBefore));
+    if (!coversShortcuts) {
+      return;
+    }
+    if (bookmarkGrid) {
+      bookmarkGrid.removeAttribute('data-bookmark-empty-drop-surface');
+    }
+    setBookmarkSurfaceVisible(false);
+    updateBookmarkGridHeightLock();
+    updateBookmarkSectionPosition(layoutOptions);
+  }
+
+  // Draws a page of bookmarks into the grid, or the empty root.
+  function renderBookmarks(items: BookmarkItem[] | null | undefined): void {
+    if (!bookmarkParts.view) {
+      return;
+    }
+    const normalizedItems = Array.isArray(items) ? items : [];
+    const isAtRoot = String(bookmarksShown.currentFolderId || '') === String(bookmarksShown.rootFolderId || '1');
+    const keepEmptyRootVisibleForDrag = Boolean(
+      isAtRoot &&
+      normalizedItems.length === 0 &&
+      ((dragSessions.bookmark && dragSessions.bookmark.isDragging) ||
+        dragSessions.shortcutDragging || dragSessions.recentCardDragging)
+    );
+    if (bookmarkGrid) {
+      if (keepEmptyRootVisibleForDrag) {
+        bookmarkGrid.setAttribute('data-bookmark-empty-drop-surface', 'true');
+      } else {
+        bookmarkGrid.removeAttribute('data-bookmark-empty-drop-surface');
+      }
+    }
+    const renderResult = bookmarkParts.view.render(normalizedItems, {
+      signature: bookmarksShown.renderSignature,
+      folderId: bookmarksShown.currentFolderId,
+      rootFolderId: bookmarksShown.rootFolderId,
+      viewMode: settings.get(bookmarkViewMode),
+      menuMode: settings.get(bookmarkViewMode) === 'list' || settings.get(bookmarkViewMode) === 'top'
+    });
+    bookmarkSectionEvents.emit('drawn', { folderId: String(bookmarksShown.currentFolderId || '') });
+    if (!renderResult.changed) {
+      if (normalizedItems.length === 0) {
+        showEmptyBookmarkRoot(!isAtRoot || keepEmptyRootVisibleForDrag, keepEmptyRootVisibleForDrag);
+      } else {
+        setBookmarkSurfaceVisible(true);
+        updateBookmarkGridHeightLock();
+        updateBookmarkSectionPosition();
+      }
+      updateBookmarkPagerState();
+      return;
+    }
+    bookmarksShown.drawn(renderResult.signature);
+    if (normalizedItems.length === 0) {
+      showEmptyBookmarkRoot(!isAtRoot || keepEmptyRootVisibleForDrag, keepEmptyRootVisibleForDrag);
+      updateBookmarkPagerState();
+      return;
+    }
+    setBookmarkSurfaceVisible(true);
+    updateBookmarkPagerState();
+    updateBookmarkGridHeightLock();
+    updateBookmarkSectionPosition();
+  }
   return {
     getBookmarkPageCount,
     updateBookmarkPagerState,

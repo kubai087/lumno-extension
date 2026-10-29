@@ -24,7 +24,10 @@ function fixture({ page = 3, pages = 8, animated = false } = {}) {
     settings: { get: () => 'grid' }, getBookmarkLimit: () => 1,
     NEWTAB_BOOKMARKS_STORE: { getBookmarkPageItems: (items, index) => items.slice(index, index + 1) },
     updateBookmarkHeader() { env.headerUpdates += 1; }, getBookmarkGridColumnCount: () => 1, updateBookmarkSectionPosition() {},
-    renderBookmarks() {} });
+    bookmarkParts: { view: { render: () => ({ changed: false, signature: '' }) } },
+    dragSessions: { bookmark: null, shortcutDragging: false, recentCardDragging: false },
+    shortcutSection: window.document.createElement('section'),
+    setBookmarkSurfaceVisible() {} });
   let at = 1000;
   // Sends events 16ms apart (a trackpad's rate) unless one sets its own gap.
   const send = (...events) => events.map(({ gap = 16, ...event }) => {

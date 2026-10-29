@@ -62,6 +62,7 @@ import type { PageNavigation } from '../page-navigation';
 import type { BookmarkNode } from '../bookmarks/bookmarks-store';
 import type { OpenEvent } from '../../domain/navigation-disposition';
 import { playFolderPathMorph } from '../bookmarks/bookmark-folder-icon';
+import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 
 
 // An option the shortcuts view is handed as it is.
@@ -1890,6 +1891,13 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     }
   }
 
+
+  // Folder shortcuts show what their bookmark folders hold.
+  bookmarkSectionEvents.on('loaded', () => {
+    if (shortcutList.items.some((shortcut) => shortcut.type === 'folder')) {
+      renderShortcuts();
+    }
+  });
   return {
     openShortcutUrl,
     getAddShortcutButton,
