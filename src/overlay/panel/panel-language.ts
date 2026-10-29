@@ -25,7 +25,6 @@ interface PanelLanguageDeps<Row> {
   updateSearchSuggestions(rows: Row[], query: string): void;
   requestTabsAndRender(): void;
   // Names the search input's buttons again.
-  applyInputActionLabels(): void;
   defaultTheme: InputModeTheme;
   elements: Pick<OverlayPanelElements, 'inputModeController' | 'modeBadge' | 'searchInput'>;
   notices: Pick<OverlayNotices, 'updateLanguage'>;
@@ -44,8 +43,7 @@ function createPanelLanguage<Row>(deps: PanelLanguageDeps<Row>) {
     updateModeBadge,
     getThemeForProvider,
     updateSearchSuggestions,
-    requestTabsAndRender,
-    applyInputActionLabels
+    requestTabsAndRender
   } = deps;
 
   // The input's placeholder in the current language.
@@ -81,7 +79,6 @@ function createPanelLanguage<Row>(deps: PanelLanguageDeps<Row>) {
         elements.searchInput.placeholder = defaultPlaceholderText;
       }
     }
-    applyInputActionLabels();
     if (elements.modeBadge) {
       updateModeBadge(elements.searchInput ? elements.searchInput.value : '');
     }

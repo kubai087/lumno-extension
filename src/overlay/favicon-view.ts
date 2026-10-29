@@ -45,7 +45,6 @@ interface OverlayFaviconViewOptions {
   getOverlayPanel?(): Element | null;
   // The list's rows, which re-render with their icons on a policy change.
   getSuggestionRowsRoot?(): Element | null;
-  rerenderReplacedFaviconRows?(): boolean;
   setPersistedFaviconUrl?(key: string, url: string): void;
   setPersistedFaviconData?(key: string, dataUrl: string): void;
   requestFaviconData?(url: string, pageUrl?: string): Promise<string | null> | string | null;
@@ -121,9 +120,6 @@ function createOverlayFaviconViewRuntime(options?: OverlayFaviconViewOptions | n
   const getSuggestionRowsRoot: () => Element | null = typeof config.getSuggestionRowsRoot === 'function'
     ? config.getSuggestionRowsRoot
     : (() => null);
-  const rerenderReplacedFaviconRows = typeof config.rerenderReplacedFaviconRows === 'function'
-    ? config.rerenderReplacedFaviconRows
-    : (() => false);
   const setPersistedFaviconUrl = typeof config.setPersistedFaviconUrl === 'function'
     ? config.setPersistedFaviconUrl
     : noop;
@@ -793,13 +789,21 @@ function createOverlayFaviconViewRuntime(options?: OverlayFaviconViewOptions | n
     });
   }
 
-  function refreshOverlayFaviconsForPolicyChange(): boolean {
-    let rowsRerendered = false;
-    try {
-      rowsRerendered = rerenderReplacedFaviconRows() === true;
-    } catch (_error) {
-      rowsRerendered = false;
+  // Asks every row whose icon failed to try again; true when one did.
+  function retryFailedFaviconRows(): boolean {
+    const rowsRoot = getSuggestionRowsRoot();
+    if (!rowsRoot) {
+      return false;
     }
+    const failedSlots = Array.from(rowsRoot.querySelectorAll('[data-favicon-failed="true"]'));
+    failedSlots.forEach((slot) => {
+      slot.dispatchEvent(new CustomEvent('lumno-favicon-retry'));
+    });
+    return failedSlots.length > 0;
+  }
+
+  function refreshOverlayFaviconsForPolicyChange(): boolean {
+    const rowsRerendered = retryFailedFaviconRows();
     refreshOverlayThemeAwareFavicons({
       skipWithin: rowsRerendered ? getSuggestionRowsRoot() : null
     });

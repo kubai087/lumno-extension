@@ -303,9 +303,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     iconPreloadCache,
     getOverlayPanel: () => elements.overlay,
     getSuggestionRowsRoot: () => elements.suggestionsContainer,
-    rerenderReplacedFaviconRows,
     hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
   });
+  // Themed icons follow the scheme the panel is drawn in.
+  colorScheme.subscribe(() => faviconRuntime.refreshOverlayThemeAwareFavicons());
 
   const {
     shouldSkipOverlayEntryMotion,
@@ -799,32 +800,26 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateModeBadge,
     getThemeForProvider,
     updateSearchSuggestions,
-    requestTabsAndRender,
-    applyInputActionLabels
+    requestTabsAndRender
   });
 
 
   // Follows the system's scheme while the theme follows the system.
   let overlayThemeMediaListener: (() => void) | null = null;
-  // A page that changed its own theme is followed at once.
-  panelThemeEvents.on('pageThemeChanged', () => applyOverlayTheme(overlayThemeChoice.mode));
 
-  // The panel draws the mode applied to it.
-  overlayThemeChoice.events.on('applied', ({ mode }) => applyOverlayTheme(mode));
+  function stopFollowingSystemTheme(): void {
+    if (overlayThemeMediaListener) {
+      overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
+      overlayThemeMediaListener = null;
+    }
+  }
 
   function applyOverlayTheme(mode: ThemeMode): void {
-    const previousResolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
     applyOverlayThemeVariables(mode);
     overlayNoticeLayer.sync(elements.overlay);
-    const nextResolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
-    colorScheme.setState({ dark: nextResolvedTheme === 'dark' });
+    const resolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
+    colorScheme.setState({ dark: resolvedTheme === 'dark' });
     updateModeBadge(elements.searchInput ? elements.searchInput.value : '');
-    if (previousResolvedTheme !== nextResolvedTheme) {
-      refreshOverlayThemeAwareFavicons();
-    }
-    if (overlayToastElement) {
-      overlayToastElement.setAttribute('data-theme', nextResolvedTheme || 'light');
-    }
     syncOverlayPageThemeObservation();
     if (mode === 'system') {
       if (!overlayThemeMediaListener) {
@@ -845,12 +840,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     stopFollowingSystemTheme();
   }
 
-  function stopFollowingSystemTheme(): void {
-    if (overlayThemeMediaListener) {
-      overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
-      overlayThemeMediaListener = null;
-    }
-  }
+  // A page that changed its own theme is followed at once.
+  panelThemeEvents.on('pageThemeChanged', () => applyOverlayTheme(overlayThemeChoice.mode));
+
+  // The panel draws the mode applied to it.
+  overlayThemeChoice.events.on('applied', ({ mode }) => applyOverlayTheme(mode));
 
   const overlaySiteFixes = LumnoOverlaySiteFixes;
   const addOverlaySessionCleanup = overlaySessionCleanups.add;
@@ -1000,6 +994,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
   );
   overlayStyleRoot.appendChild(overlayToastElement);
+  const drawToastScheme = () => {
+    overlayToastElement.setAttribute('data-theme', colorScheme.getSnapshot().dark ? 'dark' : 'light');
+  };
+  drawToastScheme();
+  addOverlaySessionCleanup(colorScheme.subscribe(drawToastScheme));
   const overlayToastController = OVERLAY_TOAST.createToastController(
     overlayToastElement,
     { windowObj: window }
@@ -1028,6 +1027,35 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const initialLanguageReady = locale.ready.then(() => {
     applyOverlayCjkFontFace(locale.store.getSnapshot().locale);
   }).catch(() => {});
+
+  function getCloseOtherTabsConfirmCopy() {
+    return {
+      message: t('overlay_close_other_tabs_confirm', '关闭此窗口中的其他标签页？置顶和分组内的标签页会保留。'),
+      messageKey: 'overlay_close_other_tabs_confirm',
+      confirmLabel: t('overlay_close_other_tabs_confirm_button', '关闭'),
+      confirmLabelKey: 'overlay_close_other_tabs_confirm_button'
+    };
+  }
+
+  function confirmCloseOtherTabs(event: MouseEvent): void {
+    if (event.isTrusted !== true) {
+      return;
+    }
+    // The confirm button is going away with its bubble; keep typing in the field.
+    if (elements.searchInput) {
+      elements.searchInput.focus({ preventScroll: true });
+    }
+    LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'closeOtherTabsForOverlay' }, (response) => {
+      if (!response || response.ok !== true) {
+        return;
+      }
+      if (searchQuery.text) {
+        requestOverlaySearchSuggestions(searchQuery.text);
+        return;
+      }
+      requestTabsAndRender();
+    });
+  }
 
   const inputParts = createSearchInput({
     portals: overlayMount.portals,
@@ -1235,13 +1263,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
     void modeMenu.openFromDoubleTab();
   }
-  function setSearchScopeIconEnabled(enabled: boolean): void {
-    searchScopeIconEnabled = enabled;
-    if (!enabled) {
-      hideInputActionCursorTooltip();
-    }
-    applyInputActionLabels();
-  }
   // The input's buttons' names and tooltips in the current language.
   function applyInputActionLabels(): void {
     if (!elements.inputParts) {
@@ -1259,6 +1280,15 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     });
   }
   applyInputActionLabels();
+  addOverlaySessionCleanup(locale.store.subscribe(applyInputActionLabels));
+
+  function setSearchScopeIconEnabled(enabled: boolean): void {
+    searchScopeIconEnabled = enabled;
+    if (!enabled) {
+      hideInputActionCursorTooltip();
+    }
+    applyInputActionLabels();
+  }
 
   if (rightIcon) {
     rightIcon.addEventListener('click', function(event) {
@@ -1276,35 +1306,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     });
   }
 
-  function getCloseOtherTabsConfirmCopy() {
-    return {
-      message: t('overlay_close_other_tabs_confirm', '关闭此窗口中的其他标签页？置顶和分组内的标签页会保留。'),
-      messageKey: 'overlay_close_other_tabs_confirm',
-      confirmLabel: t('overlay_close_other_tabs_confirm_button', '关闭'),
-      confirmLabelKey: 'overlay_close_other_tabs_confirm_button'
-    };
-  }
-
-  function confirmCloseOtherTabs(event: MouseEvent): void {
-    if (event.isTrusted !== true) {
-      return;
-    }
-    // The confirm button is going away with its bubble; keep typing in the field.
-    if (elements.searchInput) {
-      elements.searchInput.focus({ preventScroll: true });
-    }
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'closeOtherTabsForOverlay' }, (response) => {
-      if (!response || response.ok !== true) {
-        return;
-      }
-      if (searchQuery.text) {
-        requestOverlaySearchSuggestions(searchQuery.text);
-        return;
-      }
-      requestTabsAndRender();
-    });
-  }
-
   // Focusing the input hands the selection back to it.
   inputParts.input.addEventListener('focus', function() {
     searchResults.select(-1);
@@ -1315,7 +1316,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const attachFaviconData = faviconRuntime.attachFaviconData;
   const attachInputModeFaviconData =
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
-  const refreshOverlayThemeAwareFavicons = faviconRuntime.refreshOverlayThemeAwareFavicons;
   const refreshOverlayFaviconsForPolicyChange = faviconRuntime.refreshOverlayFaviconsForPolicyChange;
   const defaultCaretColor = inputParts.input.style.caretColor || 'var(--x-ext-input-caret, #7DB7FF)';
   const inputModePrefixTransition = 'opacity 140ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease';
@@ -1345,19 +1345,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     documentPipSupported,
     applyOverlayFontFamily
   });
-
-  function rerenderReplacedFaviconRows() {
-    const failedSlots = Array.from(suggestionsContainer.querySelectorAll(
-      '[data-favicon-failed="true"]'
-    ));
-    if (failedSlots.length === 0) {
-      return false;
-    }
-    failedSlots.forEach((slot) => {
-      slot.dispatchEvent(new CustomEvent('lumno-favicon-retry'));
-    });
-    return true;
-  }
 
   elements.mountModeController(SEARCH_INPUT_MODE.createInputModeController(inputParts, {
     surface: 'overlay',
@@ -1613,6 +1600,16 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       overlayHost.removeAttribute('popover');
     }
   }
+  function focusOverlayInputForReveal() {
+    if (!elements.searchInput || !elements.searchInput.isConnected) {
+      return;
+    }
+    if (initialLoadingSession && initialLoadingSession.focused === false) {
+      return;
+    }
+    elements.searchInput.focus({ preventScroll: true });
+  }
+
   const mountConnectionGuard = overlayLifecycle.createMountConnectionGuard(window, {
     getMountParent(doc) {
       return doc.fullscreenElement || doc.documentElement || doc.body;
@@ -1653,16 +1650,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   startOverlayViewportSizeSync(overlayMount.panel);
   overlayNoticeLayer.startFrameSync(elements.overlay);
   startOverlayAntiTranslateObserver(overlayMount.panel);
-
-  function focusOverlayInputForReveal() {
-    if (!elements.searchInput || !elements.searchInput.isConnected) {
-      return;
-    }
-    if (initialLoadingSession && initialLoadingSession.focused === false) {
-      return;
-    }
-    elements.searchInput.focus({ preventScroll: true });
-  }
 
   settings.loaded.then(() => {
     const searchInput = elements.searchInput;

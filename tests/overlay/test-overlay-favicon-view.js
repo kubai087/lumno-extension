@@ -3,18 +3,11 @@ const vm = require('vm');
 const path = require('path');
 const { moduleScript } = require('../helpers/module-script');
 
-path.resolve(__dirname, '..', '..');
-
-// Stands in for the overlay's rerenderReplacedFaviconRows: asks every row
-// whose favicon failed to try again (the overlay's own is exercised in
-// test-overlay-favicon-policy.js).
-function createPolicyRerender({ CustomEvent, suggestionsContainer }) {
-  return () => {
-    const failedSlots = Array.from(suggestionsContainer.querySelectorAll('[data-favicon-failed="true"]'));
-    failedSlots.forEach((slot) => slot.dispatchEvent(new CustomEvent('lumno-favicon-retry')));
-    return failedSlots.length > 0;
-  };
+function TestCustomEvent(type) {
+  this.type = type;
 }
+
+path.resolve(__dirname, '..', '..');
 
 function createFakeImage() {
   const attributes = new Map();
@@ -115,7 +108,8 @@ function createRuntime(options) {
     console,
     setTimeout,
     clearTimeout,
-    URL
+    URL,
+    CustomEvent: TestCustomEvent
   };
   sandbox.globalThis = sandbox;
   sandbox.LumnoFaviconViewCore = {
@@ -295,7 +289,6 @@ function createRuntime(options) {
       faviconDataCache: config.faviconDataCache,
       getOverlayPanel: config.getOverlayPanel,
       getSuggestionRowsRoot: config.getSuggestionRowsRoot,
-      rerenderReplacedFaviconRows: config.rerenderReplacedFaviconRows,
       getStrictFaviconReason(pageUrl) {
         return config.excludedPageUrl === pageUrl ? 'exclusion'
           : (config.enhancedFaviconFetchEnabled === false ? 'global-off' : '');
@@ -634,6 +627,9 @@ async function testOverlayPolicyEnableRecoversReplacedStrictFallback() {
   const suggestionRowsRoot = {
     contains(img) {
       return img === currentImg;
+    },
+    querySelectorAll() {
+      return replacementVisible ? [failedSlot] : [];
     }
   };
   const requestedUrls = [];
@@ -674,17 +670,6 @@ async function testOverlayPolicyEnableRecoversReplacedStrictFallback() {
       );
     }
   };
-  function TestCustomEvent(type) {
-    this.type = type;
-  }
-  runtimeOptions.rerenderReplacedFaviconRows = createPolicyRerender({
-    CustomEvent: TestCustomEvent,
-    suggestionsContainer: {
-      querySelectorAll() {
-        return replacementVisible ? [failedSlot] : [];
-      }
-    }
-  });
   created = createRuntime(runtimeOptions);
   runtime = created.runtime;
 
@@ -738,6 +723,9 @@ async function testOverlayOpenTabPolicyRecoveryIsSafeInBothDirections() {
   const suggestionRowsRoot = {
     contains(img) {
       return img === currentImg;
+    },
+    querySelectorAll() {
+      return replacementVisible ? [failedSlot] : [];
     }
   };
   const requestedUrls = [];
@@ -778,17 +766,6 @@ async function testOverlayOpenTabPolicyRecoveryIsSafeInBothDirections() {
       );
     }
   };
-  function TestCustomEvent(type) {
-    this.type = type;
-  }
-  runtimeOptions.rerenderReplacedFaviconRows = createPolicyRerender({
-    CustomEvent: TestCustomEvent,
-    suggestionsContainer: {
-      querySelectorAll() {
-        return replacementVisible ? [failedSlot] : [];
-      }
-    }
-  });
   created = createRuntime(runtimeOptions);
   runtime = created.runtime;
 
