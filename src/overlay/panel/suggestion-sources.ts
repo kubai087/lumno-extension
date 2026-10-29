@@ -37,17 +37,10 @@ import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-
 import { HelpCenterRows } from '../../shared/search-panel/help-center-rows';
 import { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import { loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
-
-interface SuggestionSourcesState {
-  settings: Pick<OverlaySettings, 'get' | 'get'>;
-  searchInput: HTMLInputElement | null;
-  suggestionsContainer: HTMLElement | null;
-  lastRenderedQuery: string;
-  lastRenderedActionContextKey: string;
-  overlayThemeMode: ThemeMode;
-  prioritizeCurrentPageMatch: boolean;
-  currentOverlayTabId: number | null;
-}
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayTabs } from './overlay-tabs';
+import type { LastRender } from './last-render';
+import type { OverlayThemeMode } from './overlay-theme-mode';
 
 interface SuggestionSourcesDeps {
   siteSearchRunner: SiteSearchRunner;
@@ -92,7 +85,12 @@ interface SuggestionSourcesDeps {
   shouldShowOpenTabsForEmptyQuery(): boolean;
   requestTabsAndRender(query?: string): void;
   clearDefaultOpenTabsSuggestions(): void;
-  overlayState: SuggestionSourcesState;
+  settings: Pick<OverlaySettings, 'get' | 'get'>;
+  prioritizeCurrentPageMatch: boolean;
+  elements: Pick<OverlayPanelElements, 'searchInput' | 'suggestionsContainer'>;
+  overlayTabs: Pick<OverlayTabs, 'currentTabId'>;
+  overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
+  lastRender: LastRender;
 }
 
 interface SuggestionUpdateOptions {
@@ -103,6 +101,12 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    overlayThemeChoice,
+    lastRender,
+    overlayTabs,
+    elements,
+    prioritizeCurrentPageMatch,
+    settings,
     siteSearchRunner,
     searchMatching,
     searchResults,
@@ -146,9 +150,6 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     clearDefaultOpenTabsSuggestions
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-
   // Lumno Help Center search lists the matching help pages under its search row.
   let pendingProviderReload = false;
 
@@ -166,15 +167,12 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     };
   }
 
-
-
-
   function getSuggestionUpdateKind(
     options: Parameters<typeof SUGGESTION_ACTION_MODEL.getSuggestionUpdateKind>[0]
   ): ReturnType<typeof SUGGESTION_ACTION_MODEL.getSuggestionUpdateKind> {
     return SUGGESTION_ACTION_MODEL.getSuggestionUpdateKind({
       ...(options || {}),
-      includeDebugReasons: Boolean(overlayState.settings.get(tabRankScoreDebug))
+      includeDebugReasons: Boolean(settings.get(tabRankScoreDebug))
     });
   }
 
@@ -213,8 +211,8 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       Boolean(searchMode.site && String(query || '').trim());
     const modeCommandActive = slashCommandModeActive && !siteSearchQueryModeActive && isModeCommand(rawTagInput);
     if (modeCommandActive) {
-      const storedMode = overlayState.settings.get(themeMode);
-      if (storedMode !== overlayState.overlayThemeMode) {
+      const storedMode = settings.get(themeMode);
+      if (storedMode !== overlayThemeChoice.mode) {
         applyOverlayTheme(storedMode);
       }
     }
@@ -225,7 +223,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       ? null
       : {
         type: 'newtab',
-        title: overlayState.settings.get(simpleModeEnabled)
+        title: settings.get(simpleModeEnabled)
           ? query
           : formatMessage('search_query', '搜索 "{query}"', {
               query: query
@@ -274,7 +272,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           updateSearchSuggestions(searchResults.lastResponse, query);
         });
       }
-      const inputValue = overlayState.searchInput ? overlayState.searchInput.value : '';
+      const inputValue = elements.searchInput ? elements.searchInput.value : '';
       const rawTagInputForInline = (searchQuery.raw || inputValue || '').trim();
       const inlineCandidate = (!localSearchQueryModeActive && !slashCommandModeActive &&
           !siteSearchQueryModeActive && !modeCommandActive && !hasCommand)
@@ -345,14 +343,14 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       const hasDirectUrlSuggestion = preSuggestions.some((suggestion) => (
         suggestion && suggestion.type === 'directUrl'
       ));
-      if (overlayState.settings.get(searchResultPriority) === 'search' &&
+      if (settings.get(searchResultPriority) === 'search' &&
           !localSearchQueryModeActive &&
           !slashCommandModeActive &&
           !modeCommandActive &&
           !siteSearchQueryModeActive &&
           !hasDirectUrlSuggestion) {
         allSuggestions = SearchSuggestionSlate.composeSearchFirstSuggestionSlate(allSuggestions, {
-          limit: overlayState.settings.get(searchResultDisplayLimit),
+          limit: settings.get(searchResultDisplayLimit),
           query
         });
       }
@@ -371,14 +369,14 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           providers: providersForTags,
           inlineSuggestion,
           siteSearchActive: Boolean(searchMode.site),
-          preferAutocompleteFirst: overlayState.settings.get(searchResultPriority) !== 'search',
+          preferAutocompleteFirst: settings.get(searchResultPriority) !== 'search',
           onlyKeywordSuggestions,
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
-          openTabMatch: overlayState.settings.get(overlayTabPriority) || overlayState.prioritizeCurrentPageMatch
+          openTabMatch: settings.get(overlayTabPriority) || prioritizeCurrentPageMatch
             ? {
-                prioritizeCurrentPageMatch: overlayState.prioritizeCurrentPageMatch,
-                currentTabId: overlayState.currentOverlayTabId === null ? undefined : overlayState.currentOverlayTabId,
-                openTabQuickSwitchEnabled: overlayState.settings.get(overlayTabPriority),
+                prioritizeCurrentPageMatch: prioritizeCurrentPageMatch,
+                currentTabId: overlayTabs.currentTabId === null ? undefined : overlayTabs.currentTabId,
+                openTabQuickSwitchEnabled: settings.get(overlayTabPriority),
                 getDirectNavigationUrl: SearchDirectNavigation.getDirectNavigationUrl
               }
             : null,
@@ -467,7 +465,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       const updateKind = getSuggestionUpdateKind({
         forceFullRerender,
         actionContextKey,
-        lastRenderedActionContextKey: overlayState.lastRenderedActionContextKey,
+        lastRenderedActionContextKey: lastRender.actionContextKey,
         currentSuggestions: searchResults.rows,
         allSuggestions
       });
@@ -481,7 +479,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       const canAppend = updateKind === 'append';
       const shouldPreserveVisualState =
         updateKind === 'content' || updateKind === 'append';
-      const container = overlayState.suggestionsContainer;
+      const container = elements.suggestionsContainer;
       const previousScrollTop = shouldPreserveVisualState && container
         ? Math.max(0, Number(container.scrollTop) || 0)
         : 0;
@@ -490,8 +488,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       setOpenTabsResultsViewport(false);
       const reactView = ensureOverlaySuggestionsView();
       searchResults.show(allSuggestions);
-      overlayState.lastRenderedQuery = query;
-      overlayState.lastRenderedActionContextKey = actionContextKey;
+      lastRender.record(query, actionContextKey);
       if (updateKind !== 'highlight') {
         favicons.warmIconCache(allSuggestions.filter((item) => (
           item && item.type !== 'directUrl'
@@ -547,7 +544,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
   }
   function clearSearchSuggestions(): void {
     cancelPendingOverlaySuggestionRequests();
-    releaseSuggestionsHeight(overlayState.suggestionsContainer, window);
+    releaseSuggestionsHeight(elements.suggestionsContainer, window);
     searchMode.clearHints();
     clearSiteSearchTabHint();
     searchResults.setLastResponse([]);
@@ -568,4 +565,4 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
 }
 
 export { createSuggestionSources };
-export type { SuggestionSourcesDeps, SuggestionSourcesState, SuggestionUpdateOptions };
+export type { SuggestionSourcesDeps, SuggestionUpdateOptions };

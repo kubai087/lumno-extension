@@ -1,22 +1,13 @@
 // Search modes: site search, local scopes and open tabs, their input
 // prefixes and labels, and the top-site and trigger candidates that suggest
 // switching.
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 import type { Translate } from './types';
-import type { OverlaySettings } from '../overlay-settings';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
-
-interface SearchModesState {
-  settings: Pick<OverlaySettings, 'get'>;
-  inputModeController: Pick<InputModeController,
-    'updateLayout' | 'setProviderPrefix' | 'setPrefixText' | 'clearProviderPrefix'> | null;
-  searchInput: HTMLInputElement | null;
-  defaultTheme: InputModeTheme;
-}
+import type { OverlayPanelElements } from './panel-elements';
 
 interface SearchModesDeps {
   modeActions: SearchModeActions<InputModeProvider>;
@@ -32,7 +23,8 @@ interface SearchModesDeps {
   // Called with no rows: the list rebuilds from the typed command.
   updateSearchSuggestions(rows: never[], query: string): void;
   requestOverlaySearchSuggestions(query: string): void;
-  overlayState: SearchModesState;
+  defaultTheme: InputModeTheme;
+  elements: Pick<OverlayPanelElements, 'inputModeController' | 'searchInput'>;
 }
 
 interface OpenTabsPrefixOptions {
@@ -42,6 +34,8 @@ interface OpenTabsPrefixOptions {
 
 function createSearchModes(deps: SearchModesDeps) {
   const {
+    elements,
+    defaultTheme,
     modeActions,
     searchMode,
     searchAutocomplete,
@@ -56,18 +50,13 @@ function createSearchModes(deps: SearchModesDeps) {
     requestOverlaySearchSuggestions
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-
   const OVERLAY_OPEN_TABS_PREFIX_FEEDBACK_DELAY_MS = 120;
   let pendingOpenTabsPrefixEntryTimer = 0;
 
-
-
   function setOpenTabsSearchPrefix(theme: InputModeTheme, options?: OpenTabsPrefixOptions): void {
-    if (overlayState.inputModeController) {
+    if (elements.inputModeController) {
       const prefixOptions = options || {};
-      overlayState.inputModeController.setPrefixText(
+      elements.inputModeController.setPrefixText(
         t('search_open_tabs_only_entry', '搜索已打开标签页'),
         theme,
         {
@@ -102,7 +91,7 @@ function createSearchModes(deps: SearchModesDeps) {
       if (!searchMode.openTabs || searchMode.site || searchMode.local) {
         return;
       }
-      setOpenTabsSearchPrefix(overlayState.defaultTheme, {
+      setOpenTabsSearchPrefix(defaultTheme, {
         animate: true,
         preserveModeMenuDoubleTab: Boolean(
           prefixOptions.preserveModeMenuDoubleTab
@@ -110,26 +99,6 @@ function createSearchModes(deps: SearchModesDeps) {
       });
     }, OVERLAY_OPEN_TABS_PREFIX_FEEDBACK_DELAY_MS);
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   function activateOpenTabsSearchMode(
     options?: OpenTabsPrefixOptions & { deferPrefixEntry?: boolean; deferResults?: boolean }
@@ -142,9 +111,9 @@ function createSearchModes(deps: SearchModesDeps) {
     if (prefixOptions.deferPrefixEntry === true) {
       scheduleOpenTabsPrefixEntry(prefixOptions);
     } else {
-      setOpenTabsSearchPrefix(overlayState.defaultTheme, prefixOptions);
+      setOpenTabsSearchPrefix(defaultTheme, prefixOptions);
     }
-    searchQuery.set(overlayState.searchInput ? overlayState.searchInput.value || '' : '');
+    searchQuery.set(elements.searchInput ? elements.searchInput.value || '' : '');
     if (prefixOptions.deferResults !== true) {
       renderCachedTabsForOverlay(searchQuery.text);
       requestTabsAndRender(searchQuery.text);
@@ -159,7 +128,7 @@ function createSearchModes(deps: SearchModesDeps) {
     searchMode.leaveOpenTabs();
     modeActions.clearSiteSearchPrefix();
     searchAutocomplete.clear();
-    const rawValue = overlayState.searchInput ? overlayState.searchInput.value || '' : '';
+    const rawValue = elements.searchInput ? elements.searchInput.value || '' : '';
     const query = rawValue.trim();
     searchQuery.set(rawValue, query);
     if (!query) {
@@ -181,4 +150,4 @@ function createSearchModes(deps: SearchModesDeps) {
 }
 
 export { createSearchModes };
-export type { SearchModesDeps, SearchModesState };
+export type { SearchModesDeps };

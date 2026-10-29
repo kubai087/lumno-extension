@@ -6,30 +6,26 @@ import { getHoverColors as getModeHoverColors, getThemeForMode as getThemeVarian
 import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
 import * as LumnoOverlayPageTheme from '../page-theme';
 import type { PageTheme } from '../page-theme';
-import type { OverlayPanelModel, OverlayPanelView } from '../react/shell';
+import type { OverlayPanelModel } from '../react/shell';
 import { OVERLAY_FONT_FAMILY_CSS_VAR, overlayFontFallback, overlayFontFamily, overlayPageThemeAdaptationEnabled } from '../../domain/settings/overlay-panel';
 import type { OverlaySettings } from '../overlay-settings';
 import * as SETTINGS from '../../domain/settings';
+import type { OverlayPanelElements } from './panel-elements';
+import type { createSessionCleanupRegistry } from '../lifecycle';
+import type { OverlayThemeMode } from './overlay-theme-mode';
 
 type PageThemeObserver = ReturnType<typeof LumnoOverlayPageTheme.createPageThemeObserver>;
-
-interface PanelThemeState {
-  settings: Pick<OverlaySettings, 'get'>;
-  overlay: HTMLElement | null;
-  // Draws the panel's theme, once the panel is mounted.
-  overlayPanelView: OverlayPanelView | null;
-  overlayMediaQuery: MediaQueryList;
-  overlayThemeMode: ThemeMode;
-  overlayPageThemeObserver: PageThemeObserver | null;
-  defaultTheme: ThemeVariant;
-}
 
 interface PanelThemeDeps {
   // Reads a CSS color as an [r, g, b] triple.
   parseCssColor(color: string): number[] | null;
-  stopOverlayPageThemeObserver(): void;
   applyOverlayTheme(mode: ThemeMode): void;
-  overlayState: PanelThemeState;
+  settings: Pick<OverlaySettings, 'get'>;
+  overlayMediaQuery: MediaQueryList;
+  defaultTheme: ThemeVariant;
+  elements: Pick<OverlayPanelElements, 'overlay' | 'overlayPanelView'>;
+  overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
+  overlaySessionCleanups: Pick<ReturnType<typeof createSessionCleanupRegistry>, 'add'>;
 }
 
 // The panel's colors in one theme.
@@ -60,13 +56,15 @@ interface OverlayThemeTokens {
 
 function createPanelTheme(deps: PanelThemeDeps) {
   const {
+    overlayThemeChoice,
+    overlaySessionCleanups,
+    elements,
+    defaultTheme,
+    overlayMediaQuery,
+    settings,
     parseCssColor,
-    stopOverlayPageThemeObserver,
     applyOverlayTheme,
   } = deps;
-
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
 
   const overlayPageTheme = LumnoOverlayPageTheme;
 
@@ -131,11 +129,11 @@ function createPanelTheme(deps: PanelThemeDeps) {
     }
   };
   function resolveOverlayTheme(mode: string, pageTheme: string | null): PageTheme {
-    const systemTheme = overlayState.overlayMediaQuery.matches ? 'dark' : 'light';
+    const systemTheme = overlayMediaQuery.matches ? 'dark' : 'light';
     return overlayPageTheme.resolveOverlayTheme({
       mode,
       pageTheme,
-      pageThemeAdaptationEnabled: overlayState.settings.get(overlayPageThemeAdaptationEnabled),
+      pageThemeAdaptationEnabled: settings.get(overlayPageThemeAdaptationEnabled),
       systemTheme
     });
   }
@@ -165,37 +163,49 @@ function createPanelTheme(deps: PanelThemeDeps) {
 
   function shouldObserveOverlayPageTheme(): boolean {
     return overlayPageTheme.shouldObservePageTheme({
-      mode: overlayState.overlayThemeMode,
-      pageThemeAdaptationEnabled: overlayState.settings.get(overlayPageThemeAdaptationEnabled),
-      systemTheme: overlayState.overlayMediaQuery.matches ? 'dark' : 'light'
+      mode: overlayThemeChoice.mode,
+      pageThemeAdaptationEnabled: settings.get(overlayPageThemeAdaptationEnabled),
+      systemTheme: overlayMediaQuery.matches ? 'dark' : 'light'
     });
   }
 
   function syncOverlayPageThemeObservation(): boolean {
     return overlayPageTheme.syncPageThemeObservation({
-      mode: overlayState.overlayThemeMode,
-      pageThemeAdaptationEnabled: overlayState.settings.get(overlayPageThemeAdaptationEnabled),
-      systemTheme: overlayState.overlayMediaQuery.matches ? 'dark' : 'light',
+      mode: overlayThemeChoice.mode,
+      pageThemeAdaptationEnabled: settings.get(overlayPageThemeAdaptationEnabled),
+      systemTheme: overlayMediaQuery.matches ? 'dark' : 'light',
       start: startOverlayPageThemeObserver,
       stop: stopOverlayPageThemeObserver
     });
+  }
+
+  // Follows the page's own theme while the overlay adapts to it.
+  let pageThemeObserver: PageThemeObserver | null = null;
+
+  function stopOverlayPageThemeObserver(): void {
+    if (pageThemeObserver) {
+      pageThemeObserver.stop();
+    }
   }
 
   function startOverlayPageThemeObserver(): void {
     if (!shouldObserveOverlayPageTheme()) {
       return;
     }
-    const observer = overlayState.overlayPageThemeObserver ||
+    const observer = pageThemeObserver ||
       overlayPageTheme.createPageThemeObserver(window, (change) => {
-        if (!overlayState.overlay || !overlayState.overlay.isConnected || !shouldObserveOverlayPageTheme()) {
+        if (!elements.overlay || !elements.overlay.isConnected || !shouldObserveOverlayPageTheme()) {
           return;
         }
         if (change.pageChanged) {
           invalidatePageTheme();
         }
-        applyOverlayTheme(overlayState.overlayThemeMode);
+        applyOverlayTheme(overlayThemeChoice.mode);
       });
-    overlayState.overlayPageThemeObserver = observer;
+    if (!pageThemeObserver) {
+      overlaySessionCleanups.add(stopOverlayPageThemeObserver);
+    }
+    pageThemeObserver = observer;
     observer.start();
   }
 
@@ -206,11 +216,11 @@ function createPanelTheme(deps: PanelThemeDeps) {
   // --lumno-font-sans token, set on the panel. Without one the panel falls
   // back to the bundled stack its shadow-root stylesheet defines.
   function renderOverlayPanel(): void {
-    const view = overlayState.overlayPanelView;
+    const view = elements.overlayPanelView;
     if (!view) {
       return;
     }
-    const fontFamily = SETTINGS.getOverlayFontFamilyCssValue(overlayState.settings.get(overlayFontFamily), overlayState.settings.get(overlayFontFallback));
+    const fontFamily = SETTINGS.getOverlayFontFamilyCssValue(settings.get(overlayFontFamily), settings.get(overlayFontFallback));
     view.render({
       theme: panelTheme.theme,
       vars: fontFamily
@@ -265,21 +275,21 @@ function createPanelTheme(deps: PanelThemeDeps) {
   }
 
   function isOverlayDarkMode(): boolean {
-    const overlay = overlayState.overlay;
+    const overlay = elements.overlay;
     return Boolean(overlay && overlay.getAttribute('data-theme') === 'dark');
   }
 
   // The theme as given in light mode, or its dark variant.
   function getThemeForMode<T extends ThemeLike>(theme: T | null): T | ThemeVariant {
     return getThemeVariantForMode(theme, {
-      defaultTheme: overlayState.defaultTheme,
+      defaultTheme: defaultTheme,
       isDarkMode: isOverlayDarkMode
     });
   }
 
   function getHoverColors(theme: ThemeLike | null): HoverColors {
     return getModeHoverColors(theme, {
-      defaultTheme: overlayState.defaultTheme,
+      defaultTheme: defaultTheme,
       isDarkMode: isOverlayDarkMode
     });
   }
@@ -299,6 +309,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
   }
 
   return {
+    stopOverlayPageThemeObserver,
     getHighlightColors,
     detectPageTheme,
     invalidatePageTheme,
@@ -313,4 +324,4 @@ function createPanelTheme(deps: PanelThemeDeps) {
 }
 
 export { createPanelTheme };
-export type { PanelThemeDeps, PanelThemeState };
+export type { PanelThemeDeps };

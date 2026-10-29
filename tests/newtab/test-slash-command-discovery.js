@@ -184,7 +184,8 @@ function testLegacyClipAliases() {
   const commands = createSlashCommands({
     t: (_key, fallback) => fallback,
     formatMessage: (_key, fallback) => fallback,
-    overlayState: { documentPipEnabled: true, searchInput: { value: '' } }
+    documentPipEnabledAtOpen: true,
+    elements: { searchInput: { value: '' } }
   });
   ['clip', 'webclip', 'web clip'].forEach((input) => {
     assert.deepStrictEqual(Array.from(commands.getCommandMatches(input), (command) => command.type), ['commandDocumentPip'], `"${input}" should find web clip`);

@@ -37,14 +37,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
     faviconDataCache
   } = deps;
 
-
-
-
-
-
-
-
-
   // Runs a site search, an interactive provider or an aggregate search;
   // true when a tab opened at once, so the panel may close.
   // Runs the query in the tab or tabs the activation asks for; an
@@ -64,8 +56,6 @@ function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
       }
     });
   }
-
-
 
   function getProviderIcon(provider: Partial<SiteSearchProvider>): string {
     const resolver = getOverlayFaviconUrlResolver();

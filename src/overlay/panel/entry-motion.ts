@@ -5,10 +5,6 @@ import type { OverlaySettings } from '../overlay-settings';
 // The panel's entry motion: when to skip it, the start and reveal
 // transforms, and playing, tracking and cleaning up the enter animation.
 
-interface EntryMotionState {
-  settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
-}
-
 // The frame tracker from lifecycle.ts, as far as the entry motion uses it.
 interface EnterFrameTracker {
   runEnterAnimation(element: HTMLElement, callback: () => void): void;
@@ -19,7 +15,7 @@ interface EntryMotionDeps {
   // When the user asked for the panel, for the entry motion's budget.
   initialOverlayOpenStartedAt: number;
   overlayFrameTracker: EnterFrameTracker;
-  overlayState: EntryMotionState;
+  settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
 }
 
 interface EnterMotion {
@@ -34,12 +30,10 @@ interface EnterMotion {
 
 function createEntryMotion(deps: EntryMotionDeps) {
   const {
+    settings,
     initialOverlayOpenStartedAt,
     overlayFrameTracker
   } = deps;
-
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
 
   let overlayEnterCleanupElement: HTMLElement | null = null;
   let overlayEnterCleanupTimer: number | null = null;
@@ -72,7 +66,7 @@ function createEntryMotion(deps: EntryMotionDeps) {
   const OVERLAY_ENTER_CLEANUP_BUFFER_MS = 80;
 
   function shouldSkipOverlayEntryMotion(): boolean {
-    return SettingsStorage.shouldSkipEntryMotion(window, overlayState.settings.get(motionEffectsEnabled));
+    return SettingsStorage.shouldSkipEntryMotion(window, settings.get(motionEffectsEnabled));
   }
 
   function shouldSkipOverlayEntryMotionForSlowStartup(): boolean {
@@ -84,20 +78,20 @@ function createEntryMotion(deps: EntryMotionDeps) {
   }
 
   function getOverlayElasticEntryScaleStart(): number {
-    return overlayState.settings.isLoaded() && overlayState.settings.get(overlayOpenTabsDefaultVisible)
+    return settings.isLoaded() && settings.get(overlayOpenTabsDefaultVisible)
       ? OVERLAY_ELASTIC_OPEN_TABS_ENTRY_SCALE_START
       : OVERLAY_ELASTIC_ENTRY_SCALE_START;
   }
 
   function getOverlayEnterAnimationStartTransform(): string {
-    if (overlayState.settings.get(overlayEnterAnimation) === 'fade') {
+    if (settings.get(overlayEnterAnimation) === 'fade') {
       return 'translateX(-50%) translateY(16px) scale(var(--x-ov-visible-scale, 1)) scale(0.985)';
     }
     return `translateX(-50%) translateY(8px) scale(var(--x-ov-visible-scale, 1)) scale(var(--x-lumno-search-entry-scale-start, ${getOverlayElasticEntryScaleStart()}))`;
   }
 
   function getOverlayEnterAnimationDeltaTransform(): string {
-    if (overlayState.settings.get(overlayEnterAnimation) === 'fade') {
+    if (settings.get(overlayEnterAnimation) === 'fade') {
       return 'translateY(16px) scale(0.985)';
     }
     return `translateY(8px) scale(${getOverlayElasticEntryScaleStart()})`;
@@ -117,7 +111,7 @@ function createEntryMotion(deps: EntryMotionDeps) {
   }
 
   function getOverlayEnterMotion(): EnterMotion {
-    const name = overlayState.settings.get(overlayEnterAnimation);
+    const name = settings.get(overlayEnterAnimation);
     const motion = name === 'fade' || name === 'elastic'
       ? OVERLAY_ENTER_MOTION[name]
       : OVERLAY_ENTER_MOTION.elastic;
@@ -217,7 +211,7 @@ function createEntryMotion(deps: EntryMotionDeps) {
     overlayElement.style.setProperty('opacity', '0', 'important');
     overlayElement.style.setProperty('transition', 'none', 'important');
     overlayElement.style.setProperty('will-change', 'transform, opacity', 'important');
-    if (overlayState.settings.get(overlayEnterAnimation) !== 'fade') {
+    if (settings.get(overlayEnterAnimation) !== 'fade') {
       overlayElement.style.setProperty(
         '--x-lumno-search-entry-scale-start',
         String(getOverlayElasticEntryScaleStart())
@@ -320,4 +314,4 @@ function createEntryMotion(deps: EntryMotionDeps) {
 }
 
 export { createEntryMotion };
-export type { EnterFrameTracker, EntryMotionDeps, EntryMotionState };
+export type { EnterFrameTracker, EntryMotionDeps };

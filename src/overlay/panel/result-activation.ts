@@ -9,31 +9,24 @@ import { numberShortcutInstantEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { ActivationEvent } from '../../shared/search-panel/result-activation';
-
-interface ResultActivationState {
-  settings: OverlaySettings;
-  overlay: HTMLElement | null;
-  searchInput: HTMLInputElement | null;
-  currentTabPinned: boolean;
-}
+import type { OverlayPanelElements } from './panel-elements';
 
 interface ResultActivationDeps {
   removeOverlay(overlay: HTMLElement | null): void;
-  overlayState: ResultActivationState;
+  settings: OverlaySettings;
+  currentTabPinned: boolean;
+  elements: Pick<OverlayPanelElements, 'overlay' | 'searchInput'>;
 }
 
 function createResultActivation(deps: ResultActivationDeps) {
-  const { removeOverlay } = deps;
-
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
+  const { removeOverlay, settings, currentTabPinned, elements } = deps;
 
   // A pinned tab is kept: results meant for it open in a new tab.
   function isCurrentTabDefault(): boolean {
-    return overlayState.settings.get(overlayOpenInCurrentTab) && !overlayState.currentTabPinned;
+    return settings.get(overlayOpenInCurrentTab) && !currentTabPinned;
   }
 
-  const resultActivation = new ResultActivation(overlayState.settings.store, {
+  const resultActivation = new ResultActivation(settings.store, {
     source: 'overlay',
     isCurrentTabDefault,
     openInCurrentTab: (url) => LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'createTab', url, disposition: 'currentTab' })
@@ -43,17 +36,17 @@ function createResultActivation(deps: ResultActivationDeps) {
   // background; true when the panel closed.
   function finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean {
     if (canOpenInBackground !== false && resultActivation.opensInBackground(event)) {
-      if (overlayState.searchInput) {
-        overlayState.searchInput.focus({ preventScroll: true });
+      if (elements.searchInput) {
+        elements.searchInput.focus({ preventScroll: true });
       }
       return false;
     }
-    removeOverlay(overlayState.overlay);
+    removeOverlay(elements.overlay);
     return true;
   }
 
   function getOpenDisposition(event: ActivationEvent | null, fallback?: Disposition): Disposition {
-    if (overlayState.settings.get(numberShortcutInstantEnabled)) {
+    if (settings.get(numberShortcutInstantEnabled)) {
       return NAVIGATION_DISPOSITION.isMiddleClick(event) ? 'backgroundTab' : (fallback || 'newTab');
     }
     return NAVIGATION_DISPOSITION.getDisposition(event, fallback);
@@ -67,4 +60,4 @@ function createResultActivation(deps: ResultActivationDeps) {
 }
 
 export { createResultActivation };
-export type { ActivationEvent, ResultActivationDeps, ResultActivationState };
+export type { ActivationEvent, ResultActivationDeps };

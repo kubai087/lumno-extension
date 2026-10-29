@@ -14,13 +14,9 @@ import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, 
 import type { OverlaySettings } from '../overlay-settings';
 import * as SETTINGS from '../../domain/settings';
 
-interface FaviconPolicyState {
-  settings: Pick<OverlaySettings, 'get'>;
-}
-
 interface FaviconPolicyDeps {
   logOverlayFaviconDecision: FaviconDecisionLogger;
-  overlayState: FaviconPolicyState;
+  settings: Pick<OverlaySettings, 'get'>;
 }
 
 // What the search blacklist reads from a row.
@@ -31,11 +27,9 @@ interface FilterableSuggestion {
 
 function createFaviconPolicy(deps: FaviconPolicyDeps) {
   const {
+    settings,
     logOverlayFaviconDecision
   } = deps;
-
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
 
   function normalizeOverlaySearchBlacklistItems(items: unknown): BlacklistRule[] {
     return LumnoBlacklistUtils.normalizeItems(items, 'prefix');
@@ -54,7 +48,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
     const target = getOverlayFaviconMatchUrl(url);
     return Boolean(
       target &&
-      LumnoBlacklistUtils.isUrlBlocked(target, normalizeOverlayFaviconRequestBlacklistItems(overlayState.settings.get(faviconRequestBlacklist)))
+      LumnoBlacklistUtils.isUrlBlocked(target, normalizeOverlayFaviconRequestBlacklistItems(settings.get(faviconRequestBlacklist)))
     );
   }
 
@@ -63,7 +57,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
     if (isUrlExcludedFromOverlayFaviconRequests(pageUrl)) {
       return 'exclusion';
     }
-    if (!overlayState.settings.get(faviconEnhancedFetchEnabled)) {
+    if (!settings.get(faviconEnhancedFetchEnabled)) {
       return 'global-off';
     }
     return '';
@@ -74,7 +68,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
   }
 
   function isUrlBlockedByOverlaySearchBlacklist(url: string): boolean {
-    return LumnoBlacklistUtils.isUrlBlocked(url, normalizeOverlaySearchBlacklistItems(overlayState.settings.get(searchBlacklist)));
+    return LumnoBlacklistUtils.isUrlBlocked(url, normalizeOverlaySearchBlacklistItems(settings.get(searchBlacklist)));
   }
 
   // Search actions and site search rows stay; they lead to no blocked page.
@@ -114,7 +108,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
       return Array.isArray(list) ? list : [];
     }
     return SearchBrandSuggestions.limitSearchSuggestionsForDisplay(list, {
-      limit: overlayState.settings.get(searchResultDisplayLimit)
+      limit: settings.get(searchResultDisplayLimit)
     });
   }
 
@@ -246,4 +240,4 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
 }
 
 export { createFaviconPolicy };
-export type { FaviconPolicyDeps, FaviconPolicyState };
+export type { FaviconPolicyDeps };

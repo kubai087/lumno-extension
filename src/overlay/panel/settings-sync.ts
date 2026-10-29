@@ -29,18 +29,10 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayTabs } from './overlay-tabs';
 
 // Row is a suggestion row; this module only passes it along.
-interface SettingsSyncState {
-  settings: OverlaySettings;
-  overlay: HTMLElement | null;
-  suggestionsContainer: HTMLElement | null;
-  overlayViewportSizeSync: { apply(overlayElement: HTMLElement | null): void };
-  overlayNoticeLayer: { sync(overlayElement: HTMLElement | null): void };
-  inputModeController: { refreshModeMenu(): void } | null;
-  tabs: OverlayTab[];
-  documentPipEnabled: boolean;
-}
 
 interface SettingsSyncDeps<Row> {
   modeActions: SearchModeActions<InputModeProvider>;
@@ -60,7 +52,12 @@ interface SettingsSyncDeps<Row> {
   refreshOverlayFaviconsForPolicyChange(): void;
   getImmediateThemeForSuggestion(suggestion: { provider: InputModeProvider }): InputModeTheme | null;
   documentPipSupported: boolean;
-  overlayState: SettingsSyncState;
+  settings: OverlaySettings;
+  overlayNoticeLayer: { sync(overlayElement: HTMLElement | null): void };
+  overlayViewportSizeSync: { apply(overlayElement: HTMLElement | null): void };
+  elements: Pick<OverlayPanelElements, 'inputModeController' | 'overlay' | 'suggestionsContainer'>;
+  overlayTabs: Pick<OverlayTabs, 'tabs'>;
+  setDocumentPipEnabled(enabled: boolean): void;
 }
 
 // What the panel does when an overlay setting changes while it is open;
@@ -69,6 +66,12 @@ interface SettingsSyncDeps<Row> {
 // applied.
 function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
   const {
+    setDocumentPipEnabled,
+    overlayTabs,
+    elements,
+    overlayViewportSizeSync,
+    overlayNoticeLayer,
+    settings,
     modeActions,
     searchResults,
     searchMode,
@@ -88,14 +91,11 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
     applyOverlayFontFamily
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-  const settings = overlayState.settings;
   const loaded = settings.loaded;
 
   function applyOverlaySize(): void {
-    overlayState.overlayViewportSizeSync.apply(overlayState.overlay);
-    overlayState.overlayNoticeLayer.sync(overlayState.overlay);
+    overlayViewportSizeSync.apply(elements.overlay);
+    overlayNoticeLayer.sync(elements.overlay);
   }
 
   function refreshOverlaySuggestionsFromLastResponse(): void {
@@ -111,7 +111,7 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
 
   function redrawRows(options?: { forceFullRerender?: boolean }): void {
     if (showsOpenTabs()) {
-      renderTabSuggestions(filterTabsForOverlay(overlayState.tabs, searchQuery.text));
+      renderTabSuggestions(filterTabsForOverlay(overlayTabs.tabs, searchQuery.text));
       return;
     }
     if (searchQuery.text) {
@@ -135,18 +135,18 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
   });
   settings.follow(searchResultDisplayLimit, () => redrawRows());
   settings.follow(numberShortcutInstantEnabled, () => {
-    SUGGESTION_NAVIGATION.cancelNumberShortcuts(overlayState.suggestionsContainer);
+    SUGGESTION_NAVIGATION.cancelNumberShortcuts(elements.suggestionsContainer);
   });
   settings.follow(simpleModeEnabled, () => redrawRows({ forceFullRerender: true }));
 
   settings.follow([faviconEnhancedFetchEnabled, faviconRequestBlacklist], () => {
     refreshOverlayFaviconsForPolicyChange();
-    if (overlayState.inputModeController) {
+    if (elements.inputModeController) {
       const provider = searchMode.site;
       if (provider) {
         modeActions.setSiteSearchPrefix(provider, getImmediateThemeForSuggestion({ provider }), { animate: false });
       }
-      overlayState.inputModeController.refreshModeMenu();
+      elements.inputModeController.refreshModeMenu();
     }
   });
 
@@ -164,7 +164,7 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
   // The open context says whether Picture-in-Picture is on until the
   // session's own read.
   function readDocumentPip(): void {
-    overlayState.documentPipEnabled = documentPipSupported && settings.get(documentPipEnabled);
+    setDocumentPipEnabled(documentPipSupported && settings.get(documentPipEnabled));
     refreshOverlaySuggestionsFromLastResponse();
   }
   settings.follow(documentPipEnabled, readDocumentPip);
@@ -188,4 +188,4 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
 }
 
 export { createSettingsSync };
-export type { SettingsSyncDeps, SettingsSyncState };
+export type { SettingsSyncDeps };

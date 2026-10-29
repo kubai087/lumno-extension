@@ -3,12 +3,6 @@
 // isolation, telling the background about loading and closing, and removing
 // the panel.
 import * as LumnoMessaging from '../../platform/messaging';
-import type { SearchInputParts } from '../../shared/react/search-input';
-import type { EngagementNoticeController } from '../../shared/engagement-notice';
-import type { GraphicsNoticeController } from '../../shared/graphics-acceleration-notice';
-import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
-import type { InputModeController } from '../../shared/search/search-input-mode';
-import type { UpdateNoticeController } from '../../shared/update-notice';
 import type * as OverlayLifecycle from '../lifecycle';
 import type { createNoticeLayer } from '../notices';
 import { setOverlayOpenState } from '../../platform/content-registry';
@@ -16,32 +10,8 @@ import { destroySearchInput } from '../../shared/react/search-input';
 import * as SettingsStorage from '../../platform/settings-storage';
 import { motionEffectsEnabled } from '../../domain/settings/appearance';
 import type { OverlaySettings } from '../overlay-settings';
-
-interface PanelSessionState {
-  overlayContextToken: string;
-  overlayViewportSizeSync: Pick<ReturnType<typeof OverlayLifecycle.createViewportSizeSync>, 'stop'>;
-  overlayNoticeLayer: Pick<ReturnType<typeof createNoticeLayer>, 'stop'>;
-  overlaySessionCleanups: Pick<ReturnType<typeof OverlayLifecycle.createSessionCleanupRegistry>, 'run'>;
-  settings: Pick<OverlaySettings, 'get' | 'release'>;
-  overlayKeyRouter: { stop(): void } | null;
-  // Holds the panel back until its styles load; cancelled when it closes.
-  overlayRevealGate: { cancel?(): void } | null;
-  overlayWheelIsolationHandler: ((event: WheelEvent) => void) | null;
-  overlaySuggestionsView: Pick<SuggestionsViewController, 'destroy'> | null;
-  inputParts: SearchInputParts | null;
-  clickOutsideHandler: ((event: MouseEvent) => void) | null;
-  overlayMediaQuery: MediaQueryList;
-  overlayThemeMediaListener: ((event: MediaQueryListEvent) => void) | null;
-  overlayScrollPauseHandler: ((event: Event) => void) | null;
-  inputModeController: Pick<InputModeController, 'destroy'> | null;
-  inputHistoryController: { destroy?(): void } | null;
-  overlayUpdateNoticeController: UpdateNoticeController | null;
-  overlayGraphicsNoticeController: GraphicsNoticeController | null;
-  overlayEngagementNoticeController: EngagementNoticeController | null;
-  // The page under the overlay is loading and the worker keeps its input.
-  loadingSessionTrackingActive: boolean;
-  suppressOverlayLoadingSessionNotification: boolean;
-}
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayNotices } from './overlay-notices';
 
 interface PanelSessionDeps {
   pauseOverlayAntiTranslateObserverForScroll(): void;
@@ -50,9 +20,15 @@ interface PanelSessionDeps {
   cancelPendingOverlaySuggestionRequests(): void;
   stopOverlayAntiTranslateObserver(): void;
   overlayShell: { destroyOverlayMount(host: HTMLElement | null): void };
-  stopOverlayPageThemeObserver(): void;
   overlayLifecycle: Pick<typeof OverlayLifecycle, 'requestSessionDestroy'>;
-  overlayState: PanelSessionState;
+  settings: Pick<OverlaySettings, 'get' | 'release'>;
+  overlaySessionCleanups: Pick<ReturnType<typeof OverlayLifecycle.createSessionCleanupRegistry>, 'run'>;
+  overlayNoticeLayer: Pick<ReturnType<typeof createNoticeLayer>, 'stop'>;
+  overlayViewportSizeSync: Pick<ReturnType<typeof OverlayLifecycle.createViewportSizeSync>, 'stop'>;
+  // The page under the overlay was loading when the overlay opened.
+  loadingSessionTrackingActive: boolean;
+  elements: Pick<OverlayPanelElements, 'inputParts' | 'releaseInputControllers'>;
+  notices: Pick<OverlayNotices, 'destroy'>;
 }
 
 interface RemoveOverlayOptions {
@@ -83,28 +59,62 @@ const OVERLAY_CONTEXT_TOKEN = `${Date.now()}:${Math.random().toString(36).slice(
 
 function createPanelSession(deps: PanelSessionDeps) {
   const {
+    notices,
+    elements,
+    loadingSessionTrackingActive,
+    overlayViewportSizeSync,
+    overlayNoticeLayer,
+    overlaySessionCleanups,
+    settings,
     pauseOverlayAntiTranslateObserverForScroll,
     clearOverlayEnterAnimationFrames,
     clearOverlayPanelEnterCleanup,
     cancelPendingOverlaySuggestionRequests,
     stopOverlayAntiTranslateObserver,
     overlayShell,
-    stopOverlayPageThemeObserver,
     overlayLifecycle
   } = deps;
-
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
 
   const OVERLAY_CONTEXT_TOKEN_ATTRIBUTE = 'data-lumno-overlay-context-token';
 
   function stopOverlayViewportSizeSync(): void {
-    overlayState.overlayViewportSizeSync.stop();
+    overlayViewportSizeSync.stop();
   }
 
   // This overlay's token: one per loaded overlay module, so an overlay a
   // reloaded extension left in the page (from another isolated world) reads
   // as stale.
+  // The key router and the style gate of the mounted panel, which closing
+  // stops and cancels.
+  let keyRouter: { stop(): void } | null = null;
+  let revealGate: { cancel?(): void } | null = null;
+  // The page under the overlay is loading and the worker keeps its input.
+  let loadingSessionTracked = loadingSessionTrackingActive;
+  let loadingNotificationSuppressed = false;
+
+  function attachKeyRouter(router: { stop(): void }): void {
+    keyRouter = router;
+  }
+
+  function attachRevealGate(gate: { cancel?(): void }): void {
+    revealGate = gate;
+  }
+
+  function isLoadingSessionTracked(): boolean {
+    return loadingSessionTracked;
+  }
+
+  // Runs `replay` (the restored input's own events) without handing the
+  // worker the input it just restored.
+  function replayWithoutLoadingNotification(replay: () => void): void {
+    loadingNotificationSuppressed = true;
+    try {
+      replay();
+    } finally {
+      loadingNotificationSuppressed = false;
+    }
+  }
+
   function getOrCreateOverlayContextToken(): string {
     return OVERLAY_CONTEXT_TOKEN;
   }
@@ -141,7 +151,7 @@ function createPanelSession(deps: PanelSessionDeps) {
     const mountHost = getOverlayMountHost(overlayElement);
     [overlayElement, mountHost].forEach((element) => {
       if (element) {
-        element.setAttribute(OVERLAY_CONTEXT_TOKEN_ATTRIBUTE, overlayState.overlayContextToken);
+        element.setAttribute(OVERLAY_CONTEXT_TOKEN_ATTRIBUTE, OVERLAY_CONTEXT_TOKEN);
       }
     });
   }
@@ -169,7 +179,7 @@ function createPanelSession(deps: PanelSessionDeps) {
   // A panel left by an earlier context of this extension (before a reload).
   function isStaleOverlay(overlayElement: HTMLElement | null): boolean {
     const storedToken = getOverlayStoredContextToken(overlayElement);
-    return storedToken !== overlayState.overlayContextToken;
+    return storedToken !== OVERLAY_CONTEXT_TOKEN;
   }
 
   function isScrollableOverflowValue(value: string): boolean {
@@ -300,7 +310,7 @@ function createPanelSession(deps: PanelSessionDeps) {
   // Hands the worker the input's text and selection, to put back after
   // the page under the overlay loads.
   function notifyOverlayLoadingSession(input: HTMLInputElement | null): void {
-    if (overlayState.suppressOverlayLoadingSessionNotification || !overlayState.loadingSessionTrackingActive || !input ||
+    if (loadingNotificationSuppressed || !loadingSessionTracked || !input ||
         !chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
       return;
     }
@@ -332,7 +342,7 @@ function createPanelSession(deps: PanelSessionDeps) {
           return;
         }
         if (response && response.tracked === false) {
-          overlayState.loadingSessionTrackingActive = false;
+          loadingSessionTracked = false;
         }
       });
     } catch (_error) {
@@ -347,7 +357,7 @@ function createPanelSession(deps: PanelSessionDeps) {
   // setting and the system's reduced-motion preference.
   function closeOverlayWithMotion(overlayElement: HTMLElement | null): void {
     if (!overlayElement || !overlayElement.isConnected ||
-        SettingsStorage.shouldSkipEntryMotion(window, overlayState.settings.get(motionEffectsEnabled)) ||
+        SettingsStorage.shouldSkipEntryMotion(window, settings.get(motionEffectsEnabled)) ||
         overlayElement.getAttribute('data-lumno-overlay-entry') !== 'done') {
       removeOverlay(overlayElement);
       return;
@@ -358,8 +368,8 @@ function createPanelSession(deps: PanelSessionDeps) {
     // it only stays mounted to animate out. It stops taking keys, focus and
     // clicks, so Enter pressed during the exit cannot still run a search.
     setOverlayOpenState(false);
-    if (overlayState.overlayKeyRouter) {
-      overlayState.overlayKeyRouter.stop();
+    if (keyRouter) {
+      keyRouter.stop();
     }
     overlayElement.inert = true;
     const overlayRoot: unknown = Reflect.get(overlayElement, '_lumnoOverlayRoot');
@@ -405,27 +415,21 @@ function createPanelSession(deps: PanelSessionDeps) {
     clearOverlayEnterAnimationFrames();
     clearOverlayPanelEnterCleanup();
     cancelPendingOverlaySuggestionRequests();
-    if (overlayState.overlayRevealGate && typeof overlayState.overlayRevealGate.cancel === 'function') {
-      overlayState.overlayRevealGate.cancel();
-      overlayState.overlayRevealGate = null;
+    if (revealGate && typeof revealGate.cancel === 'function') {
+      revealGate.cancel();
+      revealGate = null;
     }
     stopOverlayViewportSizeSync();
-    overlayState.overlayNoticeLayer.stop();
+    overlayNoticeLayer.stop();
     stopOverlayAntiTranslateObserver();
     // Session cleanups stop the mount connection guard, so they must run
     // before the host leaves the document or the guard would re-attach it.
-    overlayState.overlaySessionCleanups.run();
-    overlayState.overlayKeyRouter = null;
+    overlaySessionCleanups.run();
+    keyRouter = null;
     if (overlayElement) {
-      if (overlayState.overlayWheelIsolationHandler) {
-        overlayElement.removeEventListener('wheel', overlayState.overlayWheelIsolationHandler, true);
-      }
-      if (overlayState.overlaySuggestionsView && typeof overlayState.overlaySuggestionsView.destroy === 'function') {
-        overlayState.overlaySuggestionsView.destroy();
-      }
       // The search input's own root, before the panel it sits in goes.
-      if (overlayState.inputParts) {
-        destroySearchInput(overlayState.inputParts);
+      if (elements.inputParts) {
+        destroySearchInput(elements.inputParts);
       }
       const mountHost = getOverlayMountHost(overlayElement);
       overlayShell.destroyOverlayMount(mountHost);
@@ -433,8 +437,6 @@ function createPanelSession(deps: PanelSessionDeps) {
         mountHost.remove();
       }
     }
-    overlayState.overlayWheelIsolationHandler = null;
-    overlayState.overlaySuggestionsView = null;
     // Also remove the scrollbar style
     const scrollbarStyle = document.getElementById('_x_extension_scrollbar_style_2024_unique_');
     if (scrollbarStyle) {
@@ -444,46 +446,9 @@ function createPanelSession(deps: PanelSessionDeps) {
     if (overlayThemeStyle) {
       overlayThemeStyle.remove();
     }
-    if (overlayState.clickOutsideHandler) {
-      document.removeEventListener('click', overlayState.clickOutsideHandler);
-      overlayState.clickOutsideHandler = null;
-    }
-    overlayState.settings.release();
-    if (overlayState.overlayThemeMediaListener) {
-      overlayState.overlayMediaQuery.removeEventListener('change', overlayState.overlayThemeMediaListener);
-      overlayState.overlayThemeMediaListener = null;
-    }
-    if (overlayState.overlayScrollPauseHandler) {
-      window.removeEventListener('scroll', overlayState.overlayScrollPauseHandler, true);
-      window.removeEventListener('wheel', overlayState.overlayScrollPauseHandler, true);
-      window.removeEventListener('touchmove', overlayState.overlayScrollPauseHandler, true);
-      overlayState.overlayScrollPauseHandler = null;
-    }
-    stopOverlayPageThemeObserver();
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.destroy();
-      overlayState.inputModeController = null;
-    }
-    if (overlayState.inputHistoryController && typeof overlayState.inputHistoryController.destroy === 'function') {
-      overlayState.inputHistoryController.destroy();
-    }
-    overlayState.inputHistoryController = null;
-    [
-      overlayState.overlayUpdateNoticeController,
-      overlayState.overlayGraphicsNoticeController,
-      overlayState.overlayEngagementNoticeController
-    ].forEach((controller) => {
-      if (!controller || typeof controller.destroy !== 'function') {
-        return;
-      }
-      if (controller.element && controller.element.parentNode) {
-        controller.element.parentNode.removeChild(controller.element);
-      }
-      controller.destroy();
-    });
-    overlayState.overlayUpdateNoticeController = null;
-    overlayState.overlayGraphicsNoticeController = null;
-    overlayState.overlayEngagementNoticeController = null;
+    settings.release();
+    elements.releaseInputControllers();
+    notices.destroy();
   }
 
   // Asks the session that owns an existing panel to close; removes the
@@ -504,6 +469,10 @@ function createPanelSession(deps: PanelSessionDeps) {
   }
 
   return {
+    attachKeyRouter,
+    attachRevealGate,
+    isLoadingSessionTracked,
+    replayWithoutLoadingNotification,
     getOrCreateOverlayContextToken,
     getOverlayMountHost,
     setOverlayStoredContextToken,
@@ -518,4 +487,4 @@ function createPanelSession(deps: PanelSessionDeps) {
 }
 
 export { createPanelSession };
-export type { PanelSessionDeps, PanelSessionState, RemoveOverlayOptions };
+export type { PanelSessionDeps, RemoveOverlayOptions };

@@ -1,19 +1,12 @@
-import type { OverlayTab } from '../../domain/messages';
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
-
-interface TabMatchingState {
-  // The window's open tabs, as the overlay lists them.
-  tabs: OverlayTab[];
-  // The tab the overlay was opened in.
-  currentOverlayTabId: number | null;
-  // That tab's address, for before its entry is in tabs.
-  initialContextTabUrl: string;
-  // A result for the page already open counts as that open tab.
-  prioritizeCurrentPageMatch: boolean;
-}
+import type { OverlayTabs } from './overlay-tabs';
 
 interface TabMatchingDeps {
-  overlayState: TabMatchingState;
+  // A result for the page already open counts as that open tab.
+  prioritizeCurrentPageMatch: boolean;
+  // That tab's address, for before its entry is in tabs.
+  initialContextTabUrl: string;
+  overlayTabs: Pick<OverlayTabs, 'currentTabId' | 'tabs'>;
 }
 
 // What a tab is matched by.
@@ -25,8 +18,7 @@ interface TabTextSource {
 // Matching open tabs: the text a tab is searched by, filtering them for
 // the query, and finding the tab a suggestion already has open.
 function createTabMatching(deps: TabMatchingDeps) {
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
+  const { prioritizeCurrentPageMatch, initialContextTabUrl, overlayTabs } = deps;
 
   function isEnglishQuery(query: string): boolean {
     if (!query) {
@@ -85,10 +77,10 @@ function createTabMatching(deps: TabMatchingDeps) {
     const list = Array.isArray(tabList) ? tabList : [];
     const normalized = normalizeTabSearchToken(queryText);
     if (!normalized) {
-      if (list.length < 2 || typeof overlayState.currentOverlayTabId !== 'number') {
+      if (list.length < 2 || typeof overlayTabs.currentTabId !== 'number') {
         return list.slice();
       }
-      if (!list[0] || list[0].id !== overlayState.currentOverlayTabId) {
+      if (!list[0] || list[0].id !== overlayTabs.currentTabId) {
         return list.slice();
       }
       const reordered = list.slice();
@@ -121,15 +113,15 @@ function createTabMatching(deps: TabMatchingDeps) {
 
   // The open tab that already shows a suggestion's page, if any.
   function getMatchedOpenTabIdForSuggestion(suggestion: { url?: string } | null): number | null {
-    if (!suggestion || !suggestion.url || !Array.isArray(overlayState.tabs) || overlayState.tabs.length === 0) {
+    if (!suggestion || !suggestion.url || !Array.isArray(overlayTabs.tabs) || overlayTabs.tabs.length === 0) {
       return null;
     }
     const target = normalizeTabMatchUrl(suggestion.url);
     if (!target) {
       return null;
     }
-    for (let i = 0; i < overlayState.tabs.length; i += 1) {
-      const tab = overlayState.tabs[i];
+    for (let i = 0; i < overlayTabs.tabs.length; i += 1) {
+      const tab = overlayTabs.tabs[i];
       if (!tab || typeof tab.id !== 'number' || !tab.url) {
         continue;
       }
@@ -138,27 +130,27 @@ function createTabMatching(deps: TabMatchingDeps) {
         return tab.id;
       }
     }
-    if (overlayState.prioritizeCurrentPageMatch && typeof overlayState.currentOverlayTabId === 'number') {
-      const currentTab = overlayState.tabs.find((tab) => tab && tab.id === overlayState.currentOverlayTabId) || null;
+    if (prioritizeCurrentPageMatch && typeof overlayTabs.currentTabId === 'number') {
+      const currentTab = overlayTabs.tabs.find((tab) => tab && tab.id === overlayTabs.currentTabId) || null;
       const targetNoSearch = normalizeTabMatchUrlWithoutSearch(suggestion.url);
       const currentNoSearch = currentTab ? normalizeTabMatchUrlWithoutSearch(currentTab.url) : '';
       if (targetNoSearch && currentNoSearch && targetNoSearch === currentNoSearch) {
-        return overlayState.currentOverlayTabId;
+        return overlayTabs.currentTabId;
       }
     }
     return null;
   }
 
   function isCurrentOverlayTabUrl(url: string): boolean {
-    if (!overlayState.prioritizeCurrentPageMatch || !url) {
+    if (!prioritizeCurrentPageMatch || !url) {
       return false;
     }
-    const currentTab = typeof overlayState.currentOverlayTabId === 'number'
-      ? (overlayState.tabs.find((tab) => tab && tab.id === overlayState.currentOverlayTabId) || null)
+    const currentTab = typeof overlayTabs.currentTabId === 'number'
+      ? (overlayTabs.tabs.find((tab) => tab && tab.id === overlayTabs.currentTabId) || null)
       : null;
     const currentUrl = currentTab && currentTab.url
       ? currentTab.url
-      : overlayState.initialContextTabUrl;
+      : initialContextTabUrl;
     if (!currentUrl) {
       return false;
     }
@@ -182,4 +174,4 @@ function createTabMatching(deps: TabMatchingDeps) {
 }
 
 export { createTabMatching };
-export type { TabMatchingDeps, TabMatchingState };
+export type { TabMatchingDeps };

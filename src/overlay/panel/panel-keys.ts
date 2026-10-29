@@ -1,13 +1,11 @@
 // Keys inside the panel: Tab into modes and autocomplete, the input's
 // keydown, and navigating, opening and deleting results.
 import type { WebAppearanceMode } from '../../domain/messages';
-import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SuggestionElement } from '../../shared/react/search/suggestion-list/types';
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { NumberShortcutOptions } from '../../shared/search/suggestion-navigation';
 import type { ActivationEvent } from './result-activation';
@@ -31,23 +29,9 @@ import type { ResultActivation } from '../../shared/search-panel/result-activati
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 import type { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import { SearchTabKey } from '../../shared/search-panel/tab-key';
-
-interface PanelKeysState {
-  settings: Pick<OverlaySettings, 'get'>;
-  overlay: HTMLElement | null;
-  searchInput: HTMLInputElement | null;
-  suggestionsContainer: HTMLElement | null;
-  inputModeController: Pick<InputModeController,
-    'handleModeMenuTabFocusToggle' | 'shouldCompleteModeMenuDoubleTab' | 'shouldOpenModeMenuForActiveModeOnTab' |
-    'openModeMenu' | 'shouldOpenModeMenuOnDoubleTab' | 'shouldRemoveModeTagOnBackspace' | 'closeModeMenu'> | null;
-  inputHistoryController: Pick<ReturnType<typeof createSearchInputHistoryController>, 'move' | 'record'> | null;
-  isApplyingSearchInputHistory: boolean;
-  // The search suggestion the arrows show in the input.
-  suggestionInputPreview: SuggestionInputPreview;
-  overlayThemeMode: ThemeMode;
-  prioritizeCurrentPageMatch: boolean;
-  currentOverlayTabId: number | null;
-}
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayTabs } from './overlay-tabs';
+import type { OverlayThemeMode } from './overlay-theme-mode';
 
 interface PanelKeysDeps {
   suggestionModifiers: SuggestionModifiers;
@@ -86,7 +70,13 @@ interface PanelKeysDeps {
   updateSearchSuggestions(rows: never[], query: string): void;
   // The address a query leads straight to, or '' to search it.
   quickNavigation: Pick<QuickNavigation, 'resolve'>;
-  overlayState: PanelKeysState;
+  settings: Pick<OverlaySettings, 'get'>;
+  // The search suggestion the arrows show in the input.
+  suggestionInputPreview: SuggestionInputPreview;
+  prioritizeCurrentPageMatch: boolean;
+  elements: Pick<OverlayPanelElements, 'inputHistoryController' | 'inputModeController' | 'overlay' | 'searchInput' | 'suggestionsContainer'>;
+  overlayTabs: Pick<OverlayTabs, 'currentTabId'>;
+  overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
 }
 
 function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
@@ -95,6 +85,12 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    overlayThemeChoice,
+    overlayTabs,
+    elements,
+    prioritizeCurrentPageMatch,
+    suggestionInputPreview,
+    settings,
     suggestionModifiers,
     modeActions,
     searchMatching,
@@ -130,9 +126,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     quickNavigation
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-
   // Tab: the mode menu, a typed trigger's mode, or the shown completion;
   // true when it was used.
   const handleTabKey = new SearchTabKey({
@@ -144,10 +137,10 @@ function createPanelKeys(deps: PanelKeysDeps) {
     catalog: siteSearchCatalog,
     actions: modeActions,
     modeMenu,
-    preview: overlayState.suggestionInputPreview,
+    preview: suggestionInputPreview,
     surface: {
-      getInput: () => overlayState.searchInput,
-      getModeController: () => overlayState.inputModeController,
+      getInput: () => elements.searchInput,
+      getModeController: () => elements.inputModeController,
       getSelectedRow: getSelectedSuggestion,
       onEmptyTab: () => {
         activateOpenTabsSearchMode({ deferPrefixEntry: true, preserveModeMenuDoubleTab: true });
@@ -157,12 +150,19 @@ function createPanelKeys(deps: PanelKeysDeps) {
 
   // Backspace in an empty input removes the mode tag, unless the tag asks
   // for a second press first.
+  // Set while a history step replays the input's events.
+  let applyingInputHistory = false;
+
+  function isApplyingInputHistory(): boolean {
+    return applyingInputHistory;
+  }
+
   function shouldRemoveSearchModeTagOnBackspace(event: KeyboardEvent): boolean {
-    if (!overlayState.inputModeController ||
-        typeof overlayState.inputModeController.shouldRemoveModeTagOnBackspace !== 'function') {
+    if (!elements.inputModeController ||
+        typeof elements.inputModeController.shouldRemoveModeTagOnBackspace !== 'function') {
       return true;
     }
-    const shouldRemove = overlayState.inputModeController.shouldRemoveModeTagOnBackspace(event);
+    const shouldRemove = elements.inputModeController.shouldRemoveModeTagOnBackspace(event);
     if (!shouldRemove) {
       event.preventDefault();
     }
@@ -170,7 +170,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
   }
 
   function handleSearchInputKeydown(e: KeyboardEvent): void {
-    const input = overlayState.searchInput;
+    const input = elements.searchInput;
     if (!input) {
       return;
     }
@@ -179,14 +179,14 @@ function createPanelKeys(deps: PanelKeysDeps) {
       e.stopPropagation();
     }
     // An open scope menu closes first and leaves the scope as it is.
-    if (e.key === 'Escape' && overlayState.inputModeController &&
-        overlayState.inputModeController.closeModeMenu(false)) {
+    if (e.key === 'Escape' && elements.inputModeController &&
+        elements.inputModeController.closeModeMenu(false)) {
       e.preventDefault();
       e.stopPropagation();
       return;
     }
     // Then the text typed before the arrows showed a suggestion comes back.
-    if (e.key === 'Escape' && overlayState.suggestionInputPreview.restore(input, searchQuery.raw)) {
+    if (e.key === 'Escape' && suggestionInputPreview.restore(input, searchQuery.raw)) {
       e.preventDefault();
       e.stopPropagation();
       searchResults.select(-1);
@@ -253,19 +253,19 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (inputHistoryDirection) {
       e.preventDefault();
       e.stopPropagation();
-      if (overlayState.inputHistoryController) {
-        const result = overlayState.inputHistoryController.move(
+      if (elements.inputHistoryController) {
+        const result = elements.inputHistoryController.move(
           inputHistoryDirection,
           input.value
         );
         if (result.handled) {
-          overlayState.isApplyingSearchInputHistory = true;
+          applyingInputHistory = true;
           try {
             input.value = result.value;
             input.setSelectionRange(result.value.length, result.value.length);
             input.dispatchEvent(new Event('input', { bubbles: true }));
           } finally {
-            overlayState.isApplyingSearchInputHistory = false;
+            applyingInputHistory = false;
           }
         }
       }
@@ -287,7 +287,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     }
     searchAutocomplete.dismissOnKey(e);
     if (e.key !== 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey &&
-        !overlayState.suggestionInputPreview.isActive()) {
+        !suggestionInputPreview.isActive()) {
       searchQuery.set(input.value);
     }
   }
@@ -302,13 +302,13 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (!suggestion || typeof suggestion._xMatchedTabId !== 'number') {
       return false;
     }
-    if (overlayState.prioritizeCurrentPageMatch &&
-      typeof overlayState.currentOverlayTabId === 'number' &&
-      suggestion._xMatchedTabId === overlayState.currentOverlayTabId &&
+    if (prioritizeCurrentPageMatch &&
+      typeof overlayTabs.currentTabId === 'number' &&
+      suggestion._xMatchedTabId === overlayTabs.currentTabId &&
       index === 0) {
       return true;
     }
-    if (!overlayState.settings.get(overlayTabPriority)) {
+    if (!settings.get(overlayTabPriority)) {
       return false;
     }
     return index === 0;
@@ -324,12 +324,12 @@ function createPanelKeys(deps: PanelKeysDeps) {
   // Shows the selected search suggestion in the input, or what was typed
   // for any other row.
   function previewSelectedSuggestion(input: HTMLInputElement): void {
-    overlayState.suggestionInputPreview.show(input, getSelectedSuggestion(), searchQuery.raw);
+    suggestionInputPreview.show(input, getSelectedSuggestion(), searchQuery.raw);
   }
 
   function getSuggestionNavigationKey(event: KeyboardEvent): 'ArrowDown' | 'ArrowUp' | '' {
     return SUGGESTION_NAVIGATION.getSuggestionNavigationKey(event, {
-      macosCtrlEnabled: overlayState.settings.get(macosCtrlSuggestionNavigationEnabled),
+      macosCtrlEnabled: settings.get(macosCtrlSuggestionNavigationEnabled),
       navigatorLike: window && window.navigator ? window.navigator : null
     });
   }
@@ -337,7 +337,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
   // Keys that belong to the overlay (see LumnoOverlayKeyboard), plus the
   // navigation, Enter and Escape keys forwarded by the input handler.
   function handleOverlayKeydown(e: KeyboardEvent): void {
-    const input = overlayState.searchInput;
+    const input = elements.searchInput;
     if (!input) {
       return;
     }
@@ -345,7 +345,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     if (SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       e,
       suggestionItems,
-      overlayState.suggestionsContainer,
+      elements.suggestionsContainer,
       numberShortcutOptions
     )) {
       return;
@@ -355,8 +355,8 @@ function createPanelKeys(deps: PanelKeysDeps) {
     }
     const suggestionNavigationKey = getSuggestionNavigationKey(e);
     searchAutocomplete.dismissOnKey(e);
-    if (e.key === 'Escape' && overlayState.overlay) {
-      closeOverlayWithMotion(overlayState.overlay);
+    if (e.key === 'Escape' && elements.overlay) {
+      closeOverlayWithMotion(elements.overlay);
     } else if (suggestionNavigationKey === 'ArrowDown') {
       e.preventDefault();
       if (suggestionItems.length === 0) {
@@ -411,16 +411,16 @@ function createPanelKeys(deps: PanelKeysDeps) {
       e.preventDefault();
       // A suggestion the arrows show opens as its row; the query stays what
       // was typed.
-      const query = (overlayState.suggestionInputPreview.isActive()
+      const query = (suggestionInputPreview.isActive()
         ? searchQuery.raw
         : input.value).trim();
-      if (query && overlayState.inputHistoryController) {
-        overlayState.inputHistoryController.record(query);
+      if (query && elements.inputHistoryController) {
+        elements.inputHistoryController.record(query);
       }
       const commandMatch = searchMode.local ? null : getCommandMatch(query);
       if (commandMatch && searchResults.selectedIndex === -1) {
         if (commandMatch.command.type === 'modeSwitch') {
-          applyThemeModeChange(getNextThemeMode(overlayState.overlayThemeMode || 'system'));
+          applyThemeModeChange(getNextThemeMode(overlayThemeChoice.mode || 'system'));
           input.focus();
           return;
         } else if (commandMatch.command.type === 'webAppearanceSwitch') {
@@ -442,11 +442,11 @@ function createPanelKeys(deps: PanelKeysDeps) {
         } else if (commandMatch.command.type === 'commandDocumentPip') {
           openDocumentPipPickerFromOverlay();
         }
-        removeOverlay(overlayState.overlay);
+        removeOverlay(elements.overlay);
         return;
       }
       if (!searchMode.local && isModeCommand(query) && searchResults.selectedIndex === -1) {
-        applyThemeModeChange(getNextThemeMode(overlayState.overlayThemeMode || 'system'));
+        applyThemeModeChange(getNextThemeMode(overlayThemeChoice.mode || 'system'));
         return;
       }
 
@@ -475,12 +475,12 @@ function createPanelKeys(deps: PanelKeysDeps) {
           }
           if (selectedSuggestion.type === 'commandNewTab') {
             LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openNewTab' });
-            removeOverlay(overlayState.overlay);
+            removeOverlay(elements.overlay);
             return;
           }
           if (selectedSuggestion.type === 'commandSettings') {
             LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openOptionsPage' });
-            removeOverlay(overlayState.overlay);
+            removeOverlay(elements.overlay);
             return;
           }
           if (selectedSuggestion.type === 'commandOpenTabs') {
@@ -492,12 +492,12 @@ function createPanelKeys(deps: PanelKeysDeps) {
           }
           if (selectedSuggestion.type === 'commandCopyUrl') {
             LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'copyCurrentPageUrl' });
-            removeOverlay(overlayState.overlay);
+            removeOverlay(elements.overlay);
             return;
           }
           if (selectedSuggestion.type === 'commandDocumentPip') {
             openDocumentPipPickerFromOverlay();
-            removeOverlay(overlayState.overlay);
+            removeOverlay(elements.overlay);
             return;
           }
           if (selectedSuggestion.type === 'siteSearchPrompt' && selectedSuggestion.provider) {
@@ -617,13 +617,13 @@ function createPanelKeys(deps: PanelKeysDeps) {
     SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       e,
       suggestionItems,
-      overlayState.suggestionsContainer,
+      elements.suggestionsContainer,
       numberShortcutOptions
     );
   }
 
   function isSearchInputActive(): boolean {
-    const input = overlayState.searchInput;
+    const input = elements.searchInput;
     if (!input) {
       return false;
     }
@@ -633,6 +633,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
   }
 
   return {
+    isApplyingInputHistory,
     handleTabKey,
     handleSearchInputKeydown,
     shouldSwitchMatchedTabSuggestion,
@@ -644,4 +645,4 @@ function createPanelKeys(deps: PanelKeysDeps) {
 }
 
 export { createPanelKeys };
-export type { PanelKeysDeps, PanelKeysState };
+export type { PanelKeysDeps };

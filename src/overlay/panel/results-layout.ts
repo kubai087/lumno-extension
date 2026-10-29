@@ -1,9 +1,7 @@
 // How the results area is laid out: the open tabs viewport and its
 // scrollbar gutter, the divider, the offset under an open mode menu,
 // collapsing results, the input's right padding and the tab hint.
-import type { SearchInputParts } from '../../shared/react/search-input';
 import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import { overlayOpenTabsDefaultVisible } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit } from '../../domain/settings/search';
@@ -13,20 +11,8 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
-
-interface ResultsLayoutState {
-  settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
-  overlay: HTMLElement | null;
-  inputContainer: HTMLElement | null;
-  inputParts: Pick<SearchInputParts, 'setChrome'> | null;
-  suggestionsContainer: HTMLElement | null;
-  // The panel's styles live in its own shadow root, so inline styles need
-  // no !important.
-  inputModeController: Pick<InputModeController,
-    'placeModeMenuBelowResults' | 'updateLayout' | 'setTabHintVisible'> | null;
-  lastRenderedQuery: string;
-  lastRenderedActionContextKey: string;
-}
+import type { OverlayPanelElements } from './panel-elements';
+import type { LastRender } from './last-render';
 
 interface ResultsLayoutDeps {
   searchResults: SearchResults<OverlaySuggestion>;
@@ -36,7 +22,9 @@ interface ResultsLayoutDeps {
   ensureOverlaySuggestionsView(): Pick<SuggestionsViewController, 'clear'>;
   // The rendered rows; emptied with the list.
   suggestionItems: unknown[];
-  overlayState: ResultsLayoutState;
+  settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
+  elements: Pick<OverlayPanelElements, 'inputContainer' | 'inputModeController' | 'inputParts' | 'overlay' | 'suggestionsContainer'>;
+  lastRender: LastRender;
 }
 
 type CssPixelProperty = 'borderLeftWidth' | 'borderRightWidth' | 'paddingTop' | 'paddingBottom' | `--${string}`;
@@ -47,6 +35,9 @@ function isCustomProperty(property: string): property is `--${string}` {
 
 function createResultsLayout(deps: ResultsLayoutDeps) {
   const {
+    lastRender,
+    elements,
+    settings,
     searchResults,
     searchMode,
     normalizeSearchResultDisplayLimit,
@@ -54,9 +45,6 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     ensureOverlaySuggestionsView,
     suggestionItems,
   } = deps;
-
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
 
   const setOverlayPanelScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
     if (!element) {
@@ -77,7 +65,7 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
   }
   // Gives rows back the width of the open tabs list's real scrollbar.
   function syncOpenTabsScrollbarGutter(computedStyle?: CSSStyleDeclaration): void {
-    const container = overlayState.suggestionsContainer;
+    const container = elements.suggestionsContainer;
     if (!container || !container.hasAttribute('data-open-tabs-visible-row-limit')) {
       return;
     }
@@ -103,7 +91,7 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
   }
   // Caps the open tabs list at the display limit's rows, scrolling the rest.
   function setOpenTabsResultsViewport(active: boolean, itemCount?: number): void {
-    const container = overlayState.suggestionsContainer;
+    const container = elements.suggestionsContainer;
     if (!container) {
       return;
     }
@@ -114,7 +102,7 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
       return;
     }
     const visibleRowLimit = normalizeSearchResultDisplayLimit(
-      overlayState.settings.get(searchResultDisplayLimit)
+      settings.get(searchResultDisplayLimit)
     );
     const normalizedItemCount = Math.max(0, Math.floor(Number(itemCount) || 0));
     // A complete result set should keep its natural height. Only reserve a
@@ -157,15 +145,15 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
   }
 
   function setInputDividerVisible(visible: boolean): void {
-    if (overlayState.inputParts) {
-      overlayState.inputParts.setChrome({ underline: visible });
+    if (elements.inputParts) {
+      elements.inputParts.setChrome({ underline: visible });
     }
   }
 
   // Keeps an open mode menu clear of the results and inside the viewport.
   function syncSearchModeMenuResultOffset(): void {
-    const controller = overlayState.inputModeController;
-    const container = overlayState.suggestionsContainer;
+    const controller = elements.inputModeController;
+    const container = elements.suggestionsContainer;
     if (!controller || !container) {
       return;
     }
@@ -183,25 +171,25 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     const stateOptions: { deferLayoutSync?: boolean } = options && typeof options === 'object'
       ? options
       : {};
-    const container = overlayState.suggestionsContainer;
+    const container = elements.suggestionsContainer;
     if (!container) {
       return;
     }
     const shouldSyncLayout = stateOptions.deferLayoutSync !== true;
     const shouldCollapse = Boolean(collapsed);
     const wasCollapsed = container.getAttribute('data-collapsed') === 'true';
-    if (overlayState.overlay) {
-      overlayState.overlay.setAttribute('data-open-tabs-default-collapsed', shouldCollapse ? 'true' : 'false');
+    if (elements.overlay) {
+      elements.overlay.setAttribute('data-open-tabs-default-collapsed', shouldCollapse ? 'true' : 'false');
     }
     container.setAttribute('data-collapsed', shouldCollapse ? 'true' : 'false');
     container.setAttribute('aria-hidden', shouldCollapse ? 'true' : 'false');
     setOverlayPanelScopedStyle(
-      overlayState.overlay,
+      elements.overlay,
       'border-radius',
       'var(--x-ov-panel-radius, 26px)'
     );
     setInputScopedStyle(
-      overlayState.inputContainer,
+      elements.inputContainer,
       'border-radius',
       shouldCollapse
         ? 'var(--x-ov-content-radius, 25px)'
@@ -247,38 +235,37 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
       return false;
     }
     return searchMode.openTabs ||
-      (overlayState.settings.isLoaded() && overlayState.settings.get(overlayOpenTabsDefaultVisible));
+      (settings.isLoaded() && settings.get(overlayOpenTabsDefaultVisible));
   }
 
   function clearDefaultOpenTabsSuggestions(): void {
     ensureOverlaySuggestionsView().clear();
     setOpenTabsResultsViewport(false);
-    if (overlayState.suggestionsContainer) {
-      overlayState.suggestionsContainer.removeAttribute('data-scope-result-enter');
+    if (elements.suggestionsContainer) {
+      elements.suggestionsContainer.removeAttribute('data-scope-result-enter');
     }
     suggestionItems.length = 0;
     searchResults.show([]);
-    overlayState.lastRenderedQuery = '';
-    overlayState.lastRenderedActionContextKey = '';
+    lastRender.clear();
     searchResults.select(-1);
     setOverlayResultsCollapsed(true);
   }
 
   function updateInputRightPadding(): void {
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.updateLayout();
+    if (elements.inputModeController) {
+      elements.inputModeController.updateLayout();
     }
   }
 
   function setSiteSearchTabHint(provider: InputModeProvider): void {
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.setTabHintVisible(true, provider);
+    if (elements.inputModeController) {
+      elements.inputModeController.setTabHintVisible(true, provider);
     }
   }
 
   function clearSiteSearchTabHint(): void {
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.setTabHintVisible(false);
+    if (elements.inputModeController) {
+      elements.inputModeController.setTabHintVisible(false);
     }
   }
 
@@ -296,4 +283,4 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
 }
 
 export { createResultsLayout };
-export type { ResultsLayoutDeps, ResultsLayoutState };
+export type { ResultsLayoutDeps };

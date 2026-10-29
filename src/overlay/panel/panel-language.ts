@@ -9,18 +9,10 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayNotices } from './overlay-notices';
 
 // Row is a suggestion row; this module only passes it along.
-interface PanelLanguageState {
-  inputModeController: { refreshModeMenuLanguage?(): void } | null;
-  overlayUpdateNoticeController: { updateLanguage?(): void } | null;
-  overlayGraphicsNoticeController: { updateLanguage?(): void } | null;
-  overlayEngagementNoticeController: { updateLanguage?(): void } | null;
-  searchInput: HTMLInputElement | null;
-  defaultPlaceholderText: string;
-  modeBadge: HTMLElement | null;
-  defaultTheme: InputModeTheme;
-}
 
 interface PanelLanguageDeps<Row> {
   modeActions: SearchModeActions<InputModeProvider>;
@@ -34,11 +26,16 @@ interface PanelLanguageDeps<Row> {
   requestTabsAndRender(): void;
   // Names the search input's buttons again.
   applyInputActionLabels(): void;
-  overlayState: PanelLanguageState;
+  defaultTheme: InputModeTheme;
+  elements: Pick<OverlayPanelElements, 'inputModeController' | 'modeBadge' | 'searchInput'>;
+  notices: Pick<OverlayNotices, 'updateLanguage'>;
 }
 
 function createPanelLanguage<Row>(deps: PanelLanguageDeps<Row>) {
   const {
+    notices,
+    elements,
+    defaultTheme,
     modeActions,
     searchResults,
     searchMode,
@@ -51,8 +48,12 @@ function createPanelLanguage<Row>(deps: PanelLanguageDeps<Row>) {
     applyInputActionLabels
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
+  // The input's placeholder in the current language.
+  let defaultPlaceholderText = 'Search or enter URL…';
+
+  function getDefaultPlaceholderText(): string {
+    return defaultPlaceholderText;
+  }
 
   function applyOverlayCjkFontFace(locale: string): void {
     const lang = localeToHtmlLang(locale);
@@ -69,35 +70,24 @@ function createPanelLanguage<Row>(deps: PanelLanguageDeps<Row>) {
   // Puts the current language's copy on everything the panel shows.
   function applyLanguageStrings(options?: { refreshResults?: boolean }): void {
     const refreshResults = !options || options.refreshResults !== false;
-    if (overlayState.inputModeController &&
-        typeof overlayState.inputModeController.refreshModeMenuLanguage === 'function') {
-      overlayState.inputModeController.refreshModeMenuLanguage();
+    if (elements.inputModeController &&
+        typeof elements.inputModeController.refreshModeMenuLanguage === 'function') {
+      elements.inputModeController.refreshModeMenuLanguage();
     }
-    if (overlayState.overlayUpdateNoticeController &&
-        typeof overlayState.overlayUpdateNoticeController.updateLanguage === 'function') {
-      overlayState.overlayUpdateNoticeController.updateLanguage();
-    }
-    if (overlayState.overlayGraphicsNoticeController &&
-        typeof overlayState.overlayGraphicsNoticeController.updateLanguage === 'function') {
-      overlayState.overlayGraphicsNoticeController.updateLanguage();
-    }
-    if (overlayState.overlayEngagementNoticeController &&
-        typeof overlayState.overlayEngagementNoticeController.updateLanguage === 'function') {
-      overlayState.overlayEngagementNoticeController.updateLanguage();
-    }
-    if (overlayState.searchInput) {
-      overlayState.defaultPlaceholderText = locale.t('overlay_search_placeholder', locale.t('search_placeholder', overlayState.defaultPlaceholderText));
+    notices.updateLanguage();
+    if (elements.searchInput) {
+      defaultPlaceholderText = locale.t('overlay_search_placeholder', locale.t('search_placeholder', defaultPlaceholderText));
       if (!searchMode.site && !searchMode.local) {
-        overlayState.searchInput.placeholder = overlayState.defaultPlaceholderText;
+        elements.searchInput.placeholder = defaultPlaceholderText;
       }
     }
     applyInputActionLabels();
-    if (overlayState.modeBadge) {
-      updateModeBadge(overlayState.searchInput ? overlayState.searchInput.value : '');
+    if (elements.modeBadge) {
+      updateModeBadge(elements.searchInput ? elements.searchInput.value : '');
     }
     if (searchMode.site) {
       const activeSiteSearchProvider = searchMode.site;
-      modeActions.setSiteSearchPrefix(activeSiteSearchProvider, overlayState.defaultTheme);
+      modeActions.setSiteSearchPrefix(activeSiteSearchProvider, defaultTheme);
       void getThemeForProvider(activeSiteSearchProvider).then((theme) => {
         if (searchMode.site === activeSiteSearchProvider) {
           modeActions.setSiteSearchPrefix(activeSiteSearchProvider, theme);
@@ -119,10 +109,11 @@ function createPanelLanguage<Row>(deps: PanelLanguageDeps<Row>) {
   }
 
   return {
+    getDefaultPlaceholderText,
     applyOverlayCjkFontFace,
     applyLanguageStrings
   };
 }
 
 export { createPanelLanguage };
-export type { PanelLanguageDeps, PanelLanguageState };
+export type { PanelLanguageDeps };

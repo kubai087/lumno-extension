@@ -11,6 +11,8 @@ import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { OverlaySuggestion } from './types';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
+import type { OverlayPanelElements } from './panel-elements';
+import type { LastRender } from './last-render';
 
 // Shared by the renders of one request: whether the search engine's
 // suggestions came back, and whether the list showed its final mix.
@@ -25,14 +27,6 @@ interface SuggestionUpdateOptions {
   finalRemoteMix?: boolean;
 }
 
-interface RemoteSuggestionsState {
-  settings: Pick<OverlaySettings, 'get'>;
-  suggestionsContainer: HTMLElement | null;
-  // The query of the rows shown; empty for the open tabs list.
-  lastRenderedQuery: string;
-  overlayFirstResultRevealTimer: number | null;
-}
-
 interface RemoteSuggestionsDeps {
   suggestionSource: SuggestionSource;
   searchResults: SearchResults<OverlaySuggestion>;
@@ -41,11 +35,16 @@ interface RemoteSuggestionsDeps {
   updateSearchSuggestions(rows: SuggestionLike[], query: string, options?: SuggestionUpdateOptions): void;
   isSlashCommandInput(input: string): boolean;
   getDirectUrlSuggestion(query: string): unknown;
-  overlayState: RemoteSuggestionsState;
+  settings: Pick<OverlaySettings, 'get'>;
+  elements: Pick<OverlayPanelElements, 'suggestionsContainer'>;
+  lastRender: LastRender;
 }
 
 function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
   const {
+    lastRender,
+    elements,
+    settings,
     suggestionSource,
     searchResults,
     searchMode,
@@ -55,16 +54,14 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
     getDirectUrlSuggestion
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-
   const OVERLAY_FIRST_RESULT_REVEAL_DELAY_MS = 120;
+  let firstResultRevealTimer: number | null = null;
 
   function clearFirstResultRevealTimer(): void {
-    if (overlayState.overlayFirstResultRevealTimer !== null) {
-      window.clearTimeout(overlayState.overlayFirstResultRevealTimer);
+    if (firstResultRevealTimer !== null) {
+      window.clearTimeout(firstResultRevealTimer);
     }
-    overlayState.overlayFirstResultRevealTimer = null;
+    firstResultRevealTimer = null;
   }
 
   function isResultsListOpen(container: HTMLElement | null): container is HTMLElement {
@@ -76,7 +73,7 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
   // Shows the last answer again while a request is pending; false while
   // the list is collapsed or hidden.
   function updatePendingSearchSuggestions(query: string): boolean {
-    if (!isResultsListOpen(overlayState.suggestionsContainer)) {
+    if (!isResultsListOpen(elements.suggestionsContainer)) {
       return false;
     }
     updateSearchSuggestions(searchResults.lastResponse, query);
@@ -100,16 +97,16 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
       return;
     }
     const requestStartedAt = Date.now();
-    const requestSearchFirst = overlayState.settings.get(searchResultPriority) === 'search';
+    const requestSearchFirst = settings.get(searchResultPriority) === 'search';
     const showExactSearchPendingState = requestSearchFirst &&
       !requestLocalSearchScope &&
       !getDirectUrlSuggestion(requestQuery);
     const remoteMixState: RemoteMixState = { settled: false };
     // A list of another query's results keeps its height until this
     // query's full answer; the open tabs list gives way at once.
-    if (!requestLocalSearchScope && overlayState.lastRenderedQuery &&
-        isResultsListOpen(overlayState.suggestionsContainer)) {
-      holdSuggestionsHeight(overlayState.suggestionsContainer, window);
+    if (!requestLocalSearchScope && lastRender.query &&
+        isResultsListOpen(elements.suggestionsContainer)) {
+      holdSuggestionsHeight(elements.suggestionsContainer, window);
     }
     // Shown with the local results until this query's suggestions arrive.
     const carriedEngineSuggestions = carryOverEngineSuggestions(
@@ -144,12 +141,12 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
           updateSearchSuggestions(localSuggestions, requestQuery);
           return null;
         }
-        const container = overlayState.suggestionsContainer;
+        const container = elements.suggestionsContainer;
         waitForFirstResultMix = !requestSearchFirst &&
           Boolean(container && container.getAttribute('data-collapsed') === 'true');
         if (waitForFirstResultMix) {
-          overlayState.overlayFirstResultRevealTimer = window.setTimeout(() => {
-            overlayState.overlayFirstResultRevealTimer = null;
+          firstResultRevealTimer = window.setTimeout(() => {
+            firstResultRevealTimer = null;
             if (!searchResults.isCurrentRequest(requestSeq) ||
                 requestQuery !== searchQuery.text ||
                 remoteMixState.visualSettled) {
@@ -186,10 +183,11 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
   }
 
   return {
+    clearFirstResultRevealTimer,
     updatePendingSearchSuggestions,
     requestOverlaySearchSuggestions
   };
 }
 
 export { createRemoteSuggestions };
-export type { RemoteMixState, RemoteSuggestionsDeps, RemoteSuggestionsState, SuggestionUpdateOptions };
+export type { RemoteMixState, RemoteSuggestionsDeps, SuggestionUpdateOptions };

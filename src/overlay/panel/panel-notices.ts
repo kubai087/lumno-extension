@@ -3,27 +3,18 @@
 // dialog.
 import type { Disposition } from '../../domain/navigation-disposition';
 import * as ENGAGEMENT_NOTICE from '../../shared/engagement-notice';
-import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import * as GRAPHICS_NOTICE from '../../shared/graphics-acceleration-notice';
-import type { GraphicsNoticeController } from '../../shared/graphics-acceleration-notice';
 import * as COMMUNITY_QR_DIALOG from '../../shared/ui/community-qr-dialog';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import * as UPDATE_NOTICE from '../../shared/update-notice';
-import type { UpdateNoticeController } from '../../shared/update-notice';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
 import type { Translate } from './types';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import * as COMMUNITY_LINKS from '../../platform/community-links';
 import type { PortalHost } from '../../shared/react/portal-host';
-
-interface PanelNoticesState {
-  overlay: HTMLElement | null;
-  searchInput: HTMLInputElement | null;
-  overlayUpdateNoticeController: UpdateNoticeController | null;
-  overlayGraphicsNoticeController: GraphicsNoticeController | null;
-  overlayEngagementNoticeController: EngagementNoticeController | null;
-}
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayNotices } from './overlay-notices';
 
 interface PanelNoticesDeps {
   // The panel's React root, which draws the notices.
@@ -32,11 +23,14 @@ interface PanelNoticesDeps {
   t: Translate;
   getOpenDisposition(event: ActivationEvent | null, fallback?: Disposition): Disposition;
   locale: Pick<SurfaceLocale, 'store'>;
-  overlayState: PanelNoticesState;
+  elements: Pick<OverlayPanelElements, 'overlay' | 'searchInput'>;
+  notices: Pick<OverlayNotices, 'engagement' | 'graphics' | 'setEngagement' | 'setGraphics' | 'setUpdate' | 'update'>;
 }
 
 function createPanelNotices(deps: PanelNoticesDeps) {
   const {
+    notices,
+    elements,
     portals,
     removeOverlay,
     t,
@@ -44,14 +38,11 @@ function createPanelNotices(deps: PanelNoticesDeps) {
     locale
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-
   // The WeChat group QR opens in a dialog over the page, never in a new tab.
   // The overlay closes first, as it does for any result it opens.
   function openOverlayCommunityQrDialog(qrUrl: string): void {
-    const theme = overlayState.overlay && overlayState.overlay.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    removeOverlay(overlayState.overlay);
+    const theme = elements.overlay && elements.overlay.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    removeOverlay(elements.overlay);
     COMMUNITY_QR_DIALOG.open({
       documentObj: document,
       imageUrl: qrUrl || COMMUNITY_LINKS.FALLBACK_LINKS.wechatQr,
@@ -63,12 +54,12 @@ function createPanelNotices(deps: PanelNoticesDeps) {
   }
   function overlayUpdateNoticeClaimsSessionSlot(): boolean {
     return Boolean(
-      overlayState.overlayUpdateNoticeController &&
-      typeof overlayState.overlayUpdateNoticeController.hasSessionSlot === 'function' &&
-      overlayState.overlayUpdateNoticeController.hasSessionSlot()
+      notices.update &&
+      typeof notices.update.hasSessionSlot === 'function' &&
+      notices.update.hasSessionSlot()
     );
   }
-  overlayState.overlayUpdateNoticeController = UPDATE_NOTICE.createUpdateNotice({
+  notices.setUpdate(UPDATE_NOTICE.createUpdateNotice({
     portals,
     documentObj: document,
     featureHints: FEATURE_HINTS,
@@ -76,9 +67,9 @@ function createPanelNotices(deps: PanelNoticesDeps) {
     surface: 'overlay',
     t,
     onSessionSlotClaimed() {
-      if (overlayState.overlayEngagementNoticeController &&
-          typeof overlayState.overlayEngagementNoticeController.suppressForSession === 'function') {
-        overlayState.overlayEngagementNoticeController.suppressForSession();
+      if (notices.engagement &&
+          typeof notices.engagement.suppressForSession === 'function') {
+        notices.engagement.suppressForSession();
       }
     },
     onDetailsClick(_notice, event) {
@@ -88,41 +79,40 @@ function createPanelNotices(deps: PanelNoticesDeps) {
         disposition: getOpenDisposition(event, 'newTab')
       });
     }
-  });
+  }));
   function overlayGraphicsNoticeClaimsSessionSlot(): boolean {
     return Boolean(
-      overlayState.overlayGraphicsNoticeController &&
-      overlayState.overlayGraphicsNoticeController.hasSessionSlot()
+      notices.graphics &&
+      notices.graphics.hasSessionSlot()
     );
   }
   // Shows only when the update notice leaves this session's slot free.
-  overlayState.overlayGraphicsNoticeController = GRAPHICS_NOTICE.createGraphicsNotice({
+  notices.setGraphics(GRAPHICS_NOTICE.createGraphicsNotice({
     portals,
     documentObj: document,
     chromeApi: chrome,
     surface: 'overlay',
     t,
-    exposureGate: overlayState.overlayUpdateNoticeController && overlayState.overlayUpdateNoticeController.ready,
+    exposureGate: notices.update && notices.update.ready,
     canShow() {
-      const input = overlayState.searchInput;
+      const input = elements.searchInput;
       return !overlayUpdateNoticeClaimsSessionSlot() &&
         !String(input ? input.value || '' : '').trim();
     },
     onSessionSlotClaimed() {
-      if (overlayState.overlayEngagementNoticeController) {
-        overlayState.overlayEngagementNoticeController.suppressForSession();
+      if (notices.engagement) {
+        notices.engagement.suppressForSession();
       }
     },
     onOpenSettings(event) {
-      removeOverlay(overlayState.overlay);
+      removeOverlay(elements.overlay);
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
         action: 'openGraphicsSettings',
         disposition: getOpenDisposition(event, 'newTab')
       });
     }
-  });
-  overlayState.overlayEngagementNoticeController =
-    ENGAGEMENT_NOTICE.createEngagementNotice({
+  }));
+  notices.setEngagement(ENGAGEMENT_NOTICE.createEngagementNotice({
       portals,
       documentObj: document,
       featureHints: FEATURE_HINTS,
@@ -131,20 +121,20 @@ function createPanelNotices(deps: PanelNoticesDeps) {
       locale: locale.store.getSnapshot().locale,
       t,
       exposureGate: Promise.all([
-        overlayState.overlayUpdateNoticeController && overlayState.overlayUpdateNoticeController.ready,
-        overlayState.overlayGraphicsNoticeController && overlayState.overlayGraphicsNoticeController.ready
+        notices.update && notices.update.ready,
+        notices.graphics && notices.graphics.ready
       ]),
       // Waits until no update or graphics notice shows, the page is in view
       // and the input is empty.
       canShow() {
-        const updateNotice = overlayState.overlayUpdateNoticeController;
+        const updateNotice = notices.update;
         const updateNoticeVisible = Boolean(
           updateNotice &&
           updateNotice.element &&
           updateNotice.element.getAttribute('data-visible') === 'true'
         );
-        const overlay = overlayState.overlay;
-        const input = overlayState.searchInput;
+        const overlay = elements.overlay;
+        const input = elements.searchInput;
         return !updateNoticeVisible &&
           !overlayUpdateNoticeClaimsSessionSlot() &&
           !overlayGraphicsNoticeClaimsSessionSlot() &&
@@ -186,7 +176,7 @@ function createPanelNotices(deps: PanelNoticesDeps) {
           });
         });
       }
-    });
+    }));
 
   return {
     openOverlayCommunityQrDialog
@@ -194,4 +184,4 @@ function createPanelNotices(deps: PanelNoticesDeps) {
 }
 
 export { createPanelNotices };
-export type { PanelNoticesDeps, PanelNoticesState };
+export type { PanelNoticesDeps };

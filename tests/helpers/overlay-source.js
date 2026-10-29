@@ -36,15 +36,11 @@ const OVERLAY_PANEL_FILES = [
   'src/overlay/search-panel.ts'
 ];
 
-// The panel source for source checks and extracted functions. The parts
-// share panel state as properties of one `overlayState` object; that prefix
-// is dropped so checks see the code as it read inside the single panel
-// closure.
+// The panel source for source checks and extracted functions.
 function readOverlayPanelSource() {
   return withoutExports(OVERLAY_PANEL_FILES
     .map((file) => fs.readFileSync(path.join(repoRoot, file), 'utf8'))
-    .join('\n'))
-    .replace(/\boverlayState\./g, '');
+    .join('\n'));
 }
 
 module.exports = { OVERLAY_PANEL_FILES, readOverlayPanelSource };

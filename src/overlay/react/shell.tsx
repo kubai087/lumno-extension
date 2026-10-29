@@ -24,7 +24,7 @@ type OverlayShellOptions = Record<string, unknown> & {
   width?: number;
 };
 
-interface OverlayMount {
+export interface OverlayMount {
   host: HTMLElement;
   // The panel's one React root, which draws its input and results too.
   portals: PortalHost;

@@ -1,11 +1,9 @@
 // Input events in the search box: reading the live value, the trigger
 // hint, IME composition and the main input handler.
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
-import type { createSearchInputHistoryController } from '../../domain/search/search-input-history';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { EngagementNoticeController } from '../../shared/engagement-notice';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
@@ -18,18 +16,8 @@ import type { SearchLocale } from '../../shared/search-panel/labels';
 import { getInlineSiteSearchCandidate } from '../../domain/search/utils/site-search-matching';
 import type { SearchMatching } from '../../shared/search-panel/matching';
 import { getLoadedShortcutRules } from '../../shared/search-panel/shortcut-rules';
-
-interface SearchInputEventsState {
-  searchInput: HTMLInputElement | null;
-  inputContainer: HTMLElement | null;
-  imeKeyGuard: Pick<ReturnType<typeof createImeKeyGuard>, 'markCompositionStart' | 'markCompositionEnd' | 'isComposing'>;
-  inputHistoryController: Pick<ReturnType<typeof createSearchInputHistoryController>, 'resetNavigation'> | null;
-  // History is being written into the input, which is not typing.
-  isApplyingSearchInputHistory: boolean;
-  // Typing on from a suggestion the arrows show keeps it as typed text.
-  suggestionInputPreview: Pick<SuggestionInputPreview, 'commit'>;
-  overlayEngagementNoticeController: Pick<EngagementNoticeController, 'recordMeaningfulUse'> | null;
-}
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayNotices } from './overlay-notices';
 
 interface SearchInputEventsDeps {
   searchMatching: SearchMatching;
@@ -53,7 +41,13 @@ interface SearchInputEventsDeps {
   updatePendingSearchSuggestions(query: string): boolean;
   requestOverlaySearchSuggestions(query: string): void;
   clearSearchSuggestions(): void;
-  overlayState: SearchInputEventsState;
+  imeKeyGuard: Pick<ReturnType<typeof createImeKeyGuard>, 'markCompositionStart' | 'markCompositionEnd' | 'isComposing'>;
+  // Typing on from a suggestion the arrows show keeps it as typed text.
+  suggestionInputPreview: Pick<SuggestionInputPreview, 'commit'>;
+  elements: Pick<OverlayPanelElements, 'followLiveInput' | 'inputContainer' | 'inputHistoryController' | 'searchInput'>;
+  notices: Pick<OverlayNotices, 'recordMeaningfulUse'>;
+  // Whether a history step is replaying the input's events.
+  isApplyingInputHistory(): boolean;
 }
 
 function readInputType(event: Event | null): string {
@@ -62,6 +56,11 @@ function readInputType(event: Event | null): string {
 
 function createSearchInputEvents(deps: SearchInputEventsDeps) {
   const {
+    isApplyingInputHistory,
+    notices,
+    elements,
+    suggestionInputPreview,
+    imeKeyGuard,
     searchMatching,
     locale,
     searchResults,
@@ -84,9 +83,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     clearSearchSuggestions
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-
   // The same event can reach the input and the panel; each handles it once.
   const handledSearchInputEvents = new WeakSet<Event>();
 
@@ -98,7 +94,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
   // panel's input with a copy.
   function getLiveSearchInputFromEvent(event: Event | null): HTMLInputElement | null {
     const target = event ? event.target : null;
-    const container = overlayState.inputContainer;
+    const container = elements.inputContainer;
     if (target instanceof HTMLInputElement && container && container.contains(target)) {
       return target;
     }
@@ -109,16 +105,16 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
         return currentInput;
       }
     }
-    return overlayState.searchInput;
+    return elements.searchInput;
   }
 
   function syncLiveSearchInputFromEvent(event: Event | null): HTMLInputElement | null {
     const liveInput = getLiveSearchInputFromEvent(event);
-    if (liveInput && liveInput !== overlayState.searchInput) {
-      overlayState.searchInput = liveInput;
+    if (liveInput && liveInput !== elements.searchInput) {
+      elements.followLiveInput(liveInput);
       applyNoTranslate(liveInput);
     }
-    return overlayState.searchInput;
+    return elements.searchInput;
   }
 
   function runSearchInputEventOnce(event: Event | null, handler: () => void): void {
@@ -178,10 +174,10 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
   // Add input event for search suggestions
   function handleSearchInputCompositionStart(event: Event | null): void {
     runSearchInputEventOnce(event, () => {
-      overlayState.suggestionInputPreview.commit();
+      suggestionInputPreview.commit();
       cancelPendingOverlaySuggestionRequests();
       syncLiveSearchInputFromEvent(event);
-      overlayState.imeKeyGuard.markCompositionStart(event);
+      imeKeyGuard.markCompositionStart(event);
       searchAutocomplete.clear();
       clearPendingSearchTriggerHint();
     });
@@ -189,7 +185,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
 
   function handleSearchInputCompositionEnd(event: Event | null): void {
     runSearchInputEventOnce(event, () => {
-      overlayState.imeKeyGuard.markCompositionEnd(event);
+      imeKeyGuard.markCompositionEnd(event);
       const liveInput = syncLiveSearchInputFromEvent(event);
       notifyOverlayLoadingSession(liveInput);
       const rawValue = liveInput ? (liveInput.value || '') : '';
@@ -226,17 +222,16 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
 
   function handleSearchInputEvent(event: Event | null): void {
     runSearchInputEventOnce(event, () => {
-      overlayState.suggestionInputPreview.commit();
-      if (overlayState.inputHistoryController && !overlayState.isApplyingSearchInputHistory) {
-        overlayState.inputHistoryController.resetNavigation();
+      suggestionInputPreview.commit();
+      if (elements.inputHistoryController && !isApplyingInputHistory()) {
+        elements.inputHistoryController.resetNavigation();
       }
       const liveInput = syncLiveSearchInputFromEvent(event);
       notifyOverlayLoadingSession(liveInput);
       const rawValue = liveInput ? liveInput.value : '';
       const query = rawValue.trim();
-      const engagementNotice = overlayState.overlayEngagementNoticeController;
-      if (query && engagementNotice && typeof engagementNotice.recordMeaningfulUse === 'function') {
-        engagementNotice.recordMeaningfulUse();
+      if (query) {
+        notices.recordMeaningfulUse();
       }
       updateModeBadge(rawValue);
       const inputType = readInputType(event);
@@ -245,7 +240,7 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       if (isDelete) {
         searchQuery.markDeletion();
       }
-      if (overlayState.imeKeyGuard.isComposing()) {
+      if (imeKeyGuard.isComposing()) {
         searchQuery.set(rawValue, query);
         return;
       }
@@ -296,4 +291,4 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
 }
 
 export { createSearchInputEvents };
-export type { SearchInputEventsDeps, SearchInputEventsState };
+export type { SearchInputEventsDeps };

@@ -14,11 +14,7 @@ import type {
   SuggestionsViewOptions,
   ThemeValue
 } from '../../shared/react/search/suggestion-list/types';
-import type { InputModeController } from '../../shared/search/search-input-mode';
-import type { InputModeParts } from '../../shared/search/input-mode/controller-types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import type { CursorTooltipController } from '../../shared/ui/cursor-tooltip-model';
-import type { TooltipController } from '../../shared/ui/tooltip';
 import type { ActivationEvent } from './result-activation';
 import type { OverlaySuggestion } from './types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
@@ -41,37 +37,13 @@ import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-heig
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 import type { ColorScheme } from '../../shared/ui/color-scheme';
-import type { PortalHost } from '../../shared/react/portal-host';
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayTabs } from './overlay-tabs';
+import type { createSessionCleanupRegistry } from '../lifecycle';
+import type { LastRender } from './last-render';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
-
-interface SuggestionsRenderState {
-  settings: Pick<OverlaySettings, 'get'>;
-  overlay: HTMLElement | null;
-  overlayStyleRoot: ShadowRoot | null;
-  searchInput: HTMLInputElement | null;
-  suggestionsContainer: HTMLElement | null;
-  // The panel's React root, made when it mounts.
-  overlayPortals: PortalHost | null;
-  inputModeController: Pick<InputModeController, 'isModeMenuVisible' | 'menuElement'> | null;
-  inputParts: Pick<InputModeParts, 'modeMenu'> | null;
-  overlaySuggestionsView: SuggestionsViewController | null;
-  // Made once the panel has mounted.
-  topActionTooltipController: Pick<TooltipController, 'show' | 'hide'> | null;
-  overlayCursorTooltipController: Pick<CursorTooltipController, 'bind'> | null;
-  // Dropping the selection puts back what the arrows wrote over.
-  suggestionInputPreview: Pick<SuggestionInputPreview, 'restore'>;
-  lastRenderedQuery: string;
-  lastRenderedActionContextKey: string;
-  tabs: OverlayTab[];
-  // The open tabs have been listed at least once.
-  overlayTabsCacheReady: boolean;
-  currentOverlayTabId: number | null;
-  loadingSessionTrackingActive: boolean;
-  defaultTheme: ThemeValue;
-  urlHighlightTheme: ThemeValue;
-}
 
 interface SuggestionsRenderDeps {
   suggestionModifiers: SuggestionModifiers;
@@ -127,7 +99,16 @@ interface SuggestionsRenderDeps {
   filterTabsForOverlay(tabs: OverlayTab[], query: string): OverlayTab[];
   shouldShowOpenTabsForEmptyQuery(): boolean;
   clearDefaultOpenTabsSuggestions(): void;
-  overlayState: SuggestionsRenderState;
+  settings: Pick<OverlaySettings, 'get'>;
+  // Dropping the selection puts back what the arrows wrote over.
+  suggestionInputPreview: Pick<SuggestionInputPreview, 'restore'>;
+  defaultTheme: ThemeValue;
+  urlHighlightTheme: ThemeValue;
+  elements: Pick<OverlayPanelElements, 'inputModeController' | 'inputParts' | 'overlay' | 'overlayPortals' | 'overlayStyleRoot' | 'searchInput' | 'suggestionsContainer' | 'topActionTooltip' | 'cursorTooltip'>;
+  overlayTabs: Pick<OverlayTabs, 'currentTabId' | 'ready' | 'received' | 'tabs'>;
+  isLoadingSessionTracked(): boolean;
+  overlaySessionCleanups: Pick<ReturnType<typeof createSessionCleanupRegistry>, 'add'>;
+  lastRender: LastRender;
 }
 
 // A row's provider is a full site search provider once it has its key, the
@@ -143,6 +124,15 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   const {
+    lastRender,
+    isLoadingSessionTracked,
+    overlaySessionCleanups,
+    overlayTabs,
+    elements,
+    urlHighlightTheme,
+    defaultTheme,
+    suggestionInputPreview,
+    settings,
     suggestionModifiers,
     colorScheme,
     modeActions,
@@ -195,10 +185,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     clearDefaultOpenTabsSuggestions
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
-
-
   // A tab's switch ranking, shown under it while score debugging is on.
   function formatTabRankDebugText(tab: OpenTabSuggestion & { _xTabFetchSeq?: number }): string {
     const scoreRaw = Number(tab && tab._xTabRankScore);
@@ -220,27 +206,27 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   let overlayTabsRequestInFlight = false;
   let overlayTabsRequestSeq = 0;
   const showTopActionTooltip = (button: HTMLElement, text: string): void => {
-    if (!button || !text || !overlayState.topActionTooltipController) {
+    if (!button || !text || !elements.topActionTooltip) {
       return;
     }
-    overlayState.topActionTooltipController.show(button, text, {
-      boundaryElement: overlayState.overlay,
+    elements.topActionTooltip.show(button, text, {
+      boundaryElement: elements.overlay,
       positionMode: 'absolute',
       maxWidth: 420
     });
   };
   const hideTopActionTooltip = (): void => {
-    if (overlayState.topActionTooltipController) {
-      overlayState.topActionTooltipController.hide();
+    if (elements.topActionTooltip) {
+      elements.topActionTooltip.hide();
     }
   };
 
   function readInputQuery(): string {
-    return overlayState.searchInput ? String(overlayState.searchInput.value || '').trim() : '';
+    return elements.searchInput ? String(elements.searchInput.value || '').trim() : '';
   }
 
   function getOverlaySuggestionRefreshQuery(): string {
-    return searchQuery.text || (overlayState.searchInput ? String(overlayState.searchInput.value || '').trim() : '');
+    return searchQuery.text || (elements.searchInput ? String(elements.searchInput.value || '').trim() : '');
   }
 
   function refreshOverlaySuggestionsAfterHistoryDelete(): void {
@@ -280,11 +266,11 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   function scrollSelectedSuggestionIntoView(direction: 'up' | 'down', didWrap: boolean): void {
-    if (!overlayState.suggestionsContainer || searchResults.selectedIndex < 0) {
+    if (!elements.suggestionsContainer || searchResults.selectedIndex < 0) {
       return;
     }
     const item = suggestionItems[searchResults.selectedIndex];
-    SUGGESTION_NAVIGATION.scrollItemIntoView(overlayState.suggestionsContainer, item, {
+    SUGGESTION_NAVIGATION.scrollItemIntoView(elements.suggestionsContainer, item, {
       direction,
       didWrap,
       inset: 8
@@ -293,7 +279,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
 
   // The open mode menu, which the results move with; null when closed.
   function getSearchPanelsLayoutTransitionMenu(): HTMLElement | null {
-    const controller = overlayState.inputModeController;
+    const controller = elements.inputModeController;
     if (!controller ||
         typeof controller.isModeMenuVisible !== 'function' ||
         !controller.isModeMenuVisible()) {
@@ -301,13 +287,13 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     }
     const menu = controller.menuElement
       ? controller.menuElement
-      : (overlayState.inputParts ? overlayState.inputParts.modeMenu : null);
+      : (elements.inputParts ? elements.inputParts.modeMenu : null);
     return menu && !menu.hidden ? menu : null;
   }
 
   function commitSuggestionsNaturalHeightAfterRender(): void {
     SUGGESTIONS_HEIGHT_LAYOUT.applyNaturalSuggestionsHeightLayout(
-      overlayState.suggestionsContainer
+      elements.suggestionsContainer
     );
     syncSearchModeMenuResultOffset();
   }
@@ -323,16 +309,16 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     if (!suggestion) {
       return;
     }
-    const input = overlayState.searchInput;
+    const input = elements.searchInput;
     const provider = isFullRowProvider(suggestion.provider) ? suggestion.provider : null;
     if (suggestion.type === 'commandNewTab') {
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openNewTab' });
-      removeOverlay(overlayState.overlay);
+      removeOverlay(elements.overlay);
       return;
     }
     if (suggestion.type === 'commandSettings') {
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openOptionsPage' });
-      removeOverlay(overlayState.overlay);
+      removeOverlay(elements.overlay);
       return;
     }
     if (suggestion.type === 'commandOpenTabs') {
@@ -348,12 +334,12 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     }
     if (suggestion.type === 'commandCopyUrl') {
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'copyCurrentPageUrl' });
-      removeOverlay(overlayState.overlay);
+      removeOverlay(elements.overlay);
       return;
     }
     if (suggestion.type === 'commandDocumentPip') {
       openDocumentPipPickerFromOverlay();
-      removeOverlay(overlayState.overlay);
+      removeOverlay(elements.overlay);
       return;
     }
     if (suggestion.type === 'siteSearchPrompt' && provider) {
@@ -451,12 +437,13 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     return resolver ? resolver.getPageFaviconRenderCandidates(url, explicitUrl, options) : {};
   }
 
-  // The view, made on first use.
+  // The view, made on first use; it goes with the session.
+  let suggestionsView: SuggestionsViewController | null = null;
   function ensureOverlaySuggestionsView(): SuggestionsViewController {
-    if (overlayState.overlaySuggestionsView) {
-      return overlayState.overlaySuggestionsView;
+    if (suggestionsView) {
+      return suggestionsView;
     }
-    const portals = overlayState.overlayPortals;
+    const portals = elements.overlayPortals;
     if (!portals) {
       throw new Error('The overlay panel has not mounted.');
     }
@@ -464,13 +451,13 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       surface: 'overlay',
       document,
       portals,
-      container: overlayState.suggestionsContainer,
+      container: elements.suggestionsContainer,
       items: suggestionItems,
       t,
       formatMessage,
       sanitizeDisplayText: SearchDirectNavigation.sanitizeDisplayText,
       formatTabRankDebugText,
-      isTabRankScoreDebugEnabled: () => overlayState.settings.get(tabRankScoreDebug),
+      isTabRankScoreDebugEnabled: () => settings.get(tabRankScoreDebug),
       shouldBlockFaviconForHost: shouldBlockOverlayFaviconForHost,
       isLocalNetworkHost,
       getChromeFaviconUrl,
@@ -478,7 +465,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       getPageFaviconRenderCandidates: getReactOverlayFaviconCandidates,
       getHostFromUrl,
       getUrlDisplay,
-      isSimpleModeEnabled: () => overlayState.settings.get(simpleModeEnabled),
+      isSimpleModeEnabled: () => settings.get(simpleModeEnabled),
       getThemeHostForSuggestion: (suggestion) => (
         suggestion && suggestion.url ? getHostFromUrl(suggestion.url) : ''
       ),
@@ -500,7 +487,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
         select: (nextIndex) => {
           searchResults.select(nextIndex);
           if (nextIndex < 0) {
-            overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
+            suggestionInputPreview.restore(elements.searchInput, searchQuery.raw);
           }
         }
       },
@@ -528,12 +515,12 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       showTopActionTooltip,
       hideTopActionTooltip,
       bindCursorTooltip: (target, getText, options) => (
-        overlayState.overlayCursorTooltipController && overlayState.overlayCursorTooltipController.bind(
+        elements.cursorTooltip && elements.cursorTooltip.bind(
           target,
           getText,
           Object.assign(
             {
-              boundaryElement: overlayState.overlay,
+              boundaryElement: elements.overlay,
               positionMode: 'absolute'
             },
             options || {}
@@ -541,7 +528,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
         )
       ),
       // Fixed in the overlay's shadow root, like the mode menu's tooltip, so it can sit beside the panel.
-      getHelpPassageHost: () => overlayState.overlayStyleRoot || document.body,
+      getHelpPassageHost: () => elements.overlayStyleRoot || document.body,
       getSearchActionLabel: () => t('action_search', '搜索'),
       getSiteSearchDisplayName: (provider) => getSiteSearchDisplayName(locale, provider),
       getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
@@ -549,24 +536,25 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       buildThemeFromAccent: (accent) => buildTheme(accent),
       actionModel: resultActivation.actionModel,
       shouldSwitchMatchedTabSuggestion,
-      defaultTheme: overlayState.defaultTheme,
-      urlHighlightTheme: overlayState.urlHighlightTheme,
+      defaultTheme: defaultTheme,
+      urlHighlightTheme: urlHighlightTheme,
       openTabSuggestionLimit: 1000,
       // Keep every visible row immediately keyboard-accessible. Rows below
       // the viewport hydrate during browser idle time; use smaller commits
       // while the host Document is still spending its own loading budget.
       openTabInitialRenderLimit: 10,
       getOpenTabInitialRenderLimit: () =>
-        normalizeSearchResultDisplayLimit(overlayState.settings.get(searchResultDisplayLimit)),
+        normalizeSearchResultDisplayLimit(settings.get(searchResultDisplayLimit)),
       openTabRenderBatchSize: 16,
       getOpenTabRenderBatchSize: () =>
-        overlayState.loadingSessionTrackingActive || document.readyState === 'loading'
+        isLoadingSessionTracked() || document.readyState === 'loading'
           ? 8
           : 16,
       enterAction: 'openNewTab',
       autoHighlightFirstTab: true
     });
-    overlayState.overlaySuggestionsView = view;
+    suggestionsView = view;
+    overlaySessionCleanups.add(() => view.destroy());
     return view;
   }
 
@@ -582,15 +570,14 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
 
   function renderTabSuggestions(tabList: OverlayTab[]): void {
     pauseOverlayAntiTranslateObserverForMutationBurst();
-    const container = overlayState.suggestionsContainer;
+    const container = elements.suggestionsContainer;
     if (container) {
       container.removeAttribute('data-scope-result-enter');
     }
     const reactView = ensureOverlaySuggestionsView();
     suggestionItems.length = 0;
     searchResults.show([]);
-    overlayState.lastRenderedQuery = '';
-    overlayState.lastRenderedActionContextKey = '';
+    lastRender.clear();
     const list = Array.isArray(tabList) ? tabList.slice() : [];
     setOpenTabsResultsViewport(true, list.length);
     if (list.length === 0) {
@@ -631,13 +618,13 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   }
 
   function renderCachedTabsForOverlay(filterQuery?: string): boolean {
-    if (!overlayState.overlayTabsCacheReady) {
+    if (!overlayTabs.ready) {
       return false;
     }
     const query = typeof filterQuery === 'string'
       ? filterQuery
       : readInputQuery();
-    renderTabSuggestions(filterTabsForOverlay(overlayState.tabs, query));
+    renderTabSuggestions(filterTabsForOverlay(overlayTabs.tabs, query));
     return true;
   }
 
@@ -662,8 +649,8 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       return;
     }
     const request: { action: 'getTabsForOverlay'; currentTabId?: number } = { action: 'getTabsForOverlay' };
-    if (typeof overlayState.currentOverlayTabId === 'number') {
-      request.currentTabId = overlayState.currentOverlayTabId;
+    if (typeof overlayTabs.currentTabId === 'number') {
+      request.currentTabId = overlayTabs.currentTabId;
     }
     overlayTabsRequestSeq += 1;
     const requestSeq = overlayTabsRequestSeq;
@@ -674,11 +661,9 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       }
       overlayTabsRequestInFlight = false;
       const freshTabs = response && Array.isArray(response.tabs) ? response.tabs : [];
-      overlayState.currentOverlayTabId = (response && typeof response.currentTabId === 'number')
+      overlayTabs.received(freshTabs, response && typeof response.currentTabId === 'number'
         ? response.currentTabId
-        : null;
-      overlayState.tabs = freshTabs;
-      overlayState.overlayTabsCacheReady = true;
+        : null);
       if (requestModeKey !== getOverlaySearchModeKey()) {
         return;
       }
@@ -705,4 +690,4 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
 }
 
 export { createSuggestionsRender };
-export type { SuggestionsRenderDeps, SuggestionsRenderState };
+export type { SuggestionsRenderDeps };

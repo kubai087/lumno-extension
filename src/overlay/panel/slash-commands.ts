@@ -1,13 +1,14 @@
 // Slash commands in the overlay: their definitions, matching what is
 // typed, the suggestion each builds, the theme mode command and the website
 // appearance command.
-import type { SearchInputParts } from '../../shared/react/search-input';
 import type { WebAppearanceMode } from '../../domain/messages';
 import { themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { OverlaySettings } from '../overlay-settings';
 import type { FormatMessage, Translate } from './types';
+import type { OverlayPanelElements } from './panel-elements';
+import type { OverlayThemeMode } from './overlay-theme-mode';
 
 type SlashCommandType =
   | 'commandNewTab'
@@ -45,15 +46,6 @@ interface WebAppearanceCommandState {
   mode: WebAppearanceMode;
 }
 
-interface SlashCommandsState {
-  documentPipEnabled: boolean;
-  // Shows the theme mode in its badge while a /mode or /appearance command is typed.
-  inputParts: Pick<SearchInputParts, 'setChrome'> | null;
-  overlayThemeMode: ThemeMode;
-  overlayMediaQuery: MediaQueryList;
-  searchInput: HTMLInputElement | null;
-}
-
 interface SlashCommandsDeps {
   t: Translate;
   formatMessage: FormatMessage;
@@ -63,11 +55,18 @@ interface SlashCommandsDeps {
   applyOverlayTheme(mode: ThemeMode): void;
   // Called with no rows: the list rebuilds from the typed command.
   updateSearchSuggestions(suggestions: never[], query: string): void;
-  overlayState: SlashCommandsState;
+  overlayMediaQuery: MediaQueryList;
+  elements: Pick<OverlayPanelElements, 'inputParts' | 'searchInput'>;
+  documentPipEnabledAtOpen: boolean;
+  overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
 }
 
 function createSlashCommands(deps: SlashCommandsDeps) {
   const {
+    overlayThemeChoice,
+    documentPipEnabledAtOpen,
+    elements,
+    overlayMediaQuery,
     t,
     formatMessage,
     updateInputRightPadding,
@@ -77,11 +76,16 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     updateSearchSuggestions
   } = deps;
 
-  // The panel state object shared with search-panel.ts and the other modules.
-  const overlayState = deps.overlayState;
   // Firefox's website appearance setting (the color scheme pages see), read
   // and switched through the background for the /appearance command.
   let webAppearanceState: WebAppearanceCommandState = { supported: false, mode: 'auto' };
+
+  // Whether the web clip command shows: supported, and on in the settings.
+  let documentPipEnabled = documentPipEnabledAtOpen;
+
+  function setDocumentPipEnabled(enabled: boolean): void {
+    documentPipEnabled = enabled;
+  }
 
   function getThemeModeLabel(mode: string): string {
     if (mode === 'dark') {
@@ -141,7 +145,7 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     for (let i = 0; i < commandDefinitions.length; i += 1) {
       const command = commandDefinitions[i];
       // The setting may sync from a browser that has Document PiP (Firefox has none).
-      if (command.requiresDocumentPipEnabled && !overlayState.documentPipEnabled) {
+      if (command.requiresDocumentPipEnabled && !documentPipEnabled) {
         continue;
       }
       // Only Firefox has a website appearance setting to switch.
@@ -229,9 +233,9 @@ function createSlashCommands(deps: SlashCommandsDeps) {
         mode: getWebAppearanceModeLabel(webAppearanceState.mode)
       });
     }
-    if (overlayState.overlayThemeMode !== 'system') {
+    if (overlayThemeChoice.mode !== 'system') {
       return formatMessage('mode_badge', '模式：{mode}', {
-        mode: getThemeModeLabel(overlayState.overlayThemeMode)
+        mode: getThemeModeLabel(overlayThemeChoice.mode)
       });
     }
     const pageTheme = detectPageTheme();
@@ -241,19 +245,19 @@ function createSlashCommands(deps: SlashCommandsDeps) {
       });
     }
     return formatMessage('mode_badge_follow_system', '模式：{mode}（跟随系统）', {
-      mode: getThemeModeLabel(overlayState.overlayMediaQuery.matches ? 'dark' : 'light')
+      mode: getThemeModeLabel(overlayMediaQuery.matches ? 'dark' : 'light')
     });
   }
 
   function updateModeBadge(rawValue: string): void {
-    if (!overlayState.inputParts) {
+    if (!elements.inputParts) {
       return;
     }
     const webAppearanceCommandActive = isWebAppearanceCommand(rawValue || '');
     if (isModeCommand(rawValue || '') || webAppearanceCommandActive) {
-      overlayState.inputParts.setChrome({ badgeVisible: true, badgeText: getModeBadgeText(webAppearanceCommandActive) });
+      elements.inputParts.setChrome({ badgeVisible: true, badgeText: getModeBadgeText(webAppearanceCommandActive) });
     } else {
-      overlayState.inputParts.setChrome({ badgeVisible: false });
+      elements.inputParts.setChrome({ badgeVisible: false });
     }
     updateInputRightPadding();
   }
@@ -273,7 +277,7 @@ function createSlashCommands(deps: SlashCommandsDeps) {
   }
 
   function buildModeSuggestion(): CommandSuggestion & { nextMode: ThemeMode } {
-    const nextMode = getNextThemeMode(overlayState.overlayThemeMode || 'system');
+    const nextMode = getNextThemeMode(overlayThemeChoice.mode || 'system');
     return {
       type: 'modeSwitch',
       title: formatMessage('mode_switch_title', `Lumno：切换到${getThemeModeLabel(nextMode)}模式`, {
@@ -292,7 +296,7 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     const nextMode = themeMode.parse(mode);
     void settings.set(themeMode, nextMode).catch(() => {});
     applyOverlayTheme(nextMode);
-    const input = overlayState.searchInput;
+    const input = elements.searchInput;
     if (input && isModeCommand(input.value || '')) {
       updateSearchSuggestions([], (input.value || '').trim());
     }
@@ -330,7 +334,7 @@ function createSlashCommands(deps: SlashCommandsDeps) {
   }
 
   function refreshWebAppearanceCommand(): void {
-    const rawValue = overlayState.searchInput ? (overlayState.searchInput.value || '') : '';
+    const rawValue = elements.searchInput ? (elements.searchInput.value || '') : '';
     updateModeBadge(rawValue);
     if (isSlashCommandInput(rawValue)) {
       updateSearchSuggestions([], rawValue.trim());
@@ -377,6 +381,7 @@ function createSlashCommands(deps: SlashCommandsDeps) {
   loadWebAppearanceState();
 
   return {
+    setDocumentPipEnabled,
     getCommandMatches,
     isSlashCommandInput,
     getCommandMatch,
@@ -392,4 +397,4 @@ function createSlashCommands(deps: SlashCommandsDeps) {
 }
 
 export { createSlashCommands };
-export type { CommandSuggestion, SlashCommand, SlashCommandsDeps, SlashCommandsState };
+export type { CommandSuggestion, SlashCommand, SlashCommandsDeps };

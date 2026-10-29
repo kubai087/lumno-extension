@@ -34,6 +34,11 @@ import * as PANEL_RESULTS_LAYOUT from './panel/results-layout';
 import * as PANEL_SEARCH_INPUT_EVENTS from './panel/search-input-events';
 import * as PANEL_SEARCH_MODES from './panel/search-modes';
 import * as PANEL_SETTINGS_SYNC from './panel/settings-sync';
+import { OverlayPanelElements } from './panel/panel-elements';
+import { OverlayTabs } from './panel/overlay-tabs';
+import { OverlayNotices } from './panel/overlay-notices';
+import { LastRender } from './panel/last-render';
+import { OverlayThemeMode } from './panel/overlay-theme-mode';
 import * as PANEL_SITE_SEARCH_PROVIDERS from './panel/site-search-providers';
 import * as PANEL_SLASH_COMMANDS from './panel/slash-commands';
 import * as PANEL_SUGGESTION_SOURCES from './panel/suggestion-sources';
@@ -41,7 +46,6 @@ import * as PANEL_SUGGESTION_THEMES from './panel/suggestion-themes';
 import * as PANEL_SUGGESTIONS_RENDER from './panel/suggestions-render';
 import * as PANEL_TAB_MATCHING from './panel/tab-matching';
 import * as OVERLAY_CONTEXT from './overlay-context';
-import * as OVERLAY_STATE from './overlay-state';
 import { TAB_SWITCHER_HOST_ID } from '../shared/tab-switcher/host';
 import type { OverlaySizePreset } from './lifecycle';
 import type { ThemeMode } from '../domain/settings/appearance';
@@ -129,45 +133,42 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   }));
   void siteSearchIconCache.load();
 
-  // Panel state shared with the parts of this panel in overlay/panel/: each
-  // receives this one object as `overlayState` and reads and writes the same
-  // properties this function does.
-  const overlayState = OVERLAY_STATE.createOverlayState({
-    settings: createOverlaySettings(chrome),
-    // Teardown steps owned by this invocation's overlay session. Controllers
-    // created deep inside the mount block register here so removeOverlay can
-    // release them without stashing them on DOM expandos.
-    overlaySessionCleanups: overlayLifecycle.createSessionCleanupRegistry(),
-    overlayNoticeLayer: OVERLAY_NOTICES.createNoticeLayer(window, {
-      getUpdateNotice: () => overlayState.overlayUpdateNoticeController,
-      getGraphicsNotice: () => overlayState.overlayGraphicsNoticeController,
-      getEngagementNotice: () => overlayState.overlayEngagementNoticeController,
-      getSizePreset: () => getOverlaySizePreset(overlayState.settings.get(overlaySizeMode)),
-      decorate: (element) => applyNoTranslateDeep(element)
-    }),
-    overlayViewportSizeSync: overlayLifecycle.createViewportSizeSync(window, {
-      getSizePreset: () => getOverlaySizePreset(overlayState.settings.get(overlaySizeMode)),
-      getRequestedTabZoomFactor: () => requestedTabZoomFactor,
-      shouldIgnoreTabZoomCompensation: () => shouldIgnoreTabZoomCompensation
-    }),
-    imeKeyGuard: LumnoImeKeyGuard.createImeKeyGuard(),
-    suggestionInputPreview: SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview(),
-    overlayMediaQuery: window.matchMedia('(prefers-color-scheme: dark)'),
-    defaultTheme: createDefaultTheme(),
-    urlHighlightTheme: createUrlHighlightTheme(),
-    prioritizeCurrentPageMatch: openOptions.prioritizeCurrentPageMatch,
-    currentTabPinned: openOptions.currentTabPinned,
-    initialContextTabUrl: openOptions.currentTabUrl,
-    loadingSessionTrackingActive: openOptions.loadingSessionTracked,
-    documentPipEnabled: documentPipSupported && openOptions.documentPipEnabled,
-    tabs: initialOverlayTabs,
-    currentOverlayTabId: initialContextTabId
+  // The session's parts that hold what it shows and lists.
+  const elements = new OverlayPanelElements();
+  const notices = new OverlayNotices();
+  const overlayTabs = new OverlayTabs(initialOverlayTabs, initialContextTabId);
+  const lastRender = new LastRender();
+  const overlayThemeChoice = new OverlayThemeMode();
+  const settings = createOverlaySettings(chrome);
+  // Teardown steps owned by this invocation's overlay session. Controllers
+  // created deep inside the mount block register here so removeOverlay can
+  // release them without stashing them on DOM expandos.
+  const overlaySessionCleanups = overlayLifecycle.createSessionCleanupRegistry();
+  const overlayNoticeLayer = OVERLAY_NOTICES.createNoticeLayer(window, {
+    getUpdateNotice: () => notices.update,
+    getGraphicsNotice: () => notices.graphics,
+    getEngagementNotice: () => notices.engagement,
+    getSizePreset: () => getOverlaySizePreset(settings.get(overlaySizeMode)),
+    decorate: (element) => applyNoTranslateDeep(element)
   });
+  const overlayViewportSizeSync = overlayLifecycle.createViewportSizeSync(window, {
+    getSizePreset: () => getOverlaySizePreset(settings.get(overlaySizeMode)),
+    getRequestedTabZoomFactor: () => requestedTabZoomFactor,
+    shouldIgnoreTabZoomCompensation: () => shouldIgnoreTabZoomCompensation
+  });
+  const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
+  const suggestionInputPreview = SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview();
+  const overlayMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const defaultTheme = createDefaultTheme();
+  const urlHighlightTheme = createUrlHighlightTheme();
+  const prioritizeCurrentPageMatch = openOptions.prioritizeCurrentPageMatch;
+  const currentTabPinned = openOptions.currentTabPinned;
+  const initialContextTabUrl = openOptions.currentTabUrl;
   // They follow storage only once the panel mounts, below.
-  const locale = new SurfaceLocale(overlayState.settings.store, loadExtensionLocaleMessages);
+  const locale = new SurfaceLocale(settings.store, loadExtensionLocaleMessages);
   const { t, formatMessage } = locale;
   const searchQuery = new SearchQuery();
-  const suggestionModifiers = new SuggestionModifiers(overlayState.settings.store);
+  const suggestionModifiers = new SuggestionModifiers(settings.store);
   const colorScheme = createColorScheme();
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
@@ -178,45 +179,45 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // The mode menu's moves can be undone for as long as the page lives,
   // across panel openings.
   if (!pageMenuOrder) {
-    pageMenuOrder = new SearchModeMenuOrder(overlayState.settings.store);
+    pageMenuOrder = new SearchModeMenuOrder(settings.store);
   }
   const menuOrder = pageMenuOrder;
   const searchMatching = new SearchMatching({
-    settings: overlayState.settings.store,
+    settings: settings.store,
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
   const searchResults = new SearchResults<OverlaySuggestion>();
   const suggestionSource = new SuggestionSource(searchQuery, searchResults);
   const searchMode = new SearchMode<InputModeProvider>();
   const searchAutocomplete = new SearchAutocomplete({
-    settings: overlayState.settings.store,
+    settings: settings.store,
     query: searchQuery,
-    getInput: () => overlayState.searchInput,
-    preview: overlayState.suggestionInputPreview,
+    getInput: () => elements.searchInput,
+    preview: suggestionInputPreview,
     isModeActive: () => Boolean(searchMode.site || searchMode.local),
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
   const modeActions = new SearchModeActions<InputModeProvider>({
-    settings: overlayState.settings.store,
+    settings: settings.store,
     locale,
     mode: searchMode,
     query: searchQuery,
     autocomplete: searchAutocomplete,
     surface: {
-      getInput: () => overlayState.searchInput,
-      getModeController: () => overlayState.inputModeController,
-      defaultTheme: overlayState.defaultTheme,
-      getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || overlayState.defaultTheme,
+      getInput: () => elements.searchInput,
+      getModeController: () => elements.inputModeController,
+      defaultTheme: defaultTheme,
+      getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || defaultTheme,
       getThemeForProvider: (provider) => getThemeForProvider(provider),
       cancelRequests: () => cancelPendingOverlaySuggestionRequests(),
       clearResults: () => clearSearchSuggestions(),
       beforeEnterSite: () => cancelPendingOpenTabsPrefixEntry()
     }
   });
-  const searchEngine = new DefaultSearchEngine(overlayState.settings.store);
-  const siteSearchCatalog = new SiteSearchCatalog(overlayState.settings.store, searchEngine, openOptions.siteSearchProviders);
+  const searchEngine = new DefaultSearchEngine(settings.store);
+  const siteSearchCatalog = new SiteSearchCatalog(settings.store, searchEngine, openOptions.siteSearchProviders);
   const modeMenu = new SearchModeMenu({
-    settings: overlayState.settings.store,
+    settings: settings.store,
     locale,
     catalog: siteSearchCatalog,
     engine: searchEngine,
@@ -225,10 +226,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     mode: searchMode,
     actions: modeActions,
     surface: {
-      getInput: () => overlayState.searchInput,
-      getModeController: () => overlayState.inputModeController,
+      getInput: () => elements.searchInput,
+      getModeController: () => elements.inputModeController,
       getPageProvider: (providers) => SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
-        overlayState.initialContextTabUrl,
+        initialContextTabUrl,
         providers
       ),
       beforeDoubleTab: () => {
@@ -280,8 +281,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isFaviconProxyUrl,
     isChromeMonogramFaviconUrl
   } = PANEL_FAVICON_POLICY.createFaviconPolicy({
-    logOverlayFaviconDecision,
-    overlayState
+    settings,
+    logOverlayFaviconDecision
   });
 
   const faviconRuntime = LumnoOverlayFaviconView.createOverlayFaviconViewRuntime({
@@ -304,21 +305,21 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     faviconDataCache,
     faviconDataPending,
     iconPreloadCache,
-    getOverlayPanel: () => overlayState.overlay,
-    getSuggestionRowsRoot: () => overlayState.suggestionsContainer,
+    getOverlayPanel: () => elements.overlay,
+    getSuggestionRowsRoot: () => elements.suggestionsContainer,
     rerenderReplacedFaviconRows,
     hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
   });
   function cancelPendingOverlaySuggestionRequests() {
     suggestionSource.cancel();
-    if (overlayState.overlayFirstResultRevealTimer) {
-      clearTimeout(overlayState.overlayFirstResultRevealTimer);
-      overlayState.overlayFirstResultRevealTimer = null;
-    }
+    clearFirstResultRevealTimer();
   }
 
   const {
-    getOrCreateOverlayContextToken,
+    attachKeyRouter,
+    attachRevealGate,
+    isLoadingSessionTracked,
+    replayWithoutLoadingNotification,
     getOverlayMountHost,
     setOverlayStoredContextToken,
     setOverlayMountVisibility,
@@ -329,28 +330,31 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     closeOverlayWithMotion,
     destroyExistingOverlaySession
   } = PANEL_PANEL_SESSION.createPanelSession({
+    notices,
+    elements,
+    loadingSessionTrackingActive: openOptions.loadingSessionTracked,
+    overlayViewportSizeSync,
+    overlayNoticeLayer,
+    overlaySessionCleanups,
+    settings,
     pauseOverlayAntiTranslateObserverForScroll: (...args) => pauseOverlayAntiTranslateObserverForScroll(...args),
     clearOverlayEnterAnimationFrames: (...args) => clearOverlayEnterAnimationFrames(...args),
     clearOverlayPanelEnterCleanup: (...args) => clearOverlayPanelEnterCleanup(...args),
     cancelPendingOverlaySuggestionRequests,
     stopOverlayAntiTranslateObserver: (...args) => stopOverlayAntiTranslateObserver(...args),
     overlayShell,
-    stopOverlayPageThemeObserver,
-    overlayLifecycle,
-    overlayState
+    overlayLifecycle
   });
   const {
     resultActivation,
     finishOverlayResultActivation,
     getOpenDisposition
   } = PANEL_RESULT_ACTIVATION.createResultActivation({
-    removeOverlay,
-    overlayState
+    elements,
+    currentTabPinned,
+    settings,
+    removeOverlay
   });
-
-
-  overlayState.overlayContextToken = getOrCreateOverlayContextToken();
-
 
   const {
     getUrlDisplay,
@@ -358,11 +362,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getMatchedOpenTabIdForSuggestion,
     isCurrentOverlayTabUrl
   } = PANEL_TAB_MATCHING.createTabMatching({
-    overlayState
+    overlayTabs,
+    initialContextTabUrl,
+    prioritizeCurrentPageMatch
   });
-
-
-
 
   const suggestionItems: SuggestionElement[] = [];
 
@@ -374,19 +377,19 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       ), false, { duration: 0 });
     },
     onHoldEnd: () => hideOverlayToast(),
-    instantActive: () => overlayState.settings.get(numberShortcutInstantEnabled)
+    instantActive: () => settings.get(numberShortcutInstantEnabled)
   };
 
-
-
+  // Follows the system's scheme while the theme follows the system.
+  let overlayThemeMediaListener: (() => void) | null = null;
   const applyOverlayTheme = (mode: ThemeMode): void => {
-    overlayState.overlayThemeMode = mode;
-    const previousResolvedTheme = overlayState.overlay ? overlayState.overlay.getAttribute('data-theme') : '';
+    overlayThemeChoice.set(mode);
+    const previousResolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
     applyOverlayThemeVariables(mode);
-    overlayState.overlayNoticeLayer.sync(overlayState.overlay);
-    const nextResolvedTheme = overlayState.overlay ? overlayState.overlay.getAttribute('data-theme') : '';
+    overlayNoticeLayer.sync(elements.overlay);
+    const nextResolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
     colorScheme.setState({ dark: nextResolvedTheme === 'dark' });
-    updateModeBadge(overlayState.searchInput ? overlayState.searchInput.value : '');
+    updateModeBadge(elements.searchInput ? elements.searchInput.value : '');
     if (previousResolvedTheme !== nextResolvedTheme) {
       refreshOverlayThemeAwareFavicons();
     }
@@ -395,9 +398,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
     syncOverlayPageThemeObservation();
     if (mode === 'system') {
-      if (!overlayState.overlayThemeMediaListener) {
+      if (!overlayThemeMediaListener) {
         const listener = () => {
-          if (overlayState.overlayThemeMode === 'system') {
+          if (overlayThemeChoice.mode === 'system') {
             // Re-apply in full: updating only the panel's variables would leave
             // the rows on the previous scheme's colors.
             // A page that follows the system theme may have switched too.
@@ -405,16 +408,20 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
             applyOverlayTheme('system');
           }
         };
-        overlayState.overlayThemeMediaListener = listener;
-        overlayState.overlayMediaQuery.addEventListener('change', listener);
+        overlayThemeMediaListener = listener;
+        overlayMediaQuery.addEventListener('change', listener);
       }
       return;
     }
-    if (overlayState.overlayThemeMediaListener) {
-      overlayState.overlayMediaQuery.removeEventListener('change', overlayState.overlayThemeMediaListener);
-      overlayState.overlayThemeMediaListener = null;
-    }
+    stopFollowingSystemTheme();
   };
+
+  function stopFollowingSystemTheme(): void {
+    if (overlayThemeMediaListener) {
+      overlayMediaQuery.removeEventListener('change', overlayThemeMediaListener);
+      overlayThemeMediaListener = null;
+    }
+  }
 
   const {
     quickNavigation,
@@ -423,6 +430,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    overlayThemeChoice,
+    lastRender,
+    overlayTabs,
+    elements,
+    prioritizeCurrentPageMatch,
+    settings,
     siteSearchRunner,
     searchMatching,
     searchResults,
@@ -463,22 +476,24 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     cancelPendingOverlaySuggestionRequests,
     shouldShowOpenTabsForEmptyQuery: (...args) => shouldShowOpenTabsForEmptyQuery(...args),
     requestTabsAndRender: (...args) => requestTabsAndRender(...args),
-    clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args),
-    overlayState
+    clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args)
   });
 
   const {
+    clearFirstResultRevealTimer,
     updatePendingSearchSuggestions,
     requestOverlaySearchSuggestions
   } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
+    lastRender,
+    elements,
+    settings,
     suggestionSource,
     searchResults,
     searchMode,
     searchQuery,
     updateSearchSuggestions,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    getDirectUrlSuggestion,
-    overlayState
+    getDirectUrlSuggestion
   });
 
   const {
@@ -492,6 +507,15 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     renderCachedTabsOrRequest,
     requestTabsAndRender
   } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    lastRender,
+    isLoadingSessionTracked,
+    overlaySessionCleanups,
+    overlayTabs,
+    elements,
+    urlHighlightTheme,
+    defaultTheme,
+    suggestionInputPreview,
+    settings,
     suggestionModifiers,
     colorScheme,
     modeActions,
@@ -541,11 +565,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setOverlayResultsCollapsed: (...args) => setOverlayResultsCollapsed(...args),
     filterTabsForOverlay,
     shouldShowOpenTabsForEmptyQuery: (...args) => shouldShowOpenTabsForEmptyQuery(...args),
-    clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args),
-    overlayState
+    clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args)
   });
 
   const {
+    isApplyingInputHistory,
     handleTabKey,
     handleSearchInputKeydown,
     shouldSwitchMatchedTabSuggestion,
@@ -554,6 +578,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleOverlayKeyup,
     isSearchInputActive
   } = PANEL_PANEL_KEYS.createPanelKeys({
+    overlayThemeChoice,
+    overlayTabs,
+    elements,
+    prioritizeCurrentPageMatch,
+    suggestionInputPreview,
+    settings,
     suggestionModifiers,
     modeActions,
     searchMatching,
@@ -586,8 +616,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     resultActivation,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     updateSearchSuggestions,
-    quickNavigation,
-    overlayState
+    quickNavigation
   });
 
   const {
@@ -598,6 +627,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     handleSearchInputCompositionEnd,
     handleSearchInputEvent
   } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    isApplyingInputHistory,
+    notices,
+    elements,
+    suggestionInputPreview,
+    imeKeyGuard,
     searchMatching,
     locale,
     searchResults,
@@ -617,8 +651,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getDirectUrlSuggestion,
     updatePendingSearchSuggestions,
     requestOverlaySearchSuggestions,
-    clearSearchSuggestions,
-    overlayState
+    clearSearchSuggestions
   });
 
   const {
@@ -626,6 +659,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     activateOpenTabsSearchMode,
     clearOpenTabsSearchMode
   } = PANEL_SEARCH_MODES.createSearchModes({
+    elements,
+    defaultTheme,
     modeActions,
     searchMode,
     searchAutocomplete,
@@ -637,11 +672,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     requestTabsAndRender,
     isSlashCommandInput: (...args) => isSlashCommandInput(...args),
     updateSearchSuggestions,
-    requestOverlaySearchSuggestions,
-    overlayState
+    requestOverlaySearchSuggestions
   });
-
-
 
   const {
     openSiteSearchProviderQuery,
@@ -659,7 +691,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const overlaySiteFixes = LumnoOverlaySiteFixes;
-  const addOverlaySessionCleanup = overlayState.overlaySessionCleanups.add;
+  const addOverlaySessionCleanup = overlaySessionCleanups.add;
+  addOverlaySessionCleanup(stopFollowingSystemTheme);
   const overlayFrameTracker = overlayLifecycle.createFrameTracker(window);
 
   const {
@@ -672,9 +705,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     playOverlayPanelEnterAnimation,
     clearOverlayEnterAnimationFrames
   } = PANEL_ENTRY_MOTION.createEntryMotion({
+    settings,
     initialOverlayOpenStartedAt,
-    overlayFrameTracker,
-    overlayState
+    overlayFrameTracker
   });
 
   const overlayAntiTranslateGuard = overlayLifecycle.createAntiTranslateGuard(window, {
@@ -706,20 +739,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const EXTERNAL_LINK_ICON_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/external-link-icon.css');
   const OVERLAY_SUGGESTIONS_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/overlay/suggestions-view.css');
 
-  function stopOverlayPageThemeObserver() {
-    if (overlayState.overlayPageThemeObserver) {
-      overlayState.overlayPageThemeObserver.stop();
-    }
-  }
-
   const setInputScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
     if (!element) {
       return;
     }
     element.style.setProperty(property, value);
   };
-
-
 
   const {
     getHighlightColors,
@@ -733,10 +758,14 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getHoverColors,
     getNeutralHoverActionColors
   } = PANEL_PANEL_THEME.createPanelTheme({
+    overlayThemeChoice,
+    overlaySessionCleanups,
+    elements,
+    defaultTheme,
+    overlayMediaQuery,
+    settings,
     parseCssColor,
-    stopOverlayPageThemeObserver,
-    applyOverlayTheme,
-    overlayState
+    applyOverlayTheme
   });
 
   const {
@@ -749,6 +778,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyMarkVariables,
     preloadThemeFromFavicon
   } = PANEL_SUGGESTION_THEMES.createSuggestionThemes({
+    defaultTheme,
     favicons: faviconRuntime,
     getHostFromUrl,
     isFaviconProxyUrl,
@@ -760,12 +790,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     shouldBlockOverlayFaviconForHost,
     faviconDataCache,
     getProviderIcon,
-    getThemeForMode,
-    overlayState
+    getThemeForMode
   });
   faviconRuntime.onFaviconData(preloadThemeFromFavicon);
 
   const {
+    setDocumentPipEnabled,
     getCommandMatches,
     isSlashCommandInput,
     getCommandMatch,
@@ -778,14 +808,17 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     applyWebAppearanceMode,
     applyNextWebAppearanceMode
   } = PANEL_SLASH_COMMANDS.createSlashCommands({
+    overlayThemeChoice,
+    documentPipEnabledAtOpen: documentPipSupported && openOptions.documentPipEnabled,
+    elements,
+    overlayMediaQuery,
     t: (...args) => t(...args),
     formatMessage: (...args) => formatMessage(...args),
     updateInputRightPadding: (...args) => updateInputRightPadding(...args),
     detectPageTheme,
-    settings: overlayState.settings,
+    settings: settings,
     applyOverlayTheme,
-    updateSearchSuggestions,
-    overlayState
+    updateSearchSuggestions
   });
 
   const {
@@ -799,19 +832,25 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     setSiteSearchTabHint,
     clearSiteSearchTabHint
   } = PANEL_RESULTS_LAYOUT.createResultsLayout({
+    lastRender,
+    elements,
+    settings,
     searchResults,
     searchMode,
     normalizeSearchResultDisplayLimit,
     setInputScopedStyle,
     ensureOverlaySuggestionsView,
-    suggestionItems,
-    overlayState
+    suggestionItems
   });
 
   const {
+    getDefaultPlaceholderText,
     applyOverlayCjkFontFace,
     applyLanguageStrings
   } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
+    notices,
+    elements,
+    defaultTheme,
     modeActions,
     searchResults,
     searchMode,
@@ -821,8 +860,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getThemeForProvider,
     updateSearchSuggestions,
     requestTabsAndRender,
-    applyInputActionLabels: () => applyInputActionLabels(),
-    overlayState
+    applyInputActionLabels: () => applyInputActionLabels()
   });
   // The search icon opens the scope panel, except while a scope is set.
   let searchScopeIconEnabled = true;
@@ -855,33 +893,33 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // and content scale.
   function getOverlaySizePreset(mode: unknown): OverlaySizePreset {
     const preset = SETTINGS.getOverlaySizePreset(mode);
-    const customWidth = SETTINGS.overlayWidth.parse(overlayState.settings.get(overlayWidth));
+    const customWidth = SETTINGS.overlayWidth.parse(settings.get(overlayWidth));
     return customWidth ? { ...preset, width: customWidth } : preset;
   }
 
   function startOverlayViewportSizeSync(overlayElement: HTMLElement): void {
-    overlayState.overlayViewportSizeSync.start(overlayElement);
-    overlayState.overlayNoticeLayer.sync(overlayElement);
+    overlayViewportSizeSync.start(overlayElement);
+    overlayNoticeLayer.sync(overlayElement);
   }
 
   // Check if the overlay already exists
-  overlayState.overlay = overlayShell.findOverlayPanel(document, {
+  elements.holdExisting(overlayShell.findOverlayPanel(document, {
     hostId: OVERLAY_HOST_ID,
     id: OVERLAY_PANEL_ID
-  });
+  }));
 
-  if (overlayState.overlay) {
+  if (elements.overlay) {
     // A press while the overlay is still playing its exit reopens it: the
     // closing session is dropped at once and a fresh one mounts below.
     const shouldReplaceClosingOverlay =
-      overlayState.overlay.getAttribute('data-lumno-overlay-exit') === 'running';
+      elements.overlay.getAttribute('data-lumno-overlay-exit') === 'running';
     const shouldReplaceExistingOverlay = shouldReplaceClosingOverlay ||
-      isStaleOverlay(overlayState.overlay);
+      isStaleOverlay(elements.overlay);
     if (ensureOverlayOpen && !shouldReplaceExistingOverlay) {
       setOverlayOpenState(true);
       return;
     }
-    destroyExistingOverlaySession(overlayState.overlay, {
+    destroyExistingOverlaySession(elements.overlay, {
       preserveLoadingIntent: shouldReplaceExistingOverlay,
       animateExit: !shouldReplaceExistingOverlay
     });
@@ -900,7 +938,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // page after them pays for a full style and layout pass.
   detectPageTheme();
   ensureOverlayFontFaces();
-  const initialOverlaySizePreset = getOverlaySizePreset(overlayState.settings.get(overlaySizeMode));
+  const initialOverlaySizePreset = getOverlaySizePreset(settings.get(overlaySizeMode));
   const overlayMount = overlayShell.createOverlayMount(document, {
     hostId: OVERLAY_HOST_ID,
     id: OVERLAY_PANEL_ID,
@@ -919,21 +957,18 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     console.warn('Lumno: overlay mount could not be created.');
     return;
   }
-  overlayState.overlay = overlayMount.panel;
-  overlayState.overlayPanelView = overlayMount.view;
-  overlayState.overlayPortals = overlayMount.portals;
+  elements.mountShell(overlayMount);
   const overlayHost = overlayMount.host;
   // The panel's shadow root, which holds its styles.
   const overlayStyleRoot = overlayMount.root;
-  overlayState.overlayStyleRoot = overlayStyleRoot;
-  setOverlayStoredContextToken(overlayState.overlay);
+  setOverlayStoredContextToken(elements.overlay);
   addOverlaySessionCleanup(overlayLifecycle.onSessionDestroyRequest(overlayHost, (options) => {
-    if (options.animateExit === true) closeOverlayWithMotion(overlayState.overlay);
-    else removeOverlay(overlayState.overlay, options);
+    if (options.animateExit === true) closeOverlayWithMotion(elements.overlay);
+    else removeOverlay(elements.overlay, options);
   }));
-  overlayState.overlay.classList.add('x-lumno-search-entry');
+  overlayMount.panel.classList.add('x-lumno-search-entry');
   setOverlayMountVisibility(overlayHost, true);
-  applyNoTranslate(overlayState.overlay);
+  applyNoTranslate(elements.overlay);
 
   overlayShell.appendOverlayStyleNodes(document, {
     root: overlayStyleRoot,
@@ -985,10 +1020,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     t
   });
 
-  overlayState.overlayRevealGate = overlaySiteFixes.createOverlayRevealGate(window, {
-    overlay: overlayState.overlay,
+  const overlayRevealGate = overlaySiteFixes.createOverlayRevealGate(window, {
+    overlay: overlayMount.panel,
     styleRoot: overlayStyleRoot
   });
+  attachRevealGate(overlayRevealGate);
 
   // The first messages are in before the panel's copy is drawn; later
   // changes redraw it.
@@ -1000,7 +1036,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     portals: overlayMount.portals,
     container: overlayMount.inputContainer,
     styleRoot: overlayStyleRoot,
-    placeholder: t('overlay_search_placeholder', t('search_placeholder', overlayState.defaultPlaceholderText)),
+    placeholder: t('overlay_search_placeholder', t('search_placeholder', getDefaultPlaceholderText())),
     inputId: '_x_extension_search_input_2024_unique_',
     iconId: '_x_extension_search_icon_2024_unique_',
     containerId: '_x_extension_input_container_2024_unique_',
@@ -1056,56 +1092,52 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     },
     showUnderlineWhenEmpty: true
   });
-  overlayState.inputParts = inputParts;
-  overlayState.searchInput = inputParts.input;
-  applyOverlayInputExtensionIsolation(overlayState.searchInput);
-  overlayState.inputContainer = overlayState.inputParts.container;
+  elements.mountInput(inputParts, SEARCH_INPUT_HISTORY.createSearchInputHistoryController({
+    storage: createSettingPort(settings.store, searchInputHistory)
+  }));
+  applyOverlayInputExtensionIsolation(inputParts.input);
   const rightIcon = inputParts.rightIcon;
-  overlayState.inputHistoryController =
-    SEARCH_INPUT_HISTORY.createSearchInputHistoryController({
-      storage: createSettingPort(overlayState.settings.store, searchInputHistory)
-    });
 
   const {
     openOverlayCommunityQrDialog
   } = PANEL_PANEL_NOTICES.createPanelNotices({
+    notices,
+    elements,
     portals: overlayMount.portals,
     removeOverlay,
     t,
     getOpenDisposition,
-    locale,
-    overlayState
+    locale
   });
 
-  applyNoTranslate(overlayState.searchInput);
-  applyNoTranslate(overlayState.inputContainer);
+  applyNoTranslate(elements.searchInput);
+  applyNoTranslate(elements.inputContainer);
   applyNoTranslate(rightIcon);
   const topActionTooltipController = LumnoTooltip.createController({
     portals: overlayMount.portals,
     documentObj: document,
     windowObj: window,
     id: '_x_extension_top_action_tooltip_2026_unique_',
-    appendTo: overlayState.overlay,
-    boundaryElement: overlayState.overlay,
+    appendTo: elements.overlay,
+    boundaryElement: elements.overlay,
     positionMode: 'absolute',
     maxWidth: 420,
     decorateElement: applyNoTranslate
   });
-  overlayState.topActionTooltipController = topActionTooltipController;
   const overlayCursorTooltipController = LumnoCursorTooltip.createController({
     portals: overlayMount.portals,
     documentObj: document,
     windowObj: window,
     id: '_x_extension_overlay_cursor_tooltip_2026_unique_',
-    appendTo: overlayState.overlay,
-    boundaryElement: overlayState.overlay,
+    appendTo: elements.overlay,
+    boundaryElement: elements.overlay,
     positionMode: 'absolute',
     maxWidth: 520,
     offsetX: 14,
     offsetY: 16,
     decorateElement: applyNoTranslate
   });
-  overlayState.overlayCursorTooltipController = overlayCursorTooltipController;
+  elements.mountTooltips(topActionTooltipController, overlayCursorTooltipController);
   const overlayModeMenuCursorTooltipController = LumnoCursorTooltip.createController({
     portals: overlayMount.portals,
     documentObj: document,
@@ -1131,12 +1163,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       return;
     }
     overlayCursorTooltipController.bind(button, getText, {
-      boundaryElement: overlayState.overlay,
+      boundaryElement: elements.overlay,
       positionMode: 'absolute',
       maxWidth: 420,
       deferHideVisibility: true,
       preserveVisibleOnTargetSwitch: true,
-      handoffRoot: overlayState.inputContainer
+      handoffRoot: elements.inputContainer
     });
   };
   const hideInputActionCursorTooltip = () => {
@@ -1146,15 +1178,14 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   inputParts.setChrome({
     tooltip: { bind: bindInputActionCursorTooltip, hide: hideInputActionCursorTooltip }
   });
-  overlayState.modeBadge = overlayState.inputParts.modeBadge;
 
   const suggestionsContainer = overlayMount.suggestionsContainer;
-  overlayState.suggestionsContainer = suggestionsContainer;
+  elements.mountResults(suggestionsContainer);
   applyNoTranslate(suggestionsContainer);
   suggestionsContainer.addEventListener('wheel', function(event) {
     SUGGESTION_NAVIGATION.preventNumberShortcutWheel(event, suggestionsContainer);
   }, { passive: false });
-  overlayState.overlay.addEventListener('pointerdown', function() {
+  overlayMount.panel.addEventListener('pointerdown', function() {
     SUGGESTION_NAVIGATION.cancelNumberShortcuts(suggestionsContainer);
   }, true);
   suggestionsContainer.addEventListener('animationend', (event) => {
@@ -1163,11 +1194,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
     suggestionsContainer.setAttribute('data-scope-result-enter', 'done');
   });
-  overlayState.overlayWheelIsolationHandler = createOverlayWheelIsolationHandler(overlayState.overlay);
-  overlayState.overlay.addEventListener('wheel', overlayState.overlayWheelIsolationHandler, { passive: false, capture: true });
+  const wheelIsolationHandler = createOverlayWheelIsolationHandler(overlayMount.panel);
+  overlayMount.panel.addEventListener('wheel', wheelIsolationHandler, { passive: false, capture: true });
+  addOverlaySessionCleanup(() => overlayMount.panel.removeEventListener('wheel', wheelIsolationHandler, true));
 
   initialLanguageReady.then(() => {
-    if (overlayState.overlay && overlayState.overlay.isConnected) {
+    if (elements.overlay && elements.overlay.isConnected) {
       applyLanguageStrings({ refreshResults: false });
     }
     let shownMessages = locale.store.getSnapshot().messages;
@@ -1182,8 +1214,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   function activateSearchScopeIcon(): void {
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.resetModeMenuDoubleTab();
+    if (elements.inputModeController) {
+      elements.inputModeController.resetModeMenuDoubleTab();
     }
     void modeMenu.openFromDoubleTab();
   }
@@ -1196,10 +1228,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   }
   // The input's buttons' names and tooltips in the current language.
   function applyInputActionLabels(): void {
-    if (!overlayState.inputParts) {
+    if (!elements.inputParts) {
       return;
     }
-    overlayState.inputParts.setChrome({
+    elements.inputParts.setChrome({
       rightIconLabel: formatMessage('command_settings', '打开设置', { name: 'Lumno' }),
       secondaryLabel: t('overlay_close_other_tabs_tooltip', '关闭其他标签页'),
       clearLabel: t('search_input_clear', '清空'),
@@ -1217,13 +1249,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       event.preventDefault();
       event.stopPropagation();
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openOptionsPage' });
-      removeOverlay(overlayState.overlay);
+      removeOverlay(elements.overlay);
     });
   }
   if (searchClearButton) {
-    overlayState.inputParts.input.addEventListener('input', () => {
-      if (overlayState.inputModeController) {
-        overlayState.inputModeController.updateLayout();
+    inputParts.input.addEventListener('input', () => {
+      if (elements.inputModeController) {
+        elements.inputModeController.updateLayout();
       }
     });
   }
@@ -1242,8 +1274,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       return;
     }
     // The confirm button is going away with its bubble; keep typing in the field.
-    if (overlayState.searchInput) {
-      overlayState.searchInput.focus({ preventScroll: true });
+    if (elements.searchInput) {
+      elements.searchInput.focus({ preventScroll: true });
     }
     LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'closeOtherTabsForOverlay' }, (response) => {
       if (!response || response.ok !== true) {
@@ -1258,25 +1290,30 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   }
 
   // Focusing the input hands the selection back to it.
-  overlayState.searchInput.addEventListener('focus', function() {
+  inputParts.input.addEventListener('focus', function() {
     searchResults.select(-1);
-    overlayState.suggestionInputPreview.restore(overlayState.searchInput, searchQuery.raw);
+    suggestionInputPreview.restore(elements.searchInput, searchQuery.raw);
   });
 
   function isImeCompositionEvent(event: KeyboardEvent): boolean {
-    return overlayState.imeKeyGuard.shouldIgnoreKeydown(event);
+    return imeKeyGuard.shouldIgnoreKeydown(event);
   }
-  const defaultPlaceholder = overlayState.searchInput.placeholder;
+  const defaultPlaceholder = inputParts.input.placeholder;
   const attachFaviconData = faviconRuntime.attachFaviconData;
   const attachInputModeFaviconData =
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
   const refreshOverlayThemeAwareFavicons = faviconRuntime.refreshOverlayThemeAwareFavicons;
   const refreshOverlayFaviconsForPolicyChange = faviconRuntime.refreshOverlayFaviconsForPolicyChange;
-  const defaultCaretColor = overlayState.searchInput.style.caretColor || 'var(--x-ext-input-caret, #7DB7FF)';
+  const defaultCaretColor = inputParts.input.style.caretColor || 'var(--x-ext-input-caret, #7DB7FF)';
   const inputModePrefixTransition = 'opacity 140ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease';
 
-
   const settingsApplied = PANEL_SETTINGS_SYNC.createSettingsSync({
+    setDocumentPipEnabled,
+    overlayTabs,
+    elements,
+    overlayViewportSizeSync,
+    overlayNoticeLayer,
+    settings,
     modeActions,
     searchResults,
     searchMode,
@@ -1293,8 +1330,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     requestTabsAndRender,
     clearDefaultOpenTabsSuggestions,
     documentPipSupported,
-    applyOverlayFontFamily,
-    overlayState
+    applyOverlayFontFamily
   });
 
   function rerenderReplacedFaviconRows() {
@@ -1310,13 +1346,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     return true;
   }
 
-  overlayState.inputModeController = SEARCH_INPUT_MODE.createInputModeController(inputParts, {
+  elements.mountModeController(SEARCH_INPUT_MODE.createInputModeController(inputParts, {
     surface: 'overlay',
     prefixTransition: inputModePrefixTransition,
-    defaultPlaceholder: overlayState.defaultPlaceholderText || defaultPlaceholder,
-    getDefaultPlaceholder: () => overlayState.defaultPlaceholderText || defaultPlaceholder,
+    defaultPlaceholder: getDefaultPlaceholderText() || defaultPlaceholder,
+    getDefaultPlaceholder: () => getDefaultPlaceholderText() || defaultPlaceholder,
     defaultCaretColor,
-    modeBadgeElement: overlayState.modeBadge,
+    modeBadgeElement: elements.modeBadge,
     rightReserveBase: 92,
     rightAnchorOffset: 86,
     // The clear button adds a 30px slot plus a 6px gap left of the close-other-tabs button.
@@ -1324,7 +1360,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     baseInputPaddingLeft: 50,
     setInputStyle: setInputScopedStyle,
     getThemeForMode,
-    defaultTheme: overlayState.defaultTheme,
+    defaultTheme: defaultTheme,
     defaultAccentColor,
     parseCssColor,
     rgbToCss,
@@ -1363,23 +1399,23 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       searchMode.local ||
       searchMode.openTabs
     )
-  });
+  }));
   syncSearchModeMenuResultOffset();
   if (typeof window.ResizeObserver === 'function') {
     const modeMenuResultResizeObserver = new window.ResizeObserver(
       syncSearchModeMenuResultOffset
     );
-    modeMenuResultResizeObserver.observe(overlayState.suggestionsContainer);
+    modeMenuResultResizeObserver.observe(suggestionsContainer);
     addOverlaySessionCleanup(() => {
       modeMenuResultResizeObserver.disconnect();
     });
   }
   siteSearchIconCache.load().then(() => {
-    if (!searchMode.site || !overlayState.inputModeController) {
+    if (!searchMode.site || !elements.inputModeController) {
       return;
     }
     const activeProvider = searchMode.site;
-    modeActions.setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
+    modeActions.setSiteSearchPrefix(activeProvider, defaultTheme);
     getThemeForProvider(activeProvider).then((theme) => {
       if (searchMode.site === activeProvider) {
         modeActions.setSiteSearchPrefix(activeProvider, theme);
@@ -1389,11 +1425,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   void siteSearchCatalog.loadProviders();
   siteSearchCatalog.loadAggregates().then(() => {
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.refreshModeMenu();
+    if (elements.inputModeController) {
+      elements.inputModeController.refreshModeMenu();
     }
-    if (overlayState.searchInput && overlayState.searchInput.value) {
-      syncSearchTriggerHintFromInput(overlayState.searchInput.value);
+    if (elements.searchInput && elements.searchInput.value) {
+      syncSearchTriggerHintFromInput(elements.searchInput.value);
     }
     if (searchQuery.text) {
       requestOverlaySearchSuggestions(searchQuery.text);
@@ -1402,9 +1438,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   // A new order from Settings or another surface reaches an open scope
   // panel now; a closed one reads it when it opens.
-  overlayState.settings.follow(searchSourceOrder, () => {
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.refreshModeMenu();
+  settings.follow(searchSourceOrder, () => {
+    if (elements.inputModeController) {
+      elements.inputModeController.refreshModeMenu();
     }
   });
   // A changed list may drop the aggregate search the input is in, or
@@ -1419,54 +1455,54 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
         : null;
       if (updatedProvider) {
         searchMode.replaceSite(updatedProvider);
-        modeActions.setSiteSearchPrefix(updatedProvider, overlayState.defaultTheme, { animate: false });
+        modeActions.setSiteSearchPrefix(updatedProvider, defaultTheme, { animate: false });
       } else {
         modeActions.clearSiteSearch();
       }
     }
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.refreshModeMenu();
+    if (elements.inputModeController) {
+      elements.inputModeController.refreshModeMenu();
     }
     if (searchQuery.text) {
       requestOverlaySearchSuggestions(searchQuery.text);
     }
   });
 
-  overlayState.settings.follow(siteSearchIconCacheSetting, () => {
-    siteSearchIconCache.applyStored(overlayState.settings.store.getStored(siteSearchIconCacheSetting));
-    if (searchMode.site && overlayState.inputModeController) {
+  settings.follow(siteSearchIconCacheSetting, () => {
+    siteSearchIconCache.applyStored(settings.store.getStored(siteSearchIconCacheSetting));
+    if (searchMode.site && elements.inputModeController) {
       const activeProvider = searchMode.site;
-      modeActions.setSiteSearchPrefix(activeProvider, overlayState.defaultTheme);
+      modeActions.setSiteSearchPrefix(activeProvider, defaultTheme);
       getThemeForProvider(activeProvider).then((theme) => {
         if (searchMode.site === activeProvider) {
           modeActions.setSiteSearchPrefix(activeProvider, theme);
         }
       }).catch(() => {});
     }
-    if (overlayState.inputModeController) {
-      overlayState.inputModeController.refreshModeMenu();
+    if (elements.inputModeController) {
+      elements.inputModeController.refreshModeMenu();
     }
     if (searchQuery.text) {
       requestOverlaySearchSuggestions(searchQuery.text);
     }
   });
 
-  overlayState.searchInput.addEventListener('compositionstart', handleSearchInputCompositionStart);
-  overlayState.searchInput.addEventListener('compositionend', handleSearchInputCompositionEnd);
-  overlayState.searchInput.addEventListener('input', handleSearchInputEvent);
-  overlayState.inputContainer.addEventListener('compositionstart', handleSearchInputCompositionStart, true);
-  overlayState.inputContainer.addEventListener('compositionend', handleSearchInputCompositionEnd, true);
-  overlayState.inputContainer.addEventListener('input', handleSearchInputEvent, true);
+  inputParts.input.addEventListener('compositionstart', handleSearchInputCompositionStart);
+  inputParts.input.addEventListener('compositionend', handleSearchInputCompositionEnd);
+  inputParts.input.addEventListener('input', handleSearchInputEvent);
+  inputParts.container.addEventListener('compositionstart', handleSearchInputCompositionStart, true);
+  inputParts.container.addEventListener('compositionend', handleSearchInputCompositionEnd, true);
+  inputParts.container.addEventListener('input', handleSearchInputEvent, true);
   const handleOverlayLoadingSessionSelection = (event: Event): void => {
     notifyOverlayLoadingSession(syncLiveSearchInputFromEvent(event));
   };
-  overlayState.inputContainer.addEventListener('select', handleOverlayLoadingSessionSelection, true);
-  overlayState.inputContainer.addEventListener('focusin', handleOverlayLoadingSessionSelection, true);
-  overlayState.inputContainer.addEventListener('pointerup', handleOverlayLoadingSessionSelection, true);
+  inputParts.container.addEventListener('select', handleOverlayLoadingSessionSelection, true);
+  inputParts.container.addEventListener('focusin', handleOverlayLoadingSessionSelection, true);
+  inputParts.container.addEventListener('pointerup', handleOverlayLoadingSessionSelection, true);
 
   // Add click outside to close functionality
-  overlayState.clickOutsideHandler = function(event) {
-    const overlay = overlayState.overlay;
+  const clickOutsideHandler = function(event: MouseEvent): void {
+    const overlay = elements.overlay;
     if (!overlay) {
       return;
     }
@@ -1476,14 +1512,15 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       closeOverlayWithMotion(overlay);
     }
   };
-  document.addEventListener('click', overlayState.clickOutsideHandler);
-  overlayState.searchInput.addEventListener('keydown', handleSearchInputKeydown);
-  overlayState.searchInput.addEventListener('keypress', function(e) {
+  document.addEventListener('click', clickOutsideHandler);
+  addOverlaySessionCleanup(() => document.removeEventListener('click', clickOutsideHandler));
+  inputParts.input.addEventListener('keydown', handleSearchInputKeydown);
+  inputParts.input.addEventListener('keypress', function(e) {
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
       e.stopPropagation();
     }
   });
-  overlayState.searchInput.addEventListener('keyup', function(e) {
+  inputParts.input.addEventListener('keyup', function(e) {
     suggestionModifiers.syncFromEvent(e);
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
       e.stopPropagation();
@@ -1491,39 +1528,39 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   function closeOverlayOnEscape(): void {
-    if (overlayState.overlay) {
-      closeOverlayWithMotion(overlayState.overlay);
+    if (elements.overlay) {
+      closeOverlayWithMotion(elements.overlay);
     }
   }
   const overlayKeyRouter = new OVERLAY_KEYBOARD.OverlayKeyRouter(window, {
     getMount: () => ({
       document,
-      host: getOverlayMountHost(overlayState.overlay),
-      panel: overlayState.overlay
+      host: getOverlayMountHost(elements.overlay),
+      panel: elements.overlay
     }),
-    isOverlayConnected: () => Boolean(overlayState.overlay && overlayState.overlay.isConnected),
+    isOverlayConnected: () => Boolean(elements.overlay && elements.overlay.isConnected),
     isKeyboardYielded: () => Boolean(document.getElementById(TAB_SWITCHER_HOST_ID)),
     isSearchInputActive,
     shouldHandleModeMenuKey: (e) => Boolean(
-      overlayState.inputModeController &&
-      typeof overlayState.inputModeController.shouldHandleModeMenuKeyEvent === 'function' &&
-      overlayState.inputModeController.shouldHandleModeMenuKeyEvent(e)
+      elements.inputModeController &&
+      typeof elements.inputModeController.shouldHandleModeMenuKeyEvent === 'function' &&
+      elements.inputModeController.shouldHandleModeMenuKeyEvent(e)
     ),
     handleModeMenuKey(e) {
-      if (!overlayState.inputModeController ||
-          typeof overlayState.inputModeController.handleModeMenuKeyEvent !== 'function') {
+      if (!elements.inputModeController ||
+          typeof elements.inputModeController.handleModeMenuKeyEvent !== 'function') {
         return false;
       }
-      overlayState.inputModeController.handleModeMenuKeyEvent(e);
+      elements.inputModeController.handleModeMenuKeyEvent(e);
       return true;
     },
     isImeComposition: isImeCompositionEvent,
-    onKeyUp: () => overlayState.imeKeyGuard.markKeyUp(),
+    onKeyUp: () => imeKeyGuard.markKeyUp(),
     syncModifiers: suggestionModifiers.syncFromEvent,
     handleNumberShortcut: (e) => SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       e,
       suggestionItems,
-      overlayState.suggestionsContainer,
+      elements.suggestionsContainer,
       numberShortcutOptions
     ),
     getSuggestionNavigationKey,
@@ -1535,18 +1572,18 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     onEscapeTaken: closeOverlayOnEscape,
     onBlur: () => {
       suggestionModifiers.set(false, false, false);
-      SUGGESTION_NAVIGATION.cancelNumberShortcuts(overlayState.suggestionsContainer);
+      SUGGESTION_NAVIGATION.cancelNumberShortcuts(elements.suggestionsContainer);
     }
   });
   overlayKeyRouter.start();
-  overlayState.overlayKeyRouter = overlayKeyRouter;
+  attachKeyRouter(overlayKeyRouter);
   addOverlaySessionCleanup(() => overlayKeyRouter.stop());
 
   if (!shouldShowOpenTabsForEmptyQuery()) {
     clearDefaultOpenTabsSuggestions();
   }
-  applyNoTranslateDeep(overlayState.overlay);
-  applyOverlayThemeVariables(overlayState.overlayThemeMode);
+  applyNoTranslateDeep(elements.overlay);
+  applyOverlayThemeVariables(overlayThemeChoice.mode);
   // Reader extensions such as SimpRead can hide the original body and mount
   // their reading surface directly under <html>. Keep the overlay out of a
   // potentially hidden body while preserving fullscreen containment.
@@ -1576,7 +1613,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
           restoredHost.removeAttribute('popover');
         }
       }
-      overlayState.overlayViewportSizeSync.apply(overlayState.overlay);
+      overlayViewportSizeSync.apply(elements.overlay);
       const restoreFocus = () => {
         if (restoredHost.isConnected &&
             isOverlayOpenState()) {
@@ -1600,23 +1637,23 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     fullscreenEscapeLock.stop();
   });
   fullscreenEscapeLock.start();
-  startOverlayViewportSizeSync(overlayState.overlay);
-  overlayState.overlayNoticeLayer.startFrameSync(overlayState.overlay);
-  startOverlayAntiTranslateObserver(overlayState.overlay);
+  startOverlayViewportSizeSync(overlayMount.panel);
+  overlayNoticeLayer.startFrameSync(elements.overlay);
+  startOverlayAntiTranslateObserver(overlayMount.panel);
 
   function focusOverlayInputForReveal() {
-    if (!overlayState.searchInput || !overlayState.searchInput.isConnected) {
+    if (!elements.searchInput || !elements.searchInput.isConnected) {
       return;
     }
     if (initialLoadingSession && initialLoadingSession.focused === false) {
       return;
     }
-    overlayState.searchInput.focus({ preventScroll: true });
+    elements.searchInput.focus({ preventScroll: true });
   }
 
-  overlayState.settings.loaded.then(() => {
-    const searchInput = overlayState.searchInput;
-    if (!overlayState.overlay || !overlayState.overlay.isConnected || !searchInput) {
+  settings.loaded.then(() => {
+    const searchInput = elements.searchInput;
+    if (!elements.overlay || !elements.overlay.isConnected || !searchInput) {
       return false;
     }
     if (initialLoadingSession || initialPrefillQuery) {
@@ -1636,12 +1673,9 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       searchInput.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
       searchQuery.set(initialInputValue);
       updateModeBadge(initialInputValue);
-      overlayState.suppressOverlayLoadingSessionNotification = true;
-      try {
+      replayWithoutLoadingNotification(() => {
         searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      } finally {
-        overlayState.suppressOverlayLoadingSessionNotification = false;
-      }
+      });
       return true;
     }
     return initialLanguageReady.catch(() => {}).then(() => {
@@ -1651,13 +1685,11 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   }).catch(() => false);
 
   const revealOverlay = (options: { forceInstant: boolean }): void => {
-    if (!overlayState.overlay || !overlayState.overlay.isConnected) {
+    if (!elements.overlay || !elements.overlay.isConnected) {
       return;
     }
     setOverlayMountVisibility(overlayHost, false);
-    if (overlayState.overlayRevealGate) {
-      overlayState.overlayRevealGate.release();
-    }
+    overlayRevealGate.release();
     // The style gate has just released the result surface, so take one last
     // measurement before it can become visible on a slow stylesheet load.
     syncOpenTabsScrollbarGutter();
@@ -1669,32 +1701,30 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       shouldSkipOverlayEntryMotion();
     const revealTransform = getOverlayEnterAnimationRevealTransform();
     if (reduceMotion) {
-      overlayState.overlay.style.setProperty('transition', 'none', 'important');
-      overlayState.overlay.style.setProperty('opacity', '1', 'important');
-      overlayState.overlay.style.setProperty('transform', revealTransform, 'important');
-      finishOverlayPanelEnterAnimation(overlayState.overlay);
-      overlayState.overlayNoticeLayer.scheduleMount(overlayState.overlay, overlayState.overlayStyleRoot, 0);
+      elements.overlay.style.setProperty('transition', 'none', 'important');
+      elements.overlay.style.setProperty('opacity', '1', 'important');
+      elements.overlay.style.setProperty('transform', revealTransform, 'important');
+      finishOverlayPanelEnterAnimation(elements.overlay);
+      overlayNoticeLayer.scheduleMount(elements.overlay, elements.overlayStyleRoot, 0);
     } else {
       clearOverlayEnterAnimationFrames();
-      overlayFrameTracker.runEnterAnimation(overlayState.overlay, () => {
-        playOverlayPanelEnterAnimation(overlayState.overlay, revealTransform);
-        overlayState.overlayNoticeLayer.scheduleMount(overlayState.overlay, overlayState.overlayStyleRoot, 360);
+      overlayFrameTracker.runEnterAnimation(elements.overlay, () => {
+        playOverlayPanelEnterAnimation(elements.overlay, revealTransform);
+        overlayNoticeLayer.scheduleMount(elements.overlay, elements.overlayStyleRoot, 360);
       });
     }
   };
-  const revealReady = overlayState.overlayRevealGate
-    ? overlayState.overlayRevealGate.waitUntilReady()
-    : Promise.resolve({ ok: true, reason: 'no-site-fix' });
+  const revealReady = overlayRevealGate.waitUntilReady();
   Promise.all([
     Promise.resolve(revealReady).catch(() => null),
     settingsApplied.catch(() => {})
   ]).then((readyStates) => {
-    if (!overlayState.overlay || !overlayState.overlay.isConnected) {
+    if (!elements.overlay || !elements.overlay.isConnected) {
       return;
     }
-    applyOverlayEnterAnimationInitialState(overlayState.overlay);
+    applyOverlayEnterAnimationInitialState(elements.overlay);
     const styleGateResult = readyStates[0];
-    const revealGate = overlayState.overlayRevealGate;
+    const revealGate = overlayRevealGate;
     // The gate gives up on its first-frame budget while the settings above
     // are still loading, so the stylesheets have often arrived by now.
     const stylesReady = Boolean(styleGateResult && styleGateResult.ok === true) ||
@@ -1706,12 +1736,17 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       forceInstant: !stylesReady || shouldSkipOverlayEntryMotionForSlowStartup()
     });
   });
-  overlayState.overlayScrollPauseHandler = () => {
+  const scrollPauseHandler = () => {
     pauseOverlayAntiTranslateObserverForScroll();
   };
-  window.addEventListener('scroll', overlayState.overlayScrollPauseHandler, true);
-  window.addEventListener('wheel', overlayState.overlayScrollPauseHandler, { passive: true, capture: true });
-  window.addEventListener('touchmove', overlayState.overlayScrollPauseHandler, { passive: true, capture: true });
+  window.addEventListener('scroll', scrollPauseHandler, true);
+  window.addEventListener('wheel', scrollPauseHandler, { passive: true, capture: true });
+  window.addEventListener('touchmove', scrollPauseHandler, { passive: true, capture: true });
+  addOverlaySessionCleanup(() => {
+    window.removeEventListener('scroll', scrollPauseHandler, true);
+    window.removeEventListener('wheel', scrollPauseHandler, true);
+    window.removeEventListener('touchmove', scrollPauseHandler, true);
+  });
 
 }
 
