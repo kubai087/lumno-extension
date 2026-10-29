@@ -1,8 +1,8 @@
-import type { ToastController, ToastShowOptions } from '../../shared/ui/toast-screen';
+import type { OverlayToast } from './overlay-toast';
 import type { Translate } from './types';
 
 interface CopyActionsDeps {
-  overlayToastController: Pick<ToastController, 'show' | 'hide'>;
+  overlayToast: Pick<OverlayToast, 'show'>;
   t: Translate;
 }
 
@@ -11,22 +11,14 @@ function isFocusable(element: Element): element is Element & HTMLOrSVGElement {
   return 'focus' in element && typeof element.focus === 'function';
 }
 
-// The overlay toast, and copying a result's URL to the clipboard.
+// Copying a result's URL to the clipboard, told in the overlay's toast.
 function createCopyActions(deps: CopyActionsDeps) {
   const {
-    overlayToastController,
+    overlayToast,
     t
   } = deps;
 
-  function hideOverlayToast(): void {
-    overlayToastController.hide();
-  }
 
-  function showOverlayToast(message: string, isError?: boolean, options?: ToastShowOptions): void {
-    overlayToastController.show(message, Object.assign({}, options, {
-      error: Boolean(isError)
-    }));
-  }
 
   // Copies through a hidden text field where the Clipboard API is refused.
   function fallbackCopyText(text: string): boolean {
@@ -75,20 +67,20 @@ function createCopyActions(deps: CopyActionsDeps) {
   function copySearchResultUrl(url: string): Promise<boolean> {
     const value = String(url || '').trim();
     if (!value) {
-      showOverlayToast(t(
+      overlayToast.show(t(
         'search_copy_url_failed',
         'Couldn’t copy the result link. Try again.'
       ), true);
       return Promise.resolve(false);
     }
     return copyTextToClipboard(value).then(() => {
-      showOverlayToast(t(
+      overlayToast.show(t(
         'search_copy_url_success',
         'Result link copied'
       ));
       return true;
     }).catch(() => {
-      showOverlayToast(t(
+      overlayToast.show(t(
         'search_copy_url_failed',
         'Couldn’t copy the result link. Try again.'
       ), true);
@@ -97,8 +89,6 @@ function createCopyActions(deps: CopyActionsDeps) {
   }
 
   return {
-    hideOverlayToast,
-    showOverlayToast,
     copySearchResultUrl
   };
 }

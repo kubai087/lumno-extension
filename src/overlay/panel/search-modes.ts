@@ -144,6 +144,11 @@ function createSearchModes(deps: SearchModesDeps) {
     requestOverlaySearchSuggestions(query);
   }
 
+  // A site search starting drops a pending open tabs tag.
+  modeActions.events.on('enteringSite', () => {
+    cancelPendingOpenTabsPrefixEntry();
+  });
+
   return {
     cancelPendingOpenTabsPrefixEntry,
     activateOpenTabsSearchMode,

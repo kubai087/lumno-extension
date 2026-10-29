@@ -30,8 +30,6 @@ interface SearchModeSurface<Provider> {
   // The tag's theme until the provider's own has loaded.
   getImmediateTheme(provider: Provider): InputModeTheme;
   getThemeForProvider(provider: Provider): Promise<InputModeTheme | null | undefined>;
-  // Before a site search starts; the overlay drops a pending open tabs tag.
-  beforeEnterSite?(): void;
 }
 
 interface SearchModeActionsOptions<Provider> {
@@ -47,8 +45,10 @@ interface SearchModeActionsOptions<Provider> {
 
 class SearchModeActions<Provider extends InputModeProvider> {
   private readonly options: SearchModeActionsOptions<Provider>;
-  // `resultsCleared`: the new mode's rows replace the ones shown; the surface clears them.
-  readonly events = createEventBus<{ resultsCleared: null }>();
+  // `enteringSite`: a site search is about to start (the overlay drops a
+  // pending open tabs tag). `resultsCleared`: the new mode's rows replace
+  // the ones shown; the surface clears them.
+  readonly events = createEventBus<{ enteringSite: null; resultsCleared: null }>();
 
   constructor(options: SearchModeActionsOptions<Provider>) {
     this.options = options;
@@ -60,9 +60,7 @@ class SearchModeActions<Provider extends InputModeProvider> {
     }
     const { mode, surface } = this.options;
     const config = activation || {};
-    if (surface.beforeEnterSite) {
-      surface.beforeEnterSite();
-    }
+    this.events.emit('enteringSite', null);
     if (config.preserveResults === true) {
       this.options.source.cancel();
     }

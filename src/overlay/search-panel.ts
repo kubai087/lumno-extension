@@ -1,3 +1,4 @@
+import { OverlayToast } from './panel/overlay-toast';
 import { buildTheme, createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../shared/favicon/favicon-theme';
 import { parseCssColor, rgbToCss } from '../domain/color';
 import * as OVERLAY_FONT_FACES from '../shared/overlay-font-faces';
@@ -135,6 +136,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // The session's parts that hold what it shows and lists.
   const elements = new OverlayPanelElements();
   const notices = new OverlayNotices();
+  // The toast, drawn once the panel mounts its element.
+  const overlayToast = new OverlayToast();
   const overlayTabs = new OpenTabs(initialOverlayTabs, initialContextTabId);
   const lastRender = new LastRender();
   const overlayThemeChoice = new OverlayThemeMode();
@@ -204,7 +207,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const colorScheme = createColorScheme();
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
-    showToast: (message, isError) => showOverlayToast(message, isError),
+    showToast: (message, isError) => overlayToast.show(message, isError),
     getHelpCenterLocale: () => locale.store.getSnapshot().locale,
     openInCurrentTab: (url) => LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'createTab', url, disposition: 'currentTab' })
   });
@@ -229,80 +232,20 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isModeActive: () => Boolean(searchMode.site || searchMode.local),
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
-  const modeActions = new SearchModeActions<InputModeProvider>({
-    settings: settings.store,
-    locale,
-    mode: searchMode,
-    query: searchQuery,
-    autocomplete: searchAutocomplete,
-    source: suggestionSource,
-    surface: {
-      getInput: () => elements.searchInput,
-      getModeController: () => elements.inputModeController,
-      defaultTheme: defaultTheme,
-      getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || defaultTheme,
-      getThemeForProvider: (provider) => getThemeForProvider(provider),
-      beforeEnterSite: () => cancelPendingOpenTabsPrefixEntry()
-    }
-  });
   const searchEngine = new DefaultSearchEngine(settings.store);
   const siteSearchCatalog = new SiteSearchCatalog(settings.store, searchEngine, openOptions.siteSearchProviders);
-  const modeMenu = new SearchModeMenu({
-    settings: settings.store,
-    locale,
-    catalog: siteSearchCatalog,
-    engine: searchEngine,
-    iconCache: siteSearchIconCache,
-    order: menuOrder,
-    mode: searchMode,
-    actions: modeActions,
-    surface: {
-      getInput: () => elements.searchInput,
-      getModeController: () => elements.inputModeController,
-      getPageProvider: (providers) => SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
-        initialContextTabUrl,
-        providers
-      ),
-      beforeDoubleTab: () => {
-        cancelPendingOpenTabsPrefixEntry();
-      },
-      getProviderIcon: (provider) => getPageRenderableProviderIcon(provider),
-      // The open tabs lead the browser content and do not move.
-      getOwnItem: (localGroup) => ({
-        id: 'openTabs',
-        kind: 'openTabs',
-        label: t('search_open_tabs_only_entry', '搜索已打开标签页'),
-        searchTerms: ['open tabs', 'tabs', 'browser'],
-        group: localGroup,
-        groupKey: 'local',
-        orderList: 'pinned',
-        iconName: 'ri-window-line',
-        menuIconName: 'browser',
-        active: searchMode.openTabs
-      }),
-      selectOwnItem: (item, rawQuery) => {
-        if (item.kind !== 'openTabs') {
-          return false;
-        }
-        activateOpenTabsSearchMode({ deferResults: true });
-        modeActions.restoreSearchModeQuery(rawQuery);
-        return true;
-      }
-    }
-  });
-
   const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
 
   const suggestionItems: SuggestionElement[] = [];
 
   const numberShortcutOptions: NumberShortcutOptions = {
     onHoldStart: function() {
-      showOverlayToast(t(
+      overlayToast.show(t(
         'search_number_jump_release_hint',
         'Release to show numbers'
       ), false, { duration: 0 });
     },
-    onHoldEnd: () => hideOverlayToast(),
+    onHoldEnd: () => overlayToast.hide(),
     instantActive: () => settings.get(numberShortcutInstantEnabled)
   };
 
@@ -483,6 +426,21 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     getThemeForMode
   });
 
+  const modeActions = new SearchModeActions<InputModeProvider>({
+    settings: settings.store,
+    locale,
+    mode: searchMode,
+    query: searchQuery,
+    autocomplete: searchAutocomplete,
+    source: suggestionSource,
+    surface: {
+      getInput: () => elements.searchInput,
+      getModeController: () => elements.inputModeController,
+      defaultTheme: defaultTheme,
+      getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || defaultTheme,
+      getThemeForProvider: (provider) => getThemeForProvider(provider)
+    }
+  });
   const {
     syncOpenTabsScrollbarGutter,
     setOpenTabsResultsViewport,
@@ -676,6 +634,50 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     isSlashCommandInput,
     updateSearchSuggestions,
     requestOverlaySearchSuggestions
+  });
+
+  const modeMenu = new SearchModeMenu({
+    settings: settings.store,
+    locale,
+    catalog: siteSearchCatalog,
+    engine: searchEngine,
+    iconCache: siteSearchIconCache,
+    order: menuOrder,
+    mode: searchMode,
+    actions: modeActions,
+    surface: {
+      getInput: () => elements.searchInput,
+      getModeController: () => elements.inputModeController,
+      getPageProvider: (providers) => SearchSiteSearchMatching.findSiteSearchProviderForPageUrl(
+        initialContextTabUrl,
+        providers
+      ),
+      beforeDoubleTab: () => {
+        cancelPendingOpenTabsPrefixEntry();
+      },
+      getProviderIcon: (provider) => getPageRenderableProviderIcon(provider),
+      // The open tabs lead the browser content and do not move.
+      getOwnItem: (localGroup) => ({
+        id: 'openTabs',
+        kind: 'openTabs',
+        label: t('search_open_tabs_only_entry', '搜索已打开标签页'),
+        searchTerms: ['open tabs', 'tabs', 'browser'],
+        group: localGroup,
+        groupKey: 'local',
+        orderList: 'pinned',
+        iconName: 'ri-window-line',
+        menuIconName: 'browser',
+        active: searchMode.openTabs
+      }),
+      selectOwnItem: (item, rawQuery) => {
+        if (item.kind !== 'openTabs') {
+          return false;
+        }
+        activateOpenTabsSearchMode({ deferResults: true });
+        modeActions.restoreSearchModeQuery(rawQuery);
+        return true;
+      }
+    }
   });
 
   const {
@@ -1001,17 +1003,16 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayToastElement,
     { windowObj: window }
   );
+  overlayToast.mount(overlayToastController);
   addOverlaySessionCleanup(() => {
     overlayToastStyleGate.destroy();
     overlayToastController.destroy();
   });
 
   const {
-    hideOverlayToast,
-    showOverlayToast,
     copySearchResultUrl
   } = PANEL_COPY_ACTIONS.createCopyActions({
-    overlayToastController,
+    overlayToast,
     t
   });
 
@@ -1395,12 +1396,12 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     onModeMenuGroupMove: menuOrder.moveGroup,
     onModeMenuHistory: menuOrder.step,
     onModeTagRemovalConfirmation: () => {
-      showOverlayToast(t(
+      overlayToast.show(t(
         'search_scope_remove_confirmation',
         'Press Backspace again to remove the scope.'
       ));
     },
-    onModeTagRemovalConfirmationReset: hideOverlayToast,
+    onModeTagRemovalConfirmationReset: () => overlayToast.hide(),
     onModeTagActiveChange: (active) => {
       setSearchScopeIconEnabled(!active);
     },
