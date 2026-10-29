@@ -1,6 +1,6 @@
 // Wallpaper-adaptive tones: samples the wallpaper under each text, icon and
 // glass surface of the New Tab page and sets the ink and colors that read on it.
-import { createCanvas } from '../dom/canvas';
+import { createCanvas } from '../../shared/dom/canvas';
 import type { WallpaperSample } from '../dom/wallpaper-effects';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
 import { adaptiveToneEvents } from './tone-requests';

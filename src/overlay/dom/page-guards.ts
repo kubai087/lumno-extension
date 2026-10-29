@@ -1,4 +1,4 @@
-import * as OverlayLifecycle from '../lifecycle';
+import * as OverlayLifecycle from './lifecycle';
 
 // The anti-translate guard from lifecycle.ts, as far as the panel drives it.
 interface AntiTranslateGuardControls {

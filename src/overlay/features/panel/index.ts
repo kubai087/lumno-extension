@@ -4,7 +4,7 @@
 // and the suggestion themes.
 import { buildTheme, defaultAccentColor } from '../../../shared/favicon/favicon-theme';
 import { parseCssColor } from '../../../domain/color';
-import * as LumnoOverlayFaviconView from '../../favicon-view';
+import * as LumnoOverlayFaviconView from '../../dom/favicon-view';
 import * as PANEL_FAVICON_POLICY from '../../panel/favicon-policy';
 import * as PANEL_PANEL_SESSION from '../../panel/panel-session';
 import * as PANEL_PANEL_THEME from '../../panel/panel-theme';

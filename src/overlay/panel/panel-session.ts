@@ -4,8 +4,8 @@
 // the panel.
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import * as LumnoMessaging from '../../platform/messaging';
-import * as OverlayLifecycle from '../lifecycle';
-import { destroyOverlayMount } from '../react/shell';
+import * as OverlayLifecycle from '../dom/lifecycle';
+import { destroyOverlayMount, removeOverlayPageStyles } from '../react/shell';
 import type { createNoticeLayer } from '../notices';
 import { setOverlayOpenState } from '../../platform/content-registry';
 import { destroySearchInput } from '../../shared/react/search-input';
@@ -436,15 +436,7 @@ function createPanelSession(deps: PanelSessionDeps) {
         mountHost.remove();
       }
     }
-    // Also remove the scrollbar style
-    const scrollbarStyle = document.getElementById('_x_extension_scrollbar_style_2024_unique_');
-    if (scrollbarStyle) {
-      scrollbarStyle.remove();
-    }
-    const overlayThemeStyle = document.getElementById('_x_extension_overlay_theme_style_2024_unique_');
-    if (overlayThemeStyle) {
-      overlayThemeStyle.remove();
-    }
+    removeOverlayPageStyles(document);
     settings.release();
     elements.releaseInputControllers();
     notices.destroy();

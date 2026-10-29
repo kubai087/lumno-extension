@@ -4,10 +4,11 @@
 // reveal gate. Null when the panel cannot be mounted.
 import * as OVERLAY_TOAST from '../../../shared/ui/toast';
 import { createToastStyleGate } from '../../../shared/ui/toast-style-gate';
-import * as LumnoOverlayLifecycle from '../../lifecycle';
+import * as LumnoOverlayLifecycle from '../../dom/lifecycle';
 import * as PANEL_COPY_ACTIONS from '../../panel/copy-actions';
-import * as LumnoOverlaySiteFixes from '../../site-fixes';
+import * as LumnoOverlaySiteFixes from '../../dom/site-fixes';
 import { getOverlayStyleUrls } from '../../style-urls';
+import { createOverlayToastElement } from '../../dom/toast-element';
 import { appendOverlayStyleNodes, createOverlayMount } from '../../react/shell';
 import { overlaySizeMode } from '../../../domain/settings/overlay-panel';
 import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../../../domain/injected-commands';
@@ -75,24 +76,13 @@ function createPanelMountPart(ctx: OverlayContext, deps: PanelMountPartDeps) {
     root: overlayStyleRoot,
     ...overlayStyleUrls
   });
-  const overlayToastElement = applyNoTranslate(document.createElement('div'));
-  overlayToastElement.id = '_x_extension_overlay_toast_2026_unique_';
-  overlayToastElement.className = '_x_extension_overlay_toast_2026_unique_ x-lumno-toast';
-  overlayToastElement.style.setProperty(
-    '--x-lumno-toast-top',
-    'max(24px, calc(20vh - 48px))'
-  );
-  overlayToastElement.style.setProperty('--x-lumno-toast-z-index', '2147483647');
-  overlayToastElement.setAttribute('data-show', 'false');
-  overlayToastElement.setAttribute('role', 'status');
-  overlayToastElement.setAttribute('aria-live', 'polite');
-  const overlayToastStylesheet = overlayStyleRoot
-    .getElementById('_x_extension_toast_style_2026_unique_');
+  const toastParts = createOverlayToastElement(document, overlayStyleRoot);
+  const overlayToastElement = applyNoTranslate(toastParts.element);
   const overlayToastStyleGate = createToastStyleGate(
     overlayToastElement,
     {
       windowObj: window,
-      stylesheetElement: overlayToastStylesheet
+      stylesheetElement: toastParts.stylesheet
     }
   );
   overlayStyleRoot.appendChild(overlayToastElement);

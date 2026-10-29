@@ -1,6 +1,6 @@
 // Custom shortcut icons: reading a picked image file, fitting it into a
 // 128 px PNG, and keeping the images by shortcut id in local storage.
-import { createCanvas } from '../dom/canvas';
+import { createCanvas } from '../../shared/dom/canvas';
 import type { StorageAreaLike } from '../../domain/storage-port';
 import { MAX_OUTPUT_BYTES, getDataUrlByteLength, normalizeIconDataUrl, normalizeIconMap } from '../../domain/shortcut-icon-map';
 import type { ShortcutIconMap } from '../../domain/shortcut-icon-map';

@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const overlaySiteFixes = require('../../src/overlay/site-fixes.ts');
+const overlaySiteFixes = require('../../src/overlay/dom/site-fixes.ts');
 const { parseCss } = require('../helpers/css-rules');
 const { createOverlayPage } = require('../helpers/overlay-runtime-harness');
 

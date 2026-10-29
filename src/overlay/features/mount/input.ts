@@ -15,7 +15,7 @@ import * as OVERLAY_KEYBOARD from '../../keyboard';
 import * as PANEL_PANEL_NOTICES from '../../panel/panel-notices';
 import * as PANEL_SETTINGS_SYNC from '../../panel/settings-sync';
 import * as PANEL_ROW_ACTIONS from '../../panel/row-actions';
-import { TAB_SWITCHER_HOST_ID } from '../../../shared/tab-switcher/host';
+import { getTabSwitcherHost } from '../../../shared/tab-switcher/host';
 import * as LumnoMessaging from '../../../platform/messaging';
 import { createSearchInput } from '../../../shared/react/search-input';
 import {
@@ -652,7 +652,7 @@ function createInputPart(ctx: OverlayContext, deps: InputPartDeps) {
       panel: elements.overlay
     }),
     isOverlayConnected: () => Boolean(elements.overlay && elements.overlay.isConnected),
-    isKeyboardYielded: () => Boolean(document.getElementById(TAB_SWITCHER_HOST_ID)),
+    isKeyboardYielded: () => Boolean(getTabSwitcherHost(document)),
     isSearchInputActive,
     shouldHandleModeMenuKey: (e) => Boolean(
       elements.inputModeController &&

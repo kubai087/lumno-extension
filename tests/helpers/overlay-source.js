@@ -12,7 +12,7 @@ const OVERLAY_PANEL_FILES = [
   'src/shared/search-panel/site-search/catalog.ts',
   'src/overlay/panel/panel-session.ts',
   'src/overlay/panel/favicon-policy.ts',
-  'src/overlay/panel/page-guards.ts',
+  'src/overlay/dom/page-guards.ts',
   'src/overlay/panel/results-layout.ts',
   'src/overlay/panel/slash-commands.ts',
   'src/overlay/panel/panel-theme.ts',

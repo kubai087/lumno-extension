@@ -4,14 +4,14 @@
 import { createEventBus } from '../../shared/state/events';
 import { getHoverColors as getModeHoverColors, getThemeForMode as getThemeVariantForMode } from '../../shared/favicon/favicon-theme';
 import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
-import * as LumnoOverlayPageTheme from '../page-theme';
-import type { PageTheme } from '../page-theme';
+import * as LumnoOverlayPageTheme from '../dom/page-theme';
+import type { PageTheme } from '../dom/page-theme';
 import type { OverlayPanelModel } from '../react/shell';
 import { OVERLAY_FONT_FAMILY_CSS_VAR, overlayFontFallback, overlayFontFamily, overlayPageThemeAdaptationEnabled } from '../../domain/settings/overlay-panel';
 import type { OverlaySettings } from '../overlay-settings';
 import * as SETTINGS from '../../domain/settings';
 import type { OverlayPanelElements } from './panel-elements';
-import type { createSessionCleanupRegistry } from '../lifecycle';
+import type { createSessionCleanupRegistry } from '../dom/lifecycle';
 import type { OverlayThemeMode } from './overlay-theme-mode';
 
 type PageThemeObserver = ReturnType<typeof LumnoOverlayPageTheme.createPageThemeObserver>;

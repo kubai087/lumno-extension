@@ -2,7 +2,7 @@ const assert = require('assert');
 
 const { JSDOM } = require('jsdom');
 
-const pageTheme = require('../../src/overlay/page-theme.ts');
+const pageTheme = require('../../src/overlay/dom/page-theme.ts');
 const color = require('../../src/domain/color.ts');
 const { createOverlayPage, HOST_ID } = require('../helpers/overlay-runtime-harness');
 

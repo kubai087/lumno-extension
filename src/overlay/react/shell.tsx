@@ -1,3 +1,4 @@
+import { OVERLAY_HOST_ID } from '../../domain/injected-commands';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
 import { queryHtmlElement } from '../../shared/dom-lookup';
@@ -768,6 +769,22 @@ export function findOverlayPanel(
     );
   }
   return doc.getElementById(panelId);
+}
+
+// Takes away the panel's own style elements where a page holds them.
+export function removeOverlayPageStyles(doc: Document): void {
+  ['_x_extension_scrollbar_style_2024_unique_', '_x_extension_overlay_theme_style_2024_unique_'].forEach((id) => {
+    const style = doc.getElementById(id);
+    if (style) {
+      style.remove();
+    }
+  });
+}
+
+// The overlay's host, while it is in the page.
+export function isOverlayHostInPage(doc: Document): boolean {
+  const host = doc.getElementById(OVERLAY_HOST_ID);
+  return Boolean(host && host.isConnected);
 }
 
 export { appendOverlayStyleNodes };

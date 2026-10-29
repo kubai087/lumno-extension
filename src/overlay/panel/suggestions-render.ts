@@ -21,7 +21,7 @@ import * as SearchDirectNavigation from '../../domain/search/utils/direct-naviga
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import { searchResultDisplayLimit, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
-import type { OverlayFaviconRuntime } from '../favicon-view';
+import type { OverlayFaviconRuntime } from '../dom/favicon-view';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
@@ -37,7 +37,7 @@ import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-m
 import type { ColorScheme } from '../../shared/ui/color-scheme';
 import type { OverlayPanelElements } from './panel-elements';
 import type { OpenTabs } from '../../shared/search-panel/open-tabs';
-import type { createSessionCleanupRegistry } from '../lifecycle';
+import type { createSessionCleanupRegistry } from '../dom/lifecycle';
 import type { LastRender } from './last-render';
 import { createEventBus } from '../../shared/state/events';
 

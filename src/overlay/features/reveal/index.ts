@@ -2,7 +2,7 @@
 // fullscreen Escape lock, the size, notice and translation syncs, the first
 // input or open tabs, the entry motion and the page's scroll pauses.
 import { createFullscreenEscapeLock } from '../../../shared/ui/fullscreen-escape-lock';
-import * as LumnoOverlayLifecycle from '../../lifecycle';
+import * as LumnoOverlayLifecycle from '../../dom/lifecycle';
 import { isOverlayOpenState, setOverlayOpenState } from '../../../platform/content-registry';
 import type { OverlayContext } from '../../app/context';
 import type { StyleGateAnswer } from '../../app/startup';

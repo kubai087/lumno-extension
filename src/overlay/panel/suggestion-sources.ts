@@ -23,7 +23,7 @@ import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } fro
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
-import type { OverlayFaviconRuntime } from '../favicon-view';
+import type { OverlayFaviconRuntime } from '../dom/favicon-view';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';

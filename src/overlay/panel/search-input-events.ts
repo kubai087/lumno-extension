@@ -1,5 +1,6 @@
 // Input events in the search box: reading the live value, the trigger
 // hint, IME composition and the main input handler.
+import { findLiveSearchInput } from '../dom/search-input';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
@@ -95,12 +96,9 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
     if (target instanceof HTMLInputElement && container && container.contains(target)) {
       return target;
     }
-    if (container) {
-      const currentInput = container.querySelector('#_x_extension_search_input_2024_unique_') ||
-        container.querySelector('input');
-      if (currentInput instanceof HTMLInputElement) {
-        return currentInput;
-      }
+    const currentInput = container ? findLiveSearchInput(container) : null;
+    if (currentInput) {
+      return currentInput;
     }
     return elements.searchInput;
   }

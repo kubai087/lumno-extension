@@ -2,7 +2,7 @@
 // transparency) gets a plate, so it reads as a tile like the icons that
 // bring their own square. The plate is a soft tint of the artwork's main
 // color. Each shortcut can turn this on or off, or pick the plate color.
-import { createCanvas } from '../dom/canvas';
+import { createCanvas } from '../../shared/dom/canvas';
 const SAMPLE_SIZE = 32;
 const TRANSPARENT_ALPHA = 24;
 const OPAQUE_ALPHA = 128;

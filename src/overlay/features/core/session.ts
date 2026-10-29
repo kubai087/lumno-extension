@@ -7,16 +7,16 @@ import { createDefaultTheme, createUrlHighlightTheme } from '../../../shared/fav
 import * as LumnoImeKeyGuard from '../../../domain/search/ime-key-guard';
 import * as SUGGESTION_INPUT_PREVIEW from '../../../domain/search/suggestion-input-preview';
 import * as SETTINGS from '../../../domain/settings';
-import * as LumnoOverlayLifecycle from '../../lifecycle';
+import * as LumnoOverlayLifecycle from '../../dom/lifecycle';
 import * as OVERLAY_NOTICES from '../../notices';
 import * as PANEL_ENTRY_MOTION from '../../panel/entry-motion';
-import * as PANEL_PAGE_GUARDS from '../../panel/page-guards';
+import * as PANEL_PAGE_GUARDS from '../../dom/page-guards';
 import { OverlayNotices } from '../../panel/overlay-notices';
 import { LastRender } from '../../panel/last-render';
 import { OverlayThemeMode } from '../../panel/overlay-theme-mode';
 import * as PANEL_TAB_MATCHING from '../../panel/tab-matching';
 import * as OVERLAY_CONTEXT from '../../overlay-context';
-import type { OverlaySizePreset } from '../../lifecycle';
+import type { OverlaySizePreset } from '../../dom/lifecycle';
 import { overlaySizeMode, overlayWidth } from '../../../domain/settings/overlay-panel';
 import type { OverlayContext } from '../../app/context';
 

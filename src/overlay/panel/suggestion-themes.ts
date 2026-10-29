@@ -1,3 +1,4 @@
+import { createCanvas } from '../../shared/dom/canvas';
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
@@ -6,7 +7,7 @@ import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { ThemeRgb } from '../../domain/favicon/types';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
-import type { OverlayFaviconRuntime } from '../favicon-view';
+import type { OverlayFaviconRuntime } from '../dom/favicon-view';
 
 interface SuggestionThemesDeps {
   // Themes by icon address and by host, kept across panel sessions.
@@ -142,9 +143,7 @@ function createSuggestionThemes(deps: SuggestionThemesDeps) {
   // The average of an icon's opaque, not nearly white pixels.
   function extractAverageColor(image: HTMLImageElement): number[] | null {
     const size = 16;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
+    const canvas = createCanvas(document, size, size);
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) {
       return null;

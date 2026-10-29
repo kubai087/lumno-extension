@@ -1,7 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const settings = require('../../src/domain/settings/index.ts');
-const pageTheme = require('../../src/overlay/page-theme.ts');
+const pageTheme = require('../../src/overlay/dom/page-theme.ts');
 const { parseCss } = require('../helpers/css-rules');
 const { readStylesheet } = require('../helpers/css-tokens');
 const { createOptionsPage } = require('../helpers/options-page');

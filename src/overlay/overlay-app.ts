@@ -5,7 +5,8 @@
 import '../shared/cjk-font-faces';
 import { toggleSearchOverlay } from './app/main';
 import { isOverlayOpenState, setOverlayOpenState } from '../platform/content-registry';
-import { OVERLAY_HOST_ID, readOverlayCommand } from '../domain/injected-commands';
+import { readOverlayCommand } from '../domain/injected-commands';
+import { isOverlayHostInPage } from './react/shell';
 import type { OverlayReply } from '../domain/injected-commands';
 
 // Loaded and closed, until the first toggle opens it.
@@ -31,8 +32,7 @@ function run(command: unknown): OverlayReply {
     return { ok: false, reason: 'invalid-command' };
   }
   toggleSearchOverlay(request.tabs, withLoadTime(request.context));
-  const host = document.getElementById(OVERLAY_HOST_ID);
-  return { ok: true, overlayOpen: isOverlayOpenState() && Boolean(host && host.isConnected) };
+  return { ok: true, overlayOpen: isOverlayOpenState() && isOverlayHostInPage(document) };
 }
 
 export { run };

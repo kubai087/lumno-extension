@@ -1,14 +1,13 @@
 // The panel's controls: the command actions, the keys, the input's events,
 // the language, the theme the panel is drawn in, the font faces and the
 // viewport size sync.
-import * as OVERLAY_FONT_FACES from '../../../shared/overlay-font-faces';
 import * as PANEL_PANEL_KEYS from '../../panel/panel-keys';
 import * as PANEL_PANEL_LANGUAGE from '../../panel/panel-language';
 import * as PANEL_SEARCH_INPUT_EVENTS from '../../panel/search-input-events';
 import * as PANEL_COMMAND_ACTIONS from '../../panel/command-actions';
 import type { ThemeMode } from '../../../domain/settings/appearance';
-import * as LumnoOverlayRuntime from '../../runtime';
 import { getSystemLocale } from '../../../shared/i18n/surface-locale';
+import { installOverlayFontFaces } from '../../dom/font-faces';
 import type { OverlayContext } from '../../app/context';
 import type { CoreFeature } from '../core';
 import type { PanelFeature } from '../panel';
@@ -259,23 +258,11 @@ function createControlsFeature(ctx: OverlayContext, deps: ControlsFeatureDeps) {
 
   faviconRuntime.onFaviconData(preloadThemeFromFavicon);
 
-  // The overlay's faces on the host document (see overlay-font-faces.ts),
-  // unless the page registered them while it loaded. The icon class rules
-  // load inside the overlay's shadow root (remixicon.css, re-pointed at the
-  // scoped face by suggestions-view.css).
+  // Adds the overlay's font faces to the page once.
   function ensureOverlayFontFaces() {
-    const styleId = '_x_extension_overlay_font_faces_2026_unique_';
-    const host = document.head || document.documentElement;
-    if (!host || document.getElementById(styleId) ||
-        OVERLAY_FONT_FACES.hasEarlyOverlayFontFaces(window)) {
+    if (!installOverlayFontFaces(document, window)) {
       return;
     }
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = OVERLAY_FONT_FACES.buildOverlayFontFaceCss(
-      (assetPath) => LumnoOverlayRuntime.getRuntimeUrl(chrome, assetPath)
-    );
-    host.appendChild(style);
     // Every face added to a page that has already laid out restyles and
     // relays out the whole page, so the CJK face joins in the same task,
     // guessed from the browser language. The language setting changes it

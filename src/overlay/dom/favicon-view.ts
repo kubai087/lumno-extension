@@ -1,14 +1,14 @@
-import * as LumnoFaviconViewCore from '../shared/favicon/favicon-view-core';
-import type { FaviconImage } from '../shared/favicon/favicon-pixels';
-import type { FaviconViewCoreOptions, FaviconViewWindow, FaviconWarmItem } from '../shared/favicon/favicon-view-core';
-import * as LumnoMessaging from '../platform/messaging';
-import type { MessageRuntime } from '../platform/messaging';
-import { queryHtmlTags } from '../shared/dom-lookup';
-import type { FaviconChromeApi, FaviconDecisionLogger, FaviconPlanCandidate } from '../domain/favicon/types';
-import * as FaviconCanonical from '../domain/favicon/canonical';
-import * as FaviconEnhancedFetchPolicy from '../domain/favicon/enhanced-fetch-policy';
-import * as FaviconResolver from '../domain/favicon/resolver';
-import * as FaviconUrlKinds from '../domain/favicon/url-kinds';
+import * as LumnoFaviconViewCore from '../../shared/favicon/favicon-view-core';
+import type { FaviconImage } from '../../shared/favicon/favicon-pixels';
+import type { FaviconViewCoreOptions, FaviconViewWindow, FaviconWarmItem } from '../../shared/favicon/favicon-view-core';
+import * as LumnoMessaging from '../../platform/messaging';
+import type { MessageRuntime } from '../../platform/messaging';
+import { queryHtmlTags } from '../../shared/dom-lookup';
+import type { FaviconChromeApi, FaviconDecisionLogger, FaviconPlanCandidate } from '../../domain/favicon/types';
+import * as FaviconCanonical from '../../domain/favicon/canonical';
+import * as FaviconEnhancedFetchPolicy from '../../domain/favicon/enhanced-fetch-policy';
+import * as FaviconResolver from '../../domain/favicon/resolver';
+import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 
 // An overlay favicon image and the attach session state kept on it.
 type OverlayFaviconImage = FaviconImage & {

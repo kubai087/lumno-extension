@@ -4,7 +4,7 @@
 import { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import { loadExtensionLocaleMessages } from '../../shared/i18n/locale-messages';
 import { OpenTabs } from '../../shared/search-panel/open-tabs';
-import { createSessionCleanupRegistry } from '../lifecycle';
+import { createSessionCleanupRegistry } from '../dom/lifecycle';
 import { readOverlayOpenOptions, readOverlayTabs } from '../overlay-context';
 import type { OverlayOpenOptions } from '../overlay-context';
 import { createOverlaySettings } from '../overlay-settings';

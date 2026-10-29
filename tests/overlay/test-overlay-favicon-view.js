@@ -178,8 +178,8 @@ function createRuntime(options) {
   vm.runInNewContext(moduleScript('tests/helpers/favicon-utils.ts', 'LumnoFaviconUtils', null, { 'src/shared/favicon/favicon-view-core.ts': 'LumnoFaviconViewCore' }), sandbox, {
     filename: 'tests/helpers/favicon-utils.ts'
   });
-  vm.runInNewContext(moduleScript('src/overlay/favicon-view.ts', 'LumnoOverlayFaviconView', null, { 'src/shared/favicon/favicon-view-core.ts': 'LumnoFaviconViewCore' }), sandbox, {
-    filename: 'src/overlay/favicon-view.ts'
+  vm.runInNewContext(moduleScript('src/overlay/dom/favicon-view.ts', 'LumnoOverlayFaviconView', null, { 'src/shared/favicon/favicon-view-core.ts': 'LumnoFaviconViewCore' }), sandbox, {
+    filename: 'src/overlay/dom/favicon-view.ts'
   });
 
   const localPageUrl = 'http://127.0.0.1:4321/';

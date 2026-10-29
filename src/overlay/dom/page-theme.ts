@@ -1,4 +1,4 @@
-import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../domain/injected-commands';
+import { OVERLAY_HOST_ID, OVERLAY_PANEL_ID } from '../../domain/injected-commands';
 
 type PageTheme = 'dark' | 'light';
 

@@ -10,7 +10,7 @@ import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import type { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
-import type { OverlayFaviconRuntime } from '../favicon-view';
+import type { OverlayFaviconRuntime } from '../dom/favicon-view';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
