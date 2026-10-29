@@ -1,7 +1,7 @@
 // Rendering suggestions: the React suggestions view, selection and
 // scrolling, activating or deleting a row, favicons in rows, the empty
 // state and the open tabs list.
-import type { OverlayTab, WebAppearanceMode } from '../../domain/messages';
+import type { OverlayTab } from '../../domain/messages';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import * as LumnoMessaging from '../../platform/messaging';
 import type {
@@ -15,7 +15,6 @@ import type {
   ThemeValue
 } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
-import type { ActivationEvent } from './result-activation';
 import type { OverlaySuggestion } from './types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
@@ -31,7 +30,6 @@ import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import { getSiteSearchDisplayName } from '../../shared/search-panel/labels';
 import type { SearchLocale } from '../../shared/search-panel/labels';
-import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
@@ -41,6 +39,7 @@ import type { OverlayPanelElements } from './panel-elements';
 import type { OverlayTabs } from './overlay-tabs';
 import type { createSessionCleanupRegistry } from '../lifecycle';
 import type { LastRender } from './last-render';
+import { createEventBus } from '../../shared/state/events';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -48,27 +47,16 @@ type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<Suggestion
 interface SuggestionsRenderDeps {
   suggestionModifiers: SuggestionModifiers;
   colorScheme: ColorScheme;
-  modeActions: SearchModeActions<InputModeProvider>;
   locale: SearchLocale;
   searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   searchQuery: SearchQuery;
   favicons: Pick<OverlayFaviconRuntime, 'attachResolvedFaviconWithFallbacks' | 'applyFaviconOpticalAlignment' | 'preloadIcon'>;
-  updateSearchSuggestions(rows: never[], query: string): void;
-  requestOverlaySearchSuggestions(query: string): void;
   // The rendered rows, filled by the view.
   suggestionItems: SuggestionElement[];
   syncSearchModeMenuResultOffset(): void;
-  removeOverlay(overlay: HTMLElement | null): void;
-  activateOpenTabsSearchMode(): void;
-  openDocumentPipPickerFromOverlay(): void;
-  openOverlayCommunityQrDialog(qrUrl: string): void;
-  applyThemeModeChange(mode: string): void;
-  applyWebAppearanceMode(mode: WebAppearanceMode): void;
   shouldSwitchMatchedTabSuggestion: ViewOption<'shouldSwitchMatchedTabSuggestion'>;
   resultActivation: ResultActivation;
-  finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean;
-  openSiteSearchProviderQuery(provider: InputModeProvider | null, query: string, event: ActivationEvent | null): boolean;
   getOverlayFaviconUrlResolver(): {
     getPageFaviconRenderCandidates(url: string, explicitUrl: string, options?: { includeChromeFallback?: boolean; allowRemoteImage?: boolean }): FaviconCandidates;
   } | null;
@@ -88,7 +76,6 @@ interface SuggestionsRenderDeps {
   getNeutralHoverActionColors: ViewOption<'getNeutralHoverActionColors'>;
   applyThemeVariables: ViewOption<'applyThemeVariables'>;
   applyMarkVariables: ViewOption<'applyMarkVariables'>;
-  copySearchResultUrl: ViewOption<'onCopyUrl'>;
   searchEngine: DefaultSearchEngine;
   getBrandAccentForUrl: ViewOption<'getBrandAccentForUrl'>;
   buildTheme(accent: unknown): ThemeValue;
@@ -98,7 +85,6 @@ interface SuggestionsRenderDeps {
   setOverlayResultsCollapsed(collapsed: boolean, options?: { deferLayoutSync?: boolean } | null): void;
   filterTabsForOverlay(tabs: OverlayTab[], query: string): OverlayTab[];
   shouldShowOpenTabsForEmptyQuery(): boolean;
-  clearDefaultOpenTabsSuggestions(): void;
   settings: Pick<OverlaySettings, 'get'>;
   // Dropping the selection puts back what the arrows wrote over.
   suggestionInputPreview: Pick<SuggestionInputPreview, 'restore'>;
@@ -111,15 +97,11 @@ interface SuggestionsRenderDeps {
   lastRender: LastRender;
 }
 
-// A row's provider is a full site search provider once it has its key, the
-// one field a provider must have; every provider the overlay puts on its
-// rows does.
-function isFullRowProvider(provider: Suggestion['provider']): provider is InputModeProvider {
-  return typeof provider === 'object' && provider !== null && typeof provider.key === 'string';
-}
-
-function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
-  return value === 'auto' || value === 'light' || value === 'dark';
+interface SuggestionRowEvents {
+  activate: { suggestion: Suggestion; query: string; event: MouseEvent; index: number; item: SuggestionElement };
+  switchTab: { tab: OpenTabSuggestion; event: MouseEvent };
+  deleteHistory: { suggestion: Suggestion };
+  copyUrl: { url: string };
 }
 
 function createSuggestionsRender(deps: SuggestionsRenderDeps) {
@@ -135,26 +117,15 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     settings,
     suggestionModifiers,
     colorScheme,
-    modeActions,
     locale,
     searchResults,
     searchMode,
     searchQuery,
     favicons,
-    updateSearchSuggestions,
-    requestOverlaySearchSuggestions,
     suggestionItems,
     syncSearchModeMenuResultOffset,
-    removeOverlay,
-    activateOpenTabsSearchMode,
-    openDocumentPipPickerFromOverlay,
-    openOverlayCommunityQrDialog,
-    applyThemeModeChange,
-    applyWebAppearanceMode,
     shouldSwitchMatchedTabSuggestion,
     resultActivation,
-    finishOverlayResultActivation,
-    openSiteSearchProviderQuery,
     getOverlayFaviconUrlResolver,
     t,
     formatMessage,
@@ -172,7 +143,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     getNeutralHoverActionColors,
     applyThemeVariables,
     applyMarkVariables,
-    copySearchResultUrl,
     searchEngine,
     getBrandAccentForUrl,
     buildTheme,
@@ -182,8 +152,9 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     setOverlayResultsCollapsed,
     filterTabsForOverlay,
     shouldShowOpenTabsForEmptyQuery,
-    clearDefaultOpenTabsSuggestions
   } = deps;
+  // What the user does on a row; the panel's row actions carry it out.
+  const rowEvents = createEventBus<SuggestionRowEvents>();
 
   // A tab's switch ranking, shown under it while score debugging is on.
   function formatTabRankDebugText(tab: OpenTabSuggestion & { _xTabFetchSeq?: number }): string {
@@ -225,38 +196,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     return elements.searchInput ? String(elements.searchInput.value || '').trim() : '';
   }
 
-  function getOverlaySuggestionRefreshQuery(): string {
-    return searchQuery.text || (elements.searchInput ? String(elements.searchInput.value || '').trim() : '');
-  }
-
-  function refreshOverlaySuggestionsAfterHistoryDelete(): void {
-    const queryToRefresh = getOverlaySuggestionRefreshQuery();
-    if (!queryToRefresh) {
-      updateSearchSuggestions([], '');
-      return;
-    }
-    requestOverlaySearchSuggestions(queryToRefresh);
-  }
-
-  function deleteHistorySuggestionUrl(suggestion: { url?: string } | null): void {
-    const targetUrl = suggestion && suggestion.url ? String(suggestion.url) : '';
-    if (!targetUrl) {
-      return;
-    }
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-      action: 'deleteHistoryUrl',
-      url: targetUrl
-    }, function(response) {
-      if (chrome.runtime && chrome.runtime.lastError) {
-        return;
-      }
-      if (!response || response.ok !== true) {
-        return;
-      }
-      refreshOverlaySuggestionsAfterHistoryDelete();
-    });
-  }
-
   function syncSuggestionLastState(): void {
     suggestionItems.forEach((item, index) => {
       if (item) {
@@ -296,116 +235,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       elements.suggestionsContainer
     );
     syncSearchModeMenuResultOffset();
-  }
-
-  // A click on a row: run its command or mode switch, or open its page.
-  function activateRenderedOverlaySuggestion(
-    suggestion: Suggestion,
-    query: string,
-    event: MouseEvent,
-    index: number,
-    item: SuggestionElement
-  ): void {
-    if (!suggestion) {
-      return;
-    }
-    const input = elements.searchInput;
-    const provider = isFullRowProvider(suggestion.provider) ? suggestion.provider : null;
-    if (suggestion.type === 'commandNewTab') {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openNewTab' });
-      removeOverlay(elements.overlay);
-      return;
-    }
-    if (suggestion.type === 'commandSettings') {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openOptionsPage' });
-      removeOverlay(elements.overlay);
-      return;
-    }
-    if (suggestion.type === 'commandOpenTabs') {
-      if (input) {
-        input.value = '';
-      }
-      searchQuery.clear();
-      activateOpenTabsSearchMode();
-      if (input) {
-        input.focus();
-      }
-      return;
-    }
-    if (suggestion.type === 'commandCopyUrl') {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'copyCurrentPageUrl' });
-      removeOverlay(elements.overlay);
-      return;
-    }
-    if (suggestion.type === 'commandDocumentPip') {
-      openDocumentPipPickerFromOverlay();
-      removeOverlay(elements.overlay);
-      return;
-    }
-    if (suggestion.type === 'siteSearchPrompt' && provider) {
-      modeActions.activateSiteSearch(provider);
-      if (input) {
-        input.focus();
-      }
-      return;
-    }
-    if (suggestion.type === 'helpFeedback' && suggestion.feedbackKey === 'community') {
-      openOverlayCommunityQrDialog(suggestion.url || '');
-      return;
-    }
-    if (suggestion.type === 'modeSwitch') {
-      applyThemeModeChange(suggestion.nextMode || '');
-      if (input) {
-        input.focus();
-      }
-      return;
-    }
-    if (suggestion.type === 'webAppearanceSwitch') {
-      if (isWebAppearanceMode(suggestion.nextMode)) {
-        applyWebAppearanceMode(suggestion.nextMode);
-      }
-      if (input) {
-        input.focus();
-      }
-      return;
-    }
-    if (shouldSwitchMatchedTabSuggestion(suggestion, index)) {
-      resultActivation.openMatchedTab(suggestion, event, item, query);
-      finishOverlayResultActivation(event, Boolean(suggestion.url));
-      return;
-    }
-    if (provider && suggestion.searchQuery) {
-      if (openSiteSearchProviderQuery(
-        provider,
-        suggestion.searchQuery,
-        event
-      )) {
-        finishOverlayResultActivation(event, true);
-      }
-      return;
-    }
-    if (suggestion.forceSearch && suggestion.searchQuery) {
-      if (resultActivation.opensInBackground(event) && suggestion.url) {
-        resultActivation.openUrl(suggestion, query, event);
-      } else {
-        LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
-          action: 'searchOrNavigate',
-          query: suggestion.searchQuery,
-          forceSearch: true,
-          disposition: resultActivation.getDisposition(event)
-        });
-      }
-    } else {
-      resultActivation.openUrl(suggestion, query, event);
-    }
-    finishOverlayResultActivation(
-      event,
-      !(suggestion.forceSearch && !suggestion.url)
-    );
-  }
-
-  function deleteRenderedOverlayHistorySuggestion(suggestion: Suggestion): void {
-    deleteHistorySuggestionUrl(suggestion);
   }
 
   // Loads a row's favicon with the overlay's fallbacks; when all fail the
@@ -493,25 +322,12 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       },
       modifiers: suggestionModifiers,
       colorScheme,
-      onSwitchToTab: (tab, event) => {
-        const suggestion: OverlaySuggestion = {
-          type: 'openTab',
-          title: tab && tab.title ? tab.title : '',
-          url: tab && tab.url ? tab.url : '',
-          favicon: tab && tab.favIconUrl ? tab.favIconUrl : '',
-          _xMatchedTabId: tab && typeof tab.id === 'number' ? tab.id : undefined
-        };
-        resultActivation.openMatchedTab(
-          suggestion,
-          event,
-          null,
-          readInputQuery()
-        );
-        finishOverlayResultActivation(event, Boolean(suggestion.url));
+      onSwitchToTab: (tab, event) => rowEvents.emit('switchTab', { tab, event }),
+      onActivateSuggestion: (suggestion, query, event, index, item) => {
+        rowEvents.emit('activate', { suggestion, query, event, index, item });
       },
-      onActivateSuggestion: activateRenderedOverlaySuggestion,
-      onDeleteHistory: deleteRenderedOverlayHistorySuggestion,
-      onCopyUrl: copySearchResultUrl,
+      onDeleteHistory: (suggestion) => rowEvents.emit('deleteHistory', { suggestion }),
+      onCopyUrl: (url) => rowEvents.emit('copyUrl', { url }),
       showTopActionTooltip,
       hideTopActionTooltip,
       bindCursorTooltip: (target, getText, options) => (
@@ -676,7 +492,22 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     });
   }
 
+  function clearDefaultOpenTabsSuggestions(): void {
+    ensureOverlaySuggestionsView().clear();
+    setOpenTabsResultsViewport(false);
+    if (elements.suggestionsContainer) {
+      elements.suggestionsContainer.removeAttribute('data-scope-result-enter');
+    }
+    suggestionItems.length = 0;
+    searchResults.show([]);
+    lastRender.clear();
+    searchResults.select(-1);
+    setOverlayResultsCollapsed(true);
+  }
+
   return {
+    rowEvents,
+    clearDefaultOpenTabsSuggestions,
     syncSuggestionLastState,
     scrollSelectedSuggestionIntoView,
     getSearchPanelsLayoutTransitionMenu,
@@ -689,5 +520,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
   };
 }
 
+type SuggestionsRender = ReturnType<typeof createSuggestionsRender>;
+
 export { createSuggestionsRender };
-export type { SuggestionsRenderDeps };
+export type { SuggestionsRender, SuggestionsRenderDeps };

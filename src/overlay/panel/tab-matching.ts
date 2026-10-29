@@ -1,5 +1,8 @@
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import type { OverlayTabs } from './overlay-tabs';
+import type { SuggestionLike } from '../../domain/search/types';
+import { overlayTabPriority } from '../../domain/settings/overlay-panel';
+import type { OverlaySettings } from '../overlay-settings';
 
 interface TabMatchingDeps {
   // A result for the page already open counts as that open tab.
@@ -7,6 +10,7 @@ interface TabMatchingDeps {
   // That tab's address, for before its entry is in tabs.
   initialContextTabUrl: string;
   overlayTabs: Pick<OverlayTabs, 'currentTabId' | 'tabs'>;
+  settings: Pick<OverlaySettings, 'get'>;
 }
 
 // What a tab is matched by.
@@ -18,7 +22,7 @@ interface TabTextSource {
 // Matching open tabs: the text a tab is searched by, filtering them for
 // the query, and finding the tab a suggestion already has open.
 function createTabMatching(deps: TabMatchingDeps) {
-  const { prioritizeCurrentPageMatch, initialContextTabUrl, overlayTabs } = deps;
+  const { prioritizeCurrentPageMatch, initialContextTabUrl, overlayTabs, settings } = deps;
 
   function isEnglishQuery(query: string): boolean {
     if (!query) {
@@ -164,7 +168,25 @@ function createTabMatching(deps: TabMatchingDeps) {
     return Boolean(targetNoSearch && currentNoSearch && targetNoSearch === currentNoSearch);
   }
 
+  // Enter on this row switches to the tab it is open in.
+  function shouldSwitchMatchedTabSuggestion(suggestion: SuggestionLike | null, index: number): boolean {
+    if (!suggestion || typeof suggestion._xMatchedTabId !== 'number') {
+      return false;
+    }
+    if (prioritizeCurrentPageMatch &&
+      typeof overlayTabs.currentTabId === 'number' &&
+      suggestion._xMatchedTabId === overlayTabs.currentTabId &&
+      index === 0) {
+      return true;
+    }
+    if (!settings.get(overlayTabPriority)) {
+      return false;
+    }
+    return index === 0;
+  }
+
   return {
+    shouldSwitchMatchedTabSuggestion,
     isEnglishQuery,
     getUrlDisplay,
     filterTabsForOverlay,

@@ -41,6 +41,8 @@ import { LastRender } from './panel/last-render';
 import { OverlayThemeMode } from './panel/overlay-theme-mode';
 import * as PANEL_SITE_SEARCH_PROVIDERS from './panel/site-search-providers';
 import * as PANEL_SLASH_COMMANDS from './panel/slash-commands';
+import * as PANEL_COMMAND_ACTIONS from './panel/command-actions';
+import * as PANEL_ROW_ACTIONS from './panel/row-actions';
 import * as PANEL_SUGGESTION_SOURCES from './panel/suggestion-sources';
 import * as PANEL_SUGGESTION_THEMES from './panel/suggestion-themes';
 import * as PANEL_SUGGESTIONS_RENDER from './panel/suggestions-render';
@@ -173,7 +175,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const siteSearchRunner = new SiteSearchRunner({
     t: (key, fallback) => locale.t(key, fallback),
     showToast: (message, isError) => showOverlayToast(message, isError),
-    getHelpCenterLocale: () => getHelpCenterLocale(),
+    getHelpCenterLocale: () => locale.store.getSnapshot().locale,
     openInCurrentTab: (url) => LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'createTab', url, disposition: 'currentTab' })
   });
   // The mode menu's moves can be undone for as long as the page lives,
@@ -262,6 +264,28 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
 
   const logOverlayFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'overlay' });
 
+  const suggestionItems: SuggestionElement[] = [];
+
+  const numberShortcutOptions: NumberShortcutOptions = {
+    onHoldStart: function() {
+      showOverlayToast(t(
+        'search_number_jump_release_hint',
+        'Release to show numbers'
+      ), false, { duration: 0 });
+    },
+    onHoldEnd: () => hideOverlayToast(),
+    instantActive: () => settings.get(numberShortcutInstantEnabled)
+  };
+
+  const overlayFrameTracker = overlayLifecycle.createFrameTracker(window);
+
+  const setInputScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
+    if (!element) {
+      return;
+    }
+    element.style.setProperty(property, value);
+  };
+
   const {
     getOverlayStrictFaviconReason,
     isOverlayEnhancedFaviconFetchEnabled,
@@ -310,10 +334,33 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     rerenderReplacedFaviconRows,
     hasThemeForHost: (hostKey) => Boolean(hostKey && themeHostCache.has(hostKey))
   });
-  function cancelPendingOverlaySuggestionRequests() {
-    suggestionSource.cancel();
-    clearFirstResultRevealTimer();
-  }
+
+  const {
+    shouldSkipOverlayEntryMotion,
+    shouldSkipOverlayEntryMotionForSlowStartup,
+    getOverlayEnterAnimationRevealTransform,
+    clearOverlayPanelEnterCleanup,
+    finishOverlayPanelEnterAnimation,
+    applyOverlayEnterAnimationInitialState,
+    playOverlayPanelEnterAnimation,
+    clearOverlayEnterAnimationFrames
+  } = PANEL_ENTRY_MOTION.createEntryMotion({
+    settings,
+    initialOverlayOpenStartedAt,
+    overlayFrameTracker
+  });
+
+  const {
+    applyOverlayInputExtensionIsolation,
+    applyNoTranslate,
+    applyNoTranslateDeep,
+    stopOverlayAntiTranslateObserver,
+    pauseOverlayAntiTranslateObserverForScroll,
+    pauseOverlayAntiTranslateObserverForMutationBurst,
+    startOverlayAntiTranslateObserver
+  } = PANEL_PAGE_GUARDS.createPageGuards({
+    window
+  });
 
   const {
     attachKeyRouter,
@@ -337,14 +384,15 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayNoticeLayer,
     overlaySessionCleanups,
     settings,
-    pauseOverlayAntiTranslateObserverForScroll: (...args) => pauseOverlayAntiTranslateObserverForScroll(...args),
-    clearOverlayEnterAnimationFrames: (...args) => clearOverlayEnterAnimationFrames(...args),
-    clearOverlayPanelEnterCleanup: (...args) => clearOverlayPanelEnterCleanup(...args),
+    pauseOverlayAntiTranslateObserverForScroll,
+    clearOverlayEnterAnimationFrames,
+    clearOverlayPanelEnterCleanup,
     cancelPendingOverlaySuggestionRequests,
-    stopOverlayAntiTranslateObserver: (...args) => stopOverlayAntiTranslateObserver(...args),
+    stopOverlayAntiTranslateObserver,
     overlayShell,
     overlayLifecycle
   });
+
   const {
     resultActivation,
     finishOverlayResultActivation,
@@ -357,32 +405,408 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   });
 
   const {
+    shouldSwitchMatchedTabSuggestion,
     getUrlDisplay,
     filterTabsForOverlay,
     getMatchedOpenTabIdForSuggestion,
     isCurrentOverlayTabUrl
   } = PANEL_TAB_MATCHING.createTabMatching({
+    settings,
     overlayTabs,
     initialContextTabUrl,
     prioritizeCurrentPageMatch
   });
 
-  const suggestionItems: SuggestionElement[] = [];
+  const {
+    events: panelThemeEvents,
+    getHighlightColors,
+    detectPageTheme,
+    invalidatePageTheme,
+    syncOverlayPageThemeObservation,
+    applyOverlayFontFamily,
+    applyOverlayThemeVariables,
+    isOverlayDarkMode,
+    getThemeForMode,
+    getHoverColors,
+    getNeutralHoverActionColors
+  } = PANEL_PANEL_THEME.createPanelTheme({
+    overlayThemeChoice,
+    overlaySessionCleanups,
+    elements,
+    defaultTheme,
+    overlayMediaQuery,
+    settings,
+    parseCssColor
+  });
 
-  const numberShortcutOptions: NumberShortcutOptions = {
-    onHoldStart: function() {
-      showOverlayToast(t(
-        'search_number_jump_release_hint',
-        'Release to show numbers'
-      ), false, { duration: 0 });
-    },
-    onHoldEnd: () => hideOverlayToast(),
-    instantActive: () => settings.get(numberShortcutInstantEnabled)
-  };
+  const {
+    openSiteSearchProviderQuery,
+    getProviderIcon,
+    toPageRenderableIconUrl,
+    getPageRenderableProviderIcon
+  } = PANEL_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
+    siteSearchRunner,
+    favicons: faviconRuntime,
+    resultActivation,
+    finishOverlayResultActivation,
+    getOverlayFaviconUrlResolver,
+    siteSearchIconCache,
+    faviconDataCache
+  });
+
+  const {
+    getBrandAccentForUrl,
+    getProviderThemeHost,
+    getThemeForProvider,
+    getThemeForSuggestion,
+    getImmediateThemeForSuggestion,
+    applyThemeVariables,
+    applyMarkVariables,
+    preloadThemeFromFavicon
+  } = PANEL_SUGGESTION_THEMES.createSuggestionThemes({
+    defaultTheme,
+    favicons: faviconRuntime,
+    getHostFromUrl,
+    isFaviconProxyUrl,
+    themeColorCache,
+    themeHostCache,
+    getOverlayFaviconUrlResolver,
+    buildTheme,
+    defaultAccentColor,
+    shouldBlockOverlayFaviconForHost,
+    faviconDataCache,
+    getProviderIcon,
+    getThemeForMode
+  });
+
+  const {
+    syncOpenTabsScrollbarGutter,
+    setOpenTabsResultsViewport,
+    syncSearchModeMenuResultOffset,
+    setOverlayResultsCollapsed,
+    shouldShowOpenTabsForEmptyQuery,
+    updateInputRightPadding,
+    setSiteSearchTabHint,
+    clearSiteSearchTabHint
+  } = PANEL_RESULTS_LAYOUT.createResultsLayout({
+    elements,
+    settings,
+    searchMode,
+    normalizeSearchResultDisplayLimit,
+    setInputScopedStyle
+  });
+
+  const {
+    rowEvents,
+    clearDefaultOpenTabsSuggestions,
+    syncSuggestionLastState,
+    scrollSelectedSuggestionIntoView,
+    getSearchPanelsLayoutTransitionMenu,
+    commitSuggestionsNaturalHeightAfterRender,
+    ensureOverlaySuggestionsView,
+    renderTabSuggestions,
+    renderCachedTabsForOverlay,
+    renderCachedTabsOrRequest,
+    requestTabsAndRender
+  } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
+    lastRender,
+    isLoadingSessionTracked,
+    overlaySessionCleanups,
+    overlayTabs,
+    elements,
+    urlHighlightTheme,
+    defaultTheme,
+    suggestionInputPreview,
+    settings,
+    suggestionModifiers,
+    colorScheme,
+    locale,
+    searchResults,
+    searchMode,
+    searchQuery,
+    favicons: faviconRuntime,
+    suggestionItems,
+    syncSearchModeMenuResultOffset,
+    shouldSwitchMatchedTabSuggestion,
+    resultActivation,
+    getOverlayFaviconUrlResolver,
+    t,
+    formatMessage,
+    shouldBlockOverlayFaviconForHost,
+    isLocalNetworkHost,
+    getChromeFaviconUrl,
+    getPageFaviconCandidateUrl,
+    getHostFromUrl,
+    getUrlDisplay,
+    getImmediateThemeForSuggestion,
+    getThemeForSuggestion,
+    getThemeForMode,
+    getHoverColors,
+    getHighlightColors,
+    getNeutralHoverActionColors,
+    applyThemeVariables,
+    applyMarkVariables,
+    searchEngine,
+    getBrandAccentForUrl,
+    buildTheme,
+    normalizeSearchResultDisplayLimit,
+    pauseOverlayAntiTranslateObserverForMutationBurst,
+    setOpenTabsResultsViewport,
+    setOverlayResultsCollapsed,
+    filterTabsForOverlay,
+    shouldShowOpenTabsForEmptyQuery
+  });
+
+  const {
+    getWebAppearanceMode,
+    setWebAppearanceState,
+    getNextWebAppearanceMode,
+    setDocumentPipEnabled,
+    getCommandMatches,
+    isSlashCommandInput,
+    getCommandMatch,
+    buildCommandSuggestion,
+    updateModeBadge,
+    getNextThemeMode,
+    isModeCommand,
+    buildModeSuggestion
+  } = PANEL_SLASH_COMMANDS.createSlashCommands({
+    overlayThemeChoice,
+    documentPipEnabledAtOpen: documentPipSupported && openOptions.documentPipEnabled,
+    elements,
+    overlayMediaQuery,
+    t,
+    formatMessage,
+    updateInputRightPadding,
+    detectPageTheme
+  });
+
+  const {
+    quickNavigation,
+    getDirectUrlSuggestion,
+    updateSearchSuggestions,
+    clearSearchSuggestions
+  } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    overlayThemeChoice,
+    lastRender,
+    overlayTabs,
+    elements,
+    prioritizeCurrentPageMatch,
+    settings,
+    siteSearchRunner,
+    searchMatching,
+    searchResults,
+    searchMode,
+    searchAutocomplete,
+    searchQuery,
+    favicons: faviconRuntime,
+    formatMessage,
+    getPageFaviconCandidateUrl,
+    isLocalNetworkInput,
+    getHostFromUrl,
+    isLocalNetworkHost,
+    locale,
+    getProviderIcon,
+    t,
+    isSlashCommandInput,
+    isModeCommand,
+    applyOverlayTheme,
+    searchEngine,
+    getCommandMatches,
+    buildModeSuggestion,
+    buildCommandSuggestion,
+    isCurrentOverlayTabUrl,
+    siteSearchCatalog,
+    getMatchedOpenTabIdForSuggestion,
+    filterOverlayBlacklistedSuggestions,
+    getUrlDisplay,
+    setSiteSearchTabHint,
+    clearSiteSearchTabHint,
+    limitOverlaySuggestionsForDisplay,
+    getSearchPanelsLayoutTransitionMenu,
+    pauseOverlayAntiTranslateObserverForMutationBurst,
+    setOpenTabsResultsViewport,
+    ensureOverlaySuggestionsView,
+    setOverlayResultsCollapsed,
+    syncSuggestionLastState,
+    commitSuggestionsNaturalHeightAfterRender,
+    cancelPendingOverlaySuggestionRequests,
+    shouldShowOpenTabsForEmptyQuery,
+    requestTabsAndRender,
+    clearDefaultOpenTabsSuggestions
+  });
+
+  const {
+    updatePendingSearchSuggestions,
+    requestOverlaySearchSuggestions
+  } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
+    lastRender,
+    elements,
+    settings,
+    suggestionSource,
+    searchResults,
+    searchMode,
+    searchQuery,
+    updateSearchSuggestions,
+    isSlashCommandInput,
+    getDirectUrlSuggestion
+  });
+
+  const {
+    cancelPendingOpenTabsPrefixEntry,
+    activateOpenTabsSearchMode,
+    clearOpenTabsSearchMode
+  } = PANEL_SEARCH_MODES.createSearchModes({
+    elements,
+    defaultTheme,
+    modeActions,
+    searchMode,
+    searchAutocomplete,
+    searchQuery,
+    t,
+    cancelPendingOverlaySuggestionRequests,
+    clearSearchSuggestions,
+    renderCachedTabsForOverlay,
+    requestTabsAndRender,
+    isSlashCommandInput,
+    updateSearchSuggestions,
+    requestOverlaySearchSuggestions
+  });
+
+  const {
+    openOverlayCommunityQrDialog,
+    openDocumentPipPickerFromOverlay,
+    applyThemeModeChange,
+    applyWebAppearanceMode,
+    applyNextWebAppearanceMode
+  } = PANEL_COMMAND_ACTIONS.createCommandActions({
+    removeOverlay,
+    t,
+    isModeCommand,
+    isSlashCommandInput,
+    updateModeBadge,
+    getWebAppearanceMode,
+    setWebAppearanceState,
+    getNextWebAppearanceMode,
+    settings,
+    applyOverlayTheme,
+    updateSearchSuggestions,
+    elements
+  });
+
+  const {
+    isApplyingInputHistory,
+    handleTabKey,
+    handleSearchInputKeydown,
+    getSuggestionNavigationKey,
+    handleOverlayKeydown,
+    handleOverlayKeyup,
+    isSearchInputActive
+  } = PANEL_PANEL_KEYS.createPanelKeys({
+    shouldSwitchMatchedTabSuggestion,
+    overlayThemeChoice,
+    elements,
+    suggestionInputPreview,
+    settings,
+    suggestionModifiers,
+    modeActions,
+    searchMatching,
+    searchResults,
+    searchMode,
+    searchAutocomplete,
+    searchQuery,
+    modeMenu,
+    activateOpenTabsSearchMode,
+    siteSearchCatalog,
+    requestOverlaySearchSuggestions,
+    clearSearchSuggestions,
+    clearOpenTabsSearchMode,
+    isImeCompositionEvent,
+    suggestionItems,
+    numberShortcutOptions,
+    removeOverlay,
+    closeOverlayWithMotion,
+    scrollSelectedSuggestionIntoView,
+    getCommandMatch,
+    applyThemeModeChange,
+    getNextThemeMode,
+    applyWebAppearanceMode,
+    applyNextWebAppearanceMode,
+    openDocumentPipPickerFromOverlay,
+    isModeCommand,
+    openOverlayCommunityQrDialog,
+    openSiteSearchProviderQuery,
+    finishOverlayResultActivation,
+    resultActivation,
+    isSlashCommandInput,
+    updateSearchSuggestions,
+    quickNavigation
+  });
+
+  const {
+    syncLiveSearchInputFromEvent,
+    syncSearchTriggerHintFromInput,
+    handleSearchInputCompositionStart,
+    handleSearchInputCompositionEnd,
+    handleSearchInputEvent
+  } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
+    isApplyingInputHistory,
+    notices,
+    elements,
+    suggestionInputPreview,
+    imeKeyGuard,
+    searchMatching,
+    locale,
+    searchResults,
+    searchMode,
+    searchAutocomplete,
+    searchQuery,
+    siteSearchCatalog,
+    applyNoTranslate,
+    clearSiteSearchTabHint,
+    isSlashCommandInput,
+    setSiteSearchTabHint,
+    cancelPendingOverlaySuggestionRequests,
+    notifyOverlayLoadingSession,
+    updateModeBadge,
+    updateSearchSuggestions,
+    renderCachedTabsOrRequest,
+    getDirectUrlSuggestion,
+    updatePendingSearchSuggestions,
+    requestOverlaySearchSuggestions,
+    clearSearchSuggestions
+  });
+
+  const {
+    getDefaultPlaceholderText,
+    applyOverlayCjkFontFace,
+    applyLanguageStrings
+  } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
+    notices,
+    elements,
+    defaultTheme,
+    modeActions,
+    searchResults,
+    searchMode,
+    searchQuery,
+    locale,
+    updateModeBadge,
+    getThemeForProvider,
+    updateSearchSuggestions,
+    requestTabsAndRender,
+    applyInputActionLabels
+  });
+
+  function cancelPendingOverlaySuggestionRequests() {
+    suggestionSource.cancel();
+  }
 
   // Follows the system's scheme while the theme follows the system.
   let overlayThemeMediaListener: (() => void) | null = null;
-  const applyOverlayTheme = (mode: ThemeMode): void => {
+  // A page that changed its own theme is followed at once.
+  panelThemeEvents.on('pageThemeChanged', () => applyOverlayTheme(overlayThemeChoice.mode));
+
+  function applyOverlayTheme(mode: ThemeMode): void {
     overlayThemeChoice.set(mode);
     const previousResolvedTheme = elements.overlay ? elements.overlay.getAttribute('data-theme') : '';
     applyOverlayThemeVariables(mode);
@@ -414,7 +838,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
       return;
     }
     stopFollowingSystemTheme();
-  };
+  }
 
   function stopFollowingSystemTheme(): void {
     if (overlayThemeMediaListener) {
@@ -423,312 +847,10 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     }
   }
 
-  const {
-    quickNavigation,
-    getDirectUrlSuggestion,
-    getHelpCenterLocale,
-    updateSearchSuggestions,
-    clearSearchSuggestions
-  } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
-    overlayThemeChoice,
-    lastRender,
-    overlayTabs,
-    elements,
-    prioritizeCurrentPageMatch,
-    settings,
-    siteSearchRunner,
-    searchMatching,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    favicons: faviconRuntime,
-    formatMessage: (...args) => formatMessage(...args),
-    getPageFaviconCandidateUrl: (...args) => getPageFaviconCandidateUrl(...args),
-    isLocalNetworkInput: (...args) => isLocalNetworkInput(...args),
-    getHostFromUrl: (...args) => getHostFromUrl(...args),
-    isLocalNetworkHost: (...args) => isLocalNetworkHost(...args),
-    locale,
-    getProviderIcon: (...args) => getProviderIcon(...args),
-    t: (...args) => t(...args),
-    isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    isModeCommand: (...args) => isModeCommand(...args),
-    applyOverlayTheme,
-    searchEngine,
-    getCommandMatches: (...args) => getCommandMatches(...args),
-    buildModeSuggestion: (...args) => buildModeSuggestion(...args),
-    buildCommandSuggestion: (...args) => buildCommandSuggestion(...args),
-    isCurrentOverlayTabUrl,
-    siteSearchCatalog,
-    getMatchedOpenTabIdForSuggestion,
-    filterOverlayBlacklistedSuggestions: (...args) => filterOverlayBlacklistedSuggestions(...args),
-    getUrlDisplay,
-    setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
-    clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
-    limitOverlaySuggestionsForDisplay: (...args) => limitOverlaySuggestionsForDisplay(...args),
-    getSearchPanelsLayoutTransitionMenu: (...args) => getSearchPanelsLayoutTransitionMenu(...args),
-    pauseOverlayAntiTranslateObserverForMutationBurst: (...args) => pauseOverlayAntiTranslateObserverForMutationBurst(...args),
-    setOpenTabsResultsViewport: (...args) => setOpenTabsResultsViewport(...args),
-    ensureOverlaySuggestionsView: (...args) => ensureOverlaySuggestionsView(...args),
-    setOverlayResultsCollapsed: (...args) => setOverlayResultsCollapsed(...args),
-    syncSuggestionLastState: (...args) => syncSuggestionLastState(...args),
-    commitSuggestionsNaturalHeightAfterRender: (...args) => commitSuggestionsNaturalHeightAfterRender(...args),
-    cancelPendingOverlaySuggestionRequests,
-    shouldShowOpenTabsForEmptyQuery: (...args) => shouldShowOpenTabsForEmptyQuery(...args),
-    requestTabsAndRender: (...args) => requestTabsAndRender(...args),
-    clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args)
-  });
-
-  const {
-    clearFirstResultRevealTimer,
-    updatePendingSearchSuggestions,
-    requestOverlaySearchSuggestions
-  } = PANEL_REMOTE_SUGGESTIONS.createRemoteSuggestions({
-    lastRender,
-    elements,
-    settings,
-    suggestionSource,
-    searchResults,
-    searchMode,
-    searchQuery,
-    updateSearchSuggestions,
-    isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    getDirectUrlSuggestion
-  });
-
-  const {
-    syncSuggestionLastState,
-    scrollSelectedSuggestionIntoView,
-    getSearchPanelsLayoutTransitionMenu,
-    commitSuggestionsNaturalHeightAfterRender,
-    ensureOverlaySuggestionsView,
-    renderTabSuggestions,
-    renderCachedTabsForOverlay,
-    renderCachedTabsOrRequest,
-    requestTabsAndRender
-  } = PANEL_SUGGESTIONS_RENDER.createSuggestionsRender({
-    lastRender,
-    isLoadingSessionTracked,
-    overlaySessionCleanups,
-    overlayTabs,
-    elements,
-    urlHighlightTheme,
-    defaultTheme,
-    suggestionInputPreview,
-    settings,
-    suggestionModifiers,
-    colorScheme,
-    modeActions,
-    locale,
-    searchResults,
-    searchMode,
-    searchQuery,
-    favicons: faviconRuntime,
-    updateSearchSuggestions,
-    requestOverlaySearchSuggestions,
-    suggestionItems,
-    syncSearchModeMenuResultOffset: (...args) => syncSearchModeMenuResultOffset(...args),
-    removeOverlay,
-    activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
-    openDocumentPipPickerFromOverlay: (...args) => openDocumentPipPickerFromOverlay(...args),
-    openOverlayCommunityQrDialog: (...args) => openOverlayCommunityQrDialog(...args),
-    applyThemeModeChange: (...args) => applyThemeModeChange(...args),
-    applyWebAppearanceMode: (...args) => applyWebAppearanceMode(...args),
-    shouldSwitchMatchedTabSuggestion: (...args) => shouldSwitchMatchedTabSuggestion(...args),
-    resultActivation,
-    finishOverlayResultActivation,
-    openSiteSearchProviderQuery: (...args) => openSiteSearchProviderQuery(...args),
-    getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
-    t: (...args) => t(...args),
-    formatMessage: (...args) => formatMessage(...args),
-    shouldBlockOverlayFaviconForHost: (...args) => shouldBlockOverlayFaviconForHost(...args),
-    isLocalNetworkHost: (...args) => isLocalNetworkHost(...args),
-    getChromeFaviconUrl: (...args) => getChromeFaviconUrl(...args),
-    getPageFaviconCandidateUrl: (...args) => getPageFaviconCandidateUrl(...args),
-    getHostFromUrl: (...args) => getHostFromUrl(...args),
-    getUrlDisplay,
-    getImmediateThemeForSuggestion: (...args) => getImmediateThemeForSuggestion(...args),
-    getThemeForSuggestion: (...args) => getThemeForSuggestion(...args),
-    getThemeForMode: (...args) => getThemeForMode(...args),
-    getHoverColors: (...args) => getHoverColors(...args),
-    getHighlightColors: (...args) => getHighlightColors(...args),
-    getNeutralHoverActionColors: (...args) => getNeutralHoverActionColors(...args),
-    applyThemeVariables: (...args) => applyThemeVariables(...args),
-    applyMarkVariables: (...args) => applyMarkVariables(...args),
-    copySearchResultUrl: (...args) => copySearchResultUrl(...args),
-    searchEngine,
-    getBrandAccentForUrl: (...args) => getBrandAccentForUrl(...args),
-    buildTheme,
-    normalizeSearchResultDisplayLimit: (...args) => normalizeSearchResultDisplayLimit(...args),
-    pauseOverlayAntiTranslateObserverForMutationBurst: (...args) => pauseOverlayAntiTranslateObserverForMutationBurst(...args),
-    setOpenTabsResultsViewport: (...args) => setOpenTabsResultsViewport(...args),
-    setOverlayResultsCollapsed: (...args) => setOverlayResultsCollapsed(...args),
-    filterTabsForOverlay,
-    shouldShowOpenTabsForEmptyQuery: (...args) => shouldShowOpenTabsForEmptyQuery(...args),
-    clearDefaultOpenTabsSuggestions: (...args) => clearDefaultOpenTabsSuggestions(...args)
-  });
-
-  const {
-    isApplyingInputHistory,
-    handleTabKey,
-    handleSearchInputKeydown,
-    shouldSwitchMatchedTabSuggestion,
-    getSuggestionNavigationKey,
-    handleOverlayKeydown,
-    handleOverlayKeyup,
-    isSearchInputActive
-  } = PANEL_PANEL_KEYS.createPanelKeys({
-    overlayThemeChoice,
-    overlayTabs,
-    elements,
-    prioritizeCurrentPageMatch,
-    suggestionInputPreview,
-    settings,
-    suggestionModifiers,
-    modeActions,
-    searchMatching,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    modeMenu,
-    activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
-    siteSearchCatalog,
-    requestOverlaySearchSuggestions,
-    clearSearchSuggestions,
-    clearOpenTabsSearchMode: (...args) => clearOpenTabsSearchMode(...args),
-    isImeCompositionEvent,
-    suggestionItems,
-    numberShortcutOptions,
-    removeOverlay,
-    closeOverlayWithMotion,
-    scrollSelectedSuggestionIntoView,
-    getCommandMatch: (...args) => getCommandMatch(...args),
-    applyThemeModeChange: (...args) => applyThemeModeChange(...args),
-    getNextThemeMode: (...args) => getNextThemeMode(...args),
-    applyWebAppearanceMode: (...args) => applyWebAppearanceMode(...args),
-    applyNextWebAppearanceMode: (...args) => applyNextWebAppearanceMode(...args),
-    openDocumentPipPickerFromOverlay: (...args) => openDocumentPipPickerFromOverlay(...args),
-    isModeCommand: (...args) => isModeCommand(...args),
-    openOverlayCommunityQrDialog: (...args) => openOverlayCommunityQrDialog(...args),
-    openSiteSearchProviderQuery: (...args) => openSiteSearchProviderQuery(...args),
-    finishOverlayResultActivation,
-    resultActivation,
-    isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    updateSearchSuggestions,
-    quickNavigation
-  });
-
-  const {
-    openDocumentPipPickerFromOverlay,
-    syncLiveSearchInputFromEvent,
-    syncSearchTriggerHintFromInput,
-    handleSearchInputCompositionStart,
-    handleSearchInputCompositionEnd,
-    handleSearchInputEvent
-  } = PANEL_SEARCH_INPUT_EVENTS.createSearchInputEvents({
-    isApplyingInputHistory,
-    notices,
-    elements,
-    suggestionInputPreview,
-    imeKeyGuard,
-    searchMatching,
-    locale,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    siteSearchCatalog,
-    applyNoTranslate: (...args) => applyNoTranslate(...args),
-    clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
-    isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    setSiteSearchTabHint: (...args) => setSiteSearchTabHint(...args),
-    cancelPendingOverlaySuggestionRequests,
-    notifyOverlayLoadingSession,
-    updateModeBadge: (...args) => updateModeBadge(...args),
-    updateSearchSuggestions,
-    renderCachedTabsOrRequest,
-    getDirectUrlSuggestion,
-    updatePendingSearchSuggestions,
-    requestOverlaySearchSuggestions,
-    clearSearchSuggestions
-  });
-
-  const {
-    cancelPendingOpenTabsPrefixEntry,
-    activateOpenTabsSearchMode,
-    clearOpenTabsSearchMode
-  } = PANEL_SEARCH_MODES.createSearchModes({
-    elements,
-    defaultTheme,
-    modeActions,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    t: (...args) => t(...args),
-    cancelPendingOverlaySuggestionRequests,
-    clearSearchSuggestions,
-    renderCachedTabsForOverlay,
-    requestTabsAndRender,
-    isSlashCommandInput: (...args) => isSlashCommandInput(...args),
-    updateSearchSuggestions,
-    requestOverlaySearchSuggestions
-  });
-
-  const {
-    openSiteSearchProviderQuery,
-    getProviderIcon,
-    toPageRenderableIconUrl,
-    getPageRenderableProviderIcon
-  } = PANEL_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
-    siteSearchRunner,
-    favicons: faviconRuntime,
-    resultActivation,
-    finishOverlayResultActivation,
-    getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
-    siteSearchIconCache,
-    faviconDataCache
-  });
-
   const overlaySiteFixes = LumnoOverlaySiteFixes;
   const addOverlaySessionCleanup = overlaySessionCleanups.add;
   addOverlaySessionCleanup(stopFollowingSystemTheme);
-  const overlayFrameTracker = overlayLifecycle.createFrameTracker(window);
 
-  const {
-    shouldSkipOverlayEntryMotion,
-    shouldSkipOverlayEntryMotionForSlowStartup,
-    getOverlayEnterAnimationRevealTransform,
-    clearOverlayPanelEnterCleanup,
-    finishOverlayPanelEnterAnimation,
-    applyOverlayEnterAnimationInitialState,
-    playOverlayPanelEnterAnimation,
-    clearOverlayEnterAnimationFrames
-  } = PANEL_ENTRY_MOTION.createEntryMotion({
-    settings,
-    initialOverlayOpenStartedAt,
-    overlayFrameTracker
-  });
-
-  const overlayAntiTranslateGuard = overlayLifecycle.createAntiTranslateGuard(window, {
-    applyNoTranslateDeep: (...args) => applyNoTranslateDeep(...args),
-    restoreProtectedNode: (...args) => restoreProtectedNode(...args),
-    restoreProtectedAncestors: (...args) => restoreProtectedAncestors(...args)
-  });
-
-  const {
-    applyOverlayInputExtensionIsolation,
-    applyNoTranslate,
-    applyNoTranslateDeep,
-    restoreProtectedNode,
-    restoreProtectedAncestors,
-    stopOverlayAntiTranslateObserver,
-    pauseOverlayAntiTranslateObserverForScroll,
-    pauseOverlayAntiTranslateObserverForMutationBurst,
-    startOverlayAntiTranslateObserver
-  } = PANEL_PAGE_GUARDS.createPageGuards({
-    overlayAntiTranslateGuard
-  });
   const OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS = 700;
   const RI_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'assets/remixicon/fonts/remixicon.css');
   const SEARCH_INPUT_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/search/search-input.css');
@@ -739,129 +861,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const EXTERNAL_LINK_ICON_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/external-link-icon.css');
   const OVERLAY_SUGGESTIONS_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/overlay/suggestions-view.css');
 
-  const setInputScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
-    if (!element) {
-      return;
-    }
-    element.style.setProperty(property, value);
-  };
-
-  const {
-    getHighlightColors,
-    detectPageTheme,
-    invalidatePageTheme,
-    syncOverlayPageThemeObservation,
-    applyOverlayFontFamily,
-    applyOverlayThemeVariables,
-    isOverlayDarkMode,
-    getThemeForMode,
-    getHoverColors,
-    getNeutralHoverActionColors
-  } = PANEL_PANEL_THEME.createPanelTheme({
-    overlayThemeChoice,
-    overlaySessionCleanups,
-    elements,
-    defaultTheme,
-    overlayMediaQuery,
-    settings,
-    parseCssColor,
-    applyOverlayTheme
-  });
-
-  const {
-    getBrandAccentForUrl,
-    getProviderThemeHost,
-    getThemeForProvider,
-    getThemeForSuggestion,
-    getImmediateThemeForSuggestion,
-    applyThemeVariables,
-    applyMarkVariables,
-    preloadThemeFromFavicon
-  } = PANEL_SUGGESTION_THEMES.createSuggestionThemes({
-    defaultTheme,
-    favicons: faviconRuntime,
-    getHostFromUrl,
-    isFaviconProxyUrl,
-    themeColorCache,
-    themeHostCache,
-    getOverlayFaviconUrlResolver,
-    buildTheme,
-    defaultAccentColor,
-    shouldBlockOverlayFaviconForHost,
-    faviconDataCache,
-    getProviderIcon,
-    getThemeForMode
-  });
   faviconRuntime.onFaviconData(preloadThemeFromFavicon);
 
-  const {
-    setDocumentPipEnabled,
-    getCommandMatches,
-    isSlashCommandInput,
-    getCommandMatch,
-    buildCommandSuggestion,
-    updateModeBadge,
-    getNextThemeMode,
-    isModeCommand,
-    buildModeSuggestion,
-    applyThemeModeChange,
-    applyWebAppearanceMode,
-    applyNextWebAppearanceMode
-  } = PANEL_SLASH_COMMANDS.createSlashCommands({
-    overlayThemeChoice,
-    documentPipEnabledAtOpen: documentPipSupported && openOptions.documentPipEnabled,
-    elements,
-    overlayMediaQuery,
-    t: (...args) => t(...args),
-    formatMessage: (...args) => formatMessage(...args),
-    updateInputRightPadding: (...args) => updateInputRightPadding(...args),
-    detectPageTheme,
-    settings: settings,
-    applyOverlayTheme,
-    updateSearchSuggestions
-  });
-
-  const {
-    syncOpenTabsScrollbarGutter,
-    setOpenTabsResultsViewport,
-    syncSearchModeMenuResultOffset,
-    setOverlayResultsCollapsed,
-    shouldShowOpenTabsForEmptyQuery,
-    clearDefaultOpenTabsSuggestions,
-    updateInputRightPadding,
-    setSiteSearchTabHint,
-    clearSiteSearchTabHint
-  } = PANEL_RESULTS_LAYOUT.createResultsLayout({
-    lastRender,
-    elements,
-    settings,
-    searchResults,
-    searchMode,
-    normalizeSearchResultDisplayLimit,
-    setInputScopedStyle,
-    ensureOverlaySuggestionsView,
-    suggestionItems
-  });
-
-  const {
-    getDefaultPlaceholderText,
-    applyOverlayCjkFontFace,
-    applyLanguageStrings
-  } = PANEL_PANEL_LANGUAGE.createPanelLanguage({
-    notices,
-    elements,
-    defaultTheme,
-    modeActions,
-    searchResults,
-    searchMode,
-    searchQuery,
-    locale,
-    updateModeBadge,
-    getThemeForProvider,
-    updateSearchSuggestions,
-    requestTabsAndRender,
-    applyInputActionLabels: () => applyInputActionLabels()
-  });
   // The search icon opens the scope panel, except while a scope is set.
   let searchScopeIconEnabled = true;
 
@@ -1098,9 +1099,8 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   applyOverlayInputExtensionIsolation(inputParts.input);
   const rightIcon = inputParts.rightIcon;
 
-  const {
-    openOverlayCommunityQrDialog
-  } = PANEL_PANEL_NOTICES.createPanelNotices({
+  PANEL_PANEL_NOTICES.createPanelNotices({
+    openOverlayCommunityQrDialog,
     notices,
     elements,
     portals: overlayMount.portals,
@@ -1108,6 +1108,26 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     t,
     getOpenDisposition,
     locale
+  });
+
+  PANEL_ROW_ACTIONS.createRowActions({
+    rowEvents,
+    elements,
+    searchQuery,
+    modeActions,
+    resultActivation,
+    finishOverlayResultActivation,
+    shouldSwitchMatchedTabSuggestion,
+    removeOverlay,
+    activateOpenTabsSearchMode,
+    openDocumentPipPickerFromOverlay,
+    openOverlayCommunityQrDialog,
+    applyThemeModeChange,
+    applyWebAppearanceMode,
+    openSiteSearchProviderQuery,
+    copySearchResultUrl,
+    updateSearchSuggestions,
+    requestOverlaySearchSuggestions
   });
 
   applyNoTranslate(elements.searchInput);

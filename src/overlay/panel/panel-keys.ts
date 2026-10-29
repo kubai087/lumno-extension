@@ -11,7 +11,6 @@ import type { NumberShortcutOptions } from '../../shared/search/suggestion-navig
 import type { ActivationEvent } from './result-activation';
 import type { SlashCommand } from './slash-commands';
 import type { OverlaySuggestion } from './types';
-import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { macosCtrlSuggestionNavigationEnabled } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
@@ -30,7 +29,6 @@ import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 import type { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import { SearchTabKey } from '../../shared/search-panel/tab-key';
 import type { OverlayPanelElements } from './panel-elements';
-import type { OverlayTabs } from './overlay-tabs';
 import type { OverlayThemeMode } from './overlay-theme-mode';
 
 interface PanelKeysDeps {
@@ -73,10 +71,9 @@ interface PanelKeysDeps {
   settings: Pick<OverlaySettings, 'get'>;
   // The search suggestion the arrows show in the input.
   suggestionInputPreview: SuggestionInputPreview;
-  prioritizeCurrentPageMatch: boolean;
   elements: Pick<OverlayPanelElements, 'inputHistoryController' | 'inputModeController' | 'overlay' | 'searchInput' | 'suggestionsContainer'>;
-  overlayTabs: Pick<OverlayTabs, 'currentTabId'>;
   overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
+  shouldSwitchMatchedTabSuggestion(suggestion: SuggestionLike | null, index: number): boolean;
 }
 
 function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
@@ -85,10 +82,9 @@ function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
 
 function createPanelKeys(deps: PanelKeysDeps) {
   const {
+    shouldSwitchMatchedTabSuggestion,
     overlayThemeChoice,
-    overlayTabs,
     elements,
-    prioritizeCurrentPageMatch,
     suggestionInputPreview,
     settings,
     suggestionModifiers,
@@ -295,23 +291,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
   // Add keyboard navigation
   function getAutoHighlightIndex(): number {
     return suggestionItems.findIndex((item) => Boolean(item && item._xIsAutocompleteTop));
-  }
-
-  // Enter on this row switches to the tab it is open in.
-  function shouldSwitchMatchedTabSuggestion(suggestion: SuggestionLike | null, index: number): boolean {
-    if (!suggestion || typeof suggestion._xMatchedTabId !== 'number') {
-      return false;
-    }
-    if (prioritizeCurrentPageMatch &&
-      typeof overlayTabs.currentTabId === 'number' &&
-      suggestion._xMatchedTabId === overlayTabs.currentTabId &&
-      index === 0) {
-      return true;
-    }
-    if (!settings.get(overlayTabPriority)) {
-      return false;
-    }
-    return index === 0;
   }
 
   // The result row the arrows selected; null for none or an open tab.
@@ -636,7 +615,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     isApplyingInputHistory,
     handleTabKey,
     handleSearchInputKeydown,
-    shouldSwitchMatchedTabSuggestion,
     getSuggestionNavigationKey,
     handleOverlayKeydown,
     handleOverlayKeyup,

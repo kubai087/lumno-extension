@@ -1,3 +1,5 @@
+import * as OverlayLifecycle from '../lifecycle';
+
 // The anti-translate guard from lifecycle.ts, as far as the panel drives it.
 interface AntiTranslateGuardControls {
   start(root: Element): void;
@@ -7,15 +9,13 @@ interface AntiTranslateGuardControls {
 }
 
 interface PageGuardsDeps {
-  overlayAntiTranslateGuard: AntiTranslateGuardControls;
+  window: Window & typeof globalThis;
 }
 
 // Keeps the host page out of the panel: no page translation inside it,
 // and no other extension decorating its input.
 function createPageGuards(deps: PageGuardsDeps) {
-  const {
-    overlayAntiTranslateGuard
-  } = deps;
+  const { window } = deps;
 
   function applyOverlayInputExtensionIsolation(input: Element | null): void {
     if (!input) {
@@ -87,6 +87,13 @@ function createPageGuards(deps: PageGuardsDeps) {
   function startOverlayAntiTranslateObserver(root: Element): void {
     overlayAntiTranslateGuard.start(root);
   }
+
+  // Puts back what a page's translator changed inside the panel.
+  const overlayAntiTranslateGuard: AntiTranslateGuardControls = OverlayLifecycle.createAntiTranslateGuard(window, {
+    applyNoTranslateDeep,
+    restoreProtectedNode,
+    restoreProtectedAncestors
+  });
 
   return {
     applyOverlayInputExtensionIsolation,

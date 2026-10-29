@@ -1,30 +1,21 @@
 // How the results area is laid out: the open tabs viewport and its
 // scrollbar gutter, the divider, the offset under an open mode menu,
 // collapsing results, the input's right padding and the tab hint.
-import type { SuggestionsViewController } from '../../shared/react/search/suggestion-list/types';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import { overlayOpenTabsDefaultVisible } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
-import type { SearchResults } from '../../shared/search-panel/search-results';
-import type { OverlaySuggestion } from './types';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
 import type { OverlayPanelElements } from './panel-elements';
-import type { LastRender } from './last-render';
 
 interface ResultsLayoutDeps {
-  searchResults: SearchResults<OverlaySuggestion>;
   searchMode: SearchMode<InputModeProvider>;
   normalizeSearchResultDisplayLimit(value: unknown): number;
   setInputScopedStyle(element: HTMLElement | null, property: string, value: string): void;
-  ensureOverlaySuggestionsView(): Pick<SuggestionsViewController, 'clear'>;
-  // The rendered rows; emptied with the list.
-  suggestionItems: unknown[];
   settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
   elements: Pick<OverlayPanelElements, 'inputContainer' | 'inputModeController' | 'inputParts' | 'overlay' | 'suggestionsContainer'>;
-  lastRender: LastRender;
 }
 
 type CssPixelProperty = 'borderLeftWidth' | 'borderRightWidth' | 'paddingTop' | 'paddingBottom' | `--${string}`;
@@ -35,15 +26,11 @@ function isCustomProperty(property: string): property is `--${string}` {
 
 function createResultsLayout(deps: ResultsLayoutDeps) {
   const {
-    lastRender,
     elements,
     settings,
-    searchResults,
     searchMode,
     normalizeSearchResultDisplayLimit,
     setInputScopedStyle,
-    ensureOverlaySuggestionsView,
-    suggestionItems,
   } = deps;
 
   const setOverlayPanelScopedStyle = (element: HTMLElement | null, property: string, value: string): void => {
@@ -238,19 +225,6 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
       (settings.isLoaded() && settings.get(overlayOpenTabsDefaultVisible));
   }
 
-  function clearDefaultOpenTabsSuggestions(): void {
-    ensureOverlaySuggestionsView().clear();
-    setOpenTabsResultsViewport(false);
-    if (elements.suggestionsContainer) {
-      elements.suggestionsContainer.removeAttribute('data-scope-result-enter');
-    }
-    suggestionItems.length = 0;
-    searchResults.show([]);
-    lastRender.clear();
-    searchResults.select(-1);
-    setOverlayResultsCollapsed(true);
-  }
-
   function updateInputRightPadding(): void {
     if (elements.inputModeController) {
       elements.inputModeController.updateLayout();
@@ -275,7 +249,6 @@ function createResultsLayout(deps: ResultsLayoutDeps) {
     syncSearchModeMenuResultOffset,
     setOverlayResultsCollapsed,
     shouldShowOpenTabsForEmptyQuery,
-    clearDefaultOpenTabsSuggestions,
     updateInputRightPadding,
     setSiteSearchTabHint,
     clearSiteSearchTabHint

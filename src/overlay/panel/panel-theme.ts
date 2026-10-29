@@ -1,7 +1,7 @@
 // The panel's own theme: light or dark from the setting or the page,
 // watching the page for theme changes, the font family, and the CSS
 // variables the panel draws with.
-import type { ThemeMode } from '../../domain/settings/appearance';
+import { createEventBus } from '../../shared/state/events';
 import { getHoverColors as getModeHoverColors, getThemeForMode as getThemeVariantForMode } from '../../shared/favicon/favicon-theme';
 import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/favicon-theme';
 import * as LumnoOverlayPageTheme from '../page-theme';
@@ -19,7 +19,6 @@ type PageThemeObserver = ReturnType<typeof LumnoOverlayPageTheme.createPageTheme
 interface PanelThemeDeps {
   // Reads a CSS color as an [r, g, b] triple.
   parseCssColor(color: string): number[] | null;
-  applyOverlayTheme(mode: ThemeMode): void;
   settings: Pick<OverlaySettings, 'get'>;
   overlayMediaQuery: MediaQueryList;
   defaultTheme: ThemeVariant;
@@ -63,8 +62,8 @@ function createPanelTheme(deps: PanelThemeDeps) {
     overlayMediaQuery,
     settings,
     parseCssColor,
-    applyOverlayTheme,
   } = deps;
+  const events = createEventBus<{ pageThemeChanged: null }>();
 
   const overlayPageTheme = LumnoOverlayPageTheme;
 
@@ -200,7 +199,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
         if (change.pageChanged) {
           invalidatePageTheme();
         }
-        applyOverlayTheme(overlayThemeChoice.mode);
+        events.emit('pageThemeChanged', null);
       });
     if (!pageThemeObserver) {
       overlaySessionCleanups.add(stopOverlayPageThemeObserver);
@@ -309,6 +308,7 @@ function createPanelTheme(deps: PanelThemeDeps) {
   }
 
   return {
+    events,
     stopOverlayPageThemeObserver,
     getHighlightColors,
     detectPageTheme,

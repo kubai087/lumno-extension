@@ -1,11 +1,8 @@
 // Slash commands in the overlay: their definitions, matching what is
-// typed, the suggestion each builds, the theme mode command and the website
-// appearance command.
+// typed, the suggestion each builds, and the mode badge the theme mode and
+// website appearance commands show.
 import type { WebAppearanceMode } from '../../domain/messages';
-import { themeMode } from '../../domain/settings/appearance';
 import type { ThemeMode } from '../../domain/settings/appearance';
-import * as LumnoMessaging from '../../platform/messaging';
-import type { OverlaySettings } from '../overlay-settings';
 import type { FormatMessage, Translate } from './types';
 import type { OverlayPanelElements } from './panel-elements';
 import type { OverlayThemeMode } from './overlay-theme-mode';
@@ -51,10 +48,6 @@ interface SlashCommandsDeps {
   formatMessage: FormatMessage;
   updateInputRightPadding(): void;
   detectPageTheme(): string | null;
-  settings: Pick<OverlaySettings, 'set'>;
-  applyOverlayTheme(mode: ThemeMode): void;
-  // Called with no rows: the list rebuilds from the typed command.
-  updateSearchSuggestions(suggestions: never[], query: string): void;
   overlayMediaQuery: MediaQueryList;
   elements: Pick<OverlayPanelElements, 'inputParts' | 'searchInput'>;
   documentPipEnabledAtOpen: boolean;
@@ -71,9 +64,6 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     formatMessage,
     updateInputRightPadding,
     detectPageTheme,
-    settings,
-    applyOverlayTheme,
-    updateSearchSuggestions
   } = deps;
 
   // Firefox's website appearance setting (the color scheme pages see), read
@@ -292,14 +282,12 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     };
   }
 
-  function applyThemeModeChange(mode: string): void {
-    const nextMode = themeMode.parse(mode);
-    void settings.set(themeMode, nextMode).catch(() => {});
-    applyOverlayTheme(nextMode);
-    const input = elements.searchInput;
-    if (input && isModeCommand(input.value || '')) {
-      updateSearchSuggestions([], (input.value || '').trim());
-    }
+  function getWebAppearanceMode(): WebAppearanceMode {
+    return webAppearanceState.mode;
+  }
+
+  function setWebAppearanceState(state: WebAppearanceCommandState): void {
+    webAppearanceState = state;
   }
 
   function getWebAppearanceModeLabel(mode: string): string {
@@ -333,53 +321,6 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     };
   }
 
-  function refreshWebAppearanceCommand(): void {
-    const rawValue = elements.searchInput ? (elements.searchInput.value || '') : '';
-    updateModeBadge(rawValue);
-    if (isSlashCommandInput(rawValue)) {
-      updateSearchSuggestions([], rawValue.trim());
-    }
-  }
-
-  function applyWebAppearanceState(response: { supported?: boolean; mode?: WebAppearanceMode } | undefined): void {
-    if (!response || response.supported === false || typeof response.mode !== 'string') {
-      return;
-    }
-    webAppearanceState = { supported: true, mode: response.mode };
-    refreshWebAppearanceCommand();
-  }
-
-  function loadWebAppearanceState(): void {
-    if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
-      return;
-    }
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'getWebAppearance' }, (response) => {
-      if (chrome.runtime.lastError) {
-        return;
-      }
-      applyWebAppearanceState(response);
-    });
-  }
-
-  function applyWebAppearanceMode(mode: WebAppearanceMode): void {
-    // Show the choice at once; the reply carries what Firefox kept.
-    webAppearanceState = { ...webAppearanceState, mode };
-    refreshWebAppearanceCommand();
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'setWebAppearance', mode }, (response) => {
-      if (!chrome.runtime.lastError && response && typeof response.mode === 'string') {
-        applyWebAppearanceState(response);
-        return;
-      }
-      loadWebAppearanceState();
-    });
-  }
-
-  function applyNextWebAppearanceMode(): void {
-    applyWebAppearanceMode(getNextWebAppearanceMode(webAppearanceState.mode));
-  }
-
-  loadWebAppearanceState();
-
   return {
     setDocumentPipEnabled,
     getCommandMatches,
@@ -390,11 +331,13 @@ function createSlashCommands(deps: SlashCommandsDeps) {
     getNextThemeMode,
     isModeCommand,
     buildModeSuggestion,
-    applyThemeModeChange,
-    applyWebAppearanceMode,
-    applyNextWebAppearanceMode
+    getWebAppearanceMode,
+    setWebAppearanceState,
+    getNextWebAppearanceMode
   };
 }
 
+type SlashCommands = ReturnType<typeof createSlashCommands>;
+
 export { createSlashCommands };
-export type { CommandSuggestion, SlashCommand, SlashCommandsDeps };
+export type { CommandSuggestion, SlashCommand, SlashCommands, SlashCommandsDeps };

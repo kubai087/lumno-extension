@@ -3,7 +3,6 @@
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SiteSearchProvider } from '../../domain/search/types';
-import * as LumnoMessaging from '../../platform/messaging';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
@@ -85,10 +84,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
 
   // The same event can reach the input and the panel; each handles it once.
   const handledSearchInputEvents = new WeakSet<Event>();
-
-  function openDocumentPipPickerFromOverlay(): void {
-    LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openDocumentPipPicker' });
-  }
 
   // The input the event came from: a page script may have replaced the
   // panel's input with a copy.
@@ -281,7 +276,6 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
   }
 
   return {
-    openDocumentPipPickerFromOverlay,
     syncLiveSearchInputFromEvent,
     syncSearchTriggerHintFromInput,
     handleSearchInputCompositionStart,

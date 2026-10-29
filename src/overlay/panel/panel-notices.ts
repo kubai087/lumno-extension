@@ -4,19 +4,19 @@
 import type { Disposition } from '../../domain/navigation-disposition';
 import * as ENGAGEMENT_NOTICE from '../../shared/engagement-notice';
 import * as GRAPHICS_NOTICE from '../../shared/graphics-acceleration-notice';
-import * as COMMUNITY_QR_DIALOG from '../../shared/ui/community-qr-dialog';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import * as UPDATE_NOTICE from '../../shared/update-notice';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { ActivationEvent } from './result-activation';
 import type { Translate } from './types';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
-import * as COMMUNITY_LINKS from '../../platform/community-links';
 import type { PortalHost } from '../../shared/react/portal-host';
 import type { OverlayPanelElements } from './panel-elements';
 import type { OverlayNotices } from './overlay-notices';
 
 interface PanelNoticesDeps {
+  // Opens the community QR code in a dialog over the page.
+  openOverlayCommunityQrDialog(qrUrl: string): void;
   // The panel's React root, which draws the notices.
   portals: PortalHost;
   removeOverlay(overlay: HTMLElement | null): void;
@@ -27,8 +27,9 @@ interface PanelNoticesDeps {
   notices: Pick<OverlayNotices, 'engagement' | 'graphics' | 'setEngagement' | 'setGraphics' | 'setUpdate' | 'update'>;
 }
 
-function createPanelNotices(deps: PanelNoticesDeps) {
+function createPanelNotices(deps: PanelNoticesDeps): void {
   const {
+    openOverlayCommunityQrDialog,
     notices,
     elements,
     portals,
@@ -38,20 +39,6 @@ function createPanelNotices(deps: PanelNoticesDeps) {
     locale
   } = deps;
 
-  // The WeChat group QR opens in a dialog over the page, never in a new tab.
-  // The overlay closes first, as it does for any result it opens.
-  function openOverlayCommunityQrDialog(qrUrl: string): void {
-    const theme = elements.overlay && elements.overlay.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    removeOverlay(elements.overlay);
-    COMMUNITY_QR_DIALOG.open({
-      documentObj: document,
-      imageUrl: qrUrl || COMMUNITY_LINKS.FALLBACK_LINKS.wechatQr,
-      title: t('newtab_feedback_wechat_panel_title', 'Bug 反馈 & 新功能提需'),
-      alt: t('newtab_feedback_wechat_qr_alt', 'Lumno 微信群二维码'),
-      closeLabel: t('newtab_feedback_wechat_close_tooltip', '关闭'),
-      theme
-    });
-  }
   function overlayUpdateNoticeClaimsSessionSlot(): boolean {
     return Boolean(
       notices.update &&
@@ -178,9 +165,6 @@ function createPanelNotices(deps: PanelNoticesDeps) {
       }
     }));
 
-  return {
-    openOverlayCommunityQrDialog
-  };
 }
 
 export { createPanelNotices };
