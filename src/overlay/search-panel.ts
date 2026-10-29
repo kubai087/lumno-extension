@@ -340,8 +340,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   const {
     resultActivation,
     finishOverlayResultActivation,
-    getOpenDisposition,
-    isCurrentTabDefault
+    getOpenDisposition
   } = PANEL_RESULT_ACTIVATION.createResultActivation({
     removeOverlay,
     overlayState
@@ -519,7 +518,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     resultActivation,
     finishOverlayResultActivation,
     openSiteSearchProviderQuery: (...args) => openSiteSearchProviderQuery(...args),
-    isCurrentTabDefault,
     getOverlayFaviconUrlResolver: (...args) => getOverlayFaviconUrlResolver(...args),
     t: (...args) => t(...args),
     formatMessage: (...args) => formatMessage(...args),
@@ -567,7 +565,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     searchMode,
     searchAutocomplete,
     searchQuery,
-    cancelPendingOpenTabsPrefixEntry: (...args) => cancelPendingOpenTabsPrefixEntry(...args),
     modeMenu,
     activateOpenTabsSearchMode: (...args) => activateOpenTabsSearchMode(...args),
     siteSearchCatalog,

@@ -103,7 +103,6 @@ interface SearchBoxDeps {
   getDefaultSearchEngineThemeUrl: ViewOption<'getDefaultSearchEngineThemeUrl'>;
   getBrandAccentForUrl: ViewOption<'getBrandAccentForUrl'>;
   buildThemeFromAccent: ViewOption<'buildThemeFromAccent'>;
-  newtabSuggestionActionModel: ViewOption<'actionModel'>;
   shouldSwitchMatchedTabSuggestion: ViewOption<'shouldSwitchMatchedTabSuggestion'>;
   defaultTheme: ViewOption<'defaultTheme'>;
   urlHighlightTheme: ViewOption<'urlHighlightTheme'>;
@@ -192,7 +191,6 @@ function createSearchBox(deps: SearchBoxDeps) {
     getDefaultSearchEngineThemeUrl,
     getBrandAccentForUrl,
     buildThemeFromAccent,
-    newtabSuggestionActionModel,
     shouldSwitchMatchedTabSuggestion,
     defaultTheme,
     urlHighlightTheme,
@@ -323,7 +321,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     getDefaultSearchEngineThemeUrl,
     getBrandAccentForUrl,
     buildThemeFromAccent,
-    actionModel: newtabSuggestionActionModel,
+    actionModel: resultActivation.actionModel,
     shouldSwitchMatchedTabSuggestion,
     defaultTheme,
     urlHighlightTheme,

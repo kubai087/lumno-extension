@@ -7,7 +7,6 @@ import * as PROGRESS_HISTORY from '../domain/progress-history';
 import * as PROGRESS_MATCH from '../domain/progress-match';
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
-import * as SUGGESTION_ACTION_MODEL from '../domain/search/suggestion-action-model';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
 import * as SITE_DISPLAY_NAME from '../domain/site-display-name';
 import * as NEWTAB_APPEARANCE_MODES from './appearance-modes';
@@ -49,7 +48,6 @@ import * as NEWTAB_SEARCH_BOX_CONTROLS from './search/search-box-controls';
 import * as NEWTAB_SEARCH_BOX from './search/search-box';
 import * as NEWTAB_SEARCH_INPUT_COMPOSITION from './search/search-input-composition';
 import * as NEWTAB_SEARCH_MODE_CONTROLLER from './search/search-mode-controller';
-import * as NEWTAB_SEARCH_MODES from './search/search-modes';
 import * as NEWTAB_SEARCH_NAVIGATION from './search/search-navigation';
 import * as NEWTAB_SEARCH_SETTINGS_SYNC from './search/search-settings-sync';
 import * as NEWTAB_SITE_SEARCH_PROVIDERS from './search/site-search-providers';
@@ -113,7 +111,6 @@ import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
 import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { BackgroundAction, BackgroundReply, BackgroundRequest } from '../domain/messages';
 import type { Disposition } from '../domain/navigation-disposition';
-import type { OpenModifiers, SearchActionModel, SearchActionModelOptions } from '../domain/search/suggestion-action-model';
 import type { SuggestionElement } from '../shared/react/search/suggestion-list/types';
 import type { BookmarkCardElement } from './react/bookmarks';
 import type { RecentCardElement } from './react/recent-sites';
@@ -167,6 +164,7 @@ import type { SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from './menu-values';
 import { ResultActivation } from '../shared/search-panel/result-activation';
+import { SearchTabKey } from '../shared/search-panel/tab-key';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -411,6 +409,7 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
   });
   const resultActivation = new ResultActivation(settings, {
     source: 'newtab',
+    enterAction: 'openNewTab',
     isCurrentTabDefault: () => !settings.get(newtabOpenInNewTab).search,
     openInCurrentTab: (url) => navigateToUrl(url)
   });
@@ -1856,18 +1855,21 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
   const attachInputModeFaviconData =
     BundledIcons.createSiteSearchProviderIconHydrator(attachFaviconData);
 
-  const {
-    handleSearchTabKey
-  } = NEWTAB_SEARCH_MODES.createSearchModes({
-    modeActions,
-    searchMatching,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
-    siteSearchCatalog,
+  const tabKey = new SearchTabKey({
+    query: searchQuery,
+    mode: searchMode,
+    results: searchResults,
+    autocomplete: searchAutocomplete,
+    matching: searchMatching,
+    catalog: siteSearchCatalog,
+    actions: modeActions,
     modeMenu,
-    pageState
+    preview: pageState.suggestionInputPreview,
+    surface: {
+      getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
+      getModeController: () => pageState.inputModeController,
+      getSelectedRow: () => (searchResults.selectedIndex >= 0 ? searchResults.rows[searchResults.selectedIndex] || null : null)
+    }
   });
 
   const { getNextSuggestionIndex } = NEWTAB_SEARCH_NAVIGATION;
@@ -2027,26 +2029,6 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     pageState
   });
 
-  const isSearchOpenInNewTab = (): boolean =>
-    Boolean(settings.get(newtabOpenInNewTab) && settings.get(newtabOpenInNewTab).search === true);
-  // Result labels follow where a plain click goes: 「前往」 in this tab, 「新开」 in a new one.
-  const newtabSuggestionActionModel = Object.assign({}, SUGGESTION_ACTION_MODEL, {
-    createSearchActionModel(input?: SearchActionModelOptions | null): SearchActionModel {
-      return SUGGESTION_ACTION_MODEL.createSearchActionModel({
-        ...input,
-        enterAction: 'openNewTab',
-        currentTabByDefault: !isSearchOpenInNewTab()
-      });
-    },
-    // Option/Alt says where the result would go instead.
-    getModifierAdjustedAction(action: unknown, modifiers?: OpenModifiers | null): string {
-      return SUGGESTION_ACTION_MODEL.getModifierAdjustedAction(action, {
-        ...modifiers,
-        currentTabByDefault: !isSearchOpenInNewTab()
-      });
-    }
-  });
-
   const {
     inputParts,
     searchInput,
@@ -2100,7 +2082,6 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
     getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
     getBrandAccentForUrl,
     buildThemeFromAccent,
-    newtabSuggestionActionModel,
     shouldSwitchMatchedTabSuggestion,
     defaultTheme,
     urlHighlightTheme,
@@ -2271,7 +2252,7 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
 
   NEWTAB_PAGE_KEYBOARD.createPageKeyboard({
     suggestionModifiers,
-    handleSearchTabKey,
+    handleSearchTabKey: tabKey.handle,
     dismissStack,
     finishShortcutDrag,
     finishBookmarkDrag,

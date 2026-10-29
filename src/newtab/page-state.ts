@@ -34,7 +34,6 @@ import type { SearchBoxControlsState } from './search/search-box-controls';
 import type { SearchBoxState } from './search/search-box';
 import type { SearchInputCompositionState } from './search/search-input-composition';
 import type { SearchModeControllerState } from './search/search-mode-controller';
-import type { SearchModesState } from './search/search-modes';
 import type { SearchNavigationState } from './search/search-navigation';
 import type { SearchSettingsSyncState } from './search/search-settings-sync';
 import type { SectionHeadersState } from './section-headers';
@@ -96,7 +95,6 @@ type NewtabPageState =
   SearchBoxState &
   SearchInputCompositionState &
   SearchModeControllerState &
-  SearchModesState &
   SearchNavigationState &
   SearchSettingsSyncState &
   SectionHeadersState &

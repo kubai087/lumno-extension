@@ -30,7 +30,7 @@ import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigatio
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 import type { QuickNavigation } from '../../shared/search-panel/quick-navigation';
-import { getLoadedShortcutRules, loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
+import { SearchTabKey } from '../../shared/search-panel/tab-key';
 
 interface PanelKeysState {
   settings: Pick<OverlaySettings, 'get'>;
@@ -58,7 +58,6 @@ interface PanelKeysDeps {
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
   siteSearchCatalog: SiteSearchCatalog;
-  cancelPendingOpenTabsPrefixEntry(): boolean;
   modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   activateOpenTabsSearchMode(options?: { deferPrefixEntry?: boolean; preserveModeMenuDoubleTab?: boolean }): void;
   requestOverlaySearchSuggestions(query: string): void;
@@ -105,7 +104,6 @@ function createPanelKeys(deps: PanelKeysDeps) {
     searchAutocomplete,
     searchQuery,
     siteSearchCatalog,
-    cancelPendingOpenTabsPrefixEntry,
     modeMenu,
     activateOpenTabsSearchMode,
     requestOverlaySearchSuggestions,
@@ -139,135 +137,25 @@ function createPanelKeys(deps: PanelKeysDeps) {
 
   // Tab: the mode menu, a typed trigger's mode, or the shown completion;
   // true when it was used.
-  function handleTabKey(e: KeyboardEvent | null): boolean {
-    const input = overlayState.searchInput;
-    if (!e || e.defaultPrevented || !input) {
-      return false;
-    }
-    if (overlayState.inputModeController &&
-        typeof overlayState.inputModeController.handleModeMenuTabFocusToggle === 'function' &&
-        overlayState.inputModeController.handleModeMenuTabFocusToggle(e)) {
-      return true;
-    }
-    // Tab takes the suggestion the arrows show as typed text.
-    if (!e.shiftKey && overlayState.suggestionInputPreview.commit()) {
-      e.preventDefault();
-      searchQuery.set(input.value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    }
-    if (overlayState.inputModeController &&
-        typeof overlayState.inputModeController.shouldCompleteModeMenuDoubleTab === 'function') {
-      const shouldOpenModeMenu =
-        overlayState.inputModeController.shouldCompleteModeMenuDoubleTab(e);
-      if (shouldOpenModeMenu) {
-        cancelPendingOpenTabsPrefixEntry();
-        void modeMenu.openFromDoubleTab();
-        return true;
-      }
-      if (e.defaultPrevented) {
-        return true;
+  const handleTabKey = new SearchTabKey({
+    query: searchQuery,
+    mode: searchMode,
+    results: searchResults,
+    autocomplete: searchAutocomplete,
+    matching: searchMatching,
+    catalog: siteSearchCatalog,
+    actions: modeActions,
+    modeMenu,
+    preview: overlayState.suggestionInputPreview,
+    surface: {
+      getInput: () => overlayState.searchInput,
+      getModeController: () => overlayState.inputModeController,
+      getSelectedRow: getSelectedSuggestion,
+      onEmptyTab: () => {
+        activateOpenTabsSearchMode({ deferPrefixEntry: true, preserveModeMenuDoubleTab: true });
       }
     }
-    if (overlayState.inputModeController &&
-        typeof overlayState.inputModeController.shouldOpenModeMenuForActiveModeOnTab === 'function' &&
-        overlayState.inputModeController.shouldOpenModeMenuForActiveModeOnTab(e)) {
-      void overlayState.inputModeController.openModeMenu('none');
-      return true;
-    }
-    if (searchMode.site || searchMode.local || searchMode.openTabs) {
-      return false;
-    }
-    // On a page the arrows selected, Tab puts its address in the input to edit.
-    if (!e.shiftKey && overlayState.suggestionInputPreview.editAddress(input, getSelectedSuggestion())) {
-      e.preventDefault();
-      searchQuery.set(input.value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    }
-    const rawValue = input.value;
-    const rawTrigger = searchQuery.raw || rawValue;
-    const triggerInput = (rawTrigger || rawValue).trim();
-    if (!triggerInput && overlayState.inputModeController &&
-        typeof overlayState.inputModeController.shouldOpenModeMenuOnDoubleTab === 'function') {
-      const shouldOpenModeMenu = overlayState.inputModeController.shouldOpenModeMenuOnDoubleTab(e);
-      if (shouldOpenModeMenu) {
-        cancelPendingOpenTabsPrefixEntry();
-        void modeMenu.openFromDoubleTab();
-        return true;
-      }
-      if (e.defaultPrevented) {
-        activateOpenTabsSearchMode({
-          deferPrefixEntry: true,
-          preserveModeMenuDoubleTab: true
-        });
-        return true;
-      }
-      return false;
-    }
-    const siteTrigger = searchMode.siteTrigger;
-    if (siteTrigger && siteTrigger.rawInput === triggerInput && siteTrigger.provider) {
-      e.preventDefault();
-      modeActions.activateSiteSearch(siteTrigger.provider);
-      return true;
-    }
-    const scopeTrigger = searchMode.localTrigger;
-    if (scopeTrigger && scopeTrigger.rawInput === triggerInput && scopeTrigger.scope) {
-      e.preventDefault();
-      return modeActions.activateLocalSearchScope(scopeTrigger.scope);
-    }
-    if (triggerInput) {
-      e.preventDefault();
-      const providers = siteSearchCatalog.triggerProviders;
-      const topSiteMatch = searchMatching.getTopSiteMatchCandidate(searchResults.rows, triggerInput);
-      const directProvider = searchMatching.getSiteSearchTriggerCandidate(triggerInput, providers, topSiteMatch);
-      if (directProvider) {
-        modeActions.activateSiteSearch(directProvider);
-        return true;
-      }
-      const cachedRules = getLoadedShortcutRules();
-      const directLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, cachedRules);
-      if (siteSearchCatalog.loadedProviders && directLocalScope) {
-        modeActions.activateLocalSearchScope(directLocalScope);
-        return true;
-      }
-      void Promise.all([
-        siteSearchCatalog.loadProviders(),
-        siteSearchCatalog.loadAggregates(),
-        loadShortcutRules()
-      ]).then(([, , rules]) => {
-        // The input may have been replaced while the lists loaded.
-        const liveInput = overlayState.searchInput;
-        if (!liveInput || searchMode.site || searchMode.local ||
-            searchMode.openTabs || String(liveInput.value || '').trim() !== triggerInput) {
-          return;
-        }
-        const asyncTopSiteMatch = searchMatching.getTopSiteMatchCandidate(searchResults.rows, triggerInput);
-        const asyncProvider = searchMatching.getSiteSearchTriggerCandidate(
-          triggerInput,
-          siteSearchCatalog.triggerProviders,
-          asyncTopSiteMatch
-        );
-        if (asyncProvider) {
-          modeActions.activateSiteSearch(asyncProvider);
-          return;
-        }
-        const asyncLocalScope = searchMatching.getLocalSearchScopeCandidate(triggerInput, rules);
-        if (asyncLocalScope) {
-          modeActions.activateLocalSearchScope(asyncLocalScope);
-          return;
-        }
-        searchAutocomplete.accept();
-      });
-      return true;
-    }
-    if (searchAutocomplete.state && searchAutocomplete.state.completion) {
-      e.preventDefault();
-      searchAutocomplete.accept();
-      return true;
-    }
-    return false;
-  }
+  }).handle;
 
   // Backspace in an empty input removes the mode tag, unless the tag asks
   // for a second press first.

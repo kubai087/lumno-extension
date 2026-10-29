@@ -7,7 +7,7 @@
 import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
 import type { Disposition } from '../../domain/navigation-disposition';
 import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
-import type { DisplayedSuggestion } from '../../domain/search/suggestion-action-model';
+import type { DisplayedSuggestion, SearchAction } from '../../domain/search/suggestion-action-model';
 import { numberShortcutInstantEnabled } from '../../domain/settings/search';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { SettingsStore } from '../../platform/settings-store';
@@ -33,15 +33,33 @@ interface ResultActivationSurface {
   isCurrentTabDefault(): boolean;
   // New Tab navigates itself; the overlay asks the worker.
   openInCurrentTab(url: string): void;
+  // What Enter on the first row is called, when not the model's default.
+  readonly enterAction?: SearchAction;
 }
 
 class ResultActivation {
   private readonly settings: Pick<SettingsStore, 'get'>;
   private readonly surface: ResultActivationSurface;
+  // The rows' action model: while results open in the current tab rows say
+  // 「前往」, and Option/Alt says where a result would go instead.
+  readonly actionModel: typeof SUGGESTION_ACTION_MODEL;
 
   constructor(settings: Pick<SettingsStore, 'get'>, surface: ResultActivationSurface) {
     this.settings = settings;
     this.surface = surface;
+    const enter = surface.enterAction ? { enterAction: surface.enterAction } : {};
+    this.actionModel = {
+      ...SUGGESTION_ACTION_MODEL,
+      createSearchActionModel: (input) => SUGGESTION_ACTION_MODEL.createSearchActionModel({
+        ...input,
+        ...enter,
+        currentTabByDefault: surface.isCurrentTabDefault()
+      }),
+      getModifierAdjustedAction: (action, modifiers) => SUGGESTION_ACTION_MODEL.getModifierAdjustedAction(action, {
+        ...modifiers,
+        currentTabByDefault: surface.isCurrentTabDefault()
+      })
+    };
   }
 
   readonly opensInBackground = (event: ActivationEvent | null | undefined): boolean => {

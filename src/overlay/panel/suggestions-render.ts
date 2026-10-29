@@ -2,7 +2,6 @@
 // scrolling, activating or deleting a row, favicons in rows, the empty
 // state and the open tabs list.
 import type { OverlayTab, WebAppearanceMode } from '../../domain/messages';
-import * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import * as LumnoMessaging from '../../platform/messaging';
 import type {
@@ -93,8 +92,6 @@ interface SuggestionsRenderDeps {
   resultActivation: ResultActivation;
   finishOverlayResultActivation(event: ActivationEvent | null, canOpenInBackground: boolean): boolean;
   openSiteSearchProviderQuery(provider: InputModeProvider | null, query: string, event: ActivationEvent | null): boolean;
-  // Whether a plain open goes to the current tab, so rows say 「前往」.
-  isCurrentTabDefault(): boolean;
   getOverlayFaviconUrlResolver(): {
     getPageFaviconRenderCandidates(url: string, explicitUrl: string, options?: { includeChromeFallback?: boolean; allowRemoteImage?: boolean }): FaviconCandidates;
   } | null;
@@ -162,7 +159,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     resultActivation,
     finishOverlayResultActivation,
     openSiteSearchProviderQuery,
-    isCurrentTabDefault,
     getOverlayFaviconUrlResolver,
     t,
     formatMessage,
@@ -461,20 +457,6 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     return resolver ? resolver.getPageFaviconRenderCandidates(url, explicitUrl, options) : {};
   }
 
-  // While results open in the current tab, rows say 「前往」 and Option/Alt
-  // turns them to 「新开」.
-  const overlayActionModel: ViewOption<'actionModel'> = {
-    ...SuggestionActionModel,
-    createSearchActionModel: (input) => SuggestionActionModel.createSearchActionModel({
-      ...input,
-      currentTabByDefault: isCurrentTabDefault()
-    }),
-    getModifierAdjustedAction: (action, modifiers) => SuggestionActionModel.getModifierAdjustedAction(action, {
-      ...modifiers,
-      currentTabByDefault: isCurrentTabDefault()
-    })
-  };
-
   // The view, made on first use.
   function ensureOverlaySuggestionsView(): SuggestionsViewController {
     if (overlayState.overlaySuggestionsView) {
@@ -560,7 +542,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       getDefaultSearchEngineThemeUrl: () => searchEngine.themeUrl(),
       getBrandAccentForUrl,
       buildThemeFromAccent: (accent) => buildTheme(accent),
-      actionModel: overlayActionModel,
+      actionModel: resultActivation.actionModel,
       shouldSwitchMatchedTabSuggestion,
       defaultTheme: overlayState.defaultTheme,
       urlHighlightTheme: overlayState.urlHighlightTheme,

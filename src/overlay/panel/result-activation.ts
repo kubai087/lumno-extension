@@ -62,8 +62,7 @@ function createResultActivation(deps: ResultActivationDeps) {
   return {
     resultActivation,
     finishOverlayResultActivation,
-    getOpenDisposition,
-    isCurrentTabDefault
+    getOpenDisposition
   };
 }
 
