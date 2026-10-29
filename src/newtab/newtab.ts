@@ -1,39 +1,21 @@
-import * as FOLDER_BINDINGS from '../platform/bookmark-folder-bindings';
-import * as LumnoBrowserProfile from '../platform/browser-profile';
 import * as LumnoShortcutFaviconStore from '../platform/shortcut-favicon-store';
-import * as LumnoBrowserIcons from '../platform/browser-icons';
 import * as PROGRESS_HISTORY from '../domain/progress-history';
 import * as PROGRESS_MATCH from '../domain/progress-match';
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
-import * as SITE_DISPLAY_NAME from '../domain/site-display-name';
 import * as NEWTAB_APPEARANCE_MODES from './appearance-modes';
-import * as NEWTAB_BOOKMARK_ACTIONS from './bookmarks/bookmark-actions';
-import * as NEWTAB_BOOKMARK_CASCADE_ACTIONS from './bookmarks/bookmark-cascade-actions';
-import * as NEWTAB_BOOKMARK_CONTEXT_MENU from './bookmarks/bookmark-context-menu';
-import * as NEWTAB_BOOKMARK_DISPLAY_SETTINGS from './bookmarks/bookmark-display-settings';
 import * as NEWTAB_BOOKMARK_DRAG_CONTROLLER from './bookmarks/bookmark-drag-controller';
-import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmarks/bookmark-move-history';
 import * as NEWTAB_BOOKMARK_PAGER from './bookmarks/bookmark-pager';
 import * as NEWTAB_BOOKMARK_SECTION from './bookmarks/bookmark-section';
-import * as NEWTAB_BOOKMARKS_RUNTIME from './bookmarks/bookmarks-runtime';
-import * as NEWTAB_BOOKMARKS_STORE from './bookmarks/bookmarks-store';
-import * as NEWTAB_FOLDER_COLORS from './bookmarks/folder-colors';
-import * as LumnoNewtabFolderItemIcons from './bookmarks/folder-item-icons';
 import * as NEWTAB_CARD_ACTIVATION_GUARD from './card-activation-guard';
-import * as NEWTAB_CLIPBOARD_ACTIONS from './clipboard-actions';
-import * as LumnoNewtabDismissStack from './dismiss-stack';
 import * as NEWTAB_ENTRY_MOTION from './entry-motion';
-import * as NEWTAB_FEEDBACK_CONTROL_RUNTIME from './feedback-control';
 import * as NEWTAB_INPUT_FOCUS from './input-focus';
 import * as NEWTAB_MODE_COMMANDS from './mode-commands';
 import * as NEWTAB_PAGE_KEYBOARD from './page-keyboard';
 import { loadNewtabLocaleMessages } from './page-language';
 import { SurfaceLocale } from '../shared/i18n/surface-locale';
-import * as SearchDirectNavigation from '../domain/search/utils/direct-navigation';
 import * as NEWTAB_PAGE_LAYOUT from './page-layout';
-import * as NEWTAB_PAGE_NAVIGATION from './page-navigation';
 import * as NEWTAB_PAGE_NOTICES from './page-notices';
 import * as NEWTAB_PAGE_PREFERENCES from './page-preferences';
 import * as NEWTAB_PAGE_RESIZE from './page-resize';
@@ -53,15 +35,10 @@ import * as NEWTAB_SUGGESTIONS_CONTROLLER from './search/suggestions-controller'
 import * as NEWTAB_SUGGESTIONS_LAYOUT from './search/suggestions-layout';
 import * as NEWTAB_SECTION_HEADERS from './section-headers';
 import * as NEWTAB_SECTION_LOADERS from './section-loaders';
-import * as NEWTAB_BOOKMARK_MODE_MENU from './bookmarks/bookmark-mode-menu';
 import * as LumnoNewtabSectionPanelSettings from './section-panel-settings';
 import * as NEWTAB_SECTION_RELOAD from './section-reload';
 import * as NEWTAB_BOTTOM_DOCK_RUNTIME from './shortcuts/bottom-dock-runtime';
-import * as NEWTAB_SHORTCUT_CONTEXT_MENU from './shortcuts/shortcut-context-menu';
-import * as NEWTAB_SHORTCUT_DOCK from './shortcuts/shortcut-dock';
 import * as NEWTAB_SHORTCUT_DRAG from './shortcuts/shortcut-drag';
-import * as NEWTAB_SHORTCUT_ICON_STORE from './shortcuts/shortcut-icon-store';
-import * as NEWTAB_SHORTCUT_PAGE_ACTIONS from './shortcuts/shortcut-page-actions';
 import * as NEWTAB_SHORTCUTS_CONTROLLER from './shortcuts/shortcuts-controller';
 import * as NEWTAB_STARTUP_PREFERENCES from './startup-preferences';
 import * as NEWTAB_STARTUP_STORAGE from './startup-storage';
@@ -74,13 +51,8 @@ import * as NEWTAB_GLASS_SURFACES from './theme/glass-surfaces';
 import * as NEWTAB_PAGE_FAVICONS from './theme/page-favicons';
 import * as NEWTAB_SITE_THEME_RESOLVER from './theme/site-theme-resolver';
 import * as NEWTAB_SYSTEM_THEME from './theme/system-theme';
-import * as NEWTAB_TOOLTIP_BINDINGS from './tooltip-bindings';
-import * as NEWTAB_TOOLTIP_CONTROLLERS from './tooltip-controllers';
 import * as LumnoNewtabQuotes from './top-content/quotes';
 import * as NEWTAB_TOP_CONTENT_RUNTIME from './top-content/top-content';
-import * as NEWTAB_URL_POLICY from './url-policy';
-import { followNewtabVisualViewportInsets } from './viewport-insets';
-import { getNewtabViewportTopPaddingPx } from './dom/top-inset';
 import * as NEWTAB_WALLPAPER_PAGE from './wallpaper/wallpaper-page';
 import * as LumnoMessaging from '../platform/messaging';
 import { isNode } from '../shared/dom-guards';
@@ -99,25 +71,16 @@ import {
   recentMode,
   simpleModeEnabled
 } from '../domain/settings';
-import {
-  SYNCED_PAGE_STORAGE_KEYS,
-  createSiteDisplayNameOptions
-} from './newtab-config';
+import { SYNCED_PAGE_STORAGE_KEYS } from './newtab-config';
 import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
-import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
 import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { SuggestionElement } from '../shared/react/search/suggestion-list/types';
-import type { BookmarkCardElement } from './react/bookmarks';
 import type { RecentCardElement } from './react/recent-sites';
-import type { ShortcutTileElement } from './react/shortcuts';
 import { readBootValue } from '../platform/boot-handoff';
-import { createToastController } from '../shared/react/toast';
-import { createSelectMenuController } from './react/select-menu';
 import { createPageStructure } from './react/page-structure';
 import { createSearchInput } from '../shared/react/search-input';
 import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
-import { shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
-import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
+import { createSettingPort, getContextSettingsStore } from '../platform/settings-store';
 import { SettingPreview } from './setting-preview';
 import { repairStoredSettings } from './setting-repairs';
 import { newtabTimeFont, newtabTimeFontSize, newtabTimeFontWeight, newtabTimeOpacity, newtabTimeSecondsVisible, newtabTopContentMode } from '../domain/settings/newtab-time';
@@ -139,7 +102,6 @@ const NEWTAB_SEARCH_SETTINGS = [
   simpleModeEnabled,
   newtabOpenInNewTab
 ];
-import * as FaviconBrowserIconIndex from '../domain/favicon/browser-icon-index';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
 import { SearchQuery } from '../shared/search-panel/search-query';
@@ -160,34 +122,23 @@ import { ResultActivation } from '../shared/search-panel/result-activation';
 import { SearchTabKey } from '../shared/search-panel/tab-key';
 import { ViewportActivity } from './viewport-activity';
 import { RecentPointer } from './recent/recent-pointer';
-import { getPagePortals } from './app/portals';
-import { SearchBoxParts } from './search/search-box-parts';
 import { OpenTabs } from '../shared/search-panel/open-tabs';
 import { RecentSourceReads } from './recent/recent-source-reads';
-import { WebAppearance } from './search/web-appearance';
 import { createSearchSubmit } from './search/search-submit';
 import { createCommandCatalog } from './search/command-catalog';
 import { PageNoticeControllers } from './notice-controllers';
-import { AppliedThemeMode } from './theme/applied-theme-mode';
-import { ShortcutList } from './shortcuts/shortcut-list';
 import { BottomDockParts } from './shortcuts/bottom-dock-parts';
 import { RecentSitesShown } from './recent/recent-sites-shown';
-import { BookmarksShown } from './bookmarks/bookmarks-shown';
-import { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
-import { DragSessions } from './drag-sessions';
-import { FaviconParts } from './theme/favicon-parts';
-import { createPageFaviconCache } from './theme/page-favicon-cache';
-import { createShortcutFavicons } from './shortcuts/shortcut-favicons';
-import { createShortcutData } from './shortcuts/shortcut-data';
-import { createShortcutDialogActions } from './shortcuts/shortcut-dialog-actions';
-import { ShortcutLayoutAnimation } from './shortcuts/shortcut-layout-animation';
-import { ShortcutAreaScroll } from './shortcuts/shortcut-area-scroll';
-import { BookmarkLayoutAnimation } from './bookmarks/bookmark-layout-animation';
-import * as BOOKMARK_SHORTCUT_TRANSFER from './bookmarks/bookmark-shortcut-transfer';
-import * as BOOKMARK_MOVE_ACTIONS from './bookmarks/bookmark-move-actions';
-import { MoveHistoryLock } from './bookmarks/move-history-lock';
+import type { PageContext } from './app/context';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
+import { createShellFeature } from './features/shell';
+import { createBookmarkStoreFeature } from './features/bookmark-store';
+import { createShortcutStoreFeature } from './features/shortcut-store';
+import { createTransfersFeature } from './features/transfers';
+import { createNavigationFeature } from './features/navigation';
+import { createBookmarkMenusFeature } from './features/bookmark-menus';
+import { createShortcutMenusFeature } from './features/shortcut-menus';
 
 (function() {
   const {
@@ -219,67 +170,141 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const searchLayer = pageStructureRuntime.searchLayer;
   const shortcutSection = pageStructureRuntime.shortcut.section;
   const shortcutGrid = pageStructureRuntime.shortcut.grid;
-  // The slide the shortcut tiles make when the grid changes.
-  const shortcutLayoutAnimation = new ShortcutLayoutAnimation(shortcutGrid);
-  // The shortcut section's scrolling while a drag holds the pointer by its edge.
-  const shortcutAreaScroll = new ShortcutAreaScroll(shortcutGrid);
   // The wordmark or clock above the search box, drawn by the top content runtime.
   const topContentContainer = pageStructureRuntime.topContent;
   const recentSection = pageStructureRuntime.recent.section;
-  // The search box's parts, mounted by the search box below.
-  const searchBox = new SearchBoxParts();
+  const localStorageArea = (chrome && chrome.storage && chrome.storage.local)
+    ? chrome.storage.local
+    : storageArea;
+  // The page's language; it follows the stored choice from the first read.
+  const locale = new SurfaceLocale(settings, loadNewtabLocaleMessages);
+  locale.follow();
+  const { t, formatMessage } = locale;
+  // The runtime instances every feature takes.
+  const ctx: PageContext = {
+    settings,
+    preview,
+    locale,
+    t,
+    formatMessage,
+    structure: pageStructureRuntime,
+    providerStorageRuntime,
+    storageArea,
+    localStorageArea
+  };
+  const shell = createShellFeature(ctx);
+  const {
+    appliedTheme,
+    areFaviconRenderCachesReady,
+    beginToast,
+    bindCursorTooltip,
+    bindSearchInputCursorTooltip,
+    bindShortcutTooltip,
+    bookmarkCascadeCopyTooltipController,
+    bookmarkContextMenuSelectController,
+    bookmarkCursorTooltipController,
+    copyBookmarkUrl,
+    copySearchResultUrl,
+    dismissStack,
+    dragSessions,
+    faviconCacheRuntime,
+    faviconParts,
+    filterBlacklistedSuggestions,
+    firefoxBrowserIcons,
+    firefoxBrowserIconsReady,
+    getBrowserPageFaviconUrl,
+    getChromeFaviconUrl,
+    getExtensionFaviconUrl,
+    getGstaticFaviconUrl,
+    getNewtabStrictFaviconReason,
+    getOwnExtensionPageDisplay,
+    getPageFaviconCandidateUrl,
+    getPageFaviconRenderCandidates,
+    getPageFaviconUrlResolver,
+    getPersistedFaviconEntry,
+    getPersistedSiteThemeEntry,
+    getSiteDisplayName,
+    getUrlDisplay,
+    hideCursorTooltip,
+    hideSearchInputCursorTooltip,
+    hideShortcutTooltip,
+    hideToast,
+    hideTopActionTooltip,
+    historyLock,
+    isBlockedLocalFaviconUrl,
+    isBrowserPageRecentUrl,
+    isHostFaviconVisitDirty,
+    isLocalNetworkHost,
+    isNewtabEnhancedFaviconFetchEnabled,
+    isOwnExtensionUrl,
+    limitSuggestionsForDisplay,
+    logFaviconDecision,
+    recentContextMenuSelectController,
+    sanitizeDisplayText,
+    searchBox,
+    setPersistedFaviconData,
+    setPersistedFaviconUrl,
+    shortcutContextMenuSelectController,
+    shouldAvoidDirectFaviconForHost,
+    shouldBlockFaviconForHost,
+    shouldExcludeFromRecentSites,
+    showToast,
+    showTopActionTooltip,
+    topActionTooltipController,
+    waitForFaviconRenderCaches,
+    webAppearance
+  } = shell;
   // The search suggestion the arrows show in the input.
   const suggestionInputPreview = SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview();
   // The window's tabs, which results switch to.
   const openTabs = new OpenTabs([], null);
   // The page's notices and feature hints, mounted by the parts that make them.
   const notices = new PageNoticeControllers();
-  // The theme mode the page is drawn in.
-  const appliedTheme = new AppliedThemeMode();
-  // The shortcuts the page shows and their icons.
-  const shortcutList = new ShortcutList();
   // The bottom dock's parts and the layout it drives, mounted with the dock.
   const bottomDockParts = new BottomDockParts();
   // The recent sites the section last drew.
   const recentShown = new RecentSitesShown();
-  // The bookmark folder and page the section shows.
-  const bookmarksShown = new BookmarksShown();
-  // The bookmark section's view, folder menu and top bar, mounted with the section.
-  const bookmarkParts = new BookmarkSectionParts();
-  // The page's favicon data and the favicon cache and view, mounted by the page favicons.
-  const faviconParts = new FaviconParts();
-  // The drags running on the page, and the lock an undoable change holds.
-  const dragSessions = new DragSessions();
-  const historyLock = new MoveHistoryLock();
-
-
-  // Firefox: index the browser's own cached icons, which stand in for the
-  // missing _favicon endpoint (see createBrowserIconIndex).
-  const firefoxBrowserIcons = LumnoBrowserProfile.isFirefoxExtensionRuntime()
-    ? FaviconBrowserIconIndex.createBrowserIconIndex()
-    : null;
-  const firefoxBrowserIconsReady = firefoxBrowserIcons
-    ? LumnoBrowserIcons.loadBrowserIcons(firefoxBrowserIcons, chrome).catch(() => {})
-    : Promise.resolve();
+  const bookmarkStore = createBookmarkStoreFeature(ctx);
+  const {
+    bookmarkCards,
+    bookmarkLayoutAnimation,
+    bookmarkMoveHistory,
+    bookmarkParts,
+    bookmarksRuntime,
+    bookmarksShown
+  } = bookmarkStore;
+  const shortcutStore = createShortcutStoreFeature(ctx, { shell, bookmarkStore });
+  const {
+    addSiteToShortcuts,
+    closeShortcutDialog,
+    getFolderItemIconForShortcut,
+    getFolderItemIconUrl,
+    getShortcutById,
+    getShortcutFaviconCandidateUrl,
+    getShortcutFaviconDataUrl,
+    getShortcutFolderId,
+    getShortcutStoreOptions,
+    getVisibleShortcuts,
+    hasShortcutForSite,
+    loadVisibleShortcuts,
+    moveShortcutGroupToIndex,
+    openShortcutAddDialog,
+    openShortcutGroupDialog,
+    persistShortcuts,
+    refreshShortcutFolderReferences,
+    shortcutAreaScroll,
+    shortcutData,
+    shortcutFavicons,
+    shortcutFolderRuntime,
+    shortcutGroupHeaders,
+    shortcutLayoutAnimation,
+    shortcutList,
+    shortcutTiles
+  } = shortcutStore;
   // The browser reads the first recent sites pass shares, started now.
   const recentSourceReads = new RecentSourceReads();
 
-  const localStorageArea = (chrome && chrome.storage && chrome.storage.local)
-    ? chrome.storage.local
-    : storageArea;
 
-  followNewtabVisualViewportInsets();
-
-  // Escape closes only the top open layer (menus, popovers, panels, drags).
-  // The folder color dialog handles its own Escape.
-  const dismissStack = LumnoNewtabDismissStack.getDismissStack();
-
-  // The page's language; it follows the stored choice from the first read.
-  const locale = new SurfaceLocale(settings, loadNewtabLocaleMessages);
-  locale.follow();
-  const { t, formatMessage } = locale;
-  // Firefox's website appearance setting, and the slash commands typed in the search box.
-  const webAppearance = new WebAppearance();
   const commandCatalog = createCommandCatalog({ settings, t, formatMessage, appliedTheme, webAppearance });
   const {
     getCommandMatches,
@@ -293,423 +318,77 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     buildZenSuggestion
   } = commandCatalog;
 
+  const transfers = createTransfersFeature(ctx, { shell, bookmarkStore, shortcutStore });
   const {
-    getPageFaviconUrlResolver,
-    logFaviconDecision,
-    getUrlDisplay,
-    isBrowserPageRecentUrl,
-    isOwnExtensionUrl,
-    getOwnExtensionPageDisplay,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    getBrowserPageFaviconUrl,
-    getPageFaviconCandidateUrl,
-    getPageFaviconRenderCandidates,
-    isLocalNetworkHost,
-    shouldBlockFaviconForHost,
-    shouldAvoidDirectFaviconForHost,
-    isUrlBlockedByFaviconRequestBlacklist,
-    getNewtabStrictFaviconReason,
-    isNewtabEnhancedFaviconFetchEnabled,
-    filterBlacklistedSuggestions,
-    limitSuggestionsForDisplay,
-    shouldExcludeFromRecentSites
-  } = NEWTAB_URL_POLICY.createUrlPolicy({
-    settings,
-    t,
-    getBrowserIconUrl: firefoxBrowserIcons ? firefoxBrowserIcons.get : undefined
-  });
-
-  // The persisted favicon, icon data and site theme caches.
-  const {
-    faviconCacheRuntime,
-    isBlockedLocalFaviconUrl,
-    areFaviconRenderCachesReady,
-    waitForFaviconRenderCaches,
-    isHostFaviconVisitDirty,
-    setPersistedFaviconUrl,
-    getPersistedFaviconEntry,
-    getPersistedFaviconDataEntry,
-    setPersistedFaviconData,
-    getPersistedSiteThemeEntry
-  } = createPageFaviconCache({ isUrlBlockedByFaviconRequestBlacklist });
-  const sanitizeDisplayText = SearchDirectNavigation.sanitizeDisplayText;
-
-  const SITE_DISPLAY_NAME_OPTIONS = createSiteDisplayNameOptions(t);
-  function getSiteDisplayName(hostname: string, title?: string): string {
-    return SITE_DISPLAY_NAME.getSiteDisplayName(
-      hostname,
-      title,
-      SITE_DISPLAY_NAME_OPTIONS
-    );
-  }
-  const bookmarksRuntime = NEWTAB_BOOKMARKS_RUNTIME.createBookmarksRuntime({
-    chromeApi: typeof chrome !== 'undefined' ? chrome : null,
-    store: NEWTAB_BOOKMARKS_STORE,
-    normalizeHost
-  });
-
-  const shortcutIconStore = NEWTAB_SHORTCUT_ICON_STORE.createShortcutIconStore({
-    documentObj: document,
-    windowObj: window,
-    storageArea: localStorageArea
-  });
-  const folderItemIconStore = LumnoNewtabFolderItemIcons.createStore({
-    storageArea: localStorageArea
-  });
-  const shortcutFaviconStore = LumnoShortcutFaviconStore.createShortcutFaviconStore({
-    chromeApi: typeof chrome !== 'undefined' ? chrome : null,
-    storageArea: localStorageArea,
-    lockManager: window.navigator && window.navigator.locks
-  });
-
-  // Shortcut icon snapshots and the icons of websites in shortcut folders.
-  const shortcutFavicons = createShortcutFavicons({
-    settings,
-    shortcutList,
-    bookmarksRuntime,
-    folderItemIconStore,
-    shortcutFaviconStore,
-    faviconCacheRuntime,
-    getPersistedFaviconDataEntry,
-    getPageFaviconUrlResolver
-  });
-  const {
-    getFolderItemIconUrl,
-    getFolderItemIcon,
-    getFolderItemIconForShortcut,
-    updateFolderItemIcons,
-    getShortcutFaviconDataUrl,
-    getShortcutFaviconCandidateUrl
-  } = shortcutFavicons;
-
-  // The select menus the shortcut, bookmark and recent site context menus open in.
-  const shortcutContextMenuSelectController = createSelectMenuController({
-    documentObj: document,
-    windowObj: window,
-    getViewportTopInset: getNewtabViewportTopPaddingPx
-  });
-  const bookmarkContextMenuSelectController = createSelectMenuController({
-    documentObj: document,
-    windowObj: window,
-    getViewportTopInset: getNewtabViewportTopPaddingPx
-  });
-  const recentContextMenuSelectController = createSelectMenuController({
-    documentObj: document,
-    windowObj: window,
-    getViewportTopInset: getNewtabViewportTopPaddingPx
-  });
-
-  const {
-    topActionTooltipController,
-    shortcutTooltipController,
-    shortcutDialogTooltipController,
-    bookmarkCascadeCopyTooltipController,
-    bookmarkCursorTooltipController,
-    searchInputCursorTooltipController
-  } = NEWTAB_TOOLTIP_CONTROLLERS.createTooltipControllers();
-
-  const {
-    showTopActionTooltip,
-    hideTopActionTooltip,
-    bindSearchInputCursorTooltip,
-    hideSearchInputCursorTooltip,
-    bindShortcutTooltip,
-    hideShortcutTooltip,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
-    bindCursorTooltip,
-    hideCursorTooltip
-  } = NEWTAB_TOOLTIP_BINDINGS.createTooltipBindings({
-    shortcutContextMenuSelectController,
-    bookmarkContextMenuSelectController,
-    recentContextMenuSelectController,
-    dragSessions,
-    shortcutGrid,
-    searchBox,
-    preview,
-    topActionTooltipController,
-    searchInputCursorTooltipController,
-    shortcutTooltipController,
-    t,
-    shortcutDialogTooltipController,
-    bookmarkCursorTooltipController
-  });
-
-  const {
-    hideToast,
-    showToast,
-    beginToast,
-    copyBookmarkUrl,
-    copySearchResultUrl
-  } = NEWTAB_CLIPBOARD_ACTIONS.createClipboardActions({
-    t,
-    toastController: createToastController(document.getElementById('_x_extension_toast_2024_unique_'), getPagePortals(), { windowObj: window })
-  });
-
-  const shortcutFolderRuntime = FOLDER_BINDINGS.createRuntime({
-    settingsStore: createSettingsStore({ chromeApi: chrome, settings: [shortcutFolderBindings] })
-  });
-  shortcutFolderRuntime.ready.catch((error) => {
-    console.warn('[Lumno] Could not load shortcut folder bindings.', error);
-  });
-  const bookmarkMoveHistory = NEWTAB_BOOKMARK_MOVE_HISTORY.createBookmarkMoveHistory({ maxEntries: 30 });
-
-  // The shortcuts and their groups, loaded, saved and kept in step with other pages.
-  const shortcutData = createShortcutData({
-    settings,
-    storageArea,
-    providerStorageRuntime,
-    shortcutList,
-    shortcutIconStore,
-    shortcutFavicons,
-    shortcutFolderRuntime,
-    bookmarksRuntime,
-    bookmarkMoveHistory,
-    historyLock,
-    dragSessions,
-    normalizeHost,
-    sanitizeDisplayText,
-    t,
-    formatMessage,
-    showToast
-  });
-  const {
-    getShortcutFolderId,
-    getVisibleShortcuts,
-    getShortcutTitle,
-    getShortcutIconDataUrl,
-    getShortcutStoreOptions,
-    refreshShortcutFolderReferences,
-    followStoredShortcutData,
-    loadVisibleShortcuts,
-    persistShortcuts,
-    isWebDavBackingUpShortcuts,
-    getShortcutGroups,
-    moveShortcutGroup,
-    moveShortcutGroupToIndex,
-    deleteShortcutGroup,
-    applyShortcutGroupDeleteRecord,
-    hasShortcutForSite,
-    addSiteToShortcuts,
-    removeShortcutById,
-    getShortcutById
-  } = shortcutData;
-  followStoredShortcutData();
-
-  // The shortcut dialog, which adds and edits shortcuts and names groups.
-  const {
-    openShortcutDialog,
-    closeShortcutDialog,
-    openShortcutAddDialog,
-    openShortcutGroupDialog,
-    confirmDeleteShortcutGroupWithSites
-  } = createShortcutDialogActions({
-    settings,
-    locale,
-    t,
-    formatMessage,
-    showToast,
-    hideShortcutTooltip,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
-    shortcutList,
-    shortcutIconStore,
-    shortcutData,
-    shortcutFavicons,
-    bookmarksRuntime,
-    bookmarkParts
-  });
-
-  // The slide bookmark cards make after a move, and the moves between the
-  // bookmarks and the shortcuts, with their undo.
-  const bookmarkLayoutAnimation = new BookmarkLayoutAnimation(pageStructureRuntime.bookmark.grid, bookmarksShown, settings);
-  const {
-    hasShortcutForBookmarkFolder,
-    addBookmarkFolderToShortcuts,
-    moveBookmarkToShortcuts,
     applyBookmarkShortcutTransfer,
-    applyShortcutStack
-  } = BOOKMARK_SHORTCUT_TRANSFER.createBookmarkShortcutTransfer({
-    historyLock,
-    bookmarkParts,
-    shortcutList,
-    bookmarksRuntime,
-    getShortcutStoreOptions,
-    getShortcutFolderId,
-    getShortcutGroups,
-    bookmarkMoveHistory,
-    shortcutFolderRuntime,
-    getFolderItemIcon,
-    updateFolderItemIcons,
-    persistShortcuts,
-    refreshShortcutFolderReferences,
-    isWebDavBackingUpShortcuts,
-    layoutAnimation: bookmarkLayoutAnimation,
-    showToast,
-    t,
-    formatMessage
-  });
-  const {
-    deleteBookmarkFromContextTarget,
-    persistBookmarkDragOrder,
+    applyShortcutStack,
+    moveBookmarkToShortcuts,
+    performBookmarkMoveHistoryAction,
     persistBookmarkCrossLevelMove,
-    performBookmarkMoveHistoryAction
-  } = BOOKMARK_MOVE_ACTIONS.createBookmarkMoveActions({
-    historyLock,
-    bookmarkParts,
-    bookmarksShown,
-    shortcutList,
-    bookmarksRuntime,
-    bookmarkMoveHistory,
-    transfer: { applyBookmarkShortcutTransfer, applyShortcutStack },
-    applyShortcutGroupDeleteRecord,
-    persistShortcuts,
-    refreshShortcutFolderReferences,
-    layoutAnimation: bookmarkLayoutAnimation,
-    showToast,
-    t,
-    formatMessage
-  });
-  // The default search engine, which the page's search and navigation follow.
-  const searchEngine = new DefaultSearchEngine(settings);
-  searchEngine.follow();
-
+    persistBookmarkDragOrder
+  } = transfers;
+  const navigation = createNavigationFeature(ctx, { shell });
   const {
-    navigateToUrl,
-    isMiddleClick,
-    getOpenDisposition,
-    openExternalNewTabUrl,
-    openUrlFromNewtabCard,
-    navigateToQuery
-  } = NEWTAB_PAGE_NAVIGATION.createPageNavigation({
-    settings,
-    showToast,
-    t,
-    searchEngine
-  });
-
-  const {
-    openCommunityQrDialog,
-    getFeedbackLinks,
-    getFeedbackControl,
-    getFeedbackButton,
-    getFeedbackWebLocale,
-    openFeedbackExternalUrl,
-    updateFeedbackLanguageStrings,
-    isFeedbackPopoverOpen,
     closeFeedbackPopover,
-    createFeedbackControls
-  } = NEWTAB_FEEDBACK_CONTROL_RUNTIME.createFeedbackControlRuntime({
-    locale,
-    t,
+    createFeedbackControls,
+    getFeedbackButton,
+    getFeedbackControl,
+    getFeedbackLinks,
+    getFeedbackWebLocale,
+    getOpenDisposition,
+    isFeedbackPopoverOpen,
+    isMiddleClick,
+    navigateToQuery,
+    navigateToUrl,
+    openCommunityQrDialog,
     openExternalNewTabUrl,
-    hideTopActionTooltip,
-    showTopActionTooltip
-  });
-  const shortcutTiles: ShortcutTileElement[] = [];
-
+    openFeedbackExternalUrl,
+    openUrlFromNewtabCard,
+    searchEngine,
+    updateFeedbackLanguageStrings
+  } = navigation;
+  const bookmarkMenus = createBookmarkMenusFeature(ctx, { shell, bookmarkStore, shortcutStore, transfers, navigation });
   const {
-    openBookmarkFolderTabGroupConfirmation,
-    openBookmarkEditor
-  } = NEWTAB_BOOKMARK_ACTIONS.createBookmarkActions({
-    bookmarkParts,
-    t,
-    bookmarksRuntime,
-    openShortcutDialog,
-    formatMessage,
-    showToast,
-    getFolderItemIcon,
-    getFolderItemIconUrl,
-    getBrowserPageFaviconUrl
-  });
-
-  const {
-    openBookmarkCascadeMenu,
+    bookmarkTopbarStorageKeys,
     closeBookmarkCascadeMenu,
-    syncOpenBookmarkCascadeAnchorVisual,
+    closeBookmarkContextMenu,
+    getBookmarkModeMenuOptions,
+    getBookmarkTopbarLayout,
+    getEffectiveBookmarkTopbarSurfaceMode,
+    getTopBookmarks,
+    handleBookmarkItemContextMenu,
+    handleBookmarkModeMenuAction,
+    initFolderPathMorph,
+    initialBookmarkTopbarLayoutReady,
+    isBookmarkContextMenuNode,
+    isFolderColorPickerOpen,
+    loadFolderColors,
+    openBookmarkCascadeMenu,
     positionBookmarkCascadeLevels,
-    getTopBookmarks
-  } = NEWTAB_BOOKMARK_CASCADE_ACTIONS.createBookmarkCascadeActions({
-    shortcutGrid,
-    bookmarkGrid: pageStructureRuntime.bookmark.grid,
-    bookmarkParts,
-    bookmarksShown,
-    bookmarksRuntime,
-    t
-  });
-
+    scheduleFolderColorSync,
+    syncBookmarkTopbarSurfaceAppearance,
+    syncOpenBookmarkCascadeAnchorVisual
+  } = bookmarkMenus;
+  const shortcutMenus = createShortcutMenusFeature(ctx, { shell, bookmarkStore, shortcutStore, navigation, bookmarkMenus });
   const {
-    openShortcutUrl,
-    getShortcutContextMenuOptions,
+    applyNewtabShortcutDockMagnification,
+    closeShortcutContextMenu,
+    followShortcutDockMagnification,
+    getShortcutTileById,
     getShortcutTileFromNode,
     getShortcutTileId,
-    refreshShortcutTileCacheFromDom,
-    getShortcutTileById,
+    handleShortcutContextMenu,
+    handleShortcutDockPointerMove,
+    handleShortcutDockPointerOver,
     handleShortcutNativeDragStart,
-    openShortcutEditor
-  } = NEWTAB_SHORTCUT_PAGE_ACTIONS.createShortcutPageActions({
-    showToast,
-    openBookmarkCascadeMenu,
-    openUrlFromNewtabCard,
-    shortcutGrid,
-    shortcutList,
-    t,
-    getShortcutGroups,
-    bookmarksRuntime,
-    getShortcutFolderId,
-    getShortcutById,
-    openShortcutDialog,
-    shortcutTiles,
-    openBookmarkEditor,
-    getShortcutTitle,
-    getShortcutIconDataUrl
-  });
-
-  const {
-    initFolderPathMorph,
-    isFolderColorPickerOpen,
-    scheduleFolderColorSync,
-    loadFolderColors,
-    openFolderColorPicker
-  } = NEWTAB_FOLDER_COLORS.createFolderColors({
-    settings,
-    bookmarksRuntime,
-    closeBookmarkCascadeMenu,
-    closeShortcutDialog,
-    hideCursorTooltip,
-    t,
-    bindShortcutDialogTooltip,
-    hideShortcutDialogTooltip,
-    showToast
-  });
-  dismissStack.setShouldIgnore(isFolderColorPickerOpen);
-
-  const {
-    isBookmarkContextMenuNode,
-    closeBookmarkContextMenu,
-    handleBookmarkItemContextMenu
-  } = NEWTAB_BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
-    otherContextMenus: [shortcutContextMenuSelectController, recentContextMenuSelectController],
-    dragSessions,
-    bookmarkParts,
-    locale,
-    bookmarkContextMenuSelectController,
-    bookmarksRuntime,
-    t,
-    openFolderColorPicker,
-    openExternalNewTabUrl,
-    openBookmarkEditor,
-    openBookmarkFolderTabGroupConfirmation,
-    deleteBookmarkFromContextTarget,
-    hasShortcutForSite,
-    addSiteToShortcuts,
-    hasShortcutForBookmarkFolder,
-    addBookmarkFolderToShortcuts,
-    hideCursorTooltip
-  });
-
+    isShortcutContextMenuNode,
+    openShortcutAddContextMenu,
+    openShortcutGroupMenu,
+    openShortcutUrl,
+    refreshShortcutTileCacheFromDom,
+    resetShortcutDockHover,
+    syncShortcutDockFolderMenu
+  } = shortcutMenus;
   const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
     chromeApi: typeof chrome !== 'undefined' ? chrome : null,
     storageArea: localStorageArea,
@@ -758,23 +437,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     removeMediaQueryChangeListener
   } = NEWTAB_SYSTEM_THEME.createSystemTheme(window);
 
-  const {
-    followBookmarkTopbar,
-    bookmarkTopbarStorageKeys,
-    getEffectiveBookmarkTopbarSurfaceMode,
-    getBookmarkTopbarLayout,
-    syncBookmarkTopbarSurfaceAppearance,
-    handleBookmarkModeMenuAction
-  } = NEWTAB_BOOKMARK_DISPLAY_SETTINGS.createBookmarkDisplaySettings({
-    bookmarkParts,
-    appliedTheme,
-    settings,
-    showToast,
-    t
-  });
-  const initialBookmarkTopbarLayoutReady = followBookmarkTopbar();
   const recentCards: RecentCardElement[] = [];
-  const bookmarkCards: BookmarkCardElement[] = [];
   const suggestionItems: SuggestionElement[] = [];
   // Settles once the entry animation finished or was skipped.
   let finishEntryAnimationWait = (): void => {};
@@ -785,61 +448,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const viewportActivity = new ViewportActivity();
   viewportActivity.follow(window);
   const recentPointer = new RecentPointer();
-
-  const {
-    applyNewtabShortcutDockMagnification,
-    resetShortcutDockHover,
-    setShortcutDockHover,
-    holdShortcutDockHover,
-    handleShortcutDockPointerOver,
-    handleShortcutDockPointerMove,
-    syncShortcutDockFolderMenu,
-    followShortcutDockMagnification
-  } = NEWTAB_SHORTCUT_DOCK.createShortcutDock({
-    dragSessions,
-    shortcutGrid,
-    settings,
-    preview,
-    getShortcutTileFromNode
-  });
-
-  const {
-    isShortcutContextMenuNode,
-    closeShortcutContextMenu,
-    handleShortcutContextMenu,
-    openShortcutAddContextMenu,
-    openShortcutGroupMenu
-  } = NEWTAB_SHORTCUT_CONTEXT_MENU.createShortcutContextMenu({
-    otherContextMenus: [bookmarkContextMenuSelectController, recentContextMenuSelectController],
-    locale,
-    settings,
-    showToast,
-    shortcutContextMenuSelectController,
-    shortcutSection,
-    setShortcutDockHover,
-    resetShortcutDockHover,
-    holdShortcutDockHover,
-    getShortcutTileFromNode,
-    getShortcutById,
-    openFolderColorPicker,
-    getShortcutFolderId,
-    openShortcutEditor,
-    openShortcutUrl,
-    openExternalNewTabUrl,
-    removeShortcutById,
-    openBookmarkFolderTabGroupConfirmation,
-    t,
-    getShortcutContextMenuOptions,
-    hideShortcutTooltip,
-    getShortcutTileId,
-    openShortcutGroupDialog,
-    openShortcutAddDialog,
-    moveShortcutGroup,
-    deleteShortcutGroup,
-    confirmDeleteShortcutGroupWithSites
-  });
-
-  const shortcutGroupHeaders: HTMLElement[] = [];
 
   const {
     getProviderFaviconPageUrl,
@@ -1351,13 +959,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     hasSearchEntryViewportChanged,
     viewport: viewportActivity,
     onEntryDone: () => finishEntryAnimationWait()
-  });
-
-  const { getBookmarkModeMenuOptions } = NEWTAB_BOOKMARK_MODE_MENU.createBookmarkModeMenu({
-    settings,
-    t,
-    getEffectiveBookmarkTopbarSurfaceMode,
-    getBookmarkTopbarLayout
   });
 
   const {
