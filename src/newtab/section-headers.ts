@@ -9,7 +9,6 @@ import type { TooltipBindings } from './tooltip-bindings';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
-import { recentMode } from '../domain/settings/recent-sites';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
@@ -62,10 +61,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
   } = deps;
 
 
-  // The follow in startup-preferences loads the recent sites again.
-  function setRecentMode(nextMode: unknown): void {
-    void settings.set(recentMode, recentMode.parse(nextMode)).catch(() => {});
-  }
 
   function setNewtabTopOccupied(occupied: unknown): void {
     if (!document.body) {
@@ -245,7 +240,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     }
   });
   return {
-    setRecentMode,
     updateBookmarkHeader,
     setNewtabTopOccupied,
     setNewtabTopLayout,

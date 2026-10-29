@@ -18,12 +18,11 @@ type ViewOption<K extends keyof RecentSitesViewOptions> = NonNullable<RecentSite
 
 interface RecentSectionDeps {
   getPinnedRecentSites: RecentSitesController['getPinnedRecentSites'];
-  settings: Pick<SettingsStore, 'get' | 'subscribe'>;
+  settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
   setContentSectionVisible(section: HTMLElement | null, visible: boolean): void;
   hideTopActionTooltip(): void;
   pageStructureRuntime: { recent: Pick<PageStructureRuntime['recent'], 'section' | 'header' | 'grid' | 'renderHeader'> };
   t: Translate;
-  setRecentMode(mode: string): void;
   applyRecentGridColumns(): void;
   recentCards: ViewOption<'cards'>;
   formatMessage: FormatMessage;
@@ -64,7 +63,6 @@ function createRecentSection(deps: RecentSectionDeps) {
     hideTopActionTooltip,
     pageStructureRuntime,
     t,
-    setRecentMode,
     applyRecentGridColumns,
     recentCards,
     formatMessage,
@@ -127,7 +125,7 @@ function createRecentSection(deps: RecentSectionDeps) {
         title: t('display_mode_title', 'Display mode'),
         value: settings.get(recentMode),
         options: [{ value: 'latest', label: latest }, { value: 'most', label: most }],
-        onChange: (nextMode) => setRecentMode(nextMode)
+        onChange: (nextMode) => void settings.set(recentMode, recentMode.parse(nextMode)).catch(() => {})
       }
     });
   }

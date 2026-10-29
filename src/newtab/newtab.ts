@@ -1381,7 +1381,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    setRecentMode,
     updateBookmarkHeader,
     setNewtabTopOccupied,
     syncBookmarkSurfaceMode,
@@ -1592,7 +1591,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     hideTopActionTooltip,
     pageStructureRuntime,
     t,
-    setRecentMode,
     applyRecentGridColumns,
     recentCards,
     formatMessage,
