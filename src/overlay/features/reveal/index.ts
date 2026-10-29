@@ -5,6 +5,7 @@ import { createFullscreenEscapeLock } from '../../../shared/ui/fullscreen-escape
 import * as LumnoOverlayLifecycle from '../../lifecycle';
 import { isOverlayOpenState, setOverlayOpenState } from '../../../platform/content-registry';
 import type { OverlayContext } from '../../app/context';
+import type { StyleGateAnswer } from '../../app/startup';
 import type { CoreFeature } from '../core';
 import type { PanelFeature } from '../panel';
 import type { SuggestionsFeature } from '../suggestions';
@@ -20,7 +21,7 @@ interface RevealFeatureDeps {
 }
 
 function createRevealFeature(ctx: OverlayContext, deps: RevealFeatureDeps) {
-  const { elements, openOptions, settings } = ctx;
+  const { elements, openOptions } = ctx;
   const addOverlaySessionCleanup = ctx.overlaySessionCleanups.add;
   const {
     applyNoTranslateDeep,
@@ -46,14 +47,12 @@ function createRevealFeature(ctx: OverlayContext, deps: RevealFeatureDeps) {
   } = deps.panel;
   const {
     clearDefaultOpenTabsSuggestions,
-    requestTabsAndRender,
     shouldShowOpenTabsForEmptyQuery,
     syncOpenTabsScrollbarGutter,
     updateModeBadge
   } = deps.suggestions;
   const { startOverlayViewportSizeSync } = deps.controls;
   const { overlayHost, overlayMount, overlayRevealGate } = deps.mount;
-  const { initialLanguageReady, settingsApplied } = deps.mount;
 
   if (!shouldShowOpenTabsForEmptyQuery()) {
     clearDefaultOpenTabsSuggestions();
@@ -127,38 +126,30 @@ function createRevealFeature(ctx: OverlayContext, deps: RevealFeatureDeps) {
   overlayNoticeLayer.startFrameSync(elements.overlay);
   startOverlayAntiTranslateObserver(overlayMount.panel);
 
-  settings.loaded.then(() => {
+  // Puts the input the opening carried back in the field.
+  function placeInitialInput(): 'placed' | 'empty' | 'closed' {
     const searchInput = elements.searchInput;
     if (!elements.overlay || !elements.overlay.isConnected || !searchInput) {
-      return false;
+      return 'closed';
     }
-    if (openOptions.loadingSession || openOptions.prefillQuery) {
-      const initialInputValue = openOptions.loadingSession
-        ? openOptions.loadingSession.inputValue
-        : openOptions.prefillQuery;
-      searchInput.value = initialInputValue;
-      const selectionStart = openOptions.loadingSession
-        ? openOptions.loadingSession.selectionStart
-        : initialInputValue.length;
-      const selectionEnd = openOptions.loadingSession
-        ? openOptions.loadingSession.selectionEnd
-        : initialInputValue.length;
-      const selectionDirection = openOptions.loadingSession
-        ? openOptions.loadingSession.selectionDirection
-        : 'none';
-      searchInput.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
-      searchQuery.set(initialInputValue);
-      updateModeBadge(initialInputValue);
-      replayWithoutLoadingNotification(() => {
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      });
-      return true;
+    const loadingSession = openOptions.loadingSession;
+    if (!loadingSession && !openOptions.prefillQuery) {
+      return 'empty';
     }
-    return initialLanguageReady.catch(() => {}).then(() => {
-      requestTabsAndRender();
-      return true;
+    const initialInputValue = loadingSession ? loadingSession.inputValue : openOptions.prefillQuery;
+    searchInput.value = initialInputValue;
+    searchInput.setSelectionRange(
+      loadingSession ? loadingSession.selectionStart : initialInputValue.length,
+      loadingSession ? loadingSession.selectionEnd : initialInputValue.length,
+      loadingSession ? loadingSession.selectionDirection : 'none'
+    );
+    searchQuery.set(initialInputValue);
+    updateModeBadge(initialInputValue);
+    replayWithoutLoadingNotification(() => {
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
-  }).catch(() => false);
+    return 'placed';
+  }
 
   const revealOverlay = (options: { forceInstant: boolean }): void => {
     if (!elements.overlay || !elements.overlay.isConnected) {
@@ -190,28 +181,24 @@ function createRevealFeature(ctx: OverlayContext, deps: RevealFeatureDeps) {
       });
     }
   };
-  const revealReady = overlayRevealGate.waitUntilReady();
-  Promise.all([
-    Promise.resolve(revealReady).catch(() => null),
-    settingsApplied.catch(() => {})
-  ]).then((readyStates) => {
+  // Reveals the panel once its stylesheets and settings are applied.
+  function revealPanel(styleGateResult: StyleGateAnswer | null): void {
     if (!elements.overlay || !elements.overlay.isConnected) {
       return;
     }
     applyOverlayEnterAnimationInitialState(elements.overlay);
-    const styleGateResult = readyStates[0];
-    const revealGate = overlayRevealGate;
-    // The gate gives up on its first-frame budget while the settings above
-    // are still loading, so the stylesheets have often arrived by now.
+    // The gate gives up on its first-frame budget while the settings are
+    // still loading, so the stylesheets have often arrived by now.
     const stylesReady = Boolean(styleGateResult && styleGateResult.ok === true) ||
-      Boolean(revealGate && revealGate.isReady());
+      overlayRevealGate.isReady();
     revealOverlay({
       // A late stylesheet uses the shell's stable fallback. Starting a
       // spring while that fallback is about to upgrade only makes slow
       // devices look more broken, so reveal its final state instead.
       forceInstant: !stylesReady || shouldSkipOverlayEntryMotionForSlowStartup()
     });
-  });
+  }
+
   const scrollPauseHandler = () => {
     pauseOverlayAntiTranslateObserverForScroll();
   };
@@ -224,6 +211,10 @@ function createRevealFeature(ctx: OverlayContext, deps: RevealFeatureDeps) {
     window.removeEventListener('touchmove', scrollPauseHandler, true);
   });
 
+  return {
+    placeInitialInput,
+    revealPanel
+  };
 }
 
 type RevealFeature = ReturnType<typeof createRevealFeature>;

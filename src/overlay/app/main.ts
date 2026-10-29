@@ -1,7 +1,8 @@
 // Opens or closes the search overlay: makes the session's context and its
 // features in order, leaves the page to a panel already open there, then
-// mounts this session's panel and shows it.
+// mounts this session's panel and runs its startup.
 import { createOverlayContext } from './context';
+import { runOverlayStartup } from './startup';
 import { createCoreFeature } from '../features/core';
 import { createPanelFeature } from '../features/panel';
 import { createSuggestionsFeature } from '../features/suggestions';
@@ -26,7 +27,16 @@ function toggleSearchOverlay(requestedTabs: unknown, openContext: unknown): void
   if (!mount) {
     return;
   }
-  createRevealFeature(ctx, { core, panel, suggestions, controls, mount });
+  const reveal = createRevealFeature(ctx, { core, panel, suggestions, controls, mount });
+  void runOverlayStartup({
+    settingsLoaded: ctx.settings.loaded,
+    languageReady: mount.initialLanguageReady,
+    styleGate: mount.overlayRevealGate.waitUntilReady(),
+    settingsApplied: mount.settingsApplied,
+    placeInitialInput: reveal.placeInitialInput,
+    showOpenTabs: suggestions.requestTabsAndRender,
+    reveal: reveal.revealPanel
+  });
 }
 
 export { toggleSearchOverlay };
