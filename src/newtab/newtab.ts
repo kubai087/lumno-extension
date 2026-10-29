@@ -1,59 +1,38 @@
-import * as LumnoShortcutFaviconStore from '../platform/shortcut-favicon-store';
-import * as PROGRESS_HISTORY from '../domain/progress-history';
-import * as PROGRESS_MATCH from '../domain/progress-match';
 import * as LumnoImeKeyGuard from '../domain/search/ime-key-guard';
 import * as SEARCH_INPUT_HISTORY from '../domain/search/search-input-history';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
-import * as NEWTAB_APPEARANCE_MODES from './appearance-modes';
 import * as NEWTAB_BOOKMARK_DRAG_CONTROLLER from './bookmarks/bookmark-drag-controller';
 import * as NEWTAB_BOOKMARK_PAGER from './bookmarks/bookmark-pager';
 import * as NEWTAB_BOOKMARK_SECTION from './bookmarks/bookmark-section';
-import * as NEWTAB_CARD_ACTIVATION_GUARD from './card-activation-guard';
-import * as NEWTAB_ENTRY_MOTION from './entry-motion';
 import * as NEWTAB_INPUT_FOCUS from './input-focus';
 import * as NEWTAB_MODE_COMMANDS from './mode-commands';
 import * as NEWTAB_PAGE_KEYBOARD from './page-keyboard';
 import { loadNewtabLocaleMessages } from './page-language';
 import { SurfaceLocale } from '../shared/i18n/surface-locale';
-import * as NEWTAB_PAGE_LAYOUT from './page-layout';
 import * as NEWTAB_PAGE_NOTICES from './page-notices';
-import * as NEWTAB_PAGE_PREFERENCES from './page-preferences';
 import * as NEWTAB_PAGE_RESIZE from './page-resize';
 import * as NEWTAB_RECENT_CARD_DRAG from './recent/recent-card-drag';
 import * as NEWTAB_RECENT_SECTION from './recent/recent-section';
-import * as NEWTAB_RECENT_SITES_CONTROLLER from './recent/recent-sites-controller';
-import * as NEWTAB_RECENT_SOURCES from './recent/recent-sources';
 import * as NEWTAB_SEARCH_BOX_CONTROLS from './search/search-box-controls';
 import * as NEWTAB_SEARCH_BOX from './search/search-box';
 import * as NEWTAB_SEARCH_INPUT_COMPOSITION from './search/search-input-composition';
 import * as NEWTAB_SEARCH_MODE_CONTROLLER from './search/search-mode-controller';
 import * as NEWTAB_SEARCH_NAVIGATION from './search/search-navigation';
 import * as NEWTAB_SEARCH_SETTINGS_SYNC from './search/search-settings-sync';
-import * as NEWTAB_SITE_SEARCH_PROVIDERS from './search/site-search-providers';
 import * as NEWTAB_SITE_SEARCH_RUNTIME from './search/site-search-runtime';
 import * as NEWTAB_SUGGESTIONS_CONTROLLER from './search/suggestions-controller';
-import * as NEWTAB_SUGGESTIONS_LAYOUT from './search/suggestions-layout';
 import * as NEWTAB_SECTION_HEADERS from './section-headers';
 import * as NEWTAB_SECTION_LOADERS from './section-loaders';
-import * as LumnoNewtabSectionPanelSettings from './section-panel-settings';
 import * as NEWTAB_SECTION_RELOAD from './section-reload';
 import * as NEWTAB_BOTTOM_DOCK_RUNTIME from './shortcuts/bottom-dock-runtime';
 import * as NEWTAB_SHORTCUT_DRAG from './shortcuts/shortcut-drag';
 import * as NEWTAB_SHORTCUTS_CONTROLLER from './shortcuts/shortcuts-controller';
 import * as NEWTAB_STARTUP_PREFERENCES from './startup-preferences';
 import * as NEWTAB_STARTUP_STORAGE from './startup-storage';
-import * as NEWTAB_CARD_THEMES from './theme/card-themes';
-import { buildFallbackThemeForHost, createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../shared/favicon/favicon-theme';
-import { extractAverageColor } from '../shared/favicon/average-color';
+import { defaultAccentColor } from '../shared/favicon/favicon-theme';
 import { getBrandAccentForUrl, normalizeHost } from '../domain/favicon/brand-accents';
-import { getReadableTextColor, mixColor, parseCssColor, rgbToCss, rgbToCssAlpha, rgbToCssParts, stableHashCode } from '../domain/color';
+import { parseCssColor, rgbToCss, stableHashCode } from '../domain/color';
 import * as NEWTAB_GLASS_SURFACES from './theme/glass-surfaces';
-import * as NEWTAB_PAGE_FAVICONS from './theme/page-favicons';
-import * as NEWTAB_SITE_THEME_RESOLVER from './theme/site-theme-resolver';
-import * as NEWTAB_SYSTEM_THEME from './theme/system-theme';
-import * as LumnoNewtabQuotes from './top-content/quotes';
-import * as NEWTAB_TOP_CONTENT_RUNTIME from './top-content/top-content';
-import * as NEWTAB_WALLPAPER_PAGE from './wallpaper/wallpaper-page';
 import * as LumnoMessaging from '../platform/messaging';
 import { isNode } from '../shared/dom-guards';
 import {
@@ -72,10 +51,7 @@ import {
   simpleModeEnabled
 } from '../domain/settings';
 import { SYNCED_PAGE_STORAGE_KEYS } from './newtab-config';
-import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
-import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
 import type { SuggestionElement } from '../shared/react/search/suggestion-list/types';
-import type { RecentCardElement } from './react/recent-sites';
 import { readBootValue } from '../platform/boot-handoff';
 import { createPageStructure } from './react/page-structure';
 import { createSearchInput } from '../shared/react/search-input';
@@ -103,34 +79,9 @@ const NEWTAB_SEARCH_SETTINGS = [
   newtabOpenInNewTab
 ];
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
-import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
-import { SearchQuery } from '../shared/search-panel/search-query';
-import { SuggestionSource } from '../shared/search-panel/suggestion-source';
-import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
-import { SiteSearchRunner } from '../shared/search-panel/site-search/runner';
-import { SearchModeMenu } from '../shared/search-panel/mode-menu';
-import { SearchModeActions } from '../shared/search-panel/mode-actions';
-import { SearchModeMenuOrder } from '../shared/search-panel/mode-menu-order';
-import { SearchMatching } from '../shared/search-panel/matching';
-import { SearchResults } from '../shared/search-panel/search-results';
-import { SearchMode } from '../shared/search-panel/search-mode';
-import { SearchAutocomplete } from '../shared/search-panel/autocomplete';
-import type { SiteSearchProvider } from '../domain/search/types';
-import type { Suggestion } from '../shared/react/search/suggestion-list/types';
-import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from './menu-values';
-import { ResultActivation } from '../shared/search-panel/result-activation';
 import { SearchTabKey } from '../shared/search-panel/tab-key';
-import { ViewportActivity } from './viewport-activity';
-import { RecentPointer } from './recent/recent-pointer';
-import { OpenTabs } from '../shared/search-panel/open-tabs';
-import { RecentSourceReads } from './recent/recent-source-reads';
 import { createSearchSubmit } from './search/search-submit';
-import { createCommandCatalog } from './search/command-catalog';
-import { PageNoticeControllers } from './notice-controllers';
-import { BottomDockParts } from './shortcuts/bottom-dock-parts';
-import { RecentSitesShown } from './recent/recent-sites-shown';
 import type { PageContext } from './app/context';
-import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
 import { createShellFeature } from './features/shell';
 import { createBookmarkStoreFeature } from './features/bookmark-store';
@@ -139,6 +90,12 @@ import { createTransfersFeature } from './features/transfers';
 import { createNavigationFeature } from './features/navigation';
 import { createBookmarkMenusFeature } from './features/bookmark-menus';
 import { createShortcutMenusFeature } from './features/shortcut-menus';
+import { createSearchCoreFeature } from './features/search-core';
+import { createRecentCoreFeature } from './features/recent-core';
+import { createThemeFeature } from './features/theme';
+import { createLayoutFeature } from './features/layout';
+import { createTopContentFeature } from './features/top-content';
+import { createWallpaperFeature } from './features/wallpaper';
 
 (function() {
   const {
@@ -187,42 +144,33 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     locale,
     t,
     formatMessage,
+    root,
     structure: pageStructureRuntime,
     providerStorageRuntime,
     storageArea,
     localStorageArea
   };
-  const shell = createShellFeature(ctx);
+  const shellFeature = createShellFeature(ctx);
   const {
     appliedTheme,
     areFaviconRenderCachesReady,
-    beginToast,
     bindCursorTooltip,
     bindSearchInputCursorTooltip,
     bindShortcutTooltip,
     bookmarkCascadeCopyTooltipController,
-    bookmarkContextMenuSelectController,
     bookmarkCursorTooltipController,
     copyBookmarkUrl,
     copySearchResultUrl,
     dismissStack,
     dragSessions,
     faviconCacheRuntime,
-    faviconParts,
     filterBlacklistedSuggestions,
-    firefoxBrowserIcons,
-    firefoxBrowserIconsReady,
     getBrowserPageFaviconUrl,
     getChromeFaviconUrl,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getNewtabStrictFaviconReason,
     getOwnExtensionPageDisplay,
     getPageFaviconCandidateUrl,
     getPageFaviconRenderCandidates,
     getPageFaviconUrlResolver,
-    getPersistedFaviconEntry,
-    getPersistedSiteThemeEntry,
     getSiteDisplayName,
     getUrlDisplay,
     hideCursorTooltip,
@@ -231,40 +179,18 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     hideToast,
     hideTopActionTooltip,
     historyLock,
-    isBlockedLocalFaviconUrl,
-    isBrowserPageRecentUrl,
-    isHostFaviconVisitDirty,
     isLocalNetworkHost,
-    isNewtabEnhancedFaviconFetchEnabled,
-    isOwnExtensionUrl,
     limitSuggestionsForDisplay,
-    logFaviconDecision,
-    recentContextMenuSelectController,
     sanitizeDisplayText,
     searchBox,
-    setPersistedFaviconData,
-    setPersistedFaviconUrl,
-    shortcutContextMenuSelectController,
-    shouldAvoidDirectFaviconForHost,
     shouldBlockFaviconForHost,
     shouldExcludeFromRecentSites,
     showToast,
     showTopActionTooltip,
-    topActionTooltipController,
     waitForFaviconRenderCaches,
     webAppearance
-  } = shell;
-  // The search suggestion the arrows show in the input.
-  const suggestionInputPreview = SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview();
-  // The window's tabs, which results switch to.
-  const openTabs = new OpenTabs([], null);
-  // The page's notices and feature hints, mounted by the parts that make them.
-  const notices = new PageNoticeControllers();
-  // The bottom dock's parts and the layout it drives, mounted with the dock.
-  const bottomDockParts = new BottomDockParts();
-  // The recent sites the section last drew.
-  const recentShown = new RecentSitesShown();
-  const bookmarkStore = createBookmarkStoreFeature(ctx);
+  } = shellFeature;
+  const bookmarkStoreFeature = createBookmarkStoreFeature(ctx);
   const {
     bookmarkCards,
     bookmarkLayoutAnimation,
@@ -272,20 +198,15 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     bookmarkParts,
     bookmarksRuntime,
     bookmarksShown
-  } = bookmarkStore;
-  const shortcutStore = createShortcutStoreFeature(ctx, { shell, bookmarkStore });
+  } = bookmarkStoreFeature;
+  const shortcutStoreFeature = createShortcutStoreFeature(ctx, { shell: shellFeature, bookmarkStore: bookmarkStoreFeature });
   const {
-    addSiteToShortcuts,
     closeShortcutDialog,
     getFolderItemIconForShortcut,
     getFolderItemIconUrl,
     getShortcutById,
-    getShortcutFaviconCandidateUrl,
-    getShortcutFaviconDataUrl,
     getShortcutFolderId,
     getShortcutStoreOptions,
-    getVisibleShortcuts,
-    hasShortcutForSite,
     loadVisibleShortcuts,
     moveShortcutGroupToIndex,
     openShortcutAddDialog,
@@ -300,25 +221,8 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     shortcutLayoutAnimation,
     shortcutList,
     shortcutTiles
-  } = shortcutStore;
-  // The browser reads the first recent sites pass shares, started now.
-  const recentSourceReads = new RecentSourceReads();
-
-
-  const commandCatalog = createCommandCatalog({ settings, t, formatMessage, appliedTheme, webAppearance });
-  const {
-    getCommandMatches,
-    getCommandMatch,
-    buildCommandSuggestion,
-    getNextThemeMode,
-    isModeCommand,
-    isZenCommand,
-    isSlashCommandInput,
-    buildModeSuggestion,
-    buildZenSuggestion
-  } = commandCatalog;
-
-  const transfers = createTransfersFeature(ctx, { shell, bookmarkStore, shortcutStore });
+  } = shortcutStoreFeature;
+  const transfersFeature = createTransfersFeature(ctx, { shell: shellFeature, bookmarkStore: bookmarkStoreFeature, shortcutStore: shortcutStoreFeature });
   const {
     applyBookmarkShortcutTransfer,
     applyShortcutStack,
@@ -326,12 +230,11 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     performBookmarkMoveHistoryAction,
     persistBookmarkCrossLevelMove,
     persistBookmarkDragOrder
-  } = transfers;
-  const navigation = createNavigationFeature(ctx, { shell });
+  } = transfersFeature;
+  const navigationFeature = createNavigationFeature(ctx, { shell: shellFeature });
   const {
     closeFeedbackPopover,
     createFeedbackControls,
-    getFeedbackButton,
     getFeedbackControl,
     getFeedbackLinks,
     getFeedbackWebLocale,
@@ -341,20 +244,89 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     navigateToQuery,
     navigateToUrl,
     openCommunityQrDialog,
-    openExternalNewTabUrl,
     openFeedbackExternalUrl,
     openUrlFromNewtabCard,
-    searchEngine,
-    updateFeedbackLanguageStrings
-  } = navigation;
-  const bookmarkMenus = createBookmarkMenusFeature(ctx, { shell, bookmarkStore, shortcutStore, transfers, navigation });
+    searchEngine
+  } = navigationFeature;
+  const searchCoreFeature = createSearchCoreFeature(ctx, { shell: shellFeature, shortcutStore: shortcutStoreFeature, navigation: navigationFeature });
   const {
-    bookmarkTopbarStorageKeys,
+    applyMarkVariables,
+    applyThemeVariables,
+    buildCommandSuggestion,
+    buildModeSuggestion,
+    buildThemeFromAccent,
+    buildZenSuggestion,
+    commandCatalog,
+    createAggregateSearchScopeProvider,
+    defaultTheme,
+    getCanonicalPageUrlForFavicon,
+    getCommandMatch,
+    getCommandMatches,
+    getHostFromUrl,
+    getHoverColors,
+    getImmediateThemeForSuggestion,
+    getNeutralHoverActionColors,
+    getNextThemeMode,
+    getProviderFaviconPageUrl,
+    getProviderIcon,
+    getProviderThemeHost,
+    getThemeForMode,
+    getThemeForProvider,
+    getThemeForSuggestion,
+    getThemeHostForSuggestion,
+    getTileThemeOnSiteChange,
+    isModeCommand,
+    isNewtabDarkMode,
+    isSlashCommandInput,
+    isZenCommand,
+    menuOrder,
+    modeActions,
+    modeMenu,
+    openTabs,
+    queueThemeForTarget,
+    resultActivation,
+    scheduleThemeResolutionFlush,
+    searchAutocomplete,
+    searchMatching,
+    searchMode,
+    searchQuery,
+    searchResults,
+    shouldUseUrlFallbackThemeForSuggestion,
+    siteSearchCatalog,
+    siteSearchIconCache,
+    siteSearchRunner,
+    suggestionInputPreview,
+    suggestionModifiers,
+    suggestionSource,
+    urlHighlightTheme
+  } = searchCoreFeature;
+  const recentCoreFeature = createRecentCoreFeature(ctx, { shell: shellFeature, shortcutStore: shortcutStoreFeature, navigation: navigationFeature, searchCore: searchCoreFeature });
+  const {
+    closeRecentContextMenu,
+    getHiddenRecentSites,
+    getPinnedRecentSites,
+    getRecentProgressState,
+    getRecentSiteUrlKey,
+    getRecentSites,
+    handleRecentCardContextMenu,
+    isRecentSiteHidden,
+    isRecentSitePinned,
+    mergeRecentSitesWithPinned,
+    normalizeRecentSiteRecord,
+    recentCards,
+    recentPointer,
+    recentShown,
+    recentSitesReadyTask,
+    recentSourceReads,
+    togglePinnedRecentSite,
+    toggleRecentProgressTracking,
+    writeHiddenRecentSites
+  } = recentCoreFeature;
+  const bookmarkMenusFeature = createBookmarkMenusFeature(ctx, { shell: shellFeature, bookmarkStore: bookmarkStoreFeature, shortcutStore: shortcutStoreFeature, transfers: transfersFeature, navigation: navigationFeature });
+  const {
     closeBookmarkCascadeMenu,
     closeBookmarkContextMenu,
     getBookmarkModeMenuOptions,
-    getBookmarkTopbarLayout,
-    getEffectiveBookmarkTopbarSurfaceMode,
     getTopBookmarks,
     handleBookmarkItemContextMenu,
     handleBookmarkModeMenuAction,
@@ -368,8 +340,32 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     scheduleFolderColorSync,
     syncBookmarkTopbarSurfaceAppearance,
     syncOpenBookmarkCascadeAnchorVisual
-  } = bookmarkMenus;
-  const shortcutMenus = createShortcutMenusFeature(ctx, { shell, bookmarkStore, shortcutStore, navigation, bookmarkMenus });
+  } = bookmarkMenusFeature;
+  const themeFeature = createThemeFeature(ctx, { shell: shellFeature, bookmarkStore: bookmarkStoreFeature, navigation: navigationFeature, bookmarkMenus: bookmarkMenusFeature, searchCore: searchCoreFeature, recentCore: recentCoreFeature });
+  const {
+    applyBookmarkCardTheme,
+    applyFallbackIcon,
+    applyFaviconOpticalAlignment,
+    applyFaviconOpticalShift,
+    applyRecentCardTheme,
+    applyShortcutTileTheme,
+    applyThemeMode,
+    attachFaviconData,
+    attachFaviconWithFallbacks,
+    followLanguage,
+    followTheme,
+    getScopedThemeMode,
+    notices,
+    preloadIcon,
+    refreshThemeAwareFavicons,
+    scheduleThemeAwareFaviconRescue,
+    setFaviconSrcWithAnimation,
+    setVisibleThemeMode,
+    shouldDelayBookmarkHoverFromRecent,
+    syncSystemThemeMode,
+    warmIconCache
+  } = themeFeature;
+  const shortcutMenusFeature = createShortcutMenusFeature(ctx, { shell: shellFeature, bookmarkStore: bookmarkStoreFeature, shortcutStore: shortcutStoreFeature, navigation: navigationFeature, bookmarkMenus: bookmarkMenusFeature });
   const {
     applyNewtabShortcutDockMagnification,
     closeShortcutContextMenu,
@@ -388,441 +384,59 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
     refreshShortcutTileCacheFromDom,
     resetShortcutDockHover,
     syncShortcutDockFolderMenu
-  } = shortcutMenus;
-  const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
-    chromeApi: typeof chrome !== 'undefined' ? chrome : null,
-    storageArea: localStorageArea,
-    storageKey: SearchSettings.siteSearchIconCache.key,
-    ...ShortcutIconCache.SITE_SEARCH_CACHE_OPTIONS
-  }));
-  void siteSearchIconCache.load();
-  const searchQuery = new SearchQuery();
-  const suggestionModifiers = new SuggestionModifiers(settings);
-  const siteSearchRunner = new SiteSearchRunner({
-    t: (key, fallback) => locale.t(key, fallback),
-    showToast: (message, isError) => showToast(message, isError),
-    getHelpCenterLocale: () => locale.store.getSnapshot().locale,
-    openInCurrentTab: (url) => navigateToUrl(url)
-  });
-  const resultActivation = new ResultActivation(settings, {
-    source: 'newtab',
-    enterAction: 'openNewTab',
-    isCurrentTabDefault: () => !settings.get(newtabOpenInNewTab).search,
-    openInCurrentTab: (url) => navigateToUrl(url)
-  });
-  const menuOrder = new SearchModeMenuOrder(settings);
-  const searchMatching = new SearchMatching({
-    settings,
-    getUrlDisplay: (url) => getUrlDisplay(url)
-  });
-  const searchResults = new SearchResults<Suggestion>();
-  const suggestionSource = new SuggestionSource(searchQuery, searchResults);
-  const searchMode = new SearchMode<SiteSearchProvider>();
-  const searchAutocomplete = new SearchAutocomplete({
-    settings,
-    query: searchQuery,
-    getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
-    preview: suggestionInputPreview,
-    isModeActive: () => Boolean(searchMode.site),
-    getUrlDisplay: (url) => getUrlDisplay(url)
-  });
-  const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
-  siteSearchCatalog.follow();
-
-  const pageSearchParams = new URLSearchParams(window.location.search || '');
+  } = shortcutMenusFeature;
+  const layoutFeature = createLayoutFeature(ctx, { shell: shellFeature, bookmarkStore: bookmarkStoreFeature, shortcutStore: shortcutStoreFeature, shortcutMenus: shortcutMenusFeature, recentCore: recentCoreFeature });
   const {
-    mediaQuery,
-    resolveTheme,
-    addMediaQueryChangeListener,
-    removeMediaQueryChangeListener
-  } = NEWTAB_SYSTEM_THEME.createSystemTheme(window);
-
-  const recentCards: RecentCardElement[] = [];
-  const suggestionItems: SuggestionElement[] = [];
-  // Settles once the entry animation finished or was skipped.
-  let finishEntryAnimationWait = (): void => {};
-  const newtabEntryAnimationReadyPromise = new Promise<void>((resolve) => {
-    finishEntryAnimationWait = resolve;
-  });
-  // The window's resizes, which hold the layout until they settle.
-  const viewportActivity = new ViewportActivity();
-  viewportActivity.follow(window);
-  const recentPointer = new RecentPointer();
-
-  const {
-    getProviderFaviconPageUrl,
-    getProviderIcon,
-    createAggregateSearchScopeProvider,
-    getProviderHost
-  } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
-    getPageFaviconUrlResolver,
-    siteSearchIconCache
-  });
-
-  const defaultTheme = createDefaultTheme();
-  const {
-    isFaviconProxyUrl,
-    themeColorCache,
-    themeHostCache,
-    getHostFromUrl,
-    getCanonicalPageUrlForFavicon,
-    normalizeAccentRgb,
-    normalizeThemeConfidence,
-    getThemeSourcePriority,
-    getThemeSource,
-    buildThemeFromAccent,
-    isLowConfidenceTheme,
-    getProviderThemeHost,
-    getThemeHostForSuggestion,
-    setResolvedThemeForHost,
-    getThemeForProvider,
-    getThemeForSuggestion,
-    getTileThemeOnSiteChange,
-    getImmediateThemeForSuggestion,
-    shouldUseUrlFallbackThemeForSuggestion,
-    scheduleThemeResolutionFlush,
-    queueThemeForTarget,
-    isNewtabDarkMode,
-    getThemeForMode,
-    getHoverColors,
-    getNeutralHoverActionColors,
-    applyThemeVariables,
-    applyMarkVariables
-  } = NEWTAB_SITE_THEME_RESOLVER.createSiteThemeResolver({
-    faviconParts,
-    normalizeHost,
-    parseCssColor,
-    defaultAccentColor,
-    defaultTheme,
-    getProviderHost,
-    faviconCacheRuntime,
-    getPersistedSiteThemeEntry,
-    getPageFaviconUrlResolver,
-    getBrandAccentForUrl,
-    extractAverageColor,
-    getProviderIcon,
-    isHostFaviconVisitDirty,
-    stableHashCode,
-    getShortcutFaviconCandidateUrl,
-    getShortcutFaviconDataUrl,
-    getProviderFaviconPageUrl,
-    areFaviconRenderCachesReady
-  });
-  const modeActions = new SearchModeActions<SiteSearchProvider>({
-    settings,
-    locale,
-    mode: searchMode,
-    query: searchQuery,
-    autocomplete: searchAutocomplete,
-    source: suggestionSource,
-    surface: {
-      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
-      getModeController: () => searchBox.modeController,
-      defaultTheme,
-      getImmediateTheme: () => defaultTheme,
-      getThemeForProvider
-    }
-  });
-  const modeMenu = new SearchModeMenu({
-    settings,
-    locale,
-    catalog: siteSearchCatalog,
-    engine: searchEngine,
-    iconCache: siteSearchIconCache,
-    order: menuOrder,
-    mode: searchMode,
-    actions: modeActions,
-    surface: {
-      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
-      getModeController: () => searchBox.modeController,
-      getProviderIcon: (provider) => getProviderIcon(provider)
-    }
-  });
-  const urlHighlightTheme = createUrlHighlightTheme();
-
-  const { isCardActivationSuppressed } = NEWTAB_CARD_ACTIVATION_GUARD.createCardActivationGuard({ documentObj: document });
-
-  const {
-    followStoredSites,
-    getPinnedRecentSites,
-    getHiddenRecentSites,
-    closeRecentContextMenu,
-    handleRecentCardContextMenu,
-    getRecentStoreOptions,
-    getRecentSiteUrlKey,
-    writeHiddenRecentSites,
-    isRecentSiteHidden,
-    normalizeRecentSiteRecord,
-    isRecentSitePinned,
-    mergeRecentSitesWithPinned,
-    togglePinnedRecentSite,
-    getRecentProgressState,
-    toggleRecentProgressTracking
-  } = NEWTAB_RECENT_SITES_CONTROLLER.createRecentSitesController({
-    otherContextMenus: [shortcutContextMenuSelectController, bookmarkContextMenuSelectController],
-    recentShown,
-    locale,
-    recentContextMenuSelectController,
-    settings,
-    t,
-    showToast,
-    openExternalNewTabUrl,
-    hasShortcutForSite,
-    addSiteToShortcuts,
-    hideCursorTooltip,
-    hideTopActionTooltip,
-    normalizeHost,
-    getCanonicalPageUrlForFavicon,
-    sanitizeDisplayText,
-    getSiteDisplayName,
-    shouldExcludeFromRecentSites,
-    isBrowserPageRecentUrl,
-    progressMatch: PROGRESS_MATCH,
-    progressHistory: PROGRESS_HISTORY
-  });
-
-  const { getRecentSites } = NEWTAB_RECENT_SOURCES.createRecentSources({
-    sourceReads: recentSourceReads,
-    firefoxBrowserIconsReady,
-    firefoxBrowserIcons,
-    getRecentStoreOptions,
-    isBrowserPageRecentUrl
-  });
-  const recentSitesReadyTask = followStoredSites();
-
-
-
-  const {
-    applyRecentCardTheme,
-    applyBookmarkCardTheme,
-    applyShortcutTileTheme,
-    shouldDelayBookmarkHoverFromRecent
-  } = NEWTAB_CARD_THEMES.createCardThemes({
-    buildFallbackThemeForHost,
-    defaultTheme,
-    getThemeForMode,
-    parseCssColor,
-    defaultAccentColor,
-    mixColor,
-    rgbToCss,
-    rgbToCssParts,
-    rgbToCssAlpha,
-    normalizeAccentRgb,
-    getReadableTextColor,
-    getThemeSource,
-    normalizeThemeConfidence,
-    isLowConfidenceTheme,
-    recentPointer
-  });
-
-  const {
-    getThemeScope,
-    setThemeMode,
-    setVisibleThemeMode,
-    setThemeScope,
-    followLanguage,
-    refreshThemeAwareFavicons,
-    scheduleThemeAwareFaviconRescue,
-    applyThemeMode,
-    getScopedThemeMode,
-    getSelectedThemeMode,
-    followTheme,
-    syncSystemThemeMode
-  } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
-    faviconParts,
-    bookmarkParts,
-    appliedTheme,
-    notices,
-    searchBox,
-    modeActions,
-    searchResults,
-    searchMode,
-    searchQuery,
-    syncBookmarkTopbarSurfaceAppearance,
-    locale,
-    settings,
-    t,
-    updateFeedbackLanguageStrings,
-    resolveTheme,
-    addMediaQueryChangeListener,
-    mediaQuery,
-    removeMediaQueryChangeListener
-  });
-
-  const {
-    syncSearchModeMenuResultOffset,
-    setSuggestionsVisible,
-    updateSuggestionsFloatingLayout
-  } = NEWTAB_SUGGESTIONS_LAYOUT.createSuggestionsLayout({
+    applyBookmarkGridColumns,
+    applyNewtabShortcutColumns,
+    applyNewtabShortcutLayoutPreferences,
+    applyNewtabShortcutsVisibility,
+    applyNewtabWidthMode,
+    applyRecentGridColumns,
+    beginSearchEntryRestoreLayoutLock,
     bottomDockParts,
-    suggestionsContainer,
-    searchBox
-  });
-
-  const {
-    getBookmarkLimit,
+    followNewtabSearchWidth,
+    followShortcutGridLayout,
     getBookmarkGridColumnCount,
-    getEffectiveNewtabSearchWidth,
+    getBookmarkLimit,
     getRecentLimit,
     getRecentSourceLimit,
-    applyBookmarkGridColumns,
-    keepBookmarkPageAnchorAfterLimitChange,
-    applyRecentGridColumns,
-    applyNewtabWidthMode,
-    setNewtabSearchWidth,
-    setContentSectionVisible,
+    inferNewtabShortcutColumnsFromWidth,
+    initialNewtabInputAutoFocusReadyTask,
+    isCardActivationSuppressed,
     isContentSectionVisible,
-    applyNewtabShortcutLayoutPreferences,
-    applyNewtabShortcutColumns,
-    applyNewtabShortcutsVisibility,
-    getSearchEntryViewportSnapshot,
-    hasSearchEntryViewportChanged,
+    keepBookmarkPageAnchorAfterLimitChange,
+    newtabEntryAnimationReadyPromise,
     rememberSearchEntryViewport,
-    beginSearchEntryRestoreLayoutLock,
+    setContentSectionVisible,
+    setSuggestionsVisible,
+    syncSearchModeMenuResultOffset,
     updateBookmarkSectionPosition,
     updateSearchEntryLayout,
-    followShortcutGridLayout,
-    followNewtabSearchWidth
-  } = NEWTAB_PAGE_LAYOUT.createPageLayout({
-    bookmarkGrid: pageStructureRuntime.bookmark.grid,
-    bookmarksShown,
-    recentSection,
-    recentGrid: pageStructureRuntime.recent.grid,
-    bottomDockParts,
-    shortcutGrid,
-    shortcutSection,
-    shortcutList,
-    preview,
-    settings,
     updateSuggestionsFloatingLayout,
-    closeRecentContextMenu,
-    getVisibleShortcuts,
-    resetShortcutDockHover,
-    closeShortcutContextMenu,
-    closeShortcutDialog,
-    viewport: viewportActivity,
-    recentPointer
-  });
-
-  const quoteRuntime = LumnoNewtabQuotes.createRuntime({
-    documentObj: document, windowObj: window,
-    settings, localStorageArea, t, showToast,
-    locale,
-    getSearchRoot: () => root,
-    getShortcutSection: () => shortcutSection,
-    getTooltipController: () => topActionTooltipController,
-    onLayout: () => window.requestAnimationFrame(() => {
-      updateBookmarkSectionPosition();
-      adaptiveToneEvents.emit('stale', {});
-    })
-  });
-
+    viewportActivity
+  } = layoutFeature;
+  const pageSearchParams = new URLSearchParams(window.location.search || '');
+  const suggestionItems: SuggestionElement[] = [];
+  const topContentFeature = createTopContentFeature(ctx, { shell: shellFeature, navigation: navigationFeature, recentCore: recentCoreFeature, layout: layoutFeature });
   const {
-    inferNewtabShortcutColumnsFromWidth,
-    setNewtabShortcutsVisible,
-    setNewtabShortcutAddVisible,
-    setNewtabShortcutDockMagnificationEnabled,
-    setNewtabShortcutColumns,
-    setNewtabShortcutSize,
-    setNewtabShortcutGap,
-    initialNewtabInputAutoFocusReadyTask
-  } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
-    preview,
-    settings
-  });
-
-  const sectionPanelSettings = LumnoNewtabSectionPanelSettings.createRuntime({
-    windowObj: window,
-    chromeObj: chrome,
-    t,
-    watchedKeys: [
-      bookmarkViewMode.key,
-      bookmarkCount.key,
-      bookmarkColumns.key,
-      bookmarkFolderIconsVisible.key,
-      recentMode.key,
-      recentCount.key,
-      ...bookmarkTopbarStorageKeys
-    ],
-    getBookmarkViewMode: () => settings.get(bookmarkViewMode),
-    setBookmarkViewMode: (mode) => void settings.set(bookmarkViewMode, bookmarkViewMode.parse(mode)).catch(() => {}),
-    getBookmarkCount: () => preview.get(bookmarkCount),
-    setBookmarkCount: (value, options) => {
-      preview.set(bookmarkCount, value, options);
-    },
-    getBookmarkColumns: () => preview.get(bookmarkColumns),
-    setBookmarkColumns: (value, options) => {
-      preview.set(bookmarkColumns, value, options);
-    },
-    getBookmarkFolderIconsVisible: () => preview.get(bookmarkFolderIconsVisible),
-    setBookmarkFolderIconsVisible: (value, options) => {
-      preview.set(bookmarkFolderIconsVisible, value, options);
-    },
-    // The bar's shape and background go through the same actions as its own menu.
-    getBookmarkTopbarLayout: () => getBookmarkTopbarLayout(),
-    setBookmarkTopbarLayout: (layout) => handleBookmarkModeMenuAction(`${BOOKMARK_TOPBAR_LAYOUT_ACTION}:${layout}`),
-    getBookmarkTopbarSurfaceMode: () => getEffectiveBookmarkTopbarSurfaceMode(),
-    setBookmarkTopbarSurfaceMode: (mode) => handleBookmarkModeMenuAction(
-      `${BOOKMARK_TOPBAR_SURFACE_MODE_ACTION}:${mode}`
-    ),
-    pickBookmarkTopbarSurfaceColor: () => handleBookmarkModeMenuAction(BOOKMARK_TOPBAR_PICK_COLOR_ACTION),
-    getRecentMode: () => settings.get(recentMode),
-    setRecentMode: (mode) => void settings.set(recentMode, recentMode.parse(mode)).catch(() => {}),
-    getRecentCount: () => preview.get(recentCount),
-    setRecentCount: (value, options) => {
-      preview.set(recentCount, value, options);
-    }
-  });
-
-  const {
-    wallpaperRuntime,
-    bootstrapInitialWallpaper,
-    markInitialWallpaperVisualReady,
-    getWallpaperShownAt
-  } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
-    topContentContainer,
-    bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
-    bookmarkTitleWrap: pageStructureRuntime.bookmark.titleWrap,
-    bookmarkParts,
-    recentHeader: pageStructureRuntime.recent.header,
-    bottomDockParts,
-    shortcutGrid,
-    locale,
-    appliedTheme,
-    sectionPanelSettings,
+    animateRecentResizeLayout,
+    applyNewtabTopContentVisibility,
+    cancelRecentResizeLayoutAnimations,
+    captureRecentCardLayout,
+    initialTimeFontReadyTask,
     quoteRuntime,
-    getFeedbackButton,
-    settings,
-    preview,
-    shortcutTiles,
-    shortcutGroupHeaders,
-    getEffectiveBookmarkTopbarSurfaceMode,
-    root,
-    localStorageArea,
-    t,
-    formatMessage,
-    getSelectedThemeMode,
-    getScopedThemeMode,
-    getThemeScope,
-    setThemeMode,
-    setThemeScope,
-    showToast,
-    beginToast,
-    showTopActionTooltip,
-    hideTopActionTooltip,
-    getEffectiveNewtabSearchWidth,
-    setNewtabSearchWidth,
-    setNewtabShortcutsVisible,
-    setNewtabShortcutAddVisible,
-    setNewtabShortcutDockMagnificationEnabled,
-    setNewtabShortcutColumns,
-    setNewtabShortcutSize,
-    setNewtabShortcutGap,
-    newtabEntryAnimationReadyPromise,
-    initialNewtabInputAutoFocusReadyTask,
-    followTheme
-  });
-
+    renderNewtabTopContent,
+    shouldAnimateNewtabLayoutShift,
+    shouldSkipNewtabEntryMotion
+  } = topContentFeature;
+  const wallpaperFeature = createWallpaperFeature(ctx, { shell: shellFeature, bookmarkStore: bookmarkStoreFeature, shortcutStore: shortcutStoreFeature, navigation: navigationFeature, bookmarkMenus: bookmarkMenusFeature, theme: themeFeature, layout: layoutFeature, topContent: topContentFeature });
+  const {
+    finishNewtabEntryAnimation,
+    initialAppearanceReadyTask,
+    markNewtabReady,
+    wallpaperRuntime
+  } = wallpaperFeature;
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') {
       rememberSearchEntryViewport();
@@ -844,25 +458,6 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
   window.addEventListener('blur', hideToast);
   window.addEventListener('pagehide', hideToast);
 
-  const initialWallpaperOverlayReadyTask = wallpaperRuntime.bootstrapInitialWallpaperOverlay();
-  const initialWallpaperVisualReadyTask = Promise.all([
-    followTheme(),
-    initialWallpaperOverlayReadyTask.then(() => bootstrapInitialWallpaper()),
-    initialWallpaperOverlayReadyTask,
-    wallpaperRuntime.bootstrapInitialWallpaperEffect()
-  ]).then(() => wallpaperRuntime.waitForInitialWallpaperEffectVisual()).catch((error) => {
-    console.warn('[Lumno] Initial new tab wallpaper setup failed.', error);
-  }).then(() => {
-    markInitialWallpaperVisualReady();
-  });
-  const initialAppearanceReadyTask = Promise.all([
-    initialWallpaperVisualReadyTask,
-    wallpaperRuntime.bootstrapInitialNewtabFavicon()
-  ]).catch((error) => {
-    console.warn('[Lumno] Initial new tab appearance setup failed.', error);
-  });
-
-
   const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
   const searchInputHistoryController =
     SEARCH_INPUT_HISTORY.createSearchInputHistoryController({
@@ -874,42 +469,6 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
 
   migrateLocalSettingsIfNeeded(SYNCED_PAGE_STORAGE_KEYS.slice());
 
-  const {
-    applyFaviconOpticalShift,
-    applyFaviconOpticalAlignment,
-    applyFallbackIcon,
-    setFaviconSrcWithAnimation,
-    attachFaviconData,
-    preloadIcon,
-    warmIconCache,
-    attachFaviconWithFallbacks
-  } = NEWTAB_PAGE_FAVICONS.createPageFavicons({
-    isBlockedLocalFaviconUrl,
-    setPersistedFaviconData,
-    getPersistedFaviconEntry,
-    setPersistedFaviconUrl,
-    logFaviconDecision,
-    faviconParts,
-    getThemeSource,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    isOwnExtensionUrl,
-    shouldBlockFaviconForHost,
-    shouldAvoidDirectFaviconForHost,
-    isNewtabEnhancedFaviconFetchEnabled,
-    getNewtabStrictFaviconReason,
-    getHostFromUrl,
-    isFaviconProxyUrl,
-    themeHostCache,
-    themeColorCache,
-    normalizeHost,
-    getThemeSourcePriority,
-    extractAverageColor,
-    buildThemeFromAccent,
-    setResolvedThemeForHost
-  });
-
   suggestionsContainer.addEventListener('wheel', function(event) {
     SUGGESTION_NAVIGATION.preventNumberShortcutWheel(event, suggestionsContainer);
   }, { passive: false });
@@ -919,47 +478,6 @@ import { createShortcutMenusFeature } from './features/shortcut-menus';
   const suggestionsSurface = pageStructureRuntime.suggestions.surface;
   const suggestionsOutline = pageStructureRuntime.suggestions.outline;
   const bookmarkSection = pageStructureRuntime.bookmark.section;
-
-  const {
-    captureRecentCardLayout,
-    cancelRecentResizeLayoutAnimations,
-    shouldSkipNewtabEntryMotion,
-    shouldAnimateNewtabLayoutShift,
-    animateRecentResizeLayout,
-    applyNewtabTopContentVisibility,
-    finishWordmarkEntryAnimation,
-    renderNewtabTopContent,
-    followTopContentSettings
-  } = NEWTAB_TOP_CONTENT_RUNTIME.createTopContentRuntime({
-    appliedTheme,
-    locale,
-    topContentContainer,
-    openExternalNewTabUrl,
-    recentCards,
-    updateSearchEntryLayout,
-    updateSuggestionsFloatingLayout,
-    settings,
-    preview
-  });
-  // Settles once the stored clock face has loaded, so the first reveal never
-  // draws the clock in a fallback face.
-  const initialTimeFontReadyTask = followTopContentSettings();
-
-  const {
-    finishNewtabEntryAnimation,
-    markNewtabReady
-  } = NEWTAB_ENTRY_MOTION.createEntryMotion({
-    getWallpaperShownAt,
-    root,
-    shouldSkipNewtabEntryMotion,
-    updateBookmarkSectionPosition,
-    finishWordmarkEntryAnimation,
-    rememberSearchEntryViewport,
-    getSearchEntryViewportSnapshot,
-    hasSearchEntryViewportChanged,
-    viewport: viewportActivity,
-    onEntryDone: () => finishEntryAnimationWait()
-  });
 
   const {
     updateBookmarkHeader,

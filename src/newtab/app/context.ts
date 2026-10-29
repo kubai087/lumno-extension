@@ -1,6 +1,6 @@
 // The runtime instances every New Tab feature takes: the settings store and
-// the dragged sliders' preview, the language, the page's sections, and the
-// storage the settings live in.
+// the dragged sliders' preview, the language, the page's root and sections,
+// and the storage the settings live in.
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { StartupStorage } from '../startup-storage';
@@ -13,6 +13,7 @@ interface PageContext {
   locale: SurfaceLocale;
   t: SurfaceLocale['t'];
   formatMessage: SurfaceLocale['formatMessage'];
+  root: HTMLElement;
   structure: PageStructureRuntime;
   providerStorageRuntime: StartupStorage['providerStorageRuntime'];
   storageArea: StartupStorage['storageArea'];
