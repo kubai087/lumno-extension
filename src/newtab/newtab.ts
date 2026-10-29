@@ -120,7 +120,7 @@ import { createTopContentController } from './react/wordmark';
 import { createPageStructure } from './react/page-structure';
 import { createSearchInput } from '../shared/react/search-input';
 import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
-import { newtabShortcutFaviconCache, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
+import { shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
 import { SettingPreview } from './setting-preview';
 import { repairStoredSettings } from './setting-repairs';
@@ -143,7 +143,6 @@ const NEWTAB_SEARCH_SETTINGS = [
   simpleModeEnabled,
   newtabOpenInNewTab
 ];
-import * as NewtabShortcutSettings from '../domain/settings/newtab-shortcuts';
 import * as FaviconBrowserIconIndex from '../domain/favicon/browser-icon-index';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
@@ -182,6 +181,7 @@ import { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import { DragSessions } from './drag-sessions';
 import { FaviconParts } from './theme/favicon-parts';
 import { createPageFaviconCache } from './theme/page-favicon-cache';
+import { createShortcutFavicons } from './shortcuts/shortcut-favicons';
 import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
@@ -377,6 +377,42 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     store: NEWTAB_BOOKMARKS_STORE,
     normalizeHost
   });
+
+  const shortcutIconStore = NEWTAB_SHORTCUT_ICON_STORE.createShortcutIconStore({
+    documentObj: document,
+    windowObj: window,
+    storageArea: localStorageArea
+  });
+  const folderItemIconStore = LumnoNewtabFolderItemIcons.createStore({
+    storageArea: localStorageArea
+  });
+  const shortcutFaviconStore = LumnoShortcutFaviconStore.createShortcutFaviconStore({
+    chromeApi: typeof chrome !== 'undefined' ? chrome : null,
+    storageArea: localStorageArea,
+    lockManager: window.navigator && window.navigator.locks
+  });
+
+  // Shortcut icon snapshots and the icons of websites in shortcut folders.
+  const shortcutFavicons = createShortcutFavicons({
+    settings,
+    shortcutList,
+    bookmarksRuntime,
+    folderItemIconStore,
+    shortcutFaviconStore,
+    faviconCacheRuntime,
+    getPersistedFaviconDataEntry,
+    getPageFaviconUrlResolver,
+    getExtensionResourceUrl,
+    sendRuntimeMessage
+  });
+  const {
+    getFolderItemIconUrl,
+    getFolderItemIcon,
+    getFolderItemIconForShortcut,
+    updateFolderItemIcons,
+    getShortcutFaviconDataUrl,
+    getShortcutFaviconCandidateUrl
+  } = shortcutFavicons;
 
   // The select menus the shortcut, bookmark and recent site context menus open in.
   const shortcutContextMenuSelectController = createSelectMenuController({
@@ -594,8 +630,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   shortcutFolderRuntime.ready.catch((error) => {
     console.warn('[Lumno] Could not load shortcut folder bindings.', error);
   });
-  const NEWTAB_SHORTCUT_ICONS_STORAGE_KEY = NewtabShortcutSettings.newtabShortcutIcons.key;
-  const NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY = newtabShortcutFaviconCache.key;
   const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
     chromeApi: typeof chrome !== 'undefined' ? chrome : null,
     storageArea: localStorageArea,
@@ -880,21 +914,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
   const recentSitesReadyTask = followStoredSites();
 
-  const shortcutIconStore = NEWTAB_SHORTCUT_ICON_STORE.createShortcutIconStore({
-    documentObj: document,
-    windowObj: window,
-    storageArea: localStorageArea,
-    storageKey: NEWTAB_SHORTCUT_ICONS_STORAGE_KEY
-  });
-  const folderItemIconStore = LumnoNewtabFolderItemIcons.createStore({
-    storageArea: localStorageArea
-  });
-  const shortcutFaviconStore = LumnoShortcutFaviconStore.createShortcutFaviconStore({
-    chromeApi: typeof chrome !== 'undefined' ? chrome : null,
-    storageArea: localStorageArea,
-    storageKey: NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY,
-    lockManager: window.navigator && window.navigator.locks
-  });
 
 
   const {
@@ -1218,8 +1237,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     extractAverageColor,
     buildThemeFromAccent,
     setResolvedThemeForHost,
-    getShortcutFaviconCandidateUrl: (...args) => getShortcutFaviconCandidateUrl(...args),
-    getShortcutFaviconDataUrl: (...args) => getShortcutFaviconDataUrl(...args),
+    getShortcutFaviconCandidateUrl,
+    getShortcutFaviconDataUrl,
     getProviderIcon,
     getProviderFaviconPageUrl
   });
@@ -1321,16 +1340,10 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getAddShortcutButton,
     setShortcutContextMenuMark,
     getShortcutFolderId,
-    getFolderItemIconUrl,
-    getFolderItemIcon,
-    getFolderItemIconForShortcut,
-    updateFolderItemIcons,
     getVisibleShortcuts,
     refreshShortcutFolderReferences,
     getShortcutStoreOptions,
     getShortcutIconDataUrl,
-    getShortcutFaviconDataUrl,
-    getShortcutFaviconCandidateUrl,
     getShortcutTitle,
     renderShortcuts,
     flushDeferredShortcutRender,
@@ -1355,6 +1368,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    shortcutFavicons,
     locale,
     openUrlFromNewtabCard,
     openBookmarkCascadeMenu,
@@ -1373,13 +1387,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     sanitizeDisplayText,
     providerStorageRuntime,
     shortcutIconStore,
-    folderItemIconStore,
-    getPageFaviconUrlResolver,
-    getExtensionResourceUrl,
-    sendRuntimeMessage,
-    shortcutFaviconStore,
-    faviconCacheRuntime,
-    getPersistedFaviconDataEntry,
     t,
     hideShortcutTooltip,
     closeShortcutContextMenu,
@@ -1398,7 +1405,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutById,
     refreshOpenBookmarkCascadeMenu: (...args) => refreshOpenBookmarkCascadeMenu(...args),
     bookmarkMoveHistory,
-    getBookmarkUndoShortcutLabel: (...args) => getBookmarkUndoShortcutLabel(...args),
     resetShortcutDockHover,
     pageStructureRuntime,
     shortcutTiles,
@@ -1450,7 +1456,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     deleteBookmarkFromContextTarget,
     addBookmarkFolderToShortcuts,
     hasShortcutForBookmarkFolder,
-    getBookmarkUndoShortcutLabel,
     refreshOpenBookmarkCascadeMenu,
     syncOpenBookmarkCascadeAnchorVisual,
     performBookmarkMoveHistoryAction,
@@ -1708,7 +1713,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     hideToast,
     t,
     formatMessage,
-    getBookmarkUndoShortcutLabel,
     refreshShortcutFolderReferences,
     isShortcutContextMenuNode,
     getShortcutTileFromNode,

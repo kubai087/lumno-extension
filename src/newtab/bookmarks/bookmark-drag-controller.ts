@@ -1256,7 +1256,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
 
   const {
     deleteBookmarkFromContextTarget,
-    getBookmarkUndoShortcutLabel,
     persistBookmarkDragOrder,
     persistBookmarkCrossLevelMove,
     performBookmarkMoveHistoryAction
@@ -1658,7 +1657,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     deleteBookmarkFromContextTarget,
     addBookmarkFolderToShortcuts,
     hasShortcutForBookmarkFolder,
-    getBookmarkUndoShortcutLabel,
     refreshOpenBookmarkCascadeMenu,
     syncOpenBookmarkCascadeAnchorVisual,
     performBookmarkMoveHistoryAction,

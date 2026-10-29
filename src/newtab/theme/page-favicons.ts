@@ -3,7 +3,7 @@
 // favicon sources suggestions and themes resolve from.
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
 import type { SiteSearchProviders } from '../search/site-search-providers';
-import type { ShortcutsController } from '../shortcuts/shortcuts-controller';
+import type { ShortcutFavicons } from '../shortcuts/shortcut-favicons';
 import * as NEWTAB_FAVICON_VIEW from './favicon-view';
 import type { SiteThemeResolver } from './site-theme-resolver';
 import type { ThemeSubject } from './theme-types';
@@ -34,8 +34,8 @@ interface PageFaviconsDeps {
   extractAverageColor(image: HTMLImageElement): ThemeRgb | null;
   buildThemeFromAccent: SiteThemeResolver['buildThemeFromAccent'];
   setResolvedThemeForHost: SiteThemeResolver['setResolvedThemeForHost'];
-  getShortcutFaviconCandidateUrl: ShortcutsController['getShortcutFaviconCandidateUrl'];
-  getShortcutFaviconDataUrl: ShortcutsController['getShortcutFaviconDataUrl'];
+  getShortcutFaviconCandidateUrl: ShortcutFavicons['getShortcutFaviconCandidateUrl'];
+  getShortcutFaviconDataUrl: ShortcutFavicons['getShortcutFaviconDataUrl'];
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
   getProviderFaviconPageUrl: SiteSearchProviders['getProviderFaviconPageUrl'];
   faviconParts: Pick<FaviconParts, 'dataCache' | 'mount'>;

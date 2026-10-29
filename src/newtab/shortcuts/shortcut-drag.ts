@@ -1,4 +1,5 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
+import { getUndoShortcutLabels } from '../bookmarks/bookmark-drag-rules';
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElement, queryHtmlElements } from '../../shared/dom-lookup';
 import type { BookmarkDragController } from '../bookmarks/bookmark-drag-controller';
@@ -13,6 +14,7 @@ import type { ShortcutContextMenu } from './shortcut-context-menu';
 import type { ShortcutPageActions } from './shortcut-page-actions';
 import type { PersistShortcuts, ShortcutInsertionSlot } from './shortcut-types';
 import type { ShortcutsController } from './shortcuts-controller';
+import type { ShortcutFavicons } from './shortcut-favicons';
 import { getShortcutUrl, isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem } from '../../domain/shortcuts/types';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
@@ -62,12 +64,11 @@ interface ShortcutDragDeps {
   queueBookmarkLayoutAnimation: BookmarkDragController['queueBookmarkLayoutAnimation'];
   applyBookmarkShortcutTransfer: BookmarkDragController['applyBookmarkShortcutTransfer'];
   applyShortcutStack: BookmarkDragController['applyShortcutStack'];
-  getFolderItemIconForShortcut: ShortcutsController['getFolderItemIconForShortcut'];
+  getFolderItemIconForShortcut: ShortcutFavicons['getFolderItemIconForShortcut'];
   showToast: ShowToast;
   hideToast(): void;
   t: Translate;
   formatMessage: FormatMessage;
-  getBookmarkUndoShortcutLabel: BookmarkDragController['getBookmarkUndoShortcutLabel'];
   refreshShortcutFolderReferences(): Promise<unknown>;
   isShortcutContextMenuNode: ShortcutContextMenu['isShortcutContextMenuNode'];
   getShortcutTileFromNode: ShortcutPageActions['getShortcutTileFromNode'];
@@ -188,7 +189,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     hideToast,
     t,
     formatMessage,
-    getBookmarkUndoShortcutLabel,
     refreshShortcutFolderReferences,
     isShortcutContextMenuNode,
     getShortcutTileFromNode,
@@ -1179,7 +1179,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       showToast(formatMessage(
         'newtab_shortcuts_stacked_undo',
         'Folder created · {shortcut} to undo',
-        { shortcut: getBookmarkUndoShortcutLabel() }
+        { shortcut: getUndoShortcutLabels(navigator).undo }
       ));
       return true;
     }).finally(() => {
