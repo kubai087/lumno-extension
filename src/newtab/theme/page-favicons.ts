@@ -2,11 +2,8 @@
 // the favicon view runtime that renders icons with their fallbacks, and the
 // favicon sources suggestions and themes resolve from.
 import type { ThemeVariant } from '../../shared/favicon/favicon-theme';
-import type { SiteSearchProviders } from '../search/site-search-providers';
-import type { ShortcutFavicons } from '../shortcuts/shortcut-favicons';
 import * as NEWTAB_FAVICON_VIEW from './favicon-view';
 import type { SiteThemeResolver } from './site-theme-resolver';
-import type { ThemeSubject } from './theme-types';
 import * as FaviconThemeColor from '../../domain/favicon/theme-color';
 import type { ThemeRgb } from '../../domain/favicon/types';
 import type { FaviconParts } from './favicon-parts';
@@ -34,12 +31,7 @@ interface PageFaviconsDeps {
   extractAverageColor(image: HTMLImageElement): ThemeRgb | null;
   buildThemeFromAccent: SiteThemeResolver['buildThemeFromAccent'];
   setResolvedThemeForHost: SiteThemeResolver['setResolvedThemeForHost'];
-  getShortcutFaviconCandidateUrl: ShortcutFavicons['getShortcutFaviconCandidateUrl'];
-  getShortcutFaviconDataUrl: ShortcutFavicons['getShortcutFaviconDataUrl'];
-  getProviderIcon: SiteSearchProviders['getProviderIcon'];
-  getProviderFaviconPageUrl: SiteSearchProviders['getProviderFaviconPageUrl'];
   faviconParts: Pick<FaviconParts, 'dataCache' | 'mount'>;
-  getPageFaviconUrlResolver: UrlPolicy['getPageFaviconUrlResolver'];
   logFaviconDecision: UrlPolicy['logFaviconDecision'];
   setPersistedFaviconUrl: PageFaviconCache['setPersistedFaviconUrl'];
   getPersistedFaviconEntry: PageFaviconCache['getPersistedFaviconEntry'];
@@ -67,12 +59,7 @@ function createPageFavicons(deps: PageFaviconsDeps) {
     extractAverageColor,
     buildThemeFromAccent,
     setResolvedThemeForHost,
-    getShortcutFaviconCandidateUrl,
-    getShortcutFaviconDataUrl,
-    getProviderIcon,
-    getProviderFaviconPageUrl,
     faviconParts,
-    getPageFaviconUrlResolver,
     logFaviconDecision,
     setPersistedFaviconUrl,
     getPersistedFaviconEntry,
@@ -150,19 +137,6 @@ function createPageFavicons(deps: PageFaviconsDeps) {
     image.src = dataUrl;
   }
 
-  function getThemeSourceForSuggestion(suggestion: ThemeSubject | null | undefined): string {
-    if (suggestion && suggestion.type === 'shortcut') {
-      const url = suggestion.url || '';
-      return getShortcutFaviconCandidateUrl(url) || getShortcutFaviconDataUrl(url);
-    }
-    const resolver = getPageFaviconUrlResolver();
-    if (suggestion && suggestion.provider) {
-      return resolver.resolveFaviconSource(
-        getProviderIcon(suggestion.provider), getProviderFaviconPageUrl(suggestion.provider)
-      );
-    }
-    return resolver.resolveFaviconSource(suggestion && suggestion.favicon, suggestion && suggestion.url);
-  }
 
   return {
     applyFaviconOpticalShift,
@@ -172,8 +146,7 @@ function createPageFavicons(deps: PageFaviconsDeps) {
     attachFaviconData,
     preloadIcon,
     warmIconCache,
-    attachFaviconWithFallbacks,
-    getThemeSourceForSuggestion
+    attachFaviconWithFallbacks
   };
 }
 

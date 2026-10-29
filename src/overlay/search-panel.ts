@@ -205,14 +205,13 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     mode: searchMode,
     query: searchQuery,
     autocomplete: searchAutocomplete,
+    source: suggestionSource,
     surface: {
       getInput: () => elements.searchInput,
       getModeController: () => elements.inputModeController,
       defaultTheme: defaultTheme,
       getImmediateTheme: (provider) => getImmediateThemeForSuggestion({ provider }) || defaultTheme,
       getThemeForProvider: (provider) => getThemeForProvider(provider),
-      cancelRequests: () => cancelPendingOverlaySuggestionRequests(),
-      clearResults: () => clearSearchSuggestions(),
       beforeEnterSite: () => cancelPendingOpenTabsPrefixEntry()
     }
   });
@@ -587,6 +586,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     updateSearchSuggestions,
     clearSearchSuggestions
   } = PANEL_SUGGESTION_SOURCES.createSuggestionSources({
+    modeActions,
     overlayThemeChoice,
     lastRender,
     overlayTabs,

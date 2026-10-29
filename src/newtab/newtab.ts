@@ -872,39 +872,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const defaultTheme = createDefaultTheme();
-  const modeActions = new SearchModeActions<SiteSearchProvider>({
-    settings,
-    locale,
-    mode: searchMode,
-    query: searchQuery,
-    autocomplete: searchAutocomplete,
-    surface: {
-      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
-      getModeController: () => searchBox.modeController,
-      defaultTheme,
-      getImmediateTheme: () => defaultTheme,
-      getThemeForProvider: (provider) => getThemeForProvider(provider),
-      cancelRequests: () => suggestionSource.cancel(),
-      clearResults: () => clearSearchSuggestions()
-    }
-  });
-  const modeMenu = new SearchModeMenu({
-    settings,
-    locale,
-    catalog: siteSearchCatalog,
-    engine: searchEngine,
-    iconCache: siteSearchIconCache,
-    order: menuOrder,
-    mode: searchMode,
-    actions: modeActions,
-    surface: {
-      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
-      getModeController: () => searchBox.modeController,
-      getProviderIcon: (provider) => getProviderIcon(provider)
-    }
-  });
-  const urlHighlightTheme = createUrlHighlightTheme();
-
   const {
     isFaviconProxyUrl,
     themeColorCache,
@@ -935,8 +902,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     applyMarkVariables
   } = NEWTAB_SITE_THEME_RESOLVER.createSiteThemeResolver({
     faviconParts,
-    modeActions,
-    searchMode,
     normalizeHost,
     parseCssColor,
     defaultAccentColor,
@@ -950,9 +915,42 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getProviderIcon,
     isHostFaviconVisitDirty,
     stableHashCode,
-    getThemeSourceForSuggestion: (...args) => getThemeSourceForSuggestion(...args),
+    getShortcutFaviconCandidateUrl,
+    getShortcutFaviconDataUrl,
+    getProviderFaviconPageUrl,
     areFaviconRenderCachesReady
   });
+  const modeActions = new SearchModeActions<SiteSearchProvider>({
+    settings,
+    locale,
+    mode: searchMode,
+    query: searchQuery,
+    autocomplete: searchAutocomplete,
+    source: suggestionSource,
+    surface: {
+      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
+      getModeController: () => searchBox.modeController,
+      defaultTheme,
+      getImmediateTheme: () => defaultTheme,
+      getThemeForProvider
+    }
+  });
+  const modeMenu = new SearchModeMenu({
+    settings,
+    locale,
+    catalog: siteSearchCatalog,
+    engine: searchEngine,
+    iconCache: siteSearchIconCache,
+    order: menuOrder,
+    mode: searchMode,
+    actions: modeActions,
+    surface: {
+      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
+      getModeController: () => searchBox.modeController,
+      getProviderIcon: (provider) => getProviderIcon(provider)
+    }
+  });
+  const urlHighlightTheme = createUrlHighlightTheme();
 
   const { isCardActivationSuppressed } = NEWTAB_CARD_ACTIVATION_GUARD.createCardActivationGuard({ documentObj: document });
 
@@ -1296,14 +1294,12 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     attachFaviconData,
     preloadIcon,
     warmIconCache,
-    attachFaviconWithFallbacks,
-    getThemeSourceForSuggestion
+    attachFaviconWithFallbacks
   } = NEWTAB_PAGE_FAVICONS.createPageFavicons({
     isBlockedLocalFaviconUrl,
     setPersistedFaviconData,
     getPersistedFaviconEntry,
     setPersistedFaviconUrl,
-    getPageFaviconUrlResolver,
     logFaviconDecision,
     faviconParts,
     getThemeSource,
@@ -1323,11 +1319,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getThemeSourcePriority,
     extractAverageColor,
     buildThemeFromAccent,
-    setResolvedThemeForHost,
-    getShortcutFaviconCandidateUrl,
-    getShortcutFaviconDataUrl,
-    getProviderIcon,
-    getProviderFaviconPageUrl
+    setResolvedThemeForHost
   });
 
   suggestionsContainer.addEventListener('wheel', function(event) {

@@ -7,6 +7,7 @@ import type { SuggestionsViewController } from '../../shared/react/search/sugges
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
 import { releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
+import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { RemoteMixState } from './remote-suggestions';
 import type { CommandSuggestion, SlashCommand } from './slash-commands';
 import type {
@@ -43,6 +44,7 @@ import type { LastRender } from './last-render';
 import type { OverlayThemeMode } from './overlay-theme-mode';
 
 interface SuggestionSourcesDeps {
+  modeActions: Pick<SearchModeActions<InputModeProvider>, 'events'>;
   siteSearchRunner: SiteSearchRunner;
   searchMatching: SearchMatching;
   searchResults: SearchResults<OverlaySuggestion>;
@@ -101,6 +103,7 @@ interface SuggestionUpdateOptions {
 
 function createSuggestionSources(deps: SuggestionSourcesDeps) {
   const {
+    modeActions,
     overlayThemeChoice,
     lastRender,
     overlayTabs,
@@ -554,6 +557,9 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     }
     clearDefaultOpenTabsSuggestions();
   }
+
+  // A new mode's rows replace the ones shown.
+  modeActions.events.on('resultsCleared', () => clearSearchSuggestions());
 
   return {
     quickNavigation,

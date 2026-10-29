@@ -1,7 +1,7 @@
 // Starting and leaving a site search or a local scope: the mode, the empty
-// input, the tag before it and the results. Both search panels run these
-// one set of actions; a surface only says how it themes the tag at first,
-// how it stops answers on their way, and how it clears its results.
+// input, the tag before it and the answers on their way. Both search panels
+// run these one set of actions; a surface only says how it themes the tag,
+// and clears its rows when told the rows no longer apply.
 import { searchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { InputModeProvider, InputModeTheme } from '../search/input-mode/types';
@@ -11,6 +11,8 @@ import { getLocalSearchScopeIconName, getLocalSearchScopeLabel } from './labels'
 import type { SearchLocale } from './labels';
 import type { ActiveLocalScope, SearchMode } from './search-mode';
 import type { SearchQuery } from './search-query';
+import type { SuggestionSource } from './suggestion-source';
+import { createEventBus } from '../state/events';
 
 type TagOptions = Parameters<InputModeController['setProviderPrefix']>[2];
 
@@ -28,9 +30,6 @@ interface SearchModeSurface<Provider> {
   // The tag's theme until the provider's own has loaded.
   getImmediateTheme(provider: Provider): InputModeTheme;
   getThemeForProvider(provider: Provider): Promise<InputModeTheme | null | undefined>;
-  // Stops the answers on their way, and any wait before them.
-  cancelRequests(): void;
-  clearResults(): void;
   // Before a site search starts; the overlay drops a pending open tabs tag.
   beforeEnterSite?(): void;
 }
@@ -41,11 +40,15 @@ interface SearchModeActionsOptions<Provider> {
   mode: SearchMode<Provider>;
   query: SearchQuery;
   autocomplete: Pick<SearchAutocomplete, 'clear'>;
+  // Stops the answers on their way when the mode changes.
+  source: Pick<SuggestionSource, 'cancel'>;
   surface: SearchModeSurface<Provider>;
 }
 
 class SearchModeActions<Provider extends InputModeProvider> {
   private readonly options: SearchModeActionsOptions<Provider>;
+  // `resultsCleared`: the new mode's rows replace the ones shown; the surface clears them.
+  readonly events = createEventBus<{ resultsCleared: null }>();
 
   constructor(options: SearchModeActionsOptions<Provider>) {
     this.options = options;
@@ -61,7 +64,7 @@ class SearchModeActions<Provider extends InputModeProvider> {
       surface.beforeEnterSite();
     }
     if (config.preserveResults === true) {
-      surface.cancelRequests();
+      this.options.source.cancel();
     }
     mode.enterSite(provider);
     this.emptyInput();
@@ -72,7 +75,7 @@ class SearchModeActions<Provider extends InputModeProvider> {
       }
     });
     if (config.preserveResults !== true) {
-      surface.clearResults();
+      this.events.emit('resultsCleared', null);
     }
   };
 
@@ -81,12 +84,12 @@ class SearchModeActions<Provider extends InputModeProvider> {
     if (!scope || !this.options.settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
       return false;
     }
-    this.options.surface.cancelRequests();
+    this.options.source.cancel();
     this.options.mode.enterLocal(scope);
     this.emptyInput();
     this.setLocalSearchScopePrefix(scope);
     if (!activation || activation.preserveResults !== true) {
-      this.options.surface.clearResults();
+      this.events.emit('resultsCleared', null);
     }
     return true;
   };
@@ -105,7 +108,7 @@ class SearchModeActions<Provider extends InputModeProvider> {
     if (!this.options.mode.local) {
       return false;
     }
-    this.options.surface.cancelRequests();
+    this.options.source.cancel();
     this.options.mode.leaveLocal();
     this.clearSiteSearchPrefix();
     this.options.autocomplete.clear();

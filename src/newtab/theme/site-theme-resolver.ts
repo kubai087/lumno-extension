@@ -1,5 +1,6 @@
 // Resolves per-site accent themes from favicons and brand colors, caches them,
 // and applies them to suggestion rows, shortcut tiles and bookmark/recent cards.
+import type { ShortcutFavicons } from '../shortcuts/shortcut-favicons';
 import type { SiteThemeEntry } from '../../domain/favicon/favicon-cache';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import { buildTheme, getHoverColors as getModeHoverColors, getThemeFingerprint, getThemeForMode as getThemeVariantForMode } from '../../shared/favicon/favicon-theme';
@@ -16,8 +17,6 @@ import * as FaviconThemeColor from '../../domain/favicon/theme-color';
 import * as FaviconThemedCandidates from '../../domain/favicon/themed-candidates';
 import type { ThemeRgb } from '../../domain/favicon/types';
 import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
-import type { SearchMode } from '../../shared/search-panel/search-mode';
-import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { FaviconParts } from './favicon-parts';
 import type { PageFaviconCache } from './page-favicon-cache';
 
@@ -27,8 +26,6 @@ import type { PageFaviconCache } from './page-favicon-cache';
 type ViewTheme = Partial<ThemeVariant> | null | undefined;
 
 interface SiteThemeResolverDeps {
-  modeActions: SearchModeActions<SiteSearchProvider>;
-  searchMode: SearchMode<SiteSearchProvider>;
   normalizeHost(hostname: string): string;
   parseCssColor: typeof Color.parseCssColor;
   defaultAccentColor: ThemeRgb;
@@ -42,8 +39,9 @@ interface SiteThemeResolverDeps {
   // Whether the site's icon may have changed since its theme was stored.
   isHostFaviconVisitDirty(hostKey: string): boolean;
   stableHashCode(value: string): number;
-  // The icon a subject's theme is read from; '' for none.
-  getThemeSourceForSuggestion(subject: ThemeSubject): string;
+  getShortcutFaviconCandidateUrl: ShortcutFavicons['getShortcutFaviconCandidateUrl'];
+  getShortcutFaviconDataUrl: ShortcutFavicons['getShortcutFaviconDataUrl'];
+  getProviderFaviconPageUrl: SiteSearchProviders['getProviderFaviconPageUrl'];
   areFaviconRenderCachesReady(): boolean;
   faviconParts: Pick<FaviconParts, 'dataCache' | 'view'>;
   faviconCacheRuntime: Pick<PageFaviconCache['faviconCacheRuntime'], 'ensureCachesReady' | 'setPersistedThemeEntry'>;
@@ -87,8 +85,6 @@ interface ThemeResolutionItem {
 
 function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
   const {
-    modeActions,
-    searchMode,
     normalizeHost,
     parseCssColor,
     defaultAccentColor,
@@ -101,11 +97,31 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     getProviderIcon,
     isHostFaviconVisitDirty,
     stableHashCode,
-    getThemeSourceForSuggestion,
+    getShortcutFaviconCandidateUrl,
+    getShortcutFaviconDataUrl,
+    getProviderFaviconPageUrl,
     areFaviconRenderCachesReady,
     faviconParts,
     faviconCacheRuntime
   } = deps;
+
+  // The icon a subject's theme is read from; '' for none.
+  function getThemeSourceForSuggestion(suggestion: ThemeSubject | null | undefined): string {
+    if (suggestion && suggestion.type === 'shortcut') {
+      const url = suggestion.url || '';
+      return getShortcutFaviconCandidateUrl(url) || getShortcutFaviconDataUrl(url);
+    }
+    const resolver = getPageFaviconUrlResolver();
+    if (!resolver) {
+      return '';
+    }
+    if (suggestion && suggestion.provider) {
+      return resolver.resolveFaviconSource(
+        getProviderIcon(suggestion.provider), getProviderFaviconPageUrl(suggestion.provider)
+      );
+    }
+    return resolver.resolveFaviconSource(suggestion && suggestion.favicon, suggestion && suggestion.url);
+  }
 
 
   const THEME_ICON_LOAD_TIMEOUT_MS = 2400;
@@ -317,9 +333,6 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     const normalizedHost = normalizeHost(hostKey);
     if (!normalizedHost || !theme) {
       return;
-    }
-    if (searchMode.site && getProviderThemeHost(searchMode.site) === normalizedHost) {
-      modeActions.setSiteSearchPrefix(searchMode.site, theme);
     }
     siteThemeEvents.emit('changed', { host: normalizedHost, theme });
   }

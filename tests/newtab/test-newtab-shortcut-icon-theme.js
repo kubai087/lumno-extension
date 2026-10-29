@@ -68,13 +68,15 @@ const resolver = sandbox.LumnoNewtabSiteThemeResolver.createSiteThemeResolver({
     ensureCachesReady: () => Promise.resolve()
   },
   getPersistedSiteThemeEntry: (host) => persistedThemes.get(host) || null,
-  getPageFaviconUrlResolver: () => ({ getSafeFaviconCandidateUrl: (url) => url }),
+  getPageFaviconUrlResolver: () => ({ getSafeFaviconCandidateUrl: (url) => url, resolveFaviconSource: () => '' }),
   getBrandAccentForUrl: () => null,
   extractAverageColor: (image) => averageBySource.get(image.src) || null,
   getProviderIcon: () => '',
   isHostFaviconVisitDirty: () => false,
   stableHashCode: COLOR.stableHashCode,
-  getThemeSourceForSuggestion: (suggestion) => shortcutIconSources.get(suggestion && suggestion.url) || '',
+  getShortcutFaviconCandidateUrl: () => '',
+  getShortcutFaviconDataUrl: (url) => shortcutIconSources.get(url) || '',
+  getProviderFaviconPageUrl: () => '',
   areFaviconRenderCachesReady: () => true,
   // No icon data cached or fetched: themes come from the icons' own colors.
   faviconParts: {

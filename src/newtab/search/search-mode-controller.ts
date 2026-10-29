@@ -1,6 +1,7 @@
 // The search input's mode controller: site search and local scope
 // prefixes, the tab hint for site search, the placeholder and caret color
 // per mode, and the cached provider icons the prefixes show.
+import { siteThemeEvents } from '../../shared/favicon/theme-caches';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import * as SEARCH_INPUT_MODE from '../../shared/search/search-input-mode';
@@ -200,9 +201,12 @@ function createSearchModeController(deps: SearchModeControllerDeps): void {
     }
   });
 
-
-
-
+  // The site search tag takes its site's theme when that theme changes.
+  siteThemeEvents.on('changed', ({ host, theme }) => {
+    if (searchMode.site && getProviderThemeHost(searchMode.site) === host) {
+      modeActions.setSiteSearchPrefix(searchMode.site, theme);
+    }
+  });
 }
 
 

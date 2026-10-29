@@ -826,6 +826,9 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       void renderSuggestions(searchResults.lastResponse, searchQuery.text);
     }
   });
+  // A new mode's rows replace the ones shown.
+  modeActions.events.on('resultsCleared', () => clearSearchSuggestions());
+
   return {
     getAutoHighlightIndex,
     activateRenderedSuggestion,
