@@ -1,9 +1,8 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { createRenderStore, type RenderStore } from '../../shared/react/render-store';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { lazyInstance } from '../../shared/lazy-instance';
+import { PortalHost } from '../../shared/react/portal-host';
 
 type OverlayShellOptions = Record<string, unknown> & {
   cursorTooltipCssUrl?: string;
@@ -27,6 +26,8 @@ type OverlayShellOptions = Record<string, unknown> & {
 
 interface OverlayMount {
   host: HTMLElement;
+  // The panel's one React root, which draws its input and results too.
+  portals: PortalHost;
   panel: HTMLElement;
   // Where the search input mounts, and the results list below it.
   inputContainer: HTMLDivElement;
@@ -674,7 +675,7 @@ interface OverlayPanelElement extends HTMLDivElement {
 }
 
 export function createOverlayShellApi() {
-  const roots = new WeakMap<HTMLElement, Root>();
+  const hosts = new WeakMap<HTMLElement, PortalHost>();
   const panels = new WeakMap<HTMLElement, HTMLElement>();
 
   function createOverlayMount(
@@ -699,36 +700,35 @@ export function createOverlayShellApi() {
       mounted.parts = parts;
     };
     const store = createRenderStore<OverlayPanelModel>({ theme: '', vars: {} });
-    const reactRoot = createRoot(shadowRoot);
-    flushSync(() => {
-      reactRoot.render(
-        <OverlayPanel
-          declarations={getPanelDeclarations(options, supportsCornerShape(doc))}
-          id={String(
-            options.id || '_x_extension_overlay_2024_unique_'
-          )}
-          onMount={registerPanel}
-          store={store}
-          suggestionsContainerId={String(
-            options.suggestionsContainerId || '_x_extension_suggestions_container_2024_unique_'
-          )}
-        />
-      );
-    });
+    const portals = new PortalHost(shadowRoot);
+    portals.show(shadowRoot, (
+      <OverlayPanel
+        declarations={getPanelDeclarations(options, supportsCornerShape(doc))}
+        id={String(
+          options.id || '_x_extension_overlay_2024_unique_'
+        )}
+        onMount={registerPanel}
+        store={store}
+        suggestionsContainerId={String(
+          options.suggestionsContainerId || '_x_extension_suggestions_container_2024_unique_'
+        )}
+      />
+    ));
     const parts = mounted.parts;
     if (!parts) {
-      reactRoot.unmount();
+      portals.destroy();
       return null;
     }
 
     const mountedPanel: OverlayPanelElement = parts.panel;
     mountedPanel._lumnoOverlayHost = host;
     mountedPanel._lumnoOverlayRoot = shadowRoot;
-    roots.set(host, reactRoot);
+    hosts.set(host, portals);
     panels.set(host, mountedPanel);
     const view: OverlayPanelView = { render: store.render };
     return {
       host,
+      portals,
       panel: mountedPanel,
       inputContainer: parts.inputContainer,
       suggestionsContainer: parts.suggestionsContainer,
@@ -744,10 +744,10 @@ export function createOverlayShellApi() {
       if (!host) {
         return;
       }
-      const root = roots.get(host);
-      if (root) {
-        flushSync(() => root.unmount());
-        roots.delete(host);
+      const portals = hosts.get(host);
+      if (portals) {
+        portals.destroy();
+        hosts.delete(host);
       }
       panels.delete(host);
     },

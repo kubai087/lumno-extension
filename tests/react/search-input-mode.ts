@@ -6,6 +6,7 @@ import { installHanVariantPairs } from '../../src/domain/search/han-variants';
 import type { PinyinApi } from '../../src/domain/search/pinyin-api';
 import * as searchInputModeModule from '../../src/shared/search/search-input-mode';
 import { createSearchInput } from '../../src/shared/react/search-input';
+import { getTestPortals } from './portals';
 
 // A pinyin-pro stand-in with the readings these tests type.
 export const testPinyinApi: PinyinApi = {
@@ -50,6 +51,7 @@ export const LumnoSearchInputMode = {
 // The search input's parts as a surface renders them.
 export function createModeParts(surface: 'newtab' | 'overlay' = 'newtab') {
   const parts = createSearchInput({
+    portals: getTestPortals(),
     modeBadge: { id: `${surface}-mode-badge`, surface }
   });
   parts.input.style.paddingLeft = '44px';

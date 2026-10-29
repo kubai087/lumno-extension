@@ -924,6 +924,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   }
   overlayState.overlay = overlayMount.panel;
   overlayState.overlayPanelView = overlayMount.view;
+  overlayState.overlayPortals = overlayMount.portals;
   const overlayHost = overlayMount.host;
   // The panel's shadow root, which holds its styles.
   const overlayStyleRoot = overlayMount.root;
@@ -999,6 +1000,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   }).catch(() => {});
 
   const inputParts = createSearchInput({
+    portals: overlayMount.portals,
     container: overlayMount.inputContainer,
     styleRoot: overlayStyleRoot,
     placeholder: t('overlay_search_placeholder', t('search_placeholder', overlayState.defaultPlaceholderText)),

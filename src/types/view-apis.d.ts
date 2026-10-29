@@ -1,6 +1,5 @@
-// The React views that pages and injected scripts reach on globalThis (see
-// globals.d.ts): the tooltip view (src/shared/react/tooltip-view.tsx) and
-// the feature hint view (src/shared/react/feature-hint-view.tsx).
+// The models and options of the tooltip view (src/shared/react/tooltip-view.tsx)
+// and the feature hint view (src/shared/react/feature-hint-view.tsx).
 
 import type { RemixIconSpec } from '../shared/ui/remix-icon';
 
@@ -28,15 +27,6 @@ export interface BrowserAvatarTooltipModel {
   browsers?: readonly BrowserAvatar[];
   browserNameSeparator?: string;
   browserAvatarSuffix?: string;
-}
-
-export interface TooltipViewApi {
-  readonly implementation: string;
-  createTooltipElement(options?: TooltipElementOptions): HTMLElement | null;
-  destroyTooltipElement(element: HTMLElement | null): void;
-  renderTooltipText(element: HTMLElement, text: string): HTMLElement;
-  renderCursorTag(element: HTMLElement, model: CursorTagModel): HTMLElement;
-  renderBrowserAvatarTooltip(element: HTMLElement, model: BrowserAvatarTooltipModel): HTMLElement;
 }
 
 export interface FeatureHintViewModel {

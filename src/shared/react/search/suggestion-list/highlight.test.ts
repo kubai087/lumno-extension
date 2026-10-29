@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { NormalizedOptions } from './types';
 import { bindRowTooltip } from './highlight';
 import { normalizeOptions } from './surface-options';
+import { getTestPortals } from '../../../../../tests/react/portals';
 
 type BindCursorTooltip = NonNullable<NormalizedOptions['bindCursorTooltip']>;
 type GetText = Parameters<BindCursorTooltip>[1];
@@ -53,6 +54,7 @@ function bindRow(parts: ReturnType<typeof createRow>) {
     calls.push({ target, getText, tooltip });
   };
   const options = normalizeOptions({
+    portals: getTestPortals(),
     container: document.createElement('div'),
     bindCursorTooltip
   });

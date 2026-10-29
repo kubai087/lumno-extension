@@ -298,13 +298,14 @@ function readCallbacks(raw: SuggestionsViewOptions): OptionGroup<'setSuggestions
 
 export function normalizeOptions(raw: SuggestionsViewOptions): NormalizedOptions | null {
   const documentRef = raw.document || globalThis.document;
-  if (!documentRef || !raw.container) {
+  if (!documentRef || !raw.container || !raw.portals) {
     return null;
   }
   return {
     surface: raw.surface === 'overlay' ? 'overlay' : 'newtab',
     document: documentRef,
     container: raw.container,
+    portals: raw.portals,
     items: Array.isArray(raw.items) ? raw.items : [],
     actionModel: raw.actionModel || {},
     ...readTextOptions(raw),

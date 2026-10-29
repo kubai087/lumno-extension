@@ -1,6 +1,5 @@
 import { Fragment } from 'react';
 import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { createHelpPassageCard, isHelpPassage } from './help-passage-card';
 import type {
   NormalizedOptions,
@@ -218,7 +217,6 @@ class SuggestionsView implements SuggestionsViewController {
   private lastSimpleModeEnabled: boolean;
   private suggestionValueRefs = new Map<string, SuggestionValueRef>();
   private readonly options: NormalizedOptions;
-  private readonly root: Root;
   private readonly runtime: SuggestionsRuntime;
   private readonly tabBatches: IdleBatches;
   private readonly helpPassage: ReturnType<typeof createHelpPassageCard>;
@@ -231,7 +229,6 @@ class SuggestionsView implements SuggestionsViewController {
     this.options = options;
     this.getStructureIdentity = getStructureIdentity;
     this.getPresentationFingerprint = getPresentationFingerprint;
-    this.root = createRoot(options.container);
     const queryStore = createQueryStore();
     options.container.setAttribute('data-react-island', 'suggestions');
     this.lastSimpleModeEnabled = options.isSimpleModeEnabled();
@@ -285,19 +282,17 @@ class SuggestionsView implements SuggestionsViewController {
     const getFingerprint = (suggestion: Suggestion): string => this.getPresentationFingerprint(suggestion, {
       includeDebugReasons: options.isTabRankScoreDebugEnabled()
     });
-    flushSync(() => {
-      this.root.render(
-        <SuggestionRows
-          getFingerprint={getFingerprint}
-          payload={payload}
-          refs={nextValueRefs.refs}
-          renderKeys={renderKeys}
-          runtime={runtime}
-          simpleMode={simpleMode}
-          suggestions={suggestions}
-        />
-      );
-    });
+    this.options.portals.show(this.options.container, (
+      <SuggestionRows
+        getFingerprint={getFingerprint}
+        payload={payload}
+        refs={nextValueRefs.refs}
+        renderKeys={renderKeys}
+        runtime={runtime}
+        simpleMode={simpleMode}
+        suggestions={suggestions}
+      />
+    ));
     syncItems(options);
     syncLatestSuggestionMetadata(options, suggestions);
     this.lastRenderWasSuggestions = true;
@@ -353,7 +348,7 @@ class SuggestionsView implements SuggestionsViewController {
     this.tabBatches.cancel();
     options.hideTopActionTooltip();
     this.helpPassage.hide();
-    flushSync(() => this.root.render(null));
+    this.options.portals.show(this.options.container, null);
     this.lastRenderWasSuggestions = false;
     this.suggestionValueRefs.clear();
     options.items.length = 0;
@@ -370,7 +365,7 @@ class SuggestionsView implements SuggestionsViewController {
     this.unsubscribes.forEach((unsubscribe) => unsubscribe());
     options.hideTopActionTooltip();
     this.helpPassage.destroy();
-    flushSync(() => this.root.unmount());
+    this.options.portals.remove(this.options.container);
     this.destroyed = true;
     this.lastRenderWasSuggestions = false;
     options.items.length = 0;
@@ -408,9 +403,7 @@ class SuggestionsView implements SuggestionsViewController {
 
   private renderEmpty(payload: SuggestionsRenderPayload): void {
     const { options } = this;
-    flushSync(() => {
-      this.root.render(<EmptyState key="empty" options={options} message={payload.emptyMessage || ''} art={payload.emptyArt} />);
-    });
+    this.options.portals.show(this.options.container, <EmptyState key="empty" options={options} message={payload.emptyMessage || ''} art={payload.emptyArt} />);
     options.items.length = 0;
     this.lastRenderWasSuggestions = false;
     options.selection.select(-1);
@@ -426,26 +419,24 @@ class SuggestionsView implements SuggestionsViewController {
   }
 
   private commitTabRows(tabs: OpenTabSuggestion[], renderKeys: string[], count: number, simpleMode: boolean): void {
-    flushSync(() => {
-      this.root.render(
-        tabs.slice(0, count).map((tab, index) => (
-          <OpenTabRow
-            key={renderKeys[index]}
-            runtime={this.runtime}
-            tab={tab}
-            index={index}
-            last={index === count - 1 && count === tabs.length}
-            simpleMode={simpleMode}
-          />
-        ))
-      );
-    });
+    this.options.portals.show(this.options.container, (
+      tabs.slice(0, count).map((tab, index) => (
+        <OpenTabRow
+          key={renderKeys[index]}
+          runtime={this.runtime}
+          tab={tab}
+          index={index}
+          last={index === count - 1 && count === tabs.length}
+          simpleMode={simpleMode}
+        />
+      ))
+    ));
     syncItems(this.options);
   }
 
 }
 
-export function createSuggestionsView(rawOptions: SuggestionsViewOptions = {}): SuggestionsViewController {
+export function createSuggestionsView(rawOptions: SuggestionsViewOptions): SuggestionsViewController {
   const options = normalizeOptions(rawOptions);
   const getStructureIdentity = options?.actionModel.getSuggestionStructureIdentity;
   const getPresentationFingerprint = options?.actionModel.getSuggestionPresentationFingerprint;

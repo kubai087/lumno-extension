@@ -1,6 +1,4 @@
 import { useRef, useSyncExternalStore, type RefObject } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { queryHtmlElement, queryHtmlTag, querySvgElement } from '../dom-lookup';
 import { createRenderStore, type RenderStore } from './render-store';
 import { ModeMenu, createModeMenuStore, type ModeMenuStore } from './search/mode-menu';
@@ -22,6 +20,7 @@ import type { SearchInputTooltip } from './search-input-parts/chrome';
 import { SecondaryAction } from './search-input-parts/secondary-action';
 import type { SecondaryActionConfig } from './search-input-parts/secondary-action';
 import { applyStyles, ensureStyles } from './search-input-parts/styles';
+import type { PortalHost } from './portal-host';
 
 type StyleOverrides = Record<string, string>;
 
@@ -43,6 +42,8 @@ export interface SearchInputChrome {
 }
 
 export interface SearchInputConfig {
+  // The page's React root, which draws the input into its container.
+  portals: PortalHost;
   // An empty element the surface's own view drew for the input; a new one
   // otherwise.
   container?: HTMLDivElement;
@@ -107,7 +108,8 @@ export interface SearchInputParts {
   syncClearAction(): boolean;
 }
 
-const roots = new WeakMap<HTMLElement, Root>();
+// The root each input was drawn through, to take it out again.
+const hosts = new WeakMap<HTMLElement, PortalHost>();
 
 // The stores the input mode controller draws the mode tag, Tab hint and
 // scope panel through, and the field's text as the chrome around it last
@@ -325,21 +327,21 @@ function applySurfaceConfig(config: SearchInputConfig, field: NonNullable<Return
   }
 }
 
-export function createSearchInput(config: SearchInputConfig = {}): SearchInputParts {
+export function createSearchInput(config: SearchInputConfig): SearchInputParts {
   ensureStyles(config.styleRoot);
   const container = prepareContainer(config);
-  const root = createRoot(container);
-  roots.set(container, root);
+  const { portals } = config;
+  hosts.set(container, portals);
   const stores = createStores(config);
-  flushSync(() => root.render(<SearchInput config={config} stores={stores} />));
+  portals.show(container, <SearchInput config={config} stores={stores} />);
   const field = queryFieldParts(container, config);
   if (!field) {
-    root.unmount();
+    portals.remove(container);
     throw new Error('Search input mount');
   }
   const mode = queryModeParts(container);
   if (!mode) {
-    root.unmount();
+    portals.remove(container);
     throw new Error('Search mode mount');
   }
   const { input, clearAction } = field;
@@ -373,10 +375,10 @@ export function destroySearchInput(
   if (!(container instanceof HTMLElement)) {
     return;
   }
-  const root = roots.get(container);
-  if (!root) {
+  const portals = hosts.get(container);
+  if (!portals) {
     return;
   }
-  flushSync(() => root.unmount());
-  roots.delete(container);
+  portals.remove(container);
+  hosts.delete(container);
 }

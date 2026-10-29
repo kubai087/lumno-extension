@@ -35,6 +35,7 @@ import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigatio
 import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
+import { getPagePortals } from '../app/portals';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -250,6 +251,7 @@ function createSearchBox(deps: SearchBoxDeps) {
   }
   let isApplyingSearchInputHistory = false;
   pageState.suggestionsView = createSuggestionsView({
+    portals: getPagePortals(),
     document,
     container: suggestionsContainer,
     items: suggestionItems,
@@ -343,6 +345,7 @@ function createSearchBox(deps: SearchBoxDeps) {
   }
 
   const inputParts = createSearchInput({
+    portals: getPagePortals(),
     containerId: '_x_extension_newtab_input_container_2024_unique_',
     inputId: '_x_extension_newtab_search_input_2024_unique_',
     iconId: '_x_extension_newtab_search_icon_2024_unique_',

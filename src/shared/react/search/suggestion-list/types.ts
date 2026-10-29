@@ -2,6 +2,7 @@
 // New Tab and overlay adapters that create it.
 import type { RemixIconName } from '../../../ui/remix-icon';
 import type { Store } from '../../../state/store';
+import type { PortalHost } from '../../portal-host';
 import type { TabRankFields } from '../../../../domain/messages';
 import type {
   DisplayedSuggestion,
@@ -160,6 +161,8 @@ export interface SuggestionsViewOptions {
   surface?: SuggestionsSurface;
   document?: Document;
   container?: HTMLElement | null;
+  // The page's React root, which draws the list into its container.
+  portals: PortalHost;
   items?: SuggestionElement[];
   t?: Translate;
   formatMessage?: (
@@ -311,6 +314,7 @@ export interface NormalizedOptions {
   surface: SuggestionsSurface;
   document: Document;
   container: HTMLElement;
+  portals: PortalHost;
   items: SuggestionElement[];
   t: Translate;
   formatMessage: NonNullable<SuggestionsViewOptions['formatMessage']>;

@@ -40,6 +40,7 @@ import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigatio
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
+import type { PortalHost } from '../../shared/react/portal-host';
 
 // What the view takes for an option this module passes straight through.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
@@ -50,6 +51,8 @@ interface SuggestionsRenderState {
   overlayStyleRoot: ShadowRoot | null;
   searchInput: HTMLInputElement | null;
   suggestionsContainer: HTMLElement | null;
+  // The panel's React root, made when it mounts.
+  overlayPortals: PortalHost | null;
   inputModeController: Pick<InputModeController, 'isModeMenuVisible' | 'menuElement'> | null;
   inputParts: Pick<InputModeParts, 'modeMenu'> | null;
   overlaySuggestionsView: SuggestionsViewController | null;
@@ -455,9 +458,14 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     if (overlayState.overlaySuggestionsView) {
       return overlayState.overlaySuggestionsView;
     }
+    const portals = overlayState.overlayPortals;
+    if (!portals) {
+      throw new Error('The overlay panel has not mounted.');
+    }
     const view = createSuggestionsView({
       surface: 'overlay',
       document,
+      portals,
       container: overlayState.suggestionsContainer,
       items: suggestionItems,
       t,

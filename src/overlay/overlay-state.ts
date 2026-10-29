@@ -127,6 +127,7 @@ function createOverlayState(parts: OverlayStateParts): OverlayState {
     inputContainer: null,
     modeBadge: null,
     suggestionsContainer: null,
+    overlayPortals: null,
 
     // Controllers made later in the session.
     overlayContextToken: '',

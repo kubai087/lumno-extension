@@ -6,13 +6,14 @@ import {
   type SearchInputParts
 } from './search-input';
 import { getElement, getTags, required } from '../../../tests/react/dom';
+import { getTestPortals } from '../../../tests/react/portals';
 
 let inputs: SearchInputParts[] = [];
 
-function create(config: Parameters<typeof createSearchInput>[0] = {}) {
+function create(config: Omit<Parameters<typeof createSearchInput>[0], 'portals'> = {}) {
   const holder: { value: SearchInputParts | null } = { value: null };
   act(() => {
-    holder.value = createSearchInput(config);
+    holder.value = createSearchInput({ ...config, portals: getTestPortals() });
   });
   if (!holder.value) {
     throw new Error('Expected search input parts');

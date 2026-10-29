@@ -11,6 +11,7 @@ import {
   type SuggestionsViewController,
   type SuggestionsViewOptions
 } from '../../src/shared/react/search/suggestions';
+import { getTestPortals } from './portals';
 
 let views: SuggestionsViewController[] = [];
 export const sharedSuggestionActionModel: NonNullable<SuggestionsViewOptions['actionModel']> =
@@ -104,6 +105,7 @@ export function createOptions(
     selection: { store: selectionStore, select },
     modifiers: { store: modifierStore },
     ...overrides,
+    portals: overrides.portals || getTestPortals(),
     actionModel
   };
   return {
