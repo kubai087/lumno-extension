@@ -1,41 +1,41 @@
 // The page as a whole: following the window's visibility, focus and system
 // theme, warming the favicon caches, the glass surfaces, resizing, and the
 // page's keyboard shortcuts.
-import * as NEWTAB_PAGE_KEYBOARD from '../page-keyboard';
-import * as NEWTAB_PAGE_RESIZE from '../page-resize';
-import * as NEWTAB_GLASS_SURFACES from '../theme/glass-surfaces';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { TransfersFeature } from './transfers';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { SearchCoreFeature } from './search-core';
-import type { RecentCoreFeature } from './recent-core';
-import type { ThemeFeature } from './theme';
-import type { LayoutFeature } from './layout';
-import type { TopContentFeature } from './top-content';
-import type { SectionsFeature } from './sections';
-import type { DragsFeature } from './drags';
-import type { SectionViewsFeature } from './section-views';
-import type { SearchUiFeature } from './search-ui';
+import * as NEWTAB_PAGE_KEYBOARD from '../../page-keyboard';
+import * as NEWTAB_PAGE_RESIZE from '../../page-resize';
+import * as NEWTAB_GLASS_SURFACES from '../../theme/glass-surfaces';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { TransfersPart } from '../stores/transfers';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { SearchCorePart } from '../sources/search-core';
+import type { RecentCorePart } from '../sources/recent-core';
+import type { ThemePart } from '../appearance/theme';
+import type { LayoutPart } from '../appearance/layout';
+import type { TopContentPart } from '../appearance/top-content';
+import type { HeadersPart } from '../sections/headers';
+import type { DragsPart } from '../sections/drags';
+import type { SectionViewsPart } from '../sections/section-views';
+import type { SearchUiPart } from './search-ui';
 
-interface PageFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  transfers: TransfersFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  searchCore: SearchCoreFeature;
-  recentCore: RecentCoreFeature;
-  theme: ThemeFeature;
-  layout: LayoutFeature;
-  topContent: TopContentFeature;
-  sections: SectionsFeature;
-  drags: DragsFeature;
-  sectionViews: SectionViewsFeature;
-  searchUi: SearchUiFeature;
+interface PagePartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  transfers: TransfersPart;
+  bookmarkMenus: BookmarkMenusPart;
+  searchCore: SearchCorePart;
+  recentCore: RecentCorePart;
+  theme: ThemePart;
+  layout: LayoutPart;
+  topContent: TopContentPart;
+  sections: HeadersPart;
+  drags: DragsPart;
+  sectionViews: SectionViewsPart;
+  searchUi: SearchUiPart;
 }
 
-function createPageFeature(ctx: PageContext, deps: PageFeatureDeps) {
+function createPagePart(ctx: PageContext, deps: PagePartDeps) {
   const { settings } = ctx;
   const suggestionsContainer = ctx.structure.suggestions.container;
   const { dismissStack, dragSessions, faviconCacheRuntime, hideToast, searchBox } = deps.shell;
@@ -151,7 +151,7 @@ function createPageFeature(ctx: PageContext, deps: PageFeatureDeps) {
   };
 }
 
-type PageFeature = ReturnType<typeof createPageFeature>;
+type PagePart = ReturnType<typeof createPagePart>;
 
-export { createPageFeature };
-export type { PageFeature };
+export { createPagePart };
+export type { PagePart };

@@ -1,29 +1,29 @@
 // The recent sites: what the section last drew, the cards and the pointer
 // over them, the controller that keeps the pinned, hidden and tracked sites
 // and the change history, and the browser reads the first pass shares.
-import * as PROGRESS_HISTORY from '../../domain/progress-history';
-import * as PROGRESS_MATCH from '../../domain/progress-match';
-import * as NEWTAB_RECENT_SITES_CONTROLLER from '../recent/recent-sites-controller';
-import * as NEWTAB_RECENT_SOURCES from '../recent/recent-sources';
-import { normalizeHost } from '../../domain/favicon/brand-accents';
-import type { RecentCardElement } from '../react/recent-sites';
-import { RecentPointer } from '../recent/recent-pointer';
-import { RecentSourceReads } from '../recent/recent-source-reads';
-import { RecentSitesShown } from '../recent/recent-sites-shown';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { NavigationFeature } from './navigation';
-import type { SearchCoreFeature } from './search-core';
+import * as PROGRESS_HISTORY from '../../../domain/progress-history';
+import * as PROGRESS_MATCH from '../../../domain/progress-match';
+import * as NEWTAB_RECENT_SITES_CONTROLLER from '../../recent/recent-sites-controller';
+import * as NEWTAB_RECENT_SOURCES from '../../recent/recent-sources';
+import { normalizeHost } from '../../../domain/favicon/brand-accents';
+import type { RecentCardElement } from '../../react/recent-sites';
+import { RecentPointer } from '../../recent/recent-pointer';
+import { RecentSourceReads } from '../../recent/recent-source-reads';
+import { RecentSitesShown } from '../../recent/recent-sites-shown';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { NavigationPart } from '../shell/navigation';
+import type { SearchCorePart } from './search-core';
 
-interface RecentCoreFeatureDeps {
-  shell: ShellFeature;
-  shortcutStore: ShortcutStoreFeature;
-  navigation: NavigationFeature;
-  searchCore: SearchCoreFeature;
+interface RecentCorePartDeps {
+  shell: ServicesPart;
+  shortcutStore: ShortcutStorePart;
+  navigation: NavigationPart;
+  searchCore: SearchCorePart;
 }
 
-function createRecentCoreFeature(ctx: PageContext, deps: RecentCoreFeatureDeps) {
+function createRecentCorePart(ctx: PageContext, deps: RecentCorePartDeps) {
   const { locale, settings, t } = ctx;
   const {
     bookmarkContextMenuSelectController,
@@ -123,7 +123,7 @@ function createRecentCoreFeature(ctx: PageContext, deps: RecentCoreFeatureDeps) 
   };
 }
 
-type RecentCoreFeature = ReturnType<typeof createRecentCoreFeature>;
+type RecentCorePart = ReturnType<typeof createRecentCorePart>;
 
-export { createRecentCoreFeature };
-export type { RecentCoreFeature };
+export { createRecentCorePart };
+export type { RecentCorePart };

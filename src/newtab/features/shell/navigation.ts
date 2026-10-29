@@ -1,16 +1,16 @@
 // Where the page goes: the default search engine, opening addresses and
 // cards in this or another tab, and the feedback control's links.
-import * as NEWTAB_FEEDBACK_CONTROL_RUNTIME from '../feedback-control';
-import * as NEWTAB_PAGE_NAVIGATION from '../page-navigation';
-import { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
+import * as NEWTAB_FEEDBACK_CONTROL_RUNTIME from '../../feedback-control';
+import * as NEWTAB_PAGE_NAVIGATION from '../../page-navigation';
+import { DefaultSearchEngine } from '../../../shared/search-panel/default-engine';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from './services';
 
-interface NavigationFeatureDeps {
-  shell: ShellFeature;
+interface NavigationPartDeps {
+  shell: ServicesPart;
 }
 
-function createNavigationFeature(ctx: PageContext, deps: NavigationFeatureDeps) {
+function createNavigationPart(ctx: PageContext, deps: NavigationPartDeps) {
   const { locale, settings, t } = ctx;
   const { hideTopActionTooltip, showToast, showTopActionTooltip } = deps.shell;
 
@@ -72,7 +72,7 @@ function createNavigationFeature(ctx: PageContext, deps: NavigationFeatureDeps) 
   };
 }
 
-type NavigationFeature = ReturnType<typeof createNavigationFeature>;
+type NavigationPart = ReturnType<typeof createNavigationPart>;
 
-export { createNavigationFeature };
-export type { NavigationFeature };
+export { createNavigationPart };
+export type { NavigationPart };

@@ -1,24 +1,24 @@
 // Acting on shortcut tiles: finding a tile, opening a shortcut or its
 // editor, the dock's magnification, and the shortcut context menu.
-import * as NEWTAB_SHORTCUT_CONTEXT_MENU from '../shortcuts/shortcut-context-menu';
-import * as NEWTAB_SHORTCUT_DOCK from '../dom/shortcut-dock';
-import * as NEWTAB_SHORTCUT_PAGE_ACTIONS from '../shortcuts/shortcut-page-actions';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { NavigationFeature } from './navigation';
-import type { BookmarkMenusFeature } from './bookmark-menus';
+import * as NEWTAB_SHORTCUT_CONTEXT_MENU from '../../shortcuts/shortcut-context-menu';
+import * as NEWTAB_SHORTCUT_DOCK from '../../dom/shortcut-dock';
+import * as NEWTAB_SHORTCUT_PAGE_ACTIONS from '../../shortcuts/shortcut-page-actions';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { NavigationPart } from '../shell/navigation';
+import type { BookmarkMenusPart } from './bookmark-menus';
 
-interface ShortcutMenusFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
-  navigation: NavigationFeature;
-  bookmarkMenus: BookmarkMenusFeature;
+interface ShortcutMenusPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
+  navigation: NavigationPart;
+  bookmarkMenus: BookmarkMenusPart;
 }
 
-function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeatureDeps) {
+function createShortcutMenusPart(ctx: PageContext, deps: ShortcutMenusPartDeps) {
   const { locale, preview, settings, t } = ctx;
   const shortcutGrid = ctx.structure.shortcut.grid;
   const shortcutSection = ctx.structure.shortcut.section;
@@ -144,7 +144,7 @@ function createShortcutMenusFeature(ctx: PageContext, deps: ShortcutMenusFeature
   };
 }
 
-type ShortcutMenusFeature = ReturnType<typeof createShortcutMenusFeature>;
+type ShortcutMenusPart = ReturnType<typeof createShortcutMenusPart>;
 
-export { createShortcutMenusFeature };
-export type { ShortcutMenusFeature };
+export { createShortcutMenusPart };
+export type { ShortcutMenusPart };

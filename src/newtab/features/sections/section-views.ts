@@ -2,44 +2,44 @@
 // dock, loading what the sections show and loading it again when tabs,
 // history or bookmarks change, and the startup preferences that wait for
 // the first pass.
-import * as NEWTAB_BOOKMARK_SECTION from '../bookmarks/bookmark-section';
-import * as NEWTAB_RECENT_SECTION from '../recent/recent-section';
-import * as NEWTAB_SECTION_LOADERS from '../section-loaders';
-import * as NEWTAB_SECTION_RELOAD from '../section-reload';
-import * as NEWTAB_BOTTOM_DOCK_RUNTIME from '../shortcuts/bottom-dock-runtime';
-import * as NEWTAB_STARTUP_PREFERENCES from '../startup-preferences';
-import { normalizeHost } from '../../domain/favicon/brand-accents';
-import { stableHashCode } from '../../domain/color';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { NavigationFeature } from './navigation';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { SearchCoreFeature } from './search-core';
-import type { RecentCoreFeature } from './recent-core';
-import type { ThemeFeature } from './theme';
-import type { LayoutFeature } from './layout';
-import type { TopContentFeature } from './top-content';
-import type { SectionsFeature } from './sections';
-import type { DragsFeature } from './drags';
+import * as NEWTAB_BOOKMARK_SECTION from '../../bookmarks/bookmark-section';
+import * as NEWTAB_RECENT_SECTION from '../../recent/recent-section';
+import * as NEWTAB_SECTION_LOADERS from '../../section-loaders';
+import * as NEWTAB_SECTION_RELOAD from '../../section-reload';
+import * as NEWTAB_BOTTOM_DOCK_RUNTIME from '../../shortcuts/bottom-dock-runtime';
+import * as NEWTAB_STARTUP_PREFERENCES from '../../startup-preferences';
+import { normalizeHost } from '../../../domain/favicon/brand-accents';
+import { stableHashCode } from '../../../domain/color';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { NavigationPart } from '../shell/navigation';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { SearchCorePart } from '../sources/search-core';
+import type { RecentCorePart } from '../sources/recent-core';
+import type { ThemePart } from '../appearance/theme';
+import type { LayoutPart } from '../appearance/layout';
+import type { TopContentPart } from '../appearance/top-content';
+import type { HeadersPart } from './headers';
+import type { DragsPart } from './drags';
 
-interface SectionViewsFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
-  navigation: NavigationFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  searchCore: SearchCoreFeature;
-  recentCore: RecentCoreFeature;
-  theme: ThemeFeature;
-  layout: LayoutFeature;
-  topContent: TopContentFeature;
-  sections: SectionsFeature;
-  drags: DragsFeature;
+interface SectionViewsPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
+  navigation: NavigationPart;
+  bookmarkMenus: BookmarkMenusPart;
+  searchCore: SearchCorePart;
+  recentCore: RecentCorePart;
+  theme: ThemePart;
+  layout: LayoutPart;
+  topContent: TopContentPart;
+  sections: HeadersPart;
+  drags: DragsPart;
 }
 
-function createSectionViewsFeature(ctx: PageContext, deps: SectionViewsFeatureDeps) {
+function createSectionViewsPart(ctx: PageContext, deps: SectionViewsPartDeps) {
   const { formatMessage, locale, preview, root, settings, t } = ctx;
   const bookmarkSection = ctx.structure.bookmark.section;
   const pageStructureRuntime = ctx.structure;
@@ -363,7 +363,7 @@ function createSectionViewsFeature(ctx: PageContext, deps: SectionViewsFeatureDe
   };
 }
 
-type SectionViewsFeature = ReturnType<typeof createSectionViewsFeature>;
+type SectionViewsPart = ReturnType<typeof createSectionViewsPart>;
 
-export { createSectionViewsFeature };
-export type { SectionViewsFeature };
+export { createSectionViewsPart };
+export type { SectionViewsPart };

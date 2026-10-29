@@ -2,28 +2,28 @@
 // results' layout, the stored page preferences, the window's resizes, the
 // bottom dock's parts, the wait for the entry animation, and the guard that
 // keeps a drag's release from opening a card.
-import * as NEWTAB_CARD_ACTIVATION_GUARD from '../dom/card-activation-guard';
-import * as NEWTAB_PAGE_LAYOUT from '../page-layout';
-import * as NEWTAB_PAGE_PREFERENCES from '../page-preferences';
-import * as NEWTAB_SUGGESTIONS_LAYOUT from '../search/suggestions-layout';
-import { ViewportActivity } from '../viewport-activity';
-import { BottomDockParts } from '../shortcuts/bottom-dock-parts';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { ShortcutMenusFeature } from './shortcut-menus';
-import type { RecentCoreFeature } from './recent-core';
+import * as NEWTAB_CARD_ACTIVATION_GUARD from '../../dom/card-activation-guard';
+import * as NEWTAB_PAGE_LAYOUT from '../../page-layout';
+import * as NEWTAB_PAGE_PREFERENCES from '../../page-preferences';
+import * as NEWTAB_SUGGESTIONS_LAYOUT from '../../search/suggestions-layout';
+import { ViewportActivity } from '../../viewport-activity';
+import { BottomDockParts } from '../../shortcuts/bottom-dock-parts';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { ShortcutMenusPart } from '../menus/shortcut-menus';
+import type { RecentCorePart } from '../sources/recent-core';
 
-interface LayoutFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
-  shortcutMenus: ShortcutMenusFeature;
-  recentCore: RecentCoreFeature;
+interface LayoutPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
+  shortcutMenus: ShortcutMenusPart;
+  recentCore: RecentCorePart;
 }
 
-function createLayoutFeature(ctx: PageContext, deps: LayoutFeatureDeps) {
+function createLayoutPart(ctx: PageContext, deps: LayoutPartDeps) {
   const { preview, settings } = ctx;
   const pageStructureRuntime = ctx.structure;
   const recentSection = ctx.structure.recent.section;
@@ -160,7 +160,7 @@ function createLayoutFeature(ctx: PageContext, deps: LayoutFeatureDeps) {
   };
 }
 
-type LayoutFeature = ReturnType<typeof createLayoutFeature>;
+type LayoutPart = ReturnType<typeof createLayoutPart>;
 
-export { createLayoutFeature };
-export type { LayoutFeature };
+export { createLayoutPart };
+export type { LayoutPart };

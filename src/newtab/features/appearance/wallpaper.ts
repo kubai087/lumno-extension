@@ -1,34 +1,34 @@
 // The wallpaper and what follows its reveal: the section panel settings,
 // the wallpaper page and its first image, the appearance ready once both
 // are in, and the page's entry motion.
-import { createAdaptiveToneTargets } from '../dom/adaptive-tone-targets';
-import * as NEWTAB_ENTRY_MOTION from '../entry-motion';
-import * as LumnoNewtabSectionPanelSettings from '../section-panel-settings';
-import * as NEWTAB_WALLPAPER_PAGE from '../wallpaper/wallpaper-page';
-import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible, bookmarkViewMode, recentCount, recentMode } from '../../domain/settings';
-import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../menu-values';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { NavigationFeature } from './navigation';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { ThemeFeature } from './theme';
-import type { LayoutFeature } from './layout';
-import type { TopContentFeature } from './top-content';
+import { createAdaptiveToneTargets } from '../../dom/adaptive-tone-targets';
+import * as NEWTAB_ENTRY_MOTION from '../../entry-motion';
+import * as LumnoNewtabSectionPanelSettings from '../../section-panel-settings';
+import * as NEWTAB_WALLPAPER_PAGE from '../../wallpaper/wallpaper-page';
+import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible, bookmarkViewMode, recentCount, recentMode } from '../../../domain/settings';
+import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../../menu-values';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { NavigationPart } from '../shell/navigation';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { ThemePart } from './theme';
+import type { LayoutPart } from './layout';
+import type { TopContentPart } from './top-content';
 
-interface WallpaperFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
-  navigation: NavigationFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  theme: ThemeFeature;
-  layout: LayoutFeature;
-  topContent: TopContentFeature;
+interface WallpaperPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
+  navigation: NavigationPart;
+  bookmarkMenus: BookmarkMenusPart;
+  theme: ThemePart;
+  layout: LayoutPart;
+  topContent: TopContentPart;
 }
 
-function createWallpaperFeature(ctx: PageContext, deps: WallpaperFeatureDeps) {
+function createWallpaperPart(ctx: PageContext, deps: WallpaperPartDeps) {
   const { formatMessage, localStorageArea, locale, preview, root, settings, t } = ctx;
   const pageStructureRuntime = ctx.structure;
   const shortcutGrid = ctx.structure.shortcut.grid;
@@ -213,7 +213,7 @@ function createWallpaperFeature(ctx: PageContext, deps: WallpaperFeatureDeps) {
   };
 }
 
-type WallpaperFeature = ReturnType<typeof createWallpaperFeature>;
+type WallpaperPart = ReturnType<typeof createWallpaperPart>;
 
-export { createWallpaperFeature };
-export type { WallpaperFeature };
+export { createWallpaperPart };
+export type { WallpaperPart };

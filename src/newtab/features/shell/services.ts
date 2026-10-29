@@ -2,33 +2,33 @@
 // theme mode drawn, the favicon data and caches, the drags and the undo
 // lock, the URL and favicon policy, site names, the select menus, tooltips
 // and toasts, and Firefox's browser icon index.
-import { getToastElement } from '../dom/app-root';
-import * as LumnoBrowserProfile from '../../platform/browser-profile';
-import * as LumnoBrowserIcons from '../../platform/browser-icons';
-import * as SITE_DISPLAY_NAME from '../../domain/site-display-name';
-import * as NEWTAB_CLIPBOARD_ACTIONS from '../clipboard-actions';
-import * as LumnoNewtabDismissStack from '../dismiss-stack';
-import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
-import * as NEWTAB_TOOLTIP_BINDINGS from '../tooltip-bindings';
-import * as NEWTAB_TOOLTIP_CONTROLLERS from '../tooltip-controllers';
-import * as NEWTAB_URL_POLICY from '../url-policy';
-import { followNewtabVisualViewportInsets } from '../viewport-insets';
-import { getNewtabViewportTopPaddingPx } from '../dom/top-inset';
-import { createSiteDisplayNameOptions } from '../newtab-config';
-import { createToastController } from '../../shared/react/toast';
-import { createSelectMenuController } from '../react/select-menu';
-import * as FaviconBrowserIconIndex from '../../domain/favicon/browser-icon-index';
-import { getPagePortals } from '../app/portals';
-import { SearchBoxParts } from '../search/search-box-parts';
-import { WebAppearance } from '../search/web-appearance';
-import { AppliedThemeMode } from '../theme/applied-theme-mode';
-import { DragSessions } from '../drag-sessions';
-import { FaviconParts } from '../theme/favicon-parts';
-import { createPageFaviconCache } from '../theme/page-favicon-cache';
-import { MoveHistoryLock } from '../bookmarks/move-history-lock';
-import type { PageContext } from '../app/context';
+import { getToastElement } from '../../dom/app-root';
+import * as LumnoBrowserProfile from '../../../platform/browser-profile';
+import * as LumnoBrowserIcons from '../../../platform/browser-icons';
+import * as SITE_DISPLAY_NAME from '../../../domain/site-display-name';
+import * as NEWTAB_CLIPBOARD_ACTIONS from '../../clipboard-actions';
+import * as LumnoNewtabDismissStack from '../../dismiss-stack';
+import * as SearchDirectNavigation from '../../../domain/search/utils/direct-navigation';
+import * as NEWTAB_TOOLTIP_BINDINGS from '../../tooltip-bindings';
+import * as NEWTAB_TOOLTIP_CONTROLLERS from '../../tooltip-controllers';
+import * as NEWTAB_URL_POLICY from '../../url-policy';
+import { followNewtabVisualViewportInsets } from '../../viewport-insets';
+import { getNewtabViewportTopPaddingPx } from '../../dom/top-inset';
+import { createSiteDisplayNameOptions } from '../../newtab-config';
+import { createToastController } from '../../../shared/react/toast';
+import { createSelectMenuController } from '../../react/select-menu';
+import * as FaviconBrowserIconIndex from '../../../domain/favicon/browser-icon-index';
+import { getPagePortals } from '../../app/portals';
+import { SearchBoxParts } from '../../search/search-box-parts';
+import { WebAppearance } from '../../search/web-appearance';
+import { AppliedThemeMode } from '../../theme/applied-theme-mode';
+import { DragSessions } from '../../drag-sessions';
+import { FaviconParts } from '../../theme/favicon-parts';
+import { createPageFaviconCache } from '../../theme/page-favicon-cache';
+import { MoveHistoryLock } from '../../bookmarks/move-history-lock';
+import type { PageContext } from '../../app/context';
 
-function createShellFeature(ctx: PageContext) {
+function createServicesPart(ctx: PageContext) {
   const { preview, settings, t } = ctx;
   const shortcutGrid = ctx.structure.shortcut.grid;
 
@@ -240,7 +240,7 @@ function createShellFeature(ctx: PageContext) {
   };
 }
 
-type ShellFeature = ReturnType<typeof createShellFeature>;
+type ServicesPart = ReturnType<typeof createServicesPart>;
 
-export { createShellFeature };
-export type { ShellFeature };
+export { createServicesPart };
+export type { ServicesPart };

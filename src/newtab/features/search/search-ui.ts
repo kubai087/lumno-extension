@@ -2,63 +2,63 @@
 // suggestions and their navigation, Enter, Tab and the mode controller,
 // site search, the mode commands, the notices and hints shown with the box,
 // the box's controls, and the search settings it follows.
-import * as LumnoImeKeyGuard from '../../domain/search/ime-key-guard';
-import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history';
-import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
-import * as NEWTAB_INPUT_FOCUS from '../input-focus';
-import * as NEWTAB_MODE_COMMANDS from '../mode-commands';
-import * as NEWTAB_PAGE_NOTICES from '../page-notices';
-import * as NEWTAB_SEARCH_BOX_CONTROLS from '../search/search-box-controls';
-import * as NEWTAB_SEARCH_BOX from '../search/search-box';
-import * as NEWTAB_SEARCH_INPUT_COMPOSITION from '../search/search-input-composition';
-import * as NEWTAB_SEARCH_MODE_CONTROLLER from '../search/search-mode-controller';
-import * as NEWTAB_SEARCH_NAVIGATION from '../search/search-navigation';
-import * as NEWTAB_SEARCH_SETTINGS_SYNC from '../search/search-settings-sync';
-import * as NEWTAB_SITE_SEARCH_RUNTIME from '../search/site-search-runtime';
-import * as NEWTAB_SUGGESTIONS_CONTROLLER from '../search/suggestions-controller';
-import { defaultAccentColor } from '../../shared/favicon/favicon-theme';
-import { getBrandAccentForUrl } from '../../domain/favicon/brand-accents';
-import { parseCssColor, rgbToCss } from '../../domain/color';
-import { numberShortcutInstantEnabled } from '../../domain/settings';
-import type { SuggestionElement } from '../../shared/react/search/suggestion-list/types';
-import { createSearchInput } from '../../shared/react/search-input';
-import { createSettingPort } from '../../platform/settings-store';
-import * as SearchSettings from '../../domain/settings/search';
-import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
-import { SearchTabKey } from '../../shared/search-panel/tab-key';
-import { createSearchSubmit } from '../search/search-submit';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { NavigationFeature } from './navigation';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { ShortcutMenusFeature } from './shortcut-menus';
-import type { SearchCoreFeature } from './search-core';
-import type { RecentCoreFeature } from './recent-core';
-import type { ThemeFeature } from './theme';
-import type { LayoutFeature } from './layout';
-import type { TopContentFeature } from './top-content';
-import type { WallpaperFeature } from './wallpaper';
-import type { SectionViewsFeature } from './section-views';
+import * as LumnoImeKeyGuard from '../../../domain/search/ime-key-guard';
+import * as SEARCH_INPUT_HISTORY from '../../../domain/search/search-input-history';
+import * as SUGGESTION_NAVIGATION from '../../../shared/search/suggestion-navigation';
+import * as NEWTAB_INPUT_FOCUS from '../../input-focus';
+import * as NEWTAB_MODE_COMMANDS from '../../mode-commands';
+import * as NEWTAB_PAGE_NOTICES from '../../page-notices';
+import * as NEWTAB_SEARCH_BOX_CONTROLS from '../../search/search-box-controls';
+import * as NEWTAB_SEARCH_BOX from '../../search/search-box';
+import * as NEWTAB_SEARCH_INPUT_COMPOSITION from '../../search/search-input-composition';
+import * as NEWTAB_SEARCH_MODE_CONTROLLER from '../../search/search-mode-controller';
+import * as NEWTAB_SEARCH_NAVIGATION from '../../search/search-navigation';
+import * as NEWTAB_SEARCH_SETTINGS_SYNC from '../../search/search-settings-sync';
+import * as NEWTAB_SITE_SEARCH_RUNTIME from '../../search/site-search-runtime';
+import * as NEWTAB_SUGGESTIONS_CONTROLLER from '../../search/suggestions-controller';
+import { defaultAccentColor } from '../../../shared/favicon/favicon-theme';
+import { getBrandAccentForUrl } from '../../../domain/favicon/brand-accents';
+import { parseCssColor, rgbToCss } from '../../../domain/color';
+import { numberShortcutInstantEnabled } from '../../../domain/settings';
+import type { SuggestionElement } from '../../../shared/react/search/suggestion-list/types';
+import { createSearchInput } from '../../../shared/react/search-input';
+import { createSettingPort } from '../../../platform/settings-store';
+import * as SearchSettings from '../../../domain/settings/search';
+import * as BundledIcons from '../../../domain/favicon/shortcut-favicon/bundled-icons';
+import { SearchTabKey } from '../../../shared/search-panel/tab-key';
+import { createSearchSubmit } from '../../search/search-submit';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { NavigationPart } from '../shell/navigation';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { ShortcutMenusPart } from '../menus/shortcut-menus';
+import type { SearchCorePart } from '../sources/search-core';
+import type { RecentCorePart } from '../sources/recent-core';
+import type { ThemePart } from '../appearance/theme';
+import type { LayoutPart } from '../appearance/layout';
+import type { TopContentPart } from '../appearance/top-content';
+import type { WallpaperPart } from '../appearance/wallpaper';
+import type { SectionViewsPart } from '../sections/section-views';
 
-interface SearchUiFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
-  navigation: NavigationFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  shortcutMenus: ShortcutMenusFeature;
-  searchCore: SearchCoreFeature;
-  recentCore: RecentCoreFeature;
-  theme: ThemeFeature;
-  layout: LayoutFeature;
-  topContent: TopContentFeature;
-  wallpaper: WallpaperFeature;
-  sectionViews: SectionViewsFeature;
+interface SearchUiPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
+  navigation: NavigationPart;
+  bookmarkMenus: BookmarkMenusPart;
+  shortcutMenus: ShortcutMenusPart;
+  searchCore: SearchCorePart;
+  recentCore: RecentCorePart;
+  theme: ThemePart;
+  layout: LayoutPart;
+  topContent: TopContentPart;
+  wallpaper: WallpaperPart;
+  sectionViews: SectionViewsPart;
 }
 
-function createSearchUiFeature(ctx: PageContext, deps: SearchUiFeatureDeps) {
+function createSearchUiPart(ctx: PageContext, deps: SearchUiPartDeps) {
   const { formatMessage, locale, preview, root, settings, t } = ctx;
   const bookmarkSection = ctx.structure.bookmark.section;
   const recentSection = ctx.structure.recent.section;
@@ -615,7 +615,7 @@ function createSearchUiFeature(ctx: PageContext, deps: SearchUiFeatureDeps) {
   };
 }
 
-type SearchUiFeature = ReturnType<typeof createSearchUiFeature>;
+type SearchUiPart = ReturnType<typeof createSearchUiPart>;
 
-export { createSearchUiFeature };
-export type { SearchUiFeature };
+export { createSearchUiPart };
+export type { SearchUiPart };

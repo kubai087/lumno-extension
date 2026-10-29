@@ -2,28 +2,28 @@
 // opening a folder as a tab group, the folder menu's opening and placing,
 // folder colors, the bookmark context menu, and the bookmark bar's display
 // settings and mode menu.
-import * as NEWTAB_BOOKMARK_ACTIONS from '../bookmarks/bookmark-actions';
-import * as NEWTAB_BOOKMARK_CASCADE_ACTIONS from '../bookmarks/bookmark-cascade-actions';
-import * as NEWTAB_BOOKMARK_CONTEXT_MENU from '../bookmarks/bookmark-context-menu';
-import * as NEWTAB_BOOKMARK_DISPLAY_SETTINGS from '../bookmarks/bookmark-display-settings';
-import * as NEWTAB_FOLDER_COLORS from '../bookmarks/folder-colors';
-import * as NEWTAB_BOOKMARK_MODE_MENU from '../bookmarks/bookmark-mode-menu';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { TransfersFeature } from './transfers';
-import type { NavigationFeature } from './navigation';
+import * as NEWTAB_BOOKMARK_ACTIONS from '../../bookmarks/bookmark-actions';
+import * as NEWTAB_BOOKMARK_CASCADE_ACTIONS from '../../bookmarks/bookmark-cascade-actions';
+import * as NEWTAB_BOOKMARK_CONTEXT_MENU from '../../bookmarks/bookmark-context-menu';
+import * as NEWTAB_BOOKMARK_DISPLAY_SETTINGS from '../../bookmarks/bookmark-display-settings';
+import * as NEWTAB_FOLDER_COLORS from '../../bookmarks/folder-colors';
+import * as NEWTAB_BOOKMARK_MODE_MENU from '../../bookmarks/bookmark-mode-menu';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { TransfersPart } from '../stores/transfers';
+import type { NavigationPart } from '../shell/navigation';
 
-interface BookmarkMenusFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
-  transfers: TransfersFeature;
-  navigation: NavigationFeature;
+interface BookmarkMenusPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
+  transfers: TransfersPart;
+  navigation: NavigationPart;
 }
 
-function createBookmarkMenusFeature(ctx: PageContext, deps: BookmarkMenusFeatureDeps) {
+function createBookmarkMenusPart(ctx: PageContext, deps: BookmarkMenusPartDeps) {
   const { formatMessage, locale, settings, t } = ctx;
   const pageStructureRuntime = ctx.structure;
   const shortcutGrid = ctx.structure.shortcut.grid;
@@ -177,7 +177,7 @@ function createBookmarkMenusFeature(ctx: PageContext, deps: BookmarkMenusFeature
   };
 }
 
-type BookmarkMenusFeature = ReturnType<typeof createBookmarkMenusFeature>;
+type BookmarkMenusPart = ReturnType<typeof createBookmarkMenusPart>;
 
-export { createBookmarkMenusFeature };
-export type { BookmarkMenusFeature };
+export { createBookmarkMenusPart };
+export type { BookmarkMenusPart };

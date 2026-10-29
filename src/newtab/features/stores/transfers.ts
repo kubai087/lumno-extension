@@ -1,19 +1,19 @@
 // Moves between the bookmarks and the shortcuts, and the bookmark moves
 // with their undo and redo.
-import * as BOOKMARK_SHORTCUT_TRANSFER from '../bookmarks/bookmark-shortcut-transfer';
-import * as BOOKMARK_MOVE_ACTIONS from '../bookmarks/bookmark-move-actions';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
+import * as BOOKMARK_SHORTCUT_TRANSFER from '../../bookmarks/bookmark-shortcut-transfer';
+import * as BOOKMARK_MOVE_ACTIONS from '../../bookmarks/bookmark-move-actions';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from './bookmark-store';
+import type { ShortcutStorePart } from './shortcut-store';
 
-interface TransfersFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
+interface TransfersPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
 }
 
-function createTransfersFeature(ctx: PageContext, deps: TransfersFeatureDeps) {
+function createTransfersPart(ctx: PageContext, deps: TransfersPartDeps) {
   const { formatMessage, t } = ctx;
   const { historyLock, showToast } = deps.shell;
   const {
@@ -98,7 +98,7 @@ function createTransfersFeature(ctx: PageContext, deps: TransfersFeatureDeps) {
   };
 }
 
-type TransfersFeature = ReturnType<typeof createTransfersFeature>;
+type TransfersPart = ReturnType<typeof createTransfersPart>;
 
-export { createTransfersFeature };
-export type { TransfersFeature };
+export { createTransfersPart };
+export type { TransfersPart };

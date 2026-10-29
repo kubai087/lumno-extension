@@ -1,40 +1,40 @@
 // The shortcut tiles and the drags across the page: the tiles drawn from
 // the shortcuts, and the shortcut, bookmark and recent card drags with the
 // moves they make.
-import * as NEWTAB_BOOKMARK_DRAG_CONTROLLER from '../bookmarks/bookmark-drag-controller';
-import * as NEWTAB_RECENT_CARD_DRAG from '../recent/recent-card-drag';
-import * as NEWTAB_SHORTCUT_DRAG from '../shortcuts/shortcut-drag';
-import * as NEWTAB_SHORTCUTS_CONTROLLER from '../shortcuts/shortcuts-controller';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { TransfersFeature } from './transfers';
-import type { NavigationFeature } from './navigation';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { ShortcutMenusFeature } from './shortcut-menus';
-import type { SearchCoreFeature } from './search-core';
-import type { RecentCoreFeature } from './recent-core';
-import type { ThemeFeature } from './theme';
-import type { LayoutFeature } from './layout';
-import type { SectionsFeature } from './sections';
+import * as NEWTAB_BOOKMARK_DRAG_CONTROLLER from '../../bookmarks/bookmark-drag-controller';
+import * as NEWTAB_RECENT_CARD_DRAG from '../../recent/recent-card-drag';
+import * as NEWTAB_SHORTCUT_DRAG from '../../shortcuts/shortcut-drag';
+import * as NEWTAB_SHORTCUTS_CONTROLLER from '../../shortcuts/shortcuts-controller';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { TransfersPart } from '../stores/transfers';
+import type { NavigationPart } from '../shell/navigation';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { ShortcutMenusPart } from '../menus/shortcut-menus';
+import type { SearchCorePart } from '../sources/search-core';
+import type { RecentCorePart } from '../sources/recent-core';
+import type { ThemePart } from '../appearance/theme';
+import type { LayoutPart } from '../appearance/layout';
+import type { HeadersPart } from './headers';
 
-interface DragsFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  shortcutStore: ShortcutStoreFeature;
-  transfers: TransfersFeature;
-  navigation: NavigationFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  shortcutMenus: ShortcutMenusFeature;
-  searchCore: SearchCoreFeature;
-  recentCore: RecentCoreFeature;
-  theme: ThemeFeature;
-  layout: LayoutFeature;
-  sections: SectionsFeature;
+interface DragsPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  shortcutStore: ShortcutStorePart;
+  transfers: TransfersPart;
+  navigation: NavigationPart;
+  bookmarkMenus: BookmarkMenusPart;
+  shortcutMenus: ShortcutMenusPart;
+  searchCore: SearchCorePart;
+  recentCore: RecentCorePart;
+  theme: ThemePart;
+  layout: LayoutPart;
+  sections: HeadersPart;
 }
 
-function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
+function createDragsPart(ctx: PageContext, deps: DragsPartDeps) {
   const { formatMessage, locale, preview, settings, t } = ctx;
   const bookmarkSection = ctx.structure.bookmark.section;
   const pageStructureRuntime = ctx.structure;
@@ -343,7 +343,7 @@ function createDragsFeature(ctx: PageContext, deps: DragsFeatureDeps) {
   };
 }
 
-type DragsFeature = ReturnType<typeof createDragsFeature>;
+type DragsPart = ReturnType<typeof createDragsPart>;
 
-export { createDragsFeature };
-export type { DragsFeature };
+export { createDragsPart };
+export type { DragsPart };

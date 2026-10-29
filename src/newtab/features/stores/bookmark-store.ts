@@ -1,17 +1,17 @@
 // The bookmarks: the browser's tree and the moves made on it with their
 // undo history, the folder and page the section shows, the section's
 // mounted parts, its cards and their slide after a move.
-import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
-import * as NEWTAB_BOOKMARKS_RUNTIME from '../bookmarks/bookmarks-runtime';
-import * as NEWTAB_BOOKMARKS_STORE from '../bookmarks/bookmarks-store';
-import { normalizeHost } from '../../domain/favicon/brand-accents';
-import type { BookmarkCardElement } from '../react/bookmarks';
-import { BookmarksShown } from '../bookmarks/bookmarks-shown';
-import { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
-import { BookmarkLayoutAnimation } from '../dom/bookmark-layout-animation';
-import type { PageContext } from '../app/context';
+import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../../bookmarks/bookmark-move-history';
+import * as NEWTAB_BOOKMARKS_RUNTIME from '../../bookmarks/bookmarks-runtime';
+import * as NEWTAB_BOOKMARKS_STORE from '../../bookmarks/bookmarks-store';
+import { normalizeHost } from '../../../domain/favicon/brand-accents';
+import type { BookmarkCardElement } from '../../react/bookmarks';
+import { BookmarksShown } from '../../bookmarks/bookmarks-shown';
+import { BookmarkSectionParts } from '../../bookmarks/bookmark-section-parts';
+import { BookmarkLayoutAnimation } from '../../dom/bookmark-layout-animation';
+import type { PageContext } from '../../app/context';
 
-function createBookmarkStoreFeature(ctx: PageContext) {
+function createBookmarkStorePart(ctx: PageContext) {
   const { settings } = ctx;
   const pageStructureRuntime = ctx.structure;
 
@@ -42,7 +42,7 @@ function createBookmarkStoreFeature(ctx: PageContext) {
   };
 }
 
-type BookmarkStoreFeature = ReturnType<typeof createBookmarkStoreFeature>;
+type BookmarkStorePart = ReturnType<typeof createBookmarkStorePart>;
 
-export { createBookmarkStoreFeature };
-export type { BookmarkStoreFeature };
+export { createBookmarkStorePart };
+export type { BookmarkStorePart };

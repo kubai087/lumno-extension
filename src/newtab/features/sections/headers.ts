@@ -1,23 +1,23 @@
 // The section headers and the bookmark pager: the recent and bookmark
 // headings, the bookmark view mode and folder navigation, and turning the
 // bookmark pages by the pager, a swipe or the wheel.
-import * as NEWTAB_BOOKMARK_PAGER from '../bookmarks/bookmark-pager';
-import * as NEWTAB_SECTION_HEADERS from '../section-headers';
-import * as LumnoMessaging from '../../platform/messaging';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { LayoutFeature } from './layout';
+import * as NEWTAB_BOOKMARK_PAGER from '../../bookmarks/bookmark-pager';
+import * as NEWTAB_SECTION_HEADERS from '../../section-headers';
+import * as LumnoMessaging from '../../../platform/messaging';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { LayoutPart } from '../appearance/layout';
 
-interface SectionsFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  layout: LayoutFeature;
+interface HeadersPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  bookmarkMenus: BookmarkMenusPart;
+  layout: LayoutPart;
 }
 
-function createSectionsFeature(ctx: PageContext, deps: SectionsFeatureDeps) {
+function createHeadersPart(ctx: PageContext, deps: HeadersPartDeps) {
   const { locale, preview, settings, t } = ctx;
   const bookmarkSection = ctx.structure.bookmark.section;
   const pageStructureRuntime = ctx.structure;
@@ -114,7 +114,7 @@ function createSectionsFeature(ctx: PageContext, deps: SectionsFeatureDeps) {
   };
 }
 
-type SectionsFeature = ReturnType<typeof createSectionsFeature>;
+type HeadersPart = ReturnType<typeof createHeadersPart>;
 
-export { createSectionsFeature };
-export type { SectionsFeature };
+export { createHeadersPart };
+export type { HeadersPart };

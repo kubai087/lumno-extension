@@ -1,22 +1,22 @@
 // The content above the search box: the quote, and the wordmark or clock
 // with its settings, its clock face and its entry animation.
-import * as LumnoNewtabQuotes from '../top-content/quotes';
-import * as NEWTAB_TOP_CONTENT_RUNTIME from '../top-content/top-content';
-import { adaptiveToneEvents } from '../wallpaper/tone-requests';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { NavigationFeature } from './navigation';
-import type { RecentCoreFeature } from './recent-core';
-import type { LayoutFeature } from './layout';
+import * as LumnoNewtabQuotes from '../../top-content/quotes';
+import * as NEWTAB_TOP_CONTENT_RUNTIME from '../../top-content/top-content';
+import { adaptiveToneEvents } from '../../wallpaper/tone-requests';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { NavigationPart } from '../shell/navigation';
+import type { RecentCorePart } from '../sources/recent-core';
+import type { LayoutPart } from './layout';
 
-interface TopContentFeatureDeps {
-  shell: ShellFeature;
-  navigation: NavigationFeature;
-  recentCore: RecentCoreFeature;
-  layout: LayoutFeature;
+interface TopContentPartDeps {
+  shell: ServicesPart;
+  navigation: NavigationPart;
+  recentCore: RecentCorePart;
+  layout: LayoutPart;
 }
 
-function createTopContentFeature(ctx: PageContext, deps: TopContentFeatureDeps) {
+function createTopContentPart(ctx: PageContext, deps: TopContentPartDeps) {
   const { localStorageArea, locale, preview, root, settings, t } = ctx;
   const shortcutSection = ctx.structure.shortcut.section;
   const topContentContainer = ctx.structure.topContent;
@@ -81,7 +81,7 @@ function createTopContentFeature(ctx: PageContext, deps: TopContentFeatureDeps) 
   };
 }
 
-type TopContentFeature = ReturnType<typeof createTopContentFeature>;
+type TopContentPart = ReturnType<typeof createTopContentPart>;
 
-export { createTopContentFeature };
-export type { TopContentFeature };
+export { createTopContentPart };
+export type { TopContentPart };

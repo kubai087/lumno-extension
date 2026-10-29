@@ -1,30 +1,30 @@
 // The shortcuts and what keeps them: their list and stored data, their icon
 // snapshots and the icons of websites in shortcut folders, the folder
 // bindings, the shortcut dialog, and the tiles' slide and scrolling.
-import * as FOLDER_BINDINGS from '../../platform/bookmark-folder-bindings';
-import * as LumnoShortcutFaviconStore from '../../platform/shortcut-favicon-store';
-import * as LumnoNewtabFolderItemIcons from '../bookmarks/folder-item-icons';
-import * as NEWTAB_SHORTCUT_ICON_STORE from '../shortcuts/shortcut-icon-store';
-import { normalizeHost } from '../../domain/favicon/brand-accents';
-import type { ShortcutTileElement } from '../react/shortcuts';
-import { shortcutFolderBindings } from '../../domain/settings/newtab-shortcuts';
-import { createSettingsStore } from '../../platform/settings-store';
-import { ShortcutList } from '../shortcuts/shortcut-list';
-import { createShortcutFavicons } from '../shortcuts/shortcut-favicons';
-import { createShortcutData } from '../shortcuts/shortcut-data';
-import { createShortcutDialogActions } from '../shortcuts/shortcut-dialog-actions';
-import { ShortcutLayoutAnimation } from '../dom/shortcut-layout-animation';
-import { ShortcutAreaScroll } from '../dom/shortcut-area-scroll';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
+import * as FOLDER_BINDINGS from '../../../platform/bookmark-folder-bindings';
+import * as LumnoShortcutFaviconStore from '../../../platform/shortcut-favicon-store';
+import * as LumnoNewtabFolderItemIcons from '../../bookmarks/folder-item-icons';
+import * as NEWTAB_SHORTCUT_ICON_STORE from '../../shortcuts/shortcut-icon-store';
+import { normalizeHost } from '../../../domain/favicon/brand-accents';
+import type { ShortcutTileElement } from '../../react/shortcuts';
+import { shortcutFolderBindings } from '../../../domain/settings/newtab-shortcuts';
+import { createSettingsStore } from '../../../platform/settings-store';
+import { ShortcutList } from '../../shortcuts/shortcut-list';
+import { createShortcutFavicons } from '../../shortcuts/shortcut-favicons';
+import { createShortcutData } from '../../shortcuts/shortcut-data';
+import { createShortcutDialogActions } from '../../shortcuts/shortcut-dialog-actions';
+import { ShortcutLayoutAnimation } from '../../dom/shortcut-layout-animation';
+import { ShortcutAreaScroll } from '../../dom/shortcut-area-scroll';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from './bookmark-store';
 
-interface ShortcutStoreFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
+interface ShortcutStorePartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
 }
 
-function createShortcutStoreFeature(ctx: PageContext, deps: ShortcutStoreFeatureDeps) {
+function createShortcutStorePart(ctx: PageContext, deps: ShortcutStorePartDeps) {
   const { formatMessage, localStorageArea, locale, providerStorageRuntime, settings, storageArea, t } = ctx;
   const shortcutGrid = ctx.structure.shortcut.grid;
   const {
@@ -198,7 +198,7 @@ function createShortcutStoreFeature(ctx: PageContext, deps: ShortcutStoreFeature
   };
 }
 
-type ShortcutStoreFeature = ReturnType<typeof createShortcutStoreFeature>;
+type ShortcutStorePart = ReturnType<typeof createShortcutStorePart>;
 
-export { createShortcutStoreFeature };
-export type { ShortcutStoreFeature };
+export { createShortcutStorePart };
+export type { ShortcutStorePart };

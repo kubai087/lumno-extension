@@ -1,33 +1,33 @@
 // The page's theme: the system scheme, the language and theme applied to
 // the page, the tints of cards and tiles, the favicon images and their
 // fallbacks, and the notices redrawn in a new language.
-import * as NEWTAB_APPEARANCE_MODES from '../appearance-modes';
-import * as NEWTAB_CARD_THEMES from '../theme/card-themes';
-import { buildFallbackThemeForHost, defaultAccentColor } from '../../shared/favicon/favicon-theme';
-import { extractAverageColor } from '../../shared/favicon/average-color';
-import { normalizeHost } from '../../domain/favicon/brand-accents';
-import { getReadableTextColor, mixColor, parseCssColor, rgbToCss, rgbToCssAlpha, rgbToCssParts } from '../../domain/color';
-import * as NEWTAB_PAGE_FAVICONS from '../theme/page-favicons';
-import * as NEWTAB_SYSTEM_THEME from '../theme/system-theme';
-import { PageNoticeControllers } from '../notice-controllers';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { NavigationFeature } from './navigation';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { SearchCoreFeature } from './search-core';
-import type { RecentCoreFeature } from './recent-core';
+import * as NEWTAB_APPEARANCE_MODES from '../../appearance-modes';
+import * as NEWTAB_CARD_THEMES from '../../theme/card-themes';
+import { buildFallbackThemeForHost, defaultAccentColor } from '../../../shared/favicon/favicon-theme';
+import { extractAverageColor } from '../../../shared/favicon/average-color';
+import { normalizeHost } from '../../../domain/favicon/brand-accents';
+import { getReadableTextColor, mixColor, parseCssColor, rgbToCss, rgbToCssAlpha, rgbToCssParts } from '../../../domain/color';
+import * as NEWTAB_PAGE_FAVICONS from '../../theme/page-favicons';
+import * as NEWTAB_SYSTEM_THEME from '../../theme/system-theme';
+import { PageNoticeControllers } from '../../notice-controllers';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { NavigationPart } from '../shell/navigation';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { SearchCorePart } from '../sources/search-core';
+import type { RecentCorePart } from '../sources/recent-core';
 
-interface ThemeFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  navigation: NavigationFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  searchCore: SearchCoreFeature;
-  recentCore: RecentCoreFeature;
+interface ThemePartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  navigation: NavigationPart;
+  bookmarkMenus: BookmarkMenusPart;
+  searchCore: SearchCorePart;
+  recentCore: RecentCorePart;
 }
 
-function createThemeFeature(ctx: PageContext, deps: ThemeFeatureDeps) {
+function createThemePart(ctx: PageContext, deps: ThemePartDeps) {
   const { locale, settings, t } = ctx;
   const {
     appliedTheme,
@@ -202,7 +202,7 @@ function createThemeFeature(ctx: PageContext, deps: ThemeFeatureDeps) {
   };
 }
 
-type ThemeFeature = ReturnType<typeof createThemeFeature>;
+type ThemePart = ReturnType<typeof createThemePart>;
 
-export { createThemeFeature };
-export type { ThemeFeature };
+export { createThemePart };
+export type { ThemePart };

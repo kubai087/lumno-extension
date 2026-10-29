@@ -2,34 +2,34 @@
 // layer, the shortcuts, the notices and results in the document, the
 // wallpaper and feedback controls with their outside presses, the bookmark
 // bar and the dock, and the window events the parts follow from then on.
-import { isNode } from '../../shared/dom-guards';
-import { adaptiveToneEvents } from '../wallpaper/tone-requests';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { BookmarkStoreFeature } from './bookmark-store';
-import type { NavigationFeature } from './navigation';
-import type { BookmarkMenusFeature } from './bookmark-menus';
-import type { ThemeFeature } from './theme';
-import type { TopContentFeature } from './top-content';
-import type { WallpaperFeature } from './wallpaper';
-import type { DragsFeature } from './drags';
-import type { SectionViewsFeature } from './section-views';
-import type { SearchUiFeature } from './search-ui';
+import { isNode } from '../../../shared/dom-guards';
+import { adaptiveToneEvents } from '../../wallpaper/tone-requests';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { BookmarkStorePart } from '../stores/bookmark-store';
+import type { NavigationPart } from '../shell/navigation';
+import type { BookmarkMenusPart } from '../menus/bookmark-menus';
+import type { ThemePart } from '../appearance/theme';
+import type { TopContentPart } from '../appearance/top-content';
+import type { WallpaperPart } from '../appearance/wallpaper';
+import type { DragsPart } from '../sections/drags';
+import type { SectionViewsPart } from '../sections/section-views';
+import type { SearchUiPart } from './search-ui';
 
-interface MountFeatureDeps {
-  shell: ShellFeature;
-  bookmarkStore: BookmarkStoreFeature;
-  navigation: NavigationFeature;
-  bookmarkMenus: BookmarkMenusFeature;
-  theme: ThemeFeature;
-  topContent: TopContentFeature;
-  wallpaper: WallpaperFeature;
-  drags: DragsFeature;
-  sectionViews: SectionViewsFeature;
-  searchUi: SearchUiFeature;
+interface MountPartDeps {
+  shell: ServicesPart;
+  bookmarkStore: BookmarkStorePart;
+  navigation: NavigationPart;
+  bookmarkMenus: BookmarkMenusPart;
+  theme: ThemePart;
+  topContent: TopContentPart;
+  wallpaper: WallpaperPart;
+  drags: DragsPart;
+  sectionViews: SectionViewsPart;
+  searchUi: SearchUiPart;
 }
 
-function createMountFeature(ctx: PageContext, deps: MountFeatureDeps) {
+function createMountPart(ctx: PageContext, deps: MountPartDeps) {
   const { locale, root } = ctx;
   const searchLayer = ctx.structure.searchLayer;
   const shortcutSection = ctx.structure.shortcut.section;
@@ -173,7 +173,7 @@ function createMountFeature(ctx: PageContext, deps: MountFeatureDeps) {
   };
 }
 
-type MountFeature = ReturnType<typeof createMountFeature>;
+type MountPart = ReturnType<typeof createMountPart>;
 
-export { createMountFeature };
-export type { MountFeature };
+export { createMountPart };
+export type { MountPart };

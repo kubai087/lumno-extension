@@ -2,47 +2,47 @@
 // results and where they come from, matching, autocomplete, result
 // activation, site search providers and their icons, the slash commands,
 // and the site themes the results, cards and tiles are tinted with.
-import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
-import * as LumnoShortcutFaviconStore from '../../platform/shortcut-favicon-store';
-import * as NEWTAB_SITE_SEARCH_PROVIDERS from '../search/site-search-providers';
-import { createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../../shared/favicon/favicon-theme';
-import { extractAverageColor } from '../../shared/favicon/average-color';
-import { getBrandAccentForUrl, normalizeHost } from '../../domain/favicon/brand-accents';
-import { parseCssColor, stableHashCode } from '../../domain/color';
-import * as NEWTAB_SITE_THEME_RESOLVER from '../theme/site-theme-resolver';
-import { newtabOpenInNewTab } from '../../domain/settings';
-import { SiteSearchIconCache } from '../../shared/search/site-search-icon-cache';
-import { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
-import * as SearchSettings from '../../domain/settings/search';
-import { SearchQuery } from '../../shared/search-panel/search-query';
-import { SuggestionSource } from '../../shared/search-panel/suggestion-source';
-import { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
-import { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
-import { SearchModeMenu } from '../../shared/search-panel/mode-menu';
-import { SearchModeActions } from '../../shared/search-panel/mode-actions';
-import { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
-import { SearchMatching } from '../../shared/search-panel/matching';
-import { SearchResults } from '../../shared/search-panel/search-results';
-import { SearchMode } from '../../shared/search-panel/search-mode';
-import { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
-import type { SiteSearchProvider } from '../../domain/search/types';
-import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
-import { ResultActivation } from '../../shared/search-panel/result-activation';
-import { OpenTabs } from '../../shared/search-panel/open-tabs';
-import { createCommandCatalog } from '../search/command-catalog';
-import * as SUGGESTION_INPUT_PREVIEW from '../../domain/search/suggestion-input-preview';
-import type { PageContext } from '../app/context';
-import type { ShellFeature } from './shell';
-import type { ShortcutStoreFeature } from './shortcut-store';
-import type { NavigationFeature } from './navigation';
+import * as ShortcutIconCache from '../../../domain/favicon/shortcut-favicon/persisted';
+import * as LumnoShortcutFaviconStore from '../../../platform/shortcut-favicon-store';
+import * as NEWTAB_SITE_SEARCH_PROVIDERS from '../../search/site-search-providers';
+import { createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../../../shared/favicon/favicon-theme';
+import { extractAverageColor } from '../../../shared/favicon/average-color';
+import { getBrandAccentForUrl, normalizeHost } from '../../../domain/favicon/brand-accents';
+import { parseCssColor, stableHashCode } from '../../../domain/color';
+import * as NEWTAB_SITE_THEME_RESOLVER from '../../theme/site-theme-resolver';
+import { newtabOpenInNewTab } from '../../../domain/settings';
+import { SiteSearchIconCache } from '../../../shared/search/site-search-icon-cache';
+import { SiteSearchCatalog } from '../../../shared/search-panel/site-search/catalog';
+import * as SearchSettings from '../../../domain/settings/search';
+import { SearchQuery } from '../../../shared/search-panel/search-query';
+import { SuggestionSource } from '../../../shared/search-panel/suggestion-source';
+import { SuggestionModifiers } from '../../../shared/search-panel/suggestion-modifiers';
+import { SiteSearchRunner } from '../../../shared/search-panel/site-search/runner';
+import { SearchModeMenu } from '../../../shared/search-panel/mode-menu';
+import { SearchModeActions } from '../../../shared/search-panel/mode-actions';
+import { SearchModeMenuOrder } from '../../../shared/search-panel/mode-menu-order';
+import { SearchMatching } from '../../../shared/search-panel/matching';
+import { SearchResults } from '../../../shared/search-panel/search-results';
+import { SearchMode } from '../../../shared/search-panel/search-mode';
+import { SearchAutocomplete } from '../../../shared/search-panel/autocomplete';
+import type { SiteSearchProvider } from '../../../domain/search/types';
+import type { Suggestion } from '../../../shared/react/search/suggestion-list/types';
+import { ResultActivation } from '../../../shared/search-panel/result-activation';
+import { OpenTabs } from '../../../shared/search-panel/open-tabs';
+import { createCommandCatalog } from '../../search/command-catalog';
+import * as SUGGESTION_INPUT_PREVIEW from '../../../domain/search/suggestion-input-preview';
+import type { PageContext } from '../../app/context';
+import type { ServicesPart } from '../shell/services';
+import type { ShortcutStorePart } from '../stores/shortcut-store';
+import type { NavigationPart } from '../shell/navigation';
 
-interface SearchCoreFeatureDeps {
-  shell: ShellFeature;
-  shortcutStore: ShortcutStoreFeature;
-  navigation: NavigationFeature;
+interface SearchCorePartDeps {
+  shell: ServicesPart;
+  shortcutStore: ShortcutStorePart;
+  navigation: NavigationPart;
 }
 
-function createSearchCoreFeature(ctx: PageContext, deps: SearchCoreFeatureDeps) {
+function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
   const { formatMessage, localStorageArea, locale, settings, t } = ctx;
   const {
     appliedTheme,
@@ -270,7 +270,7 @@ function createSearchCoreFeature(ctx: PageContext, deps: SearchCoreFeatureDeps) 
   };
 }
 
-type SearchCoreFeature = ReturnType<typeof createSearchCoreFeature>;
+type SearchCorePart = ReturnType<typeof createSearchCorePart>;
 
-export { createSearchCoreFeature };
-export type { SearchCoreFeature };
+export { createSearchCorePart };
+export type { SearchCorePart };
