@@ -62,7 +62,11 @@ const resolver = sandbox.LumnoNewtabSiteThemeResolver.createSiteThemeResolver({
   defaultTheme,
   getProviderHost: () => '',
   setSiteSearchPrefix: () => {},
-  setPersistedSiteThemeEntry: (host, theme) => persistedThemes.set(host, theme),
+  // The site theme cache: kept entries are read back as stored.
+  faviconCacheRuntime: {
+    setPersistedThemeEntry: (host, entry) => Boolean(persistedThemes.set(host, entry)),
+    ensureCachesReady: () => Promise.resolve()
+  },
   getPersistedSiteThemeEntry: (host) => persistedThemes.get(host) || null,
   getPageFaviconUrlResolver: () => ({ getSafeFaviconCandidateUrl: (url) => url }),
   getBrandAccentForUrl: () => null,

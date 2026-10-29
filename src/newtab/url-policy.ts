@@ -10,6 +10,8 @@ import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, 
 import type { SettingsStore } from '../platform/settings-store';
 import * as EXTENSION_ROUTES from '../domain/extension-routes';
 import * as BLACKLIST_UTILS from '../domain/blacklist-utils';
+import * as FaviconDecisionLog from '../domain/favicon/decision-log';
+import * as FaviconResolver from '../domain/favicon/resolver';
 
 // What the search blacklist reads from a suggestion.
 interface BlacklistableSuggestion {
@@ -20,7 +22,6 @@ interface BlacklistableSuggestion {
 interface UrlPolicyDeps {
   settings: Pick<SettingsStore, 'get'>;
   t: Translate;
-  getPageFaviconUrlResolver(): FaviconUrlResolver | null;
   // The browser's own icon for a page, where _favicon is missing (Firefox).
   getBrowserIconUrl?: (pageUrl: string) => string;
 }
@@ -29,7 +30,6 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
   const {
     settings,
     t,
-    getPageFaviconUrlResolver,
     getBrowserIconUrl
   } = deps;
 
@@ -136,6 +136,26 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
       titleText: titleText,
       urlText: `Lumno · ${pageLabel}`.trim()
     };
+  }
+
+  // Logs why an icon source was skipped, once per site and reason.
+  const logFaviconDecision = FaviconDecisionLog.createFaviconDecisionLogger({ surface: 'newtab' });
+  const FAVICON_PROXY_SIZE = 128;
+  let pageFaviconUrlResolver: FaviconUrlResolver | null = null;
+
+  function getPageFaviconUrlResolver(): FaviconUrlResolver {
+    if (!pageFaviconUrlResolver) {
+      pageFaviconUrlResolver = FaviconResolver.createFaviconUrlResolver({
+        chromeApi: chrome,
+        size: FAVICON_PROXY_SIZE,
+        shouldBlockFaviconForHost,
+        shouldAvoidDirectFaviconForHost,
+        isEnhancedFaviconFetchEnabled: isNewtabEnhancedFaviconFetchEnabled,
+        getStrictFaviconReason: getNewtabStrictFaviconReason,
+        logFaviconDecision
+      });
+    }
+    return pageFaviconUrlResolver;
   }
 
   function getExtensionFaviconUrl(pageUrl: string): string {
@@ -282,6 +302,8 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
   }
 
   return {
+    getPageFaviconUrlResolver,
+    logFaviconDecision,
     isEnglishQuery,
     getUrlDisplay,
     isBrowserPageRecentUrl,

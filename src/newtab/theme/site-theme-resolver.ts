@@ -19,6 +19,7 @@ import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { FaviconParts } from './favicon-parts';
+import type { PageFaviconCache } from './page-favicon-cache';
 
 
 // A theme as the card and suggestion views hold it: possibly partial, where
@@ -33,7 +34,6 @@ interface SiteThemeResolverDeps {
   defaultAccentColor: ThemeRgb;
   defaultTheme: ThemeVariant;
   getProviderHost: SiteSearchProviders['getProviderHost'];
-  setPersistedSiteThemeEntry(hostKey: string, theme: ThemeVariant): unknown;
   getPersistedSiteThemeEntry(hostKey: string): SiteThemeEntry | null;
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getSafeFaviconCandidateUrl' | 'resolveFaviconSource'> | null;
   getBrandAccentForUrl(url: string): ThemeRgb | null;
@@ -45,7 +45,8 @@ interface SiteThemeResolverDeps {
   // The icon a subject's theme is read from; '' for none.
   getThemeSourceForSuggestion(subject: ThemeSubject): string;
   areFaviconRenderCachesReady(): boolean;
-  faviconParts: Pick<FaviconParts, 'cache' | 'dataCache' | 'view'>;
+  faviconParts: Pick<FaviconParts, 'dataCache' | 'view'>;
+  faviconCacheRuntime: Pick<PageFaviconCache['faviconCacheRuntime'], 'ensureCachesReady' | 'setPersistedThemeEntry'>;
 }
 
 // A theme read from a page's declared color, or a stored one.
@@ -93,7 +94,6 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     defaultAccentColor,
     defaultTheme,
     getProviderHost,
-    setPersistedSiteThemeEntry,
     getPersistedSiteThemeEntry,
     getPageFaviconUrlResolver,
     getBrandAccentForUrl,
@@ -103,7 +103,8 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     stableHashCode,
     getThemeSourceForSuggestion,
     areFaviconRenderCachesReady,
-    faviconParts
+    faviconParts,
+    faviconCacheRuntime
   } = deps;
 
 
@@ -877,7 +878,6 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
       return;
     }
     if (!areFaviconRenderCachesReady()) {
-      const faviconCacheRuntime = faviconParts.cache;
       if (!themeResolutionCacheWaitStarted && faviconCacheRuntime) {
         themeResolutionCacheWaitStarted = true;
         void faviconCacheRuntime.ensureCachesReady().then(() => {
@@ -1025,6 +1025,23 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     target.style.setProperty('--x-ext-mark-text', markText || '');
   }
 
+
+  // Stores a theme strong enough to keep; false when it is not one.
+  function setPersistedSiteThemeEntry(hostKey: string, theme: ThemeVariant | null | undefined): boolean {
+    if (!theme || !isPersistableTheme(theme)) {
+      return false;
+    }
+    const accentRgb = normalizeAccentRgb(theme.accentRgb || parseCssColor(theme.accent));
+    if (!accentRgb) {
+      return false;
+    }
+    return faviconCacheRuntime.setPersistedThemeEntry(hostKey, {
+      accentRgb,
+      source: getThemeSource(theme),
+      neutral: isLowConfidenceTheme(theme) || theme._xThemeNeutral === true,
+      confidence: normalizeThemeConfidence(theme._xThemeConfidence, accentRgb)
+    });
+  }
   return {
     normalizeFaviconHost,
     isFaviconProxyUrl,

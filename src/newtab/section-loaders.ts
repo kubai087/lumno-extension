@@ -9,7 +9,7 @@ import type { RecentSitesViewController } from './react/recent-sites';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { RecentSources } from './recent/recent-sources';
 import type { SectionHeaders } from './section-headers';
-import type { PageFavicons } from './theme/page-favicons';
+import type { PageFaviconCache } from './theme/page-favicon-cache';
 import type { UrlPolicy } from './url-policy';
 import type { RecentSite } from '../domain/recent-sites-store';
 import type { SettingPreview } from './setting-preview';
@@ -47,7 +47,7 @@ interface SectionLoadersDeps extends
   Pick<UrlPolicy, 'shouldExcludeFromRecentSites'>,
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu' | 'getTopBookmarks'>,
   Pick<AppearanceModes, 'followTheme'>,
-  Pick<PageFavicons, 'areFaviconRenderCachesReady' | 'waitForFaviconRenderCaches'>,
+  Pick<PageFaviconCache, 'areFaviconRenderCachesReady' | 'waitForFaviconRenderCaches'>,
   Pick<PageLayout, 'getBookmarkLimit'>,
   Pick<RecentSources, 'getRecentSites'> {
   settings: Pick<SettingsStore, 'get'>;

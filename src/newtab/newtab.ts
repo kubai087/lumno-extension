@@ -181,6 +181,7 @@ import { BookmarksShown } from './bookmarks/bookmarks-shown';
 import { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import { DragSessions } from './drag-sessions';
 import { FaviconParts } from './theme/favicon-parts';
+import { createPageFaviconCache } from './theme/page-favicon-cache';
 import { MoveHistoryLock } from './bookmarks/move-history-lock';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
@@ -696,12 +697,54 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const shortcutGroupHeaders: HTMLElement[] = [];
 
   const {
+    getPageFaviconUrlResolver,
+    logFaviconDecision,
+    getUrlDisplay,
+    isBrowserPageRecentUrl,
+    isOwnExtensionUrl,
+    getOwnExtensionPageDisplay,
+    getExtensionFaviconUrl,
+    getGstaticFaviconUrl,
+    getChromeFaviconUrl,
+    getBrowserPageFaviconUrl,
+    getPageFaviconCandidateUrl,
+    getPageFaviconRenderCandidates,
+    isLocalNetworkHost,
+    shouldBlockFaviconForHost,
+    shouldAvoidDirectFaviconForHost,
+    isUrlBlockedByFaviconRequestBlacklist,
+    getNewtabStrictFaviconReason,
+    isNewtabEnhancedFaviconFetchEnabled,
+    filterBlacklistedSuggestions,
+    limitSuggestionsForDisplay,
+    shouldExcludeFromRecentSites
+  } = NEWTAB_URL_POLICY.createUrlPolicy({
+    settings,
+    t,
+    getBrowserIconUrl: firefoxBrowserIcons ? firefoxBrowserIcons.get : undefined
+  });
+
+  // The persisted favicon, icon data and site theme caches.
+  const {
+    faviconCacheRuntime,
+    isBlockedLocalFaviconUrl,
+    areFaviconRenderCachesReady,
+    waitForFaviconRenderCaches,
+    isHostFaviconVisitDirty,
+    setPersistedFaviconUrl,
+    getPersistedFaviconEntry,
+    getPersistedFaviconDataEntry,
+    setPersistedFaviconData,
+    getPersistedSiteThemeEntry
+  } = createPageFaviconCache({ isUrlBlockedByFaviconRequestBlacklist });
+
+  const {
     getProviderFaviconPageUrl,
     getProviderIcon,
     createAggregateSearchScopeProvider,
     getProviderHost,
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
-    getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
+    getPageFaviconUrlResolver,
     siteSearchIconCache,
     getExtensionResourceUrl
   });
@@ -741,7 +784,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const urlHighlightTheme = createUrlHighlightTheme();
 
   const {
-    normalizeFaviconHost,
     isFaviconProxyUrl,
     themeColorCache,
     themeHostCache,
@@ -753,7 +795,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getThemeSource,
     buildThemeFromAccent,
     isLowConfidenceTheme,
-    isPersistableTheme,
     getProviderThemeHost,
     getThemeHostForSuggestion,
     setResolvedThemeForHost,
@@ -779,43 +820,16 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     defaultAccentColor,
     defaultTheme,
     getProviderHost,
-    setPersistedSiteThemeEntry: (...args) => setPersistedSiteThemeEntry(...args),
-    getPersistedSiteThemeEntry: (...args) => getPersistedSiteThemeEntry(...args),
-    getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
+    faviconCacheRuntime,
+    getPersistedSiteThemeEntry,
+    getPageFaviconUrlResolver,
     getBrandAccentForUrl,
     extractAverageColor,
     getProviderIcon,
-    isHostFaviconVisitDirty: (...args) => isHostFaviconVisitDirty(...args),
+    isHostFaviconVisitDirty,
     stableHashCode,
     getThemeSourceForSuggestion: (...args) => getThemeSourceForSuggestion(...args),
-    areFaviconRenderCachesReady: (...args) => areFaviconRenderCachesReady(...args)
-  });
-
-  const {
-    getUrlDisplay,
-    isBrowserPageRecentUrl,
-    isOwnExtensionUrl,
-    getOwnExtensionPageDisplay,
-    getExtensionFaviconUrl,
-    getGstaticFaviconUrl,
-    getChromeFaviconUrl,
-    getBrowserPageFaviconUrl,
-    getPageFaviconCandidateUrl,
-    getPageFaviconRenderCandidates,
-    isLocalNetworkHost,
-    shouldBlockFaviconForHost,
-    shouldAvoidDirectFaviconForHost,
-    isUrlBlockedByFaviconRequestBlacklist,
-    getNewtabStrictFaviconReason,
-    isNewtabEnhancedFaviconFetchEnabled,
-    filterBlacklistedSuggestions,
-    limitSuggestionsForDisplay,
-    shouldExcludeFromRecentSites
-  } = NEWTAB_URL_POLICY.createUrlPolicy({
-    settings,
-    t,
-    getPageFaviconUrlResolver: (...args) => getPageFaviconUrlResolver(...args),
-    getBrowserIconUrl: firefoxBrowserIcons ? firefoxBrowserIcons.get : undefined
+    areFaviconRenderCachesReady
   });
 
   const { isCardActivationSuppressed } = NEWTAB_CARD_ACTIVATION_GUARD.createCardActivationGuard({ documentObj: document });
@@ -1173,13 +1187,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   migrateLocalSettingsIfNeeded(SYNCED_PAGE_STORAGE_KEYS.slice());
 
   const {
-    faviconCacheRuntime,
-    areFaviconRenderCachesReady,
-    waitForFaviconRenderCaches,
-    isHostFaviconVisitDirty,
-    getPersistedFaviconDataEntry,
-    getPersistedSiteThemeEntry,
-    setPersistedSiteThemeEntry,
     applyFaviconOpticalShift,
     applyFaviconOpticalAlignment,
     applyFallbackIcon,
@@ -1188,17 +1195,16 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     preloadIcon,
     warmIconCache,
     attachFaviconWithFallbacks,
-    getPageFaviconUrlResolver,
     getThemeSourceForSuggestion
   } = NEWTAB_PAGE_FAVICONS.createPageFavicons({
+    isBlockedLocalFaviconUrl,
+    setPersistedFaviconData,
+    getPersistedFaviconEntry,
+    setPersistedFaviconUrl,
+    getPageFaviconUrlResolver,
+    logFaviconDecision,
     faviconParts,
-    normalizeFaviconHost,
-    isPersistableTheme,
-    normalizeAccentRgb,
-    parseCssColor,
     getThemeSource,
-    isLowConfidenceTheme,
-    normalizeThemeConfidence,
     getExtensionFaviconUrl,
     getGstaticFaviconUrl,
     getChromeFaviconUrl,
@@ -1210,7 +1216,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getHostFromUrl,
     isFaviconProxyUrl,
     themeHostCache,
-    isUrlBlockedByFaviconRequestBlacklist,
     themeColorCache,
     normalizeHost,
     getThemeSourcePriority,
