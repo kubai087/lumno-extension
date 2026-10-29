@@ -60,5 +60,22 @@ function sendTabMessage<A extends PageAction>(
   return options ? tabs.sendMessage(tabId, request, options, callback) : tabs.sendMessage(tabId, request, callback);
 }
 
-export { sendBackgroundMessage, sendPageMessage, sendTabMessage };
+// Sends a message to the background from an extension page through its own
+// chrome.runtime; false when there is none or sending threw.
+function trySendBackgroundMessage<A extends BackgroundAction>(
+  request: BackgroundRequest<A>,
+  callback?: (reply: BackgroundReply<A> | undefined) => void
+): boolean {
+  if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
+    return false;
+  }
+  try {
+    sendBackgroundMessage(chrome.runtime, request, callback);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export { sendBackgroundMessage, sendPageMessage, sendTabMessage, trySendBackgroundMessage };
 export type { MessageRuntime, MessageTabs };

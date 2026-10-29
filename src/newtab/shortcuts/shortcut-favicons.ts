@@ -1,6 +1,8 @@
 // The icon snapshots shortcut tiles show, saved by page URL and fetched a
 // few at a time; the icons websites inside shortcut folders keep; and the
 // icon choices the shortcut dialog offers.
+import { trySendBackgroundMessage } from '../../platform/messaging';
+import { getExtensionResourceUrl } from '../../platform/extension-url';
 import * as ShortcutIconCache from '../../domain/favicon/shortcut-favicon/persisted';
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
 import * as FaviconCanonical from '../../domain/favicon/canonical';
@@ -24,7 +26,6 @@ import type {
   FolderItemIconStore,
   FolderItemShortcutSettings
 } from '../bookmarks/folder-item-icons';
-import type { SendRuntimeMessage } from '../newtab-types';
 import type { OnlineShortcutIcon, ShortcutDialogPayload } from '../react/shortcut-dialog';
 import type { ShortcutList } from './shortcut-list';
 import { shortcutIconEvents } from './shortcut-icon-events';
@@ -40,8 +41,6 @@ interface ShortcutFaviconsDeps {
   getPersistedFaviconDataEntry(cacheKey: string): FaviconDataEntry | null;
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver,
     'getShortcutFaviconCandidateUrl' | 'getShortcutFaviconFetchCandidates'> | null;
-  getExtensionResourceUrl(resourcePath: string): string;
-  sendRuntimeMessage: SendRuntimeMessage;
 }
 
 // The icon a website in a shortcut folder was given in the dialog.
@@ -70,9 +69,7 @@ function createShortcutFavicons(deps: ShortcutFaviconsDeps) {
     shortcutFaviconStore,
     faviconCacheRuntime,
     getPersistedFaviconDataEntry,
-    getPageFaviconUrlResolver,
-    getExtensionResourceUrl,
-    sendRuntimeMessage
+    getPageFaviconUrlResolver
   } = deps;
 
   // Bumped when the favicon policy changes, so requests made before it are
@@ -293,7 +290,7 @@ function createShortcutFavicons(deps: ShortcutFaviconsDeps) {
         resolve(result);
       };
       const timeoutId = window.setTimeout(() => finish(null), 8000);
-      const sent = sendRuntimeMessage<'getShortcutFaviconData'>({
+      const sent = trySendBackgroundMessage<'getShortcutFaviconData'>({
         action: 'getShortcutFaviconData',
         pageUrl: normalizedPageUrl,
         refresh: true,
@@ -407,7 +404,7 @@ function createShortcutFavicons(deps: ShortcutFaviconsDeps) {
           resolve(dataUrl || '');
         };
         const timeoutId = window.setTimeout(() => finish(''), 8000);
-        const sent = sendRuntimeMessage<'getShortcutFaviconData'>({
+        const sent = trySendBackgroundMessage<'getShortcutFaviconData'>({
           action: 'getShortcutFaviconData',
           pageUrl: normalizedPageUrl,
           ...(isCachedIconSource(iconSource) ? { iconSource } : {})

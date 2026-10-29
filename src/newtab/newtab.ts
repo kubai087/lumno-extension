@@ -106,7 +106,6 @@ import {
 import { SiteSearchIconCache } from '../shared/search/site-search-icon-cache';
 import { DefaultSearchEngine } from '../shared/search-panel/default-engine';
 import { SiteSearchCatalog } from '../shared/search-panel/site-search/catalog';
-import type { BackgroundAction, BackgroundReply, BackgroundRequest } from '../domain/messages';
 import type { SuggestionElement } from '../shared/react/search/suggestion-list/types';
 import type { BookmarkCardElement } from './react/bookmarks';
 import type { RecentCardElement } from './react/recent-sites';
@@ -268,30 +267,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const localStorageArea = (chrome && chrome.storage && chrome.storage.local)
     ? chrome.storage.local
     : storageArea;
-  function getExtensionResourceUrl(resourcePath: unknown): string {
-    const normalizedPath = String(resourcePath || '').replace(/^\/+/, '');
-    if (chrome && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
-      return chrome.runtime.getURL(normalizedPath);
-    }
-    const baseUrl = document.baseURI || window.location.href;
-    return new URL(`../../${normalizedPath}`, baseUrl).href;
-  }
-  function sendRuntimeMessage<A extends BackgroundAction>(
-    message: BackgroundRequest<A>,
-    callback?: (reply: BackgroundReply<A> | undefined) => void
-  ): boolean {
-    if (typeof chrome === 'undefined' ||
-        !chrome.runtime ||
-        typeof chrome.runtime.sendMessage !== 'function') {
-      return false;
-    }
-    try {
-      LumnoMessaging.sendBackgroundMessage(chrome.runtime, message, callback);
-      return true;
-    } catch {
-      return false;
-    }
-  }
 
   followNewtabVisualViewportInsets();
 
@@ -305,7 +280,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const { t, formatMessage } = locale;
   // Firefox's website appearance setting, and the slash commands typed in the search box.
   const webAppearance = new WebAppearance();
-  const commandCatalog = createCommandCatalog({ settings, t, formatMessage, getExtensionResourceUrl, appliedTheme, webAppearance });
+  const commandCatalog = createCommandCatalog({ settings, t, formatMessage, appliedTheme, webAppearance });
   const {
     getCommandMatches,
     getCommandMatch,
@@ -398,9 +373,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shortcutFaviconStore,
     faviconCacheRuntime,
     getPersistedFaviconDataEntry,
-    getPageFaviconUrlResolver,
-    getExtensionResourceUrl,
-    sendRuntimeMessage
+    getPageFaviconUrlResolver
   });
   const {
     getFolderItemIconUrl,
@@ -875,8 +848,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getProviderHost
   } = NEWTAB_SITE_SEARCH_PROVIDERS.createSiteSearchProviders({
     getPageFaviconUrlResolver,
-    siteSearchIconCache,
-    getExtensionResourceUrl
+    siteSearchIconCache
   });
 
   const defaultTheme = createDefaultTheme();
@@ -2172,7 +2144,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     rightIcon,
     formatMessage,
     dismissWebdavFeatureHint,
-    getExtensionResourceUrl,
     helpCenterAskHintSettled,
     t,
     getOpenDisposition,

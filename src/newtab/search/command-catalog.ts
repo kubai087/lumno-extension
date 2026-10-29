@@ -1,6 +1,7 @@
 // The New Tab's slash commands: what typed input matches, the suggestion
 // rows they show, and the mode badge's text for the theme, zen and website
 // appearance commands.
+import { getExtensionResourceUrl } from '../../platform/extension-url';
 import type { ThemeMode } from '../../domain/settings';
 import type { WebAppearanceMode } from '../../domain/messages';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
@@ -15,7 +16,6 @@ interface CommandCatalogDeps {
   settings: Pick<SettingsStore, 'get'>;
   t: Translate;
   formatMessage: FormatMessage;
-  getExtensionResourceUrl(path: string): string;
   appliedTheme: Pick<AppliedThemeMode, 'mode'>;
   webAppearance: Pick<WebAppearance, 'state'>;
 }
@@ -28,7 +28,6 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
     settings,
     t,
     formatMessage,
-    getExtensionResourceUrl,
     appliedTheme,
     webAppearance
   } = deps;

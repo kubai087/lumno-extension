@@ -1,6 +1,7 @@
 // Site search and aggregate search providers: running them, icons, labels
 // and the trigger/scope lookups used by the search input. The lists
 // themselves are the catalog's.
+import { getExtensionResourceUrl } from '../../platform/extension-url';
 import * as BundledIcons from '../../domain/favicon/shortcut-favicon/bundled-icons';
 import type { AggregateScopeProvider, AggregateSearch } from '../../domain/search/aggregate-search-store';
 import type {
@@ -15,14 +16,12 @@ import * as AGGREGATE_SEARCH_STORE from '../../domain/search/aggregate-search-st
 interface SiteSearchProvidersDeps {
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver, 'getProviderFaviconUrl'> | null;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'icons'>;
-  getExtensionResourceUrl(resourcePath: string): string;
 }
 
 function createSiteSearchProviders(deps: SiteSearchProvidersDeps) {
   const {
     getPageFaviconUrlResolver,
-    siteSearchIconCache,
-    getExtensionResourceUrl
+    siteSearchIconCache
   } = deps;
 
 

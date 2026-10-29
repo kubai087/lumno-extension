@@ -1,6 +1,7 @@
 // The controls inside the search box: the settings menu button, the clear
 // button, close other tabs, the input's right padding, and which action
 // buttons the page shows.
+import { getExtensionResourceUrl } from '../../platform/extension-url';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { FormatMessage, Translate } from '../newtab-types';
@@ -25,7 +26,6 @@ interface SearchBoxControlsDeps {
   rightIcon: HTMLElement | null;
   formatMessage: FormatMessage;
   dismissWebdavFeatureHint(): void;
-  getExtensionResourceUrl(resourcePath: string): string;
   // Settles with whether the Help Center tip is showing.
   helpCenterAskHintSettled: Promise<boolean>;
   t: Translate;
@@ -50,7 +50,6 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
     rightIcon,
     formatMessage,
     dismissWebdavFeatureHint,
-    getExtensionResourceUrl,
     helpCenterAskHintSettled,
     t,
     getOpenDisposition,

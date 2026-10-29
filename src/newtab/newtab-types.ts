@@ -1,5 +1,4 @@
 // Types the New Tab shares with the modules split out of it.
-import type { BackgroundAction, BackgroundReply, BackgroundRequest } from '../domain/messages';
 import type { ToastShowOptions } from '../shared/ui/toast-screen';
 import type { CursorTooltipOptions, CursorTooltipTextSource } from '../shared/ui/cursor-tooltip-model';
 import type { createSelectMenuController } from './react/select-menu';
@@ -11,11 +10,6 @@ type Translate = (key: string, fallback: string) => string;
 // The message with each {name} replaced by params[name].
 type FormatMessage = (key: string, fallback: string, params?: Readonly<Record<string, string | number>>) => string;
 
-// Sends a message to the background; false when it could not be sent.
-type SendRuntimeMessage = <A extends BackgroundAction>(
-  message: BackgroundRequest<A>,
-  callback?: (reply: BackgroundReply<A> | undefined) => void
-) => boolean;
 
 // How a favicon image loads: the address to try first, the fallbacks after
 // it, and what happens when none loads.
@@ -85,7 +79,6 @@ export type {
   NewtabThemeMode,
   NewtabThemeScope,
   SelectMenuController,
-  SendRuntimeMessage,
   ShowToast,
   Translate
 };

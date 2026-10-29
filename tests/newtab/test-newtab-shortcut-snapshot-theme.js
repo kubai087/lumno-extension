@@ -11,6 +11,14 @@ const { shortcutIconEvents } = require(path.join(repoRoot, 'src/newtab/shortcuts
 const { png } = require('../helpers/favicon-acquisition');
 
 global.window = global;
+// The background answers each icon request with the snapshot.
+global.chrome = {
+  runtime: {
+    sendMessage: (message, callback) => {
+      callback({ data: snapshot, sourceUrl: FAVICON_UTILS.getGstaticFaviconUrl(message.pageUrl) });
+    }
+  }
+};
 
 const pageUrl = 'https://example.com/docs/';
 const otherUrl = 'https://other.example.com/';
@@ -32,10 +40,6 @@ const favicons = createShortcutFavicons({
   faviconCacheRuntime: { ensureCachesReady: () => Promise.resolve() },
   getPersistedFaviconDataEntry: () => null,
   getPageFaviconUrlResolver: () => ({ getShortcutFaviconFetchCandidates: () => [{ kind: 'proxy' }] }),
-  sendRuntimeMessage: (message, callback) => {
-    callback({ data: snapshot, sourceUrl: FAVICON_UTILS.getGstaticFaviconUrl(message.pageUrl) });
-    return true;
-  },
   shortcutFaviconStore: { mergeAll: (entries) => Promise.resolve(entries) },
   // Only followed here: no setting changes in these tests.
   settings: { subscribe: () => () => {} }
