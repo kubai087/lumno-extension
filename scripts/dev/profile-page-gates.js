@@ -30,10 +30,15 @@ const NEWTAB_PROBE = `(() => {
       list.getEntries().forEach((entry) => probe.longTasks.push({ start: entry.startTime, duration: entry.duration }));
     }).observe({ type: 'longtask', buffered: true });
   } catch (error) {}
-  const readLook = () => ({
-    theme: document.documentElement.getAttribute('data-theme') || (document.body && document.body.getAttribute('data-theme')) || '',
-    background: document.body ? getComputedStyle(document.body).backgroundColor : ''
-  });
+  // What a frame paints behind the page: the root's background, or the
+  // body's, which the root takes when it has none. The body itself stays
+  // hidden until the wallpaper is ready.
+  const readLook = () => {
+    const rootColor = getComputedStyle(document.documentElement).backgroundColor;
+    const bodyColor = document.body ? getComputedStyle(document.body).backgroundColor : '';
+    const canvas = /^rgba\\(.*,\\s*0\\)$/.test(rootColor) || rootColor === 'transparent' ? bodyColor : rootColor;
+    return { canvas, theme: document.body ? document.body.getAttribute('data-theme') || '' : '' };
+  };
   const firstFrame = () => {
     if (document.body) {
       probe.firstFrame = readLook();
@@ -42,6 +47,12 @@ const NEWTAB_PROBE = `(() => {
     }
   };
   requestAnimationFrame(firstFrame);
+  const isDarkColor = (color) => {
+    const parts = String(color).match(/\\d+(\\.\\d+)?/g) || ['255', '255', '255'];
+    const [r, g, b] = parts.map(Number);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+  };
+  probe.isDarkColor = isDarkColor;
   const check = () => {
     if (!probe.readyAt && document.body && document.body.getAttribute('data-nt-ready') === '1') {
       probe.readyAt = performance.now();
@@ -81,6 +92,11 @@ async function openProbedNewtab(browser, fixtures) {
   const page = await browser.openPage(fixtures.url('/page.html'));
   // New Tab marks itself ready from an animation frame, which only the active tab gets.
   await focusTab(browser, page);
+  // A dark system, where a first frame painted before the theme shows as a
+  // white flash; on a light one it would pass unseen.
+  await browser.cdp.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-color-scheme', value: 'dark' }]
+  }, page.sessionId);
   await browser.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: NEWTAB_PROBE }, page.sessionId);
   await browser.cdp.send('Page.navigate', { url: browser.extensionUrl('newtab.html') }, page.sessionId);
   const probe = await waitUntil(() => page.evaluate(`(() => {
@@ -92,9 +108,9 @@ async function openProbedNewtab(browser, fixtures) {
     return {
       readyMs: probe.readyAt,
       longTaskMs: probe.longTasks.filter((task) => task.start < probe.readyAt).reduce((sum, task) => sum + task.duration, 0),
-      firstFrameMatches: Boolean(probe.firstFrame && probe.readyLook &&
-        probe.firstFrame.theme === probe.readyLook.theme &&
-        probe.firstFrame.background === probe.readyLook.background),
+      // The first frame is dark exactly when the page gets ready dark.
+      firstFrameMatches: Boolean(probe.firstFrame && probe.readyLook) &&
+        probe.isDarkColor(probe.firstFrame.canvas) === (probe.readyLook.theme === 'dark'),
       domContentLoadedMs: navigation ? navigation.domContentLoadedEventEnd : 0,
       scriptUrls: scripts.map((entry) => entry.name).concat(Array.from(document.scripts).map((script) => script.src).filter(Boolean))
     };
@@ -223,14 +239,39 @@ async function runOnce(extensionPath, fixtures, only) {
   // --only=newtab,overlay limits the run to those pages.
   const steps = named.filter(([name]) => !only || only.split(',').includes(name)).map(([, step]) => step);
   for (const step of steps) {
-    const browser = await launchBrowser({ extensionPath });
-    try {
-      Object.assign(results, await step(browser));
-    } finally {
-      await browser.close();
-    }
+    Object.assign(results, await runStep(extensionPath, step));
   }
   return results;
+}
+
+const STEP_TIMEOUT_MS = 60000;
+const STEP_ATTEMPTS = 3;
+
+// A step in a fresh browser, given up after a time limit, since a browser
+// that dies mid-step leaves its pending calls unanswered; then tried anew.
+async function runStep(extensionPath, step) {
+  for (let attempt = 1; ; attempt += 1) {
+    let timer = null;
+    let browser = null;
+    try {
+      const expired = new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`step timed out after ${STEP_TIMEOUT_MS} ms`)), STEP_TIMEOUT_MS);
+      });
+      return await Promise.race([
+        (async () => {
+          browser = await launchBrowser({ extensionPath });
+          return step(browser);
+        })(),
+        expired
+      ]);
+    } catch (error) {
+      if (attempt >= STEP_ATTEMPTS) throw error;
+      process.stdout.write(`  retrying a step: ${error.message}\n`);
+    } finally {
+      clearTimeout(timer);
+      if (browser) await Promise.race([browser.close().catch(() => {}), delay(5000)]);
+    }
+  }
 }
 
 function median(values) {
