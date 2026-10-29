@@ -4,6 +4,8 @@
 // sits on the page, and hands this view a model.
 import { useState } from 'react';
 import { getPagePortals } from '../app/portals';
+import { useStore } from '../../shared/react/use-store';
+import type { Store } from '../../shared/state/store';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 import { RemixIcon } from '../../shared/react/remix-icon';
 
@@ -98,16 +100,25 @@ function QuoteLine({ model, handlers }: { model: QuoteLineModel; handlers: Quote
   );
 }
 
+// The quote the line shows, once there is one.
+export interface QuoteLineState {
+  model: QuoteLineModel | null;
+}
+
+function QuoteLineRoot({ handlers, store }: { handlers: QuoteLineHandlers; store: Store<QuoteLineState> }) {
+  const { model } = useStore(store);
+  return model ? <QuoteLine handlers={handlers} model={model} /> : null;
+}
+
 export interface QuoteLineView {
-  render(model: QuoteLineModel): void;
   // The line's text box, where the wallpaper tone is sampled.
   getTextElement(): HTMLElement | null;
   destroy(): void;
 }
 
-export function createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers): QuoteLineView {
+export function createQuoteLineView(host: HTMLElement, handlers: QuoteLineHandlers, store: Store<QuoteLineState>): QuoteLineView {
+  getPagePortals().show(host, <QuoteLineRoot handlers={handlers} store={store} />);
   return {
-    render: (model) => getPagePortals().show(host, <QuoteLine handlers={handlers} model={model} />),
     getTextElement: () => queryHtmlElement(host, '.x-nt-quote-line'),
     destroy: () => getPagePortals().remove(host)
   };

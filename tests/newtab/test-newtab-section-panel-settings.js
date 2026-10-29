@@ -65,12 +65,14 @@ async function main() {
     }
   });
 
-  // Stands in for the panel view: keeps the last model it was handed.
+  // Stands in for the panel view: keeps the last model the runtime set.
   let model = null;
-  const view = { renderSectionSettings(next) { model = next; } };
+  runtime.settingsState.subscribe(() => {
+    model = runtime.settingsState.getSnapshot().model;
+  });
   const drag = { dragging: true, final: false };
   const settle = { dragging: false, final: true };
-  runtime.bindSettings(view);
+  runtime.bindSettings();
 
   // First render mirrors the page: bookmarks on (two rows), site cards off.
   assert.equal(model.bookmark.title, 'Bookmarks');

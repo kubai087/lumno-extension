@@ -8,7 +8,7 @@ const { JSDOM } = require('jsdom');
 let currentLine = null;
 globalThis.__lumnoTestModuleStubs = Object.assign(globalThis.__lumnoTestModuleStubs || {}, {
   'src/newtab/react/quote-line.tsx': {
-    createQuoteLineView: (host, handlers) => currentLine.api.createQuoteLineView(host, handlers)
+    createQuoteLineView: (host, handlers, store) => currentLine.api.createQuoteLineView(host, handlers, store)
   }
 });
 const settings = require('../../src/domain/settings/index.ts');
@@ -17,15 +17,20 @@ const quoteSettings = require('../../src/domain/settings/newtab-quote.ts');
 const { createMemorySettings } = require('../helpers/memory-settings');
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-// A line view that keeps the last model it was handed and the handlers the
-// runtime gave it; the next runtime draws through it.
+// A line view that reads the model from the store the runtime gave it, with
+// the handlers; the next runtime draws through it.
 function createLineView() {
-  const record = { model: null, handlers: null, destroyed: false };
+  const record = {
+    store: null,
+    handlers: null,
+    destroyed: false,
+    get model() { return record.store ? record.store.getSnapshot().model : null; }
+  };
   const api = {
-    createQuoteLineView(_host, handlers) {
+    createQuoteLineView(_host, handlers, store) {
       record.handlers = handlers;
+      record.store = store;
       return {
-        render(model) { record.model = model; },
         getTextElement: () => null,
         destroy() { record.destroyed = true; }
       };
@@ -35,10 +40,17 @@ function createLineView() {
   return currentLine;
 }
 
-// Stands in for the appearance panel: keeps the last quote section model.
+// Stands in for the appearance panel: reads the quote section's model from the
+// store of the runtime it joins.
 function createSettingsView() {
-  const record = { model: null };
-  return { record, view: { renderQuoteSettings(model) { record.model = model; } } };
+  const record = { runtime: null, get model() { return record.runtime.settingsState.getSnapshot().model; } };
+  return {
+    record,
+    bind(runtime) {
+      record.runtime = runtime;
+      runtime.bindSettings();
+    }
+  };
 }
 
 const drag = { dragging: true, final: false };
@@ -77,7 +89,7 @@ async function main() {
     assert(section().positionSelect.options.some((option) => option.value === value));
     section().positionSelect.onChange(value);
   };
-  runtime.bindSettings(panel.view);
+  panel.bind(runtime);
   await runtime.mount();
   assert.equal(requests, 0, 'Disabled quotes must not contact an external API');
   assert.equal(bodyOpen(), false);
@@ -199,7 +211,7 @@ async function main() {
     client: { getQuote: () => { localeRequests += 1; return Promise.resolve({ text: '海上生明月', author: '', source: '', url: '' }); } }
   });
   const localePanel = createSettingsView();
-  localeRuntime.bindSettings(localePanel.view);
+  localePanel.bind(localeRuntime);
   await localeRuntime.mount();
   await tick();
   assert.equal(localeRequests, 0, 'Non-Chinese languages must not contact Hitokoto');

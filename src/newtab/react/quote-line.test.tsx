@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createQuoteLineView, type QuoteLineModel, type QuoteLineView } from './quote-line';
+import { createQuoteLineView, type QuoteLineModel, type QuoteLineState, type QuoteLineView } from './quote-line';
+import { createViewStore } from '../../shared/react/view-store';
 import { getTag } from '../../../tests/react/dom';
 
 let views: QuoteLineView[] = [];
@@ -31,10 +32,10 @@ function mount(model: QuoteLineModel = MODEL) {
     onHideTooltip: vi.fn(),
     onShuffle: vi.fn()
   };
-  const view = createQuoteLineView(host, handlers);
+  const store = createViewStore<QuoteLineState>({ model });
+  const view = createQuoteLineView(host, handlers, store);
   views.push(view);
-  act(() => view.render(model));
-  return { host, handlers, view };
+  return { host, handlers, view, store };
 }
 
 describe('New Tab quote line', () => {
@@ -86,15 +87,15 @@ describe('New Tab quote line', () => {
   });
 
   it('marks a shuffle in progress and fades in each shuffled quote once', () => {
-    const { host, view } = mount();
+    const { host, view, store } = mount();
     const shuffle = getTag(host, 'button.x-nt-quote-shuffle', 'button');
     expect(view.getTextElement()?.dataset.swap).toBeUndefined();
 
-    act(() => view.render({ ...MODEL, shuffling: true }));
+    act(() => store.setState({ model: { ...MODEL, shuffling: true } }));
     expect(shuffle.dataset.loading).toBe('true');
     expect(shuffle.getAttribute('aria-busy')).toBe('true');
 
-    act(() => view.render({ ...MODEL, text: '换一句', swapCount: 1 }));
+    act(() => store.setState({ model: { ...MODEL, text: '换一句', swapCount: 1 } }));
     expect(shuffle.dataset.loading).toBeUndefined();
     const line = view.getTextElement();
     expect(line?.dataset.swap).toBe('true');
@@ -102,7 +103,7 @@ describe('New Tab quote line', () => {
       line?.dispatchEvent(new Event('animationend', { bubbles: true }));
     });
     expect(view.getTextElement()?.dataset.swap).toBeUndefined();
-    act(() => view.render({ ...MODEL, text: '再换一句', swapCount: 2 }));
+    act(() => store.setState({ model: { ...MODEL, text: '再换一句', swapCount: 2 } }));
     expect(view.getTextElement()?.dataset.swap).toBe('true');
   });
 });

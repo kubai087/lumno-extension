@@ -5,8 +5,9 @@ import type { FeatureHintChromeApi, FeatureHintController, FeatureHintOptions } 
 import type { Translate } from '../../newtab-types';
 import type { EffectSliderKey, GlassTheme, ThemeScope, WallpaperPanelActions } from '../../react/wallpaper-panel/panel-model';
 import type { SliderChange } from '../../react/wallpaper-panel/panel-primitives';
-import type { WallpaperViewController } from '../../react/wallpaper-view';
 import type { QuoteRuntime } from '../../top-content/quotes';
+import type { Store } from '../../../shared/state/store';
+import type { SectionSettingsSlot } from '../../react/wallpaper-view';
 import type { WallpaperEffectPrefs } from '../../dom/wallpaper-effects';
 import type { CustomWallpapers } from './custom-wallpapers';
 import type { DailyWallpapers } from './daily-wallpapers';
@@ -33,9 +34,10 @@ import type { WallpaperPanelView } from './panel-view';
 // Whether a layout change is only shown or also saved.
 type PersistOptions = { persist: boolean };
 
-// The bookmark and site card settings, which the panel draws from their runtime's model.
+// The bookmark and site card settings, which the panel draws from their runtime's store.
 interface SectionPanelSettings {
-  bindSettings(view: WallpaperViewController | null): void;
+  bindSettings(): void;
+  settingsState: Store<SectionSettingsSlot>;
 }
 
 interface PanelActionsDeps extends
@@ -75,7 +77,7 @@ interface PanelActionsDeps extends
   shortcutSizeConfig: SliderConfig;
   shortcutGapConfig: SliderConfig;
   options: {
-    getQuoteRuntime?: () => Pick<QuoteRuntime, 'bindSettings'> | null | undefined;
+    getQuoteRuntime?: () => Pick<QuoteRuntime, 'bindSettings' | 'settingsState'> | null | undefined;
     getSectionPanelSettings?: () => SectionPanelSettings | null | undefined;
   };
   document: Document;
@@ -351,11 +353,16 @@ function createPanelActions(deps: PanelActionsDeps) {
       return;
     }
     wallpaperPanelRendered = true;
+    const controller = panelView.controller;
     const quoteRuntime = options.getQuoteRuntime && options.getQuoteRuntime();
-    if (quoteRuntime) quoteRuntime.bindSettings(panelView.controller);
+    if (quoteRuntime) {
+      quoteRuntime.bindSettings();
+      if (controller) controller.attachSettings({ quote: quoteRuntime.settingsState });
+    }
     const sectionSettings = options.getSectionPanelSettings && options.getSectionPanelSettings();
     if (sectionSettings) {
-      sectionSettings.bindSettings(panelView.controller);
+      sectionSettings.bindSettings();
+      if (controller) controller.attachSettings({ section: sectionSettings.settingsState });
     }
   }
 

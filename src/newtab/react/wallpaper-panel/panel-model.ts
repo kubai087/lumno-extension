@@ -435,3 +435,17 @@ export function collapsible(expanded: boolean, withHidden = true) {
     ...(withHidden ? { hidden: !expanded } : {})
   };
 }
+
+// The panel's state as its owner last set it.
+export interface WallpaperPanelStateSlot {
+  state: WallpaperPanelState;
+}
+
+// A section's model as its runtime last set it; null until the panel first opens.
+export interface SectionSettingsSlot {
+  model: SectionSettingsModel | null;
+}
+
+export interface QuoteSettingsSlot {
+  model: QuoteSettingsModel | null;
+}

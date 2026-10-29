@@ -12,9 +12,16 @@ import {
   type WallpaperPanelModel,
   type QuoteSettingsActions,
   type SectionSettingsActions,
+  type QuoteSettingsModel,
+  type QuoteSettingsSlot,
+  type SectionSettingsModel,
+  type SectionSettingsSlot,
   type WallpaperPanelState,
+  type WallpaperPanelStateSlot,
   type WallpaperViewController
 } from './wallpaper-view';
+import { createViewStore } from '../../shared/react/view-store';
+import type { Store } from '../../shared/state/store';
 import { expectElement, expectTag, getElement, getElements, getTag, getTags, required } from '../../../tests/react/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
@@ -66,9 +73,13 @@ function createState(edit?: (state: WallpaperPanelState, actions: MockActions) =
   return { actions, state };
 }
 
+let panelState: Store<WallpaperPanelStateSlot> | null = null;
+
 function mount(state: WallpaperPanelState, model: WallpaperPanelModel = MODEL) {
+  const stateStore = createViewStore<WallpaperPanelStateSlot>({ state });
+  panelState = stateStore;
   act(() => {
-    controller = createWallpaperViewController({ documentObj: document, model, state });
+    controller = createWallpaperViewController({ documentObj: document, model, state: stateStore });
   });
   if (!controller) {
     throw new Error('Expected wallpaper view controller');
@@ -104,8 +115,19 @@ function createSectionActions(): Record<keyof SectionSettingsActions, Mock> {
   };
 }
 
+// The owner builds each state anew; a test that edits one in place hands
+// a copy.
 function rerender(state: WallpaperPanelState) {
-  act(() => controller?.render(state));
+  act(() => panelState?.setState({ state: { ...state } }));
+}
+
+// Joins a section's model to the panel, as its runtime does on the first open.
+function showSectionSettings(view: WallpaperViewController | null, model: SectionSettingsModel) {
+  act(() => view?.attachSettings({ section: createViewStore<SectionSettingsSlot>({ model }) }));
+}
+
+function showQuoteSettings(view: WallpaperViewController | null, model: QuoteSettingsModel) {
+  act(() => view?.attachSettings({ quote: createViewStore<QuoteSettingsSlot>({ model }) }));
 }
 
 function refs() {
@@ -183,12 +205,12 @@ describe('New Tab React wallpaper view', () => {
     const { state } = createState();
     mount(state);
     const view = required(controller, 'controller');
-    act(() => view.renderSectionSettings(createSectionSettingsModel(createSectionActions())));
+    showSectionSettings(view, createSectionSettingsModel(createSectionActions()));
     const quoteActions = createQuoteActions();
     const onQuotePositionChange = vi.fn();
-    act(() => view.renderQuoteSettings(createQuoteSettingsModel(quoteActions, (model) => {
+    showQuoteSettings(view, createQuoteSettingsModel(quoteActions, (model) => {
       model.quote.positionSelect.onChange = onQuotePositionChange;
-    })));
+    }));
     expect(view.control.dataset.reactIsland).toBe('newtab-wallpaper');
     expect(view.control.dataset.panelOpen).toBe('false');
     expect(refs().builtInGrid).toBeTruthy();
@@ -317,9 +339,9 @@ describe('New Tab React wallpaper view', () => {
       draft.favicon.options = draft.favicon.options.map((option) => ({ ...option, selected: option.id === 'alternate' }));
     });
     // A section another runtime drew stays as it drew it.
-    act(() => controller?.renderQuoteSettings(createQuoteSettingsModel(createQuoteActions(), (model) => {
+    showQuoteSettings(controller, createQuoteSettingsModel(createQuoteActions(), (model) => {
       model.quote.enabled = true;
-    })));
+    }));
     rerender(next);
     expect(required(controller, 'controller').panel).toBe(panel);
     expect(refs().quoteBody.hidden).toBe(false);
@@ -861,12 +883,12 @@ describe('New Tab React wallpaper view', () => {
     const { state } = createState();
     mount(state);
     expect(refs().bookmarkSettingsSection).toBeUndefined();
-    act(() => controller?.renderQuoteSettings(createQuoteSettingsModel(createQuoteActions())));
+    showQuoteSettings(controller, createQuoteSettingsModel(createQuoteActions()));
     const shortcutsSection = refs().shortcutsAccordion.parentElement;
     expect(shortcutsSection?.nextElementSibling).toBe(refs().quoteDivider);
 
     const actions = createSectionActions();
-    act(() => controller?.renderSectionSettings(createSectionSettingsModel(actions)));
+    showSectionSettings(controller, createSectionSettingsModel(actions));
     expect(shortcutsSection?.nextElementSibling?.nextElementSibling).toBe(refs().bookmarkSettingsSection);
     expect(refs().bookmarkSettingsSection.nextElementSibling?.nextElementSibling).toBe(refs().recentSettingsSection);
     expect(refs().recentSettingsSection.nextElementSibling).toBe(refs().quoteDivider);
@@ -892,11 +914,11 @@ describe('New Tab React wallpaper view', () => {
     expect(actions.setRecentRows).toHaveBeenCalledWith('2');
     expect(actions.setRecentVisible).toHaveBeenCalledWith(false);
 
-    act(() => controller?.renderSectionSettings(createSectionSettingsModel(actions, (model) => {
+    showSectionSettings(controller, createSectionSettingsModel(actions, (model) => {
       model.bookmark.expanded = true;
       model.bookmark.topbarMode = true;
       model.recent.enabled = false;
-    })));
+    }));
     expect(refs().bookmarkSettingsTrigger.getAttribute('aria-expanded')).toBe('true');
     expect(refs().bookmarkSettingsBody.hidden).toBe(false);
     expect(refs().bookmarkGridSettings.hidden).toBe(true);
@@ -914,13 +936,13 @@ describe('New Tab React wallpaper view', () => {
     mount(state);
     expect(refs().quoteSection).toBeUndefined();
     const actions = createQuoteActions();
-    act(() => controller?.renderQuoteSettings(createQuoteSettingsModel(actions)));
+    showQuoteSettings(controller, createQuoteSettingsModel(actions));
     expect(expectTag(refs().quoteAccordionTrigger, 'button').disabled).toBe(true);
     expect(refs().quoteBody.hidden).toBe(true);
     act(() => expectTag(refs().quoteEnabledToggle, 'input').click());
     expect(actions.setEnabled).toHaveBeenCalledWith(true);
 
-    act(() => controller?.renderQuoteSettings(createQuoteSettingsModel(actions, (model) => {
+    showQuoteSettings(controller, createQuoteSettingsModel(actions, (model) => {
       model.quote.enabled = true;
       model.quote.customMode = true;
       model.quote.source.active = 'custom';
@@ -928,7 +950,7 @@ describe('New Tab React wallpaper view', () => {
       model.quote.library.count = { text: '3 quotes', label: 'mine.txt · 3 quotes', filename: 'mine.txt' };
       model.quote.library.shuffleVisible = true;
       model.quote.fontSize.value = 20;
-    })));
+    }));
     expect(refs().quoteBody.hidden).toBe(false);
     expect(refs().quoteCustomBody.hidden).toBe(false);
     expect(refs().quoteCategory.closest('.x-nt-appearance-setting-row')?.hasAttribute('hidden')).toBe(true);
@@ -951,9 +973,9 @@ describe('New Tab React wallpaper view', () => {
     act(() => fileInput.dispatchEvent(new Event('change', { bubbles: true })));
     expect(actions.importFile).toHaveBeenCalledWith(file);
 
-    act(() => controller?.renderQuoteSettings(createQuoteSettingsModel(actions, (model) => {
+    showQuoteSettings(controller, createQuoteSettingsModel(actions, (model) => {
       model.quote.enabled = true;
-    })));
+    }));
     act(() => getTag(refs().quoteCategory, '[data-quote-category="poetry"]', 'button').click());
     expect(actions.setCategory).toHaveBeenCalledWith('poetry');
   });

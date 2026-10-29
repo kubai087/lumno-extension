@@ -59,7 +59,7 @@ interface WallpaperPageDeps {
   // Settles once the auto-focus setting is read.
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
   followTheme(): PromiseLike<unknown>;
-  quoteRuntime: Pick<QuoteRuntime, 'element' | 'getTextElement' | 'bindSettings' | 'getProviderLabel' | 'updateLanguage'>;
+  quoteRuntime: Pick<QuoteRuntime, 'element' | 'getTextElement' | 'bindSettings' | 'settingsState' | 'getProviderLabel' | 'updateLanguage'>;
   sectionPanelSettings: SectionPanelSettings & { updateLanguage(): void };
   appliedTheme: Pick<AppliedThemeMode, 'events'>;
   locale: Pick<SurfaceLocale, 'store'>;

@@ -6,7 +6,8 @@ import type { StorageChanges } from '../domain/storage-port';
 import type { SelectMenuOption } from '../shared/react/select-menu/menu-options';
 import type { BookmarkViewMode } from './bookmarks/bookmark-display-settings';
 import type { Translate } from './newtab-types';
-import type { WallpaperViewController } from './react/wallpaper-view';
+import type { SectionSettingsSlot } from './react/wallpaper-view';
+import { createViewStore } from '../shared/react/view-store';
 import type { PanelSelectModel, SectionSettingsActions, SectionSettingsModel } from './react/wallpaper-panel/panel-model';
 import type { SliderChange } from './react/wallpaper-panel/panel-primitives';
 
@@ -60,8 +61,6 @@ interface SectionPanelSettingsOptions {
   setRecentCount?: PersistedSetter<number>;
 }
 
-// The panel view that draws the sections.
-type SectionSettingsView = Pick<WallpaperViewController, 'renderSectionSettings'>;
 
 function isBookmarkViewMode(value: unknown): value is BookmarkViewMode {
   return value === 'folder' || value === 'list' || value === 'top';
@@ -76,7 +75,9 @@ function createRuntime(options: SectionPanelSettingsOptions) {
   const window = config.windowObj || globalThis.window;
   const t = config.t;
   const watchedKeys = new Set(config.watchedKeys || []);
-  let view: SectionSettingsView | null = null;
+  // The sections' model in the panel, set from the panel's first open on.
+  const settingsState = createViewStore<SectionSettingsSlot>({ model: null });
+  let bound = false;
   let bookmarkExpanded = false;
   let recentExpanded = false;
   let lastBookmarkCount = 0;
@@ -311,15 +312,15 @@ function createRuntime(options: SectionPanelSettingsOptions) {
   }
 
   function update(): void {
-    if (!view) return;
+    if (!bound) return;
     window.clearTimeout(updateTimer);
     updateTimer = 0;
-    view.renderSectionSettings(getModel());
+    settingsState.setState({ model: getModel() });
   }
 
   // Storage listeners run in registration order; reading after them sees the page's new values.
   function scheduleUpdate(): void {
-    if (!view || updateTimer) return;
+    if (!bound || updateTimer) return;
     updateTimer = window.setTimeout(update, 0);
   }
 
@@ -327,10 +328,10 @@ function createRuntime(options: SectionPanelSettingsOptions) {
     if (changes && Object.keys(changes).some((key) => watchedKeys.has(key))) scheduleUpdate();
   }
 
-  // Draws the sections in the panel from now on.
-  function bindSettings(nextView: SectionSettingsView | null | undefined): void {
-    if (!nextView || view) return;
-    view = nextView;
+  // Sets the sections' model for the panel from now on.
+  function bindSettings(): void {
+    if (bound) return;
+    bound = true;
     const onChanged = config.chromeObj && config.chromeObj.storage && config.chromeObj.storage.onChanged;
     if (onChanged) {
       onChanged.addListener(handleStorageChange);
@@ -341,6 +342,7 @@ function createRuntime(options: SectionPanelSettingsOptions) {
 
   return Object.freeze({
     bindSettings,
+    settingsState,
     update,
     updateLanguage: update,
     handleStorageChange,
@@ -349,7 +351,7 @@ function createRuntime(options: SectionPanelSettingsOptions) {
       drags.forEach((drag) => window.clearTimeout(drag.timer));
       drags.clear();
       if (unsubscribe) unsubscribe();
-      view = null;
+      bound = false;
     }
   });
 }

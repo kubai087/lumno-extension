@@ -420,17 +420,23 @@ function createRecordingWallpaperViewController(config) {
     panel,
     button,
     model: config.model,
-    state: config.state,
+    state: config.state.getSnapshot().state,
     renders: 0,
     focused: [],
     selectOpen: false,
     getRefs() {
       return refs;
     },
-    render(state) {
-      view.state = state;
-      view.renders += 1;
-      control.setAttribute('data-panel-open', state.open ? 'true' : 'false');
+    attachSettings(stores) {
+      // Each section's runtime sets its own store; the panel draws its latest model.
+      [['quote', 'quoteSettings'], ['section', 'sectionSettings']].forEach(([name, field]) => {
+        const store = stores[name];
+        if (!store) return;
+        view[field] = store.getSnapshot().model;
+        store.subscribe(() => {
+          view[field] = store.getSnapshot().model;
+        });
+      });
     },
     focus(name) {
       view.focused.push(name);
@@ -444,14 +450,15 @@ function createRecordingWallpaperViewController(config) {
     containsSelectMenuTarget(target) {
       return target === view.selectMenu;
     },
-    renderQuoteSettings(model) {
-      view.quoteSettings = model;
-    },
-    renderSectionSettings(model) {
-      view.sectionSettings = model;
-    },
     destroy() {}
   };
+  // The panel draws each state its owner sets.
+  config.state.subscribe(() => {
+    const state = config.state.getSnapshot().state;
+    view.state = state;
+    view.renders += 1;
+    control.setAttribute('data-panel-open', state.open ? 'true' : 'false');
+  });
   view.selectMenu = documentObj.createElement('div');
   control.__view = view;
   return view;

@@ -7,7 +7,7 @@ import type { StorageAreaLike, StorageItems } from '../../domain/storage-port';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { TooltipController } from '../../shared/ui/tooltip';
 import type { ShowToast, Translate } from '../newtab-types';
-import type { WallpaperViewController } from '../react/wallpaper-view';
+import type { QuoteSettingsSlot } from '../react/wallpaper-view';
 import type { QuoteSettingsActions, QuoteSettingsModel } from '../react/wallpaper-panel/panel-model';
 import type { SliderChange } from '../react/wallpaper-panel/panel-primitives';
 import type { QuoteLineModel } from '../react/quote-line';
@@ -17,6 +17,8 @@ import type { DailyQuote } from '../remote-content-types';
 import * as LumnoCustomQuotes from '../../domain/custom-quotes';
 import type { QuoteFile, QuoteLibrary } from '../../domain/custom-quotes';
 import { createQuoteLineView } from '../react/quote-line';
+import type { QuoteLineState } from '../react/quote-line';
+import { createViewStore } from '../../shared/react/view-store';
 import { quoteCache } from '../../domain/settings/newtab-quote';
 import * as NewtabQuoteSettings from '../../domain/settings/newtab-quote';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
@@ -26,7 +28,6 @@ type QuoteStorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 type QuoteTooltip = Pick<TooltipController, 'show' | 'hide'>;
 
 // The panel view, which draws the quote section.
-type QuoteSettingsView = Pick<WallpaperViewController, 'renderQuoteSettings'>;
 
 interface QuoteRuntimeOptions {
   documentObj?: Document;
@@ -72,7 +73,9 @@ function createRuntime(options: QuoteRuntimeOptions) {
   let prefs = settings.newtabQuotePrefs.parse(null);
   let quote: DailyQuote | null = null;
   let revision = 0;
-  let settingsView: QuoteSettingsView | null = null;
+  // The quote section's model in the panel, set from the panel's first open on.
+  const settingsState = createViewStore<QuoteSettingsSlot>({ model: null });
+  let settingsBound = false;
   let settingsExpanded = true;
   let mounted = false;
   let dayTimer: number | undefined;
@@ -239,7 +242,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
   }
 
   function renderSettings(): void {
-    if (settingsView) settingsView.renderQuoteSettings(getSettingsModel());
+    if (settingsBound) settingsState.setState({ model: getSettingsModel() });
   }
 
   const shuffleLabel = () => t('newtab_quote_shuffle', 'Show another quote');
@@ -254,12 +257,13 @@ function createRuntime(options: QuoteRuntimeOptions) {
     const tooltip = getTooltip();
     if (tooltip) tooltip.hide();
   };
+  const lineState = createViewStore<QuoteLineState>({ model: null });
   const lineView = createQuoteLineView(element, {
     onShowOrigin: (target) => showTooltip(target, origin),
     onShowShuffleLabel: (target) => showTooltip(target, shuffleLabel()),
     onHideTooltip: hideTooltip,
     onShuffle: () => { void shuffle(); }
-  });
+  }, lineState);
 
   function getLineModel(current: DailyQuote): QuoteLineModel {
     const withoutTooltip = !config.getTooltipController;
@@ -278,7 +282,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
   }
 
   function renderLine(): void {
-    if (quote && !disposed) lineView.render(getLineModel(quote));
+    if (quote && !disposed) lineState.setState({ model: getLineModel(quote) });
   }
 
   function updateText(): void {
@@ -470,10 +474,9 @@ function createRuntime(options: QuoteRuntimeOptions) {
       return false;
     } finally { importing = false; if (!disposed) renderSettings(); }
   }
-  // Draws the quote section in the panel from now on.
-  function bindSettings(nextView: QuoteSettingsView | null | undefined): void {
-    if (!nextView) return;
-    settingsView = nextView;
+  // Sets the quote section's model for the panel from now on.
+  function bindSettings(): void {
+    settingsBound = true;
     renderSettings();
   }
   function mount(): Promise<void> {
@@ -490,7 +493,7 @@ function createRuntime(options: QuoteRuntimeOptions) {
     }).then(() => undefined);
   }
   config.locale.store.subscribe(updateLanguage);
-  return Object.freeze({ element, mount, bindSettings, updateLanguage, getProviderLabel,
+  return Object.freeze({ element, mount, bindSettings, settingsState, updateLanguage, getProviderLabel,
     getTextElement: () => lineView.getTextElement(),
     importQuoteFile,
     importMarkdown: importQuoteFile,

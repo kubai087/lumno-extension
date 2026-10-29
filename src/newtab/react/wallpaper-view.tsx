@@ -7,9 +7,9 @@ import {
   SELECT_IDS,
   SELECT_HOST_REFS,
   type WallpaperPanelModel,
-  type QuoteSettingsModel,
-  type SectionSettingsModel,
-  type WallpaperPanelState
+  type QuoteSettingsSlot,
+  type SectionSettingsSlot,
+  type WallpaperPanelStateSlot
 } from './wallpaper-panel/panel-model';
 import { useWallpaperPanel, type WallpaperPanelProps } from './wallpaper-panel/use-wallpaper-panel';
 import { ThemeSection } from './wallpaper-panel/theme-section';
@@ -23,8 +23,13 @@ import { WallpaperSection } from './wallpaper-panel/wallpaper-section';
 import { FaviconSection } from './wallpaper-panel/favicon-section';
 import { queryHtmlElement, queryHtmlElements, queryHtmlTag } from '../../shared/dom-lookup';
 import { getPagePortals } from '../app/portals';
+import { useLayoutEffect } from 'react';
+import { useStore } from '../../shared/react/use-store';
+import { createViewStore } from '../../shared/react/view-store';
+import { createStore } from '../../shared/state/store';
+import type { Store } from '../../shared/state/store';
 export { EFFECT_SLIDER_KEYS } from './wallpaper-panel/panel-model';
-export type { WallpaperSourceTab, WallpaperMode, ThemeScope, TopContentMode, TimeInk, GlassTheme, EffectSliderKey, WallpaperPanelModel, TileState, OnlineTileState, SelectedSourceState, DailyState, PanelSelectModel, CuratedMixState, WallpaperPanelActions, WallpaperPanelState, SectionSettingsActions, SectionSettingsModel, QuoteSettingsActions, QuoteSettingsModel } from './wallpaper-panel/panel-model';
+export type { WallpaperSourceTab, WallpaperMode, ThemeScope, TopContentMode, TimeInk, GlassTheme, EffectSliderKey, WallpaperPanelModel, TileState, OnlineTileState, SelectedSourceState, DailyState, PanelSelectModel, CuratedMixState, WallpaperPanelActions, WallpaperPanelState, SectionSettingsActions, SectionSettingsModel, QuoteSettingsActions, QuoteSettingsModel, WallpaperPanelStateSlot, SectionSettingsSlot, QuoteSettingsSlot } from './wallpaper-panel/panel-model';
 
 function WallpaperPanel(props: WallpaperPanelProps) {
   const panel = useWallpaperPanel(props);
@@ -146,22 +151,43 @@ export interface WallpaperViewController {
   /** Elements by data-wallpaper-ref, for the sections other runtimes fill in. */
   getRefs(): Record<string, HTMLElement>;
   panel: HTMLDivElement;
-  /** Renders the panel from new state; the DOM is up to date when this returns. */
-  render(state: WallpaperPanelState): void;
-  // Draws the bookmark and site card sections from their runtime's model.
-  renderSectionSettings(model: SectionSettingsModel): void;
-  // Draws the quote section from its runtime's model.
-  renderQuoteSettings(model: QuoteSettingsModel): void;
+  // The bookmark, site card and quote sections join the panel with the
+  // stores their runtimes set.
+  attachSettings(stores: Partial<PanelSettingsStores>): void;
+}
+
+interface PanelSettingsStores {
+  section: Store<SectionSettingsSlot>;
+  quote: Store<QuoteSettingsSlot>;
+}
+
+const NO_SECTION_SETTINGS = createStore<SectionSettingsSlot>({ model: null });
+const NO_QUOTE_SETTINGS = createStore<QuoteSettingsSlot>({ model: null });
+
+interface WallpaperPanelRootProps extends Omit<WallpaperPanelProps, 'state' | 'sectionSettings' | 'quoteSettings'> {
+  control: HTMLElement;
+  stateStore: Store<WallpaperPanelStateSlot>;
+  settingsStores: Store<Partial<PanelSettingsStores>>;
+}
+
+// The panel drawn from its owner's state and the sections' models.
+function WallpaperPanelRoot({ control, stateStore, settingsStores, ...props }: WallpaperPanelRootProps) {
+  const { state } = useStore(stateStore);
+  const stores = useStore(settingsStores);
+  const sectionSettings = useStore(stores.section || NO_SECTION_SETTINGS).model;
+  const quoteSettings = useStore(stores.quote || NO_QUOTE_SETTINGS).model;
+  useLayoutEffect(() => {
+    control.dataset.panelOpen = state.open ? 'true' : 'false';
+  }, [control, state.open]);
+  return <WallpaperPanel {...props} quoteSettings={quoteSettings} sectionSettings={sectionSettings} state={state} />;
 }
 
 export function createWallpaperViewController(
-  config: { documentObj?: Document; model?: WallpaperPanelModel; state: WallpaperPanelState }
+  config: { documentObj?: Document; model?: WallpaperPanelModel; state: Store<WallpaperPanelStateSlot> }
 ): WallpaperViewController {
   const documentObj: Document = config.documentObj || document;
   const model = config.model || {};
-  let state = config.state;
-  let sectionSettings: SectionSettingsModel | null = null;
-  let quoteSettings: QuoteSettingsModel | null = null;
+  const settingsStores = createViewStore<Partial<PanelSettingsStores>>({});
   const selectControls = new Map<string, SelectMenuControls>();
   const registerSelect = (id: string, controls: SelectMenuControls) => {
     selectControls.set(id, controls);
@@ -170,20 +196,16 @@ export function createWallpaperViewController(
   control.className = 'x-nt-wallpaper-control';
   control.dataset.reactIsland = 'newtab-wallpaper';
   let destroyed = false;
-  const renderRoot = () => {
-    control.dataset.panelOpen = state.open ? 'true' : 'false';
-    getPagePortals().show(control, (
-      <WallpaperPanel
-        documentObj={documentObj}
-        model={model}
-        quoteSettings={quoteSettings}
-        registerSelect={registerSelect}
-        sectionSettings={sectionSettings}
-        state={state}
-      />
-    ));
-  };
-  renderRoot();
+  getPagePortals().show(control, (
+    <WallpaperPanelRoot
+      control={control}
+      documentObj={documentObj}
+      model={model}
+      registerSelect={registerSelect}
+      settingsStores={settingsStores}
+      stateStore={config.state}
+    />
+  ));
   const panel = queryHtmlTag(control, '[data-wallpaper-ref="panel"]', 'div');
   const button = queryHtmlTag(control, '[data-wallpaper-ref="button"]', 'button');
   if (!panel || !button) {
@@ -218,10 +240,9 @@ export function createWallpaperViewController(
     },
     getRefs,
     panel,
-    render(nextState: WallpaperPanelState) {
+    attachSettings(stores: Partial<PanelSettingsStores>) {
       if (destroyed) return;
-      state = nextState;
-      renderRoot();
+      settingsStores.setState(stores);
     },
     closeOpenSelect(options?: { restoreFocus?: boolean }) {
       const openId = SELECT_IDS.find((id) => selectControls.get(id)?.isOpen());
@@ -238,16 +259,6 @@ export function createWallpaperViewController(
     containsSelectMenuTarget(target: Node | null) {
       return Boolean(target && SELECT_IDS.some((id) => documentObj
         .querySelector(`[data-react-select-owner="${id}"]`)?.contains(target)));
-    },
-    renderQuoteSettings(nextModel: QuoteSettingsModel) {
-      if (destroyed) return;
-      quoteSettings = nextModel;
-      renderRoot();
-    },
-    renderSectionSettings(nextModel: SectionSettingsModel) {
-      if (destroyed) return;
-      sectionSettings = nextModel;
-      renderRoot();
     }
   };
   return Object.freeze(controller);

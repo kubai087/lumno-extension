@@ -158,7 +158,7 @@ interface WallpaperRuntimeOptions {
   // The page's own adaptive tone targets.
   getAdaptiveToneTargets?: () => ReadonlyArray<AdaptiveToneTarget | null | undefined>;
   fetchRemoteContent?: (url: string, init: RequestInit) => Promise<Response>;
-  getQuoteRuntime?: () => Pick<QuoteRuntime, 'bindSettings' | 'getProviderLabel' | 'updateLanguage'> | null | undefined;
+  getQuoteRuntime?: () => Pick<QuoteRuntime, 'bindSettings' | 'settingsState' | 'getProviderLabel' | 'updateLanguage'> | null | undefined;
   getSectionPanelSettings?: () => (SectionPanelSettings & { updateLanguage(): void }) | null | undefined;
 }
 

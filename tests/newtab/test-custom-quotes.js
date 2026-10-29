@@ -2,13 +2,14 @@ const { createMemorySettings } = require('../helpers/memory-settings');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-// Stands in for the React line view: keeps the last model and handlers.
+// Stands in for the React line view: reads the model from the runtime's
+// store, and keeps the handlers.
 let line = null;
 globalThis.__lumnoTestModuleStubs = Object.assign(globalThis.__lumnoTestModuleStubs || {}, {
   'src/newtab/react/quote-line.tsx': {
-    createQuoteLineView(_host, handlers) {
-      line = { model: null, handlers };
-      return { render(model) { line.model = model; }, getTextElement: () => null, destroy() {} };
+    createQuoteLineView(_host, handlers, store) {
+      line = { get model() { return store.getSnapshot().model; }, handlers };
+      return { getTextElement: () => null, destroy() {} };
     }
   }
 });
@@ -52,8 +53,6 @@ async function main() {
   });
   const local = memory.data.local;
   let networkCalls = 0;
-  // Stands in for the appearance panel: keeps the last model.
-  let panelModel = null;
   const makeRuntime = () => quotesApi.createRuntime({ documentObj: document, windowObj: dom.window,
     t: (key, fallback) => locale[key]?.message || fallback, locale: { store: { getSnapshot: () => ({ locale: 'en' }), subscribe: () => () => {} } },
     getSearchRoot: () => document.querySelector('#search'), getShortcutSection: () => document.querySelector('#shortcuts'),
@@ -61,8 +60,8 @@ async function main() {
     client: { getQuote() { networkCalls++; return Promise.resolve({ text: 'Remote', author: '', source: '', url: 'https://hitokoto.cn/' }); } }
   });
   const runtime = makeRuntime(); await runtime.mount(); await tick();
-  runtime.bindSettings({ renderQuoteSettings(model) { panelModel = model; } });
-  const status = () => panelModel.quote.library.status;
+  runtime.bindSettings();
+  const status = () => runtime.settingsState.getSnapshot().model.quote.library.status;
   assert.equal(networkCalls, 0); assert.equal(runtime.element.hidden, true);
   const file = { name: 'my.md', size: 200, text: async () => 'First local quote.\nSecond local quote.' };
   assert.equal(await runtime.importQuoteFile(file), true); await tick();

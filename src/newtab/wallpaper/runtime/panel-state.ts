@@ -50,6 +50,9 @@ import type { OnlineWallpapers } from './online-wallpapers';
 import type { WallpaperLibrary } from './wallpaper-library';
 import type { WallpaperChoice } from './wallpaper-choice';
 import { createWallpaperViewController } from '../../react/wallpaper-view';
+import type { WallpaperPanelStateSlot } from '../../react/wallpaper-view';
+import { createViewStore } from '../../../shared/react/view-store';
+import type { Store } from '../../../shared/state/store';
 import type { WallpaperPanelView } from './panel-view';
 import { getAppearanceModeLabels } from './appearance-labels';
 import { isLinkWallpaperId } from './wallpaper-library';
@@ -1021,6 +1024,8 @@ function createPanelState(deps: PanelStateDeps) {
   let panelActions: WallpaperPanelActions | null = null;
   let drawnState: WallpaperPanelState | null = null;
   let drawnLayoutKey = '';
+  // The state the panel draws, from its first draw on.
+  let panelStateStore: Store<WallpaperPanelStateSlot> | null = null;
 
   // Draws the panel for the first time, with the actions its controls call.
   function mountWallpaperPanel(actions: WallpaperPanelActions): void {
@@ -1031,10 +1036,11 @@ function createPanelState(deps: PanelStateDeps) {
     }
     drawnState = state;
     drawnLayoutKey = getWallpaperPanelLayoutKey(state);
+    panelStateStore = createViewStore<WallpaperPanelStateSlot>({ state });
     panelView.mount(createWallpaperViewController({
       documentObj: document,
       model: createWallpaperPanelModel(),
-      state
+      state: panelStateStore
     }));
   }
 
@@ -1072,9 +1078,9 @@ function createPanelState(deps: PanelStateDeps) {
   }
 
   function drawWallpaperPanelState(): void {
-    const controller = panelView.controller;
-    const state = controller ? buildWallpaperPanelState() : null;
-    if (!controller || !state) {
+    const stateStore = panelStateStore;
+    const state = stateStore ? buildWallpaperPanelState() : null;
+    if (!stateStore || !state) {
       return;
     }
     const previous = wallpaperPanelDrawPending ? null : drawnState;
@@ -1085,7 +1091,7 @@ function createPanelState(deps: PanelStateDeps) {
     drawnLayoutKey = layoutKey;
     // Rows that show or hide (mode, link form, effect controls) animate their own height
     // through .x-nt-panel-collapsible.
-    const apply = () => controller.render(state);
+    const apply = () => stateStore.setState({ state });
     if (layoutChanged) {
       animateWallpaperPanelResize(apply);
       return;
