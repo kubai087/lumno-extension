@@ -10,7 +10,7 @@ import type {
 import { holdSuggestionsHeight, releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { AppearanceModes } from '../appearance-modes';
 import type { FormatMessage, Translate } from '../newtab-types';
-import type { SearchNavigation, SearchNavigationDeps } from './search-navigation';
+import type { SearchNavigation } from './search-navigation';
 import type {
   RequestSuggestionsOptions,
   SlashCommand
@@ -52,6 +52,7 @@ import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 import type { WebAppearance } from './web-appearance';
 import type { InputModeProvider } from '../../shared/search/input-mode/types';
+import type { PageNavigation } from '../page-navigation';
 
 
 interface SuggestionsControllerDeps {
@@ -72,7 +73,7 @@ interface SuggestionsControllerDeps {
   webAppearance: Pick<WebAppearance, 'set'>;
   shouldSwitchMatchedTabSuggestion: SearchNavigation['shouldSwitchMatchedTabSuggestion'];
   resultActivation: ResultActivation;
-  navigateToQuery: SearchNavigationDeps['navigateToQuery'];
+  navigateToQuery: PageNavigation['navigateToQuery'];
   suggestionsContainer: HTMLElement;
   suggestionItems: SuggestionElement[];
   refreshTabsForSearchContext: SearchNavigation['refreshTabsForSearchContext'];

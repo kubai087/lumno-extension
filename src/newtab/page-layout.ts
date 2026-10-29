@@ -2,7 +2,6 @@
 // and search width, shortcut grid sizing, which content sections show, and
 // the search entry's vertical position as the viewport changes.
 import type { SearchEntryLayoutOptions, WidthModeConfig } from './layout';
-import type { PagePreferences } from './page-preferences';
 import type { RecentSitesController } from './recent/recent-sites-controller';
 import type { SuggestionsLayout } from './search/suggestions-layout';
 import type { ShortcutContextMenu } from './shortcuts/shortcut-context-menu';
@@ -14,7 +13,7 @@ import type { SettingsStore } from '../platform/settings-store';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from './setting-preview';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
-import { bookmarkColumns } from '../domain/settings/bookmarks';
+import { bookmarkColumns, bookmarkCount } from '../domain/settings/bookmarks';
 import { recentCount } from '../domain/settings/recent-sites';
 import * as NEWTAB_LAYOUT from './layout';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX, NEWTAB_WIDTH_MODE_CONFIGS, RECENT_CARD_TARGET_WIDTH_PX, RECENT_GRID_GAP_PX } from './newtab-config';
@@ -26,6 +25,7 @@ import type { ShortcutList } from './shortcuts/shortcut-list';
 import type { BottomDockParts } from './shortcuts/bottom-dock-parts';
 import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 import { adaptiveToneEvents } from './wallpaper/tone-requests';
+import { normalizeNewtabSearchWidth } from '../domain/settings/newtab-page';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -40,8 +40,6 @@ interface ViewportSnapshot {
 
 
 interface PageLayoutDeps extends
-  Pick<PagePreferences,
-    'normalizeNewtabSearchWidth' | 'getBookmarkLimit'>,
   Pick<SuggestionsLayout, 'updateSuggestionsFloatingLayout'>,
   Pick<RecentSitesController, 'closeRecentContextMenu'>,
   Pick<ShortcutsController, 'getVisibleShortcuts'>,
@@ -74,8 +72,6 @@ function createPageLayout(deps: PageLayoutDeps) {
     shortcutList,
     preview,
     settings,
-    normalizeNewtabSearchWidth,
-    getBookmarkLimit,
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
     getVisibleShortcuts,
@@ -97,6 +93,16 @@ function createPageLayout(deps: PageLayoutDeps) {
 
   // The columns the bookmark grid shows at this width, for the column
   // setting or another one.
+  function getBookmarkLimit(columns?: number): number {
+    const normalized = preview.get(bookmarkCount);
+    if (normalized <= 0) {
+      return 8;
+    }
+    const rows = Math.max(1, Math.round(normalized / 4));
+    // Use the actual rendered column count so "show N rows" remains accurate on responsive layouts.
+    return rows * Math.max(1, getBookmarkGridColumnCount(columns));
+  }
+
   function getBookmarkGridColumnCount(columns: number = preview.get(bookmarkColumns)): number {
     const config = getNewtabWidthModeConfig();
     const maxColumns = Math.max(2, columns);
@@ -119,7 +125,7 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   function getEffectiveNewtabSearchWidth(): number {
-    const customWidth = normalizeNewtabSearchWidth(preview.get(newtabSearchWidth), { allowNull: true });
+    const customWidth = normalizeNewtabSearchWidth(preview.get(newtabSearchWidth), { ...SEARCH_WIDTH_CONFIG, allowNull: true });
     return customWidth || getNewtabWidthModeBaseConfig().searchMaxWidth || SEARCH_WIDTH_CONFIG.fallback;
   }
 
@@ -210,7 +216,7 @@ function createPageLayout(deps: PageLayoutDeps) {
   // a dragged one only shows until it is saved.
   function setNewtabSearchWidth(value: unknown, options?: { allowNull?: boolean; persist?: boolean }): boolean {
     const config = options || {};
-    const nextWidth = normalizeNewtabSearchWidth(value, { allowNull: Boolean(config.allowNull) });
+    const nextWidth = normalizeNewtabSearchWidth(value, { ...SEARCH_WIDTH_CONFIG, allowNull: Boolean(config.allowNull) });
     const changed = preview.get(newtabSearchWidth) !== nextWidth;
     if (config.persist && nextWidth !== null) {
       void settings.set(newtabSearchWidth, nextWidth);
@@ -424,6 +430,7 @@ function createPageLayout(deps: PageLayoutDeps) {
   }
 
   return {
+    getBookmarkLimit,
     followNewtabSearchWidth,
     followShortcutGridLayout,
     getBookmarkGridColumnCount,

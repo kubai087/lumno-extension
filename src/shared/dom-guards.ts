@@ -30,4 +30,16 @@ function isSvgElement(value: EventTarget | Node | null | undefined): value is SV
   return isElementNode(value) && value.namespaceURI === SVG_NAMESPACE;
 }
 
-export { isElementNode, isHtmlElement, isHtmlTag, isNode, isSvgElement };
+// Whether typing goes into this target: a text field or editable content.
+function isEditableElement(el: EventTarget | null | undefined): boolean {
+  if (!el) {
+    return false;
+  }
+  const tagName = 'tagName' in el && typeof el.tagName === 'string' ? el.tagName.toLowerCase() : '';
+  if (tagName === 'input' || tagName === 'textarea') {
+    return true;
+  }
+  return 'isContentEditable' in el && Boolean(el.isContentEditable);
+}
+
+export { isEditableElement, isElementNode, isHtmlElement, isHtmlTag, isNode, isSvgElement };

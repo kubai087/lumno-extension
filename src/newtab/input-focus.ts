@@ -7,6 +7,7 @@ import type { SettingsStore } from '../platform/settings-store';
 import type { FocusResume } from './focus-resume';
 import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
 import type { SearchBoxParts } from './search/search-box-parts';
+import { isEditableElement } from '../shared/dom-guards';
 
 
 interface InputFocusDeps {
@@ -40,17 +41,6 @@ function createInputFocus(deps: InputFocusDeps) {
   let fallbackShortcutRaw = '';
   let fallbackShortcutSpec: ShortcutSpec | null = null;
   let fallbackShortcutRefreshAt = 0;
-
-  function isEditableElement(el: EventTarget | null | undefined): boolean {
-    if (!el) {
-      return false;
-    }
-    const tagName = 'tagName' in el && typeof el.tagName === 'string' ? el.tagName.toLowerCase() : '';
-    if (tagName === 'input' || tagName === 'textarea') {
-      return true;
-    }
-    return 'isContentEditable' in el && Boolean(el.isContentEditable);
-  }
 
   function refreshFallbackShortcut(force: boolean): void {
     const now = Date.now();
@@ -314,7 +304,6 @@ function createInputFocus(deps: InputFocusDeps) {
   }
 
   return {
-    isEditableElement,
     refreshFallbackShortcut,
     handleGlobalTypingFocus
   };

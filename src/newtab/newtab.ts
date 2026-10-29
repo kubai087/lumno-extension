@@ -170,6 +170,7 @@ import { SearchBoxParts } from './search/search-box-parts';
 import { OpenTabs } from '../shared/search-panel/open-tabs';
 import { RecentSourceReads } from './recent/recent-source-reads';
 import { WebAppearance } from './search/web-appearance';
+import { createSearchSubmit } from './search/search-submit';
 import { createCommandCatalog } from './search/command-catalog';
 import { PageNoticeControllers } from './notice-controllers';
 import { AppliedThemeMode } from './theme/applied-theme-mode';
@@ -977,6 +978,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
+    getBookmarkLimit,
     getBookmarkGridColumnCount,
     getEffectiveNewtabSearchWidth,
     getRecentLimit,
@@ -1010,8 +1012,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shortcutList,
     preview,
     settings,
-    normalizeNewtabSearchWidth: (...args) => normalizeNewtabSearchWidth(...args),
-    getBookmarkLimit: (...args) => getBookmarkLimit(...args),
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
     getVisibleShortcuts: (...args) => getVisibleShortcuts(...args),
@@ -1023,7 +1023,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    normalizeNewtabSearchWidth,
     inferNewtabShortcutColumnsFromWidth,
     setNewtabShortcutsVisible,
     setNewtabShortcutAddVisible,
@@ -1031,12 +1030,10 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     setNewtabShortcutColumns,
     setNewtabShortcutSize,
     setNewtabShortcutGap,
-    initialNewtabInputAutoFocusReadyTask,
-    getBookmarkLimit
+    initialNewtabInputAutoFocusReadyTask
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
     preview,
-    settings,
-    getBookmarkGridColumnCount
+    settings
   });
 
   const sectionPanelSettings = LumnoNewtabSectionPanelSettings.createRuntime({
@@ -1522,7 +1519,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     setShortcutDragTileTransform: (...args) => setShortcutDragTileTransform(...args),
     formatMessage,
     hideCursorTooltip,
-    isEditableElement: (...args) => isEditableElement(...args),
     closeBookmarkCascadeMenu,
     renderCurrentBookmarkPage: (...args) => renderCurrentBookmarkPage(...args),
     applyShortcutGroupDeleteRecord,
@@ -1896,34 +1892,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getDirectUrlSuggestion,
     getMatchedOpenTabIdForSuggestion,
     shouldSwitchMatchedTabSuggestion,
-    refreshTabsForSearchContext,
-    submitSearchQuery
+    refreshTabsForSearchContext
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
-    appliedTheme,
     openTabs,
     searchBox,
-    siteSearchRunner,
-    modeActions,
-    searchResults,
-    searchMode,
-    searchAutocomplete,
-    searchQuery,
     settings,
     formatMessage,
-    getPageFaviconCandidateUrl,
-    resultActivation,
-    suggestionItems,
-    getAutoHighlightIndex: (...args) => getAutoHighlightIndex(...args),
-    renderSuggestions: (...args) => renderSuggestions(...args),
-    isSlashCommandInput,
-    getCommandMatch,
-    isModeCommand,
-    isZenCommand,
-    getNextThemeMode,
-    setVisibleThemeMode,
-    webAppearance,
-    openCommunityQrDialog,
-    navigateToQuery
+    getPageFaviconCandidateUrl
   });
 
   const {
@@ -1989,6 +1964,32 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openCommunityQrDialog
   });
 
+  const { submitSearchQuery } = createSearchSubmit({
+    quickNavigation,
+    shouldSwitchMatchedTabSuggestion,
+    siteSearchRunner,
+    modeActions,
+    searchResults,
+    searchMode,
+    searchAutocomplete,
+    searchQuery,
+    settings,
+    resultActivation,
+    suggestionItems,
+    renderSuggestions,
+    isSlashCommandInput,
+    getCommandMatch,
+    isModeCommand,
+    isZenCommand,
+    getNextThemeMode,
+    setVisibleThemeMode,
+    webAppearance,
+    openCommunityQrDialog,
+    navigateToQuery,
+    searchBox,
+    appliedTheme
+  });
+
   const { focusResume } = NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
     searchBox,
     modeActions,
@@ -2004,7 +2005,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   });
 
   const {
-    isEditableElement,
     refreshFallbackShortcut,
     handleGlobalTypingFocus
   } = NEWTAB_INPUT_FOCUS.createInputFocus({
@@ -2266,7 +2266,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     dismissStack,
     finishShortcutDrag,
     finishBookmarkDrag,
-    isEditableElement,
     performBookmarkMoveHistoryAction,
     suggestionItems,
     numberShortcutOptions

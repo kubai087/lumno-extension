@@ -4,7 +4,6 @@ import type { BookmarkCascadeActions } from './bookmarks/bookmark-cascade-action
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
 import type { PageLayout } from './page-layout';
-import type { PagePreferences } from './page-preferences';
 import type { BookmarksViewController } from './react/bookmarks';
 import type { RecentSitesViewController } from './react/recent-sites';
 import type { RecentSitesController } from './recent/recent-sites-controller';
@@ -48,7 +47,7 @@ interface SectionLoadersDeps extends
   Pick<BookmarkCascadeActions, 'closeBookmarkCascadeMenu' | 'getTopBookmarks'>,
   Pick<AppearanceModes, 'followTheme'>,
   Pick<PageFavicons, 'areFaviconRenderCachesReady' | 'waitForFaviconRenderCaches'>,
-  Pick<PagePreferences, 'getBookmarkLimit'>,
+  Pick<PageLayout, 'getBookmarkLimit'>,
   Pick<RecentSources, 'getRecentSites'> {
   settings: Pick<SettingsStore, 'get'>;
   preview: Pick<SettingPreview, 'get'>;

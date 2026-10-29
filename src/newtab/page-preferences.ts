@@ -1,7 +1,6 @@
 // New Tab display preferences: normalizing, loading and applying the shortcut,
 // auto-focus, simple mode and search result settings.
 import type * as LumnoSettings from '../domain/settings';
-import type { PageLayout } from './page-layout';
 import * as SettingsStorage from '../platform/settings-storage';
 import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
@@ -17,14 +16,12 @@ type PersistOptions = { persist?: boolean } | null | undefined;
 interface PagePreferencesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'set'>;
-  getBookmarkGridColumnCount: PageLayout['getBookmarkGridColumnCount'];
 }
 
 function createPagePreferences(deps: PagePreferencesDeps) {
   const {
     settings,
-    preview,
-    getBookmarkGridColumnCount
+    preview
   } = deps;
 
 
@@ -131,16 +128,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
 
   // The bookmarks one page holds; `columns` asks what it would be with
   // another column setting.
-  function getBookmarkLimit(columns?: number): number {
-    const normalized = preview.get(SETTINGS.bookmarkCount);
-    if (normalized <= 0) {
-      return 8;
-    }
-    const rows = Math.max(1, Math.round(normalized / 4));
-    // Use the actual rendered column count so "show N rows" remains accurate on responsive layouts.
-    return rows * Math.max(1, getBookmarkGridColumnCount(columns));
-  }
-
   return {
     normalizeNewtabWidthMode,
     normalizeNewtabSearchWidth,
@@ -162,7 +149,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     setNewtabShortcutGap,
     initialNewtabInputAutoFocusReadyTask,
     normalizeZenModeEnabled,
-    getBookmarkLimit
   };
 }
 

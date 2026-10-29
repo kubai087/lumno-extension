@@ -2,7 +2,6 @@
 // read, and again whenever they or a dragged slider's value change.
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { PageLayout } from './page-layout';
-import type { PagePreferences } from './page-preferences';
 import type { SectionLoaders } from './section-loaders';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
@@ -17,10 +16,8 @@ const SECTION_SETTINGS = [recentCount, recentMode, bookmarkCount, bookmarkColumn
 
 
 interface StartupPreferencesDeps extends
-  Pick<PagePreferences,
-    'getBookmarkLimit'>,
   Pick<PageLayout,
-    'applyNewtabWidthMode' | 'applyRecentGridColumns' |
+    'getBookmarkLimit' | 'applyNewtabWidthMode' | 'applyRecentGridColumns' |
     'applyBookmarkGridColumns' | 'keepBookmarkPageAnchorAfterLimitChange' | 'updateBookmarkSectionPosition'> {
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'store'>;

@@ -1,7 +1,7 @@
 // Bookmark card layout animation, drag and drop (within the grid, across
 // folders and onto shortcuts) and the bookmark move undo history.
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
-import { isElementNode, isHtmlElement, isHtmlTag } from '../../shared/dom-guards';
+import { isElementNode, isHtmlElement, isHtmlTag, isEditableElement } from '../../shared/dom-guards';
 import { queryHtmlTags } from '../../shared/dom-lookup';
 import { createSvgElement } from '../../shared/ui/svg-tree';
 import type {
@@ -82,7 +82,6 @@ interface BookmarkDragControllerDeps {
   setShortcutDragTileTransform(state: SurfaceDragState, pointerX: number, pointerY: number): void;
   formatMessage: FormatMessage;
   hideCursorTooltip(): void;
-  isEditableElement(element: Element): boolean;
   closeBookmarkCascadeMenu(options?: { animate?: boolean }): void;
   renderCurrentBookmarkPage(): void;
   applyShortcutGroupDeleteRecord(record: ShortcutGroupDeleteRecord, isUndo: boolean): Promise<boolean>;
@@ -164,7 +163,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     setShortcutDragTileTransform,
     formatMessage,
     hideCursorTooltip,
-    isEditableElement,
     closeBookmarkCascadeMenu,
     renderCurrentBookmarkPage,
     applyShortcutGroupDeleteRecord,

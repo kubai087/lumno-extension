@@ -7,6 +7,7 @@ import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
 import type { SearchBoxParts } from './search/search-box-parts';
 import type { DragSessions } from './drag-sessions';
 import type { RecentCardDrag } from './recent/recent-card-drag';
+import { isEditableElement } from '../shared/dom-guards';
 
 
 interface PageKeyboardDeps {
@@ -15,7 +16,6 @@ interface PageKeyboardDeps {
   dismissStack: Pick<DismissStack, 'register'>;
   finishShortcutDrag(event: null, options: { cancel: boolean }): void;
   finishBookmarkDrag(event: null, options: { canceled: boolean }): void;
-  isEditableElement(target: EventTarget | null): boolean;
   // Undoes or redoes a bookmark move; false when there was none.
   performBookmarkMoveHistoryAction(direction: 'undo' | 'redo'): boolean;
   suggestionItems: ReadonlyArray<NumberShortcutItem | null | undefined>;
@@ -37,7 +37,6 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     dismissStack,
     finishShortcutDrag,
     finishBookmarkDrag,
-    isEditableElement,
     performBookmarkMoveHistoryAction,
     suggestionItems,
     numberShortcutOptions,
