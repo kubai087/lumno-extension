@@ -2,7 +2,6 @@
 // that starts as a constant. newtab.js creates it first and hands the same
 // object to every module as `pageState`; properties whose first value
 // depends on settings or other modules are set where that value exists.
-import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 import type { AppearanceModesState } from './appearance-modes';
 import type { BookmarkActionsState } from './bookmarks/bookmark-actions';
 import type { BookmarkCascadeActionsState } from './bookmarks/bookmark-cascade-actions';
@@ -15,7 +14,6 @@ import type { BottomDockRuntimeState } from './shortcuts/bottom-dock-runtime';
 import type { ClipboardActionsState } from './clipboard-actions';
 import type { EntryMotionState } from './entry-motion';
 import type { FeedbackControlState } from './feedback-control';
-import type { FocusResumeState } from './focus-resume';
 import type { FolderColorsState } from './bookmarks/folder-colors';
 import type { InputFocusState } from './input-focus';
 import type { ModeCommandsState } from './mode-commands';
@@ -30,9 +28,6 @@ import type { RecentSectionState } from './recent/recent-section';
 import type { RecentSitesControllerState } from './recent/recent-sites-controller';
 import type { RecentSourcesState } from './recent/recent-sources';
 import type { SearchBoxControlsState } from './search/search-box-controls';
-import type { SearchBoxState } from './search/search-box';
-import type { SearchInputCompositionState } from './search/search-input-composition';
-import type { SearchModeControllerState } from './search/search-mode-controller';
 import type { SearchNavigationState } from './search/search-navigation';
 import type { SearchSettingsSyncState } from './search/search-settings-sync';
 import type { SectionHeadersState } from './section-headers';
@@ -44,7 +39,6 @@ import type { ShortcutDragState } from './shortcuts/shortcut-drag';
 import type { ShortcutPageActionsState } from './shortcuts/shortcut-page-actions';
 import type { ShortcutsControllerState } from './shortcuts/shortcuts-controller';
 import type { StartupPreferencesState } from './startup-preferences';
-import type { SiteSearchRuntimeState } from './search/site-search-runtime';
 import type { SiteThemeResolverState } from './theme/site-theme-resolver';
 import type { SuggestionsControllerState } from './search/suggestions-controller';
 import type { SuggestionsLayoutState } from './search/suggestions-layout';
@@ -75,7 +69,6 @@ type NewtabPageState =
   ClipboardActionsState &
   EntryMotionState &
   FeedbackControlState &
-  FocusResumeState &
   FolderColorsState &
   InputFocusState &
   ModeCommandsState &
@@ -90,9 +83,6 @@ type NewtabPageState =
   RecentSitesControllerState &
   RecentSourcesState &
   SearchBoxControlsState &
-  SearchBoxState &
-  SearchInputCompositionState &
-  SearchModeControllerState &
   SearchNavigationState &
   SearchSettingsSyncState &
   SectionHeadersState &
@@ -104,7 +94,6 @@ type NewtabPageState =
   ShortcutPageActionsState &
   ShortcutsControllerState &
   StartupPreferencesState &
-  SiteSearchRuntimeState &
   SiteThemeResolverState &
   SuggestionsControllerState &
   SuggestionsLayoutState &
@@ -118,12 +107,7 @@ function createPageState(): NewtabPageState {
     initialThemeApplied: false,
     resolveInitialThemeReady: null,
 
-    modeBadge: null,
-    inputModeController: null,
-    suggestionInputPreview: SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview(),
-    suggestionsView: null,
     recentSourceItems: [],
-    defaultPlaceholderText: 'Search or enter URL…',
     layoutController: null,
     layoutMotion: null,
     bottomDockScroller: null,
@@ -131,7 +115,6 @@ function createPageState(): NewtabPageState {
 
     // When the wallpaper was revealed (performance.now()); entry-motion.ts lets it lead the content.
     wallpaperShownAt: 0,
-    searchLayer: null,
     topContentContainer: null,
     topContentController: null,
     wordmarkImageEl: null,
@@ -171,17 +154,8 @@ function createPageState(): NewtabPageState {
     shortcutFaviconPolicyRevision: 0,
     shortcutFaviconPendingCacheEntries: {},
 
-    tabs: [],
-    currentNewtabTabId: null,
-    searchSuggestionsDismissed: false,
-    handleTabKey: null,
 
-    // Created once the search modes and providers below exist.
-    focusResume: null,
 
-    // Set by the modules that own them once they exist.
-    inputParts: null,
-    suggestionsContainer: null,
     recentCardDragRuntime: null,
     faviconCacheRuntime: null,
     requestFaviconData: null,
@@ -202,7 +176,6 @@ function createPageState(): NewtabPageState {
     feedbackButton: null,
     feedbackReactController: null,
     folderColorPicker: null,
-    searchScopeIcon: null,
     recentContextMenu: null,
     recentContextMenuSelectController: null,
     recentContextMenuTarget: null,

@@ -16,20 +16,18 @@ import type { SettingsStore } from '../../platform/settings-store';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import * as SuggestionNavigation from '../../shared/search/suggestion-navigation';
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import type { RenderSuggestions, RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SearchBoxParts } from './search-box-parts';
 
 interface SearchSettingsSyncState {
-  suggestionsContainer: HTMLElement | null;
   // Bumped when the favicon policy changes, so requests made before it are
   // dropped.
   shortcutFaviconPolicyRevision: number;
-  inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
 }
 
 interface SearchSettingsSyncDeps {
@@ -47,11 +45,15 @@ interface SearchSettingsSyncDeps {
   refreshThemeAwareFavicons?(): void;
   renderShortcuts(): void;
   getImmediateThemeForSuggestion(suggestion: { provider: SiteSearchProvider }): InputModeTheme;
+  searchBox: Pick<SearchBoxParts, 'modeController'>;
+  suggestionsContainer: HTMLElement;
   pageState: SearchSettingsSyncState;
 }
 
 function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   const {
+    suggestionsContainer,
+    searchBox,
     modeActions,
     searchResults,
     searchMode,
@@ -92,7 +94,7 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   });
   settings.subscribe([searchResultDisplayLimit, simpleModeEnabled], redrawSuggestions);
   settings.subscribe(numberShortcutInstantEnabled, () => {
-    SuggestionNavigation.cancelNumberShortcuts(pageState.suggestionsContainer);
+    SuggestionNavigation.cancelNumberShortcuts(suggestionsContainer);
   });
   settings.subscribe(searchBlacklist, () => {
     markRecentDataDirty();
@@ -107,11 +109,11 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     }
     pageState.shortcutFaviconPolicyRevision += 1;
     renderShortcuts();
-    if (pageState.inputModeController) {
+    if (searchBox.modeController) {
       if (searchMode.site) {
         modeActions.setSiteSearchPrefix(searchMode.site, getImmediateThemeForSuggestion({ provider: searchMode.site }), { animate: false });
       }
-      pageState.inputModeController.refreshModeMenu();
+      searchBox.modeController.refreshModeMenu();
     }
   });
   searchEngine.store.subscribe(refreshSuggestions);

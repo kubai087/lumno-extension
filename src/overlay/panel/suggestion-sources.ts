@@ -38,7 +38,7 @@ import { HelpCenterRows } from '../../shared/search-panel/help-center-rows';
 import { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import { loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
 import type { OverlayPanelElements } from './panel-elements';
-import type { OverlayTabs } from './overlay-tabs';
+import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { LastRender } from './last-render';
 import type { OverlayThemeMode } from './overlay-theme-mode';
 
@@ -88,7 +88,7 @@ interface SuggestionSourcesDeps {
   settings: Pick<OverlaySettings, 'get' | 'get'>;
   prioritizeCurrentPageMatch: boolean;
   elements: Pick<OverlayPanelElements, 'searchInput' | 'suggestionsContainer'>;
-  overlayTabs: Pick<OverlayTabs, 'currentTabId'>;
+  overlayTabs: Pick<OpenTabs, 'currentTabId'>;
   overlayThemeChoice: Pick<OverlayThemeMode, 'mode'>;
   lastRender: LastRender;
 }

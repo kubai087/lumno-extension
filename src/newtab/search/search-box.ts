@@ -7,14 +7,12 @@ import type { SuggestionInputPreview } from '../../domain/search/suggestion-inpu
 import type { SiteSearchProvider, SuggestionLike } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import { isHtmlTag } from '../../shared/dom-guards';
-import type { createSearchInput, SearchInputParts } from '../../shared/react/search-input';
+import type { createSearchInput } from '../../shared/react/search-input';
 import type {
   OpenTabSuggestion,
   Suggestion,
-  SuggestionsViewController,
   SuggestionsViewOptions
 } from '../../shared/react/search/suggestion-list/types';
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import * as NEWTAB_BACKGROUND_SEARCH_FOCUS from './background-search-focus';
 import type { RenderSuggestions, RequestSuggestions } from './search-types';
@@ -37,25 +35,11 @@ import * as SEARCH_INPUT_HISTORY from '../../domain/search/search-input-history'
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 import { getPagePortals } from '../app/portals';
+import type { SearchBoxParts } from './search-box-parts';
 
 // An option the suggestions view is handed as it is.
 type ViewOption<K extends keyof SuggestionsViewOptions> = NonNullable<SuggestionsViewOptions[K]>;
 
-interface SearchBoxState {
-  suggestionsView: SuggestionsViewController | null;
-  suggestionsContainer: HTMLElement | null;
-  // The search suggestion the arrows show in the input.
-  suggestionInputPreview: SuggestionInputPreview;
-  inputParts: SearchInputParts | null;
-  inputModeController: Pick<InputModeController, 'shouldRemoveModeTagOnBackspace' | 'resetModeMenuDoubleTab' | 'closeModeMenu'> | null;
-  defaultPlaceholderText: string;
-  // Hidden from the background; the input's focus shows them again.
-  searchSuggestionsDismissed: boolean;
-  handleTabKey: ((event: KeyboardEvent) => unknown) | null;
-  searchLayer: HTMLElement | null;
-  modeBadge: HTMLElement | null;
-  searchScopeIcon: HTMLElement | null;
-}
 
 interface SearchBoxDeps {
   suggestionSource: SuggestionSource;
@@ -127,15 +111,21 @@ interface SearchBoxDeps {
   submitSearchQuery(query: string, event: KeyboardEvent): unknown;
   root: HTMLElement | null;
   dismissSearchSuggestionsFromBackground(): void;
-  focusSearchInputPreservingScroll(): boolean;
   finishNewtabEntryAnimation(): void;
   handleGlobalTypingFocus(event: KeyboardEvent): void;
   refreshFallbackShortcut(force: boolean): void;
   restoreDismissedSearchSuggestions(): void;
+  // Lets results show again after a click on the background hid them.
+  forgetSuggestionsDismissal(): void;
+  handleSearchTabKey(event: KeyboardEvent): unknown;
   hideSearchInputCursorTooltip(): void;
   modeMenu: Pick<SearchModeMenu, 'openFromDoubleTab'>;
   bindSearchInputCursorTooltip: BindCursorTooltip;
-  pageState: SearchBoxState;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController' | 'mountInput' | 'mountSuggestionsView'>;
+  // The search suggestion the arrows show in the input.
+  suggestionInputPreview: SuggestionInputPreview;
+  suggestionsContainer: HTMLElement;
+  searchLayer: HTMLElement;
 }
 
 // The text in the input an event came from.
@@ -145,6 +135,10 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    searchLayer,
+    suggestionsContainer,
+    suggestionInputPreview,
+    searchBox,
     suggestionSource,
     suggestionModifiers,
     modeActions,
@@ -212,24 +206,18 @@ function createSearchBox(deps: SearchBoxDeps) {
     submitSearchQuery,
     root,
     dismissSearchSuggestionsFromBackground,
-    focusSearchInputPreservingScroll,
     finishNewtabEntryAnimation,
     handleGlobalTypingFocus,
     refreshFallbackShortcut,
     restoreDismissedSearchSuggestions,
+    forgetSuggestionsDismissal,
+    handleSearchTabKey,
     hideSearchInputCursorTooltip,
     modeMenu,
     bindSearchInputCursorTooltip
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
-  // The page structure creates the results container before the search box.
-  const suggestionsContainer = pageState.suggestionsContainer;
-  if (!suggestionsContainer) {
-    throw new Error('Search results container unavailable');
-  }
 
   const NEWTAB_OPEN_TAB_SUGGESTION_LIMIT = 8;
 
@@ -251,7 +239,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     return `score ${score} · 30m ${count30m} · 24h ${count24h} · ev ${debugTotal} · la ${lastAccessedSec} · s ${sortAtSec} · fs ${fetchSeq} · build 20260308-1`;
   }
   let isApplyingSearchInputHistory = false;
-  pageState.suggestionsView = createSuggestionsView({
+  const suggestionsView = createSuggestionsView({
     portals: getPagePortals(),
     document,
     container: suggestionsContainer,
@@ -292,8 +280,8 @@ function createSearchBox(deps: SearchBoxDeps) {
       select: (nextIndex) => {
         searchResults.select(nextIndex);
         if (nextIndex < 0) {
-          pageState.suggestionInputPreview.restore(
-            pageState.inputParts ? pageState.inputParts.input : null,
+          suggestionInputPreview.restore(
+            searchBox.inputParts ? searchBox.inputParts.input : null,
             searchQuery.raw
           );
         }
@@ -334,12 +322,13 @@ function createSearchBox(deps: SearchBoxDeps) {
     urlHighlightTheme,
     openTabSuggestionLimit: NEWTAB_OPEN_TAB_SUGGESTION_LIMIT
   });
+  searchBox.mountSuggestionsView(suggestionsView);
 
   function shouldRemoveSearchModeTagOnBackspace(event: KeyboardEvent): boolean {
-    if (!pageState.inputModeController) {
+    if (!searchBox.modeController) {
       return true;
     }
-    const shouldRemove = pageState.inputModeController.shouldRemoveModeTagOnBackspace(event);
+    const shouldRemove = searchBox.modeController.shouldRemoveModeTagOnBackspace(event);
     if (!shouldRemove) {
       event.preventDefault();
     }
@@ -351,7 +340,7 @@ function createSearchBox(deps: SearchBoxDeps) {
     containerId: '_x_extension_newtab_input_container_2024_unique_',
     inputId: '_x_extension_newtab_search_input_2024_unique_',
     iconId: '_x_extension_newtab_search_icon_2024_unique_',
-    placeholder: t('search_placeholder', pageState.defaultPlaceholderText),
+    placeholder: t('search_placeholder', 'Search or enter URL…'),
     modeBadge: {
       id: '_x_extension_newtab_mode_badge_2024_unique_',
       className: 'x-lumno-search-input-mode__badge',
@@ -412,8 +401,8 @@ function createSearchBox(deps: SearchBoxDeps) {
     },
     onInput: function(event) {
       // Typing on from a suggestion the arrows show keeps it as typed text.
-      pageState.suggestionInputPreview.commit();
-      pageState.searchSuggestionsDismissed = false;
+      suggestionInputPreview.commit();
+      forgetSuggestionsDismissal();
       if (!isApplyingSearchInputHistory) {
         searchInputHistoryController.resetNavigation();
       }
@@ -474,17 +463,17 @@ function createSearchBox(deps: SearchBoxDeps) {
         });
       const input = inputParts.input;
       if (event.key !== 'Backspace' && !event.metaKey && !event.ctrlKey && !event.altKey &&
-          !pageState.suggestionInputPreview.isActive()) {
+          !suggestionInputPreview.isActive()) {
         searchQuery.set(input.value);
       }
       // An open scope menu closes first and leaves the scope as it is.
-      if (event.key === 'Escape' && pageState.inputModeController &&
-          pageState.inputModeController.closeModeMenu(false)) {
+      if (event.key === 'Escape' && searchBox.modeController &&
+          searchBox.modeController.closeModeMenu(false)) {
         event.preventDefault();
         return;
       }
       // Then the text typed before the arrows showed a suggestion comes back.
-      if (event.key === 'Escape' && pageState.suggestionInputPreview.restore(input, searchQuery.raw)) {
+      if (event.key === 'Escape' && suggestionInputPreview.restore(input, searchQuery.raw)) {
         event.preventDefault();
         searchResults.select(-1);
         return;
@@ -566,7 +555,7 @@ function createSearchBox(deps: SearchBoxDeps) {
         const didWrap = next.didWrap;
         // A search suggestion shows in the input; other rows keep what was typed.
         const selectedItem = suggestionItems[next.index];
-        pageState.suggestionInputPreview.show(
+        suggestionInputPreview.show(
           input,
           selectedItem && selectedItem._xIsSearchSuggestion ? searchResults.rows[next.index] : null,
           searchQuery.raw
@@ -577,8 +566,8 @@ function createSearchBox(deps: SearchBoxDeps) {
         );
         return;
       }
-      if (event.key === 'Tab' && pageState.handleTabKey) {
-        pageState.handleTabKey(event);
+      if (event.key === 'Tab') {
+        handleSearchTabKey(event);
         return;
       }
       if (event.key !== 'Enter') {
@@ -586,7 +575,7 @@ function createSearchBox(deps: SearchBoxDeps) {
       }
       // A suggestion the arrows show opens as its row; the query stays what
       // was typed.
-      const query = (pageState.suggestionInputPreview.isActive()
+      const query = (suggestionInputPreview.isActive()
         ? searchQuery.raw
         : readInputValue(event)).trim();
       if (!query) {
@@ -596,13 +585,13 @@ function createSearchBox(deps: SearchBoxDeps) {
       submitSearchQuery(query, event);
     }
   });
-  pageState.inputParts = inputParts;
+  searchBox.mountInput(inputParts);
 
   const handleBackgroundPointerFocus = NEWTAB_BACKGROUND_SEARCH_FOCUS.createBackgroundFocusHandler({
-    getBackgroundTargets: () => [document.body, root, pageState.searchLayer],
+    getBackgroundTargets: () => [document.body, root, searchLayer],
     getSearchValue: () => inputParts.input.value,
     dismissSearchResults: dismissSearchSuggestionsFromBackground,
-    focusSearch: focusSearchInputPreservingScroll
+    focusSearch: () => searchBox.focusInput()
   });
 
   window.addEventListener('keydown', finishNewtabEntryAnimation, true);
@@ -616,19 +605,16 @@ function createSearchBox(deps: SearchBoxDeps) {
   }, true);
   window.addEventListener('pointerdown', handleBackgroundPointerFocus, true);
   window.addEventListener('mousedown', handleBackgroundPointerFocus, true);
-  pageState.modeBadge = inputParts.modeBadge;
   const searchInput = inputParts.input;
   searchInput.addEventListener('focus', restoreDismissedSearchSuggestions);
-  const searchScopeIcon: HTMLElement = inputParts.icon;
-  pageState.searchScopeIcon = searchScopeIcon;
   const rightIcon = inputParts.rightIcon;
   const searchScopeTooltipText = (): string => t(
     'shortcut_reference_search_open_scope_menu_title',
     '打开搜索范围面板'
   );
   function activateSearchScopeIcon(): void {
-    if (pageState.inputModeController) {
-      pageState.inputModeController.resetModeMenuDoubleTab();
+    if (searchBox.modeController) {
+      searchBox.modeController.resetModeMenuDoubleTab();
     }
     void modeMenu.openFromDoubleTab();
   }
@@ -693,4 +679,4 @@ function createSearchBox(deps: SearchBoxDeps) {
 type SearchBox = ReturnType<typeof createSearchBox>;
 
 export { createSearchBox };
-export type { SearchBox, SearchBoxDeps, SearchBoxState };
+export type { SearchBox, SearchBoxDeps };

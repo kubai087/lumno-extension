@@ -1,15 +1,12 @@
 // Requesting, rendering and activating search suggestions.
-import type { OverlayTab } from '../../domain/messages';
 import type * as SuggestionActionModel from '../../domain/search/suggestion-action-model';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { ThemeMode } from '../../domain/settings';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { SearchInputParts } from '../../shared/react/search-input';
 import type {
   Suggestion,
   SuggestionElement,
-  SuggestionProvider,
-  SuggestionsViewController
+  SuggestionProvider
 } from '../../shared/react/search/suggestion-list/types';
 import { holdSuggestionsHeight, releaseSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import type { AppearanceModes } from '../appearance-modes';
@@ -53,15 +50,11 @@ import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import { loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
+import type { SearchBoxParts } from './search-box-parts';
+import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 
 interface SuggestionsControllerState {
-  suggestionsView: SuggestionsViewController | null;
-  inputParts: SearchInputParts | null;
-  tabs: OverlayTab[];
-  // Hidden from the background; the input's focus shows them again.
-  searchSuggestionsDismissed: boolean;
   currentThemeMode: ThemeMode;
-  currentNewtabTabId: number | null;
 }
 
 interface SuggestionsControllerDeps {
@@ -78,13 +71,12 @@ interface SuggestionsControllerDeps {
   siteSearchCatalog: SiteSearchCatalog;
   searchEngine: DefaultSearchEngine;
   getPageFaviconCandidateUrl(pageUrl: string): string;
-  focusSearchInputPreservingScroll(): boolean;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
   shouldSwitchMatchedTabSuggestion: SearchNavigation['shouldSwitchMatchedTabSuggestion'];
   resultActivation: ResultActivation;
   navigateToQuery: SearchNavigationDeps['navigateToQuery'];
-  suggestionsContainer: HTMLElement | null;
+  suggestionsContainer: HTMLElement;
   suggestionItems: SuggestionElement[];
   refreshTabsForSearchContext: SearchNavigation['refreshTabsForSearchContext'];
   clearSiteSearchTabHint: SearchModeController['clearSiteSearchTabHint'];
@@ -113,6 +105,8 @@ interface SuggestionsControllerDeps {
   warmIconCache(list: Suggestion[]): void;
   setSuggestionsVisible(visible: boolean): void;
   openCommunityQrDialog?(url: string | undefined): void;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'suggestionsView'>;
+  openTabs: Pick<OpenTabs, 'clear' | 'currentTabId' | 'tabs'>;
   pageState: SuggestionsControllerState;
 }
 
@@ -133,6 +127,7 @@ function isSiteSearchProvider(provider: SuggestionProvider | null | undefined): 
 
 function createSuggestionsController(deps: SuggestionsControllerDeps) {
   const {
+    searchBox,
     suggestionSource,
     siteSearchRunner,
     modeActions,
@@ -146,7 +141,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     siteSearchCatalog,
     searchEngine,
     getPageFaviconCandidateUrl,
-    focusSearchInputPreservingScroll,
     setVisibleThemeMode,
     setWebAppearanceMode,
     shouldSwitchMatchedTabSuggestion,
@@ -178,12 +172,15 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     warmIconCache,
     setSuggestionsVisible,
     openCommunityQrDialog,
+    openTabs,
   } = deps;
 
   // Page state still owned by newtab.js; read and written through accessors.
   const pageState = deps.pageState;
 
   let lastRenderedActionContextKey = '';
+  // Hidden from the background; the input's focus or typing shows them again.
+  let searchSuggestionsDismissed = false;
 
   // Lumno Help Center search lists the matching help pages under its search row.
   const helpCenterRows = new HelpCenterRows(locale, searchQuery, (query) => {
@@ -194,7 +191,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
 
 
   function getAutoHighlightIndex(): number {
-    return pageState.suggestionsView ? pageState.suggestionsView.getAutoHighlightIndex() : -1;
+    return searchBox.suggestionsView ? searchBox.suggestionsView.getAutoHighlightIndex() : -1;
   }
 
   function getSuggestionUpdateKind(options: Parameters<typeof SuggestionActionModel.getSuggestionUpdateKind>[0]) {
@@ -225,7 +222,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }
     if (suggestion.type === 'siteSearchPrompt' && isSiteSearchProvider(suggestion.provider)) {
       modeActions.activateSiteSearch(suggestion.provider);
-      focusSearchInputPreservingScroll();
+      searchBox.focusInput();
       return;
     }
     if (suggestion.type === 'helpFeedback' && suggestion.feedbackKey === 'community' &&
@@ -235,17 +232,17 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     }
     if (suggestion.type === 'modeSwitch') {
       setVisibleThemeMode(suggestion.nextMode);
-      focusSearchInputPreservingScroll();
+      searchBox.focusInput();
       return;
     }
     if (suggestion.type === 'zenSwitch') {
       void settings.set(newtabZenMode, newtabZenMode.parse(suggestion.nextEnabled));
-      focusSearchInputPreservingScroll();
+      searchBox.focusInput();
       return;
     }
     if (suggestion.type === 'webAppearanceSwitch') {
       setWebAppearanceMode(suggestion.nextMode);
-      focusSearchInputPreservingScroll();
+      searchBox.focusInput();
       return;
     }
     if (Number.isInteger(index) && shouldSwitchMatchedTabSuggestion(suggestion)) {
@@ -285,7 +282,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       if (!response || response.ok !== true) {
         return;
       }
-      const refreshQuery = searchQuery.text || (pageState.inputParts ? String(pageState.inputParts.input.value || '').trim() : '');
+      const refreshQuery = searchQuery.text || (searchBox.inputParts ? String(searchBox.inputParts.input.value || '').trim() : '');
       if (!refreshQuery) {
         clearSearchSuggestions();
         return;
@@ -307,7 +304,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
   }
 
   function requestTabsAndRender(): void {
-    pageState.tabs = [];
+    openTabs.clear();
     clearSearchSuggestions();
   }
 
@@ -330,8 +327,8 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     releaseSuggestionsHeight(suggestionsContainer, window);
     searchMode.clearHints();
     clearSiteSearchTabHint();
-    if (pageState.suggestionsView) {
-      pageState.suggestionsView.clear();
+    if (searchBox.suggestionsView) {
+      searchBox.suggestionsView.clear();
     }
     searchResults.show([]);
     searchResults.setLastResponse([]);
@@ -341,18 +338,22 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
 
   function dismissSearchSuggestionsFromBackground(): void {
     searchAutocomplete.restoreTyped();
-    pageState.searchSuggestionsDismissed = true;
+    searchSuggestionsDismissed = true;
     suggestionSource.cancel();
     clearSearchSuggestions();
   }
 
+  function forgetSuggestionsDismissal(): void {
+    searchSuggestionsDismissed = false;
+  }
+
   function restoreDismissedSearchSuggestions(): boolean {
-    if (!pageState.searchSuggestionsDismissed || !pageState.inputParts) {
+    if (!searchSuggestionsDismissed || !searchBox.inputParts) {
       return false;
     }
-    const rawValue = String(pageState.inputParts.input.value || '');
+    const rawValue = String(searchBox.inputParts.input.value || '');
     const query = rawValue.trim();
-    pageState.searchSuggestionsDismissed = false;
+    searchSuggestionsDismissed = false;
     if (!query) {
       return false;
     }
@@ -370,7 +371,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     query: string,
     options?: { pendingRemote?: boolean }
   ): Promise<void> | undefined {
-    if (pageState.searchSuggestionsDismissed) {
+    if (searchSuggestionsDismissed) {
       return undefined;
     }
     if (!query) {
@@ -380,11 +381,11 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     searchResults.setLastResponse(suggestions);
 
     return loadShortcutRules().then((rules) => {
-      const view = pageState.suggestionsView;
-      if (pageState.searchSuggestionsDismissed || query !== searchQuery.text || !view) {
+      const view = searchBox.suggestionsView;
+      if (searchSuggestionsDismissed || query !== searchQuery.text || !view) {
         return;
       }
-      const inputValue = pageState.inputParts ? pageState.inputParts.input.value : '';
+      const inputValue = searchBox.inputParts ? searchBox.inputParts.input.value : '';
       const rawTagInput = (searchQuery.raw || inputValue || '').trim();
       const localSearchQueryModeActive = Boolean(searchMode.local && String(query || '').trim());
       const slashCommandModeActive = !localSearchQueryModeActive && isSlashCommandInput(rawTagInput);
@@ -568,7 +569,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
           openTabMatch: settings.get(overlayTabPriority)
             ? {
-                ...(pageState.currentNewtabTabId === null ? {} : { currentTabId: pageState.currentNewtabTabId }),
+                ...(openTabs.currentTabId === null ? {} : { currentTabId: openTabs.currentTabId }),
                 openTabQuickSwitchEnabled: settings.get(overlayTabPriority),
                 getDirectNavigationUrl: SearchDirectNavigation.getDirectNavigationUrl
               }
@@ -823,6 +824,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     clearSearchSuggestions,
     dismissSearchSuggestionsFromBackground,
     restoreDismissedSearchSuggestions,
+    forgetSuggestionsDismissal,
     renderSuggestions,
     renderPendingSuggestions,
     showSuggestionSnapshot,

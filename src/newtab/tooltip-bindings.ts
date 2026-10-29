@@ -5,9 +5,9 @@ import type { TooltipBindOptions, TooltipController, TooltipShowOptions, Tooltip
 import type { Translate } from './newtab-types';
 import { newtabShortcutDockMagnificationEnabled } from '../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from './setting-preview';
+import type { SearchBoxParts } from './search/search-box-parts';
 
 interface TooltipBindingsState {
-  inputParts: { container: HTMLElement | null } | null;
   shortcutGrid: HTMLElement | null;
 }
 
@@ -24,11 +24,13 @@ interface TooltipBindingsDeps {
   bookmarkCursorTooltipController: CursorTooltipController;
   // Whether bookmark hover feedback is off for this target, as during a drag.
   shouldSuppressBookmarkHover(target: HTMLElement): boolean;
+  searchBox: Pick<SearchBoxParts, 'inputParts'>;
   pageState: TooltipBindingsState;
 }
 
 function createTooltipBindings(deps: TooltipBindingsDeps) {
   const {
+    searchBox,
     preview,
     topActionTooltipController,
     searchInputCursorTooltipController,
@@ -79,8 +81,8 @@ function createTooltipBindings(deps: TooltipBindingsDeps) {
       maxWidth: 420,
       deferHideVisibility: true,
       preserveVisibleOnTargetSwitch: true,
-      handoffRoot: pageState.inputParts && pageState.inputParts.container
-        ? pageState.inputParts.container
+      handoffRoot: searchBox.inputParts && searchBox.inputParts.container
+        ? searchBox.inputParts.container
         : null
     });
   }

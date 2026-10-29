@@ -3,7 +3,6 @@ import type { OverlayTab } from '../../domain/messages';
 import type { Disposition } from '../../domain/navigation-disposition';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion, SuggestionElement } from '../../shared/react/search/suggestion-list/types';
 import type { ModeCommands } from '../mode-commands';
 import type { FormatMessage } from '../newtab-types';
@@ -21,12 +20,11 @@ import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SiteSearchRunner } from '../../shared/search-panel/site-search/runner';
 import type { ResultActivation } from '../../shared/search-panel/result-activation';
 import { QuickNavigation } from '../../shared/search-panel/quick-navigation';
+import type { SearchBoxParts } from './search-box-parts';
+import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 
 interface SearchNavigationState {
-  tabs: OverlayTab[];
-  currentNewtabTabId: number | null;
   currentThemeMode: string;
-  inputParts: SearchInputParts | null;
 }
 
 // A slash command the typed text names, and the text that completes it.
@@ -56,11 +54,12 @@ interface SearchNavigationDeps {
   getNextThemeMode(mode: string): string;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   setWebAppearanceMode: ModeCommands['setWebAppearanceMode'];
-  focusSearchInputPreservingScroll(): boolean;
   openCommunityQrDialog(url: string | undefined): void;
   // Searches the query with the default engine; `forceSearch` skips the
   // address check.
   navigateToQuery(query: string, forceSearch: boolean, disposition: Disposition): void;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts'>;
+  openTabs: Pick<OpenTabs, 'currentTabId' | 'received' | 'tabs'>;
   pageState: SearchNavigationState;
 }
 
@@ -68,6 +67,8 @@ interface SearchNavigationDeps {
 
 function createSearchNavigation(deps: SearchNavigationDeps) {
   const {
+    openTabs,
+    searchBox,
     siteSearchRunner,
     modeActions,
     searchResults,
@@ -88,7 +89,6 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
     getNextThemeMode,
     setVisibleThemeMode,
     setWebAppearanceMode,
-    focusSearchInputPreservingScroll,
     openCommunityQrDialog,
     navigateToQuery
   } = deps;
@@ -124,15 +124,15 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
   }
 
   function getMatchedOpenTabForSuggestion(suggestion: Suggestion | null | undefined): OverlayTab | null {
-    if (!suggestion || !suggestion.url || pageState.tabs.length === 0) {
+    if (!suggestion || !suggestion.url || openTabs.tabs.length === 0) {
       return null;
     }
     const target = normalizeTabMatchUrl(suggestion.url);
     if (!target) {
       return null;
     }
-    for (let i = 0; i < pageState.tabs.length; i += 1) {
-      const tab = pageState.tabs[i];
+    for (let i = 0; i < openTabs.tabs.length; i += 1) {
+      const tab = openTabs.tabs[i];
       if (typeof tab.id !== 'number' || !tab.url) {
         continue;
       }
@@ -169,8 +169,8 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       return;
     }
     const request: { action: 'getTabsForOverlay'; currentTabId?: number } = { action: 'getTabsForOverlay' };
-    if (typeof pageState.currentNewtabTabId === 'number') {
-      request.currentTabId = pageState.currentNewtabTabId;
+    if (typeof openTabs.currentTabId === 'number') {
+      request.currentTabId = openTabs.currentTabId;
     }
     let settled = false;
     let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -192,10 +192,10 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         finish(false);
         return;
       }
-      pageState.tabs = response && Array.isArray(response.tabs) ? response.tabs : [];
-      pageState.currentNewtabTabId = response && typeof response.currentTabId === 'number'
-        ? response.currentTabId
-        : null;
+      openTabs.received(
+        response && Array.isArray(response.tabs) ? response.tabs : [],
+        response && typeof response.currentTabId === 'number' ? response.currentTabId : null
+      );
       finish(true);
     });
   }
@@ -262,7 +262,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
       }
       if (selectedSuggestion.type === 'siteSearchPrompt' && isSiteSearchProvider(selectedSuggestion.provider)) {
         modeActions.activateSiteSearch(selectedSuggestion.provider);
-        focusSearchInputPreservingScroll();
+        searchBox.focusInput();
         return true;
       }
       if (selectedSuggestion.type === 'helpFeedback' && selectedSuggestion.feedbackKey === 'community') {
@@ -320,7 +320,7 @@ function createSearchNavigation(deps: SearchNavigationDeps) {
         return;
       }
     }
-    const inputValue = pageState.inputParts ? pageState.inputParts.input.value : '';
+    const inputValue = searchBox.inputParts ? searchBox.inputParts.input.value : '';
     const currentRawInput = (searchQuery.raw || inputValue || '').trim();
     const inline = searchMode.inline;
     if (inline && inline.isAuto && inline.rawInput === currentRawInput) {

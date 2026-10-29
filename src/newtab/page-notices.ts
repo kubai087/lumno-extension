@@ -22,12 +22,12 @@ import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import * as FEATURE_HINTS from '../shared/ui/feature-hints';
 import * as COMMUNITY_LINKS from '../platform/community-links';
 import { getPagePortals } from './app/portals';
+import type { SearchBoxParts } from './search/search-box-parts';
 
 interface PageNoticesState {
   updateNoticeController: UpdateNoticeController | null;
   graphicsNoticeController: GraphicsNoticeController | null;
   engagementNoticeController: EngagementNoticeController | null;
-  inputParts: { input: HTMLInputElement; container: HTMLElement } | null;
   feedbackLinks: CommunityLinks | null;
   helpCenterAskHintController: FeatureHintController | null;
   webdavFeatureHintController: { dismiss?: () => void } | null;
@@ -48,11 +48,13 @@ interface PageNoticesDeps {
   // The search box's container.
   root: HTMLElement;
   siteSearchCatalog: Pick<SiteSearchCatalog, 'loadProviders'>;
+  searchBox: Pick<SearchBoxParts, 'inputParts'>;
   pageState: PageNoticesState;
 }
 
 function createPageNotices(deps: PageNoticesDeps) {
   const {
+    searchBox,
     modeActions,
     locale,
     pageSearchParams,
@@ -71,7 +73,7 @@ function createPageNotices(deps: PageNoticesDeps) {
   const pageState = deps.pageState;
 
   // The search box exists before this module is created.
-  const inputParts = pageState.inputParts;
+  const inputParts = searchBox.inputParts;
   if (!inputParts) {
     throw new Error('Search input unavailable');
   }

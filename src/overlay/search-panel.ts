@@ -35,7 +35,7 @@ import * as PANEL_SEARCH_INPUT_EVENTS from './panel/search-input-events';
 import * as PANEL_SEARCH_MODES from './panel/search-modes';
 import * as PANEL_SETTINGS_SYNC from './panel/settings-sync';
 import { OverlayPanelElements } from './panel/panel-elements';
-import { OverlayTabs } from './panel/overlay-tabs';
+import { OpenTabs } from '../shared/search-panel/open-tabs';
 import { OverlayNotices } from './panel/overlay-notices';
 import { LastRender } from './panel/last-render';
 import { OverlayThemeMode } from './panel/overlay-theme-mode';
@@ -138,7 +138,7 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
   // The session's parts that hold what it shows and lists.
   const elements = new OverlayPanelElements();
   const notices = new OverlayNotices();
-  const overlayTabs = new OverlayTabs(initialOverlayTabs, initialContextTabId);
+  const overlayTabs = new OpenTabs(initialOverlayTabs, initialContextTabId);
   const lastRender = new LastRender();
   const overlayThemeChoice = new OverlayThemeMode();
   const settings = createOverlaySettings(chrome);

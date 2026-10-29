@@ -168,6 +168,9 @@ import { SearchTabKey } from '../shared/search-panel/tab-key';
 import { ViewportActivity } from './viewport-activity';
 import { RecentPointer } from './recent/recent-pointer';
 import { getPagePortals } from './app/portals';
+import { SearchBoxParts } from './search/search-box-parts';
+import { OpenTabs } from '../shared/search-panel/open-tabs';
+import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
   // Page state shared with the modules split out of this file: each module
@@ -195,6 +198,18 @@ import { getPagePortals } from './app/portals';
   if (document.body) {
     document.body.removeAttribute('data-nt-ready');
   }
+  // The page's sections and the search layer, which the modules below draw into.
+  const pageStructureRuntime = createPageStructure({
+    documentObj: document
+  });
+  const suggestionsContainer = pageStructureRuntime.suggestions.container;
+  const searchLayer = pageStructureRuntime.searchLayer;
+  // The search box's parts, mounted by the search box below.
+  const searchBox = new SearchBoxParts();
+  // The search suggestion the arrows show in the input.
+  const suggestionInputPreview = SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview();
+  // The window's tabs, which results switch to.
+  const openTabs = new OpenTabs([], null);
 
 
   const startupRecentSourceReadsAt = Date.now();
@@ -427,8 +442,8 @@ import { getPagePortals } from './app/portals';
   const searchAutocomplete = new SearchAutocomplete({
     settings: settings,
     query: searchQuery,
-    getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
-    preview: pageState.suggestionInputPreview,
+    getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
+    preview: suggestionInputPreview,
     isModeActive: () => Boolean(searchMode.site),
     getUrlDisplay: (url) => getUrlDisplay(url)
   });
@@ -560,8 +575,8 @@ import { getPagePortals } from './app/portals';
     query: searchQuery,
     autocomplete: searchAutocomplete,
     surface: {
-      getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
-      getModeController: () => pageState.inputModeController,
+      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
+      getModeController: () => searchBox.modeController,
       defaultTheme,
       getImmediateTheme: () => defaultTheme,
       getThemeForProvider: (provider) => getThemeForProvider(provider),
@@ -579,8 +594,8 @@ import { getPagePortals } from './app/portals';
     mode: searchMode,
     actions: modeActions,
     surface: {
-      getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
-      getModeController: () => pageState.inputModeController,
+      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
+      getModeController: () => searchBox.modeController,
       getProviderIcon: (provider) => getProviderIcon(provider)
     }
   });
@@ -831,6 +846,7 @@ import { getPagePortals } from './app/portals';
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    searchBox,
     modeActions,
     searchResults,
     searchMode,
@@ -866,6 +882,8 @@ import { getPagePortals } from './app/portals';
     setSuggestionsVisible,
     updateSuggestionsFloatingLayout
   } = NEWTAB_SUGGESTIONS_LAYOUT.createSuggestionsLayout({
+    suggestionsContainer,
+    searchBox,
     pageState
   });
 
@@ -1102,6 +1120,8 @@ import { getPagePortals } from './app/portals';
   }
 
   NEWTAB_SEARCH_SETTINGS_SYNC.createSearchSettingsSync({
+    suggestionsContainer,
+    searchBox,
     modeActions,
     searchResults,
     searchMode,
@@ -1193,15 +1213,11 @@ import { getPagePortals } from './app/portals';
     searchEngine
   });
 
-  const pageStructureRuntime = createPageStructure({
-    documentObj: document
-  });
-  pageState.suggestionsContainer = pageStructureRuntime.suggestions.container;
-  pageState.suggestionsContainer.addEventListener('wheel', function(event) {
-    SUGGESTION_NAVIGATION.preventNumberShortcutWheel(event, pageState.suggestionsContainer);
+  suggestionsContainer.addEventListener('wheel', function(event) {
+    SUGGESTION_NAVIGATION.preventNumberShortcutWheel(event, suggestionsContainer);
   }, { passive: false });
   document.addEventListener('pointerdown', function() {
-    SUGGESTION_NAVIGATION.cancelNumberShortcuts(pageState.suggestionsContainer);
+    SUGGESTION_NAVIGATION.cancelNumberShortcuts(suggestionsContainer);
   }, true);
   const suggestionsSurface = pageStructureRuntime.suggestions.surface;
   const suggestionsOutline = pageStructureRuntime.suggestions.outline;
@@ -1248,8 +1264,6 @@ import { getPagePortals } from './app/portals';
     pageState
   });
 
-  pageState.searchLayer = pageStructureRuntime.searchLayer;
-
   const {
     topActionTooltipController,
     shortcutTooltipController,
@@ -1271,6 +1285,7 @@ import { getPagePortals } from './app/portals';
     bindCursorTooltip,
     hideCursorTooltip
   } = NEWTAB_TOOLTIP_BINDINGS.createTooltipBindings({
+    searchBox,
     preview,
     topActionTooltipController,
     searchInputCursorTooltipController,
@@ -1633,6 +1648,9 @@ import { getPagePortals } from './app/portals';
     bottomDockRuntime,
     bottomDock
   } = NEWTAB_BOTTOM_DOCK_RUNTIME.createBottomDockRuntime({
+    searchLayer,
+    suggestionsContainer,
+    searchBox,
     root,
     bookmarkSection,
     suggestionsSurface,
@@ -1863,10 +1881,10 @@ import { getPagePortals } from './app/portals';
     catalog: siteSearchCatalog,
     actions: modeActions,
     modeMenu,
-    preview: pageState.suggestionInputPreview,
+    preview: suggestionInputPreview,
     surface: {
-      getInput: () => (pageState.inputParts ? pageState.inputParts.input : null),
-      getModeController: () => pageState.inputModeController,
+      getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null),
+      getModeController: () => searchBox.modeController,
       getSelectedRow: () => (searchResults.selectedIndex >= 0 ? searchResults.rows[searchResults.selectedIndex] || null : null)
     }
   });
@@ -1880,6 +1898,8 @@ import { getPagePortals } from './app/portals';
     refreshTabsForSearchContext,
     submitSearchQuery
   } = NEWTAB_SEARCH_NAVIGATION.createSearchNavigation({
+    openTabs,
+    searchBox,
     siteSearchRunner,
     modeActions,
     searchResults,
@@ -1900,7 +1920,6 @@ import { getPagePortals } from './app/portals';
     getNextThemeMode: (...args) => getNextThemeMode(...args),
     setVisibleThemeMode,
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
-    focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
     openCommunityQrDialog: (...args) => openCommunityQrDialog(...args),
     navigateToQuery,
     pageState
@@ -1915,12 +1934,15 @@ import { getPagePortals } from './app/portals';
     clearSearchSuggestions,
     dismissSearchSuggestionsFromBackground,
     restoreDismissedSearchSuggestions,
+    forgetSuggestionsDismissal,
     renderSuggestions,
     renderPendingSuggestions,
     showSuggestionSnapshot,
     directNavigationSettleController,
     requestSuggestions
   } = NEWTAB_SUGGESTIONS_CONTROLLER.createSuggestionsController({
+    openTabs,
+    searchBox,
     suggestionSource,
     siteSearchRunner,
     modeActions,
@@ -1932,13 +1954,12 @@ import { getPagePortals } from './app/portals';
     searchQuery,
     settings,
     getPageFaviconCandidateUrl,
-    focusSearchInputPreservingScroll: (...args) => focusSearchInputPreservingScroll(...args),
     setVisibleThemeMode,
     setWebAppearanceMode: (...args) => setWebAppearanceMode(...args),
     shouldSwitchMatchedTabSuggestion,
     resultActivation,
     navigateToQuery,
-    suggestionsContainer: pageState.suggestionsContainer,
+    suggestionsContainer: suggestionsContainer,
     suggestionItems,
     refreshTabsForSearchContext,
     clearSiteSearchTabHint: (...args) => clearSiteSearchTabHint(...args),
@@ -1969,14 +1990,28 @@ import { getPagePortals } from './app/portals';
     pageState
   });
 
+  const { focusResume } = NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
+    searchBox,
+    modeActions,
+    searchResults,
+    searchMode,
+    searchQuery,
+    siteSearchCatalog,
+    createAggregateSearchScopeProvider,
+    showSuggestionSnapshot,
+    requestSuggestions,
+    settings,
+    defaultTheme
+  });
+
   const {
     isEditableElement,
     refreshFallbackShortcut,
-    focusSearchInputPreservingScroll,
     handleGlobalTypingFocus
   } = NEWTAB_INPUT_FOCUS.createInputFocus({
+    searchBox,
     settings,
-    prepareFocusReload: () => (pageState.focusResume ? pageState.focusResume.prepareFocusReload() : false),
+    focusResume,
     refreshTabsIfIdle,
     initialNewtabInputAutoFocusReadyTask,
     isImeCompositionEvent,
@@ -1998,6 +2033,7 @@ import { getPagePortals } from './app/portals';
     setWebAppearanceMode,
     followZenMode
   } = NEWTAB_MODE_COMMANDS.createModeCommands({
+    searchBox,
     preview,
     settings,
     t,
@@ -2032,6 +2068,10 @@ import { getPagePortals } from './app/portals';
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    searchLayer,
+    suggestionsContainer,
+    suggestionInputPreview,
+    searchBox,
     suggestionSource,
     suggestionModifiers,
     modeActions,
@@ -2099,15 +2139,15 @@ import { getPagePortals } from './app/portals';
     submitSearchQuery,
     root,
     dismissSearchSuggestionsFromBackground,
-    focusSearchInputPreservingScroll,
     finishNewtabEntryAnimation,
     handleGlobalTypingFocus,
     refreshFallbackShortcut,
     restoreDismissedSearchSuggestions,
+    forgetSuggestionsDismissal,
+    handleSearchTabKey: tabKey.handle,
     hideSearchInputCursorTooltip,
     modeMenu,
-    bindSearchInputCursorTooltip,
-    pageState
+    bindSearchInputCursorTooltip
   });
 
   function openWordmarkUrl(disposition: Disposition): void {
@@ -2141,6 +2181,7 @@ import { getPagePortals } from './app/portals';
     dismissHelpCenterAskHint,
     dismissWebdavFeatureHint
   } = NEWTAB_PAGE_NOTICES.createPageNotices({
+    searchBox,
     modeActions,
     locale,
     pageSearchParams,
@@ -2160,6 +2201,7 @@ import { getPagePortals } from './app/portals';
     updateInputRightPadding,
     followNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
+    searchBox,
     searchMode,
     settings,
     locale,
@@ -2190,6 +2232,8 @@ import { getPagePortals } from './app/portals';
     setSiteSearchTabHint,
     clearSiteSearchTabHint,
   } = NEWTAB_SEARCH_MODE_CONTROLLER.createSearchModeController({
+    suggestionsContainer,
+    searchBox,
     modeMenu,
     modeActions,
     menuOrder,
@@ -2220,8 +2264,7 @@ import { getPagePortals } from './app/portals';
     hideToast,
     setSearchScopeIconEnabled,
     syncSearchModeMenuResultOffset,
-    siteSearchIconCache,
-    pageState
+    siteSearchIconCache
   });
 
   NEWTAB_PAGE_RESIZE.createPageResize({
@@ -2247,6 +2290,8 @@ import { getPagePortals } from './app/portals';
   });
 
   NEWTAB_PAGE_KEYBOARD.createPageKeyboard({
+    suggestionsContainer,
+    searchBox,
     suggestionModifiers,
     handleSearchTabKey: tabKey.handle,
     dismissStack,
@@ -2259,22 +2304,8 @@ import { getPagePortals } from './app/portals';
     pageState
   });
 
-  NEWTAB_SITE_SEARCH_RUNTIME.createSiteSearchRuntime({
-    modeActions,
-    searchResults,
-    searchMode,
-    searchQuery,
-    siteSearchCatalog,
-    createAggregateSearchScopeProvider,
-    showSuggestionSnapshot,
-    focusSearchInputPreservingScroll,
-    requestSuggestions,
-    settings,
-    defaultTheme,
-    pageState
-  });
-
   NEWTAB_SEARCH_INPUT_COMPOSITION.createSearchInputComposition({
+    searchBox,
     suggestionSource,
     searchAutocomplete,
     searchQuery,
@@ -2283,8 +2314,7 @@ import { getPagePortals } from './app/portals';
     clearSearchSuggestions,
     getDirectUrlSuggestion,
     renderPendingSuggestions,
-    requestSuggestions,
-    pageState
+    requestSuggestions
   });
 
   createWallpaperControls();
@@ -2321,8 +2351,8 @@ import { getPagePortals } from './app/portals';
   });
 
   document.body.insertBefore(pageState.topContentContainer, root);
-  pageStructureRuntime.searchLayer.appendChild(inputParts.container);
-  root.appendChild(pageStructureRuntime.searchLayer);
+  searchLayer.appendChild(inputParts.container);
+  root.appendChild(searchLayer);
   const newtabUpdateNoticeAnchor = root.nextSibling;
   if (pageState.shortcutSection) {
     document.body.insertBefore(pageState.shortcutSection, newtabUpdateNoticeAnchor);
@@ -2335,7 +2365,7 @@ import { getPagePortals } from './app/portals';
   }
   document.body.insertBefore(suggestionsSurface, newtabUpdateNoticeAnchor);
   document.body.insertBefore(suggestionsOutline, newtabUpdateNoticeAnchor);
-  document.body.insertBefore(pageState.suggestionsContainer, newtabUpdateNoticeAnchor);
+  document.body.insertBefore(suggestionsContainer, newtabUpdateNoticeAnchor);
   // 等首轮语言解析完成后再创建，避免默认文案在新标签页首帧短暂闪现。
   Promise.all([
     locale.ready,

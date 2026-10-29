@@ -1,30 +1,32 @@
 // Where the suggestion list sits: shown or hidden, floating under the
 // search box, and offset below an open search mode menu.
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { LayoutController } from '../layout';
 import type { LayoutMotion } from '../layout-motion';
+import type { InputModeController } from '../../shared/search/search-input-mode';
 
 interface SuggestionsLayoutState {
-  suggestionsContainer: HTMLElement | null;
-  inputModeController: Pick<InputModeController, 'placeModeMenuBelowResults'> | null;
   layoutMotion: Pick<LayoutMotion, 'cancelAll'> | null;
   layoutController: Pick<LayoutController, 'setSuggestionsVisible' | 'updateSuggestionsFloatingLayout'> | null;
 }
 
 interface SuggestionsLayoutDeps {
+  // Only the mode menu's fit below the results is read from the mode controller.
+  searchBox: { readonly modeController: Pick<InputModeController, 'placeModeMenuBelowResults'> | null };
+  suggestionsContainer: HTMLElement;
   pageState: SuggestionsLayoutState;
 }
 
 function createSuggestionsLayout(deps: SuggestionsLayoutDeps) {
+  const { suggestionsContainer, searchBox } = deps;
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
 
   function syncSearchModeMenuResultOffset(): void {
-    const container = pageState.suggestionsContainer;
-    if (!pageState.inputModeController || !container) {
+    const container = suggestionsContainer;
+    if (!searchBox.modeController || !container) {
       return;
     }
-    const capChanged = pageState.inputModeController.placeModeMenuBelowResults({
+    const capChanged = searchBox.modeController.placeModeMenuBelowResults({
       element: container,
       capProperty: '--x-nt-suggestions-menu-fit-max-height',
       isShown: () => container.getAttribute('data-visible') === 'true'

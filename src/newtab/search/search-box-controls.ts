@@ -3,8 +3,6 @@
 // buttons the page shows.
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { SearchInputParts } from '../../shared/react/search-input';
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { FeatureHintController } from '../../shared/ui/feature-hint-catalog';
 import type { FormatMessage, Translate } from '../newtab-types';
 import type { PageNavigation } from '../page-navigation';
@@ -16,13 +14,12 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import { getPagePortals } from '../app/portals';
+import type { SearchBoxParts } from './search-box-parts';
 
 interface SearchBoxControlsState {
-  inputParts: SearchInputParts | null;
   // Counts the uses the review notice waits for.
   engagementNoticeController: { recordMeaningfulUse?(): void } | null;
   webdavFeatureHintController: FeatureHintController | null;
-  inputModeController: Pick<InputModeController, 'updateLayout'> | null;
   feedbackReactController: unknown;
   wallpaperRuntime: unknown;
   feedbackControl: HTMLElement | null;
@@ -45,11 +42,13 @@ interface SearchBoxControlsDeps {
   searchInput: HTMLInputElement;
   closeFeedbackPopover(): void;
   closeWallpaperPanel(): void;
+  searchBox: Pick<SearchBoxParts, 'inputParts' | 'modeController'>;
   pageState: SearchBoxControlsState;
 }
 
 function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   const {
+    searchBox,
     searchMode,
     settings,
     locale,
@@ -70,7 +69,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   const pageState = deps.pageState;
 
   // The search box exists before this module is created.
-  const inputParts = pageState.inputParts;
+  const inputParts = searchBox.inputParts;
   if (!inputParts) {
     throw new Error('Search input unavailable');
   }
@@ -174,8 +173,8 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   }
 
   function updateInputRightPadding(): void {
-    if (pageState.inputModeController) {
-      pageState.inputModeController.updateLayout();
+    if (searchBox.modeController) {
+      searchBox.modeController.updateLayout();
     }
   }
 

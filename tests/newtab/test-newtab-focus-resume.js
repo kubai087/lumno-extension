@@ -99,9 +99,10 @@ function createResume(page, overrides = {}) {
   searchResults.setLastResponse(overrides.lastResponse || []);
   searchResults.select(overrides.selectedIndex === undefined ? -1 : overrides.selectedIndex);
   if (overrides.site) searchMode.enterSite(overrides.site);
-  const pageState = {
+  // The search box's mounted input; focusing it is recorded.
+  const searchBox = {
     inputParts: { input },
-    ...overrides.pageState
+    focusInput: () => calls.push(['focus'])
   };
   const providers = { 'provider:gh': { key: 'gh', name: 'GitHub' } };
   const resume = page.api.createFocusResume({
@@ -126,13 +127,12 @@ function createResume(page, overrides = {}) {
       calls.push(['results', suggestions.length, query, selectedIndex]);
       return wait(5).then(() => calls.push(['rendered']));
     },
-    focusSearchInputPreservingScroll: () => calls.push(['focus']),
     searchQuery,
     searchMode,
     searchResults,
-    pageState
+    searchBox
   });
-  return { resume, calls, input, pageState, searchResults };
+  return { resume, calls, input, searchResults };
 }
 
 function snapshot(fields) {
@@ -147,9 +147,7 @@ async function main() {
       rawQuery: 'git',
       site: { key: 'gh' },
       lastResponse: [{ url: 'https://github.com' }],
-      selectedIndex: 2,
-      pageState: {
-      }
+      selectedIndex: 2
     });
     input.value = 'github.com';
     assert.strictEqual(resume.prepareFocusReload(), true);

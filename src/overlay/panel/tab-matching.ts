@@ -1,5 +1,5 @@
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
-import type { OverlayTabs } from './overlay-tabs';
+import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { SuggestionLike } from '../../domain/search/types';
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { OverlaySettings } from '../overlay-settings';
@@ -9,7 +9,7 @@ interface TabMatchingDeps {
   prioritizeCurrentPageMatch: boolean;
   // That tab's address, for before its entry is in tabs.
   initialContextTabUrl: string;
-  overlayTabs: Pick<OverlayTabs, 'currentTabId' | 'tabs'>;
+  overlayTabs: Pick<OpenTabs, 'currentTabId' | 'tabs'>;
   settings: Pick<OverlaySettings, 'get'>;
 }
 

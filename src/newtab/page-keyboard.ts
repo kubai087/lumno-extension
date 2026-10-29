@@ -4,10 +4,9 @@ import type { NumberShortcutContainer, NumberShortcutItem, NumberShortcutOptions
 import type { DismissStack } from './dismiss-stack';
 import type { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
 import * as SUGGESTION_NAVIGATION from '../shared/search/suggestion-navigation';
+import type { SearchBoxParts } from './search/search-box-parts';
 
 interface PageKeyboardState {
-  // Moves into site search on Tab, when the search box allows it.
-  handleTabKey: ((event: KeyboardEvent) => void) | null;
   shortcutDragState: unknown;
   bookmarkDragState: unknown;
   recentCardDragRuntime: {
@@ -15,8 +14,6 @@ interface PageKeyboardState {
     finishRecentCardDrag(event: null, options: { cancel: boolean }): void;
   } | null;
   folderColorPicker: { isOpen(): boolean } | null;
-  suggestionsContainer: NumberShortcutContainer | null;
-  inputParts: { input: HTMLElement } | null;
 }
 
 interface PageKeyboardDeps {
@@ -30,11 +27,15 @@ interface PageKeyboardDeps {
   performBookmarkMoveHistoryAction(direction: 'undo' | 'redo'): boolean;
   suggestionItems: ReadonlyArray<NumberShortcutItem | null | undefined>;
   numberShortcutOptions: NumberShortcutOptions;
+  searchBox: Pick<SearchBoxParts, 'inputParts'>;
+  suggestionsContainer: NumberShortcutContainer | null;
   pageState: PageKeyboardState;
 }
 
 function createPageKeyboard(deps: PageKeyboardDeps): void {
   const {
+    suggestionsContainer,
+    searchBox,
     suggestionModifiers,
     handleSearchTabKey,
     dismissStack,
@@ -48,8 +49,6 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
-
-  pageState.handleTabKey = handleSearchTabKey;
 
   // Escape cancels a drag before it closes any open layer.
   dismissStack.register('drag', {
@@ -92,7 +91,7 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     if (SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       event,
       suggestionItems,
-      pageState.suggestionsContainer,
+      suggestionsContainer,
       numberShortcutOptions
     )) {
       return;
@@ -100,25 +99,23 @@ function createPageKeyboard(deps: PageKeyboardDeps): void {
     if (event.key !== 'Tab') {
       return;
     }
-    if (!pageState.inputParts || document.activeElement !== pageState.inputParts.input) {
+    if (!searchBox.inputParts || document.activeElement !== searchBox.inputParts.input) {
       return;
     }
-    if (pageState.handleTabKey) {
-      pageState.handleTabKey(event);
-    }
+    handleSearchTabKey(event);
   }, true);
   document.addEventListener('keyup', function(event) {
     suggestionModifiers.syncFromEvent(event);
     SUGGESTION_NAVIGATION.handleNumberShortcutKeyEvent(
       event,
       suggestionItems,
-      pageState.suggestionsContainer,
+      suggestionsContainer,
       numberShortcutOptions
     );
   }, true);
   window.addEventListener('blur', function() {
     suggestionModifiers.set(false, false, false);
-    SUGGESTION_NAVIGATION.cancelNumberShortcuts(pageState.suggestionsContainer);
+    SUGGESTION_NAVIGATION.cancelNumberShortcuts(suggestionsContainer);
   });
 }
 

@@ -6,18 +6,16 @@ import type { LayoutMotion } from '../layout-motion';
 import { createDock } from '../react/dock';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX } from '../newtab-config';
 import type { ViewportActivity } from '../viewport-activity';
+import type { SearchBoxParts } from '../search/search-box-parts';
 
 // A part of the page that may show an element of its own.
 type ElementOwner = { element?: HTMLElement | null } | null;
 
 interface BottomDockRuntimeState {
-  searchLayer: HTMLElement | null;
-  inputParts: { container?: HTMLElement | null } | null;
   topContentContainer: HTMLElement | null;
   shortcutSection: HTMLElement | null;
   quoteRuntime: ElementOwner;
   recentSection: HTMLElement | null;
-  suggestionsContainer: HTMLElement | null;
   updateNoticeController: ElementOwner;
   engagementNoticeController: ElementOwner;
   bottomDockScroller: HTMLElement | null;
@@ -35,11 +33,17 @@ interface BottomDockRuntimeDeps {
   shouldAnimateNewtabLayoutShift(): boolean;
   applyNewtabWidthMode(): void;
   viewport: Pick<ViewportActivity, 'locked'>;
+  searchBox: Pick<SearchBoxParts, 'inputParts'>;
+  suggestionsContainer: HTMLElement;
+  searchLayer: HTMLElement;
   pageState: BottomDockRuntimeState;
 }
 
 function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const {
+    searchLayer,
+    suggestionsContainer,
+    searchBox,
     root,
     bookmarkSection,
     suggestionsSurface,
@@ -75,14 +79,14 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     documentObj: document,
     windowObj: window,
     root,
-    searchLayer: () => pageState.searchLayer,
-    inputParts: () => pageState.inputParts,
+    searchLayer: () => searchLayer,
+    inputParts: () => searchBox.inputParts,
     topContentContainer: () => pageState.topContentContainer,
     shortcutSection: () => pageState.shortcutSection,
     quoteSection: () => pageState.quoteRuntime && pageState.quoteRuntime.element,
     bookmarkSection,
     recentSection,
-    suggestionsContainer: pageState.suggestionsContainer,
+    suggestionsContainer: suggestionsContainer,
     suggestionsSurface,
     suggestionsOutline,
     getTopInsetPx: getNewtabTopOccupiedInsetPx,

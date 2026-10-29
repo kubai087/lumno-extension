@@ -7,10 +7,8 @@ import type { RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
+import type { SearchBoxParts } from './search-box-parts';
 
-interface SearchInputCompositionState {
-  inputParts: { input: HTMLInputElement } | null;
-}
 
 interface SearchInputCompositionDeps {
   suggestionSource: SuggestionSource;
@@ -23,11 +21,12 @@ interface SearchInputCompositionDeps {
   getDirectUrlSuggestion(query: string): SuggestionLike | null;
   renderPendingSuggestions(query: string): unknown;
   requestSuggestions: RequestSuggestions;
-  pageState: SearchInputCompositionState;
+  searchBox: Pick<SearchBoxParts, 'inputParts'>;
 }
 
 function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
   const {
+    searchBox,
     suggestionSource,
     searchAutocomplete,
     searchQuery,
@@ -39,11 +38,9 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
     requestSuggestions
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // The search box exists before this module is created.
-  const inputParts = pageState.inputParts;
+  const inputParts = searchBox.inputParts;
   if (!inputParts) {
     throw new Error('Search input unavailable');
   }
@@ -88,4 +85,4 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
 }
 
 export { createSearchInputComposition };
-export type { SearchInputCompositionDeps, SearchInputCompositionState };
+export type { SearchInputCompositionDeps };

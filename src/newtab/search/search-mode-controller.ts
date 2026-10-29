@@ -2,10 +2,8 @@
 // prefixes, the tab hint for site search, the placeholder and caret color
 // per mode, and the cached provider icons the prefixes show.
 import type { SiteSearchProvider } from '../../domain/search/types';
-import type { SearchInputParts } from '../../shared/react/search-input';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
 import * as SEARCH_INPUT_MODE from '../../shared/search/search-input-mode';
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeConfig } from '../../shared/search/input-mode/controller-types';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
@@ -25,6 +23,7 @@ import type { SearchLocale } from '../../shared/search-panel/labels';
 import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-order';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
+import type { SearchBoxParts } from './search-box-parts';
 
 // Width the clear button adds left of the close-other-tabs button: 30px button + 6px gap.
 const SEARCH_CLEAR_BUTTON_INSET = 36;
@@ -32,12 +31,6 @@ const SEARCH_CLEAR_BUTTON_INSET = 36;
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
 
-interface SearchModeControllerState {
-  inputParts: SearchInputParts | null;
-  modeBadge: HTMLElement | null;
-  suggestionsContainer: HTMLElement | null;
-  inputModeController: InputModeController | null;
-}
 
 interface SearchModeControllerDeps {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -72,11 +65,14 @@ interface SearchModeControllerDeps {
   setSearchScopeIconEnabled(enabled: boolean): void;
   syncSearchModeMenuResultOffset(): void;
   siteSearchIconCache: Pick<SiteSearchIconCache, 'applyStored' | 'load'>;
-  pageState: SearchModeControllerState;
+  searchBox: Pick<SearchBoxParts, 'inputParts' | 'mountModeController'>;
+  suggestionsContainer: HTMLElement;
 }
 
 function createSearchModeController(deps: SearchModeControllerDeps) {
   const {
+    suggestionsContainer,
+    searchBox,
     modeActions,
     locale,
     searchResults,
@@ -110,30 +106,19 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     siteSearchIconCache,
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // The search box exists before this module is created.
-  const inputParts = pageState.inputParts;
+  const inputParts = searchBox.inputParts;
   if (!inputParts) {
     throw new Error('Search input unavailable');
   }
-  // The page structure creates the results container before the search box.
-  const suggestionsContainer = pageState.suggestionsContainer;
-  if (!suggestionsContainer) {
-    throw new Error('Search results container unavailable');
-  }
 
   function setSiteSearchTabHint(provider: InputModeProvider | null): void {
-    if (pageState.inputModeController) {
-      pageState.inputModeController.setTabHintVisible(true, provider);
-    }
+    modeController.setTabHintVisible(true, provider);
   }
 
   function clearSiteSearchTabHint(): void {
-    if (pageState.inputModeController) {
-      pageState.inputModeController.setTabHintVisible(false);
-    }
+    modeController.setTabHintVisible(false);
   }
 
   void settings.include([searchResultPriority, searchResultSourceTypes, searchResultDisplayLimit, overlayTabPriority, newtabOpenInNewTab])
@@ -145,12 +130,12 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
   const defaultPlaceholder = searchInput.placeholder;
   const defaultCaretColor = searchInput.style.caretColor || '#7DB7FF';
   const inputModePrefixTransition = 'opacity 140ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease';
-  pageState.inputModeController = SEARCH_INPUT_MODE.createInputModeController(inputParts, {
+  const modeController = SEARCH_INPUT_MODE.createInputModeController(inputParts, {
     surface: 'newtab',
     prefixTransition: inputModePrefixTransition,
     defaultPlaceholder,
     defaultCaretColor,
-    modeBadgeElement: pageState.modeBadge,
+    modeBadgeElement: inputParts.modeBadge,
     rightReserveBase: 100,
     rightAnchorOffset: 88,
     getExtraRightInset: () => (inputParts.syncClearAction() ? SEARCH_CLEAR_BUTTON_INSET : 0),
@@ -190,6 +175,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     onModeMenuLayoutChange: syncSearchModeMenuResultOffset,
     isTabHintSuppressed: () => Boolean(searchMode.site || searchMode.local)
   });
+  searchBox.mountModeController(modeController);
   syncSearchModeMenuResultOffset();
   if (typeof window.ResizeObserver === 'function') {
     const searchModeMenuResultResizeObserver = new window.ResizeObserver(
@@ -199,7 +185,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
   }
   // The active site search's prefix shows its icon once the icons are read.
   function showActiveProviderIcon(): void {
-    if (!searchMode.site || !pageState.inputModeController) {
+    if (!searchMode.site) {
       return;
     }
     const activeProvider = searchMode.site;
@@ -216,9 +202,7 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
   settings.subscribe(siteSearchIconCacheSetting, () => {
     siteSearchIconCache.applyStored(settings.getStored(siteSearchIconCacheSetting));
     showActiveProviderIcon();
-    if (pageState.inputModeController) {
-      pageState.inputModeController.refreshModeMenu();
-    }
+    modeController.refreshModeMenu();
     if (searchQuery.text) {
       requestSuggestions(searchQuery.text, { immediate: true });
     }
@@ -236,4 +220,4 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
 type SearchModeController = ReturnType<typeof createSearchModeController>;
 
 export { createSearchModeController };
-export type { SearchModeController, SearchModeControllerDeps, SearchModeControllerState };
+export type { SearchModeController, SearchModeControllerDeps };

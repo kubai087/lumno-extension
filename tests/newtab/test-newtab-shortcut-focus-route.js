@@ -70,15 +70,20 @@ function bootPage(options = {}) {
   });
   context.globalThis = context;
   vm.runInContext(moduleScript('src/newtab/input-focus.ts', 'LumnoNewtabInputFocus'), context);
-  const pageState = {
-    inputParts: { input }
+  // The search box's mounted input.
+  const searchBox = {
+    inputParts: { input },
+    focusInput() {
+      input.focus();
+      return document.activeElement === input;
+    }
   };
   context.LumnoNewtabInputFocus.createInputFocus({
     // The page's settings: only the auto-focus choice is read here.
     settings: { get: () => options.autoFocusEnabled === true },
-    pageState,
+    searchBox,
     SHORTCUT_KEY_MATCHER: { parseShortcut: () => null, eventMatchesShortcut: () => false },
-    prepareFocusReload: () => preparedAt.push(replacedUrls.length),
+    focusResume: { prepareFocusReload: () => preparedAt.push(replacedUrls.length) },
     refreshTabsIfIdle() {},
     initialNewtabInputAutoFocusReadyTask: Promise.resolve(),
     isImeCompositionEvent: () => false

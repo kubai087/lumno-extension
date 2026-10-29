@@ -4,23 +4,23 @@ import type { ShortcutSpec } from '../domain/shortcut-key-matcher';
 import * as LumnoMessaging from '../platform/messaging';
 import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
+import type { FocusResume } from './focus-resume';
 import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
+import type { SearchBoxParts } from './search/search-box-parts';
 
 interface InputFocusState {
-  inputParts: { input: HTMLInputElement } | null;
   folderColorPicker: { isOpen(): boolean } | null;
-  inputModeController: { shouldHandleModeMenuKeyEvent?: (event: KeyboardEvent) => boolean } | null;
-  searchScopeIcon: HTMLElement | null;
 }
 
 interface InputFocusDeps {
   settings: Pick<SettingsStore, 'get'>;
-  // Saves the search on screen before the focus reload; false when it could not.
-  prepareFocusReload?: () => boolean;
+  // Saves the search on screen before the focus reload.
+  focusResume: Pick<FocusResume, 'prepareFocusReload'>;
   refreshTabsIfIdle(): void;
   // Settles once the auto-focus setting is read.
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
   isImeCompositionEvent(event: KeyboardEvent): boolean;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController'>;
   pageState: InputFocusState;
 }
 
@@ -30,8 +30,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createInputFocus(deps: InputFocusDeps) {
   const {
+    searchBox,
     settings,
-    prepareFocusReload,
+    focusResume,
     refreshTabsIfIdle,
     initialNewtabInputAutoFocusReadyTask,
     isImeCompositionEvent
@@ -80,24 +81,11 @@ function createInputFocus(deps: InputFocusDeps) {
     }
   }
 
-  function focusSearchInputPreservingScroll(): boolean {
-    const input = pageState.inputParts && pageState.inputParts.input;
-    if (!input) {
-      return false;
-    }
-    try {
-      input.focus({ preventScroll: true });
-    } catch {
-      input.focus();
-    }
-    return document.activeElement === input;
-  }
-
   function tryFocusSearchInput(force: boolean): boolean {
-    if (!pageState.inputParts || !pageState.inputParts.input) {
+    if (!searchBox.inputParts || !searchBox.inputParts.input) {
       return false;
     }
-    if (document.activeElement === pageState.inputParts.input) {
+    if (document.activeElement === searchBox.inputParts.input) {
       return true;
     }
     if (!force) {
@@ -109,11 +97,11 @@ function createInputFocus(deps: InputFocusDeps) {
         return false;
       }
     }
-    return focusSearchInputPreservingScroll();
+    return searchBox.focusInput();
   }
 
   function activateNewtabShortcutFocus(): boolean {
-    const input = pageState.inputParts && pageState.inputParts.input;
+    const input = searchBox.inputParts && searchBox.inputParts.input;
     if (!input || !tryFocusSearchInput(true)) {
       return false;
     }
@@ -130,9 +118,7 @@ function createInputFocus(deps: InputFocusDeps) {
   // route, which hands focus to the page the way input auto-focus does.
   function reopenOnFocusRoute(): void {
     // The reloaded page brings back the query and its results.
-    if (typeof prepareFocusReload === 'function') {
-      prepareFocusReload();
-    }
+    focusResume.prepareFocusReload();
     if (window.location.protocol === 'moz-extension:') {
       try {
         LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'swapNewtabForFocus' }, () => {
@@ -292,28 +278,28 @@ function createInputFocus(deps: InputFocusDeps) {
     if (event.metaKey || event.ctrlKey || event.altKey) {
       return;
     }
-    if (pageState.inputModeController &&
-        typeof pageState.inputModeController.shouldHandleModeMenuKeyEvent === 'function' &&
-        pageState.inputModeController.shouldHandleModeMenuKeyEvent(event)) {
+    if (searchBox.modeController &&
+        typeof searchBox.modeController.shouldHandleModeMenuKeyEvent === 'function' &&
+        searchBox.modeController.shouldHandleModeMenuKeyEvent(event)) {
       return;
     }
     const activeElement = document.activeElement;
-    if (pageState.searchScopeIcon && activeElement === pageState.searchScopeIcon) {
+    if (searchBox.inputParts && activeElement === searchBox.inputParts.icon) {
       return;
     }
-    const input = pageState.inputParts && pageState.inputParts.input;
+    const input = searchBox.inputParts && searchBox.inputParts.input;
     if (!input || activeElement === input || isEditableElement(activeElement)) {
       return;
     }
     if (isImeCompositionEvent(event)) {
-      focusSearchInputPreservingScroll();
+      searchBox.focusInput();
       return;
     }
     const key = event.key || '';
     if (!key || key === 'Tab' || key === 'Escape' || key.startsWith('Arrow')) {
       return;
     }
-    focusSearchInputPreservingScroll();
+    searchBox.focusInput();
     const currentValue = input.value || '';
     if (key === 'Backspace') {
       if (currentValue) {
@@ -334,7 +320,6 @@ function createInputFocus(deps: InputFocusDeps) {
   return {
     isEditableElement,
     refreshFallbackShortcut,
-    focusSearchInputPreservingScroll,
     handleGlobalTypingFocus
   };
 }

@@ -36,7 +36,7 @@ import type { ResultActivation } from '../../shared/search-panel/result-activati
 import type { SuggestionModifiers } from '../../shared/search-panel/suggestion-modifiers';
 import type { ColorScheme } from '../../shared/ui/color-scheme';
 import type { OverlayPanelElements } from './panel-elements';
-import type { OverlayTabs } from './overlay-tabs';
+import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { createSessionCleanupRegistry } from '../lifecycle';
 import type { LastRender } from './last-render';
 import { createEventBus } from '../../shared/state/events';
@@ -91,7 +91,7 @@ interface SuggestionsRenderDeps {
   defaultTheme: ThemeValue;
   urlHighlightTheme: ThemeValue;
   elements: Pick<OverlayPanelElements, 'inputModeController' | 'inputParts' | 'overlay' | 'overlayPortals' | 'overlayStyleRoot' | 'searchInput' | 'suggestionsContainer' | 'topActionTooltip' | 'cursorTooltip'>;
-  overlayTabs: Pick<OverlayTabs, 'currentTabId' | 'ready' | 'received' | 'tabs'>;
+  overlayTabs: Pick<OpenTabs, 'currentTabId' | 'ready' | 'received' | 'tabs'>;
   isLoadingSessionTracked(): boolean;
   overlaySessionCleanups: Pick<ReturnType<typeof createSessionCleanupRegistry>, 'add'>;
   lastRender: LastRender;

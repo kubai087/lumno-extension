@@ -3,7 +3,6 @@
 import type { WebAppearanceMode } from '../domain/messages';
 import type { ThemeMode } from '../domain/settings';
 import * as LumnoMessaging from '../platform/messaging';
-import type { SearchInputParts } from '../shared/react/search-input';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
 import type { FormatMessage, Translate } from './newtab-types';
 import type { RenderSuggestions, SlashCommand } from './search/search-types';
@@ -12,10 +11,10 @@ import { NEWTAB_THEME_SETTINGS } from '../domain/settings/newtab-page';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingPreview } from './setting-preview';
 import { bookmarkCount } from '../domain/settings/bookmarks';
+import type { SearchBoxParts } from './search/search-box-parts';
 
 interface ModeCommandsState {
   currentThemeMode: ThemeMode;
-  inputParts: Pick<SearchInputParts, 'input' | 'setChrome'> | null;
   bookmarkTopbarRuntime: { setVisible(visible: boolean): void } | null;
 }
 
@@ -45,6 +44,7 @@ interface ModeCommandsDeps {
   updateBookmarkSectionPosition(): void;
   updateSearchEntryLayout(): void;
   scheduleWallpaperAdaptiveToneUpdate(): void;
+  searchBox: Pick<SearchBoxParts, 'inputParts'>;
   pageState: ModeCommandsState;
 }
 
@@ -53,6 +53,7 @@ const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'da
 
 function createModeCommands(deps: ModeCommandsDeps) {
   const {
+    searchBox,
     preview,
     settings,
     t,
@@ -216,7 +217,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
   }
 
   function updateModeBadge(rawValue: string | null | undefined): void {
-    const inputParts = pageState.inputParts;
+    const inputParts = searchBox.inputParts;
     if (!inputParts) {
       return;
     }
@@ -317,8 +318,8 @@ function createModeCommands(deps: ModeCommandsDeps) {
   }
 
   function refreshWebAppearanceCommand(): void {
-    const rawValue = pageState.inputParts && pageState.inputParts.input
-      ? (pageState.inputParts.input.value || '')
+    const rawValue = searchBox.inputParts && searchBox.inputParts.input
+      ? (searchBox.inputParts.input.value || '')
       : '';
     updateModeBadge(rawValue);
     if (isSlashCommandInput(rawValue)) {
@@ -368,14 +369,14 @@ function createModeCommands(deps: ModeCommandsDeps) {
   }
 
   function updateModeCommandSuggestions(): void {
-    const input = pageState.inputParts && pageState.inputParts.input;
+    const input = searchBox.inputParts && searchBox.inputParts.input;
     if (input && isModeCommand(input.value)) {
       renderSuggestions([], (input.value || '').trim());
     }
   }
 
   function updateZenCommandSuggestions(): void {
-    const input = pageState.inputParts && pageState.inputParts.input;
+    const input = searchBox.inputParts && searchBox.inputParts.input;
     if (input && isZenCommand(input.value)) {
       renderSuggestions([], (input.value || '').trim());
     }
@@ -423,7 +424,7 @@ function createModeCommands(deps: ModeCommandsDeps) {
     updateBookmarkSectionPosition();
     updateSearchEntryLayout();
     scheduleWallpaperAdaptiveToneUpdate();
-    updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
+    updateModeBadge(searchBox.inputParts && searchBox.inputParts.input ? searchBox.inputParts.input.value : '');
   }
 
   // Puts the page in or out of zen once the setting is read, and on every change.

@@ -1,9 +1,9 @@
-// The window's tabs the overlay lists and matches results against, and the
-// tab it opened over. They come with the opening and are fetched again when
-// the panel lists open tabs.
+// The window's tabs a search surface lists and matches results against, and
+// the tab the surface is in. The overlay gets them with its opening; both
+// surfaces fetch them again when the panel lists open tabs.
 import type { OverlayTab } from '../../domain/messages';
 
-class OverlayTabs {
+class OpenTabs {
   private list: OverlayTab[];
   private currentId: number | null;
   private fetched: boolean;
@@ -28,12 +28,18 @@ class OverlayTabs {
     return this.fetched;
   }
 
-  // The tabs as the worker listed them, and the tab the overlay is over.
+  // The tabs as the worker listed them, and the tab the surface is in.
   received(tabs: OverlayTab[], currentTabId: number | null): void {
     this.list = tabs;
     this.currentId = currentTabId;
     this.fetched = true;
   }
+
+  // Forgets the listed tabs until they are fetched again.
+  clear(): void {
+    this.list = [];
+    this.fetched = false;
+  }
 }
 
-export { OverlayTabs };
+export { OpenTabs };

@@ -30,7 +30,7 @@ import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { InputModeProvider, InputModeTheme } from '../../shared/search/input-mode/types';
 import * as SUGGESTION_NAVIGATION from '../../shared/search/suggestion-navigation';
 import type { OverlayPanelElements } from './panel-elements';
-import type { OverlayTabs } from './overlay-tabs';
+import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 
 // Row is a suggestion row; this module only passes it along.
 
@@ -56,7 +56,7 @@ interface SettingsSyncDeps<Row> {
   overlayNoticeLayer: { sync(overlayElement: HTMLElement | null): void };
   overlayViewportSizeSync: { apply(overlayElement: HTMLElement | null): void };
   elements: Pick<OverlayPanelElements, 'inputModeController' | 'overlay' | 'suggestionsContainer'>;
-  overlayTabs: Pick<OverlayTabs, 'tabs'>;
+  overlayTabs: Pick<OpenTabs, 'tabs'>;
   setDocumentPipEnabled(enabled: boolean): void;
 }
 

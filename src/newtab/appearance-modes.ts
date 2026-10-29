@@ -3,7 +3,6 @@
 import type { ThemeMode } from '../domain/settings';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
-import type { InputModeController } from '../shared/search/search-input-mode';
 import type { FeatureHintController } from '../shared/ui/feature-hint-catalog';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { FeedbackControlRuntime } from './feedback-control';
@@ -32,6 +31,7 @@ import type { SearchMode } from '../shared/search-panel/search-mode';
 import type { SearchResults } from '../shared/search-panel/search-results';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { pageColorScheme } from './theme/page-color-scheme';
+import type { SearchBoxParts } from './search/search-box-parts';
 
 type ResolvedTheme = 'light' | 'dark';
 type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
@@ -44,14 +44,11 @@ interface AppearanceModesState {
   topContentController: TopContentController | null;
   bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'updateLanguage'> | null;
   quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'> | null;
-  inputModeController: Pick<InputModeController, 'refreshModeMenuLanguage'> | null;
   updateNoticeController: LanguageAware | null;
   graphicsNoticeController: LanguageAware | null;
   engagementNoticeController: LanguageAware | null;
   webdavFeatureHintController: LanguageAware | null;
   helpCenterAskHintController: LanguageAware | null;
-  inputParts: { input: HTMLInputElement } | null;
-  defaultPlaceholderText: string;
   faviconViewRuntime: Pick<FaviconViewRuntime,
     'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
   wallpaperRuntime: Pick<WallpaperRuntime, 'handleThemeModeChange'> | null;
@@ -85,11 +82,13 @@ interface AppearanceModesDeps extends
   removeMediaQueryChangeListener(queryList: MediaQueryList, listener: (event: MediaQueryListEvent) => void): void;
   // Settle once the first theme and the first language are applied.
   initialThemeReadyPromise: Promise<unknown>;
+  searchBox: Pick<SearchBoxParts, 'inputParts' | 'modeController'>;
   pageState: AppearanceModesState;
 }
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    searchBox,
     modeActions,
     searchResults,
     searchMode,
@@ -139,8 +138,8 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     updateFeedbackLanguageStrings();
     // Draws the tiles' labels and the shortcut menus in the new language.
     renderShortcuts();
-    if (pageState.inputModeController) {
-      pageState.inputModeController.refreshModeMenuLanguage();
+    if (searchBox.modeController) {
+      searchBox.modeController.refreshModeMenuLanguage();
     }
     if (pageState.updateNoticeController) {
       pageState.updateNoticeController.updateLanguage();
@@ -157,16 +156,15 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     if (pageState.helpCenterAskHintController) {
       pageState.helpCenterAskHintController.updateLanguage();
     }
-    if (pageState.inputParts && pageState.inputParts.input) {
-      pageState.defaultPlaceholderText = t('search_placeholder', pageState.defaultPlaceholderText);
+    if (searchBox.inputParts && searchBox.inputParts.input) {
       if (!searchMode.site && !searchMode.local) {
-        pageState.inputParts.input.placeholder = pageState.defaultPlaceholderText;
+        searchBox.inputParts.input.placeholder = t('search_placeholder', 'Search or enter URL…');
       }
       if (searchMode.local) {
         modeActions.setLocalSearchScopePrefix(searchMode.local);
       }
     }
-    updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
+    updateModeBadge(searchBox.inputParts && searchBox.inputParts.input ? searchBox.inputParts.input.value : '');
     if (searchQuery.text && searchQuery.text.trim()) {
       void renderSuggestions(searchResults.lastResponse, searchQuery.text);
     }
@@ -212,7 +210,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     const didResolvedThemeChange = previousResolved !== resolved;
     pageColorScheme.setState({ dark: resolved === 'dark' });
     applyLanguageStrings();
-    updateModeBadge(pageState.inputParts && pageState.inputParts.input ? pageState.inputParts.input.value : '');
+    updateModeBadge(searchBox.inputParts && searchBox.inputParts.input ? searchBox.inputParts.input.value : '');
     refreshFallbackIcons();
     if (didResolvedThemeChange) {
       refreshThemeAwareFavicons();

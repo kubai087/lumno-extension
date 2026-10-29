@@ -27,6 +27,7 @@ import type { SearchQuery } from '../shared/search-panel/search-query';
 import type { SearchMode } from '../shared/search-panel/search-mode';
 import type { SearchResults } from '../shared/search-panel/search-results';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
+import type { SearchBoxParts } from './search/search-box-parts';
 
 // The search on screen, carried across the focus reload.
 interface SearchSnapshot {
@@ -43,9 +44,6 @@ interface HeldViewTransition {
   skipTransition(): void;
 }
 
-interface FocusResumeState {
-  inputParts: { input: HTMLInputElement } | null;
-}
 
 interface FocusResumeDeps {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -55,8 +53,7 @@ interface FocusResumeDeps {
   getSiteSearchSnapshotId(provider: SiteSearchProvider): string;
   findSiteSearchBySnapshotId(id: string): SiteSearchProvider | null;
   showSuggestionSnapshot(suggestions: Suggestion[], query: string, selectedIndex: number): Promise<void>;
-  focusSearchInputPreservingScroll(): void;
-  pageState: FocusResumeState;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts'>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -173,21 +170,19 @@ function prepareResumeLoad(): boolean {
 
 function createFocusResume(deps: FocusResumeDeps) {
   const {
+    searchBox,
     modeActions,
     searchResults,
     searchMode,
     searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
-    showSuggestionSnapshot,
-    focusSearchInputPreservingScroll
+    showSuggestionSnapshot
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function captureSearch(): SearchSnapshot {
-    const input = pageState.inputParts && pageState.inputParts.input;
+    const input = searchBox.inputParts && searchBox.inputParts.input;
     const value = input ? String(input.value || '') : '';
     // Inline autocomplete writes its completion into the input; keep what
     // the user typed.
@@ -212,7 +207,7 @@ function createFocusResume(deps: FocusResumeDeps) {
   }
 
   function restoreSearch(snapshot: SearchSnapshot): Promise<void> | undefined {
-    const input = pageState.inputParts && pageState.inputParts.input;
+    const input = searchBox.inputParts && searchBox.inputParts.input;
     if (!input) {
       return undefined;
     }
@@ -281,7 +276,7 @@ function createFocusResume(deps: FocusResumeDeps) {
       globalThis.performance.mark('lumno-newtab-milestone-focus-resume-visible');
     }
     // A hidden input cannot take focus, so focus waits for the reveal.
-    focusSearchInputPreservingScroll();
+    searchBox.focusInput();
     void nextFrame().then(nextFrame).then(() => {
       documentElement.removeAttribute('data-nt-focus-resume-settling');
     });
@@ -321,4 +316,4 @@ function createFocusResume(deps: FocusResumeDeps) {
 type FocusResume = ReturnType<typeof createFocusResume>;
 
 export { prepareResumeLoad, createFocusResume };
-export type { FocusResume, FocusResumeDeps, FocusResumeState, HeldViewTransition, SearchSnapshot };
+export type { FocusResume, FocusResumeDeps, HeldViewTransition, SearchSnapshot };

@@ -3,10 +3,8 @@
 // catalog's changes.
 import type { SiteSearchProvider } from '../../domain/search/types';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
-import type { InputModeController } from '../../shared/search/search-input-mode';
 import type { InputModeTheme } from '../../shared/search/input-mode/types';
 import * as LumnoNewtabFocusResume from '../focus-resume';
-import type { FocusResume, FocusResumeState } from '../focus-resume';
 import type { SettingsStore } from '../../platform/settings-store';
 import { getAggregateSearchId } from './search-types';
 import type { RequestSuggestions } from './search-types';
@@ -19,12 +17,8 @@ import type { SearchMode } from '../../shared/search-panel/search-mode';
 import type { SearchResults } from '../../shared/search-panel/search-results';
 import { isAggregateSearchProvider } from '../../domain/search/aggregate-search-store';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
+import type { SearchBoxParts } from './search-box-parts';
 
-interface SiteSearchRuntimeState extends FocusResumeState {
-  // Carries the search across the reload the search shortcut makes.
-  focusResume: FocusResume | null;
-  inputModeController: Pick<InputModeController, 'refreshModeMenu'> | null;
-}
 
 interface SiteSearchRuntimeDeps {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -34,14 +28,13 @@ interface SiteSearchRuntimeDeps {
   siteSearchCatalog: SiteSearchCatalog;
   createAggregateSearchScopeProvider: SiteSearchProviders['createAggregateSearchScopeProvider'];
   showSuggestionSnapshot(suggestions: Suggestion[], query: string, selectedIndex: number): Promise<void>;
-  focusSearchInputPreservingScroll(): boolean;
   requestSuggestions: RequestSuggestions;
   settings: Pick<SettingsStore, 'subscribe'>;
   defaultTheme: InputModeTheme;
-  pageState: SiteSearchRuntimeState;
+  searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController'>;
 }
 
-function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
+function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps) {
   const {
     modeActions,
     searchResults,
@@ -50,14 +43,12 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
     siteSearchCatalog,
     createAggregateSearchScopeProvider,
     showSuggestionSnapshot,
-    focusSearchInputPreservingScroll,
     requestSuggestions,
     settings,
     defaultTheme,
+    searchBox,
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const siteSearchProvidersReady = Promise.all([siteSearchCatalog.loadProviders(), siteSearchCatalog.loadAggregates()]);
 
@@ -80,24 +71,22 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
   }
 
   const focusResume = LumnoNewtabFocusResume.createFocusResume({
+    searchBox,
     modeActions,
     searchResults,
     searchMode,
     searchQuery,
     getSiteSearchSnapshotId,
     findSiteSearchBySnapshotId,
-    showSuggestionSnapshot,
-    focusSearchInputPreservingScroll,
-    pageState
+    showSuggestionSnapshot
   });
-  pageState.focusResume = focusResume;
   void focusResume.resume(siteSearchProvidersReady);
 
   // A new order from Settings or another tab reaches an open scope panel now;
   // a closed one reads it when it opens.
   settings.subscribe(searchSourceOrder, () => {
-    if (pageState.inputModeController) {
-      pageState.inputModeController.refreshModeMenu();
+    if (searchBox.modeController) {
+      searchBox.modeController.refreshModeMenu();
     }
   });
 
@@ -117,14 +106,16 @@ function createSiteSearchRuntime(deps: SiteSearchRuntimeDeps): void {
         modeActions.clearSiteSearch();
       }
     }
-    if (pageState.inputModeController) {
-      pageState.inputModeController.refreshModeMenu();
+    if (searchBox.modeController) {
+      searchBox.modeController.refreshModeMenu();
     }
     if (searchQuery.text) {
       requestSuggestions(searchQuery.text, { immediate: true });
     }
   });
+
+  return { focusResume };
 }
 
 export { createSiteSearchRuntime };
-export type { SiteSearchRuntimeDeps, SiteSearchRuntimeState };
+export type { SiteSearchRuntimeDeps };
