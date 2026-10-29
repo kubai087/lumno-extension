@@ -1,39 +1,21 @@
-// Where recent sites come from: open tabs, top sites and history, read
-// once at startup and then on demand, merged into the recent list; plus the
-// change history dialog and the recent context menu's copy.
-import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
-import type { ShowToast, Translate } from '../newtab-types';
+// Where recent sites come from: the open tabs, top sites and history the
+// source reads hand over, merged into the recent list.
 import type {
-  RecentHistoryDialogController,
-  RecentHistoryDialogOptions,
-  RecentHistoryItem
 } from '../react/recent-history-dialog';
-import type { RecentContextTarget, StartupRecentSourceReads } from './recent-types';
-import { createRecentHistoryDialog } from '../react/recent-history-dialog-lazy';
 import type { BrowserIconIndex } from '../../domain/favicon/types';
 import type { RecentSite, RecentSiteOptions, RecentSiteSources } from '../../domain/recent-sites-store';
 import * as RecentSitesMerge from '../../domain/recent-sites-merge';
-import type { SettingsStore } from '../../platform/settings-store';
-import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
-import { getBrowserInternalScheme } from '../../platform/browser-profile';
+import type { RecentSourceReads as BrowserSourceReads } from './recent-source-reads';
 
-// Edge's topSites lists its own promoted sites instead of the user's, so Edge
-// ranks most-visited from history visit counts alone.
-const TOP_SITES_FOLLOW_HISTORY = getBrowserInternalScheme(navigator.userAgent) !== 'edge://';
 
 
 interface RecentSourcesDeps {
-  settings: Pick<SettingsStore, 'get' | 'subscribe'>;
-  t: Translate;
-  getRecentContextMenuOptions(target?: RecentContextTarget | null): SelectMenuOption[];
-  restoreProgressVersion: NonNullable<RecentHistoryDialogOptions['onRestore']>;
-  showToast: ShowToast;
-  startupRecentSourceReadsAt: number;
   getRecentStoreOptions(): RecentSiteOptions;
   isBrowserPageRecentUrl(url: string | undefined): boolean;
   // Firefox's own cached icons, which recent cards wait for there.
   firefoxBrowserIcons: Readonly<BrowserIconIndex> | null;
   firefoxBrowserIconsReady: Promise<unknown>;
+  sourceReads: Pick<BrowserSourceReads, 'historyItems' | 'tabs' | 'topSites'>;
 }
 
 // What a merge reads, without the list settings each merge sets itself.
@@ -43,109 +25,12 @@ function createRecentSources(deps: RecentSourcesDeps) {
   const {
     firefoxBrowserIconsReady,
     firefoxBrowserIcons,
-    settings,
-    t,
-    restoreProgressVersion,
-    showToast,
-    startupRecentSourceReadsAt,
     getRecentStoreOptions,
-    isBrowserPageRecentUrl
+    isBrowserPageRecentUrl,
+    sourceReads
   } = deps;
 
-  // The browser reads the first recent-sites pass shares, started below.
-  let startupRecentSourceReads: StartupRecentSourceReads | null = null;
-  // The change history dialog, loaded the first time it opens.
-  let recentHistoryDialogController: RecentHistoryDialogController | null = null;
 
-  // The first recent-sites pass waits for every layout preference, so the browser reads start now.
-  // Preferences that arrive before it start passes of their own, which it then discards, so every
-  // pass shares these reads until the first pass lands or the history changes; later passes, or
-  // one long after load, read afresh.
-  const STARTUP_RECENT_SOURCE_MAX_AGE_MS = 3000;
-  let recentHistoryDialogLoadPromise: Promise<RecentHistoryDialogController> | null = null;
-
-  // The change history dialog is loaded the first time someone opens it.
-  function openRecentHistoryDialog(item: RecentHistoryItem): Promise<void> {
-    if (!recentHistoryDialogLoadPromise) {
-      recentHistoryDialogLoadPromise = createRecentHistoryDialog({
-        documentObj: document,
-        windowObj: window,
-        t,
-        onRestore: restoreProgressVersion,
-        onRestoreSuccess() {
-          showToast(t('recent_history_restore_success', '已恢复为所选版本'), false);
-        }
-      }).then((controller) => {
-        if (!controller) throw new Error('Recent history dialog unavailable');
-        controller.mount(document.body);
-        recentHistoryDialogController = controller;
-        return controller;
-      }).catch((error: unknown) => {
-        recentHistoryDialogLoadPromise = null;
-        throw error;
-      });
-    }
-    return recentHistoryDialogLoadPromise.then((controller) => {
-      if (settings.get(progressTrackingEnabled)) controller.open({ item });
-    }).catch(() => {
-      showToast(t('toast_error', '操作失败，请重试。'), true);
-    });
-  }
-
-  function readRecentOpenTabs(): Promise<chrome.tabs.Tab[]> {
-    return new Promise((resolve) => {
-      if (!chrome.tabs || !chrome.tabs.query) {
-        resolve([]);
-        return;
-      }
-      chrome.tabs.query({}, (tabs) => {
-        resolve(chrome.runtime.lastError || !Array.isArray(tabs) ? [] : tabs);
-      });
-    });
-  }
-
-  function readRecentTopSites(): Promise<chrome.topSites.MostVisitedURL[] | null> {
-    return new Promise((resolve) => {
-      if (!chrome.topSites || !chrome.topSites.get || !TOP_SITES_FOLLOW_HISTORY) {
-        resolve(null);
-        return;
-      }
-      chrome.topSites.get((items) => {
-        resolve(chrome.runtime.lastError || !Array.isArray(items) ? null : items);
-      });
-    });
-  }
-
-  function readRecentHistoryItems(): Promise<chrome.history.HistoryItem[] | null> {
-    return new Promise((resolve) => {
-      if (!chrome.history || !chrome.history.search) {
-        resolve(null);
-        return;
-      }
-      // Most-visited ranks sites by summed visit counts, so it needs more than the latest few URLs.
-      chrome.history.search({
-        text: '',
-        maxResults: 500,
-        startTime: Date.now() - 1000 * 60 * 60 * 24 * 90
-      }, (items) => {
-        resolve(chrome.runtime.lastError || !Array.isArray(items) ? null : items);
-      });
-    });
-  }
-
-  function releaseStartupRecentSourceReads(): void {
-    startupRecentSourceReads = null;
-  }
-
-  function takeStartupRecentSourceRead<K extends keyof StartupRecentSourceReads>(
-    name: K,
-    read: () => StartupRecentSourceReads[K]
-  ): StartupRecentSourceReads[K] {
-    const pending = startupRecentSourceReads ? startupRecentSourceReads[name] : null;
-    return pending && Date.now() - startupRecentSourceReadsAt <= STARTUP_RECENT_SOURCE_MAX_AGE_MS
-      ? pending
-      : read();
-  }
 
   function getRecentSites(limit: number, mode: string): Promise<RecentSite[]> {
     const safeLimit = Math.max(0, Number(limit) || 0);
@@ -173,9 +58,9 @@ function createRecentSources(deps: RecentSourcesDeps) {
       hidden: []
     });
 
-    const readOpenTabs = () => takeStartupRecentSourceRead('tabs', readRecentOpenTabs);
-    const readTopSites = () => takeStartupRecentSourceRead('topSites', readRecentTopSites);
-    const readHistoryItems = () => takeStartupRecentSourceRead('historyItems', readRecentHistoryItems);
+    const readOpenTabs = () => sourceReads.tabs();
+    const readTopSites = () => sourceReads.topSites();
+    const readHistoryItems = () => sourceReads.historyItems();
 
     const mergeWithTabsIfNeeded = (sources: RecentSourceReads, mergeMode: string): Promise<RecentSite[]> => {
       const withoutTabs = mergeSources(sources, mergeMode);
@@ -225,24 +110,8 @@ function createRecentSources(deps: RecentSourcesDeps) {
   }
 
 
-  // Turning progress tracking off closes the change history it shows.
-  settings.subscribe(progressTrackingEnabled, () => {
-    if (!settings.get(progressTrackingEnabled) && recentHistoryDialogController) {
-      recentHistoryDialogController.close({ restoreFocus: false });
-    }
-  });
 
-  startupRecentSourceReads = {
-    historyItems: readRecentHistoryItems(),
-    topSites: readRecentTopSites(),
-    tabs: readRecentOpenTabs()
-  };
   return {
-    openRecentHistoryDialog,
-    readRecentOpenTabs,
-    readRecentTopSites,
-    readRecentHistoryItems,
-    releaseStartupRecentSourceReads,
     getRecentSites
   };
 }

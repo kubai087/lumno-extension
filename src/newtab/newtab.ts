@@ -168,6 +168,7 @@ import { RecentPointer } from './recent/recent-pointer';
 import { getPagePortals } from './app/portals';
 import { SearchBoxParts } from './search/search-box-parts';
 import { OpenTabs } from '../shared/search-panel/open-tabs';
+import { RecentSourceReads } from './recent/recent-source-reads';
 import { WebAppearance } from './search/web-appearance';
 import { createCommandCatalog } from './search/command-catalog';
 import { PageNoticeControllers } from './notice-controllers';
@@ -262,24 +263,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const firefoxBrowserIconsReady = firefoxBrowserIcons
     ? LumnoBrowserIcons.loadBrowserIcons(firefoxBrowserIcons, chrome).catch(() => {})
     : Promise.resolve();
-  const startupRecentSourceReadsAt = Date.now();
-
-  const {
-    openRecentHistoryDialog,
-    releaseStartupRecentSourceReads,
-    getRecentSites
-  } = NEWTAB_RECENT_SOURCES.createRecentSources({
-    firefoxBrowserIconsReady,
-    firefoxBrowserIcons,
-    settings,
-    t: (...args) => t(...args),
-    getRecentContextMenuOptions: (...args) => getRecentContextMenuOptions(...args),
-    restoreProgressVersion: (...args) => restoreProgressVersion(...args),
-    showToast: (...args) => showToast(...args),
-    startupRecentSourceReadsAt,
-    getRecentStoreOptions: (...args) => getRecentStoreOptions(...args),
-    isBrowserPageRecentUrl: (...args) => isBrowserPageRecentUrl(...args)
-  });
+  // The browser reads the first recent sites pass shares, started now.
+  const recentSourceReads = new RecentSourceReads();
 
   const localStorageArea = (chrome && chrome.storage && chrome.storage.local)
     ? chrome.storage.local
@@ -809,7 +794,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     followStoredSites,
     getPinnedRecentSites,
     getHiddenRecentSites,
-    getRecentContextMenuOptions,
     closeRecentContextMenu,
     handleRecentCardContextMenu,
     getRecentStoreOptions,
@@ -821,8 +805,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     mergeRecentSitesWithPinned,
     togglePinnedRecentSite,
     getRecentProgressState,
-    toggleRecentProgressTracking,
-    restoreProgressVersion
+    toggleRecentProgressTracking
   } = NEWTAB_RECENT_SITES_CONTROLLER.createRecentSitesController({
     recentShown,
     locale,
@@ -845,8 +828,15 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     isBrowserPageRecentUrl,
     renderRecentSites: (...args) => renderRecentSites(...args),
     progressMatch: PROGRESS_MATCH,
-    progressHistory: PROGRESS_HISTORY,
-    openProgressHistory: (item) => openRecentHistoryDialog(item)
+    progressHistory: PROGRESS_HISTORY
+  });
+
+  const { getRecentSites } = NEWTAB_RECENT_SOURCES.createRecentSources({
+    sourceReads: recentSourceReads,
+    firefoxBrowserIconsReady,
+    firefoxBrowserIcons,
+    getRecentStoreOptions,
+    isBrowserPageRecentUrl
   });
   const recentSitesReadyTask = followStoredSites();
 
@@ -2389,7 +2379,7 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shortcutList,
     loadRecentSites,
     loadBookmarks,
-    releaseStartupRecentSourceReads,
+    recentSourceReads,
     markRecentDataDirty,
     bookmarksRuntime,
     refreshShortcutFolderReferences,
@@ -2508,7 +2498,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     console.warn('[Lumno] Initial new tab layout setup failed.', error);
   }).then(() => {
     const { recent: recentSitesReadyTask, bookmarks: bookmarksReadyTask } = startSectionDataPass();
-    recentSitesReadyTask.then(releaseStartupRecentSourceReads, releaseStartupRecentSourceReads);
+    const releaseSourceReads = () => recentSourceReads.release();
+    recentSitesReadyTask.then(releaseSourceReads, releaseSourceReads);
     return Promise.all([recentSitesReadyTask, bookmarksReadyTask]);
   }).catch((error) => {
     console.warn('[Lumno] Initial new tab content setup failed.', error);

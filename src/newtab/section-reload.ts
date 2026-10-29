@@ -1,6 +1,7 @@
 // Reloads the recent and bookmark sections when tabs, history or
 // bookmarks change elsewhere, once the page is visible again.
 import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
+import type { RecentSourceReads } from './recent/recent-source-reads';
 import type { ShortcutList } from './shortcuts/shortcut-list';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 
@@ -8,7 +9,8 @@ import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 interface SectionReloadDeps {
   loadRecentSites(options: { force: boolean }): unknown;
   loadBookmarks(options: { force: boolean }): unknown;
-  releaseStartupRecentSourceReads(): void;
+  // The startup reads stop being shared once the history changes.
+  recentSourceReads: Pick<RecentSourceReads, 'release'>;
   markRecentDataDirty(): void;
   bookmarksRuntime: Pick<BookmarksRuntime, 'subscribe'>;
   refreshShortcutFolderReferences(): void;
@@ -26,7 +28,7 @@ function createSectionReload(deps: SectionReloadDeps) {
     shortcutList,
     loadRecentSites,
     loadBookmarks,
-    releaseStartupRecentSourceReads,
+    recentSourceReads,
     markRecentDataDirty,
     bookmarksRuntime,
     refreshShortcutFolderReferences,
@@ -74,7 +76,7 @@ function createSectionReload(deps: SectionReloadDeps) {
   function bindRecentAndBookmarkChangeListeners(): void {
     if (chrome.history && chrome.history.onVisited && chrome.history.onVisited.addListener) {
       chrome.history.onVisited.addListener(() => {
-        releaseStartupRecentSourceReads();
+        recentSourceReads.release();
         markRecentDataDirty();
         scheduleRecentReloadIfVisible();
       });

@@ -8,7 +8,7 @@ import { isElementNode } from '../../shared/dom-guards';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import type { ContextMenuParts, SelectMenuController, ShowToast, Translate } from '../newtab-types';
-import type { RecentHistoryItem } from '../react/recent-history-dialog';
+import type { RecentHistoryDialogController, RecentHistoryItem } from '../react/recent-history-dialog';
 import type { RecentProgressState, RecentSitesViewOptions } from '../react/recent-sites';
 import type { SelectMenuInstance } from '../react/select-menu';
 import type { ShortcutSite } from '../shortcuts/shortcut-types';
@@ -24,6 +24,7 @@ import { MAX_PINNED_RECENT_SITES } from '../newtab-config';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { RecentSitesShown } from './recent-sites-shown';
 import { recentEvents } from './recent-events';
+import { createRecentHistoryDialog } from '../react/recent-history-dialog-lazy';
 
 
 interface RecentSitesControllerDeps {
@@ -46,7 +47,6 @@ interface RecentSitesControllerDeps {
   renderRecentSites(items: RecentSite[]): unknown;
   progressMatch: Pick<typeof ProgressMatch, 'looksLikeSeriesPage' | 'compareProgressPages' | 'getProgressSiteKey'>;
   progressHistory: Pick<typeof ProgressHistory, 'createProgressId' | 'getHistoryId' | 'normalizeHistoryMap' | 'restoreVersion'>;
-  openProgressHistory?(item: RecentHistoryItem): unknown;
   recentContextMenuSelectController: SelectMenuController;
   recentShown: Pick<RecentSitesShown, 'forgetSignature' | 'items'>;
   locale: Pick<SurfaceLocale, 'store'>;
@@ -93,7 +93,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     renderRecentSites,
     progressMatch,
     progressHistory,
-    openProgressHistory,
     locale
   } = deps;
 
@@ -722,8 +721,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   function openProgressHistoryFor(item: RecentSite): void {
     const pinnedItem = getTrackedPinnedItem(item);
     const versions = pinnedItem ? getProgressVersions(pinnedItem) : [];
-    if (!pinnedItem || !versions.length || !openProgressHistory) return;
-    openProgressHistory({
+    if (!pinnedItem || !versions.length) return;
+    openRecentHistoryDialog({
       cardId: getProgressHistoryId(pinnedItem),
       title: pinnedItem.title,
       url: pinnedItem.url,
@@ -792,6 +791,44 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   // The menu draws its labels in the page's language.
   locale.store.subscribe(updateRecentContextMenuLanguageStrings);
 
+
+  // The change history dialog, loaded the first time it opens.
+  let recentHistoryDialogController: RecentHistoryDialogController | null = null;
+  let recentHistoryDialogLoadPromise: Promise<RecentHistoryDialogController> | null = null;
+
+  // The change history dialog is loaded the first time someone opens it.
+  function openRecentHistoryDialog(item: RecentHistoryItem): Promise<void> {
+    if (!recentHistoryDialogLoadPromise) {
+      recentHistoryDialogLoadPromise = createRecentHistoryDialog({
+        documentObj: document,
+        windowObj: window,
+        t,
+        onRestore: restoreProgressVersion,
+        onRestoreSuccess() {
+          showToast(t('recent_history_restore_success', '已恢复为所选版本'), false);
+        }
+      }).then((controller) => {
+        if (!controller) throw new Error('Recent history dialog unavailable');
+        controller.mount(document.body);
+        recentHistoryDialogController = controller;
+        return controller;
+      }).catch((error: unknown) => {
+        recentHistoryDialogLoadPromise = null;
+        throw error;
+      });
+    }
+    return recentHistoryDialogLoadPromise.then((controller) => {
+      if (settings.get(progressTrackingEnabled)) controller.open({ item });
+    }).catch(() => {
+      showToast(t('toast_error', '操作失败，请重试。'), true);
+    });
+  }
+  // Turning progress tracking off closes the change history it shows.
+  settings.subscribe(progressTrackingEnabled, () => {
+    if (!settings.get(progressTrackingEnabled) && recentHistoryDialogController) {
+      recentHistoryDialogController.close({ restoreFocus: false });
+    }
+  });
   return {
     followStoredSites,
     getPinnedRecentSites,
