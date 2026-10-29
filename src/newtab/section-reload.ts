@@ -2,10 +2,8 @@
 // bookmarks change elsewhere, once the page is visible again.
 import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
 import type { ShortcutList } from './shortcuts/shortcut-list';
+import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 
-interface SectionReloadState {
-  bookmarkCascadeRuntime: { isOpen?: () => boolean } | null;
-}
 
 interface SectionReloadDeps {
   loadRecentSites(options: { force: boolean }): unknown;
@@ -19,11 +17,12 @@ interface SectionReloadDeps {
   bookmarkMoveHistory: { clear(): void };
   refreshOpenBookmarkCascadeMenu(): void;
   shortcutList: Pick<ShortcutList, 'items'>;
-  pageState: SectionReloadState;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
 }
 
 function createSectionReload(deps: SectionReloadDeps) {
   const {
+    bookmarkParts,
     shortcutList,
     loadRecentSites,
     loadBookmarks,
@@ -37,8 +36,6 @@ function createSectionReload(deps: SectionReloadDeps) {
     refreshOpenBookmarkCascadeMenu
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const NEWTAB_EXTERNAL_CHANGE_DEBOUNCE_MS = 120;
 
@@ -89,9 +86,9 @@ function createSectionReload(deps: SectionReloadDeps) {
       }
       scheduleFolderColorSync();
       const cascadeOpen = Boolean(
-        pageState.bookmarkCascadeRuntime &&
-        typeof pageState.bookmarkCascadeRuntime.isOpen === 'function' &&
-        pageState.bookmarkCascadeRuntime.isOpen()
+        bookmarkParts.cascade &&
+        typeof bookmarkParts.cascade.isOpen === 'function' &&
+        bookmarkParts.cascade.isOpen()
       );
       if (change.isControlled) {
         markBookmarkTreeDirty({
@@ -126,4 +123,4 @@ function createSectionReload(deps: SectionReloadDeps) {
 type SectionReload = ReturnType<typeof createSectionReload>;
 
 export { createSectionReload };
-export type { SectionReload, SectionReloadDeps, SectionReloadState };
+export type { SectionReload, SectionReloadDeps };

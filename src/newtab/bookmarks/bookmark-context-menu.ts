@@ -4,15 +4,14 @@ import { isElementNode } from '../../shared/dom-guards';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import type { ContextMenuParts, SelectMenuController, Translate } from '../newtab-types';
-import type { BookmarksViewController } from '../react/bookmarks';
 import type { SelectMenuInstance } from '../react/select-menu';
 import type { ShortcutSite } from '../shortcuts/shortcut-types';
-import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type { BookmarkDragSession } from './bookmark-drag';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 import { BOOKMARK_CONTEXT_MENU_EDIT_VALUE, BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
+import type { BookmarkSectionParts } from './bookmark-section-parts';
 
 // The bookmark a context menu was opened for.
 interface BookmarkContextTarget {
@@ -30,8 +29,6 @@ type BookmarkContextMenuParts = ContextMenuParts;
 
 interface BookmarkContextMenuState {
   bookmarkDragState: BookmarkDragSession | null;
-  bookmarksView: Pick<BookmarksViewController, 'setContextMenuBookmark'> | null;
-  bookmarkCascadeRuntime: Pick<BookmarkCascadeRuntime, 'setContextMenuBookmark'> | null;
 }
 
 // A right-click on a bookmark card or a cascade row.
@@ -59,12 +56,14 @@ interface BookmarkContextMenuDeps {
   closeRecentContextMenu(): void;
   hideCursorTooltip(): void;
   bookmarkContextMenuSelectController: SelectMenuController;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'view'>;
   pageState: BookmarkContextMenuState;
   locale: Pick<SurfaceLocale, 'store'>;
 }
 
 function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   const {
+    bookmarkParts,
     bookmarkContextMenuSelectController,
     bookmarksRuntime,
     t,
@@ -192,11 +191,11 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   function setBookmarkContextMenuMark(target: BookmarkContextTarget | null): void {
     const cardId = target && target.sourceKind === 'card' ? target.bookmarkId : null;
     const rowId = target && target.sourceKind === 'cascade' ? target.bookmarkId : null;
-    if (pageState.bookmarksView) {
-      pageState.bookmarksView.setContextMenuBookmark(cardId);
+    if (bookmarkParts.view) {
+      bookmarkParts.view.setContextMenuBookmark(cardId);
     }
-    if (pageState.bookmarkCascadeRuntime) {
-      pageState.bookmarkCascadeRuntime.setContextMenuBookmark(rowId);
+    if (bookmarkParts.cascade) {
+      bookmarkParts.cascade.setContextMenuBookmark(rowId);
     }
   }
 

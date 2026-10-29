@@ -10,7 +10,6 @@ import type { DragDropTarget, LayoutRect, ShortcutStackTarget, SurfaceDragState 
 import * as LumnoNewtabDismissStack from '../dismiss-stack';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
-import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import type { ShortcutContextMenu } from './shortcut-context-menu';
 import type { ShortcutPageActions } from './shortcut-page-actions';
 import type { PersistShortcuts, ShortcutInsertionSlot } from './shortcut-types';
@@ -21,14 +20,13 @@ import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
 import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
 import type { ShortcutList } from './shortcut-list';
+import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 
 interface ShortcutDragState {
   shortcutDragState: ShortcutDragSession | null;
   bookmarkDragState: BookmarkDragSession | null;
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
-  bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
-  bookmarkGrid: HTMLElement | null;
 }
 
 interface ShortcutDragDeps {
@@ -81,6 +79,8 @@ interface ShortcutDragDeps {
   fitShortcutGroupColumns(): boolean;
   shortcutList: Pick<ShortcutList, 'icons' | 'items' | 'replaceItems'>;
   shortcutGrid: HTMLElement;
+  bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
+  bookmarkGrid: HTMLElement;
   pageState: ShortcutDragState;
   getAddShortcutButton(): HTMLElement | null;
 }
@@ -145,6 +145,8 @@ type TileMoveSlot = Pick<ShortcutInsertionSlot, 'anchorTile' | 'markerPosition'>
 
 function createShortcutDrag(deps: ShortcutDragDeps) {
   const {
+    bookmarkGrid,
+    bookmarkParts,
     shortcutGrid,
     shortcutList,
     getShortcutReorderTiles,
@@ -837,7 +839,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const topbarPoint = isBookmarkTopbarMode() &&
       !isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY)
       ? getExternalBookmarkSurfacePoint(pointerX, pointerY) : null;
-    const topbar = pageState.bookmarkTopbarRuntime;
+    const topbar = bookmarkParts.topbar;
     if (topbarPoint && topbar && topbar.autoScroll(topbarPoint.x, topbarPoint.y)) {
       scheduleShortcutDragMove(state, pointerX, pointerY);
     }
@@ -992,8 +994,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     // The empty bookmarks bar shown for the drag hides again however the
     // drag ends.
     if (state.isDragging &&
-        pageState.bookmarkGrid &&
-        pageState.bookmarkGrid.getAttribute('data-bookmark-empty-drop-surface') === 'true') {
+        bookmarkGrid &&
+        bookmarkGrid.getAttribute('data-bookmark-empty-drop-surface') === 'true') {
       renderCurrentBookmarkPage();
     }
     if (options && options.cancel && state.hasReordered) {

@@ -4,23 +4,22 @@
 import type { DragDropTarget } from '../cross-surface-drag';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
-import type { BookmarkCascadeRuntime, CascadeRefreshOptions } from './bookmark-cascade-menu';
+import type { CascadeRefreshOptions } from './bookmark-cascade-menu';
 import type { BookmarkDragSession } from './bookmark-drag';
 import { getMoveDestination, getUndoShortcutLabels } from './bookmark-drag-rules';
 import type { BookmarkLocation, BookmarkMoveHistory, ShortcutGroupDeleteRecord } from './bookmark-move-history';
 import type { BookmarkShortcutTransfer } from './bookmark-shortcut-transfer';
-import type { BookmarkItem, BookmarkNode } from './bookmarks-store';
+import type { BookmarkNode } from './bookmarks-store';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from '../shortcuts/shortcut-list';
+import type { BookmarksShown } from './bookmarks-shown';
+import type { BookmarkSectionParts } from './bookmark-section-parts';
 
 interface BookmarkMoveActionsState {
-  bookmarkAllItems: BookmarkItem[];
-  bookmarkCurrentFolderId: string;
-  bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
 }
@@ -44,6 +43,8 @@ interface BookmarkMoveActionsDeps {
   t: Translate;
   formatMessage: FormatMessage;
   shortcutList: Pick<ShortcutList, 'items'>;
+  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'currentFolderId'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
   pageState: BookmarkMoveActionsState;
 }
 
@@ -58,6 +59,8 @@ interface BookmarkDeleteTarget {
 
 function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
   const {
+    bookmarkParts,
+    bookmarksShown,
     shortcutList,
     bookmarksRuntime,
     bookmarkMoveHistory,
@@ -82,7 +85,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
 
   // Where the card the drag reordered sits among its folder's bookmarks.
   function getBookmarkMoveDestination(bookmarkId: unknown): BookmarkLocation | null {
-    return getMoveDestination(pageState.bookmarkAllItems, bookmarkId, pageState.bookmarkCurrentFolderId);
+    return getMoveDestination(bookmarksShown.allItems, bookmarkId, bookmarksShown.currentFolderId);
   }
 
   function getBookmarkDeleteRecord(target: BookmarkDeleteTarget | null) {
@@ -109,8 +112,8 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
     pageState.bookmarkMoveHistoryBusy = true;
     const keepCascadeOpen = Boolean(
       target.sourceKind === 'cascade' &&
-      pageState.bookmarkCascadeRuntime &&
-      pageState.bookmarkCascadeRuntime.isOpen()
+      bookmarkParts.cascade &&
+      bookmarkParts.cascade.isOpen()
     );
     bookmarksRuntime.runControlledMutation(() => {
       return bookmarksRuntime.ensureReady(false).then(() => {
@@ -377,8 +380,8 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
       return true;
     }
     const keepCascadeOpen = Boolean(
-      pageState.bookmarkCascadeRuntime &&
-      pageState.bookmarkCascadeRuntime.isOpen()
+      bookmarkParts.cascade &&
+      bookmarkParts.cascade.isOpen()
     );
     if (record.kind === 'delete') {
       queueLayoutAnimation(

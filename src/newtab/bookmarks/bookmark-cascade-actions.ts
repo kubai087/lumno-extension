@@ -2,21 +2,17 @@
 // top-level bookmarks local search matches against.
 import type { Translate } from '../newtab-types';
 import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
-import type { BookmarkItem, BookmarkPathEntry } from './bookmarks-store';
+import type { BookmarkItem } from './bookmarks-store';
 import type { BookmarksRuntime } from './bookmarks-runtime';
+import type { BookmarksShown } from './bookmarks-shown';
+import type { BookmarkSectionParts } from './bookmark-section-parts';
 
-interface BookmarkCascadeActionsState {
-  // Made with the bookmark section.
-  bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
-  bookmarkCurrentFolderId: string;
-  bookmarkRootFolderId: string;
-  bookmarkFolderPath: BookmarkPathEntry[];
-}
 
 interface BookmarkCascadeActionsDeps {
   bookmarksRuntime: BookmarksRuntime;
   t: Translate;
-  pageState: BookmarkCascadeActionsState;
+  bookmarksShown: Pick<BookmarksShown, 'currentFolderId' | 'located' | 'rootFolderId'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
 }
 
 type CascadeOpenArgs = Parameters<BookmarkCascadeRuntime['open']>;
@@ -24,16 +20,16 @@ type CascadeCloseOptions = Parameters<BookmarkCascadeRuntime['close']>[0];
 
 function createBookmarkCascadeActions(deps: BookmarkCascadeActionsDeps) {
   const {
+    bookmarkParts,
+    bookmarksShown,
     bookmarksRuntime,
     t
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function openBookmarkCascadeMenu(item: CascadeOpenArgs[0], anchorElement: CascadeOpenArgs[1], options?: CascadeOpenArgs[2]): void {
-    if (pageState.bookmarkCascadeRuntime) {
-      pageState.bookmarkCascadeRuntime.open(item, anchorElement, {
+    if (bookmarkParts.cascade) {
+      bookmarkParts.cascade.open(item, anchorElement, {
         ...options,
         toggle: !options || options.dragMode !== true
       });
@@ -42,14 +38,14 @@ function createBookmarkCascadeActions(deps: BookmarkCascadeActionsDeps) {
 
   // `{ animate: true }` folds the menu away rather than removing it at once.
   function closeBookmarkCascadeMenu(options?: CascadeCloseOptions): void {
-    if (pageState.bookmarkCascadeRuntime) {
-      pageState.bookmarkCascadeRuntime.close(options);
+    if (bookmarkParts.cascade) {
+      bookmarkParts.cascade.close(options);
     }
   }
 
   function positionBookmarkCascadeLevels(): void {
-    if (pageState.bookmarkCascadeRuntime) {
-      pageState.bookmarkCascadeRuntime.positionLevels();
+    if (bookmarkParts.cascade) {
+      bookmarkParts.cascade.positionLevels();
     }
   }
 
@@ -57,17 +53,18 @@ function createBookmarkCascadeActions(deps: BookmarkCascadeActionsDeps) {
     const parsedLimit = Math.floor(limit);
     const safeLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 0;
     return bookmarksRuntime.readFolder(
-      folderId || pageState.bookmarkCurrentFolderId || pageState.bookmarkRootFolderId,
+      folderId || bookmarksShown.currentFolderId || bookmarksShown.rootFolderId,
       {
         limit: safeLimit,
         rootTitle: t('bookmarks_heading', '书签')
       }
     ).then((result) => {
-      pageState.bookmarkRootFolderId = String(result.rootFolderId || '1');
-      pageState.bookmarkCurrentFolderId = String(result.folderId || pageState.bookmarkRootFolderId);
-      pageState.bookmarkFolderPath = Array.isArray(result.path)
-        ? result.path
-        : [{ id: pageState.bookmarkRootFolderId, title: t('bookmarks_heading', '书签') }];
+      const rootFolderId = String(result.rootFolderId || '1');
+      bookmarksShown.located(
+        rootFolderId,
+        String(result.folderId || rootFolderId),
+        Array.isArray(result.path) ? result.path : [{ id: rootFolderId, title: t('bookmarks_heading', '书签') }]
+      );
       return Array.isArray(result.items) ? result.items : [];
     });
   }
@@ -83,4 +80,4 @@ function createBookmarkCascadeActions(deps: BookmarkCascadeActionsDeps) {
 type BookmarkCascadeActions = ReturnType<typeof createBookmarkCascadeActions>;
 
 export { createBookmarkCascadeActions };
-export type { BookmarkCascadeActions, BookmarkCascadeActionsDeps, BookmarkCascadeActionsState };
+export type { BookmarkCascadeActions, BookmarkCascadeActionsDeps };

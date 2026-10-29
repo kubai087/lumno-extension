@@ -175,6 +175,8 @@ import { AppliedThemeMode } from './theme/applied-theme-mode';
 import { ShortcutList } from './shortcuts/shortcut-list';
 import { BottomDockParts } from './shortcuts/bottom-dock-parts';
 import { RecentSitesShown } from './recent/recent-sites-shown';
+import { BookmarksShown } from './bookmarks/bookmarks-shown';
+import { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
@@ -228,6 +230,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const bottomDockParts = new BottomDockParts();
   // The recent sites the section last drew.
   const recentShown = new RecentSitesShown();
+  // The bookmark folder and page the section shows.
+  const bookmarksShown = new BookmarksShown();
+  // The bookmark section's view, folder menu and top bar, mounted with the section.
+  const bookmarkParts = new BookmarkSectionParts();
 
 
   // Firefox: index the browser's own cached icons, which stand in for the
@@ -377,6 +383,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     openBookmarkFolderTabGroupConfirmation,
     openBookmarkEditor
   } = NEWTAB_BOOKMARK_ACTIONS.createBookmarkActions({
+    bookmarkParts,
     t,
     getBookmarkContextMenuOptions: (...args) => getBookmarkContextMenuOptions(...args),
     bookmarksRuntime,
@@ -386,8 +393,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isShortcutFolderAnchor: (...args) => isShortcutFolderAnchor(...args),
     getFolderItemIcon: (...args) => getFolderItemIcon(...args),
     getFolderItemIconUrl: (...args) => getFolderItemIconUrl(...args),
-    getBrowserPageFaviconUrl: (...args) => getBrowserPageFaviconUrl(...args),
-    pageState
+    getBrowserPageFaviconUrl: (...args) => getBrowserPageFaviconUrl(...args)
   });
 
   const {
@@ -433,6 +439,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeBookmarkContextMenu,
     handleBookmarkItemContextMenu
   } = NEWTAB_BOOKMARK_CONTEXT_MENU.createBookmarkContextMenu({
+    bookmarkParts,
     locale,
     bookmarkContextMenuSelectController,
     bookmarksRuntime,
@@ -517,14 +524,14 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     syncBookmarkTopbarSurfaceAppearance,
     handleBookmarkModeMenuAction
   } = NEWTAB_BOOKMARK_DISPLAY_SETTINGS.createBookmarkDisplaySettings({
+    bookmarkParts,
     appliedTheme,
     settings,
     updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
     setNewtabTopLayout: (...args) => setNewtabTopLayout(...args),
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
     showToast,
-    t,
-    pageState
+    t
   });
   const initialBookmarkTopbarLayoutReady = followBookmarkTopbar();
   const recentCards: RecentCardElement[] = [];
@@ -783,9 +790,10 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     positionBookmarkCascadeLevels,
     getTopBookmarks
   } = NEWTAB_BOOKMARK_CASCADE_ACTIONS.createBookmarkCascadeActions({
+    bookmarkParts,
+    bookmarksShown,
     bookmarksRuntime,
-    t,
-    pageState
+    t
   });
 
   const {
@@ -875,6 +883,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    bookmarkParts,
     quoteRuntime,
     appliedTheme,
     notices,
@@ -937,6 +946,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followShortcutGridLayout,
     followNewtabSearchWidth
   } = NEWTAB_PAGE_LAYOUT.createPageLayout({
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarksShown,
     recentSection,
     recentGrid: pageStructureRuntime.recent.grid,
     bottomDockParts,
@@ -955,8 +966,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeShortcutContextMenu,
     closeShortcutDialog,
     viewport: viewportActivity,
-    recentPointer,
-    pageState
+    recentPointer
   });
 
   const {
@@ -1026,6 +1036,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getWallpaperShownAt,
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
+    bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
+    bookmarkTitleWrap: pageStructureRuntime.bookmark.titleWrap,
+    bookmarkParts,
     recentHeader: pageStructureRuntime.recent.header,
     bottomDockParts,
     shortcutGrid,
@@ -1110,6 +1123,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
 
 
   NEWTAB_STARTUP_PREFERENCES.createStartupPreferences({
+    bookmarkParts,
+    bookmarksShown,
     recentShown,
     preview,
     settings,
@@ -1125,8 +1140,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     updateBookmarkGridHeightLock: (...args) => updateBookmarkGridHeightLock(...args),
     updateBookmarkSectionPosition,
     markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
-    loadBookmarks: (...args) => loadBookmarks(...args),
-    pageState
+    loadBookmarks: (...args) => loadBookmarks(...args)
   });
   const imeKeyGuard = LumnoImeKeyGuard.createImeKeyGuard();
   const searchInputHistoryController =
@@ -1333,6 +1347,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     setBookmarkViewMode,
     navigateBookmarkFolder
   } = NEWTAB_SECTION_HEADERS.createSectionHeaders({
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarkParts,
+    bookmarksShown,
     preview,
     settings,
     t,
@@ -1350,7 +1367,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getBookmarkModeMenuOptions: () => getBookmarkModeMenuOptions(),
     handleBookmarkModeMenuAction,
     goToBookmarkPage: (step) => {
-      const target = pageState.bookmarkCurrentPage + step;
+      const target = bookmarksShown.currentPage + step;
       if (target < 0 || target >= getBookmarkPageCount()) {
         return;
       }
@@ -1361,8 +1378,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
         return;
       }
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openBookmarkManager' });
-    },
-    pageState
+    }
   });
 
   const { getBookmarkModeMenuOptions } = NEWTAB_BOOKMARK_MODE_MENU.createBookmarkModeMenu({
@@ -1410,6 +1426,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     confirmDeleteShortcutGroupWithSites,
     applyShortcutGroupDeleteRecord
   } = NEWTAB_SHORTCUTS_CONTROLLER.createShortcutsController({
+    bookmarkParts,
     setShortcutIconError,
     setShortcutError,
     shortcutList,
@@ -1519,6 +1536,11 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    bookmarkPagerNextButton: pageStructureRuntime.bookmark.nextButton,
+    bookmarkPagerPrevButton: pageStructureRuntime.bookmark.previousButton,
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarkParts,
+    bookmarksShown,
     getAddShortcutButton,
     shortcutGrid,
     shortcutSection,
@@ -1575,6 +1597,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   createShortcutsSection();
 
   NEWTAB_BOOKMARK_SECTION.createBookmarkSection({
+    bookmarkParts,
     settings,
     preview,
     setContentSectionVisible,
@@ -1622,8 +1645,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     getBookmarkCascadeViewportTopPaddingPx,
     setNewtabTopOccupied,
     syncBookmarkTopbarSurfaceAppearance,
-    syncBookmarkSurfaceMode,
-    pageState
+    syncBookmarkSurfaceMode
   });
 
   const { recentSitesView } = NEWTAB_RECENT_SECTION.createRecentSection({
@@ -1705,13 +1727,14 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     switchBookmarkPage,
     handleBookmarkWheel
   } = NEWTAB_BOOKMARK_PAGER.createBookmarkPager({
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarksShown,
     isBookmarkTopbarMode,
     getBookmarkLimit,
     updateBookmarkHeader,
     getBookmarkGridColumnCount,
     renderBookmarks: (...args) => renderBookmarks(...args),
-    updateBookmarkSectionPosition,
-    pageState
+    updateBookmarkSectionPosition
   });
 
   const {
@@ -1727,6 +1750,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     isBookmarkSurfaceDragStateActive,
     handleShortcutDragPointerDown
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarkParts,
     getAddShortcutButton,
     shortcutGrid,
     shortcutList,
@@ -1781,6 +1806,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   pageState.recentCardDragRuntime = NEWTAB_RECENT_CARD_DRAG.createRecentCardDrag({
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarkParts,
     shortcutList,
     getShortcutStoreOptions,
     getShortcutFolderId,
@@ -1820,6 +1847,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   const {
+    startSectionDataPass,
     renderBookmarks,
     renderRecentSites,
     markBookmarkDataDirty,
@@ -1830,6 +1858,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     handleRecentVisibilityChange,
     forceReloadRecentSitesForI18n
   } = NEWTAB_SECTION_LOADERS.createSectionLoaders({
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
+    bookmarkParts,
+    bookmarksShown,
     recentSitesView,
     recentShown,
     shortcutList,
@@ -2068,6 +2099,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     setWebAppearanceMode,
     followZenMode
   } = NEWTAB_MODE_COMMANDS.createModeCommands({
+    bookmarkParts,
     appliedTheme,
     searchBox,
     preview,
@@ -2094,8 +2126,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     hideCursorTooltip,
     updateBookmarkSectionPosition,
     updateSearchEntryLayout,
-    scheduleWallpaperAdaptiveToneUpdate,
-    pageState
+    scheduleWallpaperAdaptiveToneUpdate
   });
 
   const {
@@ -2306,6 +2337,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   NEWTAB_PAGE_RESIZE.createPageResize({
+    bookmarksShown,
     recentShown,
     modeActions,
     getBookmarkLimit,
@@ -2324,8 +2356,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     cancelRecentResizeLayoutAnimations,
     renderRecentSites,
     animateRecentResizeLayout,
-    viewport: viewportActivity,
-    pageState
+    viewport: viewportActivity
   });
 
   NEWTAB_PAGE_KEYBOARD.createPageKeyboard({
@@ -2431,8 +2462,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
       engagementNotice.recordMeaningfulUse();
     }
   });
-  if (pageState.bookmarkTopbarRuntime) {
-    pageState.bookmarkTopbarRuntime.mount(document.body);
+  if (bookmarkParts.topbar) {
+    bookmarkParts.topbar.mount(document.body);
   }
   bottomDockRuntime.mount(document.body);
   const initialQuoteReadyTask = quoteRuntime.mount().catch(() => true);
@@ -2446,6 +2477,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     scheduleRecentReloadIfVisible,
     scheduleBookmarkReloadIfVisible
   } = NEWTAB_SECTION_RELOAD.createSectionReload({
+    bookmarkParts,
     shortcutList,
     loadRecentSites,
     loadBookmarks,
@@ -2456,8 +2488,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     scheduleFolderColorSync,
     markBookmarkTreeDirty,
     bookmarkMoveHistory,
-    refreshOpenBookmarkCascadeMenu,
-    pageState
+    refreshOpenBookmarkCascadeMenu
   });
 
   window.addEventListener('blur', () => {
@@ -2472,7 +2503,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   let bookmarkCascadeScrollFrame = 0;
   window.addEventListener('scroll', () => {
     scheduleWallpaperAdaptiveToneUpdate();
-    if (bookmarkCascadeScrollFrame || !pageState.bookmarkCascadeRuntime || !pageState.bookmarkCascadeRuntime.isOpen()) {
+    if (bookmarkCascadeScrollFrame || !bookmarkParts.cascade || !bookmarkParts.cascade.isOpen()) {
       return;
     }
     bookmarkCascadeScrollFrame = window.requestAnimationFrame(() => {
@@ -2550,19 +2581,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   ]).catch((error) => {
     console.warn('[Lumno] Initial new tab layout setup failed.', error);
   }).then(() => {
-    // Run one authoritative data pass after every layout-affecting preference
-    // has settled. This keeps cached/default geometry from becoming visible and
-    // then moving the entire entry when bookmarks or history arrive.
-    pageState.sectionDataRevision += 1;
-    const initialSectionDataRevision = pageState.sectionDataRevision;
-    const recentSitesReadyTask = loadRecentSites({
-      force: true,
-      sectionDataRevision: initialSectionDataRevision
-    });
-    const bookmarksReadyTask = loadBookmarks({
-      force: true,
-      sectionDataRevision: initialSectionDataRevision
-    });
+    const { recent: recentSitesReadyTask, bookmarks: bookmarksReadyTask } = startSectionDataPass();
     recentSitesReadyTask.then(releaseStartupRecentSourceReads, releaseStartupRecentSourceReads);
     return Promise.all([recentSitesReadyTask, bookmarksReadyTask]);
   }).catch((error) => {

@@ -4,19 +4,8 @@ import { isHtmlElement, isSvgElement } from '../../shared/dom-guards';
 import * as LumnoNewtabCrossSurfaceDrag from '../cross-surface-drag';
 import type { BookmarkItem } from './bookmarks-store';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
+import type { BookmarksShown } from './bookmarks-shown';
 
-interface BookmarkPagerState {
-  bookmarkAllItems: BookmarkItem[];
-  bookmarkCurrentPage: number;
-  bookmarkGrid: HTMLElement | null;
-  bookmarkPagerAvailability: { previous: boolean; next: boolean };
-  bookmarkCurrentFolderId: string;
-  bookmarkRootFolderId: string;
-  // How many items the bookmarks bar holds, and how many of them show.
-  bookmarkRootTotalCount: number;
-  bookmarkRootVisibleCount: number;
-  bookmarkPageAnimating: boolean;
-}
 
 interface BookmarkPagerDeps {
   isBookmarkTopbarMode(): boolean;
@@ -26,7 +15,8 @@ interface BookmarkPagerDeps {
   renderBookmarks(items: BookmarkItem[]): void;
   updateBookmarkSectionPosition(): void;
   now?: () => number;
-  pageState: BookmarkPagerState;
+  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'currentFolderId' | 'currentPage' | 'pageAnimating' | 'pagerAvailability' | 'rootFolderId' | 'rootTotalCount' | 'rootVisibleCount' | 'setPageAnimating' | 'setPagerAvailability' | 'showPage'>;
+  bookmarkGrid: HTMLElement;
 }
 
 interface PageSlide {
@@ -37,6 +27,8 @@ interface PageSlide {
 
 function createBookmarkPager(deps: BookmarkPagerDeps) {
   const {
+    bookmarkGrid,
+    bookmarksShown,
     isBookmarkTopbarMode,
     getBookmarkLimit,
     updateBookmarkHeader,
@@ -45,88 +37,86 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     updateBookmarkSectionPosition
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function getBookmarkPageCount(): number {
     if (isBookmarkTopbarMode()) {
       return 1;
     }
-    const total = Array.isArray(pageState.bookmarkAllItems) ? pageState.bookmarkAllItems.length : 0;
+    const total = Array.isArray(bookmarksShown.allItems) ? bookmarksShown.allItems.length : 0;
     return Math.max(1, Math.ceil(total / getBookmarkLimit()));
   }
 
   function getBookmarkPageItems(): BookmarkItem[] {
-    if (!Array.isArray(pageState.bookmarkAllItems) || pageState.bookmarkAllItems.length === 0) {
+    if (!Array.isArray(bookmarksShown.allItems) || bookmarksShown.allItems.length === 0) {
       return [];
     }
     if (isBookmarkTopbarMode()) {
-      pageState.bookmarkCurrentPage = 0;
-      return pageState.bookmarkAllItems.slice();
+      bookmarksShown.showPage(0);
+      return bookmarksShown.allItems.slice();
     }
     const pageCount = getBookmarkPageCount();
-    pageState.bookmarkCurrentPage = Math.min(Math.max(0, pageState.bookmarkCurrentPage), pageCount - 1);
+    bookmarksShown.showPage(Math.min(Math.max(0, bookmarksShown.currentPage), pageCount - 1));
     return NEWTAB_BOOKMARKS_STORE.getBookmarkPageItems(
-      pageState.bookmarkAllItems,
-      pageState.bookmarkCurrentPage,
+      bookmarksShown.allItems,
+      bookmarksShown.currentPage,
       getBookmarkLimit()
     );
   }
 
   function updateBookmarkPagerState(): void {
     const pageCount = getBookmarkPageCount();
-    const atStart = pageState.bookmarkCurrentPage <= 0;
-    const atEnd = pageState.bookmarkCurrentPage >= (pageCount - 1);
+    const atStart = bookmarksShown.currentPage <= 0;
+    const atEnd = bookmarksShown.currentPage >= (pageCount - 1);
     const previous = !atStart;
     const next = !atEnd;
-    const current = pageState.bookmarkPagerAvailability;
+    const current = bookmarksShown.pagerAvailability;
     if (current.previous === previous && current.next === next) {
       return;
     }
-    pageState.bookmarkPagerAvailability = { previous, next };
+    bookmarksShown.setPagerAvailability({ previous, next });
     updateBookmarkHeader();
   }
 
   function updateBookmarkGridHeightLock(): void {
-    if (!pageState.bookmarkGrid) {
+    if (!bookmarkGrid) {
       return;
     }
-    if (pageState.bookmarkGrid.getAttribute('data-bookmark-empty-drop-surface') === 'true') {
-      pageState.bookmarkGrid.style.setProperty(
+    if (bookmarkGrid.getAttribute('data-bookmark-empty-drop-surface') === 'true') {
+      bookmarkGrid.style.setProperty(
         'min-height',
         `${isBookmarkTopbarMode() ? 44 : 64}px`
       );
       return;
     }
     if (isBookmarkTopbarMode()) {
-      pageState.bookmarkGrid.style.removeProperty('min-height');
+      bookmarkGrid.style.removeProperty('min-height');
       return;
     }
-    const total = Array.isArray(pageState.bookmarkAllItems) ? pageState.bookmarkAllItems.length : 0;
+    const total = Array.isArray(bookmarksShown.allItems) ? bookmarksShown.allItems.length : 0;
     const cols = getBookmarkGridColumnCount();
-    const firstCard = pageState.bookmarkGrid.querySelector('.x-nt-bookmark-card');
+    const firstCard = bookmarkGrid.querySelector('.x-nt-bookmark-card');
     const cardHeight = firstCard ? firstCard.getBoundingClientRect().height : 51;
-    const gridStyle = window.getComputedStyle(pageState.bookmarkGrid);
+    const gridStyle = window.getComputedStyle(bookmarkGrid);
     const rowGap = Number.parseFloat(gridStyle.rowGap) || 16;
-    const isAtRoot = String(pageState.bookmarkCurrentFolderId || '') === String(pageState.bookmarkRootFolderId || '1');
+    const isAtRoot = String(bookmarksShown.currentFolderId || '') === String(bookmarksShown.rootFolderId || '1');
     const pageLimit = getBookmarkLimit();
     let targetItemCount = 0;
 
     if (isAtRoot) {
       if (total <= pageLimit) {
-        pageState.bookmarkGrid.style.removeProperty('min-height');
+        bookmarkGrid.style.removeProperty('min-height');
         return;
       }
       targetItemCount = pageLimit;
     } else {
-      if (pageState.bookmarkRootTotalCount > pageLimit) {
+      if (bookmarksShown.rootTotalCount > pageLimit) {
         targetItemCount = pageLimit;
       } else {
-        targetItemCount = Math.max(0, pageState.bookmarkRootVisibleCount);
+        targetItemCount = Math.max(0, bookmarksShown.rootVisibleCount);
       }
       if (targetItemCount <= 0) {
         if (total <= pageLimit) {
-          pageState.bookmarkGrid.style.removeProperty('min-height');
+          bookmarkGrid.style.removeProperty('min-height');
           return;
         }
         targetItemCount = pageLimit;
@@ -135,7 +125,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
 
     const rowsPerPage = Math.max(1, Math.ceil(targetItemCount / cols));
     const minHeight = (rowsPerPage * cardHeight) + ((rowsPerPage - 1) * rowGap);
-    pageState.bookmarkGrid.style.setProperty('min-height', `${Math.ceil(minHeight)}px`);
+    bookmarkGrid.style.setProperty('min-height', `${Math.ceil(minHeight)}px`);
   }
 
   // A page slide lasts PAGE_SLIDE_MS. Past PAGE_SLIDE_INTERRUPTIBLE_MS the new
@@ -155,7 +145,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
   }
 
   function queueBookmarkPage(targetPage: number, slide: PageSlide): void {
-    if (targetPage === pageState.bookmarkCurrentPage) {
+    if (targetPage === bookmarksShown.currentPage) {
       clearQueuedBookmarkPage();
       return;
     }
@@ -187,10 +177,10 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
   function switchBookmarkPageDuringDrag(nextPage: number): boolean {
     const pageCount = getBookmarkPageCount();
     const targetPage = Math.min(Math.max(0, Number(nextPage) || 0), pageCount - 1);
-    if (targetPage === pageState.bookmarkCurrentPage || pageState.bookmarkPageAnimating) {
+    if (targetPage === bookmarksShown.currentPage || bookmarksShown.pageAnimating) {
       return false;
     }
-    pageState.bookmarkCurrentPage = targetPage;
+    bookmarksShown.showPage(targetPage);
     renderCurrentBookmarkPage();
     updateBookmarkSectionPosition();
     return true;
@@ -204,15 +194,15 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
       return;
     }
     clearQueuedBookmarkPage();
-    if (targetPage === pageState.bookmarkCurrentPage) {
+    if (targetPage === bookmarksShown.currentPage) {
       return;
     }
-    const grid = pageState.bookmarkGrid;
+    const grid = bookmarkGrid;
     const crossSurfaceDrag = LumnoNewtabCrossSurfaceDrag;
     const motionDisabled = document.documentElement.getAttribute('data-lumno-motion-effects') === 'off';
     if (!grid || typeof grid.animate !== 'function' || motionDisabled ||
         (crossSurfaceDrag && crossSurfaceDrag.prefersReducedMotion(window))) {
-      pageState.bookmarkCurrentPage = targetPage;
+      bookmarksShown.showPage(targetPage);
       renderCurrentBookmarkPage();
       updateBookmarkSectionPosition();
       return;
@@ -220,7 +210,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     // Pick up from where an interrupted slide left the cards, so they never jump.
     const carry = pageSlide ? readSlideOffset(pageSlide.cards[0]) : 0;
     if (pageSlide) pageSlide.finish();
-    const direction = targetPage > pageState.bookmarkCurrentPage ? 1 : -1;
+    const direction = targetPage > bookmarksShown.currentPage ? 1 : -1;
     const gridStyle = window.getComputedStyle(grid);
     const distance = grid.getBoundingClientRect().width + (Number.parseFloat(gridStyle.columnGap) || 0);
     const outgoing = grid.cloneNode(true);
@@ -244,7 +234,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
       columnGap: gridStyle.columnGap, rowGap: gridStyle.rowGap,
       alignContent: 'start', pointerEvents: 'none'
     });
-    pageState.bookmarkCurrentPage = targetPage;
+    bookmarksShown.showPage(targetPage);
     renderCurrentBookmarkPage();
     updateBookmarkSectionPosition();
     const incomingCards = Array.from(grid.children);
@@ -253,7 +243,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     const previousPriority = grid.style.getPropertyPriority('overflow-x');
     grid.style.setProperty('overflow-x', 'clip');
     grid.appendChild(outgoing);
-    pageState.bookmarkPageAnimating = true;
+    bookmarksShown.setPageAnimating(true);
     // Slide directly to the destination with a long, smooth deceleration.
     const timing: KeyframeAnimationOptions = { duration: PAGE_SLIDE_MS, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'both' };
     const slideFrames = (from: number, to: number): Keyframe[] => [
@@ -274,7 +264,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
         outgoing.remove();
         if (previousOverflow) grid.style.setProperty('overflow-x', previousOverflow, previousPriority);
         else grid.style.removeProperty('overflow-x');
-        pageState.bookmarkPageAnimating = false;
+        bookmarksShown.setPageAnimating(false);
       }
     };
     pageSlide = slide;
@@ -347,7 +337,7 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
       return;
     }
     gesture.turned = true;
-    const targetPage = pageState.bookmarkCurrentPage + gesture.sign;
+    const targetPage = bookmarksShown.currentPage + gesture.sign;
     if (targetPage >= 0 && targetPage < getBookmarkPageCount()) {
       switchBookmarkPage(targetPage);
     }
@@ -367,4 +357,4 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
 type BookmarkPager = ReturnType<typeof createBookmarkPager>;
 
 export { createBookmarkPager };
-export type { BookmarkPager, BookmarkPagerDeps, BookmarkPagerState };
+export type { BookmarkPager, BookmarkPagerDeps };

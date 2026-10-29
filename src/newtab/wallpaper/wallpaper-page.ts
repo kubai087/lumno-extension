@@ -25,6 +25,7 @@ import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import { NEWTAB_GLASS_ADAPTIVE_SELECTOR } from '../newtab-config';
 import { SEARCH_WIDTH_CONFIG } from '../layout';
 import type { BottomDockParts } from '../shortcuts/bottom-dock-parts';
+import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -33,9 +34,6 @@ type PersistOptions = { persist: boolean };
 
 // The page state parts the wallpaper reads and sets.
 interface WallpaperPageState {
-  bookmarkPagerPrevButton: HTMLElement | null;
-  bookmarkTitleWrap: HTMLElement | null;
-  bookmarkTopbarRuntime: { element: HTMLElement | null } | null;
   topContentController: TopContentController | null;
   topContentContainer: HTMLElement | null;
   wordmarkImageEl: HTMLImageElement | null;
@@ -82,6 +80,9 @@ interface WallpaperPageDeps {
   shortcutGrid: HTMLElement;
   bottomDockParts: Pick<BottomDockParts, 'scroller'>;
   recentHeader: HTMLElement;
+  bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
+  bookmarkTitleWrap: HTMLElement;
+  bookmarkPagerPrevButton: HTMLElement;
   pageState: WallpaperPageState;
   getFeedbackButton(): HTMLElement | null;
   sectionPanelSettings: SectionPanelSettings & { updateLanguage(): void };
@@ -91,6 +92,9 @@ interface WallpaperPageDeps {
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
   const {
+    bookmarkPagerPrevButton,
+    bookmarkTitleWrap,
+    bookmarkParts,
     recentHeader,
     bottomDockParts,
     shortcutGrid,
@@ -139,8 +143,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
 
 
   function createWallpaperAdaptiveToneTargets(): AdaptiveToneTarget[] {
-    const bookmarkPager = pageState.bookmarkPagerPrevButton && pageState.bookmarkPagerPrevButton.parentElement
-      ? pageState.bookmarkPagerPrevButton.parentElement
+    const bookmarkPager = bookmarkPagerPrevButton && bookmarkPagerPrevButton.parentElement
+      ? bookmarkPagerPrevButton.parentElement
       : null;
     const shortcutIconTargets: Array<{ element: HTMLElement; forcedIconBackground: AdaptiveToneTarget['forcedIconBackground'] }> =
       shortcutTiles.map((tile) => ({
@@ -192,8 +196,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     const captionSample = quoteIsCaption ? [topContentSample, quoteSample] : null;
     const targets: AdaptiveToneTarget[] = [
       {
-        element: pageState.bookmarkTopbarRuntime && pageState.bookmarkTopbarRuntime.element,
-        sampleElement: pageState.bookmarkTopbarRuntime && pageState.bookmarkTopbarRuntime.element,
+        element: bookmarkParts.topbar && bookmarkParts.topbar.element,
+        sampleElement: bookmarkParts.topbar && bookmarkParts.topbar.element,
         minWidth: 280,
         minHeight: 64,
         surface: 'topbar',
@@ -223,8 +227,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
       },
       // The heading link and breadcrumbs fill with the title's solid tone while pointed at.
       {
-        element: pageState.bookmarkTitleWrap,
-        sampleElement: pageState.bookmarkTitleWrap,
+        element: bookmarkTitleWrap,
+        sampleElement: bookmarkTitleWrap,
         minWidth: 112,
         minHeight: 44,
         iconButton: true

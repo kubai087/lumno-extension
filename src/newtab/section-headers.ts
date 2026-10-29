@@ -2,12 +2,9 @@
 // recent-site sections.
 import type { SelectMenuOption } from '../shared/react/select-menu/menu-options';
 import type { BookmarkCascadeActions } from './bookmarks/bookmark-cascade-actions';
-import type { BookmarkCascadeRuntime } from './bookmarks/bookmark-cascade-menu';
-import type { BookmarkPathEntry } from './bookmarks/bookmarks-store';
 import type { Translate } from './newtab-types';
 import type { PageLayout } from './page-layout';
 import type { BookmarkHeaderModel } from './react/bookmark-header';
-import type { BookmarksTopbarRuntime } from './react/bookmarks-topbar';
 import type { SectionLoaders } from './section-loaders';
 import type { TooltipBindings } from './tooltip-bindings';
 import type { ViewportInsets } from './viewport-insets';
@@ -17,23 +14,11 @@ import type { SettingPreview } from './setting-preview';
 import { recentMode } from '../domain/settings/recent-sites';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
 import { BOOKMARK_TOPBAR_HEIGHT_PX } from './react/bookmarks-topbar';
+import type { BookmarksShown } from './bookmarks/bookmarks-shown';
+import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
-
-interface SectionHeadersState {
-  bookmarkGrid: HTMLElement | null;
-  bookmarkCascadeRuntime: Pick<BookmarkCascadeRuntime, 'positionLevels' | 'isOpen'> | null;
-  bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'activate' | 'deactivate' | 'setVisible' | 'isActive'> | null;
-  // Which pager buttons lead anywhere from the current page.
-  bookmarkPagerAvailability: { previous: boolean; next: boolean };
-  bookmarkCurrentFolderId: string;
-  bookmarkRootFolderId: string;
-  bookmarkFolderPath: BookmarkPathEntry[];
-  bookmarkCurrentPage: number;
-  bookmarkRenderSignature: string;
-  bookmarkLoadedOnce: boolean;
-}
 
 interface SectionHeadersDeps extends
   Pick<PageLayout, 'updateSearchEntryLayout' | 'setContentSectionVisible'>,
@@ -52,11 +37,16 @@ interface SectionHeadersDeps extends
   handleBookmarkModeMenuAction(action: string): void;
   goToBookmarkPage(step: -1 | 1): void;
   openBookmarkManager(): void;
-  pageState: SectionHeadersState;
+  bookmarksShown: Pick<BookmarksShown, 'folderPath' | 'forgetSignature' | 'loadedOnce' | 'openFolder' | 'pagerAvailability' | 'rootFolderId' | 'showPage'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'topbar'>;
+  bookmarkGrid: HTMLElement;
 }
 
 function createSectionHeaders(deps: SectionHeadersDeps) {
   const {
+    bookmarkGrid,
+    bookmarkParts,
+    bookmarksShown,
     preview,
     settings,
     t,
@@ -77,8 +67,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     openBookmarkManager
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const NEWTAB_FLOATING_TOP_GAP_PX = 12;
   const BOOKMARK_CASCADE_TOPBAR_GAP_PX = 4;
@@ -148,14 +136,14 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 
   function refreshTopOccupiedLayout(): void {
     updateSearchEntryLayout();
-    if (pageState.bookmarkCascadeRuntime && pageState.bookmarkCascadeRuntime.isOpen()) {
-      pageState.bookmarkCascadeRuntime.positionLevels();
+    if (bookmarkParts.cascade && bookmarkParts.cascade.isOpen()) {
+      bookmarkParts.cascade.positionLevels();
     }
   }
 
   // In top bar mode the bar holds the bookmarks and the section's actions.
   function syncBookmarkSurfaceMode(): void {
-    const topbar = pageState.bookmarkTopbarRuntime;
+    const topbar = bookmarkParts.topbar;
     if (topbar && isBookmarkTopbarMode()) {
       topbar.activate();
       setContentSectionVisible(bookmarkSection, false);
@@ -174,20 +162,20 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     const nextVisible = visible === true;
     if (isBookmarkTopbarMode()) {
       setContentSectionVisible(bookmarkSection, false);
-      if (pageState.bookmarkTopbarRuntime) {
-        pageState.bookmarkTopbarRuntime.setVisible(nextVisible && !settings.get(newtabZenMode));
+      if (bookmarkParts.topbar) {
+        bookmarkParts.topbar.setVisible(nextVisible && !settings.get(newtabZenMode));
       }
       return;
     }
-    if (pageState.bookmarkTopbarRuntime) {
-      pageState.bookmarkTopbarRuntime.setVisible(false);
+    if (bookmarkParts.topbar) {
+      bookmarkParts.topbar.setVisible(false);
     }
     setContentSectionVisible(bookmarkSection, nextVisible);
   }
 
   function updateBookmarkModeMenu(): void {
-    if (pageState.bookmarkGrid) {
-      pageState.bookmarkGrid.setAttribute('data-view-mode', settings.get(bookmarkViewMode));
+    if (bookmarkGrid) {
+      bookmarkGrid.setAttribute('data-view-mode', settings.get(bookmarkViewMode));
     }
     if (document.body) {
       document.body.setAttribute('data-bookmark-view-mode', settings.get(bookmarkViewMode));
@@ -202,9 +190,9 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     const mode = settings.get(bookmarkViewMode);
     if (mode === shownBookmarkViewMode) {
       updateBookmarkModeMenu();
-      if (first && !pageState.bookmarkLoadedOnce) {
-        pageState.bookmarkCurrentPage = 0;
-        pageState.bookmarkRenderSignature = '';
+      if (first && !bookmarksShown.loadedOnce) {
+        bookmarksShown.showPage(0);
+        bookmarksShown.forgetSignature();
         markBookmarkDataDirty();
         void loadBookmarks();
       }
@@ -213,10 +201,11 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     shownBookmarkViewMode = mode;
     closeBookmarkCascadeMenu();
     if (mode === 'top') {
-      pageState.bookmarkCurrentFolderId = pageState.bookmarkRootFolderId;
+      bookmarksShown.openFolder(bookmarksShown.rootFolderId);
+    } else {
+      bookmarksShown.showPage(0);
+      bookmarksShown.forgetSignature();
     }
-    pageState.bookmarkCurrentPage = 0;
-    pageState.bookmarkRenderSignature = '';
     updateBookmarkModeMenu();
     markBookmarkDataDirty();
     void loadBookmarks(first ? undefined : { force: true });
@@ -238,20 +227,18 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
       return;
     }
     closeBookmarkCascadeMenu();
-    pageState.bookmarkCurrentFolderId = id;
-    pageState.bookmarkCurrentPage = 0;
-    pageState.bookmarkRenderSignature = '';
+    bookmarksShown.openFolder(id);
     void loadBookmarks({ force: true });
   }
 
   function updateBookmarkHeader(): void {
     const rootLabel = t('bookmarks_heading', '书签');
-    const path = Array.isArray(pageState.bookmarkFolderPath) ? pageState.bookmarkFolderPath : [];
+    const path = Array.isArray(bookmarksShown.folderPath) ? bookmarksShown.folderPath : [];
     const menuTitle = t('display_mode_title', 'Display mode');
-    const topbar = pageState.bookmarkTopbarRuntime;
+    const topbar = bookmarkParts.topbar;
     renderBookmarkHeader({
       heading: rootLabel,
-      rootFolderId: String(pageState.bookmarkRootFolderId || '1'),
+      rootFolderId: String(bookmarksShown.rootFolderId || '1'),
       crumbs: path.length > 1
         ? path.slice(1).map((crumb) => ({
           id: String(crumb && crumb.id ? crumb.id : ''),
@@ -260,11 +247,11 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
         : [],
       previous: {
         label: t('bookmarks_page_prev', '上一页'),
-        enabled: pageState.bookmarkPagerAvailability.previous
+        enabled: bookmarksShown.pagerAvailability.previous
       },
       next: {
         label: t('bookmarks_page_next', '下一页'),
-        enabled: pageState.bookmarkPagerAvailability.next
+        enabled: bookmarksShown.pagerAvailability.next
       },
       managerLabel: t('bookmarks_open_manager', '打开书签管理页'),
       modeMenu: {
@@ -310,4 +297,4 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 type SectionHeaders = ReturnType<typeof createSectionHeaders>;
 
 export { createSectionHeaders };
-export type { SectionHeaders, SectionHeadersDeps, SectionHeadersState };
+export type { SectionHeaders, SectionHeadersDeps };

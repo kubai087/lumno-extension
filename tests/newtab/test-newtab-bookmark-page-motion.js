@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const { moduleScript } = require('../helpers/module-script');
+const { BookmarksShown } = require('../../src/newtab/bookmarks/bookmarks-shown.ts');
 
 function setup() {
   const dom = new JSDOM('<div id="grid"></div>', { runScripts: 'outside-only' });
@@ -25,9 +26,10 @@ function setup() {
   window.eval(moduleScript('src/newtab/bookmarks/bookmark-pager.ts', 'LumnoNewtabBookmarkPager', null, {
     'src/newtab/cross-surface-drag.ts': 'LumnoNewtabCrossSurfaceDrag'
   }));
-  env.state = { bookmarkGrid: grid, bookmarkAllItems: Array.from({ length: 8 }, (_, id) => ({ id })), bookmarkCurrentPage: 0,
-    bookmarkPagerAvailability: { previous: false, next: false } };
-  env.pager = window.LumnoNewtabBookmarkPager.createBookmarkPager({ pageState: env.state, now: () => env.clock,
+  env.state = new BookmarksShown();
+  env.state.setItems(Array.from({ length: 8 }, (_, id) => ({ id })));
+  env.pager = window.LumnoNewtabBookmarkPager.createBookmarkPager({ bookmarksShown: env.state, bookmarkGrid: grid,
+    pageState: {}, now: () => env.clock,
     isBookmarkTopbarMode: () => false, getBookmarkLimit: () => 2,
     NEWTAB_BOOKMARKS_STORE: { getBookmarkPageItems: (items, page, limit) => items.slice(page * limit, (page + 1) * limit) },
     updateBookmarkHeader() {}, getBookmarkGridColumnCount: () => 2, updateBookmarkSectionPosition() {},
@@ -52,7 +54,7 @@ async function run() {
   const { pager, state, grid, animations } = env;
 
   pager.switchBookmarkPage(1);
-  assert.equal(state.bookmarkCurrentPage, 1);
+  assert.equal(state.currentPage, 1);
   assert.equal(animations.length, 3, 'both pages animate together');
   assert.equal(animations[0].keyframes[1].transform, 'translateX(-424px)');
   assert.equal(animations[1].keyframes[0].transform, 'translateX(424px)');
@@ -72,15 +74,15 @@ async function run() {
 
   // Early in a slide, further turns wait (only the latest one) for its tail.
   env.clock = 100;
-  for (let index = 0; index < 120; index++) pager.switchBookmarkPage(state.bookmarkCurrentPage + 1);
-  assert.equal(state.bookmarkCurrentPage, 1, 'the page does not change before the slide reaches its tail');
+  for (let index = 0; index < 120; index++) pager.switchBookmarkPage(state.currentPage + 1);
+  assert.equal(state.currentPage, 1, 'the page does not change before the slide reaches its tail');
   assert.equal(animations.length, 3, 'rapid clicks never start overlapping animations');
   assert.equal(grid.children.length, 3, 'only one outgoing page exists');
   assert.equal(env.pendingTimers().length, 1, 'one queued turn');
   assert.equal(env.pendingTimers()[0].ms, 160, 'the queued turn starts once the slide is 260ms in');
   env.clock = 260;
   env.runTimers();
-  assert.equal(state.bookmarkCurrentPage, 2, 'the queued turn runs once');
+  assert.equal(state.currentPage, 2, 'the queued turn runs once');
   assert.equal(animations.length, 6);
   assert(animations.slice(0, 3).every(animation => animation.cancelled), 'the earlier slide hands over');
   assert.equal(grid.children.length, 3, 'still only one outgoing page');
@@ -89,11 +91,11 @@ async function run() {
   // In the tail, a turn starts at once.
   env.clock = 600;
   pager.switchBookmarkPage(1);
-  assert.equal(state.bookmarkCurrentPage, 1);
+  assert.equal(state.currentPage, 1);
   assert.equal(animations[6].keyframes[1].transform, 'translateX(424px)', 'previous page reverses the direction');
   animations.forEach(animation => animation.resolve());
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(state.bookmarkPageAnimating, false);
+  assert.equal(state.pageAnimating, false);
   assert.equal(grid.children.length, 2);
   assert.equal(grid.style.overflowX, '');
 
@@ -111,19 +113,19 @@ async function run() {
   assert.equal(env.pendingTimers().length, 1);
   pager.renderCurrentBookmarkPage();
   assert.equal(env.pendingTimers().length, 0, 'a re-render drops the queued turn');
-  assert.equal(state.bookmarkPageAnimating, false, 'data refresh cleans up the interrupted animation');
+  assert.equal(state.pageAnimating, false, 'data refresh cleans up the interrupted animation');
   assert.equal(grid.children.length, 2);
-  assert.equal(state.bookmarkCurrentPage, 2);
+  assert.equal(state.currentPage, 2);
 
   env.reducedMotion = true;
   const previousCount = animations.length;
   pager.switchBookmarkPage(1);
-  assert.equal(state.bookmarkCurrentPage, 1);
+  assert.equal(state.currentPage, 1);
   assert.equal(animations.length, previousCount);
   env.reducedMotion = false;
   env.window.document.documentElement.setAttribute('data-lumno-motion-effects', 'off');
   pager.switchBookmarkPage(0);
-  assert.equal(state.bookmarkCurrentPage, 0);
+  assert.equal(state.currentPage, 0);
   assert.equal(animations.length, previousCount, 'motion preference is respected');
   env.window.close();
   console.log('Bookmark page motion tests passed: single-page sliding, queued and interrupted turns, cleanup and motion preferences');

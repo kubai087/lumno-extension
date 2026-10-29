@@ -29,6 +29,8 @@ import { FAVICON_CACHE_BOOT_WAIT_MS, MAX_PINNED_RECENT_SITES } from './newtab-co
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
 import type { ShortcutList } from './shortcuts/shortcut-list';
 import type { RecentSitesShown } from './recent/recent-sites-shown';
+import type { BookmarksShown } from './bookmarks/bookmarks-shown';
+import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -38,21 +40,8 @@ interface SectionLoadOptions {
 }
 
 interface SectionLoadersState {
-  // Goes up whenever the section data is replaced, so loads asked for
-  // before then land nowhere.
-  sectionDataRevision: number;
   bookmarkDragState: BookmarkDragSession | null;
   shortcutDragState: ShortcutDragSession | null;
-  bookmarkGrid: HTMLElement | null;
-  bookmarksView: Pick<BookmarksViewController, 'render' | 'clear'> | null;
-  bookmarkCurrentFolderId: string;
-  bookmarkRootFolderId: string;
-  bookmarkRenderSignature: string;
-  bookmarkAllItems: BookmarkItem[];
-  bookmarkRootTotalCount: number;
-  bookmarkRootVisibleCount: number;
-  bookmarkCurrentPage: number;
-  bookmarkLoadedOnce: boolean;
 }
 
 interface SectionLoadersDeps extends
@@ -87,12 +76,18 @@ interface SectionLoadersDeps extends
   appliedTheme: Pick<AppliedThemeMode, 'applied'>;
   shortcutList: Pick<ShortcutList, 'items'>;
   recentShown: Pick<RecentSitesShown, 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'setItems' | 'signature'>;
+  bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'renderSignature' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
+  bookmarkGrid: HTMLElement;
   pageState: SectionLoadersState;
   recentSitesView: Pick<RecentSitesViewController, 'render' | 'clear'>;
 }
 
 function createSectionLoaders(deps: SectionLoadersDeps) {
   const {
+    bookmarkGrid,
+    bookmarkParts,
+    bookmarksShown,
     recentShown,
     shortcutList,
     appliedTheme,
@@ -141,6 +136,8 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
 
   // The page state object shared with newtab.js and the other modules.
   const pageState = deps.pageState;
+  // Bumped by the startup pass; loads asked for under an older one are dropped when they land.
+  let sectionDataRevision = 0;
 
   let bookmarkLoadToken = 0;
   let bookmarkDataDirty = true;
@@ -152,10 +149,10 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
   // stays hidden when it would cover shortcuts: the shortcut area would
   // then shrink and scroll under the pointer.
   function getBookmarksView(): Pick<BookmarksViewController, 'render' | 'clear'> {
-    if (!pageState.bookmarksView) {
+    if (!bookmarkParts.view) {
       throw new Error('Bookmarks view unavailable');
     }
-    return pageState.bookmarksView;
+    return bookmarkParts.view;
   }
 
   function isDragActive(): boolean {
@@ -182,8 +179,8 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     if (!coversShortcuts) {
       return;
     }
-    if (pageState.bookmarkGrid) {
-      pageState.bookmarkGrid.removeAttribute('data-bookmark-empty-drop-surface');
+    if (bookmarkGrid) {
+      bookmarkGrid.removeAttribute('data-bookmark-empty-drop-surface');
     }
     setBookmarkSurfaceVisible(false);
     updateBookmarkGridHeightLock();
@@ -192,37 +189,37 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
 
   function renderBookmarks(items: BookmarkItem[] | null | undefined): void {
     const normalizedItems = Array.isArray(items) ? items : [];
-    const isAtRoot = String(pageState.bookmarkCurrentFolderId || '') === String(pageState.bookmarkRootFolderId || '1');
+    const isAtRoot = String(bookmarksShown.currentFolderId || '') === String(bookmarksShown.rootFolderId || '1');
     const keepEmptyRootVisibleForDrag = Boolean(
       isAtRoot &&
       normalizedItems.length === 0 &&
       ((pageState.bookmarkDragState && pageState.bookmarkDragState.isDragging) ||
         isShortcutDragActive() || isRecentCardDragActive())
     );
-    if (pageState.bookmarkGrid) {
+    if (bookmarkGrid) {
       if (keepEmptyRootVisibleForDrag) {
-        pageState.bookmarkGrid.setAttribute('data-bookmark-empty-drop-surface', 'true');
+        bookmarkGrid.setAttribute('data-bookmark-empty-drop-surface', 'true');
       } else {
-        pageState.bookmarkGrid.removeAttribute('data-bookmark-empty-drop-surface');
+        bookmarkGrid.removeAttribute('data-bookmark-empty-drop-surface');
       }
     }
     const renderResult = getBookmarksView().render(normalizedItems, {
-      signature: pageState.bookmarkRenderSignature,
-      folderId: pageState.bookmarkCurrentFolderId,
-      rootFolderId: pageState.bookmarkRootFolderId,
+      signature: bookmarksShown.renderSignature,
+      folderId: bookmarksShown.currentFolderId,
+      rootFolderId: bookmarksShown.rootFolderId,
       viewMode: settings.get(bookmarkViewMode),
       menuMode: settings.get(bookmarkViewMode) === 'list' || isBookmarkTopbarMode()
     });
     if (pageState.shortcutDragState && pageState.shortcutDragState.isDragging &&
-        pageState.shortcutDragState.folderSwitchPendingId === String(pageState.bookmarkCurrentFolderId || '')) {
+        pageState.shortcutDragState.folderSwitchPendingId === String(bookmarksShown.currentFolderId || '')) {
       pageState.shortcutDragState.folderSwitchPendingId = '';
       scheduleShortcutDragMove(pageState.shortcutDragState, pageState.shortcutDragState.pendingPointerX, pageState.shortcutDragState.pendingPointerY);
     }
-    resumeRecentCardDragAfterFolderSwitch(pageState.bookmarkCurrentFolderId);
+    resumeRecentCardDragAfterFolderSwitch(bookmarksShown.currentFolderId);
     if (pageState.bookmarkDragState &&
         pageState.bookmarkDragState.isDragging &&
         pageState.bookmarkDragState.folderSwitchPendingId ===
-          String(pageState.bookmarkCurrentFolderId || '')) {
+          String(bookmarksShown.currentFolderId || '')) {
       const activeDragState = pageState.bookmarkDragState;
       activeDragState.folderSwitchPendingId = '';
       updateBookmarkDragLayoutCache(activeDragState);
@@ -249,7 +246,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       updateBookmarkPagerState();
       return;
     }
-    pageState.bookmarkRenderSignature = renderResult.signature;
+    bookmarksShown.drawn(renderResult.signature);
     if (normalizedItems.length === 0) {
       showEmptyBookmarkRoot(!isAtRoot || keepEmptyRootVisibleForDrag, keepEmptyRootVisibleForDrag);
       updateBookmarkPagerState();
@@ -338,7 +335,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     const config = options || {};
     const requestedSectionDataRevision = Number.isFinite(Number(config.sectionDataRevision))
       ? Number(config.sectionDataRevision)
-      : pageState.sectionDataRevision;
+      : sectionDataRevision;
     if (!appliedTheme.applied) {
       return followTheme().then(() => loadBookmarks({
         ...config,
@@ -358,56 +355,50 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
         })
       ));
     }
-    if (!forceReload && !bookmarkDataDirty && pageState.bookmarkLoadedOnce) {
+    if (!forceReload && !bookmarkDataDirty && bookmarksShown.loadedOnce) {
       updateBookmarkSectionPosition();
       return Promise.resolve();
     }
     const requestToken = ++bookmarkLoadToken;
     if (!preview.get(bookmarkCount) || preview.get(bookmarkCount) <= 0) {
       closeBookmarkCascadeMenu();
-      pageState.bookmarkAllItems = [];
-      pageState.bookmarkRootTotalCount = 0;
-      pageState.bookmarkRootVisibleCount = 0;
-      pageState.bookmarkCurrentPage = 0;
-      pageState.bookmarkRenderSignature = '';
+      bookmarksShown.clear();
       getBookmarksView().clear();
       setBookmarkSurfaceVisible(false);
       bookmarkDataDirty = false;
-      pageState.bookmarkLoadedOnce = true;
+      bookmarksShown.markLoaded();
       updateBookmarkSectionPosition();
       return Promise.resolve();
     }
-    return getTopBookmarks(0, pageState.bookmarkCurrentFolderId).then((items) => {
+    return getTopBookmarks(0, bookmarksShown.currentFolderId).then((items) => {
       if (requestToken !== bookmarkLoadToken ||
-          requestedSectionDataRevision !== pageState.sectionDataRevision) {
+          requestedSectionDataRevision !== sectionDataRevision) {
         return;
       }
       if (!preview.get(bookmarkCount) || preview.get(bookmarkCount) <= 0) {
         closeBookmarkCascadeMenu();
-        pageState.bookmarkAllItems = [];
-        pageState.bookmarkRootTotalCount = 0;
-        pageState.bookmarkRootVisibleCount = 0;
-        pageState.bookmarkCurrentPage = 0;
-        pageState.bookmarkRenderSignature = '';
+        bookmarksShown.clear();
         getBookmarksView().clear();
         setBookmarkSurfaceVisible(false);
         bookmarkDataDirty = false;
-        pageState.bookmarkLoadedOnce = true;
+        bookmarksShown.markLoaded();
         updateBookmarkSectionPosition();
         return;
       }
-      pageState.bookmarkAllItems = Array.isArray(items) ? items : [];
-      const isAtRoot = String(pageState.bookmarkCurrentFolderId || '') === String(pageState.bookmarkRootFolderId || '1');
+      bookmarksShown.setItems(Array.isArray(items) ? items : []);
+      const isAtRoot = String(bookmarksShown.currentFolderId || '') === String(bookmarksShown.rootFolderId || '1');
       if (isAtRoot) {
-        pageState.bookmarkRootTotalCount = pageState.bookmarkAllItems.length;
-        pageState.bookmarkRootVisibleCount = Math.min(getBookmarkLimit(), pageState.bookmarkAllItems.length);
+        bookmarksShown.setRootCounts(
+          bookmarksShown.allItems.length,
+          Math.min(getBookmarkLimit(), bookmarksShown.allItems.length)
+        );
       }
       const pageCount = getBookmarkPageCount();
-      if (pageState.bookmarkCurrentPage > (pageCount - 1)) {
-        pageState.bookmarkCurrentPage = pageCount - 1;
+      if (bookmarksShown.currentPage > (pageCount - 1)) {
+        bookmarksShown.showPage(pageCount - 1);
       }
-      if (pageState.bookmarkCurrentPage < 0) {
-        pageState.bookmarkCurrentPage = 0;
+      if (bookmarksShown.currentPage < 0) {
+        bookmarksShown.showPage(0);
       }
       updateBookmarkHeader();
       renderCurrentBookmarkPage();
@@ -416,7 +407,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
         renderShortcuts();
       }
       bookmarkDataDirty = false;
-      pageState.bookmarkLoadedOnce = true;
+      bookmarksShown.markLoaded();
     });
   }
 
@@ -424,7 +415,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     const config = options || {};
     const requestedSectionDataRevision = Number.isFinite(Number(config.sectionDataRevision))
       ? Number(config.sectionDataRevision)
-      : pageState.sectionDataRevision;
+      : sectionDataRevision;
     if (!appliedTheme.applied) {
       return followTheme().then(() => loadRecentSites({
         ...config,
@@ -462,7 +453,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
     }
     return getRecentSites(recentSourceLimit + MAX_PINNED_RECENT_SITES, settings.get(recentMode)).then((items) => {
       if (requestToken !== recentLoadToken ||
-          requestedSectionDataRevision !== pageState.sectionDataRevision) {
+          requestedSectionDataRevision !== sectionDataRevision) {
         return;
       }
       const normalizedItems = Array.isArray(items) ? items : [];
@@ -477,7 +468,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       return;
     }
     const shouldReloadRecent = recentDataDirty || !recentShown.loadedOnce;
-    const shouldReloadBookmarks = bookmarkDataDirty || !pageState.bookmarkLoadedOnce;
+    const shouldReloadBookmarks = bookmarkDataDirty || !bookmarksShown.loadedOnce;
     if (shouldReloadRecent || shouldReloadBookmarks) {
       beginSearchEntryRestoreLayoutLock();
     }
@@ -491,7 +482,7 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
 
   function forceReloadRecentSitesForI18n(): void {
     recentShown.forgetSignature();
-    pageState.bookmarkRenderSignature = '';
+    bookmarksShown.forgetSignature();
     markRecentDataDirty();
     markBookmarkDataDirty();
     void loadRecentSites();
@@ -516,7 +507,18 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       }
     });
   }
+
+  // One authoritative pass once every layout setting has settled, so cached
+  // or default geometry never shows and then moves when the data arrives.
+  function startSectionDataPass(): { recent: Promise<void>; bookmarks: Promise<void> } {
+    sectionDataRevision += 1;
+    return {
+      recent: loadRecentSites({ force: true, sectionDataRevision }),
+      bookmarks: loadBookmarks({ force: true, sectionDataRevision })
+    };
+  }
   return {
+    startSectionDataPass,
     renderBookmarks,
     renderRecentSites,
     markBookmarkDataDirty,

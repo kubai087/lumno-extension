@@ -6,6 +6,7 @@ const bookmarksRuntimeModule = require('../../src/newtab/bookmarks/bookmarks-run
 const moveHistory = require('../../src/newtab/bookmarks/bookmark-move-history.ts');
 const crossSurfaceDrag = require('../../src/newtab/cross-surface-drag.ts');
 const shortcutsStore = require('../helpers/shortcuts-store.ts');
+const { BookmarksShown } = require('../../src/newtab/bookmarks/bookmarks-shown.ts');
 
 // Bookmark moves and deletes go on the move history; undo and redo replay
 // them, and the shortcut changes that share the history.
@@ -32,9 +33,6 @@ async function setUp() {
     replaceIcons(icons) { this.icons = icons; }
   };
   const pageState = {
-    bookmarkAllItems: [],
-    bookmarkCurrentFolderId: '1',
-    bookmarkCascadeRuntime: null,
     bookmarkMoveHistoryBusy: false
   };
   const history = moveHistory.createBookmarkMoveHistory();
@@ -64,6 +62,9 @@ async function setUp() {
     t: (key, fallback) => fallback,
     formatMessage: (key, fallback, params) => fallback.replace('{shortcut}', params && params.shortcut),
     shortcutList,
+    // The bar's root folder, browsed from its first page.
+    bookmarksShown: new BookmarksShown(),
+    bookmarkParts: { cascade: null },
     pageState
   });
   const barIds = () => bookmarks.root.children[0].children.map((node) => node.title);

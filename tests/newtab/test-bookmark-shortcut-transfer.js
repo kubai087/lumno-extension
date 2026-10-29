@@ -28,8 +28,7 @@ async function setUp(options) {
     replaceIcons(icons) { this.icons = icons; }
   };
   const pageState = {
-    bookmarkMoveHistoryBusy: false,
-    bookmarkCascadeRuntime: null
+    bookmarkMoveHistoryBusy: false
   };
   const history = moveHistory.createBookmarkMoveHistory();
   const transfer = transferModule.createBookmarkShortcutTransfer({
@@ -59,6 +58,7 @@ async function setUp(options) {
     t: (key, fallback) => fallback,
     formatMessage: (key, fallback) => fallback,
     shortcutList,
+    bookmarkParts: { cascade: null },
     pageState
   });
   const siteRecord = shortcutsStore.createShortcutRecord({ title: SITE.title, url: SITE.url });

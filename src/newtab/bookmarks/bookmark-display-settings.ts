@@ -4,20 +4,17 @@
 import type { SettingsStore } from '../../platform/settings-store';
 import type { ShowToast, Translate } from '../newtab-types';
 import type * as BookmarksTopbar from '../react/bookmarks-topbar';
-import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import * as BookmarkSettings from '../../domain/settings/bookmarks';
 import * as NEWTAB_BOOKMARKS_TOPBAR from '../react/bookmarks-topbar';
 import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKMARK_TOPBAR_SURFACE_MODE_ACTION } from '../menu-values';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
+import type { BookmarkSectionParts } from './bookmark-section-parts';
 
 type BookmarkViewMode = 'folder' | 'list' | 'top';
 type BookmarkTopbarLayout = ReturnType<typeof BookmarksTopbar.normalizeLayout>;
 type BookmarkTopbarSurfaceMode = ReturnType<typeof BookmarksTopbar.normalizeSurfaceMode>;
 type ResolvedTheme = 'light' | 'dark';
 
-interface BookmarkDisplaySettingsState {
-  bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
-}
 
 interface BookmarkDisplaySettingsDeps {
   // The bar's material and layout stay on this device.
@@ -27,7 +24,7 @@ interface BookmarkDisplaySettingsDeps {
   scheduleWallpaperAdaptiveToneUpdate(): void;
   showToast: ShowToast;
   t: Translate;
-  pageState: BookmarkDisplaySettingsState;
+  bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
   appliedTheme: Pick<AppliedThemeMode, 'firstApplied'>;
 }
 
@@ -38,6 +35,7 @@ interface SurfaceAppearanceOptions {
 
 function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
   const {
+    bookmarkParts,
     settings,
     updateBookmarkModeMenu,
     setNewtabTopLayout,
@@ -47,8 +45,6 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
     appliedTheme
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const BOOKMARK_TOPBAR_RESET_COLOR_ACTION = 'reset-bookmark-topbar-color';
   // A custom background is kept for each theme.
@@ -70,8 +66,8 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
 
   function showBookmarkTopbarLayout(updateMenu: boolean): void {
     const layout = getBookmarkTopbarLayout();
-    if (pageState.bookmarkTopbarRuntime) {
-      pageState.bookmarkTopbarRuntime.setLayout(layout);
+    if (bookmarkParts.topbar) {
+      bookmarkParts.topbar.setLayout(layout);
     }
     setNewtabTopLayout(layout);
     if (updateMenu) {
@@ -134,10 +130,10 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
   function syncBookmarkTopbarSurfaceAppearance(options?: SurfaceAppearanceOptions): BookmarkTopbarSurfaceMode | 'frosted' {
     const config = options || {};
     const effectiveMode = getAppliedBookmarkTopbarSurfaceMode();
-    if (pageState.bookmarkTopbarRuntime) {
-      pageState.bookmarkTopbarRuntime.setLayout(getBookmarkTopbarLayout());
-      pageState.bookmarkTopbarRuntime.setSurfaceMode(effectiveMode);
-      pageState.bookmarkTopbarRuntime.setSurfaceColor(effectiveMode === 'custom' ? getSurfaceColor() : '');
+    if (bookmarkParts.topbar) {
+      bookmarkParts.topbar.setLayout(getBookmarkTopbarLayout());
+      bookmarkParts.topbar.setSurfaceMode(effectiveMode);
+      bookmarkParts.topbar.setSurfaceColor(effectiveMode === 'custom' ? getSurfaceColor() : '');
     }
     if (config.updateMenu !== false) {
       updateBookmarkModeMenu();
@@ -306,7 +302,6 @@ export { createBookmarkDisplaySettings };
 export type {
   BookmarkDisplaySettings,
   BookmarkDisplaySettingsDeps,
-  BookmarkDisplaySettingsState,
   BookmarkTopbarLayout,
   BookmarkViewMode
 };

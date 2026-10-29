@@ -6,20 +6,17 @@ import * as LumnoMessaging from '../../platform/messaging';
 import type { SelectMenuOption } from '../../shared/react/select-menu/menu-options';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { ShortcutDialogOpenOptions } from '../react/shortcut-dialog';
-import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type { BookmarkContextTarget } from './bookmark-context-menu';
 import type { BookmarksRuntime } from './bookmarks-runtime';
 import type { FolderItemIcon } from './folder-item-icons';
 import * as NEWTAB_BOOKMARKS_STORE from './bookmarks-store';
 import { SHORTCUT_DIALOG_ITEM_BOOKMARK, SHORTCUT_DIALOG_ITEM_FOLDER } from '../menu-values';
+import type { BookmarkSectionParts } from './bookmark-section-parts';
 
 // The bookmark an action is for, as far as the actions read it.
 type BookmarkEditTarget = Pick<BookmarkContextTarget, 'bookmarkId' | 'isFolder' | 'title'> &
   Partial<Pick<BookmarkContextTarget, 'url' | 'sourceKind'>> & { element: HTMLElement | null };
 
-interface BookmarkActionsState {
-  bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
-}
 
 interface BookmarkActionsDeps {
   t: Translate;
@@ -33,11 +30,12 @@ interface BookmarkActionsDeps {
   getFolderItemIcon(bookmarkId: string): FolderItemIcon | null;
   getFolderItemIconUrl(bookmarkId: string, url: string): string;
   getBrowserPageFaviconUrl(url: string): string;
-  pageState: BookmarkActionsState;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
 }
 
 function createBookmarkActions(deps: BookmarkActionsDeps) {
   const {
+    bookmarkParts,
     t,
     bookmarksRuntime,
     openShortcutDialog,
@@ -49,8 +47,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
     getBrowserPageFaviconUrl
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   function requestBookmarkFolderTabGroup(folderId: string, title: string): Promise<BookmarkTabGroupReply> {
     return new Promise((resolve) => {
@@ -127,7 +123,7 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
     const isFolder = Boolean(target.isFolder);
     const url = isFolder ? '' : String((node && node.url) || target.url || '');
     // Websites in a folder opened from a shortcut choose an icon like shortcuts.
-    const cascadeRuntime = pageState.bookmarkCascadeRuntime;
+    const cascadeRuntime = bookmarkParts.cascade;
     const iconEditable = !isFolder && target.sourceKind === 'cascade' && cascadeRuntime !== null &&
       isShortcutFolderAnchor(cascadeRuntime.getAnchor());
     const icon = iconEditable ? getFolderItemIcon(target.bookmarkId) : null;
@@ -155,4 +151,4 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
 }
 
 export { createBookmarkActions };
-export type { BookmarkActionsDeps, BookmarkActionsState, BookmarkEditTarget };
+export type { BookmarkActionsDeps, BookmarkEditTarget };

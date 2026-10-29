@@ -6,7 +6,6 @@
 import type { FolderBindingRuntime } from '../../platform/bookmark-folder-bindings';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
 import type { PersistShortcuts, ShortcutIconChange } from '../shortcuts/shortcut-types';
-import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type {
   BookmarkMoveHistory,
   ShortcutDeleteRecord,
@@ -24,11 +23,11 @@ import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from '../shortcuts/shortcut-list';
+import type { BookmarkSectionParts } from './bookmark-section-parts';
 
 interface BookmarkShortcutTransferState {
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
-  bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
 }
 
 interface BookmarkShortcutTransferDeps {
@@ -55,6 +54,7 @@ interface BookmarkShortcutTransferDeps {
   t: Translate;
   formatMessage: FormatMessage;
   shortcutList: Pick<ShortcutList, 'icons' | 'items'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
   pageState: BookmarkShortcutTransferState;
 }
 
@@ -67,6 +67,7 @@ interface ShortcutDropPlan {
 
 function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
   const {
+    bookmarkParts,
     shortcutList,
     bookmarksRuntime,
     getShortcutStoreOptions,
@@ -289,7 +290,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     };
     const rollbackState: { run: (() => Promise<unknown>) | null } = { run: null };
     let shortcutsSaved = false;
-    const keepCascadeOpen = Boolean(pageState.bookmarkCascadeRuntime && pageState.bookmarkCascadeRuntime.isOpen());
+    const keepCascadeOpen = Boolean(bookmarkParts.cascade && bookmarkParts.cascade.isOpen());
     try {
       if (!planShortcuts(sourceShortcut, destinationShortcut)) {
         throw new Error('Shortcut transfer conflicts with the current shortcuts.');
@@ -400,7 +401,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
   // Shortcut folders are bookmark folders, so stacking two website shortcuts
   // creates one holding both sites and shows it where the stack target was.
   async function applyShortcutStack(record: ShortcutStackRecord, isUndo: boolean): Promise<boolean> {
-    const keepCascadeOpen = Boolean(pageState.bookmarkCascadeRuntime && pageState.bookmarkCascadeRuntime.isOpen());
+    const keepCascadeOpen = Boolean(bookmarkParts.cascade && bookmarkParts.cascade.isOpen());
     const planShortcuts = (folderSnapshot: ShortcutFolder): ShortcutItem[] | null => NEWTAB_CROSS_SURFACE_DRAG.planShortcutStack({
       shortcuts: shortcutList.items,
       sources: record.sources,

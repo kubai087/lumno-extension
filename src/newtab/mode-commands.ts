@@ -13,10 +13,8 @@ import type { SettingPreview } from './setting-preview';
 import { bookmarkCount } from '../domain/settings/bookmarks';
 import type { SearchBoxParts } from './search/search-box-parts';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
+import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 
-interface ModeCommandsState {
-  bookmarkTopbarRuntime: { setVisible(visible: boolean): void } | null;
-}
 
 interface ModeCommandsDeps {
   preview: Pick<SettingPreview, 'get'>;
@@ -46,7 +44,7 @@ interface ModeCommandsDeps {
   scheduleWallpaperAdaptiveToneUpdate(): void;
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
   appliedTheme: Pick<AppliedThemeMode, 'mode'>;
-  pageState: ModeCommandsState;
+  bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
 }
 
 const THEME_MODE_ORDER: readonly ThemeMode[] = ['system', 'light', 'dark'];
@@ -54,6 +52,7 @@ const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'da
 
 function createModeCommands(deps: ModeCommandsDeps) {
   const {
+    bookmarkParts,
     appliedTheme,
     searchBox,
     preview,
@@ -83,8 +82,6 @@ function createModeCommands(deps: ModeCommandsDeps) {
     scheduleWallpaperAdaptiveToneUpdate
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
   // Firefox's website appearance setting (the color scheme pages see), read
   // and switched through the background for the /appearance command.
   let webAppearanceState: { supported: boolean; mode: WebAppearanceMode } = { supported: false, mode: 'auto' };
@@ -407,8 +404,8 @@ function createModeCommands(deps: ModeCommandsDeps) {
     applyNewtabShortcutsVisibility();
     syncSectionZenVisibility(bookmarkSection);
     syncSectionZenVisibility(recentSection);
-    if (pageState.bookmarkTopbarRuntime && isBookmarkTopbarMode()) {
-      pageState.bookmarkTopbarRuntime.setVisible(
+    if (bookmarkParts.topbar && isBookmarkTopbarMode()) {
+      bookmarkParts.topbar.setVisible(
         !settings.get(newtabZenMode) && bookmarkCards.length > 0 && preview.get(bookmarkCount) > 0
       );
     }
@@ -464,4 +461,4 @@ function createModeCommands(deps: ModeCommandsDeps) {
 type ModeCommands = ReturnType<typeof createModeCommands>;
 
 export { createModeCommands };
-export type { ModeCommands, ModeCommandsDeps, ModeCommandsState };
+export type { ModeCommands, ModeCommandsDeps };

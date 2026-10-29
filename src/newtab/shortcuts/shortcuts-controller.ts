@@ -10,7 +10,6 @@ import type { FaviconCacheRuntime } from '../../platform/favicon-cache';
 import type { ShortcutFaviconStore } from '../../platform/shortcut-favicon-store';
 import * as LumnoShortcutStorage from '../../platform/shortcut-storage';
 import { isRecord, isThenable } from '../../platform/storage-call';
-import type { BookmarkCascadeRuntime } from '../bookmarks/bookmark-cascade-menu';
 import type { BookmarkMoveHistory, ShortcutGroupDeleteRecord } from '../bookmarks/bookmark-move-history';
 import type { BookmarksRuntime } from '../bookmarks/bookmarks-runtime';
 import type {
@@ -54,11 +53,11 @@ import { createShortcutsView } from '../react/shortcuts';
 import { createShortcutDialog } from '../react/shortcut-dialog-lazy';
 import type { ShortcutList } from './shortcut-list';
 import { faviconEnhancedFetchEnabled, faviconRequestBlacklist } from '../../domain/settings/search';
+import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 
 interface ShortcutsControllerState {
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
-  bookmarkCascadeRuntime: BookmarkCascadeRuntime | null;
 }
 
 // An option the shortcuts view is handed as it is.
@@ -136,6 +135,7 @@ interface ShortcutsControllerDeps {
   // Slides the tiles to where `apply` puts them.
   animateShortcutLayoutChange?(apply: () => void): void;
   shortcutList: Pick<ShortcutList, 'icons' | 'items' | 'replaceIcons' | 'replaceItems'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
   pageState: ShortcutsControllerState;
   setShortcutError(message: string): void;
   setShortcutIconError(message: string): void;
@@ -228,6 +228,7 @@ function isIconChangeList(
 
 function createShortcutsController(deps: ShortcutsControllerDeps) {
   const {
+    bookmarkParts,
     shortcutList,
     settings,
     shortcutFolderRuntime,
@@ -1662,7 +1663,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
         onlineIcon: dialogState.onlineIcon
       })
       : undefined;
-    const keepCascadeOpen = Boolean(pageState.bookmarkCascadeRuntime && pageState.bookmarkCascadeRuntime.isOpen());
+    const keepCascadeOpen = Boolean(bookmarkParts.cascade && bookmarkParts.cascade.isOpen());
     return bookmarksRuntime.runControlledMutation(() => {
       return bookmarksRuntime.update(itemId, changes);
     }).then(() => {

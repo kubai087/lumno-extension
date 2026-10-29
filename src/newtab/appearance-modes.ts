@@ -10,7 +10,6 @@ import type { NewtabThemeScope, Translate } from './newtab-types';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import { localeToHtmlLang } from '../domain/settings/locale';
 import { cacheNewtabLocale } from '../platform/settings-storage';
-import type { BookmarksTopbarRuntime } from './react/bookmarks-topbar';
 import type { TopContentController } from './react/wordmark';
 import type { SectionHeaders } from './section-headers';
 import type { SectionLoaders } from './section-loaders';
@@ -31,12 +30,12 @@ import { pageColorScheme } from './theme/page-color-scheme';
 import type { SearchBoxParts } from './search/search-box-parts';
 import type { PageNoticeControllers } from './notice-controllers';
 import type { AppliedThemeMode } from './theme/applied-theme-mode';
+import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 
 type ResolvedTheme = 'light' | 'dark';
 
 interface AppearanceModesState {
   topContentController: TopContentController | null;
-  bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'updateLanguage'> | null;
   faviconViewRuntime: Pick<FaviconViewRuntime,
     'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
 }
@@ -69,11 +68,13 @@ interface AppearanceModesDeps extends
   notices: Pick<PageNoticeControllers, 'updateLanguage'>;
   appliedTheme: Pick<AppliedThemeMode, 'firstApplied' | 'markApplied' | 'mode' | 'set'>;
   quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
   pageState: AppearanceModesState;
 }
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    bookmarkParts,
     quoteRuntime,
     appliedTheme,
     notices,
@@ -111,8 +112,8 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     if (pageState.topContentController && settings.get(newtabTopContentMode) === 'time') {
       renderNewtabTopContent(false);
     }
-    if (pageState.bookmarkTopbarRuntime) {
-      pageState.bookmarkTopbarRuntime.updateLanguage(t('bookmark_view_mode_top', 'Top bookmarks bar'));
+    if (bookmarkParts.topbar) {
+      bookmarkParts.topbar.updateLanguage(t('bookmark_view_mode_top', 'Top bookmarks bar'));
     }
     // Also draws the bookmark header with the new language.
     updateBookmarkModeMenu();

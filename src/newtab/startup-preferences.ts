@@ -3,7 +3,6 @@
 import type { BookmarkPager } from './bookmarks/bookmark-pager';
 import type { PageLayout } from './page-layout';
 import type { PagePreferences } from './page-preferences';
-import type { BookmarksViewController } from './react/bookmarks';
 import type { SectionLoaders } from './section-loaders';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
@@ -11,14 +10,11 @@ import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible } from '../d
 import { progressTrackingEnabled, recentCount, recentMode } from '../domain/settings/recent-sites';
 import type { SettingPreview } from './setting-preview';
 import type { RecentSitesShown } from './recent/recent-sites-shown';
+import type { BookmarksShown } from './bookmarks/bookmarks-shown';
+import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 
 const SECTION_SETTINGS = [recentCount, recentMode, bookmarkCount, bookmarkColumns, bookmarkFolderIconsVisible, progressTrackingEnabled];
 
-interface StartupPreferencesState {
-  bookmarkCurrentPage: number;
-  bookmarkLoadedOnce: boolean;
-  bookmarksView: Pick<BookmarksViewController, 'setFolderIconsVisible'> | null;
-}
 
 interface StartupPreferencesDeps extends
   Pick<PagePreferences,
@@ -36,11 +32,14 @@ interface StartupPreferencesDeps extends
   markBookmarkDataDirty: SectionLoaders['markBookmarkDataDirty'];
   loadBookmarks: SectionLoaders['loadBookmarks'];
   recentShown: Pick<RecentSitesShown, 'forgetSignature' | 'items' | 'loadedOnce'>;
-  pageState: StartupPreferencesState;
+  bookmarksShown: Pick<BookmarksShown, 'loadedOnce' | 'showPage'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
 }
 
 function createStartupPreferences(deps: StartupPreferencesDeps) {
   const {
+    bookmarkParts,
+    bookmarksShown,
     recentShown,
     settings,
     preview,
@@ -58,8 +57,6 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
     markBookmarkDataDirty,
     loadBookmarks
   } = deps;
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // A new width moves the recent and bookmark grids: the recent sites load
   // again for the new column count, and the bookmarks keep their page.
@@ -75,7 +72,7 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
       markRecentDataDirty();
       loadRecentSites({ force: true });
     }
-    if (bookmarkColumnsChanged && (!first || pageState.bookmarkLoadedOnce)) {
+    if (bookmarkColumnsChanged && (!first || bookmarksShown.loadedOnce)) {
       keepBookmarkPageAnchorAfterLimitChange(previousBookmarkLimit);
       renderCurrentBookmarkPage();
     }
@@ -113,12 +110,12 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
       recentShown.forgetSignature();
       renderRecentSites(recentShown.items);
     }
-    if (next.bookmarkFolderIconsVisible !== previous.bookmarkFolderIconsVisible && pageState.bookmarksView) {
-      pageState.bookmarksView.setFolderIconsVisible(next.bookmarkFolderIconsVisible);
+    if (next.bookmarkFolderIconsVisible !== previous.bookmarkFolderIconsVisible && bookmarkParts.view) {
+      bookmarkParts.view.setFolderIconsVisible(next.bookmarkFolderIconsVisible);
     }
-    if (next.bookmarkCount !== previous.bookmarkCount || (first && !pageState.bookmarkLoadedOnce)) {
+    if (next.bookmarkCount !== previous.bookmarkCount || (first && !bookmarksShown.loadedOnce)) {
       if (!first) {
-        pageState.bookmarkCurrentPage = 0;
+        bookmarksShown.showPage(0);
       }
       markBookmarkDataDirty();
       void loadBookmarks({ force: !first });
@@ -144,4 +141,4 @@ function createStartupPreferences(deps: StartupPreferencesDeps) {
 type StartupPreferences = ReturnType<typeof createStartupPreferences>;
 
 export { createStartupPreferences };
-export type { StartupPreferences, StartupPreferencesDeps, StartupPreferencesState };
+export type { StartupPreferences, StartupPreferencesDeps };

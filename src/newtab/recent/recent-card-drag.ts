@@ -12,7 +12,6 @@ import { hasBookmarkFolder } from '../cross-surface-drag';
 import type { DragDropTarget, ShortcutInsertionTarget, SurfaceDragState } from '../cross-surface-drag';
 import * as LumnoNewtabDragClickGuard from '../drag-click-guard';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
-import type { BookmarksTopbarRuntime } from '../react/bookmarks-topbar';
 import type { RecentSitesViewOptions } from '../react/recent-sites';
 import type { ShortcutDrag, ShortcutDragSession } from '../shortcuts/shortcut-drag';
 import type { ShortcutsController } from '../shortcuts/shortcuts-controller';
@@ -23,14 +22,13 @@ import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
 import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 import type { ShortcutList } from '../shortcuts/shortcut-list';
+import type { BookmarkSectionParts } from '../bookmarks/bookmark-section-parts';
 
 interface RecentCardDragState {
   // While an undoable change runs, no other may start.
   bookmarkMoveHistoryBusy: boolean;
   bookmarkDragState: BookmarkDragSession | null;
   shortcutDragState: ShortcutDragSession | null;
-  bookmarkTopbarRuntime: BookmarksTopbarRuntime | null;
-  bookmarkGrid: HTMLElement | null;
 }
 
 interface RecentCardDragDeps {
@@ -69,6 +67,8 @@ interface RecentCardDragDeps {
   t: Translate;
   formatMessage: FormatMessage;
   shortcutList: Pick<ShortcutList, 'items'>;
+  bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
+  bookmarkGrid: HTMLElement;
   pageState: RecentCardDragState;
 }
 
@@ -106,6 +106,8 @@ function cloneHtmlElement(element: HTMLElement): HTMLElement | null {
 
 function createRecentCardDrag(deps: RecentCardDragDeps) {
   const {
+    bookmarkGrid,
+    bookmarkParts,
     shortcutList,
     getShortcutStoreOptions,
     getShortcutFolderId,
@@ -482,7 +484,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     document.body.removeAttribute('data-drag-blocked');
     const topbarPoint = isBookmarkTopbarMode() && !isBookmarkCascadeSurfaceAtPoint(pointerX, pointerY)
       ? getExternalBookmarkSurfacePoint(pointerX, pointerY) : null;
-    const topbar = pageState.bookmarkTopbarRuntime;
+    const topbar = bookmarkParts.topbar;
     if (topbarPoint && topbar && topbar.autoScroll(topbarPoint.x, topbarPoint.y)) {
       scheduleRecentCardDragMove(state, pointerX, pointerY);
     }
@@ -690,8 +692,8 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     });
     if (!dropTarget) {
       // The empty bookmarks bar shown for the drag hides again.
-      if (pageState.bookmarkGrid &&
-          pageState.bookmarkGrid.getAttribute('data-bookmark-empty-drop-surface') === 'true') {
+      if (bookmarkGrid &&
+          bookmarkGrid.getAttribute('data-bookmark-empty-drop-surface') === 'true') {
         renderCurrentBookmarkPage();
       }
       returnToCard();

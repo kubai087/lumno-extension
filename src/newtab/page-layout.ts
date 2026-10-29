@@ -24,6 +24,7 @@ import type { ViewportActivity } from './viewport-activity';
 import type { RecentPointer } from './recent/recent-pointer';
 import type { ShortcutList } from './shortcuts/shortcut-list';
 import type { BottomDockParts } from './shortcuts/bottom-dock-parts';
+import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -36,10 +37,6 @@ interface ViewportSnapshot {
   height: number;
 }
 
-interface PageLayoutState {
-  bookmarkGrid: HTMLElement | null;
-  bookmarkCurrentPage: number;
-}
 
 interface PageLayoutDeps extends
   Pick<PagePreferences,
@@ -61,11 +58,14 @@ interface PageLayoutDeps extends
   bottomDockParts: Pick<BottomDockParts, 'layoutController' | 'layoutMotion'>;
   recentGrid: HTMLElement;
   recentSection: HTMLElement;
-  pageState: PageLayoutState;
+  bookmarksShown: Pick<BookmarksShown, 'currentPage' | 'showPage'>;
+  bookmarkGrid: HTMLElement;
 }
 
 function createPageLayout(deps: PageLayoutDeps) {
   const {
+    bookmarkGrid,
+    bookmarksShown,
     recentSection,
     recentGrid,
     bottomDockParts,
@@ -87,8 +87,6 @@ function createPageLayout(deps: PageLayoutDeps) {
     recentPointer
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   const RESTORE_SEARCH_LAYOUT_LOCK_MS = 900;
   let searchEntryRestoreLayoutLockUntil = 0;
@@ -169,20 +167,20 @@ function createPageLayout(deps: PageLayoutDeps) {
 
   // Reports whether the column count changed.
   function applyBookmarkGridColumns(): boolean {
-    if (!pageState.bookmarkGrid) {
+    if (!bookmarkGrid) {
       return false;
     }
-    const previousColumns = Number.parseInt(pageState.bookmarkGrid.style.getPropertyValue('--x-nt-bookmark-columns'), 10);
+    const previousColumns = Number.parseInt(bookmarkGrid.style.getPropertyValue('--x-nt-bookmark-columns'), 10);
     const columns = Math.max(1, getBookmarkGridColumnCount());
-    pageState.bookmarkGrid.style.setProperty('--x-nt-bookmark-columns', String(columns));
+    bookmarkGrid.style.setProperty('--x-nt-bookmark-columns', String(columns));
     return previousColumns !== columns;
   }
 
   function keepBookmarkPageAnchorAfterLimitChange(previousLimit: number): void {
     const prev = Math.max(1, Number.parseInt(String(previousLimit), 10) || 1);
     const next = Math.max(1, getBookmarkLimit());
-    const firstVisibleIndex = Math.max(0, pageState.bookmarkCurrentPage * prev);
-    pageState.bookmarkCurrentPage = Math.floor(firstVisibleIndex / next);
+    const firstVisibleIndex = Math.max(0, bookmarksShown.currentPage * prev);
+    bookmarksShown.showPage(Math.floor(firstVisibleIndex / next));
   }
 
   // Reports whether the column count changed.
@@ -456,4 +454,4 @@ function createPageLayout(deps: PageLayoutDeps) {
 type PageLayout = ReturnType<typeof createPageLayout>;
 
 export { createPageLayout };
-export type { PageLayout, PageLayoutDeps, PageLayoutState };
+export type { PageLayout, PageLayoutDeps };
