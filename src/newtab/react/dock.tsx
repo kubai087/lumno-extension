@@ -5,8 +5,10 @@ import type {
   BottomDockLayoutOptions,
   ElementSource,
   LayoutConstants,
+  LayoutController,
   LayoutControllerOptions
 } from '../layout';
+import { createLayoutController } from '../layout';
 import { lazyInstance } from '../../shared/lazy-instance';
 
 export const DOCK_IDS = Object.freeze({
@@ -51,18 +53,9 @@ function Dock({
   );
 }
 
-// What the dock needs of the layout controller it creates; see
-// LumnoNewtabLayout. The dock hands the controller back as it got it.
-export interface DockLayoutAdapter {
-  updateBottomDockLayout(options?: BottomDockLayoutOptions): void;
-}
-
-export interface BottomDockRuntimeConfig<C extends DockLayoutAdapter = DockLayoutAdapter> {
+export interface BottomDockRuntimeConfig {
   documentObj?: Document;
   windowObj?: Window;
-  layoutRuntime: {
-    createLayoutController(options: LayoutControllerOptions): C;
-  };
   root?: ElementSource;
   searchLayer?: ElementSource;
   inputParts?: LayoutControllerOptions['inputParts'];
@@ -78,32 +71,26 @@ export interface BottomDockRuntimeConfig<C extends DockLayoutAdapter = DockLayou
   constants?: LayoutConstants;
 }
 
-export interface DockRuntime<C extends DockLayoutAdapter = DockLayoutAdapter> {
-  appendSections(): DockRuntime<C>;
+export interface DockRuntime {
+  appendSections(): DockRuntime;
   destroy(): void;
   element: HTMLDivElement;
-  layoutController: C;
-  mount(parent?: HTMLElement | null): DockRuntime<C>;
+  layoutController: LayoutController;
+  mount(parent?: HTMLElement | null): DockRuntime;
   onScroll(
     listener: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions | boolean
-  ): DockRuntime<C>;
+  ): DockRuntime;
   scroller: HTMLDivElement;
   sectionSafeCorridor: HTMLDivElement;
   updateLayout(options?: BottomDockLayoutOptions): void;
 }
 
-export function createBottomDockRuntime<C extends DockLayoutAdapter>(
-  config: BottomDockRuntimeConfig<C>
-): DockRuntime<C> {
+export function createBottomDockRuntime(
+  config: BottomDockRuntimeConfig
+): DockRuntime {
   const documentObj: Document = config.documentObj || document;
   const windowObj: Window = config.windowObj || window;
-  const layoutRuntime = config.layoutRuntime;
-  if (!layoutRuntime || typeof layoutRuntime.createLayoutController !== 'function') {
-    throw new Error(
-      'LumnoNewtabDock requires LumnoNewtabLayout.createLayoutController().'
-    );
-  }
   const bottomDock = documentObj.createElement('div');
   bottomDock.id = DOCK_IDS.bottomDock;
   bottomDock.dataset.reactIsland = 'newtab-bottom-dock';
@@ -117,7 +104,7 @@ export function createBottomDockRuntime<C extends DockLayoutAdapter>(
     throw new Error('Lumno New Tab React dock did not mount.');
   }
   const { scroller, sectionSafeCorridor } = mounted.elements;
-  const layoutController = layoutRuntime.createLayoutController({
+  const layoutController = createLayoutController({
     documentObj,
     windowObj,
     root: config.root,
@@ -140,7 +127,7 @@ export function createBottomDockRuntime<C extends DockLayoutAdapter>(
     }
   });
   let destroyed = false;
-  const runtime: DockRuntime<C> = {
+  const runtime: DockRuntime = {
     appendSections() {
       scroller.appendChild(config.bookmarkSection);
       scroller.appendChild(sectionSafeCorridor);

@@ -15,6 +15,7 @@ import { isShortcutFolder } from '../../domain/shortcuts/normalize';
 import type { ShortcutItem } from '../../domain/shortcuts/types';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
+import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 
 interface BookmarkMoveActionsState {
   bookmarkAllItems: BookmarkItem[];
@@ -31,7 +32,6 @@ interface BookmarkMoveActionsDeps {
   transfer: Pick<BookmarkShortcutTransfer, 'applyBookmarkShortcutTransfer' | 'applyShortcutStack'>;
   applyShortcutGroupDeleteRecord(record: ShortcutGroupDeleteRecord, isUndo: boolean): Promise<boolean>;
   persistShortcuts: PersistShortcuts;
-  MAX_NEWTAB_SHORTCUTS: number;
   refreshShortcutFolderReferences(): Promise<unknown>;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
@@ -63,7 +63,6 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
     transfer,
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
-    MAX_NEWTAB_SHORTCUTS,
     refreshShortcutFolderReferences,
     scheduleWallpaperAdaptiveToneUpdate,
     markBookmarkTreeDirty,
@@ -344,7 +343,7 @@ function createBookmarkMoveActions(deps: BookmarkMoveActionsDeps) {
         (isShortcutFolder(snapshot)
           ? !snapshot.folderRef && isShortcutFolder(item) && !item.folderRef && item.folderId === snapshot.folderId
           : !isShortcutFolder(item) && item.url === snapshot.url));
-      if (restores && (exists || pageState.newtabShortcuts.length >= MAX_NEWTAB_SHORTCUTS)) {
+      if (restores && (exists || pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS)) {
         pageState.bookmarkMoveHistoryBusy = false;
         showToast(t('toast_error', 'Operation failed. Please try again.'), true);
         return true;

@@ -7,7 +7,7 @@ import type { HoverColors, ThemeLike, ThemeVariant } from '../../shared/favicon/
 import * as LumnoOverlayPageTheme from '../page-theme';
 import type { PageTheme } from '../page-theme';
 import type { OverlayPanelModel, OverlayPanelView } from '../react/shell';
-import { overlayFontFallback, overlayFontFamily, overlayPageThemeAdaptationEnabled } from '../../domain/settings/overlay-panel';
+import { OVERLAY_FONT_FAMILY_CSS_VAR, overlayFontFallback, overlayFontFamily, overlayPageThemeAdaptationEnabled } from '../../domain/settings/overlay-panel';
 import type { OverlaySettings } from '../overlay-settings';
 import * as SETTINGS from '../../domain/settings';
 
@@ -29,7 +29,6 @@ interface PanelThemeDeps {
   parseCssColor(color: string): number[] | null;
   stopOverlayPageThemeObserver(): void;
   applyOverlayTheme(mode: ThemeMode): void;
-  OVERLAY_FONT_FAMILY_CSS_VAR: `--${string}`;
   overlayState: PanelThemeState;
 }
 
@@ -64,7 +63,6 @@ function createPanelTheme(deps: PanelThemeDeps) {
     parseCssColor,
     stopOverlayPageThemeObserver,
     applyOverlayTheme,
-    OVERLAY_FONT_FAMILY_CSS_VAR
   } = deps;
 
   // The panel state object shared with search-panel.ts and the other modules.

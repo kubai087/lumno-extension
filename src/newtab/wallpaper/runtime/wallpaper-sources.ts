@@ -28,8 +28,6 @@ interface WallpaperSourcesDeps {
   // The photo picked for a daily slot today, or ''.
   getDailyWallpaperPick(dailyId: string): string;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'> | null;
-  // The ID older versions stored for their single upload.
-  // Every bundled wallpaper's full size.
   cachedWallpaperImages: ReadonlyMap<string, CachedWallpaperImage>;
   // Per daily slot, the cached copy it last showed.
   dailyWallpaperStandIns: Map<string, CachedWallpaperImage>;

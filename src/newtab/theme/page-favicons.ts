@@ -30,7 +30,6 @@ interface PageFaviconsState {
 
 interface PageFaviconsDeps {
   normalizeFaviconHost(hostname: unknown): string;
-  // How long the first render waits for the favicon caches to load.
   isPersistableTheme: SiteThemeResolver['isPersistableTheme'];
   normalizeAccentRgb: SiteThemeResolver['normalizeAccentRgb'];
   parseCssColor: typeof Color.parseCssColor;

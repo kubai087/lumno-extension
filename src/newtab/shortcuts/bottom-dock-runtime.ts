@@ -3,7 +3,6 @@
 import * as LumnoNewtabLayoutMotion from '../layout-motion';
 import type { LayoutController } from '../layout';
 import type { LayoutMotion } from '../layout-motion';
-import type { BottomDockRuntimeConfig } from '../react/dock';
 import { getDockApi } from '../react/dock';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX } from '../newtab-config';
 
@@ -28,7 +27,6 @@ interface BottomDockRuntimeState {
 }
 
 interface BottomDockRuntimeDeps {
-  NEWTAB_LAYOUT: BottomDockRuntimeConfig<LayoutController>['layoutRuntime'];
   root: HTMLElement;
   bookmarkSection: HTMLElement | null;
   suggestionsSurface: HTMLElement | null;
@@ -41,7 +39,6 @@ interface BottomDockRuntimeDeps {
 
 function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const {
-    NEWTAB_LAYOUT,
     root,
     bookmarkSection,
     suggestionsSurface,
@@ -77,7 +74,6 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
   const bottomDockRuntime = NEWTAB_DOCK.createBottomDockRuntime({
     documentObj: document,
     windowObj: window,
-    layoutRuntime: NEWTAB_LAYOUT,
     root,
     searchLayer: () => pageState.searchLayer,
     inputParts: () => pageState.inputParts,

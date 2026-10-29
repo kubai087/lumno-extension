@@ -16,6 +16,7 @@ import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
 import { recentMode } from '../domain/settings/recent-sites';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
+import { BOOKMARK_TOPBAR_HEIGHT_PX } from './react/bookmarks-topbar';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
@@ -45,7 +46,6 @@ interface SectionHeadersDeps extends
   t: Translate;
   markBookmarkDataDirty: SectionLoaders['markBookmarkDataDirty'];
   loadBookmarks: SectionLoaders['loadBookmarks'];
-  BOOKMARK_TOPBAR_HEIGHT_PX: number;
   bookmarkSection: HTMLElement | null;
   bookmarkCards: readonly HTMLElement[];
   renderBookmarkHeader(model: BookmarkHeaderModel): void;
@@ -62,7 +62,6 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     settings,
     t,
     getNewtabVisualViewportInsets,
-    BOOKMARK_TOPBAR_HEIGHT_PX,
     updateSearchEntryLayout,
     setContentSectionVisible,
     bookmarkSection,

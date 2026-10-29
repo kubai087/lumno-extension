@@ -35,7 +35,6 @@ interface SearchBoxControlsDeps {
   dismissHelpCenterAskHint(): void;
   rightIcon: HTMLElement | null;
   formatMessage: FormatMessage;
-  // Runs the listener again whenever the page language changes.
   dismissWebdavFeatureHint(): void;
   getExtensionResourceUrl(resourcePath: string): string;
   // Settles with whether the Help Center tip is showing.
@@ -152,8 +151,6 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   }
 
   const searchClearButton = inputParts.clearAction;
-  // Width the clear button adds left of the close-other-tabs button: 30px button + 6px gap.
-  const SEARCH_CLEAR_BUTTON_INSET = 36;
   if (searchClearButton) {
     const searchClearTooltipText = (): string => t('search_input_clear', '清空');
     const applySearchClearTooltip = () => {
@@ -215,7 +212,6 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   }
 
   return {
-    SEARCH_CLEAR_BUTTON_INSET,
     updateInputRightPadding,
     followNewtabActionButtonVisibility
   };

@@ -16,8 +16,6 @@ import * as SETTINGS from '../../domain/settings';
 
 interface FaviconPolicyState {
   settings: Pick<OverlaySettings, 'get'>;
-  // Results under these addresses are left out of search.
-  // Pages whose icons are never fetched from icon services.
 }
 
 interface FaviconPolicyDeps {

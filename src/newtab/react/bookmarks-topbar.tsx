@@ -554,7 +554,6 @@ export function createBookmarksTopbar(
 
 export function createBookmarksTopbarApi() {
   return Object.freeze({
-    HEIGHT_PX: BOOKMARK_TOPBAR_HEIGHT_PX,
     IDS: BOOKMARK_TOPBAR_IDS,
     implementation: 'react',
     createBookmarksTopbar,

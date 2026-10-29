@@ -30,7 +30,6 @@ import * as LumnoNewtabDismissStack from './dismiss-stack';
 import * as NEWTAB_ENTRY_MOTION from './entry-motion';
 import * as NEWTAB_FEEDBACK_CONTROL_RUNTIME from './feedback-control';
 import * as NEWTAB_INPUT_FOCUS from './input-focus';
-import * as NEWTAB_LAYOUT from './layout';
 import * as NEWTAB_MODE_COMMANDS from './mode-commands';
 import * as NEWTAB_PAGE_KEYBOARD from './page-keyboard';
 import { loadNewtabLocaleMessages } from './page-language';
@@ -96,10 +95,7 @@ import {
   bookmarkViewMode,
   newtabOpenInNewTab,
   newtabSearchWidth,
-  NEWTAB_SHORTCUT_COLUMNS_MIN,
   newtabShortcutColumns,
-  NEWTAB_SHORTCUT_WIDTH_MAX,
-  NEWTAB_SHORTCUT_WIDTH_MIN,
   newtabWidthMode,
   numberShortcutInstantEnabled,
   overlayTabPriority,
@@ -134,7 +130,7 @@ import { getPageStructureApi } from './react/page-structure';
 import { getFolderColorPickerApi } from './react/folder-color-picker-lazy';
 import { createSearchInput } from '../shared/react/search-input';
 import { newtabShortcutAddVisible, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
-import { newtabShortcutFaviconCache, newtabShortcutsLocalOverflow, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
+import { newtabShortcutFaviconCache, shortcutFolderBindings } from '../domain/settings/newtab-shortcuts';
 import { createSettingPort, createSettingsStore, getContextSettingsStore } from '../platform/settings-store';
 import { SettingPreview } from './setting-preview';
 import { repairStoredSettings } from './setting-repairs';
@@ -161,7 +157,6 @@ import * as NewtabShortcutSettings from '../domain/settings/newtab-shortcuts';
 import * as FaviconBrowserIconIndex from '../domain/favicon/browser-icon-index';
 import * as BundledIcons from '../domain/favicon/shortcut-favicon/bundled-icons';
 import * as ShortcutIconCache from '../domain/favicon/shortcut-favicon/persisted';
-import * as ShortcutConstants from '../domain/shortcuts/constants';
 import { SearchQuery } from '../shared/search-panel/search-query';
 import { SuggestionSource } from '../shared/search-panel/suggestion-source';
 import { SuggestionModifiers } from '../shared/search-panel/suggestion-modifiers';
@@ -183,7 +178,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   // properties this file does. page-state.ts lists its initial values.
   const pageState = LumnoNewtabPageState.createPageState();
   const {
-    settingsRuntimeApi,
     providerStorageRuntime,
     storageArea,
     takeStartupRead,
@@ -206,10 +200,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   }
 
 
-  // Edge's topSites lists its own promoted sites instead of the user's, so Edge
-  // ranks most-visited from history visit counts alone.
-  const TOP_SITES_FOLLOW_HISTORY =
-    LumnoBrowserProfile.getBrowserInternalScheme(navigator.userAgent) !== 'edge://';
   const startupRecentSourceReadsAt = Date.now();
 
   const {
@@ -226,7 +216,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     getRecentContextMenuOptions: (...args) => getRecentContextMenuOptions(...args),
     restoreProgressVersion: (...args) => restoreProgressVersion(...args),
     showToast: (...args) => showToast(...args),
-    TOP_SITES_FOLLOW_HISTORY,
     startupRecentSourceReadsAt,
     getRecentStoreOptions: (...args) => getRecentStoreOptions(...args),
     isBrowserPageRecentUrl: (...args) => isBrowserPageRecentUrl(...args),
@@ -271,15 +260,9 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     getNewtabVisualViewportInsets
   } = NEWTAB_VIEWPORT_INSETS.createViewportInsets();
 
-  const SETTINGS = settingsRuntimeApi;
   const BROWSER_PROFILE = LumnoBrowserProfile;
   const COMMUNITY_LINKS = LumnoCommunityLinks;
-  const LUMNO_FEEDBACK_LINKS_FALLBACK = COMMUNITY_LINKS.FALLBACK_LINKS;
   const NEWTAB_BOOKMARKS_TOPBAR = getBookmarksTopbarApi();
-  const BOOKMARK_TOPBAR_HEIGHT_PX = Math.max(
-    0,
-    Number(NEWTAB_BOOKMARKS_TOPBAR.HEIGHT_PX) || 36
-  );
   // Escape closes only the top open layer (menus, popovers, panels, drags).
   // The folder color dialog handles its own Escape.
   const dismissStack = LumnoNewtabDismissStack.getDismissStack();
@@ -303,7 +286,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     createFeedbackControls
   } = NEWTAB_FEEDBACK_CONTROL_RUNTIME.createFeedbackControlRuntime({
     locale,
-    LUMNO_FEEDBACK_LINKS_FALLBACK,
     t,
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
@@ -338,9 +320,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     t,
     pageState
   });
-  const MAX_NEWTAB_SHORTCUTS = ShortcutConstants.DEFAULT_MAX_SHORTCUTS;
   const shortcutTiles: ShortcutTileElement[] = [];
-  const SHORTCUT_DIALOG_MODE_EDIT = NEWTAB_SHORTCUT_DIALOG.MODE_EDIT || 'edit';
   const folderColorApi = getFolderColorPickerApi();
 
   const {
@@ -356,7 +336,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     showToast,
     isShortcutFolderAnchor: (...args) => isShortcutFolderAnchor(...args),
     getFolderItemIcon: (...args) => getFolderItemIcon(...args),
-    SHORTCUT_DIALOG_MODE_EDIT,
     getFolderItemIconUrl: (...args) => getFolderItemIconUrl(...args),
     getBrowserPageFaviconUrl: (...args) => getBrowserPageFaviconUrl(...args),
     pageState
@@ -385,7 +364,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     readSavedFolderColors: (...args) => readSavedFolderColors(...args),
     saveSavedFolderColors: (...args) => saveSavedFolderColors(...args),
     getShortcutGroups: (...args) => getShortcutGroups(...args),
-    MAX_NEWTAB_SHORTCUTS,
     bookmarksRuntime,
     getShortcutFolderId: (...args) => getShortcutFolderId(...args),
     updateBookmarkContextMenuLanguageStrings,
@@ -395,7 +373,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle: (...args) => getShortcutTitle(...args),
-    SHORTCUT_DIALOG_MODE_EDIT,
     getShortcutIconDataUrl: (...args) => getShortcutIconDataUrl(...args),
     pageState
   });
@@ -429,37 +406,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   shortcutFolderRuntime.ready.catch((error) => {
     console.warn('[Lumno] Could not load shortcut folder bindings.', error);
   });
-  const NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY = newtabShortcutsLocalOverflow.key;
-  const NEWTAB_SHORTCUT_COLUMNS_MAX = Number.isFinite(Number(SETTINGS.NEWTAB_SHORTCUT_COLUMNS_MAX))
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_COLUMNS_MAX)
-    : 16;
-  const NEWTAB_SHORTCUT_COLUMNS_DEFAULT = Number.isFinite(
-    Number(SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT)
-  )
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_COLUMNS_DEFAULT)
-    : 10;
-  const NEWTAB_SHORTCUT_SIZE_MIN = Number.isFinite(Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_MIN))
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_MIN)
-    : 48;
-  const NEWTAB_SHORTCUT_SIZE_MAX = Number.isFinite(Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_MAX))
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_MAX)
-    : 112;
-  const NEWTAB_SHORTCUT_SIZE_DEFAULT = Number.isFinite(
-    Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT)
-  )
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_SIZE_DEFAULT)
-    : 64;
-  const NEWTAB_SHORTCUT_GAP_MIN = Number.isFinite(Number(SETTINGS.NEWTAB_SHORTCUT_GAP_MIN))
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_GAP_MIN)
-    : 0;
-  const NEWTAB_SHORTCUT_GAP_MAX = Number.isFinite(Number(SETTINGS.NEWTAB_SHORTCUT_GAP_MAX))
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_GAP_MAX)
-    : 24;
-  const NEWTAB_SHORTCUT_GAP_DEFAULT = Number.isFinite(
-    Number(SETTINGS.NEWTAB_SHORTCUT_GAP_DEFAULT)
-  )
-    ? Number(SETTINGS.NEWTAB_SHORTCUT_GAP_DEFAULT)
-    : 4;
   const NEWTAB_SHORTCUT_ICONS_STORAGE_KEY = NewtabShortcutSettings.newtabShortcutIcons.key;
   const NEWTAB_SHORTCUT_FAVICON_CACHE_STORAGE_KEY = newtabShortcutFaviconCache.key;
   const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createShortcutFaviconStore({
@@ -498,7 +444,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   searchEngine.follow();
   const siteSearchCatalog = new SiteSearchCatalog(settings, searchEngine);
   siteSearchCatalog.follow();
-  const NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES = ShortcutConstants.DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES;
   const pageSearchParams = new URLSearchParams(window.location.search || '');
   const {
     mediaQuery,
@@ -534,7 +479,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   const newtabEntryAnimationReadyPromise = new Promise<void>((resolve) => {
     pageState.resolveNewtabEntryAnimationReady = resolve;
   });
-  pageState.feedbackLinks = LUMNO_FEEDBACK_LINKS_FALLBACK;
+  pageState.feedbackLinks = LumnoCommunityLinks.FALLBACK_LINKS;
   const bookmarkMoveHistory = NEWTAB_BOOKMARK_MOVE_HISTORY.createBookmarkMoveHistory({ maxEntries: 30 });
 
   const {
@@ -930,7 +875,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     initialThemeReadyPromise,
     pageState
   });
-  const NEWTAB_SEARCH_WIDTH_CONFIG = NEWTAB_LAYOUT.SEARCH_WIDTH_CONFIG;
   const toastElement = document.getElementById('_x_extension_toast_2024_unique_');
   pageState.toastController = createToastController(toastElement, { windowObj: window });
 
@@ -969,13 +913,11 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     preview,
     settings,
     normalizeNewtabSearchWidth: (...args) => normalizeNewtabSearchWidth(...args),
-    NEWTAB_SEARCH_WIDTH_CONFIG,
     getBookmarkLimit: (...args) => getBookmarkLimit(...args),
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
     scheduleWallpaperAdaptiveToneUpdate: (...args) => scheduleWallpaperAdaptiveToneUpdate(...args),
     getVisibleShortcuts: (...args) => getVisibleShortcuts(...args),
-    MAX_NEWTAB_SHORTCUTS,
     resetShortcutDockHover,
     closeShortcutContextMenu,
     closeShortcutDialog,
@@ -997,11 +939,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   } = NEWTAB_PAGE_PREFERENCES.createPagePreferences({
     preview,
     settings,
-    NEWTAB_SEARCH_WIDTH_CONFIG,
-    NEWTAB_SHORTCUT_COLUMNS_MIN,
-    NEWTAB_SHORTCUT_COLUMNS_MAX,
-    NEWTAB_SHORTCUT_WIDTH_MIN,
-    NEWTAB_SHORTCUT_WIDTH_MAX,
     getBookmarkGridColumnCount,
     pageState
   });
@@ -1085,7 +1022,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     isBookmarkTopbarMode: (...args) => isBookmarkTopbarMode(...args),
     root,
     localStorageArea,
-    NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
     formatMessage,
     getSelectedThemeMode,
@@ -1100,15 +1036,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     applyWordmarkThemeAppearance: (...args) => applyWordmarkThemeAppearance(...args),
     getEffectiveNewtabSearchWidth,
     setNewtabSearchWidth,
-    NEWTAB_SHORTCUT_COLUMNS_MIN,
-    NEWTAB_SHORTCUT_COLUMNS_MAX,
-    NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
-    NEWTAB_SHORTCUT_SIZE_MIN,
-    NEWTAB_SHORTCUT_SIZE_MAX,
-    NEWTAB_SHORTCUT_SIZE_DEFAULT,
-    NEWTAB_SHORTCUT_GAP_MIN,
-    NEWTAB_SHORTCUT_GAP_MAX,
-    NEWTAB_SHORTCUT_GAP_DEFAULT,
     setNewtabShortcutsVisible,
     setNewtabShortcutAddVisible,
     setNewtabShortcutDockMagnificationEnabled,
@@ -1401,7 +1328,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     settings,
     t,
     getNewtabVisualViewportInsets,
-    BOOKMARK_TOPBAR_HEIGHT_PX,
     updateSearchEntryLayout,
     setContentSectionVisible,
     bookmarkSection,
@@ -1479,12 +1405,9 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     bookmarksRuntime,
     isShortcutDragActive: (...args) => isShortcutDragActive(...args),
     moveShortcutByKeyboard: (...args) => moveShortcutByKeyboard(...args),
-    MAX_NEWTAB_SHORTCUTS,
     normalizeHost,
     sanitizeDisplayText,
     providerStorageRuntime,
-    NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES,
-    NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY,
     shortcutIconStore,
     folderItemIconStore,
     getPageFaviconUrlResolver,
@@ -1510,7 +1433,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     showToast,
     formatMessage,
     getShortcutById,
-    SHORTCUT_DIALOG_MODE_EDIT,
     markBookmarkTreeDirty: (...args) => markBookmarkTreeDirty(...args),
     loadBookmarks: (...args) => loadBookmarks(...args),
     refreshOpenBookmarkCascadeMenu: (...args) => refreshOpenBookmarkCascadeMenu(...args),
@@ -1545,7 +1467,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
     handleShortcutGroupMenu: openShortcutGroupMenu,
-    WEBDAV_STATUS_STORAGE_KEY: SETTINGS.webdavStatus.key,
     animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args),
     pageState
   });
@@ -1602,7 +1523,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     getShortcutTileLayoutRect: (...args) => getShortcutTileLayoutRect(...args),
     getShortcutStoreOptions,
     getShortcutInsertionSlotAt: (...args) => getShortcutInsertionSlotAt(...args),
-    MAX_NEWTAB_SHORTCUTS,
     getShortcutTileId,
     bookmarkMoveHistory,
     showToast,
@@ -1734,7 +1654,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     bottomDockRuntime,
     bottomDock
   } = NEWTAB_BOTTOM_DOCK_RUNTIME.createBottomDockRuntime({
-    NEWTAB_LAYOUT,
     root,
     bookmarkSection,
     suggestionsSurface,
@@ -1836,7 +1755,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   pageState.recentCardDragRuntime = NEWTAB_RECENT_CARD_DRAG.createRecentCardDrag({
     getShortcutStoreOptions,
     getShortcutFolderId,
-    MAX_NEWTAB_SHORTCUTS,
     persistShortcuts,
     bookmarkMoveHistory,
     bookmarksRuntime,
@@ -2291,7 +2209,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     getOpenDisposition,
     getFeedbackWebLocale,
     isFeedbackPopoverOpen,
-    LUMNO_FEEDBACK_LINKS_FALLBACK,
     openFeedbackExternalUrl,
     newtabEntryAnimationReadyPromise,
     root,
@@ -2300,7 +2217,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
   });
 
   const {
-    SEARCH_CLEAR_BUTTON_INSET,
     updateInputRightPadding,
     followNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
@@ -2345,7 +2261,6 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
     settings,
     renderSuggestions,
     searchInput,
-    SEARCH_CLEAR_BUTTON_INSET,
     getThemeForMode,
     defaultTheme,
     defaultAccentColor,

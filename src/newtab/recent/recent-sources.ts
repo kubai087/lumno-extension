@@ -16,6 +16,11 @@ import * as RecentSitesMerge from '../../domain/recent-sites-merge';
 import type { SettingsStore } from '../../platform/settings-store';
 import { progressTrackingEnabled } from '../../domain/settings/recent-sites';
 import { NEWTAB_CONTEXT_MENU_OPEN_VALUE } from '../menu-values';
+import { getBrowserInternalScheme } from '../../platform/browser-profile';
+
+// Edge's topSites lists its own promoted sites instead of the user's, so Edge
+// ranks most-visited from history visit counts alone.
+const TOP_SITES_FOLLOW_HISTORY = getBrowserInternalScheme(navigator.userAgent) !== 'edge://';
 
 interface RecentSourcesState {
   recentContextMenu: ContextMenuParts | null;
@@ -34,8 +39,6 @@ interface RecentSourcesDeps {
   getRecentContextMenuOptions(target?: RecentContextTarget | null): SelectMenuOption[];
   restoreProgressVersion: NonNullable<RecentHistoryDialogOptions['onRestore']>;
   showToast: ShowToast;
-  // Whether top sites list the user's sites (Edge lists its own).
-  TOP_SITES_FOLLOW_HISTORY: boolean;
   startupRecentSourceReadsAt: number;
   getRecentStoreOptions(): RecentSiteOptions;
   isBrowserPageRecentUrl(url: string | undefined): boolean;
@@ -52,7 +55,6 @@ function createRecentSources(deps: RecentSourcesDeps) {
     getRecentContextMenuOptions,
     restoreProgressVersion,
     showToast,
-    TOP_SITES_FOLLOW_HISTORY,
     startupRecentSourceReadsAt,
     getRecentStoreOptions,
     isBrowserPageRecentUrl

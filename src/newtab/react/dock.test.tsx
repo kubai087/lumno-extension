@@ -7,29 +7,34 @@ import {
   type DockRuntime
 } from './dock';
 
+const { createLayoutController, updateBottomDockLayout } = vi.hoisted(() => {
+  const updateLayout = vi.fn();
+  return {
+    updateBottomDockLayout: updateLayout,
+    createLayoutController: vi.fn((_options?: unknown) => ({ updateBottomDockLayout: updateLayout }))
+  };
+});
+vi.mock('../layout', () => ({ createLayoutController }));
+
 let runtimes: DockRuntime[] = [];
 
 afterEach(() => {
   act(() => runtimes.forEach((runtime) => runtime.destroy()));
   runtimes = [];
   document.body.replaceChildren();
+  vi.clearAllMocks();
 });
 
 describe('New Tab bottom dock React island', () => {
   it('owns the dock shell while preserving external sections and layout adapters', () => {
     const bookmarkSection = document.createElement('section');
     const recentSection = document.createElement('section');
-    const updateBottomDockLayout = vi.fn();
-    const createLayoutController = vi.fn(() => ({
-      updateBottomDockLayout
-    }));
     const holder: { value: DockRuntime | null } = { value: null };
     act(() => {
       holder.value = createBottomDockRuntime({
         bookmarkSection,
         constants: { mobileFlowBreakpointPx: 900 },
         documentObj: document,
-        layoutRuntime: { createLayoutController },
         recentSection,
         windowObj: window
       });
@@ -68,7 +73,6 @@ describe('New Tab bottom dock React island', () => {
       holder.value = createBottomDockRuntime({
         bookmarkSection: document.createElement('section'),
         documentObj: document,
-        layoutRuntime: { createLayoutController: () => ({ updateBottomDockLayout() {} }) },
         recentSection: document.createElement('section'),
         windowObj: window
       });

@@ -22,6 +22,7 @@ import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
 import * as FOLDER_REFERENCES from '../../domain/bookmark-folder-reference';
+import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 
 interface BookmarkShortcutTransferState {
   newtabShortcuts: ShortcutItem[];
@@ -38,7 +39,6 @@ interface BookmarkShortcutTransferDeps {
   // The local bookmark folder a folder shortcut shows.
   getShortcutFolderId(shortcut: ShortcutItem): string;
   getShortcutGroups?(): ShortcutGroup[];
-  MAX_NEWTAB_SHORTCUTS: number;
   bookmarkMoveHistory: BookmarkMoveHistory;
   shortcutFolderRuntime: Pick<FolderBindingRuntime, 'bind' | 'flush'>;
   getFolderItemIcon?(bookmarkId: string): FolderItemIcon | null;
@@ -72,7 +72,6 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     getShortcutStoreOptions,
     getShortcutFolderId,
     getShortcutGroups,
-    MAX_NEWTAB_SHORTCUTS,
     bookmarkMoveHistory,
     shortcutFolderRuntime,
     getFolderItemIcon,
@@ -115,11 +114,11 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
     if (!record) {
       return Promise.resolve(false);
     }
-    if (pageState.newtabShortcuts.length >= MAX_NEWTAB_SHORTCUTS) {
+    if (pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS) {
       showToast(formatMessage(
         'newtab_shortcuts_limit_reached',
         'You can add up to {count} shortcuts.',
-        { count: MAX_NEWTAB_SHORTCUTS }
+        { count: DEFAULT_MAX_SHORTCUTS }
       ), true);
       return Promise.resolve(false);
     }
@@ -182,7 +181,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       index: target.index,
       groupId: target.groupId,
       getFolderId: getShortcutFolderId,
-      maxShortcuts: MAX_NEWTAB_SHORTCUTS
+      maxShortcuts: DEFAULT_MAX_SHORTCUTS
     });
     if (!plan) {
       return Promise.resolve(false);
@@ -273,7 +272,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       source: ShortcutDeleteRecord | null,
       destination: ShortcutDeleteRecord | null
     ): ShortcutItem[] | null => NEWTAB_CROSS_SURFACE_DRAG.planTransferShortcuts({
-      shortcuts: pageState.newtabShortcuts, source, destination, maxShortcuts: MAX_NEWTAB_SHORTCUTS
+      shortcuts: pageState.newtabShortcuts, source, destination, maxShortcuts: DEFAULT_MAX_SHORTCUTS
     });
     const persistShortcutState = async (items: ShortcutItem[], destination: ShortcutDeleteRecord | null): Promise<boolean> => {
       if (destination && isShortcutFolder(destination.snapshot)) {
@@ -407,7 +406,7 @@ function createBookmarkShortcutTransfer(deps: BookmarkShortcutTransferDeps) {
       sources: record.sources,
       folder: { snapshot: folderSnapshot, index: record.folderShortcut.index, groupId: record.folderShortcut.groupId },
       undo: isUndo,
-      maxShortcuts: MAX_NEWTAB_SHORTCUTS
+      maxShortcuts: DEFAULT_MAX_SHORTCUTS
     });
     const folderShortcutId = record.folderShortcut.id;
     // Only the folder entry's id decides whether the stack still fits; its

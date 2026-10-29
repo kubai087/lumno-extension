@@ -1,12 +1,11 @@
 // The storage area the page's settings live in, the startup read the next
 // New Tab prefetches, and moving preferences an older version kept locally.
-import * as LumnoSettings from '../domain/settings';
+import { newtabStartupStorageKeys } from '../domain/settings/page-cache';
 import * as ProviderStorage from '../platform/provider-storage';
 import * as SettingsStorage from '../platform/settings-storage';
 import { takePrefetchedRead } from '../platform/storage-prefetch';
 
 function createStartupStorage() {
-  const settingsRuntimeApi = LumnoSettings;
   const providerStorageRuntime = ProviderStorage.createProviderStorageRuntime(chrome);
   const storageArea = providerStorageRuntime.area;
   // The next New Tab prefetches these keys before its scripts load (newtab-storage-prefetch.ts).
@@ -16,7 +15,7 @@ function createStartupStorage() {
     }
     try {
       const value = JSON.stringify(keys.slice().sort());
-      const cacheKey = settingsRuntimeApi.newtabStartupStorageKeys.key;
+      const cacheKey = newtabStartupStorageKeys.key;
       if (window.localStorage.getItem(cacheKey) !== value) {
         window.localStorage.setItem(cacheKey, value);
       }
@@ -53,7 +52,6 @@ function createStartupStorage() {
   }
 
   return {
-    settingsRuntimeApi,
     providerStorageRuntime,
     storageArea,
     takeStartupRead,

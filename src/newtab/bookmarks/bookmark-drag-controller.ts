@@ -40,6 +40,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import * as NEWTAB_BOOKMARK_DRAG from './bookmark-drag';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from './bookmark-move-history';
+import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 
 interface BookmarkDragControllerState {
   bookmarkGrid: HTMLElement | null;
@@ -81,7 +82,6 @@ interface BookmarkDragControllerDeps {
   getShortcutTileLayoutRect(tile: HTMLElement | null): LayoutRect | null;
   getShortcutStoreOptions(): Parameters<typeof ShortcutNormalize.createShortcutRecord>[1];
   getShortcutInsertionSlotAt(pointerX: number, pointerY: number, excludedTile: HTMLElement | null): ShortcutInsertionSlot;
-  MAX_NEWTAB_SHORTCUTS: number;
   getShortcutTileId(tile: HTMLElement | null | undefined): string;
   bookmarkMoveHistory: BookmarkMoveHistory;
   showToast: ShowToast;
@@ -151,7 +151,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getShortcutTileLayoutRect,
     getShortcutStoreOptions,
     getShortcutInsertionSlotAt,
-    MAX_NEWTAB_SHORTCUTS,
     getShortcutTileId,
     bookmarkMoveHistory,
     showToast,
@@ -672,7 +671,7 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
       index: slot.index,
       groupId: slot.groupId,
       getFolderId: getShortcutFolderId,
-      maxShortcuts: MAX_NEWTAB_SHORTCUTS
+      maxShortcuts: DEFAULT_MAX_SHORTCUTS
     }));
     const anchorRect = slot.anchorRect || getShortcutTileLayoutRect(pageState.addShortcutButton);
     if (!canMove || !anchorRect || anchorRect.width <= 0) {
@@ -708,7 +707,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     getShortcutStoreOptions,
     getShortcutFolderId,
     getShortcutGroups,
-    MAX_NEWTAB_SHORTCUTS,
     bookmarkMoveHistory,
     shortcutFolderRuntime,
     getFolderItemIcon,
@@ -1279,7 +1277,6 @@ function createBookmarkDragController(deps: BookmarkDragControllerDeps) {
     transfer: { applyBookmarkShortcutTransfer, applyShortcutStack },
     applyShortcutGroupDeleteRecord,
     persistShortcuts,
-    MAX_NEWTAB_SHORTCUTS,
     refreshShortcutFolderReferences,
     scheduleWallpaperAdaptiveToneUpdate,
     markBookmarkTreeDirty,

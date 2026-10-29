@@ -34,7 +34,6 @@ interface BookmarkActionsDeps {
   // Whether the open folder menu belongs to a folder shortcut.
   isShortcutFolderAnchor(anchor: HTMLElement | null): boolean;
   getFolderItemIcon(bookmarkId: string): FolderItemIcon | null;
-  SHORTCUT_DIALOG_MODE_EDIT: string;
   getFolderItemIconUrl(bookmarkId: string, url: string): string;
   getBrowserPageFaviconUrl(url: string): string;
   pageState: BookmarkActionsState;
@@ -50,7 +49,6 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
     showToast,
     isShortcutFolderAnchor,
     getFolderItemIcon,
-    SHORTCUT_DIALOG_MODE_EDIT,
     getFolderItemIconUrl,
     getBrowserPageFaviconUrl
   } = deps;
@@ -157,7 +155,7 @@ function createBookmarkActions(deps: BookmarkActionsDeps) {
       isShortcutFolderAnchor(cascadeRuntime.getAnchor());
     const icon = iconEditable ? getFolderItemIcon(target.bookmarkId) : null;
     openShortcutDialog({
-      mode: SHORTCUT_DIALOG_MODE_EDIT,
+      mode: 'edit',
       itemType: isFolder ? SHORTCUT_DIALOG_ITEM_FOLDER : SHORTCUT_DIALOG_ITEM_BOOKMARK,
       iconEditable,
       iconPreviewUrl: iconEditable

@@ -15,7 +15,9 @@ const NEWTAB_WALLPAPER_SAMPLE_SUFFIX = '-sample.avif';
 // Every built-in wallpaper's full size; a small copy is sampled where these pixels would be.
 const NEWTAB_WALLPAPER_SOURCE_SIZE = Object.freeze({ width: 2048, height: 1152 });
 const NEWTAB_WALLPAPER_DEFAULT_ID = 'monet-coastal-white';
+// The ID older versions stored for their single upload.
 const NEWTAB_CUSTOM_WALLPAPER_ID = CUSTOM_WALLPAPER_ID || 'custom-upload';
+// The override that turns wallpaper off on this device.
 const NEWTAB_LOCAL_WALLPAPER_DISABLED_VALUE = '__lumno_local_wallpaper_disabled__';
 const NEWTAB_WALLPAPER_PREFS_STORAGE_VERSION = 2;
 const NEWTAB_WALLPAPER_MODE_LIGHT = 'light';

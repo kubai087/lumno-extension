@@ -7,8 +7,9 @@ import * as SettingsStorage from '../platform/settings-storage';
 import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
-import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
+import { NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SHORTCUT_COLUMNS_MIN, NEWTAB_SHORTCUT_WIDTH_MAX, NEWTAB_SHORTCUT_WIDTH_MIN, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import * as SETTINGS from '../domain/settings';
+import { SEARCH_WIDTH_CONFIG } from './layout';
 
 // Whether a change is only shown or also saved.
 type PersistOptions = { persist?: boolean } | null | undefined;
@@ -21,11 +22,6 @@ interface PagePreferencesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   preview: Pick<SettingPreview, 'get' | 'set'>;
   getBookmarkGridColumnCount: PageLayout['getBookmarkGridColumnCount'];
-  NEWTAB_SEARCH_WIDTH_CONFIG: NonNullable<Parameters<typeof LumnoSettings.normalizeNewtabSearchWidth>[1]>;
-  NEWTAB_SHORTCUT_COLUMNS_MIN: number;
-  NEWTAB_SHORTCUT_COLUMNS_MAX: number;
-  NEWTAB_SHORTCUT_WIDTH_MIN: number;
-  NEWTAB_SHORTCUT_WIDTH_MAX: number;
   pageState: PagePreferencesState;
 }
 
@@ -33,11 +29,6 @@ function createPagePreferences(deps: PagePreferencesDeps) {
   const {
     settings,
     preview,
-    NEWTAB_SEARCH_WIDTH_CONFIG,
-    NEWTAB_SHORTCUT_COLUMNS_MIN,
-    NEWTAB_SHORTCUT_COLUMNS_MAX,
-    NEWTAB_SHORTCUT_WIDTH_MIN,
-    NEWTAB_SHORTCUT_WIDTH_MAX,
     getBookmarkGridColumnCount
   } = deps;
 
@@ -52,7 +43,7 @@ function createPagePreferences(deps: PagePreferencesDeps) {
     value: unknown,
     options?: Parameters<typeof LumnoSettings.normalizeNewtabSearchWidth>[1]
   ): ReturnType<typeof LumnoSettings.normalizeNewtabSearchWidth> {
-    return SETTINGS.normalizeNewtabSearchWidth(value, { ...NEWTAB_SEARCH_WIDTH_CONFIG, ...options });
+    return SETTINGS.normalizeNewtabSearchWidth(value, { ...SEARCH_WIDTH_CONFIG, ...options });
   }
 
   function normalizeNewtabShortcutsVisible(value: unknown) {

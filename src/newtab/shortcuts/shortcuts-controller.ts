@@ -48,6 +48,8 @@ import * as NEWTAB_SHORTCUT_ICON_STORE from './shortcut-icon-store';
 import * as NEWTAB_SHORTCUT_ICON_PLATE from './shortcut-icon-plate';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
 import { SHORTCUT_DIALOG_ITEM_BOOKMARK, SHORTCUT_DIALOG_ITEM_FOLDER } from '../menu-values';
+import { DEFAULT_MAX_SHORTCUTS, DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES } from '../../domain/shortcuts/constants';
+import { webdavStatus } from '../../domain/settings/sync-state';
 
 interface ShortcutsControllerState {
   newtabShortcuts: ShortcutItem[];
@@ -79,12 +81,9 @@ interface ShortcutsControllerDeps {
     'getNode' | 'getNodeMap' | 'getSnapshot' | 'ensureReady' | 'runControlledMutation' | 'update'>;
   isShortcutDragActive(): boolean;
   moveShortcutByKeyboard: ViewOption<'moveShortcut'>;
-  MAX_NEWTAB_SHORTCUTS: number;
   normalizeHost: NonNullable<ShortcutNormalizeOptions['normalizeHost']>;
   sanitizeDisplayText(text: unknown): string;
   providerStorageRuntime: Pick<ProviderStorageRuntime, 'getActiveAreaName'> | null;
-  NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES: number;
-  NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY: string;
   shortcutIconStore: ShortcutIconStore;
   folderItemIconStore: Pick<FolderItemIconStore, 'get' | 'update'>;
   getPageFaviconUrlResolver(): Pick<FaviconUrlResolver,
@@ -112,7 +111,6 @@ interface ShortcutsControllerDeps {
   showToast: ShowToast;
   formatMessage: FormatMessage;
   getShortcutById(shortcutId: unknown): ShortcutItem | null;
-  SHORTCUT_DIALOG_MODE_EDIT: string;
   markBookmarkTreeDirty(options?: { preserveCascadeOpen?: boolean }): void;
   loadBookmarks(options?: { force?: boolean }): unknown;
   refreshOpenBookmarkCascadeMenu(): unknown;
@@ -147,7 +145,6 @@ interface ShortcutsControllerDeps {
   bindShortcutDialogTooltip: BindTooltip;
   hideShortcutDialogTooltip(): void;
   handleShortcutGroupMenu: ShortcutContextMenu['openShortcutGroupMenu'];
-  WEBDAV_STATUS_STORAGE_KEY: string;
   // Slides the tiles to where `apply` puts them.
   animateShortcutLayoutChange?(apply: () => void): void;
   pageState: ShortcutsControllerState;
@@ -245,12 +242,9 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     bookmarksRuntime,
     isShortcutDragActive,
     moveShortcutByKeyboard,
-    MAX_NEWTAB_SHORTCUTS,
     normalizeHost,
     sanitizeDisplayText,
     providerStorageRuntime,
-    NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES,
-    NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY,
     shortcutIconStore,
     folderItemIconStore,
     getPageFaviconUrlResolver,
@@ -276,7 +270,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     showToast,
     formatMessage,
     getShortcutById,
-    SHORTCUT_DIALOG_MODE_EDIT,
     markBookmarkTreeDirty,
     loadBookmarks,
     refreshOpenBookmarkCascadeMenu,
@@ -311,7 +304,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     bindShortcutDialogTooltip,
     hideShortcutDialogTooltip,
     handleShortcutGroupMenu,
-    WEBDAV_STATUS_STORAGE_KEY,
     animateShortcutLayoutChange
   } = deps;
 
@@ -390,7 +382,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
 
   function getShortcutStoreOptions(): ShortcutNormalizeOptions {
     return {
-      maxShortcuts: MAX_NEWTAB_SHORTCUTS,
+      maxShortcuts: DEFAULT_MAX_SHORTCUTS,
       normalizeHost,
       sanitizeDisplayText
     };
@@ -457,7 +449,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     ]).then(([totalBytes, shortcutBytes, legacyBytes]) => ({
       maxTotalBytes: ShortcutStoragePlan.getShortcutSyncBudget({
         quotaBytes: Number(syncArea.QUOTA_BYTES) || (100 * 1024),
-        reserveBytes: NEWTAB_SHORTCUTS_CRITICAL_SYNC_RESERVE_BYTES,
+        reserveBytes: DEFAULT_SHORTCUTS_SYNC_RESERVE_BYTES,
         totalBytes,
         shortcutBytes,
         legacyBytes
@@ -473,12 +465,12 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     }
     return new Promise((resolve) => {
       try {
-        overflowArea.get([NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY], (result: StorageItems | undefined) => {
+        overflowArea.get([newtabShortcutsLocalOverflow.key], (result: StorageItems | undefined) => {
           if (getShortcutStorageLastError()) {
             resolve(null);
             return;
           }
-          resolve(result ? result[NEWTAB_SHORTCUTS_LOCAL_OVERFLOW_STORAGE_KEY] : null);
+          resolve(result ? result[newtabShortcutsLocalOverflow.key] : null);
         });
       } catch {
         resolve(null);
@@ -1270,13 +1262,13 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
   // The stored WebDAV status while sync is on; null while it is off.
   function readWebDavStatus(): Promise<Record<string, unknown> | null> {
     const localArea = chrome && chrome.storage ? chrome.storage.local : null;
-    if (!localArea || !WEBDAV_STATUS_STORAGE_KEY) {
+    if (!localArea || !webdavStatus.key) {
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
       try {
-        localArea.get([WEBDAV_STATUS_STORAGE_KEY], (result: StorageItems | undefined) => {
-          const status = result ? result[WEBDAV_STATUS_STORAGE_KEY] : null;
+        localArea.get([webdavStatus.key], (result: StorageItems | undefined) => {
+          const status = result ? result[webdavStatus.key] : null;
           resolve(!getShortcutStorageLastError() && isRecord(status) && status.enabled === true ? status : null);
         });
       } catch {
@@ -1340,7 +1332,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     void openShortcutDialog({
       sourceElement,
       itemType: 'group',
-      mode: group ? SHORTCUT_DIALOG_MODE_EDIT : 'add',
+      mode: group ? 'edit' : 'add',
       shortcut: group ? { id: group.id, title: group.title } : null
     });
   }
@@ -1525,7 +1517,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     }
     if (shortcutGroups.some((group) => group.id === record.group.id) ||
         shortcutGroups.length >= ShortcutConstants.DEFAULT_MAX_SHORTCUT_GROUPS ||
-        items.length + record.removed.length > MAX_NEWTAB_SHORTCUTS ||
+        items.length + record.removed.length > DEFAULT_MAX_SHORTCUTS ||
         record.removed.some(({ snapshot }) => items.some((item) => item.id === snapshot.id ||
           (getShortcutUrl(snapshot) && getShortcutUrl(item) === getShortcutUrl(snapshot))))) {
       return Promise.resolve(false);
@@ -1568,11 +1560,11 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       return Promise.resolve(false);
     }
     const withoutDuplicate = pageState.newtabShortcuts.filter((item) => getShortcutUrl(item) !== nextShortcut.url);
-    if (withoutDuplicate.length >= MAX_NEWTAB_SHORTCUTS) {
+    if (withoutDuplicate.length >= DEFAULT_MAX_SHORTCUTS) {
       setShortcutError(formatMessage(
         'newtab_shortcuts_limit_reached',
         'You can add up to {count} shortcuts.',
-        { count: MAX_NEWTAB_SHORTCUTS }
+        { count: DEFAULT_MAX_SHORTCUTS }
       ));
       return Promise.resolve(false);
     }
@@ -1612,11 +1604,11 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       showToast(t('newtab_shortcuts_already_added', 'Already in shortcuts'));
       return Promise.resolve(false);
     }
-    if (pageState.newtabShortcuts.length >= MAX_NEWTAB_SHORTCUTS) {
+    if (pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS) {
       showToast(formatMessage(
         'newtab_shortcuts_limit_reached',
         'You can add up to {count} shortcuts.',
-        { count: MAX_NEWTAB_SHORTCUTS }
+        { count: DEFAULT_MAX_SHORTCUTS }
       ), true);
       return Promise.resolve(false);
     }
@@ -1677,7 +1669,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       plate: dialogState.iconPlate,
       plateColor: dialogState.iconPlateColor
     };
-    if (dialogState.mode === SHORTCUT_DIALOG_MODE_EDIT) {
+    if (dialogState.mode === 'edit') {
       return saveEditedShortcutFromDialog(title, url, dialogState.shortcutId, iconState);
     }
     return saveNewShortcutFromDialog(title, url, iconState);
@@ -1788,7 +1780,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     const view = NEWTAB_SHORTCUTS_VIEW.createShortcutsView({
       grid,
       tiles: shortcutTiles,
-      maxShortcuts: MAX_NEWTAB_SHORTCUTS,
+      maxShortcuts: DEFAULT_MAX_SHORTCUTS,
       initFolderIcon: initFolderPathMorph,
       animateFolderIcon: playFolderPathMorph,
       onFolderMenuChange: syncShortcutDockFolderMenu,
@@ -1815,7 +1807,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       onContextMenu: handleShortcutContextMenu,
       onNativeDragStart: handleShortcutNativeDragStart,
       getAddLabel: () => t('newtab_shortcuts_add', 'Add shortcut'),
-      getAddVisible: () => settings.get(newtabShortcutAddVisible) && pageState.newtabShortcuts.length < MAX_NEWTAB_SHORTCUTS,
+      getAddVisible: () => settings.get(newtabShortcutAddVisible) && pageState.newtabShortcuts.length < DEFAULT_MAX_SHORTCUTS,
       // The add tile asks what to add, or offers to hide itself.
       onAdd: openShortcutAddContextMenu,
       onAddContextMenu: () => {},

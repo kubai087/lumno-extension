@@ -12,7 +12,6 @@ import type { AdaptiveToneTarget, ToneScheduleOptions } from './wallpaper-adapti
 import * as NEWTAB_WALLPAPER from './wallpaper';
 import type { WallpaperRuntime } from './wallpaper';
 import type { SectionPanelSettings } from './runtime/panel-actions';
-import type { SearchWidthConfig } from './runtime/panel-settings';
 import { readBootValue } from '../../platform/boot-handoff';
 import { getWallpaperViewApi } from '../react/wallpaper-view';
 import type { SettingsStore } from '../../platform/settings-store';
@@ -20,10 +19,11 @@ import type { SettingPreview } from '../setting-preview';
 import { getFixedTimeInk, newtabTimeInk, newtabTopContentMode } from '../../domain/settings/newtab-time';
 import { themeMode } from '../../domain/settings/appearance';
 import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme, newtabInputAutoFocusEnabled } from '../../domain/settings/newtab-page';
-import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../domain/settings/newtab-shortcuts';
+import { NEWTAB_SHORTCUT_COLUMNS_DEFAULT, NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SHORTCUT_COLUMNS_MIN, NEWTAB_SHORTCUT_GAP_DEFAULT, NEWTAB_SHORTCUT_GAP_MAX, NEWTAB_SHORTCUT_GAP_MIN, NEWTAB_SHORTCUT_SIZE_DEFAULT, NEWTAB_SHORTCUT_SIZE_MAX, NEWTAB_SHORTCUT_SIZE_MIN, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../domain/settings/newtab-shortcuts';
 import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import { NEWTAB_GLASS_ADAPTIVE_SELECTOR } from '../newtab-config';
+import { SEARCH_WIDTH_CONFIG } from '../layout';
 
 type StorageArea = Pick<StorageAreaLike, 'get' | 'set'>;
 
@@ -62,9 +62,7 @@ interface WallpaperPageDeps {
   isBookmarkTopbarMode(): boolean;
   // The search box.
   root: HTMLElement;
-  // The glass plates that sample the wallpaper behind them.
   localStorageArea: StorageArea | null;
-  NEWTAB_SEARCH_WIDTH_CONFIG: SearchWidthConfig;
   t: Translate;
   formatMessage: FormatMessage;
   getSelectedThemeMode(): string;
@@ -79,15 +77,6 @@ interface WallpaperPageDeps {
   applyWordmarkThemeAppearance(): void;
   getEffectiveNewtabSearchWidth(): number;
   setNewtabSearchWidth(width: number, options: PersistOptions): void;
-  NEWTAB_SHORTCUT_COLUMNS_MIN: number;
-  NEWTAB_SHORTCUT_COLUMNS_MAX: number;
-  NEWTAB_SHORTCUT_COLUMNS_DEFAULT: number;
-  NEWTAB_SHORTCUT_SIZE_MIN: number;
-  NEWTAB_SHORTCUT_SIZE_MAX: number;
-  NEWTAB_SHORTCUT_SIZE_DEFAULT: number;
-  NEWTAB_SHORTCUT_GAP_MIN: number;
-  NEWTAB_SHORTCUT_GAP_MAX: number;
-  NEWTAB_SHORTCUT_GAP_DEFAULT: number;
   setNewtabShortcutsVisible(visible: boolean, options: PersistOptions): void;
   setNewtabShortcutAddVisible(visible: boolean, options: PersistOptions): void;
   setNewtabShortcutDockMagnificationEnabled(enabled: boolean, options: PersistOptions): void;
@@ -113,7 +102,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     isBookmarkTopbarMode,
     root,
     localStorageArea,
-    NEWTAB_SEARCH_WIDTH_CONFIG,
     t,
     formatMessage,
     getSelectedThemeMode,
@@ -128,15 +116,6 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     applyWordmarkThemeAppearance,
     getEffectiveNewtabSearchWidth,
     setNewtabSearchWidth,
-    NEWTAB_SHORTCUT_COLUMNS_MIN,
-    NEWTAB_SHORTCUT_COLUMNS_MAX,
-    NEWTAB_SHORTCUT_COLUMNS_DEFAULT,
-    NEWTAB_SHORTCUT_SIZE_MIN,
-    NEWTAB_SHORTCUT_SIZE_MAX,
-    NEWTAB_SHORTCUT_SIZE_DEFAULT,
-    NEWTAB_SHORTCUT_GAP_MIN,
-    NEWTAB_SHORTCUT_GAP_MAX,
-    NEWTAB_SHORTCUT_GAP_DEFAULT,
     setNewtabShortcutsVisible,
     setNewtabShortcutAddVisible,
     setNewtabShortcutDockMagnificationEnabled,
@@ -419,7 +398,7 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     localWallpaperStorageArea: localStorageArea,
     getQuoteRuntime: () => pageState.quoteRuntime,
     getSectionPanelSettings: () => pageState.sectionPanelSettings,
-    searchWidthConfig: NEWTAB_SEARCH_WIDTH_CONFIG,
+    searchWidthConfig: SEARCH_WIDTH_CONFIG,
     t,
     formatMessage,
     getThemeMode: getSelectedThemeMode,

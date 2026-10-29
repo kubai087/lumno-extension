@@ -18,7 +18,6 @@ interface FeedbackControlState {
 
 interface FeedbackControlDeps {
   locale: Pick<SurfaceLocale, 'store'>;
-  LUMNO_FEEDBACK_LINKS_FALLBACK: CommunityLinks;
   t: Translate;
   openExternalNewTabUrl(url: string, disposition: Disposition): boolean;
   hideTopActionTooltip(): void;
@@ -30,7 +29,6 @@ interface FeedbackControlDeps {
 function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   const {
     locale,
-    LUMNO_FEEDBACK_LINKS_FALLBACK,
     t,
     openExternalNewTabUrl,
     hideTopActionTooltip,
@@ -56,7 +54,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
     }
     return COMMUNITY_LINKS.load({ force })
       .then((links) => {
-        pageState.feedbackLinks = links || LUMNO_FEEDBACK_LINKS_FALLBACK;
+        pageState.feedbackLinks = links || COMMUNITY_LINKS.FALLBACK_LINKS;
         feedbackLinksLoaded = true;
         return pageState.feedbackLinks;
       });
@@ -124,7 +122,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   }
 
   function buildFeedbackReactModel(): FeedbackControlModel {
-    const links = pageState.feedbackLinks || LUMNO_FEEDBACK_LINKS_FALLBACK;
+    const links = pageState.feedbackLinks || COMMUNITY_LINKS.FALLBACK_LINKS;
     const channel = getFeedbackCommunityChannel(links);
     return {
       buttonLabel: t('newtab_feedback_button_aria', 'Send feedback'),
@@ -147,17 +145,17 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
         'newtab_feedback_github_issue_tooltip',
         'Open a GitHub issue'
       ),
-      githubIssueUrl: links.githubIssue || LUMNO_FEEDBACK_LINKS_FALLBACK.githubIssue,
+      githubIssueUrl: links.githubIssue || COMMUNITY_LINKS.FALLBACK_LINKS.githubIssue,
       menuAriaLabel: t('newtab_feedback_menu_aria', 'Feedback channels'),
       panelTitle: channel === 'wechat'
         ? t('newtab_feedback_wechat_panel_title', 'Bug reports & feature requests')
         : t('newtab_feedback_x_label', 'X'),
       qrAlt: t('newtab_feedback_wechat_qr_alt', 'Lumno WeChat group QR code'),
-      qrUrl: links.wechatQr || LUMNO_FEEDBACK_LINKS_FALLBACK.wechatQr,
+      qrUrl: links.wechatQr || COMMUNITY_LINKS.FALLBACK_LINKS.wechatQr,
       refreshTooltip: t('newtab_feedback_wechat_refresh_tooltip', 'Refresh QR code'),
       xLabel: t('newtab_feedback_x_label', 'X'),
       xTooltip: t('newtab_feedback_x_tooltip', 'Contact us on X'),
-      xUrl: links.x || LUMNO_FEEDBACK_LINKS_FALLBACK.x
+      xUrl: links.x || COMMUNITY_LINKS.FALLBACK_LINKS.x
     };
   }
 
@@ -250,7 +248,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
               }
               const refreshedUrl = buildFreshFeedbackQrUrl(
                 (currentLinks && currentLinks.wechatQr) ||
-                  LUMNO_FEEDBACK_LINKS_FALLBACK.wechatQr
+                  COMMUNITY_LINKS.FALLBACK_LINKS.wechatQr
               );
               const loaded = await preloadFeedbackQrImage(refreshedUrl);
               return loaded

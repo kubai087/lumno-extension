@@ -21,6 +21,7 @@ import type { ShortcutGroup, ShortcutItem } from '../../domain/shortcuts/types';
 import * as ShortcutConstants from '../../domain/shortcuts/constants';
 import * as NEWTAB_BOOKMARKS_STORE from '../bookmarks/bookmarks-store';
 import { BOOKMARK_CONTEXT_MENU_OPEN_GROUP_VALUE, FOLDER_COLOR_CONTEXT_MENU_VALUE, NEWTAB_CONTEXT_MENU_OPEN_VALUE, SHORTCUT_CONTEXT_MENU_EDIT_VALUE, SHORTCUT_CONTEXT_MENU_HIDE_ADD_VALUE, SHORTCUT_CONTEXT_MENU_REMOVE_VALUE, SHORTCUT_GROUP_MENU_VALUES } from '../menu-values';
+import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 
 interface ShortcutPageActionsState {
   // The folder color picker, made the first time a plate color is picked.
@@ -44,7 +45,6 @@ interface ShortcutPageActionsDeps {
   readSavedFolderColors(): Promise<unknown>;
   saveSavedFolderColors(colors: string[]): Promise<void>;
   getShortcutGroups(): ShortcutGroup[];
-  MAX_NEWTAB_SHORTCUTS: number;
   bookmarksRuntime: BookmarksRuntime;
   getShortcutFolderId(shortcut: ShortcutItem): string;
   updateBookmarkContextMenuLanguageStrings(): void;
@@ -55,7 +55,6 @@ interface ShortcutPageActionsDeps {
   shortcutTiles: HTMLElement[];
   openBookmarkEditor(target: BookmarkEditTarget): void;
   getShortcutTitle(shortcut: ShortcutItem): string;
-  SHORTCUT_DIALOG_MODE_EDIT: string;
   getShortcutIconDataUrl(shortcutId: string): string;
   pageState: ShortcutPageActionsState;
 }
@@ -69,7 +68,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     readSavedFolderColors,
     saveSavedFolderColors,
     getShortcutGroups,
-    MAX_NEWTAB_SHORTCUTS,
     bookmarksRuntime,
     getShortcutFolderId,
     updateBookmarkContextMenuLanguageStrings,
@@ -79,7 +77,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     shortcutTiles,
     openBookmarkEditor,
     getShortcutTitle,
-    SHORTCUT_DIALOG_MODE_EDIT,
     getShortcutIconDataUrl
   } = deps;
 
@@ -174,7 +171,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
       return [
         option(SHORTCUT_GROUP_MENU_VALUES.rename, t('newtab_shortcuts_group_rename', 'Rename')),
         option(SHORTCUT_GROUP_MENU_VALUES.addSite, t('newtab_shortcuts_group_add_site', 'Add site'), {
-          disabled: pageState.newtabShortcuts.length >= MAX_NEWTAB_SHORTCUTS
+          disabled: pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS
         }),
         option(SHORTCUT_GROUP_MENU_VALUES.moveUp, t('newtab_shortcuts_group_move_up', 'Move up'), {
           dividerBefore: true, disabled: index <= 0
@@ -350,7 +347,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
       return;
     }
     openShortcutDialog({
-      mode: SHORTCUT_DIALOG_MODE_EDIT,
+      mode: 'edit',
       shortcut: {
         ...shortcut,
         iconDataUrl: getShortcutIconDataUrl(shortcut.id)

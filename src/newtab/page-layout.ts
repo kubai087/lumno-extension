@@ -1,7 +1,6 @@
 // Page geometry: bookmark and recent grid column counts, the width modes
 // and search width, shortcut grid sizing, which content sections show, and
 // the search entry's vertical position as the viewport changes.
-import type * as LumnoNewtabLayout from './layout';
 import type { LayoutController, SearchEntryLayoutOptions, WidthModeConfig } from './layout';
 import type { LayoutMotion } from './layout-motion';
 import type { PagePreferences } from './page-preferences';
@@ -20,6 +19,8 @@ import { bookmarkColumns } from '../domain/settings/bookmarks';
 import { recentCount } from '../domain/settings/recent-sites';
 import * as NEWTAB_LAYOUT from './layout';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX, NEWTAB_WIDTH_MODE_CONFIGS, RECENT_CARD_TARGET_WIDTH_PX, RECENT_GRID_GAP_PX } from './newtab-config';
+import { DEFAULT_MAX_SHORTCUTS } from '../domain/shortcuts/constants';
+import { SEARCH_WIDTH_CONFIG } from './layout';
 
 interface NewtabWidthModeConfig extends WidthModeConfig {
   searchMaxWidth: number;
@@ -59,8 +60,6 @@ interface PageLayoutDeps extends
   Pick<ShortcutPageActions, 'closeShortcutDialog'> {
   preview: Pick<SettingPreview, 'get' | 'show' | 'store'>;
   settings: Pick<SettingsStore, 'get' | 'set' | 'subscribe'>;
-  NEWTAB_SEARCH_WIDTH_CONFIG: typeof LumnoNewtabLayout.SEARCH_WIDTH_CONFIG;
-  MAX_NEWTAB_SHORTCUTS: number;
   scheduleWallpaperAdaptiveToneUpdate(): void;
   pageState: PageLayoutState;
 }
@@ -70,13 +69,11 @@ function createPageLayout(deps: PageLayoutDeps) {
     preview,
     settings,
     normalizeNewtabSearchWidth,
-    NEWTAB_SEARCH_WIDTH_CONFIG,
     getBookmarkLimit,
     updateSuggestionsFloatingLayout,
     closeRecentContextMenu,
     scheduleWallpaperAdaptiveToneUpdate,
     getVisibleShortcuts,
-    MAX_NEWTAB_SHORTCUTS,
     resetShortcutDockHover,
     closeShortcutContextMenu,
     closeShortcutDialog
@@ -118,7 +115,7 @@ function createPageLayout(deps: PageLayoutDeps) {
 
   function getEffectiveNewtabSearchWidth(): number {
     const customWidth = normalizeNewtabSearchWidth(preview.get(newtabSearchWidth), { allowNull: true });
-    return customWidth || getNewtabWidthModeBaseConfig().searchMaxWidth || NEWTAB_SEARCH_WIDTH_CONFIG.fallback;
+    return customWidth || getNewtabWidthModeBaseConfig().searchMaxWidth || SEARCH_WIDTH_CONFIG.fallback;
   }
 
   function getNewtabWidthModeConfig(): NewtabWidthModeConfig {
@@ -298,7 +295,7 @@ function createPageLayout(deps: PageLayoutDeps) {
       return;
     }
     const hasVisibleContent = getVisibleShortcuts().length > 0 ||
-      (preview.get(newtabShortcutAddVisible) && pageState.newtabShortcuts.length < MAX_NEWTAB_SHORTCUTS);
+      (preview.get(newtabShortcutAddVisible) && pageState.newtabShortcuts.length < DEFAULT_MAX_SHORTCUTS);
     setContentSectionVisible(
       pageState.shortcutSection,
       Boolean(preview.get(newtabShortcutsVisible) && hasVisibleContent)

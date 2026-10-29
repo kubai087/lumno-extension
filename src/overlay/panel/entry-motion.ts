@@ -7,7 +7,6 @@ import type { OverlaySettings } from '../overlay-settings';
 
 interface EntryMotionState {
   settings: Pick<OverlaySettings, 'get' | 'isLoaded'>;
-  // 'fade', or the default elastic motion.
 }
 
 // The frame tracker from lifecycle.ts, as far as the entry motion uses it.

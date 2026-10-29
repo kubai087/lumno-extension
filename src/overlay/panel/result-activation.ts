@@ -31,7 +31,6 @@ interface ResultActivationState {
   settings: Pick<OverlaySettings, 'get'>;
   overlay: HTMLElement | null;
   searchInput: HTMLInputElement | null;
-  // Number keys open results at once, so Cmd and Ctrl keep their own use.
   currentTabPinned: boolean;
 }
 

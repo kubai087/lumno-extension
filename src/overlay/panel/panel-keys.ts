@@ -46,7 +46,6 @@ interface PanelKeysState {
   overlayThemeMode: ThemeMode;
   prioritizeCurrentPageMatch: boolean;
   currentOverlayTabId: number | null;
-  // Enter on the first result switches to its open tab.
 }
 
 interface PanelKeysDeps {

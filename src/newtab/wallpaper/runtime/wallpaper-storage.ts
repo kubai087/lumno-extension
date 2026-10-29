@@ -85,8 +85,6 @@ interface WallpaperStorageDeps extends Pick<WallpaperSources,
   settings: Pick<SettingsStore, 'getStored' | 'include' | 'set' | 'setMany'>;
   showToast: ShowToast;
   t: Translate;
-  // The ID older versions stored for their single upload.
-  // The override that turns wallpaper off on this device.
   document: Document;
   getUpcomingDailyWallpaper(id: string): RemoteWallpaper | null;
   getNextLocalDayTimestamp(timestamp: number): number;

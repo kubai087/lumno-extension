@@ -41,7 +41,6 @@ interface PageNoticesDeps {
   getOpenDisposition(event: OpenEvent | Disposition | null | undefined, fallback?: Disposition): Disposition;
   getFeedbackWebLocale(): string;
   isFeedbackPopoverOpen(): boolean;
-  LUMNO_FEEDBACK_LINKS_FALLBACK: CommunityLinks;
   openFeedbackExternalUrl(url: unknown, disposition?: Disposition): boolean;
   // Settles once the page's entry animation is done.
   newtabEntryAnimationReadyPromise: Promise<unknown>;
@@ -61,7 +60,6 @@ function createPageNotices(deps: PageNoticesDeps) {
     getOpenDisposition,
     getFeedbackWebLocale,
     isFeedbackPopoverOpen,
-    LUMNO_FEEDBACK_LINKS_FALLBACK,
     openFeedbackExternalUrl,
     newtabEntryAnimationReadyPromise,
     root,
@@ -241,7 +239,7 @@ function createPageNotices(deps: PageNoticesDeps) {
           !isFeedbackPopoverOpen();
       },
       onReview(event) {
-        const links = pageState.feedbackLinks || LUMNO_FEEDBACK_LINKS_FALLBACK;
+        const links = pageState.feedbackLinks || COMMUNITY_LINKS.FALLBACK_LINKS;
         openFeedbackExternalUrl(
           COMMUNITY_LINKS.getReviewUrl(links),
           getOpenDisposition(event, 'newTab')
@@ -277,7 +275,7 @@ function createPageNotices(deps: PageNoticesDeps) {
     }
     COMMUNITY_QR_DIALOG.open({
       documentObj: document,
-      imageUrl: qrUrl || (pageState.feedbackLinks || LUMNO_FEEDBACK_LINKS_FALLBACK).wechatQr,
+      imageUrl: qrUrl || (pageState.feedbackLinks || COMMUNITY_LINKS.FALLBACK_LINKS).wechatQr,
       title: t('newtab_feedback_wechat_panel_title', 'Bug 反馈 & 新功能提需'),
       alt: t('newtab_feedback_wechat_qr_alt', 'Lumno 微信群二维码'),
       closeLabel: t('newtab_feedback_wechat_close_tooltip', '关闭'),

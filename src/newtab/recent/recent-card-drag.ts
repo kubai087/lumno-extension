@@ -21,6 +21,7 @@ import type { ShortcutItem, ShortcutLink } from '../../domain/shortcuts/types';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
 import * as NEWTAB_BOOKMARK_MOVE_HISTORY from '../bookmarks/bookmark-move-history';
+import { DEFAULT_MAX_SHORTCUTS } from '../../domain/shortcuts/constants';
 
 interface RecentCardDragState {
   newtabShortcuts: ShortcutItem[];
@@ -35,7 +36,6 @@ interface RecentCardDragState {
 interface RecentCardDragDeps {
   getShortcutStoreOptions: ShortcutsController['getShortcutStoreOptions'];
   getShortcutFolderId: ShortcutsController['getShortcutFolderId'];
-  MAX_NEWTAB_SHORTCUTS: number;
   persistShortcuts: ShortcutsController['persistShortcuts'];
   bookmarkMoveHistory: Pick<BookmarkMoveHistory, 'push'>;
   bookmarksRuntime: Pick<BookmarksRuntime, 'getNode' | 'getFolderItems'>;
@@ -107,7 +107,6 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
   const {
     getShortcutStoreOptions,
     getShortcutFolderId,
-    MAX_NEWTAB_SHORTCUTS,
     persistShortcuts,
     bookmarkMoveHistory,
     bookmarksRuntime,
@@ -533,7 +532,7 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
       index: target.index,
       groupId: target.groupId,
       getFolderId: getShortcutFolderId,
-      maxShortcuts: MAX_NEWTAB_SHORTCUTS
+      maxShortcuts: DEFAULT_MAX_SHORTCUTS
     });
     if (!plan) {
       return Promise.resolve(false);
@@ -700,11 +699,11 @@ function createRecentCardDrag(deps: RecentCardDragDeps) {
     landGhost(state, () => removeGhost(state));
     dropSite(state, dropTarget).then((dropped) => {
       if (!dropped && dropTarget.surface === 'shortcuts' &&
-          pageState.newtabShortcuts.length >= MAX_NEWTAB_SHORTCUTS) {
+          pageState.newtabShortcuts.length >= DEFAULT_MAX_SHORTCUTS) {
         showToast(formatMessage(
           'newtab_shortcuts_limit_reached',
           'You can add up to {count} shortcuts.',
-          { count: MAX_NEWTAB_SHORTCUTS }
+          { count: DEFAULT_MAX_SHORTCUTS }
         ), true);
       }
     }).catch((error: unknown) => {

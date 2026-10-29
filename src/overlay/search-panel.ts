@@ -726,7 +726,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     overlayAntiTranslateGuard
   });
   const OVERLAY_MODE_MENU_DOUBLE_TAB_DURATION_MS = 700;
-  const OVERLAY_FONT_FAMILY_CSS_VAR = SETTINGS.OVERLAY_FONT_FAMILY_CSS_VAR;
   const RI_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'assets/remixicon/fonts/remixicon.css');
   const SEARCH_INPUT_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/search/search-input.css');
   const FEATURE_HINTS_CSS_URL = overlayRuntime.getRuntimeUrl(chrome, 'src/shared/ui/feature-hints.css');
@@ -766,7 +765,6 @@ function toggleSearchOverlay(requestedTabs: unknown, overlayContext: unknown): v
     parseCssColor,
     stopOverlayPageThemeObserver,
     applyOverlayTheme,
-    OVERLAY_FONT_FAMILY_CSS_VAR,
     overlayState
   });
 

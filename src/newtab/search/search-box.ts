@@ -132,7 +132,6 @@ interface SearchBoxDeps {
   refreshFallbackShortcut(force: boolean): void;
   restoreDismissedSearchSuggestions(): void;
   hideSearchInputCursorTooltip(): void;
-  // Runs the listener again whenever the page language changes.
   openSearchModeMenuFromDoubleTab: SearchModes['openSearchModeMenuFromDoubleTab'];
   bindSearchInputCursorTooltip: BindCursorTooltip;
   pageState: SearchBoxState;

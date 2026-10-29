@@ -26,6 +26,9 @@ import type { SearchModeMenuOrder } from '../../shared/search-panel/mode-menu-or
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { SearchModeMenu } from '../../shared/search-panel/mode-menu';
 
+// Width the clear button adds left of the close-other-tabs button: 30px button + 6px gap.
+const SEARCH_CLEAR_BUTTON_INSET = 36;
+
 // An option the input mode controller is handed as it is.
 type ModeOption<K extends keyof InputModeConfig> = NonNullable<InputModeConfig[K]>;
 
@@ -46,8 +49,6 @@ interface SearchModeControllerDeps {
   requestSuggestions: SuggestionsController['requestSuggestions'];
   renderSuggestions: RenderSuggestions;
   searchInput: HTMLInputElement;
-  // The room the clear button takes at the input's right.
-  SEARCH_CLEAR_BUTTON_INSET: number;
   getThemeForMode: ModeOption<'getThemeForMode'>;
   defaultTheme: ModeOption<'defaultTheme'>;
   defaultAccentColor: ModeOption<'defaultAccentColor'>;
@@ -85,7 +86,6 @@ function createSearchModeController(deps: SearchModeControllerDeps) {
     settings,
     renderSuggestions,
     searchInput,
-    SEARCH_CLEAR_BUTTON_INSET,
     getThemeForMode,
     defaultTheme,
     defaultAccentColor,

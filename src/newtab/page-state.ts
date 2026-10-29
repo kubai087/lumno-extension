@@ -183,8 +183,6 @@ function createPageState(): NewtabPageState {
     shortcutFaviconPolicyRevision: 0,
     shortcutFaviconPendingCacheEntries: {},
 
-    // 使用本地打包字体，避免外链字体依赖。
-
     tabs: [],
     currentNewtabTabId: null,
     searchSuggestionsDismissed: false,
