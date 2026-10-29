@@ -1,5 +1,6 @@
-// The element the New Tab's React root lives in. It draws nothing itself:
-// the page's views are portals into their own places.
+// The element the New Tab's React root lives in, which draws nothing itself
+// (the page's views are portals into their own places), and the page's root
+// the sections are placed around.
 const APP_ROOT_ID = '_x_extension_newtab_app_root_2026_unique_';
 
 function createAppRootContainer(doc: Document): HTMLElement {
@@ -10,4 +11,9 @@ function createAppRootContainer(doc: Document): HTMLElement {
   return container;
 }
 
-export { createAppRootContainer };
+// The page's root in the New Tab markup; null on a page without one.
+function getPageRoot(doc: Document): HTMLElement | null {
+  return doc.getElementById('_x_extension_newtab_root_2024_unique_');
+}
+
+export { createAppRootContainer, getPageRoot };

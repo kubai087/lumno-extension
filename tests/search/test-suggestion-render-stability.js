@@ -116,7 +116,7 @@ function verifyClassification() {
 
 verifyClassification();
 assert.ok(
-  runsBefore(getPageScripts('newtab.html'), 'src/newtab/search/direct-navigation-settle.ts', 'src/newtab/newtab.ts'),
+  runsBefore(getPageScripts('newtab.html'), 'src/newtab/search/direct-navigation-settle.ts', 'src/newtab/app/main.ts'),
   'New Tab should load the direct-navigation settle controller before its page runtime'
 );
 

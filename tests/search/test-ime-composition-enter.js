@@ -96,7 +96,7 @@ assert.strictEqual(
 imeGuard.markCompositionEnd({ target: input });
 
 assert.ok(
-  runsBefore(getPageScripts('newtab.html'), 'src/domain/search/ime-key-guard.ts', 'src/newtab/newtab.ts'),
+  runsBefore(getPageScripts('newtab.html'), 'src/domain/search/ime-key-guard.ts', 'src/newtab/app/main.ts'),
   'New Tab should load the IME key guard before newtab.js'
 );
 assert.ok(

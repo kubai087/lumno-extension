@@ -550,12 +550,12 @@ async function assertDarkThemeKeepsShortcutThemeBackground() {
 
 const newtabScripts = getPageScripts('newtab.html');
 assert.ok(
-  runsBefore(newtabScripts, 'src/domain/shortcuts/normalize.ts', 'src/newtab/newtab.ts'),
+  runsBefore(newtabScripts, 'src/domain/shortcuts/normalize.ts', 'src/newtab/app/main.ts'),
   'new tab page should load the shortcuts store before newtab.js'
 );
 
 assert.ok(
-  runsBefore(newtabScripts, 'src/newtab/shortcuts/shortcut-icon-store.ts', 'src/newtab/newtab.ts'),
+  runsBefore(newtabScripts, 'src/newtab/shortcuts/shortcut-icon-store.ts', 'src/newtab/app/main.ts'),
   'shortcut icon processing should load before the page entry opens the React dialog'
 );
 

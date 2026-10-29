@@ -50,7 +50,7 @@ assert.ok(
   'newtab should load the shared site display-name resolver'
 );
 assert.ok(
-  runsBefore(getPageScripts('newtab.html'), 'src/domain/site-display-name.ts', 'src/newtab/newtab.ts'),
+  runsBefore(getPageScripts('newtab.html'), 'src/domain/site-display-name.ts', 'src/newtab/app/main.ts'),
   'the shared resolver should load before the newtab runtime entry'
 );
 // New Tab names recent sites with the shared resolver.

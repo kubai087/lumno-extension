@@ -147,11 +147,11 @@ function isAllowlistedLine(file, line) {
   }
   if (/name:\s*['"`]/.test(line) && (
       /site-search|provider|engine|search/i.test(file + line) ||
-      (file === 'src/background/background.ts' || file === 'src/newtab/newtab.ts')
+      (file === 'src/background/background.ts' || file === 'src/newtab/app/main.ts')
     )) {
     return true;
   }
-  if (file === 'src/newtab/newtab.ts' && /'weibo\.com':\s*['"`]微博['"`]/.test(line)) {
+  if (file === 'src/newtab/app/main.ts' && /'weibo\.com':\s*['"`]微博['"`]/.test(line)) {
     return true;
   }
   if (file === 'src/background/tab-switch-stats-service.ts' && /近(?:30分钟|24小时)切换/.test(line)) {

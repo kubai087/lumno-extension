@@ -196,7 +196,7 @@ assert.strictEqual(iconElement.querySelector('svg').getAttribute('data-folder-co
 }
 
 assert.ok(
-  runsBefore(getPageScripts('newtab.html'), 'src/newtab/bookmarks/bookmark-folder-icon.ts', 'src/newtab/newtab.ts'),
+  runsBefore(getPageScripts('newtab.html'), 'src/newtab/bookmarks/bookmark-folder-icon.ts', 'src/newtab/app/main.ts'),
   'the folder icon component should load before the newtab runtime'
 );
 // New Tab draws its folder shortcuts with this component's icon.

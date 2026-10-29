@@ -104,7 +104,7 @@ function testBrowserProfileRuntimeWiring() {
     'overlay injection should load browser-profile before search-panel'
   );
   assert(
-    runsBefore(getPageScripts('newtab.html'), 'src/platform/browser-profile.ts', 'src/newtab/newtab.ts'),
+    runsBefore(getPageScripts('newtab.html'), 'src/platform/browser-profile.ts', 'src/newtab/app/main.ts'),
     'newtab should load browser-profile before its page entry'
   );
 }

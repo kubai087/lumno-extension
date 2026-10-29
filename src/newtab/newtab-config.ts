@@ -2,6 +2,7 @@
 // layout sizes, the glass plates that sample the wallpaper, and the settings
 // it moves into browser sync.
 import * as LumnoSettings from '../domain/settings';
+import * as SearchSettings from '../domain/settings/search';
 import { CONTENT_MAX_WIDTH_PX, STANDARD_SEARCH_MAX_WIDTH_PX, getGridContentWidthForColumns } from './layout';
 import { SHORTCUT_STORAGE_KEYS } from '../domain/shortcuts/constants';
 
@@ -61,6 +62,22 @@ const NEWTAB_WIDTH_MODE_CONFIGS: Readonly<Record<LumnoSettings.NewtabWidthMode, 
 
 // Preferences an older version kept in local storage, moved into browser
 // sync when that is where settings live.
+// The search settings the page reads as it starts.
+const NEWTAB_SEARCH_SETTINGS = [
+  SearchSettings.searchResultPriority,
+  SearchSettings.searchResultSourceTypes,
+  SearchSettings.searchResultDisplayLimit,
+  SearchSettings.numberShortcutInstantEnabled,
+  SearchSettings.macosCtrlSuggestionNavigationEnabled,
+  SearchSettings.tabRankScoreDebug,
+  SearchSettings.searchBlacklist,
+  SearchSettings.faviconRequestBlacklist,
+  SearchSettings.faviconEnhancedFetchEnabled,
+  LumnoSettings.overlayTabPriority,
+  LumnoSettings.simpleModeEnabled,
+  LumnoSettings.newtabOpenInNewTab
+];
+
 const SYNCED_PAGE_STORAGE_KEYS: readonly string[] = Object.freeze([
   LumnoSettings.themeMode.key,
   LumnoSettings.language.key,
@@ -132,6 +149,7 @@ function createSiteDisplayNameOptions(t: Translate): Readonly<SiteDisplayNameOpt
 }
 
 export {
+  NEWTAB_SEARCH_SETTINGS,
   FAVICON_CACHE_BOOT_WAIT_MS,
   MAX_PINNED_RECENT_SITES,
   NEWTAB_GLASS_ADAPTIVE_SELECTOR,

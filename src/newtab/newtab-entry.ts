@@ -2,4 +2,4 @@
 // the in-page tab switcher, then the page itself, which imports its views.
 import '../shared/tab-switcher/tab-switcher';
 import '../shared/tab-switcher/page-bridge';
-import './newtab';
+import './app/main';

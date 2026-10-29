@@ -97,7 +97,7 @@ assert(
   'onboarding should load the shared matcher before its content model'
 );
 assert(
-  runsBefore(getPageScripts('newtab.html'), 'src/domain/shortcut-key-matcher.ts', 'src/newtab/newtab.ts'),
+  runsBefore(getPageScripts('newtab.html'), 'src/domain/shortcut-key-matcher.ts', 'src/newtab/app/main.ts'),
   'newtab should load the shared matcher before its runtime entry'
 );
 
