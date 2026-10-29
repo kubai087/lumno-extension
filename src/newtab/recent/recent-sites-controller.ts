@@ -42,7 +42,6 @@ interface RecentSitesControllerDeps {
   getSiteDisplayName: NonNullable<RecentSiteOptions['getSiteDisplayName']>;
   shouldExcludeFromRecentSites(url: string): boolean;
   isBrowserPageRecentUrl(url: string): boolean;
-  renderRecentSites(items: RecentSite[]): unknown;
   progressMatch: Pick<typeof ProgressMatch, 'looksLikeSeriesPage' | 'compareProgressPages' | 'getProgressSiteKey'>;
   progressHistory: Pick<typeof ProgressHistory, 'createProgressId' | 'getHistoryId' | 'normalizeHistoryMap' | 'restoreVersion'>;
   recentContextMenuSelectController: SelectMenuController;
@@ -88,7 +87,6 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     getSiteDisplayName,
     shouldExcludeFromRecentSites,
     isBrowserPageRecentUrl,
-    renderRecentSites,
     progressMatch,
     progressHistory,
     locale,
@@ -114,8 +112,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function redrawRecentSites(): void {
-    recentShown.forgetSignature();
-    renderRecentSites(recentShown.items);
+    recentEvents.emit('cardsStale', null);
   }
 
   // Follows the stored lists, redrawing the cards when the sites change;
@@ -460,8 +457,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       ? writePinnedRecentSites(nextPinnedItems)
       : Promise.resolve(pinnedSites.slice());
     return persistPinned.then(() => writeHiddenRecentSites(nextHiddenItems)).then(() => {
-      recentShown.forgetSignature();
-      renderRecentSites(recentShown.items);
+      recentEvents.emit('cardsStale', null);
       return { hidden: true, wasPinned };
     });
   }
@@ -560,8 +556,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     if (existingIndex >= 0) {
       const nextItems = pinnedSites.filter((_, index) => index !== existingIndex);
       return writePinnedRecentSites(nextItems).then((savedItems) => {
-        recentShown.forgetSignature();
-        renderRecentSites(recentShown.items);
+        recentEvents.emit('cardsStale', null);
         return {
           pinned: false,
           limitReached: false,
@@ -582,8 +577,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     };
     const nextItems = [pinned].concat(pinnedSites);
     return writePinnedRecentSites(nextItems).then((savedItems) => {
-      recentShown.forgetSignature();
-      renderRecentSites(recentShown.items);
+      recentEvents.emit('cardsStale', null);
       if (autoTrack) {
         showToast(t('recent_progress_auto_toast', '已置顶，并开始跟踪进度。点击卡片上的雷达图标可停止。'), false);
       }
@@ -703,8 +697,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       nextItems = [tracked].concat(pinnedSites);
     }
     return writePinnedRecentSites(nextItems).then(() => {
-      recentShown.forgetSignature();
-      renderRecentSites(recentShown.items);
+      recentEvents.emit('cardsStale', null);
       showToast(enabled
         ? t('recent_progress_track_toast', '已开始跟踪，看下一集或下一章时卡片会自动更新')
         : t('recent_progress_stop_toast', '已停止跟踪进度'), false);
@@ -759,8 +752,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     return writeProgressHistory(restored.map).then(() => {
       return writePinnedRecentSites(nextItems);
     }).then(() => {
-      recentShown.forgetSignature();
-      renderRecentSites(recentShown.items);
+      recentEvents.emit('cardsStale', null);
       return true;
     }).catch(() => {
       showToast(t('recent_history_restore_failed', '无法恢复此版本'), true);

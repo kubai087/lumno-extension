@@ -613,8 +613,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     bookmarkParts,
     appliedTheme,
     settings,
-    updateBookmarkModeMenu: (...args) => updateBookmarkModeMenu(...args),
-    setNewtabTopLayout: (...args) => setNewtabTopLayout(...args),
     showToast,
     t
   });
@@ -869,7 +867,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getSiteDisplayName,
     shouldExcludeFromRecentSites,
     isBrowserPageRecentUrl,
-    renderRecentSites: (...args) => renderRecentSites(...args),
     progressMatch: PROGRESS_MATCH,
     progressHistory: PROGRESS_HISTORY
   });
@@ -1279,14 +1276,19 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     onEntryDone: () => finishEntryAnimationWait()
   });
 
+  const { getBookmarkModeMenuOptions } = NEWTAB_BOOKMARK_MODE_MENU.createBookmarkModeMenu({
+    settings,
+    t,
+    getEffectiveBookmarkTopbarSurfaceMode,
+    getBookmarkTopbarLayout,
+  });
+
   const {
     setRecentMode,
     updateBookmarkHeader,
     setNewtabTopOccupied,
-    setNewtabTopLayout,
     syncBookmarkSurfaceMode,
     setBookmarkSurfaceVisible,
-    updateBookmarkModeMenu,
     followBookmarkViewMode,
     setBookmarkViewMode,
     navigateBookmarkFolder
@@ -1302,34 +1304,18 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     setContentSectionVisible,
     bookmarkSection,
     bookmarkCards,
-    markBookmarkDataDirty: (...args) => markBookmarkDataDirty(...args),
-    loadBookmarks: (...args) => loadBookmarks(...args),
     closeBookmarkCascadeMenu,
     showTopActionTooltip,
     hideTopActionTooltip,
     renderBookmarkHeader: pageStructureRuntime.bookmark.renderHeader,
-    getBookmarkModeMenuOptions: () => getBookmarkModeMenuOptions(),
+    getBookmarkModeMenuOptions,
     handleBookmarkModeMenuAction,
-    goToBookmarkPage: (step) => {
-      const target = bookmarksShown.currentPage + step;
-      if (target < 0 || target >= getBookmarkPageCount()) {
-        return;
-      }
-      switchBookmarkPage(target);
-    },
     openBookmarkManager: () => {
       if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
         return;
       }
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'openBookmarkManager' });
     }
-  });
-
-  const { getBookmarkModeMenuOptions } = NEWTAB_BOOKMARK_MODE_MENU.createBookmarkModeMenu({
-    settings,
-    t,
-    getEffectiveBookmarkTopbarSurfaceMode,
-    getBookmarkTopbarLayout,
   });
 
   const {
@@ -1651,7 +1637,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     updateBookmarkGridHeightLock,
     renderCurrentBookmarkPage,
     switchBookmarkPageDuringDrag,
-    switchBookmarkPage,
     handleBookmarkWheel
   } = NEWTAB_BOOKMARK_PAGER.createBookmarkPager({
     setBookmarkSurfaceVisible,

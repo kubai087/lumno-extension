@@ -26,6 +26,7 @@ import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import type { DragSessions } from './drag-sessions';
 import { bookmarkSectionEvents } from './bookmarks/bookmark-section-events';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
+import { recentEvents } from './recent/recent-events';
 
 interface SectionLoadOptions {
   force?: boolean;
@@ -58,7 +59,7 @@ interface SectionLoadersDeps extends
   bookmarksRuntime: Pick<BookmarksRuntime, 'invalidate'>;
   appliedTheme: Pick<AppliedThemeMode, 'applied'>;
   shortcutList: Pick<ShortcutList, 'items'>;
-  recentShown: Pick<RecentSitesShown, 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'setItems' | 'signature'>;
+  recentShown: Pick<RecentSitesShown, 'drawn' | 'forgetSignature' | 'items' | 'loadedOnce' | 'markLoaded' | 'setItems' | 'signature'>;
   bookmarksShown: Pick<BookmarksShown, 'allItems' | 'clear' | 'currentFolderId' | 'currentPage' | 'drawn' | 'forgetSignature' | 'loadedOnce' | 'markLoaded' | 'renderSignature' | 'rootFolderId' | 'setItems' | 'setRootCounts' | 'showPage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'view'>;
   bookmarkGrid: HTMLElement;
@@ -393,6 +394,16 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       shownMessages = messages;
       forceReloadRecentSitesForI18n();
     }
+  });
+
+  bookmarkSectionEvents.on('shownChanged', ({ force }) => {
+    markBookmarkDataDirty();
+    void loadBookmarks(force ? { force: true } : undefined);
+  });
+
+  recentEvents.on('cardsStale', () => {
+    recentShown.forgetSignature();
+    renderRecentSites(recentShown.items);
   });
   return {
     startSectionDataPass,

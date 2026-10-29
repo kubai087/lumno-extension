@@ -10,6 +10,7 @@ import { BOOKMARK_TOPBAR_LAYOUT_ACTION, BOOKMARK_TOPBAR_PICK_COLOR_ACTION, BOOKM
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
+import { bookmarkSectionEvents } from './bookmark-section-events';
 
 type BookmarkViewMode = 'folder' | 'list' | 'top';
 type BookmarkTopbarLayout = ReturnType<typeof BookmarksTopbar.normalizeLayout>;
@@ -20,8 +21,6 @@ type ResolvedTheme = 'light' | 'dark';
 interface BookmarkDisplaySettingsDeps {
   // The bar's material and layout stay on this device.
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'remove' | 'set' | 'subscribe'>;
-  updateBookmarkModeMenu(): void;
-  setNewtabTopLayout(layout: BookmarkTopbarLayout): void;
   showToast: ShowToast;
   t: Translate;
   bookmarkParts: Pick<BookmarkSectionParts, 'topbar'>;
@@ -37,8 +36,6 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
   const {
     bookmarkParts,
     settings,
-    updateBookmarkModeMenu,
-    setNewtabTopLayout,
     showToast,
     t,
     appliedTheme
@@ -68,10 +65,7 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
     if (bookmarkParts.topbar) {
       bookmarkParts.topbar.setLayout(layout);
     }
-    setNewtabTopLayout(layout);
-    if (updateMenu) {
-      updateBookmarkModeMenu();
-    }
+    bookmarkSectionEvents.emit('topbarStyled', { layout, menu: updateMenu });
   }
 
   function normalizeBookmarkTopbarSurfaceColor(value: unknown): string {
@@ -135,7 +129,7 @@ function createBookmarkDisplaySettings(deps: BookmarkDisplaySettingsDeps) {
       bookmarkParts.topbar.setSurfaceColor(effectiveMode === 'custom' ? getSurfaceColor() : '');
     }
     if (config.updateMenu !== false) {
-      updateBookmarkModeMenu();
+      bookmarkSectionEvents.emit('topbarStyled', { layout: getBookmarkTopbarLayout(), menu: true });
     }
     if (config.scheduleTone !== false) {
       adaptiveToneEvents.emit('stale', {});

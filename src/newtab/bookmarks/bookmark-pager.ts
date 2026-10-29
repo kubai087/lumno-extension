@@ -434,6 +434,14 @@ function createBookmarkPager(deps: BookmarkPagerDeps) {
     updateBookmarkGridHeightLock();
     updateBookmarkSectionPosition();
   }
+
+  // The header's pager turns a page within the pages there are.
+  bookmarkSectionEvents.on('pageRequested', ({ step }) => {
+    const target = bookmarksShown.currentPage + step;
+    if (target >= 0 && target < getBookmarkPageCount()) {
+      switchBookmarkPage(target);
+    }
+  });
   return {
     getBookmarkPageCount,
     updateBookmarkPagerState,

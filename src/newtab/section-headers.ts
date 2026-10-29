@@ -5,7 +5,6 @@ import type { BookmarkCascadeActions } from './bookmarks/bookmark-cascade-action
 import type { Translate } from './newtab-types';
 import type { PageLayout } from './page-layout';
 import type { BookmarkHeaderModel } from './react/bookmark-header';
-import type { SectionLoaders } from './section-loaders';
 import type { TooltipBindings } from './tooltip-bindings';
 import { newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
@@ -16,6 +15,7 @@ import type { BookmarksShown } from './bookmarks/bookmarks-shown';
 import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
 import { getNewtabViewportTopPaddingPx } from './dom/top-inset';
 import type { SurfaceLocale } from '../shared/i18n/surface-locale';
+import { bookmarkSectionEvents } from './bookmarks/bookmark-section-events';
 
 // Matches the id the display mode menu has always had, which tests and styles may name.
 const BOOKMARK_MODE_MENU_ID = '_x_extension_newtab_bookmark_mode_2026_unique_';
@@ -27,14 +27,11 @@ interface SectionHeadersDeps extends
   preview: Pick<SettingPreview, 'get'>;
   settings: Pick<SettingsStore, 'get' | 'include' | 'set' | 'subscribe'>;
   t: Translate;
-  markBookmarkDataDirty: SectionLoaders['markBookmarkDataDirty'];
-  loadBookmarks: SectionLoaders['loadBookmarks'];
   bookmarkSection: HTMLElement | null;
   bookmarkCards: readonly HTMLElement[];
   renderBookmarkHeader(model: BookmarkHeaderModel): void;
   getBookmarkModeMenuOptions(): SelectMenuOption[];
   handleBookmarkModeMenuAction(action: string): void;
-  goToBookmarkPage(step: -1 | 1): void;
   openBookmarkManager(): void;
   bookmarksShown: Pick<BookmarksShown, 'folderPath' | 'forgetSignature' | 'loadedOnce' | 'openFolder' | 'pagerAvailability' | 'rootFolderId' | 'showPage'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade' | 'topbar'>;
@@ -54,15 +51,12 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     setContentSectionVisible,
     bookmarkSection,
     bookmarkCards,
-    markBookmarkDataDirty,
-    loadBookmarks,
     closeBookmarkCascadeMenu,
     showTopActionTooltip,
     hideTopActionTooltip,
     renderBookmarkHeader,
     getBookmarkModeMenuOptions,
     handleBookmarkModeMenuAction,
-    goToBookmarkPage,
     openBookmarkManager,
     locale
   } = deps;
@@ -158,8 +152,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
       if (first && !bookmarksShown.loadedOnce) {
         bookmarksShown.showPage(0);
         bookmarksShown.forgetSignature();
-        markBookmarkDataDirty();
-        void loadBookmarks();
+        bookmarkSectionEvents.emit('shownChanged', { force: false });
       }
       return;
     }
@@ -172,8 +165,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
       bookmarksShown.forgetSignature();
     }
     updateBookmarkModeMenu();
-    markBookmarkDataDirty();
-    void loadBookmarks(first ? undefined : { force: true });
+    bookmarkSectionEvents.emit('shownChanged', { force: !first });
   }
 
   // Settles once the stored view mode is drawn.
@@ -193,7 +185,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     }
     closeBookmarkCascadeMenu();
     bookmarksShown.openFolder(id);
-    void loadBookmarks({ force: true });
+    bookmarkSectionEvents.emit('shownChanged', { force: true });
   }
 
   function updateBookmarkHeader(): void {
@@ -231,7 +223,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
       },
       actionsInTopbar: Boolean(topbar && topbar.isActive()),
       onNavigate: navigateBookmarkFolder,
-      onPage: goToBookmarkPage,
+      onPage: (step) => bookmarkSectionEvents.emit('pageRequested', { step }),
       onOpenManager: openBookmarkManager,
       showTooltip: (target, label, placement) => showTopActionTooltip(target, label, { placement }),
       hideTooltip: hideTopActionTooltip,
@@ -243,6 +235,15 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
 
   // The display mode menu reads its labels in the page's language.
   locale.store.subscribe(() => updateBookmarkModeMenu());
+
+  // The top bar's layout sets how much of the top the page keeps clear, and
+  // the display menu shows the bar's layout and background as they are.
+  bookmarkSectionEvents.on('topbarStyled', ({ layout, menu }) => {
+    setNewtabTopLayout(layout);
+    if (menu) {
+      updateBookmarkModeMenu();
+    }
+  });
   return {
     setRecentMode,
     updateBookmarkHeader,
