@@ -3,7 +3,6 @@
 // buttons the page shows.
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
-import type { FeatureHintController } from '../../shared/ui/feature-hint-catalog';
 import type { FormatMessage, Translate } from '../newtab-types';
 import type { PageNavigation } from '../page-navigation';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
@@ -15,14 +14,10 @@ import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import * as FEATURE_HINTS from '../../shared/ui/feature-hints';
 import { getPagePortals } from '../app/portals';
 import type { SearchBoxParts } from './search-box-parts';
+import type { PageNoticeControllers } from '../notice-controllers';
 
 interface SearchBoxControlsState {
-  // Counts the uses the review notice waits for.
-  engagementNoticeController: { recordMeaningfulUse?(): void } | null;
-  webdavFeatureHintController: FeatureHintController | null;
-  feedbackReactController: unknown;
   wallpaperRuntime: unknown;
-  feedbackControl: HTMLElement | null;
   wallpaperControl: HTMLElement | null;
 }
 
@@ -43,11 +38,14 @@ interface SearchBoxControlsDeps {
   closeFeedbackPopover(): void;
   closeWallpaperPanel(): void;
   searchBox: Pick<SearchBoxParts, 'inputParts' | 'modeController'>;
+  notices: Pick<PageNoticeControllers, 'engagement' | 'mountWebdavHint' | 'webdavHint'>;
   pageState: SearchBoxControlsState;
+  getFeedbackControl(): HTMLElement | null;
 }
 
 function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   const {
+    notices,
     searchBox,
     searchMode,
     settings,
@@ -62,7 +60,8 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
     getOpenDisposition,
     searchInput,
     closeFeedbackPopover,
-    closeWallpaperPanel
+    closeWallpaperPanel,
+    getFeedbackControl
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -82,7 +81,7 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   });
 
   inputParts.input.addEventListener('input', function() {
-    const notice = pageState.engagementNoticeController;
+    const notice = notices.engagement;
     if (!String(inputParts.input.value || '').trim() ||
         !notice || !notice.recordMeaningfulUse) {
       return;
@@ -139,12 +138,12 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
           });
         }
       });
-      pageState.webdavFeatureHintController = hint;
+      notices.mountWebdavHint(hint);
       if (hint) {
         inputParts.container.appendChild(hint.element);
         helpCenterAskHintSettled.then((helpTipShowing) => {
-          if (!helpTipShowing && pageState.webdavFeatureHintController) {
-            pageState.webdavFeatureHintController.setVisible(true);
+          if (!helpTipShowing && notices.webdavHint) {
+            notices.webdavHint.setVisible(true);
           }
         });
       }
@@ -195,13 +194,13 @@ function createSearchBoxControls(deps: SearchBoxControlsDeps) {
   }
 
   function applyNewtabActionButtonVisibility(): void {
-    if (!settings.get(newtabFeedbackButtonVisible) && pageState.feedbackReactController) {
+    if (!settings.get(newtabFeedbackButtonVisible) && getFeedbackControl()) {
       closeFeedbackPopover();
     }
     if (!settings.get(newtabAppearanceButtonVisible) && pageState.wallpaperRuntime) {
       closeWallpaperPanel();
     }
-    setNewtabActionControlVisibility(pageState.feedbackControl, settings.get(newtabFeedbackButtonVisible));
+    setNewtabActionControlVisibility(getFeedbackControl(), settings.get(newtabFeedbackButtonVisible));
     setNewtabActionControlVisibility(pageState.wallpaperControl, settings.get(newtabAppearanceButtonVisible));
   }
 

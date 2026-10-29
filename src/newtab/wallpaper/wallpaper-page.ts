@@ -42,7 +42,6 @@ interface WallpaperPageState {
   quoteRuntime: Pick<QuoteRuntime, 'element' | 'getTextElement' | 'bindSettings' | 'getProviderLabel' | 'updateLanguage'> | null;
   sectionPanelSettings: (SectionPanelSettings & { updateLanguage(): void }) | null;
   recentHeader: HTMLElement | null;
-  feedbackButton: HTMLElement | null;
   bottomDockScroller: HTMLElement | null;
   wallpaperRuntime: WallpaperRuntime | null;
   wallpaperControl: HTMLDivElement | null;
@@ -88,6 +87,7 @@ interface WallpaperPageDeps {
   initialNewtabInputAutoFocusReadyTask: PromiseLike<unknown>;
   followTheme(): PromiseLike<unknown>;
   pageState: WallpaperPageState;
+  getFeedbackButton(): HTMLElement | null;
 }
 
 function createWallpaperPage(deps: WallpaperPageDeps) {
@@ -123,7 +123,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     setNewtabShortcutGap,
     newtabEntryAnimationReadyPromise,
     initialNewtabInputAutoFocusReadyTask,
-    followTheme
+    followTheme,
+    getFeedbackButton
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -241,8 +242,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
         iconButton: true
       },
       {
-        element: pageState.feedbackButton,
-        sampleElement: pageState.feedbackButton,
+        element: getFeedbackButton(),
+        sampleElement: getFeedbackButton(),
         minWidth: 42,
         minHeight: 42,
         iconButton: true

@@ -7,6 +7,7 @@ import { createDock } from '../react/dock';
 import { NEWTAB_MOBILE_FLOW_BREAKPOINT_PX } from '../newtab-config';
 import type { ViewportActivity } from '../viewport-activity';
 import type { SearchBoxParts } from '../search/search-box-parts';
+import type { PageNoticeControllers } from '../notice-controllers';
 
 // A part of the page that may show an element of its own.
 type ElementOwner = { element?: HTMLElement | null } | null;
@@ -16,8 +17,6 @@ interface BottomDockRuntimeState {
   shortcutSection: HTMLElement | null;
   quoteRuntime: ElementOwner;
   recentSection: HTMLElement | null;
-  updateNoticeController: ElementOwner;
-  engagementNoticeController: ElementOwner;
   bottomDockScroller: HTMLElement | null;
   layoutController: LayoutController | null;
   layoutMotion: LayoutMotion | null;
@@ -36,6 +35,7 @@ interface BottomDockRuntimeDeps {
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
   suggestionsContainer: HTMLElement;
   searchLayer: HTMLElement;
+  notices: Pick<PageNoticeControllers, 'engagement' | 'update'>;
   pageState: BottomDockRuntimeState;
 }
 
@@ -51,7 +51,8 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
     getNewtabTopOccupiedInsetPx,
     shouldAnimateNewtabLayoutShift,
     applyNewtabWidthMode,
-    viewport
+    viewport,
+    notices
   } = deps;
 
   // The page state object shared with newtab.js and the other modules.
@@ -119,10 +120,10 @@ function createBottomDockRuntime(deps: BottomDockRuntimeDeps) {
       { key: 'search', element: root },
       { key: 'shortcuts', element: pageState.shortcutSection },
       { key: 'quote', element: pageState.quoteRuntime && pageState.quoteRuntime.element },
-      { key: 'updateNotice', element: pageState.updateNoticeController && pageState.updateNoticeController.element },
+      { key: 'updateNotice', element: notices.update && notices.update.element },
       {
         key: 'engagementNotice',
-        element: pageState.engagementNoticeController && pageState.engagementNoticeController.element
+        element: notices.engagement && notices.engagement.element
       },
       { key: 'bookmarks', element: bookmarkSection, mover: bottomDock },
       { key: 'recent', element: recentSection, mover: bottomDock }

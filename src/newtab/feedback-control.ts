@@ -10,12 +10,6 @@ import type { SurfaceLocale } from '../shared/i18n/surface-locale';
 import * as COMMUNITY_LINKS from '../platform/community-links';
 import { createFeedbackControlController } from './react/feedback';
 
-interface FeedbackControlState {
-  feedbackLinks: CommunityLinks | null;
-  feedbackControl: HTMLDivElement | null;
-  feedbackButton: HTMLElement | null;
-  feedbackReactController: FeedbackControlController | null;
-}
 
 interface FeedbackControlDeps {
   locale: Pick<SurfaceLocale, 'store'>;
@@ -23,7 +17,6 @@ interface FeedbackControlDeps {
   openExternalNewTabUrl(url: string, disposition: Disposition): boolean;
   hideTopActionTooltip(): void;
   showTopActionTooltip(anchor: HTMLElement, text: string, options?: { checkActive?: boolean; placement?: string }): void;
-  pageState: FeedbackControlState;
 }
 
 function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
@@ -35,8 +28,12 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
     showTopActionTooltip
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
+  // The community links the popover shows; the fallback until they load.
+  let feedbackLinks: CommunityLinks = COMMUNITY_LINKS.FALLBACK_LINKS;
+  // The control's host, its button and the React controller drawing it, once made.
+  let feedbackControl: HTMLDivElement | null = null;
+  let feedbackButton: HTMLElement | null = null;
+  let feedbackReactController: FeedbackControlController | null = null;
 
   const LUMNO_FEEDBACK_QR_REFRESH_TIMEOUT_MS = 5000;
   let feedbackRefreshResultTooltipTimer = 0;
@@ -49,13 +46,13 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   function loadFeedbackLinks(options?: { force?: boolean }): Promise<CommunityLinks | null> {
     const force = Boolean(options && options.force);
     if (!force && feedbackLinksLoaded) {
-      return Promise.resolve(pageState.feedbackLinks);
+      return Promise.resolve(feedbackLinks);
     }
     return COMMUNITY_LINKS.load({ force })
       .then((links) => {
-        pageState.feedbackLinks = links || COMMUNITY_LINKS.FALLBACK_LINKS;
+        feedbackLinks = links || COMMUNITY_LINKS.FALLBACK_LINKS;
         feedbackLinksLoaded = true;
-        return pageState.feedbackLinks;
+        return feedbackLinks;
       });
   }
 
@@ -121,7 +118,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   }
 
   function buildFeedbackReactModel(): FeedbackControlModel {
-    const links = pageState.feedbackLinks || COMMUNITY_LINKS.FALLBACK_LINKS;
+    const links = feedbackLinks || COMMUNITY_LINKS.FALLBACK_LINKS;
     const channel = getFeedbackCommunityChannel(links);
     return {
       buttonLabel: t('newtab_feedback_button_aria', 'Send feedback'),
@@ -159,18 +156,18 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   }
 
   function syncFeedbackReactElementReferences(): void {
-    if (!pageState.feedbackControl) {
+    if (!feedbackControl) {
       return;
     }
-    pageState.feedbackButton = queryHtmlElement(pageState.feedbackControl, '.x-nt-feedback-button');
+    feedbackButton = queryHtmlElement(feedbackControl, '.x-nt-feedback-button');
   }
 
   function renderFeedbackControlWithReact(): boolean {
-    if (!pageState.feedbackReactController ||
-        typeof pageState.feedbackReactController.render !== 'function') {
+    if (!feedbackReactController ||
+        typeof feedbackReactController.render !== 'function') {
       return false;
     }
-    pageState.feedbackReactController.render(buildFeedbackReactModel());
+    feedbackReactController.render(buildFeedbackReactModel());
     syncFeedbackReactElementReferences();
     return true;
   }
@@ -188,7 +185,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   }
 
   function isFeedbackPopoverOpen(): boolean {
-    return Boolean(pageState.feedbackReactController && pageState.feedbackReactController.isOpen());
+    return Boolean(feedbackReactController && feedbackReactController.isOpen());
   }
 
   function closeFeedbackPopover(options?: { restoreFocus?: boolean }): void {
@@ -200,7 +197,7 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
       clearFeedbackRefreshResultTooltipTimer();
       hideTopActionTooltip();
     }
-    const controller = pageState.feedbackReactController;
+    const controller = feedbackReactController;
     if (!controller) {
       return;
     }
@@ -212,14 +209,14 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
   }
 
   LumnoNewtabDismissStack.getDismissStack().register('feedback-popover', {
-    isOpen: () => Boolean(pageState.feedbackReactController && isFeedbackPopoverOpen()),
+    isOpen: () => Boolean(feedbackReactController && isFeedbackPopoverOpen()),
     close: () => closeFeedbackPopover({ restoreFocus: true })
   });
 
-  function createFeedbackControls(): void {
+  function createFeedbackControls(): HTMLDivElement {
     const control = document.createElement('div');
-    pageState.feedbackControl = control;
-    pageState.feedbackReactController =
+    feedbackControl = control;
+    feedbackReactController =
       createFeedbackControlController(
         control,
         {
@@ -238,8 +235,8 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
           async onRefreshQr() {
             try {
               const links = await loadFeedbackLinks({ force: true });
-              pageState.feedbackLinks = links || pageState.feedbackLinks;
-              const currentLinks = pageState.feedbackLinks;
+              feedbackLinks = links || feedbackLinks;
+              const currentLinks = feedbackLinks;
               const channel = getFeedbackCommunityChannel(currentLinks);
               if (channel !== 'wechat') {
                 renderFeedbackControlWithReact();
@@ -282,9 +279,25 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
         }
       );
     renderFeedbackControlWithReact();
+    return control;
+  }
+
+  function getFeedbackLinks(): CommunityLinks {
+    return feedbackLinks;
+  }
+
+  function getFeedbackControl(): HTMLDivElement | null {
+    return feedbackControl;
+  }
+
+  function getFeedbackButton(): HTMLElement | null {
+    return feedbackButton;
   }
 
   return {
+    getFeedbackLinks,
+    getFeedbackControl,
+    getFeedbackButton,
     getFeedbackWebLocale,
     openFeedbackExternalUrl,
     updateFeedbackLanguageStrings,
@@ -297,4 +310,4 @@ function createFeedbackControlRuntime(deps: FeedbackControlDeps) {
 type FeedbackControlRuntime = ReturnType<typeof createFeedbackControlRuntime>;
 
 export { createFeedbackControlRuntime };
-export type { FeedbackControlDeps, FeedbackControlRuntime, FeedbackControlState };
+export type { FeedbackControlDeps, FeedbackControlRuntime };

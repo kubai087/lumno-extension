@@ -170,6 +170,7 @@ import { RecentPointer } from './recent/recent-pointer';
 import { getPagePortals } from './app/portals';
 import { SearchBoxParts } from './search/search-box-parts';
 import { OpenTabs } from '../shared/search-panel/open-tabs';
+import { PageNoticeControllers } from './notice-controllers';
 import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-preview';
 
 (function() {
@@ -210,6 +211,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const suggestionInputPreview = SUGGESTION_INPUT_PREVIEW.createSuggestionInputPreview();
   // The window's tabs, which results switch to.
   const openTabs = new OpenTabs([], null);
+  // The page's notices and feature hints, mounted by the parts that make them.
+  const notices = new PageNoticeControllers();
 
 
   const startupRecentSourceReadsAt = Date.now();
@@ -286,6 +289,9 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const sanitizeDisplayText = SearchDirectNavigation.sanitizeDisplayText;
 
   const {
+    getFeedbackLinks,
+    getFeedbackControl,
+    getFeedbackButton,
     getFeedbackWebLocale,
     openFeedbackExternalUrl,
     updateFeedbackLanguageStrings,
@@ -297,8 +303,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     t,
     openExternalNewTabUrl: (...args) => openExternalNewTabUrl(...args),
     hideTopActionTooltip: (...args) => hideTopActionTooltip(...args),
-    showTopActionTooltip: (...args) => showTopActionTooltip(...args),
-    pageState
+    showTopActionTooltip: (...args) => showTopActionTooltip(...args)
   });
 
   const SITE_DISPLAY_NAME_OPTIONS = createSiteDisplayNameOptions(t);
@@ -322,7 +327,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     copySearchResultUrl
   } = NEWTAB_CLIPBOARD_ACTIONS.createClipboardActions({
     t,
-    pageState
+    toastController: createToastController(document.getElementById('_x_extension_toast_2024_unique_'), getPagePortals(), { windowObj: window })
   });
   const shortcutTiles: ShortcutTileElement[] = [];
 
@@ -492,7 +497,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   const viewportActivity = new ViewportActivity();
   viewportActivity.follow(window);
   const recentPointer = new RecentPointer();
-  pageState.feedbackLinks = LumnoCommunityLinks.FALLBACK_LINKS;
   const bookmarkMoveHistory = NEWTAB_BOOKMARK_MOVE_HISTORY.createBookmarkMoveHistory({ maxEntries: 30 });
 
   const {
@@ -846,6 +850,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     followTheme,
     syncSystemThemeMode
   } = NEWTAB_APPEARANCE_MODES.createAppearanceModes({
+    notices,
     searchBox,
     modeActions,
     searchResults,
@@ -874,8 +879,6 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     initialThemeReadyPromise,
     pageState
   });
-  const toastElement = document.getElementById('_x_extension_toast_2024_unique_');
-  pageState.toastController = createToastController(toastElement, getPagePortals(), { windowObj: window });
 
   const {
     syncSearchModeMenuResultOffset,
@@ -1016,6 +1019,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     closeWallpaperPanel,
     scheduleWallpaperAdaptiveToneUpdate
   } = NEWTAB_WALLPAPER_PAGE.createWallpaperPage({
+    getFeedbackButton,
     settings,
     preview,
     shortcutTiles,
@@ -1648,6 +1652,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     bottomDockRuntime,
     bottomDock
   } = NEWTAB_BOTTOM_DOCK_RUNTIME.createBottomDockRuntime({
+    notices,
     searchLayer,
     suggestionsContainer,
     searchBox,
@@ -2181,6 +2186,8 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     dismissHelpCenterAskHint,
     dismissWebdavFeatureHint
   } = NEWTAB_PAGE_NOTICES.createPageNotices({
+    getFeedbackLinks,
+    notices,
     searchBox,
     modeActions,
     locale,
@@ -2193,14 +2200,15 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
     openFeedbackExternalUrl,
     newtabEntryAnimationReadyPromise,
     root,
-    siteSearchCatalog,
-    pageState
+    siteSearchCatalog
   });
 
   const {
     updateInputRightPadding,
     followNewtabActionButtonVisibility
   } = NEWTAB_SEARCH_BOX_CONTROLS.createSearchBoxControls({
+    getFeedbackControl,
+    notices,
     searchBox,
     searchMode,
     settings,
@@ -2318,13 +2326,13 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   });
 
   createWallpaperControls();
-  createFeedbackControls();
+  const feedbackControl = createFeedbackControls();
   document.addEventListener('pointerdown', function(event) {
     if (!isFeedbackPopoverOpen()) {
       return;
     }
     const target = isNode(event.target) ? event.target : null;
-    if (pageState.feedbackControl && (target === pageState.feedbackControl || pageState.feedbackControl.contains(target))) {
+    if (target === feedbackControl || feedbackControl.contains(target)) {
       return;
     }
     closeFeedbackPopover();
@@ -2357,10 +2365,11 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   if (pageState.shortcutSection) {
     document.body.insertBefore(pageState.shortcutSection, newtabUpdateNoticeAnchor);
   }
-  if (pageState.updateNoticeController && pageState.updateNoticeController.element) {
-    document.body.insertBefore(pageState.updateNoticeController.element, newtabUpdateNoticeAnchor);
-    if (typeof pageState.updateNoticeController.recordExposure === 'function') {
-      pageState.updateNoticeController.recordExposure();
+  const updateNotice = notices.update;
+  if (updateNotice && updateNotice.element) {
+    document.body.insertBefore(updateNotice.element, newtabUpdateNoticeAnchor);
+    if (typeof updateNotice.recordExposure === 'function') {
+      updateNotice.recordExposure();
     }
   }
   document.body.insertBefore(suggestionsSurface, newtabUpdateNoticeAnchor);
@@ -2369,28 +2378,28 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   // 等首轮语言解析完成后再创建，避免默认文案在新标签页首帧短暂闪现。
   Promise.all([
     locale.ready,
-    pageState.updateNoticeController && pageState.updateNoticeController.ready
-      ? pageState.updateNoticeController.ready
-      : Promise.resolve(false)
+    updateNotice && updateNotice.ready ? updateNotice.ready : Promise.resolve(false)
   ]).then(() => {
-    if (pageState.engagementNoticeController) {
+    if (notices.engagement) {
       return;
     }
     const noticeAnchor = suggestionsSurface.parentNode === document.body
       ? suggestionsSurface
       : newtabUpdateNoticeAnchor;
-    pageState.graphicsNoticeController = createNewtabGraphicsNoticeController();
-    if (pageState.graphicsNoticeController && pageState.graphicsNoticeController.element) {
-      document.body.insertBefore(pageState.graphicsNoticeController.element, noticeAnchor);
+    const graphicsNotice = createNewtabGraphicsNoticeController();
+    notices.mountGraphics(graphicsNotice);
+    if (graphicsNotice && graphicsNotice.element) {
+      document.body.insertBefore(graphicsNotice.element, noticeAnchor);
     }
-    pageState.engagementNoticeController = createNewtabEngagementNoticeController();
-    if (!pageState.engagementNoticeController || !pageState.engagementNoticeController.element) {
+    const engagementNotice = createNewtabEngagementNoticeController();
+    notices.mountEngagement(engagementNotice);
+    if (!engagementNotice || !engagementNotice.element) {
       return;
     }
-    document.body.insertBefore(pageState.engagementNoticeController.element, noticeAnchor);
+    document.body.insertBefore(engagementNotice.element, noticeAnchor);
     if (String(inputParts.input.value || '').trim() &&
-        typeof pageState.engagementNoticeController.recordMeaningfulUse === 'function') {
-      pageState.engagementNoticeController.recordMeaningfulUse();
+        typeof engagementNotice.recordMeaningfulUse === 'function') {
+      engagementNotice.recordMeaningfulUse();
     }
   });
   if (pageState.bookmarkTopbarRuntime) {
@@ -2403,9 +2412,7 @@ import * as SUGGESTION_INPUT_PREVIEW from '../domain/search/suggestion-input-pre
   if (pageState.wallpaperControl) {
     document.body.appendChild(pageState.wallpaperControl);
   }
-  if (pageState.feedbackControl) {
-    document.body.appendChild(pageState.feedbackControl);
-  }
+  document.body.appendChild(feedbackControl);
   if (pageState.shortcutDialogController) {
     pageState.shortcutDialogController.mount(document.body);
   }

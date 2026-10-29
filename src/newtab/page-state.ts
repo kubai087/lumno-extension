@@ -11,16 +11,13 @@ import type { BookmarkDragControllerState } from './bookmarks/bookmark-drag-cont
 import type { BookmarkPagerState } from './bookmarks/bookmark-pager';
 import type { BookmarkSectionState } from './bookmarks/bookmark-section';
 import type { BottomDockRuntimeState } from './shortcuts/bottom-dock-runtime';
-import type { ClipboardActionsState } from './clipboard-actions';
 import type { EntryMotionState } from './entry-motion';
-import type { FeedbackControlState } from './feedback-control';
 import type { FolderColorsState } from './bookmarks/folder-colors';
 import type { InputFocusState } from './input-focus';
 import type { ModeCommandsState } from './mode-commands';
 import type { PageFaviconsState } from './theme/page-favicons';
 import type { PageKeyboardState } from './page-keyboard';
 import type { PageLayoutState } from './page-layout';
-import type { PageNoticesState } from './page-notices';
 import type { PagePreferencesState } from './page-preferences';
 import type { PageResizeState } from './page-resize';
 import type { RecentCardDrag, RecentCardDragState } from './recent/recent-card-drag';
@@ -66,16 +63,13 @@ type NewtabPageState =
   BookmarkPagerState &
   BookmarkSectionState &
   BottomDockRuntimeState &
-  ClipboardActionsState &
   EntryMotionState &
-  FeedbackControlState &
   FolderColorsState &
   InputFocusState &
   ModeCommandsState &
   PageFaviconsState &
   PageKeyboardState &
   PageLayoutState &
-  PageNoticesState &
   PagePreferencesState &
   PageResizeState &
   RecentCardDragState &
@@ -122,11 +116,6 @@ function createPageState(): NewtabPageState {
     wallpaperRuntime: null,
     quoteRuntime: null,
     sectionPanelSettings: null,
-    updateNoticeController: null,
-    graphicsNoticeController: null,
-    engagementNoticeController: null,
-    webdavFeatureHintController: null,
-    helpCenterAskHintController: null,
     bookmarkCurrentPage: 0,
     bookmarkAllItems: [],
     bookmarkCurrentFolderId: '1',
@@ -170,11 +159,6 @@ function createPageState(): NewtabPageState {
     shortcutGrid: null,
     addShortcutButton: null,
     recentSection: null,
-    toastController: null,
-    feedbackLinks: null,
-    feedbackControl: null,
-    feedbackButton: null,
-    feedbackReactController: null,
     folderColorPicker: null,
     recentContextMenu: null,
     recentContextMenuSelectController: null,

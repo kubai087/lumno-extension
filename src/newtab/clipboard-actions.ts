@@ -4,49 +4,31 @@
 import type { ToastController, ToastTask } from '../shared/ui/toast-screen';
 import type { ShowToast, Translate } from './newtab-types';
 
-interface ClipboardActionsState {
-  toastController: Partial<Pick<ToastController, 'show' | 'hide' | 'begin'>> | null;
-}
-
 interface ClipboardActionsDeps {
   t: Translate;
-  pageState: ClipboardActionsState;
+  toastController: Pick<ToastController, 'show' | 'hide' | 'begin'>;
 }
 
 function createClipboardActions(deps: ClipboardActionsDeps) {
   const {
-    t
+    t,
+    toastController
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
-
   function hideToast(): void {
-    if (pageState.toastController && typeof pageState.toastController.hide === 'function') {
-      pageState.toastController.hide();
-    }
+    toastController.hide();
   }
 
   const showToast: ShowToast = (message, isError, options) => {
-    if (pageState.toastController && typeof pageState.toastController.show === 'function') {
-      pageState.toastController.show(message, {
-        ...options,
-        error: Boolean(isError)
-      });
-    }
+    toastController.show(message, {
+      ...options,
+      error: Boolean(isError)
+    });
   };
 
   // A task that may run long: its loading Toast turns into the result in place.
   function beginToast(message: string): ToastTask {
-    if (pageState.toastController && typeof pageState.toastController.begin === 'function') {
-      return pageState.toastController.begin(message);
-    }
-    return {
-      update() {},
-      done(result) { if (result) showToast(String(result), false); },
-      fail(result) { if (result) showToast(String(result), true); },
-      cancel() {}
-    };
+    return toastController.begin(message);
   }
 
   function fallbackCopyText(text: unknown): boolean {
@@ -133,4 +115,4 @@ function createClipboardActions(deps: ClipboardActionsDeps) {
 type ClipboardActions = ReturnType<typeof createClipboardActions>;
 
 export { createClipboardActions };
-export type { ClipboardActions, ClipboardActionsDeps, ClipboardActionsState };
+export type { ClipboardActions, ClipboardActionsDeps };

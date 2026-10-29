@@ -3,7 +3,6 @@
 import type { ThemeMode } from '../domain/settings';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { Suggestion } from '../shared/react/search/suggestion-list/types';
-import type { FeatureHintController } from '../shared/ui/feature-hint-catalog';
 import type { BookmarkDisplaySettings } from './bookmarks/bookmark-display-settings';
 import type { FeedbackControlRuntime } from './feedback-control';
 import type { ModeCommands } from './mode-commands';
@@ -32,9 +31,9 @@ import type { SearchResults } from '../shared/search-panel/search-results';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import { pageColorScheme } from './theme/page-color-scheme';
 import type { SearchBoxParts } from './search/search-box-parts';
+import type { PageNoticeControllers } from './notice-controllers';
 
 type ResolvedTheme = 'light' | 'dark';
-type LanguageAware = Pick<FeatureHintController, 'updateLanguage'>;
 
 interface AppearanceModesState {
   // The mode applied to the page, after scope and glass material are settled.
@@ -44,11 +43,6 @@ interface AppearanceModesState {
   topContentController: TopContentController | null;
   bookmarkTopbarRuntime: Pick<BookmarksTopbarRuntime, 'updateLanguage'> | null;
   quoteRuntime: Pick<QuoteRuntime, 'updateLanguage'> | null;
-  updateNoticeController: LanguageAware | null;
-  graphicsNoticeController: LanguageAware | null;
-  engagementNoticeController: LanguageAware | null;
-  webdavFeatureHintController: LanguageAware | null;
-  helpCenterAskHintController: LanguageAware | null;
   faviconViewRuntime: Pick<FaviconViewRuntime,
     'refreshFallbackIcons' | 'refreshThemeAwareFavicons' | 'scheduleThemeAwareFaviconRescue'> | null;
   wallpaperRuntime: Pick<WallpaperRuntime, 'handleThemeModeChange'> | null;
@@ -83,11 +77,13 @@ interface AppearanceModesDeps extends
   // Settle once the first theme and the first language are applied.
   initialThemeReadyPromise: Promise<unknown>;
   searchBox: Pick<SearchBoxParts, 'inputParts' | 'modeController'>;
+  notices: Pick<PageNoticeControllers, 'updateLanguage'>;
   pageState: AppearanceModesState;
 }
 
 function createAppearanceModes(deps: AppearanceModesDeps) {
   const {
+    notices,
     searchBox,
     modeActions,
     searchResults,
@@ -141,21 +137,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     if (searchBox.modeController) {
       searchBox.modeController.refreshModeMenuLanguage();
     }
-    if (pageState.updateNoticeController) {
-      pageState.updateNoticeController.updateLanguage();
-    }
-    if (pageState.graphicsNoticeController) {
-      pageState.graphicsNoticeController.updateLanguage();
-    }
-    if (pageState.engagementNoticeController) {
-      pageState.engagementNoticeController.updateLanguage();
-    }
-    if (pageState.webdavFeatureHintController) {
-      pageState.webdavFeatureHintController.updateLanguage();
-    }
-    if (pageState.helpCenterAskHintController) {
-      pageState.helpCenterAskHintController.updateLanguage();
-    }
+    notices.updateLanguage();
     if (searchBox.inputParts && searchBox.inputParts.input) {
       if (!searchMode.site && !searchMode.local) {
         searchBox.inputParts.input.placeholder = t('search_placeholder', 'Search or enter URL…');

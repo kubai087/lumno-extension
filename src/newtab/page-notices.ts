@@ -11,8 +11,6 @@ import type { Disposition, OpenEvent } from '../domain/navigation-disposition';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { EngagementNoticeController } from '../shared/engagement-notice';
 import type { GraphicsNoticeController } from '../shared/graphics-acceleration-notice';
-import type { FeatureHintController } from '../shared/ui/feature-hint-catalog';
-import type { UpdateNoticeController } from '../shared/update-notice';
 import type { Translate } from './newtab-types';
 import { renderPageNotice } from './react/page-notice';
 import * as SearchSiteSearchProviders from '../domain/search/utils/site-search-providers';
@@ -23,15 +21,8 @@ import * as FEATURE_HINTS from '../shared/ui/feature-hints';
 import * as COMMUNITY_LINKS from '../platform/community-links';
 import { getPagePortals } from './app/portals';
 import type { SearchBoxParts } from './search/search-box-parts';
+import type { PageNoticeControllers } from './notice-controllers';
 
-interface PageNoticesState {
-  updateNoticeController: UpdateNoticeController | null;
-  graphicsNoticeController: GraphicsNoticeController | null;
-  engagementNoticeController: EngagementNoticeController | null;
-  feedbackLinks: CommunityLinks | null;
-  helpCenterAskHintController: FeatureHintController | null;
-  webdavFeatureHintController: { dismiss?: () => void } | null;
-}
 
 interface PageNoticesDeps {
   modeActions: SearchModeActions<SiteSearchProvider>;
@@ -49,11 +40,13 @@ interface PageNoticesDeps {
   root: HTMLElement;
   siteSearchCatalog: Pick<SiteSearchCatalog, 'loadProviders'>;
   searchBox: Pick<SearchBoxParts, 'inputParts'>;
-  pageState: PageNoticesState;
+  notices: Pick<PageNoticeControllers, 'engagement' | 'graphics' | 'helpCenterAskHint' | 'mountHelpCenterAskHint' | 'mountUpdate' | 'update' | 'webdavHint'>;
+  getFeedbackLinks(): CommunityLinks;
 }
 
 function createPageNotices(deps: PageNoticesDeps) {
   const {
+    notices,
     searchBox,
     modeActions,
     locale,
@@ -66,11 +59,10 @@ function createPageNotices(deps: PageNoticesDeps) {
     openFeedbackExternalUrl,
     newtabEntryAnimationReadyPromise,
     root,
-    siteSearchCatalog
+    siteSearchCatalog,
+    getFeedbackLinks
   } = deps;
 
-  // The page state object shared with newtab.js and the other modules.
-  const pageState = deps.pageState;
 
   // The search box exists before this module is created.
   const inputParts = searchBox.inputParts;
@@ -158,15 +150,15 @@ function createPageNotices(deps: PageNoticesDeps) {
   }
   function updateNoticeClaimsSessionSlot(): boolean {
     return Boolean(
-      pageState.updateNoticeController &&
-      typeof pageState.updateNoticeController.hasSessionSlot === 'function' &&
-      pageState.updateNoticeController.hasSessionSlot()
+      notices.update &&
+      typeof notices.update.hasSessionSlot === 'function' &&
+      notices.update.hasSessionSlot()
     );
   }
   function graphicsNoticeClaimsSessionSlot(): boolean {
-    return Boolean(pageState.graphicsNoticeController && pageState.graphicsNoticeController.hasSessionSlot());
+    return Boolean(notices.graphics && notices.graphics.hasSessionSlot());
   }
-  pageState.updateNoticeController = UPDATE_NOTICE.createUpdateNotice({
+  notices.mountUpdate(UPDATE_NOTICE.createUpdateNotice({
     portals: getPagePortals(),
     documentObj: document,
     featureHints: FEATURE_HINTS,
@@ -174,9 +166,9 @@ function createPageNotices(deps: PageNoticesDeps) {
     surface: 'newtab',
     t,
     onSessionSlotClaimed() {
-      if (pageState.engagementNoticeController &&
-          typeof pageState.engagementNoticeController.suppressForSession === 'function') {
-        pageState.engagementNoticeController.suppressForSession();
+      if (notices.engagement &&
+          typeof notices.engagement.suppressForSession === 'function') {
+        notices.engagement.suppressForSession();
       }
     },
     onDetailsClick(_notice, event) {
@@ -186,7 +178,7 @@ function createPageNotices(deps: PageNoticesDeps) {
         disposition: getOpenDisposition(event, 'newTab')
       });
     }
-  });
+  }));
   // Shows only when the update notice leaves this page view's slot free.
   function createNewtabGraphicsNoticeController(): GraphicsNoticeController | null {
     return GRAPHICS_NOTICE.createGraphicsNotice({
@@ -195,14 +187,14 @@ function createPageNotices(deps: PageNoticesDeps) {
       chromeApi: chrome,
       surface: 'newtab',
       t,
-      exposureGate: pageState.updateNoticeController && pageState.updateNoticeController.ready,
+      exposureGate: notices.update && notices.update.ready,
       canShow() {
         return !updateNoticeClaimsSessionSlot() &&
           !String(searchInput.value || '').trim();
       },
       onSessionSlotClaimed() {
-        if (pageState.engagementNoticeController) {
-          pageState.engagementNoticeController.suppressForSession();
+        if (notices.engagement) {
+          notices.engagement.suppressForSession();
         }
       },
       onOpenSettings(event) {
@@ -223,14 +215,14 @@ function createPageNotices(deps: PageNoticesDeps) {
       locale: getFeedbackWebLocale(),
       t,
       exposureGate: Promise.all([
-        pageState.updateNoticeController && pageState.updateNoticeController.ready,
-        pageState.graphicsNoticeController && pageState.graphicsNoticeController.ready
+        notices.update && notices.update.ready,
+        notices.graphics && notices.graphics.ready
       ]),
       canShow() {
         const updateNoticeVisible = Boolean(
-          pageState.updateNoticeController &&
-          pageState.updateNoticeController.element &&
-          pageState.updateNoticeController.element.getAttribute('data-visible') === 'true'
+          notices.update &&
+          notices.update.element &&
+          notices.update.element.getAttribute('data-visible') === 'true'
         );
         return !updateNoticeVisible &&
           !updateNoticeClaimsSessionSlot() &&
@@ -241,7 +233,7 @@ function createPageNotices(deps: PageNoticesDeps) {
           !isFeedbackPopoverOpen();
       },
       onReview(event) {
-        const links = pageState.feedbackLinks || COMMUNITY_LINKS.FALLBACK_LINKS;
+        const links = getFeedbackLinks();
         openFeedbackExternalUrl(
           COMMUNITY_LINKS.getReviewUrl(links),
           getOpenDisposition(event, 'newTab')
@@ -277,7 +269,7 @@ function createPageNotices(deps: PageNoticesDeps) {
     }
     COMMUNITY_QR_DIALOG.open({
       documentObj: document,
-      imageUrl: qrUrl || (pageState.feedbackLinks || COMMUNITY_LINKS.FALLBACK_LINKS).wechatQr,
+      imageUrl: qrUrl || getFeedbackLinks().wechatQr,
       title: t('newtab_feedback_wechat_panel_title', 'Bug 反馈 & 新功能提需'),
       alt: t('newtab_feedback_wechat_qr_alt', 'Lumno 微信群二维码'),
       closeLabel: t('newtab_feedback_wechat_close_tooltip', '关闭'),
@@ -312,7 +304,7 @@ function createPageNotices(deps: PageNoticesDeps) {
         searchInput.focus({ preventScroll: true });
       }
     });
-    pageState.helpCenterAskHintController = askHint;
+    notices.mountHelpCenterAskHint(askHint);
     if (!askHint || !askHint.element) {
       return newtabEntryAnimationReadyPromise.then(() => false);
     }
@@ -337,14 +329,14 @@ function createPageNotices(deps: PageNoticesDeps) {
   })();
 
   function dismissHelpCenterAskHint(): void {
-    if (pageState.helpCenterAskHintController && !pageState.helpCenterAskHintController.isDismissed()) {
-      pageState.helpCenterAskHintController.dismiss();
+    if (notices.helpCenterAskHint && !notices.helpCenterAskHint.isDismissed()) {
+      notices.helpCenterAskHint.dismiss();
     }
   }
 
   function dismissWebdavFeatureHint(): void {
-    if (pageState.webdavFeatureHintController && typeof pageState.webdavFeatureHintController.dismiss === 'function') {
-      pageState.webdavFeatureHintController.dismiss();
+    if (notices.webdavHint && typeof notices.webdavHint.dismiss === 'function') {
+      notices.webdavHint.dismiss();
     }
   }
 
@@ -363,4 +355,4 @@ function createPageNotices(deps: PageNoticesDeps) {
 type PageNotices = ReturnType<typeof createPageNotices>;
 
 export { createPageNotices };
-export type { PageNotices, PageNoticesDeps, PageNoticesState };
+export type { PageNotices, PageNoticesDeps };
