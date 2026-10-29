@@ -1,9 +1,9 @@
 // The storage area the page's settings live in, the startup read the next
 // New Tab prefetches, and moving preferences an older version kept locally.
-import { newtabStartupStorageKeys } from '../domain/settings/page-cache';
-import * as ProviderStorage from '../platform/provider-storage';
-import * as SettingsStorage from '../platform/settings-storage';
-import { takePrefetchedRead } from '../platform/storage-prefetch';
+import { newtabStartupStorageKeys } from '../../domain/settings/page-cache';
+import * as ProviderStorage from '../../platform/provider-storage';
+import * as SettingsStorage from '../../platform/settings-storage';
+import { takePrefetchedRead } from '../../platform/storage-prefetch';
 
 function createStartupStorage() {
   const providerStorageRuntime = ProviderStorage.createProviderStorageRuntime(chrome);

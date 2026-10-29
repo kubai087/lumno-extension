@@ -4,10 +4,10 @@
 // the first pass.
 import * as NEWTAB_BOOKMARK_SECTION from '../../bookmarks/bookmark-section';
 import * as NEWTAB_RECENT_SECTION from '../../recent/recent-section';
-import * as NEWTAB_SECTION_LOADERS from '../../section-loaders';
-import * as NEWTAB_SECTION_RELOAD from '../../section-reload';
+import * as NEWTAB_SECTION_LOADERS from './section-loaders';
+import * as NEWTAB_SECTION_RELOAD from './section-reload';
 import * as NEWTAB_BOTTOM_DOCK_RUNTIME from '../../shortcuts/bottom-dock-runtime';
-import * as NEWTAB_STARTUP_PREFERENCES from '../../startup-preferences';
+import * as NEWTAB_STARTUP_PREFERENCES from './startup-preferences';
 import { normalizeHost } from '../../../domain/favicon/brand-accents';
 import { stableHashCode } from '../../../domain/color';
 import type { PageContext } from '../../app/context';

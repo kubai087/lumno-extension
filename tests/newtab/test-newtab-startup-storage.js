@@ -44,7 +44,7 @@ async function loadStartupStorage(localData, syncData) {
   Object.keys(require.cache).forEach((key) => {
     if (key.includes('/src/')) delete require.cache[key];
   });
-  const startupStorage = require('../../src/newtab/startup-storage.ts');
+  const startupStorage = require('../../src/newtab/app/startup-storage.ts');
   const storage = startupStorage.createStartupStorage();
   await storage.providerStorageRuntime.ready;
   return { storage, local, sync };

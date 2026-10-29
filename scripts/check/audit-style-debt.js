@@ -6,7 +6,7 @@ const INCLUDED_EXTENSIONS = new Set(['.js', '.ts', '.tsx', '.html', '.css']);
 const IGNORED_DIRS = new Set(['node_modules', 'dist', '.git']);
 const STYLE_DEBT_ALLOWLIST = [
   {
-    file: 'src/overlay/lifecycle.ts',
+    file: 'src/overlay/dom/lifecycle.ts',
     reason: 'overlay viewport and zoom synchronization',
     setPropertyImportant: true
   },
@@ -17,7 +17,7 @@ const STYLE_DEBT_ALLOWLIST = [
     setPropertyImportant: true
   },
   {
-    file: 'src/overlay/favicon-view.ts',
+    file: 'src/overlay/dom/favicon-view.ts',
     reason: 'favicon fallback display and optical alignment until class-rendered fallback is verified',
     setPropertyImportant: true
   }

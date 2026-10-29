@@ -12,8 +12,8 @@ import { loadNewtabLocaleMessages } from '../page-language';
 import { createPageStructure } from '../react/page-structure';
 import type { PageStructureRuntime } from '../react/page-structure';
 import { SettingPreview } from '../setting-preview';
-import { createStartupStorage } from '../startup-storage';
-import type { StartupStorage } from '../startup-storage';
+import { createStartupStorage } from './startup-storage';
+import type { StartupStorage } from './startup-storage';
 
 interface PageContext {
   settings: SettingsStore;

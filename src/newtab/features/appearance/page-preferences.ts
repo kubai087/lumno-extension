@@ -1,13 +1,13 @@
 // New Tab display preferences: normalizing, loading and applying the shortcut,
 // auto-focus, simple mode and search result settings.
-import type * as LumnoSettings from '../domain/settings';
-import * as SettingsStorage from '../platform/settings-storage';
-import { newtabInputAutoFocusEnabled } from '../domain/settings/newtab-page';
-import type { SettingsStore } from '../platform/settings-store';
-import type { SettingPreview } from './setting-preview';
-import { NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SHORTCUT_COLUMNS_MIN, NEWTAB_SHORTCUT_WIDTH_MAX, NEWTAB_SHORTCUT_WIDTH_MIN, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
-import * as SETTINGS from '../domain/settings';
-import { SEARCH_WIDTH_CONFIG } from './dom/layout';
+import type * as LumnoSettings from '../../../domain/settings';
+import * as SettingsStorage from '../../../platform/settings-storage';
+import { newtabInputAutoFocusEnabled } from '../../../domain/settings/newtab-page';
+import type { SettingsStore } from '../../../platform/settings-store';
+import type { SettingPreview } from '../../setting-preview';
+import { NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SHORTCUT_COLUMNS_MIN, NEWTAB_SHORTCUT_WIDTH_MAX, NEWTAB_SHORTCUT_WIDTH_MIN, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../../domain/settings/newtab-shortcuts';
+import * as SETTINGS from '../../../domain/settings';
+import { SEARCH_WIDTH_CONFIG } from '../../dom/layout';
 
 // Whether a change is only shown or also saved.
 type PersistOptions = { persist?: boolean } | null | undefined;

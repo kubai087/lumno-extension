@@ -1,9 +1,9 @@
 // Reloads the recent and bookmark sections when tabs, history or
 // bookmarks change elsewhere, once the page is visible again.
-import type { BookmarksRuntime } from './bookmarks/bookmarks-runtime';
-import type { RecentSourceReads } from './recent/recent-source-reads';
-import type { ShortcutList } from './shortcuts/shortcut-list';
-import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
+import type { BookmarksRuntime } from '../../bookmarks/bookmarks-runtime';
+import type { RecentSourceReads } from '../../recent/recent-source-reads';
+import type { ShortcutList } from '../../shortcuts/shortcut-list';
+import type { BookmarkSectionParts } from '../../bookmarks/bookmark-section-parts';
 
 
 interface SectionReloadDeps {

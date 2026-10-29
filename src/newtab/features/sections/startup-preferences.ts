@@ -1,16 +1,16 @@
 // The page width and the recent and bookmark section settings: drawn once
 // read, and again whenever they or a dragged slider's value change.
-import type { BookmarkPager } from './bookmarks/bookmark-pager';
-import type { PageLayout } from './page-layout';
+import type { BookmarkPager } from '../../bookmarks/bookmark-pager';
+import type { PageLayout } from '../../page-layout';
 import type { SectionLoaders } from './section-loaders';
-import type { SettingsStore } from '../platform/settings-store';
-import { newtabSearchWidth, newtabWidthMode } from '../domain/settings/newtab-page';
-import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible } from '../domain/settings/bookmarks';
-import { progressTrackingEnabled, recentCount, recentMode } from '../domain/settings/recent-sites';
-import type { SettingPreview } from './setting-preview';
-import type { RecentSitesShown } from './recent/recent-sites-shown';
-import type { BookmarksShown } from './bookmarks/bookmarks-shown';
-import type { BookmarkSectionParts } from './bookmarks/bookmark-section-parts';
+import type { SettingsStore } from '../../../platform/settings-store';
+import { newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
+import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible } from '../../../domain/settings/bookmarks';
+import { progressTrackingEnabled, recentCount, recentMode } from '../../../domain/settings/recent-sites';
+import type { SettingPreview } from '../../setting-preview';
+import type { RecentSitesShown } from '../../recent/recent-sites-shown';
+import type { BookmarksShown } from '../../bookmarks/bookmarks-shown';
+import type { BookmarkSectionParts } from '../../bookmarks/bookmark-section-parts';
 
 const SECTION_SETTINGS = [recentCount, recentMode, bookmarkCount, bookmarkColumns, bookmarkFolderIconsVisible, progressTrackingEnabled];
 

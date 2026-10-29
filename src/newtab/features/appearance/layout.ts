@@ -4,7 +4,7 @@
 // keeps a drag's release from opening a card.
 import * as NEWTAB_CARD_ACTIVATION_GUARD from '../../dom/card-activation-guard';
 import * as NEWTAB_PAGE_LAYOUT from '../../page-layout';
-import * as NEWTAB_PAGE_PREFERENCES from '../../page-preferences';
+import * as NEWTAB_PAGE_PREFERENCES from './page-preferences';
 import * as NEWTAB_SUGGESTIONS_LAYOUT from '../../search/suggestions-layout';
 import { ViewportActivity } from '../../viewport-activity';
 import { BottomDockParts } from '../../shortcuts/bottom-dock-parts';

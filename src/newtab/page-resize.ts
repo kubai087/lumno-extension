@@ -1,6 +1,6 @@
 // Window resizes: re-measures the layout once per frame, and once more
 // after the resize settles, without animating the blocks.
-import type { SectionLoaders } from './section-loaders';
+import type { SectionLoaders } from './features/sections/section-loaders';
 import type { SearchModeActions } from '../shared/search-panel/mode-actions';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { ViewportActivity } from './viewport-activity';
