@@ -181,6 +181,7 @@ import { createPageFaviconCache } from './theme/page-favicon-cache';
 import { createShortcutFavicons } from './shortcuts/shortcut-favicons';
 import { createShortcutData } from './shortcuts/shortcut-data';
 import { createShortcutDialogActions } from './shortcuts/shortcut-dialog-actions';
+import { ShortcutLayoutAnimation } from './shortcuts/shortcut-layout-animation';
 import { BookmarkLayoutAnimation } from './bookmarks/bookmark-layout-animation';
 import * as BOOKMARK_SHORTCUT_TRANSFER from './bookmarks/bookmark-shortcut-transfer';
 import * as BOOKMARK_MOVE_ACTIONS from './bookmarks/bookmark-move-actions';
@@ -218,6 +219,8 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const searchLayer = pageStructureRuntime.searchLayer;
   const shortcutSection = pageStructureRuntime.shortcut.section;
   const shortcutGrid = pageStructureRuntime.shortcut.grid;
+  // The slide the shortcut tiles make when the grid changes.
+  const shortcutLayoutAnimation = new ShortcutLayoutAnimation(shortcutGrid);
   // The wordmark or clock above the search box, drawn by the top content runtime.
   const topContentContainer = pageStructureRuntime.topContent;
   const recentSection = pageStructureRuntime.recent.section;
@@ -649,9 +652,12 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   const {
     openBookmarkCascadeMenu,
     closeBookmarkCascadeMenu,
+    syncOpenBookmarkCascadeAnchorVisual,
     positionBookmarkCascadeLevels,
     getTopBookmarks
   } = NEWTAB_BOOKMARK_CASCADE_ACTIONS.createBookmarkCascadeActions({
+    shortcutGrid,
+    bookmarkGrid: pageStructureRuntime.bookmark.grid,
     bookmarkParts,
     bookmarksShown,
     bookmarksRuntime,
@@ -664,7 +670,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getShortcutTileFromNode,
     getShortcutTileId,
     refreshShortcutTileCacheFromDom,
-    getShortcutReorderTiles,
     getShortcutTileById,
     handleShortcutNativeDragStart,
     openShortcutEditor
@@ -1429,11 +1434,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     shortcutList,
     settings,
     shortcutFolderRuntime,
-    moveShortcutByKeyboard: (...args) => moveShortcutByKeyboard(...args),
+    shortcutLayoutAnimation,
     t,
     hideShortcutTooltip,
     closeShortcutContextMenu,
-    syncOpenBookmarkCascadeAnchorVisual: (...args) => syncOpenBookmarkCascadeAnchorVisual(...args),
+    syncOpenBookmarkCascadeAnchorVisual,
     applyNewtabShortcutsVisibility,
     updateBookmarkSectionPosition,
     applyNewtabShortcutLayoutPreferences,
@@ -1459,12 +1464,10 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     openShortcutAddDialog,
     openShortcutGroupDialog,
     openShortcutAddContextMenu,
-    handleShortcutDragPointerDown: (...args) => handleShortcutDragPointerDown(...args),
     handleShortcutDockPointerOver,
     handleShortcutDockPointerMove,
     syncShortcutDockFolderMenu,
-    handleShortcutGroupMenu: openShortcutGroupMenu,
-    animateShortcutLayoutChange: (...args) => animateShortcutLayoutChange(...args)
+    handleShortcutGroupMenu: openShortcutGroupMenu
   });
 
   const {
@@ -1483,11 +1486,11 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     clearBookmarkDragFolderSwitch,
     scheduleBookmarkDragFolderSwitch,
     scheduleBookmarkDragPageSwitch,
-    syncOpenBookmarkCascadeAnchorVisual,
     finishBookmarkDrag,
     handleBookmarkDragPointerDown,
     handleBookmarkCascadeItemPointerDown
   } = NEWTAB_BOOKMARK_DRAG_CONTROLLER.createBookmarkDragController({
+    syncOpenBookmarkCascadeAnchorVisual,
     bookmarkLayoutAnimation,
     moveBookmarkToShortcuts,
     persistBookmarkDragOrder,
@@ -1512,8 +1515,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     bookmarksRuntime,
     getShortcutById,
     getShortcutFolderId,
-    getShortcutReorderTiles,
-    getShortcutTileLayoutRect: (...args) => getShortcutTileLayoutRect(...args),
     getShortcutStoreOptions,
     getShortcutInsertionSlotAt: (...args) => getShortcutInsertionSlotAt(...args),
     getShortcutTileId,
@@ -1672,16 +1673,13 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
   }, { passive: false });
 
   const {
-    getShortcutTileLayoutRect,
     setShortcutDragTileTransform,
     getShortcutInsertionSlotAt,
     autoScrollShortcutArea,
-    animateShortcutLayoutChange,
     finishShortcutDrag,
-    moveShortcutByKeyboard,
-    isBookmarkSurfaceDragStateActive,
-    handleShortcutDragPointerDown
+    isBookmarkSurfaceDragStateActive
   } = NEWTAB_SHORTCUT_DRAG.createShortcutDrag({
+    shortcutLayoutAnimation,
     settings,
     dragSessions,
     historyLock,
@@ -1690,7 +1688,6 @@ import { adaptiveToneEvents } from './wallpaper/tone-requests';
     getAddShortcutButton,
     shortcutGrid,
     shortcutList,
-    getShortcutReorderTiles,
     refreshShortcutTileCacheFromDom,
     getShortcutTileId,
     getShortcutTileById,

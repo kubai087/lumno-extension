@@ -1,5 +1,8 @@
-// Opening, closing and positioning the bookmark cascade menu, and the
-// top-level bookmarks local search matches against.
+// Opening, closing and positioning the bookmark cascade menu, moving it onto
+// its folder's tile or card drawn anew, and the top-level bookmarks local
+// search matches against.
+import { getShortcutReorderTiles } from '../dom/shortcut-tiles';
+import { getBookmarkCardId, getBookmarkReorderCards } from '../dom/bookmark-cards';
 import type { Translate } from '../newtab-types';
 import type { BookmarkCascadeRuntime } from './bookmark-cascade-menu';
 import type { BookmarkItem } from './bookmarks-store';
@@ -13,6 +16,8 @@ interface BookmarkCascadeActionsDeps {
   t: Translate;
   bookmarksShown: Pick<BookmarksShown, 'currentFolderId' | 'located' | 'rootFolderId'>;
   bookmarkParts: Pick<BookmarkSectionParts, 'cascade'>;
+  shortcutGrid: HTMLElement;
+  bookmarkGrid: HTMLElement;
 }
 
 type CascadeOpenArgs = Parameters<BookmarkCascadeRuntime['open']>;
@@ -23,7 +28,9 @@ function createBookmarkCascadeActions(deps: BookmarkCascadeActionsDeps) {
     bookmarkParts,
     bookmarksShown,
     bookmarksRuntime,
-    t
+    t,
+    shortcutGrid,
+    bookmarkGrid
   } = deps;
 
 
@@ -69,7 +76,29 @@ function createBookmarkCascadeActions(deps: BookmarkCascadeActionsDeps) {
     });
   }
 
+  // Moves the open menu onto its folder's card or shortcut drawn anew.
+  function syncOpenBookmarkCascadeAnchorVisual(): boolean {
+    if (!bookmarkParts.cascade || !bookmarkParts.cascade.isOpen()) {
+      return false;
+    }
+    const rootFolderId = String(bookmarkParts.cascade.getRootFolderId() || '');
+    if (!rootFolderId) {
+      return false;
+    }
+    const shortcutAnchor = getShortcutReorderTiles(shortcutGrid).find((tile) =>
+      tile.getAttribute('data-bookmark-id') === rootFolderId
+    );
+    const currentShortcutAnchor = shortcutAnchor && shortcutAnchor.getAttribute('aria-expanded') === 'true';
+    const nextAnchor = (currentShortcutAnchor && shortcutAnchor) || getBookmarkReorderCards(bookmarkGrid).find((card) =>
+      getBookmarkCardId(card) === rootFolderId
+    ) || shortcutAnchor;
+    return nextAnchor
+      ? bookmarkParts.cascade.rebindAnchor(nextAnchor, { instant: true })
+      : false;
+  }
+
   return {
+    syncOpenBookmarkCascadeAnchorVisual,
     openBookmarkCascadeMenu,
     closeBookmarkCascadeMenu,
     positionBookmarkCascadeLevels,

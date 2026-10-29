@@ -1,4 +1,8 @@
 // Pointer-driven shortcut reordering and dragging shortcuts onto bookmarks.
+import { SHORTCUT_REORDER_EASING } from './shortcut-layout-animation';
+import type { ShortcutLayoutAnimation } from './shortcut-layout-animation';
+import { shortcutEvents } from './shortcut-events';
+import { getShortcutReorderTiles, getShortcutTileLayoutRect } from '../dom/shortcut-tiles';
 import type { BookmarkShortcutTransfer } from '../bookmarks/bookmark-shortcut-transfer';
 import type { BookmarkLayoutAnimation } from '../bookmarks/bookmark-layout-animation';
 import { getUndoShortcutLabels } from '../bookmarks/bookmark-drag-rules';
@@ -33,7 +37,7 @@ import { bookmarkSectionEvents } from '../bookmarks/bookmark-section-events';
 
 
 interface ShortcutDragDeps {
-  getShortcutReorderTiles: ShortcutPageActions['getShortcutReorderTiles'];
+  shortcutLayoutAnimation: Pick<ShortcutLayoutAnimation, 'change' | 'measure' | 'shift'>;
   refreshShortcutTileCacheFromDom: ShortcutPageActions['refreshShortcutTileCacheFromDom'];
   getShortcutTileId: ShortcutPageActions['getShortcutTileId'];
   getShortcutTileById: ShortcutPageActions['getShortcutTileById'];
@@ -147,13 +151,13 @@ type TileMoveSlot = Pick<ShortcutInsertionSlot, 'anchorTile' | 'markerPosition'>
 
 function createShortcutDrag(deps: ShortcutDragDeps) {
   const {
+    shortcutLayoutAnimation,
     dragSessions,
     historyLock,
     bookmarkGrid,
     bookmarkParts,
     shortcutGrid,
     shortcutList,
-    getShortcutReorderTiles,
     refreshShortcutTileCacheFromDom,
     getShortcutTileId,
     getShortcutTileById,
@@ -202,10 +206,8 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   } = deps;
 
 
-  // Tiles lifted out of a scrolling section, and the timers of tiles that
-  // slide or land.
+  // Tiles lifted out of a scrolling section, and the timers of tiles that land.
   const dragLifts = new WeakMap<HTMLElement, ShortcutDragLift>();
-  const layoutAnimationTimers = new WeakMap<HTMLElement, number>();
   const dropTimers = new WeakMap<HTMLElement, number>();
 
   // One click guard for every drag on the page (drag-click-guard.ts).
@@ -214,9 +216,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   const SHORTCUT_DRAG_START_THRESHOLD_PX = 10;
-  const SHORTCUT_REORDER_ANIMATION_MS = 180;
   const SHORTCUT_DROP_ANIMATION_MS = 210;
-  const SHORTCUT_REORDER_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
   const SHORTCUT_AREA_AUTO_SCROLL_EDGE_PX = 44;
   const SHORTCUT_AREA_AUTO_SCROLL_MAX_STEP_PX = 16;
   const SHORTCUT_AREA_AUTO_SCROLL_DELAY_MS = 220;
@@ -313,209 +313,6 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
 
   // Everything in the grid that can shift when shortcuts move: tiles, the
   // add tile, group titles and empty groups' slots.
-  function getShortcutLayoutElements(): HTMLElement[] {
-    return shortcutGrid
-      ? queryHtmlElements(shortcutGrid,
-        '.x-nt-shortcut-tile, .x-nt-shortcut-group-header, .x-nt-shortcut-group-empty')
-      : getShortcutReorderTiles();
-  }
-
-  function getShortcutTileRectMap(): Map<HTMLElement, DOMRect> {
-    const rects = new Map<HTMLElement, DOMRect>();
-    getShortcutLayoutElements().forEach((tile) => {
-      rects.set(tile, tile.getBoundingClientRect());
-    });
-    return rects;
-  }
-
-  function getShortcutTileLayoutRect(tile: HTMLElement | null): LayoutRect | null {
-    if (!tile || !shortcutGrid || typeof tile.offsetLeft !== 'number' ||
-        typeof tile.offsetTop !== 'number') {
-      return null;
-    }
-    const offsetParent = tile.offsetParent || shortcutGrid;
-    const parentRect = offsetParent.getBoundingClientRect();
-    const width = Number(tile.offsetWidth) || 0;
-    const height = Number(tile.offsetHeight) || 0;
-    const left = parentRect.left + tile.offsetLeft;
-    const top = parentRect.top + tile.offsetTop;
-    return {
-      left,
-      top,
-      right: left + width,
-      bottom: top + height,
-      width,
-      height,
-      centerX: left + (width / 2),
-      centerY: top + (height / 2)
-    };
-  }
-
-  function clearShortcutTileLayoutAnimation(tile: HTMLElement): void {
-    const timer = layoutAnimationTimers.get(tile);
-    if (timer) {
-      window.clearTimeout(timer);
-      layoutAnimationTimers.delete(tile);
-    }
-    tile.style.removeProperty('transition');
-    if (tile.getAttribute('data-shortcut-dragging') !== 'true' &&
-        tile.getAttribute('data-shortcut-dropping') !== 'true') {
-      tile.style.removeProperty('transform');
-    }
-  }
-
-  // Something that was hidden or not there has no place to slide from
-  // (a hidden box measures at the page corner), so it fades in where it is.
-  function enterShortcutLayoutElement(element: HTMLElement): void {
-    if (typeof element.animate !== 'function' || NEWTAB_CROSS_SURFACE_DRAG.prefersReducedMotion(window)) {
-      return;
-    }
-    element.animate([
-      { opacity: 0, scale: '0.86' },
-      { opacity: 1, scale: '1' }
-    ], {
-      duration: SHORTCUT_REORDER_ANIMATION_MS,
-      easing: SHORTCUT_REORDER_EASING
-    });
-  }
-
-  function animateShortcutLayoutShift(beforeRects: ReadonlyMap<HTMLElement, DOMRect>, draggedTile: HTMLElement | null): void {
-    if (!shortcutGrid || NEWTAB_CROSS_SURFACE_DRAG.prefersReducedMotion(window)) {
-      return;
-    }
-    const beforeById = new Map<string, DOMRect>();
-    beforeRects.forEach((rect, element) => {
-      const id = getShortcutLayoutId(element);
-      if (id) beforeById.set(id, rect);
-    });
-    getShortcutLayoutElements().forEach((tile) => {
-      if (tile === draggedTile) {
-        return;
-      }
-      const before = beforeRects.get(tile) || beforeById.get(getShortcutLayoutId(tile));
-      if (!before || !before.width || !before.height) {
-        const shown = tile.getBoundingClientRect();
-        if (shown.width && shown.height) {
-          enterShortcutLayoutElement(tile);
-        }
-        return;
-      }
-      clearShortcutTileLayoutAnimation(tile);
-      const after = tile.getBoundingClientRect();
-      if (!after.width || !after.height) {
-        return;
-      }
-      const dx = before.left - after.left;
-      const dy = before.top - after.top;
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-        return;
-      }
-      tile.style.transition = 'none';
-      tile.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
-      void tile.offsetWidth;
-      window.requestAnimationFrame(() => {
-        if (!tile.isConnected) {
-          return;
-        }
-        tile.style.transition = `transform ${SHORTCUT_REORDER_ANIMATION_MS}ms ${SHORTCUT_REORDER_EASING}`;
-        tile.style.transform = 'translate3d(0, 0, 0)';
-        layoutAnimationTimers.set(tile, window.setTimeout(() => {
-          layoutAnimationTimers.delete(tile);
-          clearShortcutTileLayoutAnimation(tile);
-        }, SHORTCUT_REORDER_ANIMATION_MS + 80));
-      });
-    });
-  }
-
-  // A tile the change took away (moved into a folder or the bookmarks, or
-  // undone) shrinks out where it was instead of vanishing. It plays in a
-  // layer beside the grid, which carries the grid's classes and state so the
-  // tile keeps its look, while the grid's own render never meets it.
-  const SHORTCUT_GHOST_ATTRIBUTES = ['data-shortcut-lifted', 'data-shortcut-dragging', 'data-shortcut-dropping',
-    'data-drag-gap', 'data-bookmark-drop-target', 'data-shortcut-context-menu-open'];
-  // A shortcut's tile can be drawn anew by a render (a folder whose contents
-  // changed), so the before and after boxes are also paired by shortcut id.
-  function getShortcutLayoutId(element: HTMLElement): string {
-    return String(element.getAttribute('data-shortcut-id') || '');
-  }
-
-  function exitShortcutLayoutElements(beforeRects: ReadonlyMap<HTMLElement, DOMRect>): void {
-    const grid = shortcutGrid;
-    const host = grid && grid.parentNode;
-    if (!grid || !host || NEWTAB_CROSS_SURFACE_DRAG.prefersReducedMotion(window)) {
-      return;
-    }
-    const shownIds = new Set(getShortcutLayoutElements().map(getShortcutLayoutId).filter(Boolean));
-    const removed: Array<[HTMLElement, DOMRect]> = [];
-    beforeRects.forEach((rect, element) => {
-      if (!element.isConnected && rect.width && rect.height &&
-          !shownIds.has(getShortcutLayoutId(element)) &&
-          element.classList.contains('x-nt-shortcut-tile') &&
-          typeof element.animate === 'function') {
-        removed.push([element, rect]);
-      }
-    });
-    if (!removed.length) {
-      return;
-    }
-    const layer = document.createElement('div');
-    Array.from(grid.attributes).forEach((attribute) => {
-      if (attribute.name === 'class' || attribute.name.startsWith('data-')) {
-        layer.setAttribute(attribute.name, attribute.value);
-      }
-    });
-    layer.setAttribute('aria-hidden', 'true');
-    layer.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;min-height:0;max-width:none;' +
-      'margin:0;padding:0;display:block;overflow:visible;pointer-events:none;';
-    host.appendChild(layer);
-    const origin = layer.getBoundingClientRect();
-    removed.forEach(([tile, rect]) => {
-      clearShortcutTileLayoutAnimation(tile);
-      SHORTCUT_GHOST_ATTRIBUTES.forEach((name) => tile.removeAttribute(name));
-      tile.removeAttribute('id');
-      // No longer a tile to anything that looks for tiles; it keeps the
-      // tile's box by hand.
-      tile.classList.replace('x-nt-shortcut-tile', 'x-nt-shortcut-tile-ghost');
-      Object.assign(tile.style, {
-        display: 'grid',
-        placeItems: 'center',
-        boxSizing: 'border-box',
-        padding: 'var(--x-nt-shortcut-tile-padding, 8px)',
-        position: 'absolute',
-        left: `${rect.left - origin.left}px`,
-        top: `${rect.top - origin.top}px`,
-        width: `${rect.width}px`,
-        height: `${rect.height}px`,
-        margin: '0',
-        transform: 'none',
-        transition: 'none'
-      });
-      layer.appendChild(tile);
-      tile.animate([
-        { opacity: 1, scale: '1' },
-        { opacity: 0, scale: '0.6' }
-      ], {
-        duration: SHORTCUT_REORDER_ANIMATION_MS,
-        easing: SHORTCUT_REORDER_EASING,
-        fill: 'forwards'
-      });
-    });
-    window.setTimeout(() => {
-      if (layer.parentNode) layer.parentNode.removeChild(layer);
-    }, SHORTCUT_REORDER_ANIMATION_MS + 60);
-  }
-
-  // Runs a change that re-renders the shortcuts and slides whatever it moved
-  // from where it was, so a re-centered grid glides instead of jumping; what
-  // it added fades in and what it removed shrinks out.
-  function animateShortcutLayoutChange<T>(change: () => T): T {
-    const beforeRects = getShortcutTileRectMap();
-    const result = change();
-    exitShortcutLayoutElements(beforeRects);
-    animateShortcutLayoutShift(beforeRects, null);
-    return result;
-  }
-
   // Puts the dragged tile under the pointer. `state` is whichever drag is
   // running; only a shortcut drag has a tile to move.
   function setShortcutDragTileTransform(state: SurfaceDragState | null, pointerX: number, pointerY: number): void {
@@ -577,7 +374,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
   }
 
   function getShortcutTileInsertionIndex(tile: HTMLElement): number {
-    return getShortcutReorderTiles().indexOf(tile);
+    return getShortcutReorderTiles(shortcutGrid).indexOf(tile);
   }
 
   // Empty groups show a slot that takes drops like a tile. `index` counts
@@ -591,12 +388,12 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     const excludedSpot = placeholder && placeholder.isConnected ? placeholder : excludedTile;
     const getSlotRect = (tile: HTMLElement): LayoutRect | null => (excludedTile && tile.previousElementSibling === excludedTile &&
       tile.classList.contains('x-nt-shortcut-group-empty') && !tile.hidden
-      ? getShortcutTileLayoutRect(excludedSpot)
-      : getShortcutTileLayoutRect(tile));
+      ? getShortcutTileLayoutRect(shortcutGrid, excludedSpot)
+      : getShortcutTileLayoutRect(shortcutGrid, tile));
     const layoutItems: Array<{ tile: HTMLElement; rect: LayoutRect }> = [];
     (shortcutGrid
       ? queryHtmlElements(shortcutGrid, SHORTCUT_SLOT_SELECTOR)
-      : getShortcutReorderTiles()).forEach((tile) => {
+      : getShortcutReorderTiles(shortcutGrid)).forEach((tile) => {
       const rect = tile !== excludedTile ? getSlotRect(tile) : null;
       if (rect && rect.width > 0 && rect.height > 0) {
         layoutItems.push({ tile, rect });
@@ -663,7 +460,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       return place(reference);
     }
     const currentIndex = getShortcutTileInsertionIndex(tile);
-    const remainingTiles = getShortcutReorderTiles().filter((item) => item !== tile);
+    const remainingTiles = getShortcutReorderTiles(shortcutGrid).filter((item) => item !== tile);
     const boundedIndex = Math.max(0, Math.min(remainingTiles.length, targetIndex));
     if (currentIndex === boundedIndex) {
       return false;
@@ -683,7 +480,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     }
     const groupId = String(targetGroupId || '');
     const regroup = Boolean(groupId) && shortcutList.items[currentIndex].groupId !== groupId;
-    const tiles = getShortcutReorderTiles();
+    const tiles = getShortcutReorderTiles(shortcutGrid);
     const visibleIds = tiles.filter((tile) => getShortcutTileId(tile) !== shortcutId).map(getShortcutTileId);
     const visibleTargetIndex = Math.max(0, Math.min(visibleIds.length, Math.floor(targetIndex)));
     if (!regroup && tiles.findIndex((tile) => getShortcutTileId(tile) === shortcutId) === visibleTargetIndex) {
@@ -763,7 +560,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
         historyLock.busy) {
       return false;
     }
-    const tiles = getShortcutReorderTiles();
+    const tiles = getShortcutReorderTiles(shortcutGrid);
     const currentIndex = tiles.findIndex((tile) => getShortcutTileId(tile) === shortcutId);
     const neighbor = currentIndex >= 0 ? tiles[currentIndex + direction] : null;
     if (!neighbor) {
@@ -779,7 +576,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       return false;
     }
     void persistShortcutOrder(state).then(() => {
-      animateShortcutLayoutChange(renderShortcuts);
+      shortcutLayoutAnimation.change(renderShortcuts);
       adaptiveToneEvents.emit('stale', {});
       const tile = getShortcutTileById(shortcutId);
       if (tile && document.activeElement !== tile) {
@@ -862,7 +659,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (targetIndex < 0 || (!regroup && targetIndex === getShortcutTileInsertionIndex(state.tile))) {
       return;
     }
-    const beforeRects = getShortcutTileRectMap();
+    const beforeRects = shortcutLayoutAnimation.measure();
     if (moveShortcutItem(state.shortcutId, targetIndex, targetGroupId)) {
       state.hasReordered = true;
       if (moveShortcutTileElement(state.tile, targetIndex, slot)) {
@@ -871,7 +668,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
         if (fitShortcutGroupColumns()) {
           holdShortcutStackTargetUnderPointer(state, pointerX, pointerY);
         }
-        animateShortcutLayoutShift(beforeRects, state.tile);
+        shortcutLayoutAnimation.shift(beforeRects, state.tile);
         applyShortcutDragTileTransform(state, pointerX, pointerY);
       }
     }
@@ -1007,7 +804,7 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
         event.preventDefault();
       }
       return persistShortcutOrder(state).then(() => {
-        animateShortcutLayoutChange(renderShortcuts);
+        shortcutLayoutAnimation.change(renderShortcuts);
         adaptiveToneEvents.emit('stale', {});
       });
     }
@@ -1095,11 +892,11 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
     if (!source || isShortcutFolder(source) || !isPointOverShortcutDropSurface(pointerX, pointerY)) {
       return null;
     }
-    const tile = getShortcutReorderTiles().find((candidate) => {
+    const tile = getShortcutReorderTiles(shortcutGrid).find((candidate) => {
       if (candidate === state.tile || candidate.hasAttribute('data-bookmark-drop-folder-id')) {
         return false;
       }
-      const rect = getShortcutTileLayoutRect(candidate);
+      const rect = getShortcutTileLayoutRect(shortcutGrid, candidate);
       return rect && pointerX >= rect.left + rect.width * 0.25 &&
         pointerX <= rect.right - rect.width * 0.25 && pointerY >= rect.top && pointerY <= rect.bottom;
     });
@@ -1515,17 +1312,18 @@ function createShortcutDrag(deps: ShortcutDragDeps) {
       scheduleShortcutDragMove(state, state.pendingPointerX, state.pendingPointerY);
     }
   });
+  shortcutGrid.addEventListener('pointerdown', handleShortcutDragPointerDown);
+  shortcutEvents.on('moveRequested', ({ shortcutId, direction }) => {
+    moveShortcutByKeyboard(shortcutId, direction);
+  });
   return {
-    getShortcutTileLayoutRect,
     setShortcutDragTileTransform,
     getShortcutInsertionSlotAt,
     autoScrollShortcutArea,
-    animateShortcutLayoutChange,
     scheduleShortcutDragMove,
     finishShortcutDrag,
     moveShortcutByKeyboard,
-    isBookmarkSurfaceDragStateActive,
-    handleShortcutDragPointerDown
+    isBookmarkSurfaceDragStateActive
   };
 }
 

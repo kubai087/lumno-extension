@@ -113,7 +113,7 @@ export interface ShortcutsViewOptions {
   isActivationSuppressed?: () => boolean;
   // Alt+ArrowLeft/Right on a tile: move it one place (-1 or 1); true when
   // it moved.
-  moveShortcut?: (shortcutId: string, direction: number) => boolean;
+  moveShortcut?: (shortcutId: string, direction: number) => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onNativeDragStart?: (event: ReactDragEvent<HTMLButtonElement>) => void;
   getAddLabel?: () => string;
@@ -204,7 +204,7 @@ interface NormalizedOptions {
     event: ReactMouseEvent<HTMLElement> | ReactKeyboardEvent<HTMLElement>
   ) => void;
   isActivationSuppressed: () => boolean;
-  moveShortcut: (shortcutId: string, direction: number) => boolean;
+  moveShortcut: (shortcutId: string, direction: number) => void;
   onContextMenu: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   onNativeDragStart: (event: ReactDragEvent<HTMLButtonElement>) => void;
   getAddLabel: () => string;
@@ -264,7 +264,7 @@ function normalizeOptions(
       ((event) => Number(event.button) === 1),
     openShortcut: options.openShortcut || (() => {}),
     isActivationSuppressed: options.isActivationSuppressed || (() => false),
-    moveShortcut: options.moveShortcut || (() => false),
+    moveShortcut: options.moveShortcut || (() => {}),
     onContextMenu: options.onContextMenu || (() => {}),
     onNativeDragStart: options.onNativeDragStart || ((event) => {
       event.preventDefault();

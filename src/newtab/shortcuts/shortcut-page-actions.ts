@@ -1,5 +1,6 @@
 // Shortcut tiles on the page: finding a tile and its shortcut, the
 // context menu's options, and opening a shortcut or its editor.
+import { getShortcutReorderTiles } from '../dom/shortcut-tiles';
 import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
 import type { OpenEvent } from '../../domain/navigation-disposition';
 import type { BookmarkCascadeActions } from '../bookmarks/bookmark-cascade-actions';
@@ -169,11 +170,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     });
   }
 
-  function getShortcutReorderTiles(): HTMLElement[] {
-    return shortcutGrid
-      ? queryHtmlElements(shortcutGrid, '.x-nt-shortcut-tile[data-shortcut-id]')
-      : [];
-  }
 
 
   function getShortcutTileById(shortcutId: unknown): HTMLElement | null {
@@ -181,7 +177,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     if (!id) {
       return null;
     }
-    return getShortcutReorderTiles().find((tile) => getShortcutTileId(tile) === id) || null;
+    return getShortcutReorderTiles(shortcutGrid).find((tile) => getShortcutTileId(tile) === id) || null;
   }
 
   // Tiles are dragged by pointer events, never natively.
@@ -238,7 +234,6 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     getShortcutTileFromNode,
     getShortcutTileId,
     refreshShortcutTileCacheFromDom,
-    getShortcutReorderTiles,
     getShortcutTileById,
     handleShortcutNativeDragStart,
     openShortcutEditor

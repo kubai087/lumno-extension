@@ -10,6 +10,7 @@ import type { ShortcutPageActions } from './shortcut-page-actions';
 import type { ShortcutFavicons } from './shortcut-favicons';
 import type { ShortcutData } from './shortcut-data';
 import type { ShortcutDialogActions } from './shortcut-dialog-actions';
+import type { ShortcutLayoutAnimation } from './shortcut-layout-animation';
 import { shortcutEvents } from './shortcut-events';
 import * as ShortcutNormalize from '../../domain/shortcuts/normalize';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutWidth } from '../../domain/settings/newtab-shortcuts';
@@ -31,7 +32,7 @@ type ViewOption<K extends keyof ShortcutsViewOptions> = NonNullable<ShortcutsVie
 interface ShortcutsControllerDeps {
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'set' | 'subscribe'>;
   shortcutFolderRuntime: Pick<FolderBindingRuntime, 'ready' | 'flush' | 'getNode' | 'reconcile' | 'visibleItems'>;
-  moveShortcutByKeyboard: ViewOption<'moveShortcut'>;
+  shortcutLayoutAnimation: Pick<ShortcutLayoutAnimation, 'change'>;
   t: Translate;
   hideShortcutTooltip(): void;
   closeShortcutContextMenu(): void;
@@ -62,13 +63,10 @@ interface ShortcutsControllerDeps {
   openShortcutAddDialog: ShortcutDialogActions['openShortcutAddDialog'];
   openShortcutGroupDialog: ShortcutDialogActions['openShortcutGroupDialog'];
   openShortcutAddContextMenu: ShortcutContextMenu['openShortcutAddContextMenu'];
-  handleShortcutDragPointerDown(event: PointerEvent): void;
   handleShortcutDockPointerOver: ShortcutDock['handleShortcutDockPointerOver'];
   handleShortcutDockPointerMove: ShortcutDock['handleShortcutDockPointerMove'];
   syncShortcutDockFolderMenu: ShortcutDock['syncShortcutDockFolderMenu'];
   handleShortcutGroupMenu: ShortcutContextMenu['openShortcutGroupMenu'];
-  // Slides the tiles to where `apply` puts them.
-  animateShortcutLayoutChange?(apply: () => void): void;
   shortcutList: Pick<ShortcutList, 'icons' | 'items' | 'replaceIcons' | 'replaceItems'>;
   dragSessions: Pick<DragSessions, 'shortcutDragging'>;
   locale: Pick<SurfaceLocale, 'store'>;
@@ -82,7 +80,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     shortcutList,
     settings,
     shortcutFolderRuntime,
-    moveShortcutByKeyboard,
+    shortcutLayoutAnimation,
     t,
     hideShortcutTooltip,
     closeShortcutContextMenu,
@@ -112,12 +110,10 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     openShortcutAddDialog,
     openShortcutGroupDialog,
     openShortcutAddContextMenu,
-    handleShortcutDragPointerDown,
     handleShortcutDockPointerOver,
     handleShortcutDockPointerMove,
     syncShortcutDockFolderMenu,
     handleShortcutGroupMenu,
-    animateShortcutLayoutChange,
     dragSessions,
     locale,
     shortcutFavicons,
@@ -242,7 +238,7 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
       isMiddleClick,
       openShortcut: openShortcutUrl,
       isActivationSuppressed: isCardActivationSuppressed,
-      moveShortcut: moveShortcutByKeyboard,
+      moveShortcut: (shortcutId, direction) => shortcutEvents.emit('moveRequested', { shortcutId, direction: direction > 0 ? 1 : -1 }),
       onContextMenu: handleShortcutContextMenu,
       onNativeDragStart: handleShortcutNativeDragStart,
       getAddLabel: () => t('newtab_shortcuts_add', 'Add shortcut'),
@@ -262,7 +258,6 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     });
     shortcutsView = view;
     view.render([]);
-    grid.addEventListener('pointerdown', handleShortcutDragPointerDown);
     grid.addEventListener('pointerover', handleShortcutDockPointerOver);
     grid.addEventListener('pointermove', handleShortcutDockPointerMove);
     grid.addEventListener('pointerleave', resetShortcutDockHover);
@@ -292,8 +287,8 @@ function createShortcutsController(deps: ShortcutsControllerDeps) {
     }
   });
   shortcutEvents.on('changed', ({ animateLayout }) => {
-    if (animateLayout && animateShortcutLayoutChange) {
-      animateShortcutLayoutChange(renderShortcuts);
+    if (animateLayout) {
+      shortcutLayoutAnimation.change(renderShortcuts);
     } else {
       renderShortcuts();
     }

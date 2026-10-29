@@ -30,6 +30,8 @@ function createFixture(shortcuts) {
   let renders = 0;
   // The rendered grid lists visible tiles group by group.
   const createTile = (shortcut) => ({
+    nodeType: 1,
+    namespaceURI: 'http://www.w3.org/1999/xhtml',
     getAttribute: (name) => (name === 'data-shortcut-id' ? shortcut.id
       : name === 'data-shortcut-group-id' ? shortcut.groupId || '' : null),
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }),
@@ -40,7 +42,7 @@ function createFixture(shortcuts) {
   const drag = LumnoNewtabShortcutDrag.createShortcutDrag({
     NEWTAB_CROSS_SURFACE_DRAG,
     NEWTAB_BOOKMARK_MOVE_HISTORY,
-    getShortcutReorderTiles: () => tiles,
+    shortcutLayoutAnimation: { change: (apply) => apply(), measure: () => new Map(), shift() {} },
     getShortcutTileId: (tile) => tile.getAttribute('data-shortcut-id'),
     getShortcutTileById: (id) => tiles.find((tile) => tile.getAttribute('data-shortcut-id') === id) || null,
     persistShortcuts: (items) => {
@@ -54,7 +56,8 @@ function createFixture(shortcuts) {
     },
     scheduleWallpaperAdaptiveToneUpdate() {},
     shortcutList,
-    shortcutGrid: null,
+    // The grid lists the tiles drawn last.
+    shortcutGrid: { addEventListener() {}, querySelectorAll: () => tiles },
     getAddShortcutButton: () => null,
     dragSessions,
     historyLock
