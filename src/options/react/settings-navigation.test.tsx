@@ -2,7 +2,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
 import { SettingsNavigation, type SettingsNavigationRenderModel } from './settings-navigation';
-import { getElement } from '../../../tests/react/dom';
+import { getElement } from '../../../tests/fakes/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 let controllers: Array<ReactRootController<SettingsNavigationRenderModel>> = [];

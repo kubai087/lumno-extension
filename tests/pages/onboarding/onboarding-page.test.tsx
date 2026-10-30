@@ -1,10 +1,10 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import onboardingHtml from '../onboarding.html?raw';
-import * as onboardingContent from '../onboarding-content';
-import { runPageBundle } from '../../../tests/react/page-bundles';
-import { expectElement, getElements, required } from '../../../tests/react/dom';
-import { queryHtmlTag } from '../../shared/dom-lookup';
+import onboardingHtml from '../../../src/onboarding/onboarding.html?raw';
+import * as onboardingContent from '../../../src/onboarding/onboarding-content';
+import { runPageBundle } from '../page-bundles';
+import { expectElement, getElements, required } from '../../fakes/dom';
+import { queryHtmlTag } from '../../../src/shared/dom-lookup';
 
 const LANGUAGE_STORAGE_KEY = '_x_extension_language_2024_unique_';
 const VISUAL_SURFACE_BY_KIND: Record<string, string> = {

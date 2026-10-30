@@ -2,7 +2,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createToastController } from './toast';
 import type { ToastController } from '../ui/toast-screen';
-import { getTestPortals } from '../../../tests/react/portals';
+import { getTestPortals } from '../../../tests/fakes/portals';
 
 let controllers: ToastController[] = [];
 

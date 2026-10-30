@@ -7,8 +7,8 @@ import {
   renderCursorTag,
   renderTooltipText
 } from './tooltip-view';
-import { expectTag } from '../../../tests/react/dom';
-import { getTestPortals } from '../../../tests/react/portals';
+import { expectTag } from '../../../tests/fakes/dom';
+import { getTestPortals } from '../../../tests/fakes/portals';
 
 let elements: HTMLElement[] = [];
 

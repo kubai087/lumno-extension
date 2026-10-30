@@ -7,7 +7,7 @@ import {
   type CascadeMenuView,
   type CascadeRowModel
 } from './bookmark-cascade-view';
-import { getElement, getTag, getTags } from '../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../tests/fakes/dom';
 import { createViewStore } from '../../shared/react/view-store';
 
 let view: CascadeMenuView | null = null;

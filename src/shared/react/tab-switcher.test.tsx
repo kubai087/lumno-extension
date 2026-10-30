@@ -4,7 +4,7 @@ import {
   createTabSwitcherView,
   type TabSwitcherViewController
 } from './tab-switcher';
-import { getTags } from '../../../tests/react/dom';
+import { getTags } from '../../../tests/fakes/dom';
 import { closestHtmlElement, queryHtmlTag } from '../dom-lookup';
 
 let controllers: TabSwitcherViewController[] = [];

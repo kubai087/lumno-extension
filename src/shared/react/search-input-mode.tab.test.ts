@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as FaviconResolver from '../../domain/favicon/resolver';
-import { LumnoSearchInputMode, createModeParts, resetModeTest } from '../../../tests/react/search-input-mode';
+import { LumnoSearchInputMode, createModeParts, resetModeTest } from '../../../tests/fakes/search-input-mode';
 
 afterEach(resetModeTest);
 

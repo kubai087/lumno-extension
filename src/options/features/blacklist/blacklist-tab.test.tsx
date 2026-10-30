@@ -1,9 +1,9 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { BlacklistTab } from './blacklist-tab';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
 
 const SEARCH_KEY = Settings.searchBlacklist.key;
 const FAVICON_KEY = Settings.faviconRequestBlacklist.key;

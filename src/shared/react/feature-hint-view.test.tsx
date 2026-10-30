@@ -7,8 +7,8 @@ import {
   type FeatureHintViewLabels
 } from './feature-hint-view';
 import { queryHtmlTag } from '../dom-lookup';
-import { required } from '../../../tests/react/dom';
-import { getTestPortals } from '../../../tests/react/portals';
+import { required } from '../../../tests/fakes/dom';
+import { getTestPortals } from '../../../tests/fakes/portals';
 
 let controllers: FeatureHintViewController[] = [];
 

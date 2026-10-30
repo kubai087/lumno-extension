@@ -1,15 +1,15 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import optionsHtml from '../options.html?raw';
-import * as settingsModule from '../../domain/settings';
-import { runPageBundle } from '../../../tests/react/page-bundles';
+import optionsHtml from '../../../src/options/options.html?raw';
+import * as settingsModule from '../../../src/domain/settings';
+import { runPageBundle } from '../page-bundles';
 import siteSearchCatalog from '../../../assets/data/site-search.json';
 import enMessages from '../../../_locales/en/messages.json';
 import jaMessages from '../../../_locales/ja/messages.json';
 import zhCnMessages from '../../../_locales/zh_CN/messages.json';
 import zhTwMessages from '../../../_locales/zh_TW/messages.json';
-import { expectElement, expectTag, getElement, getTag, getTags } from '../../../tests/react/dom';
-import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
+import { expectElement, expectTag, getElement, getTag, getTags } from '../../fakes/dom';
+import { queryHtmlElement, queryHtmlTag } from '../../../src/shared/dom-lookup';
 
 // Boots the real Options page (markup, its preload bundle, React islands and
 // page bundle) against an in-memory chrome.storage, so the page's storage

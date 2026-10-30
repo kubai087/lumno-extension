@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ModeMenuItem } from '../search/input-mode/types';
 import type { CursorTooltipController } from '../ui/cursor-tooltip-model';
 import { queryHtmlElement, queryHtmlTag } from '../dom-lookup';
-import { getElement, getElements, getTags, required } from '../../../tests/react/dom';
-import { LumnoSearchInputMode, createModeParts, getTestContrastRatio, resetModeTest } from '../../../tests/react/search-input-mode';
+import { getElement, getElements, getTags, required } from '../../../tests/fakes/dom';
+import { LumnoSearchInputMode, createModeParts, getTestContrastRatio, resetModeTest } from '../../../tests/fakes/search-input-mode';
 
 afterEach(resetModeTest);
 

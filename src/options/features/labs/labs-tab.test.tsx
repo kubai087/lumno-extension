@@ -1,9 +1,9 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { LabsTab } from './labs-tab';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
 
 const PIP_TOGGLE = '_x_extension_document_pip_toggle_2026_unique_';
 const INSTANT_TOGGLE = '_x_extension_number_shortcut_instant_toggle_2026_unique_';

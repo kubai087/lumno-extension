@@ -6,7 +6,7 @@ import {
   type SelectControlOptions,
   type SelectControlRenderModel
 } from './select-control';
-import { getElement, getElements, getTag } from '../../../tests/react/dom';
+import { getElement, getElements, getTag } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let roots: Root[] = [];

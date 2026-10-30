@@ -4,7 +4,7 @@ import { siteThemeEvents } from '../../../favicon/theme-caches';
 import { createColorScheme } from '../../../ui/color-scheme';
 import { buildTheme } from '../../../favicon/favicon-theme';
 import type { SuggestionElement } from './types';
-import { createView, destroyViews, render } from '../../../../../tests/react/suggestions';
+import { createView, destroyViews, render } from '../../../../../tests/fakes/suggestions';
 
 afterEach(destroyViews);
 

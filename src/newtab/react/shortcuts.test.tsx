@@ -12,7 +12,7 @@ import {
 } from './shortcuts';
 import { createViewStore } from '../../shared/react/view-store';
 import type { Store } from '../../shared/state/store';
-import { expectElement, getElement, getTag, required } from '../../../tests/react/dom';
+import { expectElement, getElement, getTag, required } from '../../../tests/fakes/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 import type { ShortcutLink, VisibleShortcutFolder } from '../../domain/shortcuts/types';
 

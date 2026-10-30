@@ -2,8 +2,8 @@ import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
 import type { Setting } from '../../../domain/settings/define';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { GeneralFeaturesSection } from './features-section';
 
 const TAB_SWITCHER_TOGGLE = '_x_extension_tab_switcher_toggle_2026_unique_';

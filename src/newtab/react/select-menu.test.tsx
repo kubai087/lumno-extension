@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSelectMenuController, type SelectMenuInstance } from './select-menu';
 import type { SelectMenuConfig } from '../../shared/react/select-menu';
-import { getElements } from '../../../tests/react/dom';
+import { getElements } from '../../../tests/fakes/dom';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 
 type Controller = ReturnType<typeof createSelectMenuController>;

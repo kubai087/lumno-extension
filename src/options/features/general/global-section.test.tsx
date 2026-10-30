@@ -1,8 +1,8 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { GeneralGlobalSection } from './global-section';
 
 const LANGUAGE_SELECT = '_x_extension_language_select_2024_unique_';

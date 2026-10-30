@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createLinkPreviewView, type LinkPreviewViewController, type LinkPreviewViewModel } from './link-preview-view';
-import { getElement, getTag } from '../../../tests/react/dom';
+import { getElement, getTag } from '../../../tests/fakes/dom';
 
 let views: LinkPreviewViewController[] = [];
 

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RangeSliderControl, type RangeSliderControlRenderModel } from './range-slider-control';
 import { CheckboxGroup, type CheckboxGroupRenderModel } from './checkbox-group';
 import { ToggleControl, type ToggleControlRenderModel } from './toggle-control';
-import { getTag, getTags } from '../../../tests/react/dom';
+import { getTag, getTags } from '../../../tests/fakes/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 let roots: Root[] = [];

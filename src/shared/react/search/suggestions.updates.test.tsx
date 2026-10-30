@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Suggestion } from './suggestions';
-import { createView, destroyViews, render, rowPart, rowParts } from '../../../../tests/react/suggestions';
+import { createView, destroyViews, render, rowPart, rowParts } from '../../../../tests/fakes/suggestions';
 import { createStore } from '../../state/store';
 
 afterEach(destroyViews);

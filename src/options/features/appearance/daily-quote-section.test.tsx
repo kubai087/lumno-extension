@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as CustomQuotes from '../../../domain/custom-quotes';
 import type { QuoteLibrary } from '../../../domain/custom-quotes';
 import * as Settings from '../../../domain/settings';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { DailyQuoteSection } from './daily-quote-section';
-import { getElement, getTag } from '../../../../tests/react/dom';
+import { getElement, getTag } from '../../../../tests/fakes/dom';
 import { customQuotePick } from '../../../domain/settings/newtab-quote';
 
 // How the next import reads its file.

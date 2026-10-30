@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ModeMenuItem } from '../search/input-mode/types';
-import { FakeAnimation } from '../../../tests/react/fake-animation';
+import { FakeAnimation } from '../../../tests/fakes/animation';
 import { queryHtmlElement, queryHtmlTag } from '../dom-lookup';
-import { expectSvg, getElements, getSvgs } from '../../../tests/react/dom';
-import { LumnoSearchInputMode, createModeParts, getTestContrastRatio, resetModeTest } from '../../../tests/react/search-input-mode';
+import { expectSvg, getElements, getSvgs } from '../../../tests/fakes/dom';
+import { LumnoSearchInputMode, createModeParts, getTestContrastRatio, resetModeTest } from '../../../tests/fakes/search-input-mode';
 
 afterEach(resetModeTest);
 

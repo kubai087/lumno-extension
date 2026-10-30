@@ -11,7 +11,7 @@ import {
 import { BookmarksShown } from '../bookmarks/bookmarks-shown';
 import { createViewStore } from '../../shared/react/view-store';
 import type { Store } from '../../shared/state/store';
-import { expectElement, required } from '../../../tests/react/dom';
+import { expectElement, required } from '../../../tests/fakes/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 // A view with the owner that draws its grid and the context menu mark the

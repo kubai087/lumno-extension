@@ -2,7 +2,7 @@ import { act } from 'react';
 import { queryHtmlElement } from '../../dom-lookup';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Suggestion, SuggestionElement } from './suggestions';
-import { expectTag, getElements, getTag, getTags, required } from '../../../../tests/react/dom';
+import { expectTag, getElements, getTag, getTags, required } from '../../../../tests/fakes/dom';
 import {
   createView,
   destroyViews,
@@ -12,7 +12,7 @@ import {
   showTabs,
   showSuggestions,
   showNothing
-} from '../../../../tests/react/suggestions';
+} from '../../../../tests/fakes/suggestions';
 
 afterEach(destroyViews);
 

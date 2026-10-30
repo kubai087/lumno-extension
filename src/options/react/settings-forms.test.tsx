@@ -9,7 +9,7 @@ import {
   type SiteSearchFormSaveHandler
 } from './settings-forms';
 import { createReactRootController } from '../../shared/react/root-controller';
-import { getElement, getTags } from '../../../tests/react/dom';
+import { getElement, getTags } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let controllers: Array<{ destroy(): void }> = [];

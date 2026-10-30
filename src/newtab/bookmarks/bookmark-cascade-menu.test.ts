@@ -14,7 +14,7 @@ import {
 } from '../dom/bookmark-cascade-menu';
 import type { BookmarkItem } from './bookmarks-store';
 import type { MenuSurfaceElement } from '../../shared/ui/menu-surface';
-import { getElements, getTags } from '../../../tests/react/dom';
+import { getElements, getTags } from '../../../tests/fakes/dom';
 
 // Longer than the menus' hover-intent delay and their close delay, and
 // shorter than how long a safe triangle protects an open submenu.

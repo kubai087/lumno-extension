@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InlinePopconfirm } from './inline-popconfirm';
-import { getTags } from '../../../tests/react/dom';
+import { getTags } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let roots: Root[] = [];

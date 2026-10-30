@@ -10,7 +10,7 @@ import {
 import { RecentSitesShown } from '../recent/recent-sites-shown';
 import { createViewStore } from '../../shared/react/view-store';
 import type { Store } from '../../shared/state/store';
-import { expectElement, getTag } from '../../../tests/react/dom';
+import { expectElement, getTag } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 function pinButtonOf(card: HTMLElement): HTMLButtonElement {

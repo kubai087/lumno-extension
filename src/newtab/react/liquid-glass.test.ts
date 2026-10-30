@@ -11,7 +11,7 @@ import {
   placeLensFilter,
   type LensTileCanvas
 } from '../dom/liquid-glass';
-import { required } from '../../../tests/react/dom';
+import { required } from '../../../tests/fakes/dom';
 import { createSvgElement } from '../../shared/ui/svg-tree';
 
 function fakeWindow(supportsUrl: boolean, userAgent: string) {

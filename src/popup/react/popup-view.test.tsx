@@ -2,7 +2,7 @@ import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { createRoot } from 'react-dom/client';
 import { PopupView, type PopupHandlers, type PopupModel } from './popup-view';
-import { getTags } from '../../../tests/react/dom';
+import { getTags } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 function createModel(overrides: Partial<PopupModel> = {}): PopupModel {

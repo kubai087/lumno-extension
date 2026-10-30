@@ -2,9 +2,9 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as Settings from '../../../domain/settings';
 import type { Setting } from '../../../domain/settings/define';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { AppearanceOverlaySection } from './overlay-section';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
 
 // The fonts the next section reads as installed.
 let installedFonts: Promise<chrome.fontSettings.FontName[]> = Promise.resolve([]);

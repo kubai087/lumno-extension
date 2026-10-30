@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import enMessages from '../../../_locales/en/messages.json';
-import { createBrowserFake } from '../../../tests/react/browser-fake';
+import { createBrowserFake } from '../../fakes/browser';
 
 // Runs the real overlay app on a web page against an in-memory browser, as
 // the worker does with each toggle, and checks it by what it shows: it opens
@@ -51,8 +51,8 @@ async function loadOverlay() {
   }));
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => enMessages })));
   vi.resetModules();
-  const app = await import('../overlay-app');
-  const shell = await import('../react/shell');
+  const app = await import('../../../src/overlay/overlay-app');
+  const shell = await import('../../../src/overlay/react/shell');
   const toggle = async () => {
     let reply: unknown = null;
     await act(async () => {

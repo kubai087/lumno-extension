@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FaviconFallback, FolderPreviewFaviconFallback } from '../react/favicon-fallback';
 import { createFallbackIconPresenter } from './favicon-view-core';
-import { getElement, getElements, getTag, getTags } from '../../../tests/react/dom';
+import { getElement, getElements, getTag, getTags } from '../../../tests/fakes/dom';
 
 let root: Root | null = null;
 

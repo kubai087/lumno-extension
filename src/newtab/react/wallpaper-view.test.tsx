@@ -22,7 +22,7 @@ import {
 } from './wallpaper-view';
 import { createViewStore } from '../../shared/react/view-store';
 import type { Store } from '../../shared/state/store';
-import { expectElement, expectTag, getElement, getElements, getTag, getTags, required } from '../../../tests/react/dom';
+import { expectElement, expectTag, getElement, getElements, getTag, getTags, required } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let controller: WallpaperViewController | null = null;

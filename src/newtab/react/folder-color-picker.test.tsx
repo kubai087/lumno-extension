@@ -2,7 +2,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFolderColorPicker } from './folder-color-picker';
 import { parseFolderColor, folderColorToRgb } from './folder-color';
-import { getElement, getTag, getTags, required } from '../../../tests/react/dom';
+import { getElement, getTag, getTags, required } from '../../../tests/fakes/dom';
 
 let picker: ReturnType<typeof createFolderColorPicker> | undefined;
 afterEach(() => { act(() => picker?.destroy()); picker = undefined; document.body.replaceChildren(); });

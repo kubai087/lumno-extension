@@ -6,7 +6,7 @@ import {
   type BlacklistSaveHandler
 } from './blacklist-list';
 import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
-import { getTags } from '../../../tests/react/dom';
+import { getTags } from '../../../tests/fakes/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 let controllers: Array<ReactRootController<BlacklistListRenderModel>> = [];

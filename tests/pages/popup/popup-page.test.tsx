@@ -1,10 +1,10 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import popupHtml from '../popup.html?raw';
+import popupHtml from '../../../src/popup/popup.html?raw';
 import enMessages from '../../../_locales/en/messages.json';
-import { runPageBundle } from '../../../tests/react/page-bundles';
-import { createBrowserFake, type BrowserFake } from '../../../tests/react/browser-fake';
-import { getTags } from '../../../tests/react/dom';
+import { runPageBundle } from '../page-bundles';
+import { createBrowserFake, type BrowserFake } from '../../fakes/browser';
+import { getTags } from '../../fakes/dom';
 
 // Boots the real toolbar popup (its markup and its entries) against an
 // in-memory browser, on a web page as the active tab.

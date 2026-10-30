@@ -1,8 +1,8 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as Settings from '../../../domain/settings';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { SearchSourcesTab } from './search-sources-tab';
 
 const AUTO_GROUP_KEY = Settings.aggregateSearchAutoGroupEnabled.key;

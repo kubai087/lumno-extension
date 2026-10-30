@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { NormalizedOptions } from './types';
 import { bindRowTooltip } from './highlight';
 import { normalizeOptions } from './surface-options';
-import { getTestPortals } from '../../../../../tests/react/portals';
+import { getTestPortals } from '../../../../../tests/fakes/portals';
 
 type BindCursorTooltip = NonNullable<NormalizedOptions['bindCursorTooltip']>;
 type GetText = Parameters<BindCursorTooltip>[1];

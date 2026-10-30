@@ -6,7 +6,7 @@ import {
   type AggregateSearchListRenderModel
 } from './aggregate-search-list';
 import { createReactRootController, type ReactRootController } from '../../shared/react/root-controller';
-import { getElement, getElements, getTag, getTags } from '../../../tests/react/dom';
+import { getElement, getElements, getTag, getTags } from '../../../tests/fakes/dom';
 import { closestHtmlElement, queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let controllers: Array<ReactRootController<AggregateSearchListRenderModel>> = [];

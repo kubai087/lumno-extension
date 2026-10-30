@@ -64,7 +64,7 @@ const DOM_MEMBERS = [
 ];
 
 // An element type given to a query asserts it; the lookups in
-// src/shared/dom-lookup.ts (and tests/react/dom.ts) check it instead.
+// src/shared/dom-lookup.ts (and tests/fakes/dom.ts) check it instead.
 const TYPE_ASSERTING_QUERY = {
   selector: 'CallExpression[callee.property.name=/^(?:querySelector|querySelectorAll|closest)$/][typeArguments]',
   message: 'Look the element up through a guarded lookup instead of asserting its type.'
@@ -150,7 +150,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['src/**/*.{ts,tsx}', 'tests/react/**/*.ts'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     extends: [tseslint.configs.recommended],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', unusedVarsOptions],
@@ -179,9 +179,17 @@ export default tseslint.config(
     }
   },
   {
-    files: ['src/**/*.test.{ts,tsx}'],
+    files: ['src/**/*.test.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     rules: {
       'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }]
+    }
+  },
+  {
+    // Tests run in Node and hand functions to the documents they drive.
+    files: ['tests/**/*.{ts,tsx}'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: { ...globals.node, ...extensionGlobals }
     }
   },
   {
@@ -227,7 +235,7 @@ export default tseslint.config(
     rules: restrictImports(SURFACES.filter((other) => other !== surface))
   })),
   {
-    files: ['src/**/react/**/*.{ts,tsx}', 'tests/react/**/*.ts'],
+    files: ['src/**/react/**/*.{ts,tsx}', 'tests/**/*.tsx'],
     extends: [tseslint.configs.recommended],
     plugins: { 'react-hooks': reactHooks },
     languageOptions: {

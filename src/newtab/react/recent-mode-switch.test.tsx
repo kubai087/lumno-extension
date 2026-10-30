@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RecentModeSwitch, type RecentModeSwitchModel } from './recent-mode-switch';
-import { getTag, getTags } from '../../../tests/react/dom';
+import { getTag, getTags } from '../../../tests/fakes/dom';
 
 let root: Root | null = null;
 

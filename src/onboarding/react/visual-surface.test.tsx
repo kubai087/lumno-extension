@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VisualSurface, type VisualSurfaceRenderModel } from './visual-surface';
-import { getElements, required } from '../../../tests/react/dom';
+import { getElements, required } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let roots: Root[] = [];

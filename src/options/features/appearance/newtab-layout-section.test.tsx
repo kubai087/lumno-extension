@@ -2,9 +2,9 @@ import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
 import type { Setting } from '../../../domain/settings/define';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { NewtabLayoutSection } from './newtab-layout-section';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
 
 function setUp(stored: Record<string, unknown> = {}) {
   const view = renderOptionsView(<NewtabLayoutSection />, { sync: stored });

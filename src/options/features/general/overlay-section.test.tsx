@@ -1,8 +1,8 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
-import { getTag } from '../../../../tests/react/dom';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { getTag } from '../../../../tests/fakes/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { GeneralOverlaySection } from './overlay-section';
 
 const OPEN_KEY = Settings.overlayOpenInCurrentTab.key;

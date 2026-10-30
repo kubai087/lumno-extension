@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PageStrip, type PageStripRenderModel } from './page-strip';
-import { getElement, getTags } from '../../../tests/react/dom';
+import { getElement, getTags } from '../../../tests/fakes/dom';
 
 let roots: Root[] = [];
 

@@ -5,8 +5,8 @@ import {
   destroySearchInput,
   type SearchInputParts
 } from './search-input';
-import { getElement, getTags, required } from '../../../tests/react/dom';
-import { getTestPortals } from '../../../tests/react/portals';
+import { getElement, getTags, required } from '../../../tests/fakes/dom';
+import { getTestPortals } from '../../../tests/fakes/portals';
 
 let inputs: SearchInputParts[] = [];
 

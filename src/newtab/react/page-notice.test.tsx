@@ -2,7 +2,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPageNotice } from './page-notice';
 import { queryHtmlTag } from '../../shared/dom-lookup';
-import { required } from '../../../tests/react/dom';
+import { required } from '../../../tests/fakes/dom';
 
 afterEach(() => {
   document.body.replaceChildren();

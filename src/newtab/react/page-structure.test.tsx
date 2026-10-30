@@ -5,7 +5,7 @@ import {
   createPageStructure,
   type PageStructureRuntime
 } from './page-structure';
-import { getElement, getTag, getTags } from '../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../tests/fakes/dom';
 
 let runtime: PageStructureRuntime | null = null;
 

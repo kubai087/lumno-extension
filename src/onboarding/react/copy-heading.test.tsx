@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CopyHeading, type CopyHeadingRenderModel } from './copy-heading';
-import { getElement } from '../../../tests/react/dom';
+import { getElement } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let roots: Root[] = [];

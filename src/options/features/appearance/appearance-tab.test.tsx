@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getTags } from '../../../../tests/react/dom';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { getTags } from '../../../../tests/fakes/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { AppearanceTab } from './appearance-tab';
 
 afterEach(cleanUpOptionsViews);

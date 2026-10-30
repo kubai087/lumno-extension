@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CopyPanel, type CopyPanelModel } from './copy-panel';
-import { getElement } from '../../../tests/react/dom';
+import { getElement } from '../../../tests/fakes/dom';
 
 let roots: Root[] = [];
 

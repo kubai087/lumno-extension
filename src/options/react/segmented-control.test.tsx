@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SegmentedControl, type SegmentedControlRenderModel } from './segmented-control';
-import { getTags, required } from '../../../tests/react/dom';
+import { getTags, required } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let roots: Root[] = [];

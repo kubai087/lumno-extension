@@ -2,7 +2,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createQuoteLineView, type QuoteLineModel, type QuoteLineState, type QuoteLineView } from './quote-line';
 import { createViewStore } from '../../shared/react/view-store';
-import { getTag } from '../../../tests/react/dom';
+import { getTag } from '../../../tests/fakes/dom';
 
 let views: QuoteLineView[] = [];
 

@@ -8,10 +8,14 @@
       "vitest/globals"
     ]
   },
+  "exclude": [
+    "tests/helpers/**"
+  ],
   "include": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
-    "tests/react/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
     "vite.config.mjs",
     "vite.overlay.config.mjs",
     "vitest.config.ts",

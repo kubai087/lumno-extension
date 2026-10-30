@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPipDockView, type PipDockModel, type PipDockViewController } from './pip-dock-view';
-import { getElement, getTags } from '../../../tests/react/dom';
+import { getElement, getTags } from '../../../tests/fakes/dom';
 
 let views: PipDockViewController[] = [];
 

@@ -11,7 +11,7 @@ import {
   normalizeSurfaceColor,
   type BookmarksTopbarRuntime
 } from './bookmarks-topbar';
-import { getTag } from '../../../tests/react/dom';
+import { getTag } from '../../../tests/fakes/dom';
 
 let runtime: BookmarksTopbarRuntime | null = null;
 

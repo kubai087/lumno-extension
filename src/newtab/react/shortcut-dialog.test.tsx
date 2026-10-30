@@ -7,7 +7,7 @@ import {
   type ShortcutDialogPayload
 } from './shortcut-dialog';
 import { MODE_ADD, MODE_EDIT, clampEnterOffset, getEnterOffset, normalizeMode } from './shortcut-dialog-helpers';
-import { getElement, getTag, getTags } from '../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let frameCallbacks: Map<number, FrameRequestCallback>;

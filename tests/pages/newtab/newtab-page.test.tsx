@@ -2,10 +2,10 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import newtabHtml from '../../../newtab.html?raw';
 import enMessages from '../../../_locales/en/messages.json';
-import { runPageBundle } from '../../../tests/react/page-bundles';
-import { createBrowserFake, type BrowserFake } from '../../../tests/react/browser-fake';
-import { createShortcutStoragePlan } from '../../domain/shortcuts/storage-plan';
-import { getElementById, getElements, getTag } from '../../../tests/react/dom';
+import { runPageBundle } from '../page-bundles';
+import { createBrowserFake, type BrowserFake } from '../../fakes/browser';
+import { createShortcutStoragePlan } from '../../../src/domain/shortcuts/storage-plan';
+import { getElementById, getElements, getTag } from '../../fakes/dom';
 
 // Boots the real New Tab (its markup and the entries it loads, in order)
 // against an in-memory browser, and checks the page by what it shows and

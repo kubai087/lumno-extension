@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { getTag } from '../../../../tests/react/dom';
+import { getTag } from '../../../../tests/fakes/dom';
 import { queryHtmlElement } from '../../dom-lookup';
 import {
   createView,
@@ -9,7 +9,7 @@ import {
   rowPart,
   showTabs,
   showSuggestions
-} from '../../../../tests/react/suggestions';
+} from '../../../../tests/fakes/suggestions';
 
 afterEach(destroyViews);
 

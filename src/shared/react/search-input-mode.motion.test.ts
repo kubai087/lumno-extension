@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { FakeAnimation } from '../../../tests/react/fake-animation';
+import { FakeAnimation } from '../../../tests/fakes/animation';
 import { queryHtmlElement } from '../dom-lookup';
-import { expectSvg } from '../../../tests/react/dom';
-import { LumnoSearchInputMode, createModeParts, resetModeTest } from '../../../tests/react/search-input-mode';
+import { expectSvg } from '../../../tests/fakes/dom';
+import { LumnoSearchInputMode, createModeParts, resetModeTest } from '../../../tests/fakes/search-input-mode';
 
 afterEach(resetModeTest);
 

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ModeMenuItem } from '../search/input-mode/types';
 import { queryHtmlElement, queryHtmlTag } from '../dom-lookup';
-import { getElement, getTags } from '../../../tests/react/dom';
-import { LumnoSearchInputMode, createModeParts, resetModeTest } from '../../../tests/react/search-input-mode';
+import { getElement, getTags } from '../../../tests/fakes/dom';
+import { LumnoSearchInputMode, createModeParts, resetModeTest } from '../../../tests/fakes/search-input-mode';
 
 afterEach(resetModeTest);
 

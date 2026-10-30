@@ -8,7 +8,7 @@ import {
   type TopContentController,
   type WordmarkAppearance
 } from './wordmark';
-import { getElement, getElements } from '../../../tests/react/dom';
+import { getElement, getElements } from '../../../tests/fakes/dom';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 
 let controllers: TopContentController[] = [];

@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InfoButton } from './info-button';
-import { getTag } from '../../../tests/react/dom';
+import { getTag } from '../../../tests/fakes/dom';
 import { queryHtmlElement } from '../../shared/dom-lookup';
 
 afterEach(() => {

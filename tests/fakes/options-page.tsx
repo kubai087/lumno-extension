@@ -1,5 +1,5 @@
 // Renders an Options view inside the page context it reads, with the page's
-// real owners over in-memory settings (tests/react/options-settings.ts) and
+// real owners over in-memory settings (tests/fakes/options-settings.ts) and
 // stand-ins for the browser, the toast and the tooltip.
 import { act, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';

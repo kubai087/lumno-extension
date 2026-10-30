@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Interactions, type InteractionsRenderModel } from './interactions';
-import { getElement } from '../../../tests/react/dom';
+import { getElement } from '../../../tests/fakes/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 let roots: Root[] = [];

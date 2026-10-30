@@ -2,9 +2,9 @@ import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
 import type { Setting } from '../../../domain/settings/define';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { NewtabLookSection } from './newtab-look-section';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
 
 const TIME_FONT = '_x_extension_newtab_time_font_select_2026_unique_';
 

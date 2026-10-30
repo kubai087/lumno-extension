@@ -4,7 +4,7 @@ import {
   createRecentHistoryDialog,
   type RecentHistoryDialogController
 } from './recent-history-dialog';
-import { expectTag, getTags } from '../../../tests/react/dom';
+import { expectTag, getTags } from '../../../tests/fakes/dom';
 import { queryHtmlTag } from '../../shared/dom-lookup';
 
 let controller: RecentHistoryDialogController | null = null;

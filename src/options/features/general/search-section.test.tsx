@@ -2,8 +2,8 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as Settings from '../../../domain/settings';
 import type { Setting } from '../../../domain/settings/define';
-import { getElement, getTag, getTags } from '../../../../tests/react/dom';
-import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/react/options-page';
+import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
+import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { GeneralSearchSection } from './search-section';
 
 const SOURCE_TYPES_KEY = Settings.searchResultSourceTypes.key;
