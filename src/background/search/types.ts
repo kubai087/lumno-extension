@@ -15,16 +15,6 @@ interface DefaultSearchEngineState {
   updatedAt: number;
 }
 
-interface SearchEngineDef {
-  id: string;
-  name: string;
-  hostMatches: string[];
-  searchTemplate: string;
-  searchUrl(query: string): string;
-  // The engine's regional sites; a search goes to the one this device used.
-  regionalHosts?: RegExp;
-}
-
 // A short-lived copy of a browser source.
 interface TimedCache<T> {
   expiresAt: number;
@@ -140,7 +130,6 @@ export type {
   HistoryRemoval,
   OpenTabItem,
   RowExtras,
-  SearchEngineDef,
   SearchSuggestionOptions,
   SourceItem,
   SuggestionRow,
