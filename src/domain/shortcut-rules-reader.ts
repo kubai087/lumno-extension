@@ -16,4 +16,15 @@ function readShortcutRules(data: unknown): ShortcutRule[] {
   }));
 }
 
-export { readShortcutRules };
+// Whether the query is one of the rule's words. The whole query has to be
+// the word, so "history of rome" is still searched.
+function shortcutRuleMatches(rule: ShortcutRule | null | undefined, query: string): boolean {
+  const keys = rule ? rule.keys : undefined;
+  if (!Array.isArray(keys)) {
+    return false;
+  }
+  const typed = String(query || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  return Boolean(typed) && keys.some((key) => key.trim().toLowerCase() === typed);
+}
+
+export { readShortcutRules, shortcutRuleMatches };

@@ -2,7 +2,7 @@
 // (assets/data/shortcut-rules.json).
 import * as browserProfile from '../platform/browser-profile';
 import type { ShortcutRule } from '../domain/messages';
-import { readShortcutRules } from '../domain/shortcut-rules-reader';
+import { readShortcutRules, shortcutRuleMatches } from '../domain/shortcut-rules-reader';
 
 interface ShortcutRulesOptions {
   chromeApi?: { runtime?: { getURL?: (path: string) => string } } | null;
@@ -12,7 +12,7 @@ interface ShortcutRulesOptions {
 
 interface ShortcutRules {
   loadShortcutRules(): Promise<ShortcutRule[]>;
-  // The page a query's leading words open, or null.
+  // The page a query that is a rule's word opens, or null.
   getShortcutUrl(query: string, rules: readonly ShortcutRule[] | null | undefined): string | null;
 }
 
@@ -24,16 +24,10 @@ function getShortcutUrlForScheme(
   if (!query || !Array.isArray(rules)) {
     return null;
   }
-  const queryLower = query.toLowerCase();
   const browserScheme = scheme || 'chrome://';
   for (let i = 0; i < rules.length; i += 1) {
     const rule = rules[i];
-    const keys = rule ? rule.keys : undefined;
-    if (!rule || !Array.isArray(keys)) {
-      continue;
-    }
-    const isMatch = keys.some((key) => queryLower.startsWith(key));
-    if (!isMatch) {
+    if (!rule || !shortcutRuleMatches(rule, query)) {
       continue;
     }
     if (rule.type === 'browserPage' && rule.path) {

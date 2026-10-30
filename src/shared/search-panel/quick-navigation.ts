@@ -3,6 +3,7 @@
 // for a query that leads straight to one.
 import type { ShortcutRule } from '../../domain/messages';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
+import { shortcutRuleMatches } from '../../domain/shortcut-rules-reader';
 import * as BROWSER_PROFILE from '../../platform/browser-profile';
 import type { SearchLocale } from './labels';
 import { loadShortcutRules } from './shortcut-rules';
@@ -27,14 +28,13 @@ class QuickNavigation {
     this.options = options;
   }
 
-  // The rows of the rules whose words the input starts with.
+  // The rows of the rules the input is a word of.
   readonly keywordRows = (input: string, rules: readonly ShortcutRule[]): QuickNavigationRow[] => {
-    const queryLower = input.toLowerCase();
     const browserProfile = BROWSER_PROFILE.getBrowserInternalProfile(navigator);
     const scheme = browserProfile.scheme;
     const rows: QuickNavigationRow[] = [];
     rules.forEach((rule) => {
-      if (!rule || !Array.isArray(rule.keys) || !rule.keys.some((key) => queryLower.startsWith(key))) {
+      if (!rule || !shortcutRuleMatches(rule, input)) {
         return;
       }
       if (rule.type === 'browserPage' && rule.path) {
