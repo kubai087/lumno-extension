@@ -2,17 +2,12 @@
 // and the translated onboarding copy in src/onboarding/locales/<locale>.json.
 const fs = require('fs');
 const path = require('path');
-require('../node/register-typescript');
-const settings = require('../../src/domain/settings/index.ts');
+const { importSource } = require('../node/source-module');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SOURCE_LOCALE = 'en';
 // zh_CN is the language Lumno is written in; translators read it beside the English.
 const REFERENCE_LOCALE = 'zh_CN';
-const UI_LOCALE_IDS = settings.UI_LOCALES.map((entry) => entry.id);
-const MACHINE_TRANSLATED_LOCALE_IDS = settings.UI_LOCALES
-  .filter((entry) => entry.machineTranslated)
-  .map((entry) => entry.id);
 // Characters that vanish in an editor are written as \u escapes.
 const INVISIBLE_CHARACTERS_RE = /[\u00A0\u00AD\u200B-\u200F\u2028\u2029\u202F\u2060\uFEFF]/g;
 
@@ -56,10 +51,20 @@ function writeOnboarding(locale, translations) {
   writeJson(onboardingPath(locale), translations);
 }
 
+// The UI languages Lumno ships (ids are _locales folders), and those whose
+// copy no native speaker has reviewed yet.
+async function readUiLocales() {
+  const { UI_LOCALES } = await importSource('src/domain/settings/locale.ts');
+  return {
+    ids: UI_LOCALES.map((entry) => entry.id),
+    machineTranslated: UI_LOCALES.filter((entry) => entry.machineTranslated).map((entry) => entry.id)
+  };
+}
+
 // The English onboarding strings every translated onboarding file follows,
 // or the same strings in another locale written in onboarding-content.ts.
 async function readOnboardingSource(locale = SOURCE_LOCALE) {
-  const content = await import('../../src/onboarding/onboarding-content.ts');
+  const content = await importSource('src/onboarding/onboarding-content.ts');
   return content.getOnboardingTranslationSource(locale);
 }
 
@@ -76,14 +81,13 @@ module.exports = {
   REPO_ROOT,
   SOURCE_LOCALE,
   REFERENCE_LOCALE,
-  UI_LOCALE_IDS,
-  MACHINE_TRANSLATED_LOCALE_IDS,
   messagesPath,
   onboardingPath,
   readMessages,
   writeMessages,
   readOnboarding,
   writeOnboarding,
+  readUiLocales,
   readOnboardingSource,
   getTemplateTokens,
   countLineBreaks

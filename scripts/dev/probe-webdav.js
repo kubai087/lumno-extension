@@ -4,14 +4,24 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
-require('../node/register-typescript');
-const clientApi = {
-  ...require('../../src/background/webdav-client/client.ts'),
-  ...require('../../src/background/webdav-client/config.ts'),
-  ...require('../../src/background/webdav-client/errors.ts')
-};
+const { importSource } = require('../node/source-module');
+
+let clientApi = null;
+
+// The extension's WebDAV client: the same requests, errors and diagnostics.
+async function loadClientApi() {
+  if (!clientApi) {
+    clientApi = {
+      ...await importSource('src/background/webdav-client/client.ts'),
+      ...await importSource('src/background/webdav-client/config.ts'),
+      ...await importSource('src/background/webdav-client/errors.ts')
+    };
+  }
+  return clientApi;
+}
 
 async function probeProvider(input, options = {}) {
+  const clientApi = await loadClientApi();
   const config = clientApi.normalizeConfig(input);
   const records = [];
   const fetchFn = options.fetch || globalThis.fetch;
@@ -96,7 +106,7 @@ async function main() {
   const configPath = path.join(directory, 'provider-probe.private.json');
   const resultPath = path.join(directory, 'provider-probe-result.json');
   const input = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  clientApi.normalizeConfig(input); // A blank or invalid template remains editable.
+  (await loadClientApi()).normalizeConfig(input); // A blank or invalid template remains editable.
   fs.unlinkSync(configPath); // Consume credentials before networking; never put them in a report.
   const report = await probeProvider(input);
   fs.writeFileSync(resultPath, JSON.stringify(report, null, 2) + '\n', { mode: 0o600 });

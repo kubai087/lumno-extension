@@ -1,10 +1,7 @@
 const assert = require('assert');
 const os = require('os');
 const { performance } = require('perf_hooks');
-require('../node/register-typescript');
-const bookmarkStore = require('../../src/newtab/bookmarks/bookmarks-store.ts');
-const recentStore = require('../../src/domain/recent-sites-store.ts');
-const settingsStorage = require('../../tests/helpers/settings-storage.ts');
+const { importSource } = require('../node/source-module');
 
 function round(value) {
   return Number(Number(value || 0).toFixed(2));
@@ -51,26 +48,6 @@ function measureSync(callback, options) {
   return { latestResult, summary: summarize(durations) };
 }
 
-async function measureAsync(callback, options) {
-  const config = options || {};
-  const warmups = Math.max(0, Number(config.warmups) || 0);
-  const runs = Math.max(1, Number(config.runs) || 1);
-  let latestResult = null;
-  for (let index = 0; index < warmups; index += 1) {
-    latestResult = await callback();
-  }
-  if (typeof global.gc === 'function') {
-    global.gc();
-  }
-  const durations = [];
-  for (let index = 0; index < runs; index += 1) {
-    const startedAt = performance.now();
-    latestResult = await callback();
-    durations.push(performance.now() - startedAt);
-  }
-  return { latestResult, summary: summarize(durations) };
-}
-
 function createBookmarkTree(folderCount, bookmarksPerFolder) {
   let nextId = 2;
   const folders = [];
@@ -110,29 +87,9 @@ function createRecentSiteData(historyCount, tabCount) {
   };
 }
 
-async function profileStorageBatch(requestCount) {
-  let underlyingReadCount = 0;
-  const source = {};
-  const area = {
-    get(keys, callback) {
-      underlyingReadCount += 1;
-      const result = {};
-      (Array.isArray(keys) ? keys : [keys]).forEach((key) => {
-        result[key] = source[key];
-      });
-      callback(result);
-    }
-  };
-  const batch = settingsStorage.createStorageReadBatch(area);
-  const reads = [];
-  for (let index = 0; index < requestCount; index += 1) {
-    reads.push(batch.area.get(`key-${index}`));
-  }
-  const [diagnostics] = await Promise.all([batch.ready, ...reads]);
-  return { diagnostics, underlyingReadCount };
-}
-
 async function run() {
+  const bookmarkStore = await importSource('src/newtab/bookmarks/bookmarks-store.ts');
+  const recentStore = await importSource('src/domain/recent-sites-merge.ts');
   const bookmarkFolders = 250;
   const bookmarksPerFolder = 199;
   const bookmarkNodeCount = 2 + bookmarkFolders * (bookmarksPerFolder + 1);
@@ -163,15 +120,6 @@ async function run() {
   }), { runs: 6, warmups: 1 });
   assert.strictEqual(recentProfile.latestResult.length, 8);
 
-  const storageRequestCount = 10_000;
-  const storageProfile = await measureAsync(
-    () => profileStorageBatch(storageRequestCount),
-    { runs: 5, warmups: 1 }
-  );
-  assert.strictEqual(storageProfile.latestResult.underlyingReadCount, 1);
-  assert.strictEqual(storageProfile.latestResult.diagnostics.requestCount, storageRequestCount);
-  assert.strictEqual(storageProfile.latestResult.diagnostics.underlyingReadCount, 1);
-
   const memory = process.memoryUsage();
   console.log(JSON.stringify({
     environment: {
@@ -200,11 +148,6 @@ async function run() {
         outputItems: 8,
         tabs: tabCount,
         ...recentProfile.summary
-      },
-      startupStorageBatch: {
-        requests: storageRequestCount,
-        underlyingReads: storageProfile.latestResult.underlyingReadCount,
-        ...storageProfile.summary
       }
     },
     processMemoryBytes: {

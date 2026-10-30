@@ -18,7 +18,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { launchChrome } = require('../dev/chrome-launcher.js');
-require('../node/register-typescript');
+const { importSource } = require('../node/source-module');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const AVIFENC_ARGS = ['-q', '95', '-y', '444', '-s', '0'];
@@ -93,7 +93,7 @@ async function main() {
   } catch (error) {
     throw new Error('avifenc was not found; install it with `brew install libavif`.', { cause: error });
   }
-  const { getSamplerSize } = await import(path.join(repoRoot, 'src/domain/wallpaper-sampler-size.ts'));
+  const { getSamplerSize } = await importSource('src/domain/wallpaper-sampler-size.ts');
   const { directory, suffix, files } = readWallpaperFiles();
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lumno-wallpaper-samples-'));
   const server = http.createServer((request, response) => {

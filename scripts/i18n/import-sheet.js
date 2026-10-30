@@ -65,7 +65,7 @@ function parseCsv(text) {
   return rows;
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
   const [file, locale] = args.filter((arg) => arg !== '--dry-run');
@@ -73,7 +73,7 @@ function main() {
     console.error('Usage: node scripts/i18n/import-sheet.js <file.csv> <locale> [--dry-run]');
     process.exit(1);
   }
-  if (!files.UI_LOCALE_IDS.includes(locale)) {
+  if (!(await files.readUiLocales()).ids.includes(locale)) {
     console.error(`Not in UI_LOCALES: ${locale}`);
     process.exit(1);
   }
@@ -139,4 +139,7 @@ function main() {
   console.log(`\n${locale}: ${changed.length} message(s) ${dryRun ? 'would change' : 'changed'}`);
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

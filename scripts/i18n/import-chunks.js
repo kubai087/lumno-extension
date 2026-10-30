@@ -9,6 +9,7 @@ const path = require('path');
 const files = require('./locale-files');
 
 async function main() {
+  const uiLocales = await files.readUiLocales();
   const [workDir, ...requested] = process.argv.slice(2);
   if (!workDir) {
     console.error('Usage: node scripts/i18n/import-chunks.js <work-dir> [locale ...]');
@@ -16,7 +17,7 @@ async function main() {
   }
   const locales = requested.length
     ? requested
-    : fs.readdirSync(workDir).filter((name) => files.UI_LOCALE_IDS.includes(name));
+    : fs.readdirSync(workDir).filter((name) => uiLocales.ids.includes(name));
   const sourceMessages = files.readMessages(files.SOURCE_LOCALE);
   const onboardingSource = await files.readOnboardingSource();
   let failed = false;
@@ -49,7 +50,7 @@ async function main() {
     files.writeMessages(locale, nextMessages);
 
     let onboardingCount = 0;
-    if (files.MACHINE_TRANSLATED_LOCALE_IDS.includes(locale)) {
+    if (uiLocales.machineTranslated.includes(locale)) {
       const onboarding = files.readOnboarding(locale) || {};
       const nextOnboarding = {};
       Object.keys(onboardingSource).forEach((key) => {

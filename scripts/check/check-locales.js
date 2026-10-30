@@ -18,6 +18,8 @@ const pending = [];
 const args = process.argv.slice(2);
 const strict = args.includes('--strict');
 const onlyLocales = args.filter((arg) => arg !== '--strict');
+// The UI languages (files.readUiLocales), read at the start of main().
+let uiLocales = { ids: [], machineTranslated: [] };
 
 function report(locale, message) {
   problems.push(`${locale}: ${message}`);
@@ -26,7 +28,7 @@ function report(locale, message) {
 // A string an AI-translated language still waits for: the page falls back to
 // another language until a maintainer translates it.
 function reportMissing(locale, message) {
-  if (!strict && files.MACHINE_TRANSLATED_LOCALE_IDS.includes(locale)) {
+  if (!strict && uiLocales.machineTranslated.includes(locale)) {
     pending.push(`${locale}: ${message}`);
     return;
   }
@@ -77,10 +79,11 @@ function flattenMessages(messages) {
 }
 
 async function main() {
+  uiLocales = await files.readUiLocales();
   const localeDirs = fs.readdirSync(path.join(files.REPO_ROOT, '_locales'))
     .filter((name) => fs.existsSync(files.messagesPath(name)));
-  localeDirs.filter((name) => !onlyLocales.length && !files.UI_LOCALE_IDS.includes(name))
-    .forEach((name) => report(name, 'has a _locales folder but is not in UI_LOCALES (src/domain/settings/index.ts)'));
+  localeDirs.filter((name) => !onlyLocales.length && !uiLocales.ids.includes(name))
+    .forEach((name) => report(name, 'has a _locales folder but is not in UI_LOCALES (src/domain/settings/locale.ts)'));
 
   const sourceMessages = flattenMessages(files.readMessages(files.SOURCE_LOCALE));
   const onboardingSource = await files.readOnboardingSource();
@@ -88,14 +91,14 @@ async function main() {
   const onboardingFiles = fs.existsSync(onboardingDir)
     ? fs.readdirSync(onboardingDir).filter((name) => name.endsWith('.json')).map((name) => name.slice(0, -5))
     : [];
-  onboardingFiles.filter((name) => !onlyLocales.length && !files.MACHINE_TRANSLATED_LOCALE_IDS.includes(name))
+  onboardingFiles.filter((name) => !onlyLocales.length && !uiLocales.machineTranslated.includes(name))
     .forEach((name) => report(name, 'has an onboarding locale file but its onboarding copy is written in onboarding-content.ts'));
 
-  onlyLocales.filter((locale) => !files.UI_LOCALE_IDS.includes(locale))
-    .forEach((locale) => report(locale, 'is not in UI_LOCALES (src/domain/settings/index.ts)'));
+  onlyLocales.filter((locale) => !uiLocales.ids.includes(locale))
+    .forEach((locale) => report(locale, 'is not in UI_LOCALES (src/domain/settings/locale.ts)'));
   const locales = onlyLocales.length
-    ? files.UI_LOCALE_IDS.filter((locale) => onlyLocales.includes(locale))
-    : files.UI_LOCALE_IDS;
+    ? uiLocales.ids.filter((locale) => onlyLocales.includes(locale))
+    : uiLocales.ids;
   locales.forEach((locale) => {
     const messages = files.readMessages(locale);
     if (!messages) {
@@ -112,7 +115,7 @@ async function main() {
         report(locale, `${key} is ${length} characters; the store allows ${limit}`);
       }
     });
-    if (files.MACHINE_TRANSLATED_LOCALE_IDS.includes(locale)) {
+    if (uiLocales.machineTranslated.includes(locale)) {
       const onboarding = files.readOnboarding(locale);
       if (!onboarding) {
         report(locale, `has no ${path.relative(files.REPO_ROOT, files.onboardingPath(locale))}`);

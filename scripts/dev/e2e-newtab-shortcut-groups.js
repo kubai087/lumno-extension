@@ -14,9 +14,11 @@
 const path = require('path');
 const { EXTENSION_OUTPUT } = require('../build/extension-output');
 const WebSocket = require('ws');
-require('../node/register-typescript');
-const { SHORTCUTS_STORE_API: shortcutsStore } = require('../../src/domain/shortcuts/api.ts');
+const { importSource } = require('../node/source-module');
 const { findChrome, launchChrome } = require('./chrome-launcher.js');
+
+// The shortcut storage plans the page reads, loaded at the start of main().
+let shortcutsStore = null;
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 // The development build (npm run build).
@@ -971,6 +973,7 @@ check('a scrolling shortcut area keeps the search box and dock still', { width: 
 });
 
 async function main() {
+  shortcutsStore = await importSource('src/domain/shortcuts/storage-plan.ts');
   const only = process.env.LUMNO_E2E_ONLY;
   const selected = checks.filter((entry) => !only || entry.name.includes(only));
   const { cdp, close } = await launchBrowser();

@@ -13,13 +13,14 @@ const files = require('./locale-files');
 const CHUNK_SIZE = 150;
 
 async function main() {
+  const uiLocales = await files.readUiLocales();
   const [workDir, ...requested] = process.argv.slice(2);
   if (!workDir) {
     console.error('Usage: node scripts/i18n/export-chunks.js <work-dir> [locale ...]');
     process.exit(1);
   }
-  const locales = requested.length ? requested : files.MACHINE_TRANSLATED_LOCALE_IDS;
-  const unknown = locales.filter((locale) => !files.UI_LOCALE_IDS.includes(locale));
+  const locales = requested.length ? requested : uiLocales.machineTranslated;
+  const unknown = locales.filter((locale) => !uiLocales.ids.includes(locale));
   if (unknown.length) {
     console.error(`Not in UI_LOCALES: ${unknown.join(', ')}`);
     process.exit(1);
@@ -38,7 +39,7 @@ async function main() {
         entries.push([`m:${key}`, { en: sourceMessages[key].message, ...(zh ? { zh } : {}) }]);
       }
     });
-    if (files.MACHINE_TRANSLATED_LOCALE_IDS.includes(locale)) {
+    if (uiLocales.machineTranslated.includes(locale)) {
       const onboarding = files.readOnboarding(locale) || {};
       Object.keys(onboardingSource).forEach((key) => {
         if (!String(onboarding[key] || '').trim()) {
