@@ -21,6 +21,8 @@ interface SearchEngineDef {
   hostMatches: string[];
   searchTemplate: string;
   searchUrl(query: string): string;
+  // The engine's regional sites; a search goes to the one this device used.
+  regionalHosts?: RegExp;
 }
 
 // A short-lived copy of a browser source.

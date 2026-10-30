@@ -459,13 +459,20 @@ function loadBackgroundForTest(options) {
   const service = runModuleInContext('src/background/background.ts', context, '__testBackground', {
     also: {
       'src/background/search/pipeline.ts': ['getSearchSuggestions'],
-      'src/background/search/default-engine.ts': ['isSearchEngineResultUrl', 'setDefaultSearchEngineState'],
+      'src/background/search/default-engine.ts': [
+        'buildDefaultSearchUrl',
+        'isSearchEngineResultUrl',
+        'setDefaultSearchEngineState',
+        'updateDefaultSearchEngineFromUrl'
+      ],
       'src/background/search/engine-suggestions.ts': ['getSearchEngineSuggestions']
     }
   });
   context.__testGetSearchSuggestions = service.getSearchSuggestions;
   context.__testIsSearchEngineResultUrl = service.isSearchEngineResultUrl;
   context.__testSetDefaultSearchEngineState = service.setDefaultSearchEngineState;
+  context.__testUpdateDefaultSearchEngineFromUrl = service.updateDefaultSearchEngineFromUrl;
+  context.__testBuildDefaultSearchUrl = service.buildDefaultSearchUrl;
   context.__testGetSearchEngineSuggestions = service.getSearchEngineSuggestions;
   return { context, messageListeners, chromeApi };
 }
@@ -719,6 +726,10 @@ async function run() {
     'https://duckduckgo.com/?q=test',
     'https://search.yahoo.com/search?p=test',
     'https://yandex.com/search/?text=test',
+    'https://yandex.ru/search/?text=test',
+    'https://yandex.tm/search/?text=test',
+    'https://yandex.com.tr/search/?text=test',
+    'https://ya.ru/search/?text=test',
     'https://www.sogou.com/web?query=test',
     'https://m.sm.cn/s?q=test'
   ];
@@ -741,6 +752,9 @@ async function run() {
     'https://www.baidu.com/support?wd=test',
     'https://www.google.com.example.test/search?q=test',
     'https://notbing.com/search?q=test',
+    'https://yandex.tm/maps/?text=test',
+    'https://notyandex.ru/search/?text=test',
+    'https://yandex.ru.example.test/search/?text=test',
     'https://bing.com.example.test/search?q=test',
     'https://example.test/search?q=test',
     'chrome://history/',
@@ -749,6 +763,14 @@ async function run() {
   ordinaryPageUrls.forEach((url) => {
     assert.strictEqual(context.__testIsSearchEngineResultUrl(url), false, `${url} should remain an ordinary page`);
   });
+
+  assert.strictEqual(context.__testUpdateDefaultSearchEngineFromUrl('https://yandex.tm/search/?text=test'), true,
+    'a regional Yandex result page should be read as the default engine');
+  assert.strictEqual(context.__testBuildDefaultSearchUrl('a b'), 'https://yandex.tm/search/?text=a%20b',
+    'searches should go to the regional Yandex site this device used');
+  assert.strictEqual(context.__testUpdateDefaultSearchEngineFromUrl('https://www.google.co.jp/search?q=test'), true);
+  assert.strictEqual(context.__testBuildDefaultSearchUrl('a b'), 'https://www.google.com/search?q=a%20b',
+    'regional Google pages should keep searching on google.com');
 
   const developerDashboard = {
     title: 'Chrome 应用商店开发者信息中心',

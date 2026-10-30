@@ -302,10 +302,14 @@ function getSearchEngineSiteSearchProvider(
   }
   const stateHost = normalizeHost(state.host) || getUrlHost(state.searchTemplate);
   const listed = findListedEngine(state, engineProviders, stateHost);
-  if (listed) {
-    return listed;
-  }
   const normalizedTemplate = normalizeSiteSearchTemplate(state.searchTemplate);
+  if (listed) {
+    // A regional site of a listed engine, such as yandex.ru, keeps its own address.
+    const onOtherSite = stateHost && normalizedTemplate.includes('{query}') &&
+      getUrlHost(normalizedTemplate) === stateHost &&
+      !siteSearchHostsMatch(stateHost, getSiteSearchProviderHost(listed));
+    return onOtherSite ? { ...listed, template: normalizedTemplate } : listed;
+  }
   if (!normalizedTemplate || !normalizedTemplate.includes('{query}')) {
     return fallbackProvider || null;
   }

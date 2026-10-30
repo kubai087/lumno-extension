@@ -120,6 +120,16 @@ function testEngineProviders() {
   assert.strictEqual(search.getSearchEngineSiteSearchProvider({
     id: 'google', host: 'www.google.com', name: 'Google', searchTemplate: 'https://www.google.com/search?q={query}'
   }, providers).key, 'gg', 'known current engines should reuse their library provider');
+  const regionalYandex = search.getSearchEngineSiteSearchProvider({
+    id: 'yandex', host: 'yandex.tm', name: 'Yandex', searchTemplate: 'https://yandex.tm/search/?text={query}'
+  }, providers);
+  assert.strictEqual(regionalYandex.key, 'yx', 'a regional Yandex site should still be the listed Yandex provider');
+  assert.strictEqual(regionalYandex.template, 'https://yandex.tm/search/?text={query}',
+    'a regional Yandex site should keep its own search address');
+  assert.strictEqual(search.getSearchEngineSiteSearchProvider({
+    id: 'google', host: 'google.co.jp', name: 'Google', searchTemplate: 'https://www.google.com/search?q={query}'
+  }, providers).template, 'https://www.google.com/search?q={query}',
+    'regional Google pages should keep the listed Google address');
   assert.strictEqual(search.isRetiredSearchEngineState({ id: 'so', host: 'www.so.com' }), true,
     '360 should remain retired even when an older stored engine state is restored');
   assert.strictEqual(search.getSearchEngineSiteSearchProvider({

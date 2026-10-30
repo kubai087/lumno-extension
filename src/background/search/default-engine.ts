@@ -55,7 +55,8 @@ const SEARCH_ENGINE_DEFS: readonly SearchEngineDef[] = [
     name: 'Yandex',
     hostMatches: ['yandex.com'],
     searchTemplate: 'https://yandex.com/search/?text={query}',
-    searchUrl: (query) => `https://yandex.com/search/?text=${encodeURIComponent(query)}`
+    searchUrl: (query) => `https://yandex.com/search/?text=${encodeURIComponent(query)}`,
+    regionalHosts: /^(?:www\.)?(?:yandex\.(?:[a-z]{2,3}|com\.[a-z]{2})|ya\.ru)$/
   },
   {
     id: 'sogou',
@@ -91,9 +92,10 @@ function getSearchEngineByHostname(hostname: unknown): SearchEngineDef | null {
   if (!normalized) {
     return null;
   }
-  return SEARCH_ENGINE_DEFS.find((engine) =>
-    engine.hostMatches.some((match) => normalized.includes(match))
-  ) || null;
+  return SEARCH_ENGINE_DEFS.find((engine) => engine.regionalHosts?.test(normalized)) ||
+    SEARCH_ENGINE_DEFS.find((engine) =>
+      engine.hostMatches.some((match) => normalized.includes(match))
+    ) || null;
 }
 
 function getSearchEngineById(id: unknown): SearchEngineDef | null {
@@ -159,14 +161,15 @@ function isSearchEngineResultUrl(url: unknown): boolean {
       return false;
     }
     const hostname = parsedUrl.hostname.toLowerCase();
-    const engine = SEARCH_ENGINE_DEFS.find((candidate) =>
-      candidate.hostMatches.some((match) => {
-        if (match === 'google.') {
-          return /(^|\.)google\.(?:com|[a-z]{2}|(?:co|com)\.[a-z]{2})$/.test(hostname);
-        }
-        return hostname === match || hostname.endsWith(`.${match}`);
-      })
-    );
+    const engine = SEARCH_ENGINE_DEFS.find((candidate) => candidate.regionalHosts?.test(hostname)) ||
+      SEARCH_ENGINE_DEFS.find((candidate) =>
+        candidate.hostMatches.some((match) => {
+          if (match === 'google.') {
+            return /(^|\.)google\.(?:com|[a-z]{2}|(?:co|com)\.[a-z]{2})$/.test(hostname);
+          }
+          return hostname === match || hostname.endsWith(`.${match}`);
+        })
+      );
     if (!engine) {
       return false;
     }
@@ -185,6 +188,17 @@ function isSearchEngineResultUrl(url: unknown): boolean {
   }
 }
 
+// The engine's search template on the site a result page came from, for
+// an engine with regional sites.
+function searchTemplateOn(engine: SearchEngineDef, hostname: string): string {
+  if (!engine.regionalHosts?.test(hostname)) {
+    return engine.searchTemplate;
+  }
+  const template = new URL(engine.searchTemplate);
+  template.hostname = hostname;
+  return decodeURI(template.href);
+}
+
 function updateDefaultSearchEngineFromUrl(url: unknown): boolean {
   if (!url || !isSearchEngineResultUrl(url)) {
     return false;
@@ -199,7 +213,7 @@ function updateDefaultSearchEngineFromUrl(url: unknown): boolean {
       id: engine.id,
       name: engine.name,
       host: normalizeHost(parsedUrl.hostname),
-      searchTemplate: engine.searchTemplate,
+      searchTemplate: searchTemplateOn(engine, parsedUrl.hostname.toLowerCase()),
       updatedAt: Date.now()
     }, true);
     return true;
@@ -210,6 +224,10 @@ function updateDefaultSearchEngineFromUrl(url: unknown): boolean {
 
 function buildDefaultSearchUrl(query: string): string {
   const engine = getSearchEngineById(defaultSearchEngineState.id);
+  const { searchTemplate } = defaultSearchEngineState;
+  if (engine && searchTemplate.includes('{query}')) {
+    return searchTemplate.replace('{query}', encodeURIComponent(query));
+  }
   if (engine && typeof engine.searchUrl === 'function') {
     return engine.searchUrl(query);
   }
