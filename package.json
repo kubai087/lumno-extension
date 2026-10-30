@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@number-flow/react": "^0.6.2",
-    "pinyin-pro": "3.28.0",
+    "pinyin-pro": "3.29.5",
     "react": "^19.2.9",
     "react-colorful": "^5.8.1",
     "react-dom": "^19.2.9"
@@ -61,7 +61,7 @@
     "jsdom": "^30.1.3",
     "rolldown": "^1.2.15",
     "typescript": "^5.9.0",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.5",
     "vitest": "^5.0.5",
     "ws": "^8.22.0"
