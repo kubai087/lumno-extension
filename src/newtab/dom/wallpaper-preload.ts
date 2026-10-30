@@ -1,6 +1,5 @@
-// Paints the cached wallpaper and the New Tab favicon before the page's own
-// scripts run, from what an earlier page saved on this device.
-import { getPageFaviconLink } from './page-favicon-link';
+// Paints the cached wallpaper before the page's own scripts run, from what
+// an earlier page saved on this device.
 import * as LumnoNewtabWallpaperEffects from './wallpaper-effects';
 import type { WallpaperEffectPrefs, WallpaperSample } from './wallpaper-effects';
 import type {
@@ -12,12 +11,11 @@ import type {
 } from '../wallpaper/wallpaper-preload-types';
 import { PRELOAD_STORAGE_VERSION } from '../wallpaper/wallpaper-preload-types';
 import { publishBootValue } from '../../platform/boot-handoff';
-import { newtabFavicon, newtabFaviconPreload, newtabWallpaperEffect, newtabWallpaperPreload } from '../../domain/settings/newtab-wallpaper';
+import { newtabWallpaperEffect, newtabWallpaperPreload } from '../../domain/settings/newtab-wallpaper';
 import * as ProviderStorage from '../../platform/provider-storage';
 
 type OverlayPosition = 'top' | 'mid' | 'bottom';
 type OverlayStops = Record<WallpaperMode, Record<OverlayPosition, number>>;
-type FaviconId = 'default' | 'alternate';
 
 // A copy of an online photo in the image cache, under the URL it copies.
 interface CachedImageRef {
@@ -56,19 +54,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   const CSS_INLINE_URL_MAX_LENGTH = 32 * 1024;
   // Chrome drops a CSS custom property longer than this (MAX_CSS_URL_LENGTH in wallpaper-local-store.ts).
   const CSS_CUSTOM_PROPERTY_MAX_LENGTH = 2 * 1024 * 1024;
-  const FAVICON_OPTIONS: Record<FaviconId, { file: string; type: string; sizes: string }> = {
-    default: {
-      file: 'assets/images/lumno.png',
-      type: 'image/png',
-      sizes: ''
-    },
-    alternate: {
-      file: 'assets/images/lumno-newtab-favicon.svg',
-      type: 'image/svg+xml',
-      sizes: 'any'
-    }
-  };
-
   function normalizeWallpaperMode(value: unknown): WallpaperMode {
     return value === 'dark' ? 'dark' : 'light';
   }
@@ -322,81 +307,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return `../../${path}`;
   }
 
-  function normalizeFaviconId(value: unknown): FaviconId | '' {
-    const id = String(value || '').trim();
-    return id === 'default' || id === 'alternate' ? id : '';
-  }
-
-  function readCachedFaviconId(): FaviconId | '' {
-    try {
-      return normalizeFaviconId(window.localStorage ?
-        window.localStorage.getItem(newtabFaviconPreload.key) :
-        '');
-    } catch {
-      return '';
-    }
-  }
-
-  function cacheFaviconId(id: unknown): void {
-    const normalized = normalizeFaviconId(id);
-    if (!normalized) {
-      return;
-    }
-    try {
-      if (window.localStorage) {
-        window.localStorage.setItem(newtabFaviconPreload.key, normalized);
-      }
-    } catch {
-      // Ignore private-mode or quota failures; the runtime still applies the favicon later.
-    }
-  }
-
-
-  function applyFaviconId(id: unknown): boolean {
-    const normalized = normalizeFaviconId(id);
-    if (!normalized) {
-      return false;
-    }
-    const item = FAVICON_OPTIONS[normalized];
-    const link = getPageFaviconLink(document);
-    if (!link) {
-      return false;
-    }
-    link.setAttribute('rel', 'icon');
-    link.setAttribute('type', item.type);
-    link.setAttribute('href', getRuntimeUrl(item.file));
-    link.setAttribute('data-newtab-favicon-id', normalized);
-    if (item.sizes) {
-      link.setAttribute('sizes', item.sizes);
-    } else {
-      link.removeAttribute('sizes');
-    }
-    return true;
-  }
-
-  function applyStoredFaviconWhenAvailable(): void {
-    const cachedId = readCachedFaviconId();
-    if (cachedId) {
-      applyFaviconId(cachedId);
-    }
-    try {
-      const storage = providerStorageRuntime.area;
-      if (!storage || typeof storage.get !== 'function') {
-        return;
-      }
-      void storage.get([newtabFavicon.key], (result) => {
-        const nextId = normalizeFaviconId(result && result[newtabFavicon.key]);
-        if (!nextId) {
-          return;
-        }
-        cacheFaviconId(nextId);
-        applyFaviconId(nextId);
-      });
-    } catch {
-      // Best-effort only; wallpaper.ts applies the definitive favicon after boot.
-    }
-  }
-
   function getCssUrlValue(url: unknown): string {
     const safe = String(url || '')
       .replace(/\\/g, '\\\\')
@@ -423,8 +333,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
       }
     }, { once: true });
   }
-
-  applyStoredFaviconWhenAvailable();
 
   const cachedWallpaper = readCachedWallpaper();
   if (!cachedWallpaper) {

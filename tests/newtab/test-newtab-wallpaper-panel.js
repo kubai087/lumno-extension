@@ -973,13 +973,13 @@ function testNewtabFaviconPreloadAppliesCachedAlternateBeforeMainRuntime() {
     }
   };
 
-  vm.runInNewContext(moduleScript('src/newtab/dom/wallpaper-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings', 'src/newtab/remote-content.ts': 'LumnoNewtabRemoteContent', 'src/newtab/wallpaper/wallpaper-adaptive-tone.ts': 'LumnoNewtabWallpaperAdaptiveTone', 'src/newtab/dom/wallpaper-effects.ts': 'LumnoNewtabWallpaperEffects', 'src/shared/wallpaper-local-store.ts': 'LumnoNewtabWallpaperLocalStore' }), sandbox, {
-    filename: 'src/newtab/dom/wallpaper-preload.ts'
+  vm.runInNewContext(moduleScript('src/newtab/dom/favicon-preload.ts', undefined, null, { 'src/domain/settings/index.ts': 'LumnoSettings' }), sandbox, {
+    filename: 'src/newtab/dom/favicon-preload.ts'
   });
 
   const faviconLink = documentObj.head.children.find((child) => child.tagName === 'LINK' &&
     child.getAttribute('data-lumno-newtab-favicon') === 'true');
-  assert.ok(faviconLink, 'wallpaper preload should apply the cached New Tab favicon before main runtime');
+  assert.ok(faviconLink, 'the favicon preload should apply the cached New Tab favicon before main runtime');
   assert.strictEqual(faviconLink.getAttribute('rel'), 'icon');
   assert.strictEqual(faviconLink.getAttribute('type'), 'image/svg+xml');
   assert.strictEqual(faviconLink.getAttribute('sizes'), 'any');
