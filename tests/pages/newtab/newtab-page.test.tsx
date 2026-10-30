@@ -1,9 +1,7 @@
 import { act } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import newtabHtml from '../../../newtab.html?raw';
-import enMessages from '../../../_locales/en/messages.json';
-import { runPageBundle } from '../page-bundles';
+import { describe, expect, it } from 'vitest';
 import { createBrowserFake, type BrowserFake } from '../../fakes/browser';
+import { bootReadyNewtab, settle } from './boot';
 import { createShortcutStoragePlan } from '../../../src/domain/shortcuts/storage-plan';
 import { getElementById, getElements, getTag } from '../../fakes/dom';
 
@@ -11,56 +9,6 @@ import { getElementById, getElements, getTag } from '../../fakes/dom';
 // against an in-memory browser, and checks the page by what it shows and
 // writes: it gets ready, draws the stored shortcuts, the bookmarks bar and
 // the recent sites, follows a setting changed elsewhere and searches.
-
-async function settle(passes = 8): Promise<void> {
-  await act(async () => {
-    for (let pass = 0; pass < passes; pass += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-  });
-}
-
-async function waitFor(check: () => boolean, message: string): Promise<void> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    if (check()) return;
-    await settle(2);
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-  }
-  throw new Error(message);
-}
-
-async function bootNewtab(browser: BrowserFake): Promise<void> {
-  const parsed = new DOMParser().parseFromString(newtabHtml, 'text/html');
-  Array.from(parsed.body.attributes).forEach((attribute) => document.body.setAttribute(attribute.name, attribute.value));
-  Array.from(parsed.body.children)
-    .filter((node) => node.tagName !== 'SCRIPT')
-    .forEach((node) => document.body.appendChild(document.importNode(node, true)));
-  vi.stubGlobal('chrome', browser);
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: false,
-    media: query,
-    addEventListener() {},
-    removeEventListener() {},
-    addListener() {},
-    removeListener() {}
-  }));
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => enMessages })));
-  vi.resetModules();
-  await runPageBundle('newtab-preload');
-  await runPageBundle('wallpaper-effect-preload');
-  await act(async () => {
-    await runPageBundle('newtab');
-  });
-  await settle();
-}
-
-afterEach(() => {
-  document.body.replaceChildren();
-  Array.from(document.body.attributes).forEach((attribute) => document.body.removeAttribute(attribute.name));
-  vi.unstubAllGlobals();
-});
 
 const SHORTCUTS_SECTION_ID = '_x_extension_newtab_shortcuts_2026_unique_';
 const SEARCH_INPUT_ID = '_x_extension_newtab_search_input_2024_unique_';
@@ -76,11 +24,6 @@ function createStockedBrowser(): BrowserFake {
     history: [{ url: 'https://news.example/', title: 'News', lastVisitTime: Date.now() - 1000, visitCount: 3 }],
     tabs: [{ id: 1, windowId: 1, index: 0, url: 'chrome://newtab/', title: 'New Tab', active: true, pinned: false }]
   });
-}
-
-async function bootReadyNewtab(browser: BrowserFake): Promise<void> {
-  await bootNewtab(browser);
-  await waitFor(() => document.body.getAttribute('data-nt-ready') === '1', 'New Tab did not mark itself ready');
 }
 
 describe('New Tab page', () => {
