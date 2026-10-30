@@ -5,6 +5,8 @@ import enMessages from '../../../_locales/en/messages.json';
 import { runPageBundle } from '../page-bundles';
 import { createBrowserFake, type BrowserFake } from '../../fakes/browser';
 import { getTags } from '../../fakes/dom';
+import manifest from '../../../manifest.json';
+import { optionsThemePreload } from '../../../src/domain/settings/page-cache';
 
 // Boots the real toolbar popup (its markup and its entries) against an
 // in-memory browser, on a web page as the active tab.
@@ -46,6 +48,9 @@ async function bootPopup(): Promise<BrowserFake> {
 
 afterEach(() => {
   document.body.replaceChildren();
+  document.body.removeAttribute('data-theme');
+  document.documentElement.style.colorScheme = '';
+  localStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -75,5 +80,23 @@ describe('Toolbar popup', () => {
 
     const stored = { ...browser.storage.sync.values, ...browser.storage.local.values };
     expect(stored[THEME_MODE_KEY]).toBe('dark');
+  });
+});
+
+describe('Toolbar popup as shipped', () => {
+  it('opens from the toolbar button', () => {
+    expect(manifest.action.default_popup).toBe('src/popup/popup.html');
+  });
+
+  it('runs its theme preload before the popup root, and the preload paints the last theme', async () => {
+    const parsed = new DOMParser().parseFromString(popupHtml, 'text/html');
+    const preload = parsed.querySelector('script[src$="build/popup-preload.js"]');
+    const root = parsed.getElementById('x-lumno-popup-root');
+    expect(preload && root && preload.compareDocumentPosition(root) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    localStorage.setItem(optionsThemePreload.key, 'dark');
+    vi.resetModules();
+    await runPageBundle('popup-preload');
+    expect(document.body.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
   });
 });

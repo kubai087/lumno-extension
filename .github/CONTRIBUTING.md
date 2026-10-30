@@ -58,10 +58,13 @@ the ones below it, and a surface never imports another surface.
 
 - Keep a pull request to one topic. Unrelated fixes are easier to review in
   pull requests of their own.
-- Add or update tests for what the change does. Node tests live in
-  `tests/<area>/test-*.js` and drive the real pages, worker and styles; React
-  component tests sit next to their components in the `react/` folders as
-  `*.test.tsx`.
+- Add or update tests for what the change does. Every test is TypeScript and
+  runs in Vitest. Unit and component tests sit next to their module as
+  `*.test.ts(x)`; tests of a whole page go in `tests/pages/<page>/`, checks of
+  the repository and its build in `tests/repo/`, and browser flows in
+  `tests/e2e/`. Tests use the fakes in `tests/fakes/` (an in-memory browser,
+  the worker's APIs, element boxes, CSS) and test what a module does, never
+  how its source is written.
 - Put new or changed UI text in the four languages people maintain under
   `_locales/`: `en`, `zh_CN`, `zh_TW` and `ja`. Leave the other six, which are
   AI-translated, to the maintainers; `npm run check:locales` lists what they
@@ -77,7 +80,7 @@ the ones below it, and a surface never imports another surface.
 - What each surface loads has a size budget. A change that grows a route by
   more than a few KiB fails CI unless one of its commit messages carries a
   `Bundle-Growth: <why>` trailer; see
-  [`tests/repo/test-bundle-budgets.js`](../tests/repo/test-bundle-budgets.js).
+  [`tests/repo/bundle-budgets.test.ts`](../tests/repo/bundle-budgets.test.ts).
 
 ## Translations
 
@@ -108,12 +111,12 @@ Before you open a pull request, run:
 npm run verify
 ```
 
-It builds the extension and runs the Node and React test suites, the static
-checks and ESLint, the same as CI. While you work, run only part of it:
+It builds the extension and runs the tests, the static checks and ESLint, the
+same as CI. While you work, run only part of it:
 
 ```bash
-npm run test:legacy -- settings search/  # Node tests whose path contains a filter
-npm run test:react                       # React component tests
+npx vitest run src/domain/search         # The tests under some paths
+npx vitest run -t "scope panel"          # The tests whose name matches
 npm run lint                             # ESLint
 npm run test:e2e                         # Browser flows, after npm run build
 ```

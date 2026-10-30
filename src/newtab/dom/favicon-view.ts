@@ -93,7 +93,8 @@ function createFaviconViewRuntime(options?: FaviconViewRuntimeOptions | null) {
   const chromeApi = config.chromeApi || globalThis.chrome || {};
   const setTimer: (callback: () => void, delay: number) => number = typeof win.setTimeout === 'function'
     ? win.setTimeout.bind(win)
-    : (callback, delay) => setTimeout(callback, delay);
+    // Number(): Node's timers return an object whose primitive is the id.
+    : (callback, delay) => Number(setTimeout(callback, delay));
   const clearTimer: (timer: number) => void = typeof win.clearTimeout === 'function'
     ? win.clearTimeout.bind(win)
     : (timer) => clearTimeout(timer);

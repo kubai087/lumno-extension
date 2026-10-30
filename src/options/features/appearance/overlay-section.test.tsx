@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as Settings from '../../../domain/settings';
@@ -5,6 +6,8 @@ import type { Setting } from '../../../domain/settings/define';
 import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { AppearanceOverlaySection } from './overlay-section';
 import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
+import enMessages from '../../../../_locales/en/messages.json';
+import zhCnMessages from '../../../../_locales/zh_CN/messages.json';
 
 // The fonts the next section reads as installed.
 let installedFonts: Promise<chrome.fontSettings.FontName[]> = Promise.resolve([]);
@@ -92,6 +95,16 @@ describe('Options Appearance webpage overlay section', () => {
     expect(pressed()).toEqual(['false', 'true']);
   });
 
+  it('offers the opening animation as one radio group right after the size, spring first', async () => {
+    const { host } = await setUp();
+    const size = getElement(host, '#_x_extension_overlay_size_tabs_wrap_2026_unique_');
+    const animation = getElement(host, '#_x_extension_overlay_enter_animation_tabs_wrap_2026_unique_');
+    expect(size.compareDocumentPosition(animation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(animation.getAttribute('role')).toBe('radiogroup');
+    expect(getTags(host, '[data-overlay-enter-animation]', 'button').map((button) => button.dataset.overlayEnterAnimation))
+      .toEqual(['elastic', 'fade']);
+  });
+
   it('lists the default, then each installed font once by name, and keeps a choice on this device', async () => {
     const { host, localWrites, settings } = await setUp();
     expect(openMenu(FONT).map((option) => [option.dataset.value, option.textContent])).toEqual([
@@ -127,6 +140,43 @@ describe('Options Appearance webpage overlay section', () => {
     expect(notice.hidden).toBe(true);
   });
 
+  it('puts the font rows between the opening animation and page theme adaptation', async () => {
+    const { host } = await setUp();
+    const row = (name: string) => getElement(host, `#_x_extension_${name}_2026_unique_`);
+    const follows = (earlier: HTMLElement, later: HTMLElement) => Boolean(earlier.compareDocumentPosition(later) &
+      Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(row('overlay_enter_animation_tabs_wrap'), row('overlay_font_row'))).toBe(true);
+    expect(follows(row('overlay_font_row'), row('overlay_font_fallback_row'))).toBe(true);
+    expect(follows(row('overlay_font_fallback_row'), row('overlay_page_theme_adaptation_row'))).toBe(true);
+  });
+
+  it('offers the same fonts as an optional, searchable fallback and keeps both choices out of browser sync', async () => {
+    const { host, writes, settings } = await setUp();
+    expect(getElement(host, `[data-select="${FALLBACK}"]`).dataset.selectSearchable).toBe('true');
+    expect(openMenu(FALLBACK).map((option) => option.textContent)).toEqual(['无', 'Inter', '苹方-简']);
+    pick(FONT, 'PingFangSC');
+    pick(FALLBACK, 'Inter');
+    await settings.settle();
+    expect(writes).toEqual([]);
+  });
+
+  it('shows a font chosen on another Settings page', async () => {
+    const { store } = await setUp();
+    await store(Settings.overlayFontFamily, 'Inter');
+    expect(getElement(document, `#${FONT}_control_value`).textContent).toBe('Inter');
+  });
+
+  it('words the missing font notice in the page language', async () => {
+    const { host, page, store } = await setUp();
+    await store(Settings.overlayFontFamily, 'Missing Sans');
+    const notice = getElement(host, '#_x_extension_overlay_font_missing_2026_unique_');
+    act(() => page.locale.store.setState({ messages: zhCnMessages }));
+    expect(notice.textContent).toContain('这台设备');
+    act(() => page.locale.store.setState({ messages: enMessages }));
+    expect(notice.textContent).toContain('Missing Sans');
+    expect(notice.textContent).not.toContain('这台设备');
+  });
+
   it('flags nothing as missing when the font list could not be read', async () => {
     const { host, store } = await setUp({ fonts: [] });
     await store(Settings.overlayFontFamily, 'Inter');
@@ -157,6 +207,41 @@ describe('Options Appearance webpage overlay section', () => {
     act(() => getTag(host, '#_x_extension_overlay_page_theme_adaptation_toggle_2026_unique_', 'input').click());
     await settings.settle();
     expect(writes).toEqual([{ [Settings.overlayPageThemeAdaptationEnabled.key]: false }]);
+  });
+
+  it('ends the section with page theme adaptation, on by default and explained in an InfoButton', async () => {
+    const { host } = await setUp();
+    const row = getElement(host, `#${ADAPTATION_ROW}`);
+    const follows = (earlier: Element, later: Element) => Boolean(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const size = getElement(host, '#_x_extension_overlay_size_tabs_wrap_2026_unique_');
+    const animation = getElement(host, '#_x_extension_overlay_enter_animation_tabs_wrap_2026_unique_');
+    expect(follows(size, animation)).toBe(true);
+    expect(follows(animation, row)).toBe(true);
+    expect(getTag(host, '#_x_extension_overlay_page_theme_adaptation_toggle_2026_unique_', 'input').checked).toBe(true);
+    expect(row.querySelector('[title]')).toBeNull();
+    expect(getElement(row, '._x_extension_info_button_2026_unique_').getAttribute('data-tooltip'))
+      .toBe('仅在“深浅色模式”=“跟随系统”时显示，关闭后将不再基于网页主题色变更深浅模式。');
+  });
+
+  it.each([
+    ['en', 'Adapt theme colors to each webpage',
+      'Shown only when Theme mode is set to Follow system. When turned off, light/dark mode will no longer adapt to the webpage theme color.',
+      'Follow system'],
+    ['ja', 'Web ページの色に合わせてテーマを自動変更',
+      '「テーマ」が「システムに従う」の場合にのみ表示されます。オフにすると、Web ページのテーマカラーに応じたライト／ダークモードの切り替えを行いません。',
+      'システムに従う'],
+    ['zh_CN', '基于网页色彩自动变更主题色',
+      '仅在“深浅色模式”=“跟随系统”时显示，关闭后将不再基于网页主题色变更深浅模式。', '跟随系统设置'],
+    ['zh_TW', '依網頁色彩自動變更主題色', '僅在「深淺色模式」=「跟隨系統」時顯示，關閉後將不再依網頁主題色變更深淺模式。', '跟隨系統設定']
+  ])('words page theme adaptation in %s with the system theme label it refers to', (locale, title, tooltip, systemLabel) => {
+    const messages: unknown = JSON.parse(readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+    const message = (key: string) => {
+      const entry: unknown = typeof messages === 'object' && messages !== null ? Reflect.get(messages, key) : null;
+      return typeof entry === 'object' && entry !== null ? Reflect.get(entry, 'message') : null;
+    };
+    expect(message('settings_overlay_page_theme_adaptation_title')).toBe(title);
+    expect(message('settings_overlay_page_theme_adaptation_tooltip')).toBe(tooltip);
+    expect(message('settings_theme_system')).toBe(systemLabel);
   });
 
   it('lists the installed fonts once they arrive', async () => {

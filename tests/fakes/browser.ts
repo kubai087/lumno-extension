@@ -4,6 +4,7 @@
 // page wrote and drives changes from "elsewhere" through it.
 import { vi } from 'vitest';
 import enMessages from '../../_locales/en/messages.json';
+import manifest from '../../manifest.json';
 
 type StorageValues = Record<string, unknown>;
 type StorageChanges = Record<string, { newValue?: unknown; oldValue?: unknown }>;
@@ -45,8 +46,9 @@ interface BrowserFakeOptions {
   bookmarksBar?: FakeBookmark[];
   history?: FakeHistoryItem[];
   tabs?: FakeTab[];
-  // The worker's reply to a message, by its action; { ok: true } otherwise.
-  respond?(message: { action?: unknown }): unknown;
+  // The worker's reply to a message, by its action and its other fields;
+  // { ok: true } otherwise. A promise answers once it settles.
+  respond?(message: { action?: unknown; [field: string]: unknown }): unknown;
 }
 
 // An event's listeners, which a test can fire.
@@ -157,7 +159,7 @@ function createBookmarks(bar: FakeBookmark[]) {
     getChildren: (id: string, callback?: (children: FakeBookmark[]) => void) => answer((find(id) || {}).children || [], callback),
     get: (id: string | string[], callback?: (nodes: FakeBookmark[]) => void) => answer(
       (Array.isArray(id) ? id : [id]).map((each) => find(each)).filter(isBookmark), callback),
-    search: (_query: unknown, callback?: (nodes: FakeBookmark[]) => void) => answer([], callback),
+    search: (_query: unknown, callback?: (nodes: FakeBookmark[]) => void) => answer<FakeBookmark[]>([], callback),
     onCreated: createEvent(),
     onRemoved: createEvent(),
     onChanged: createEvent(),
@@ -181,11 +183,22 @@ function createBrowserFake(options: BrowserFakeOptions = {}) {
     return Promise.resolve(value);
   };
   const reply = (message: unknown): unknown => {
-    const action = typeof message === 'object' && message !== null && 'action' in message ? message.action : undefined;
-    const answered = options.respond ? options.respond({ action }) : undefined;
+    const fields = typeof message === 'object' && message !== null ? message : {};
+    const action = 'action' in fields ? fields.action : undefined;
+    const answered = options.respond ? options.respond({ ...fields, action }) : undefined;
     return answered === undefined ? { ok: true } : answered;
   };
-  const sendMessage = vi.fn((message: unknown, callback?: (response: unknown) => void) => answer(reply(message), callback));
+  const sendMessage = vi.fn((message: unknown, callback?: (response: unknown) => void) => {
+    const replied = reply(message);
+    if (!(replied instanceof Promise)) {
+      return answer(replied, callback);
+    }
+    if (callback) {
+      void replied.then(callback);
+      return undefined;
+    }
+    return replied;
+  });
   const chrome = {
     bookmarks: createBookmarks(options.bookmarksBar || []),
     commands: { getAll: (callback?: (commands: object[]) => void) => answer([], callback) },
@@ -205,7 +218,7 @@ function createBrowserFake(options: BrowserFakeOptions = {}) {
       onRemoved: createEvent()
     },
     runtime: {
-      getManifest: () => ({ version: '1.0.0', manifest_version: 3 }),
+      getManifest: () => ({ version: manifest.version, manifest_version: 3 }),
       getURL: (path: string) => `chrome-extension://lumno/${String(path).replace(/^\//, '')}`,
       id: 'lumno',
       lastError: null,

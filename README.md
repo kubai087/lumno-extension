@@ -238,15 +238,15 @@ The scripts under `src/` are TypeScript ES modules: each one imports what it use
 
 Then keep Developer mode enabled in `chrome://extensions/` and load `dist/chrome` as an unpacked extension. After generating new assets or changing background scripts or `manifest.json`, click Reload on the extensions page. Development installs do not force a second refresh when the Chrome profile starts, avoiding interruption of the startup New Tab override.
 
-Before opening a pull request, run `npm run verify`. It builds the extension and runs the Node and React test suites, the static checks and ESLint, the same as CI. While you work, run only part of it:
+Before opening a pull request, run `npm run verify`. It builds the extension and runs the tests, the static checks and ESLint, the same as CI. While you work, run only part of it:
 
 ```bash
-npm run test:legacy -- settings search/
-npm run test:react
+npx vitest run src/domain/search tests/pages/newtab
+npx vitest run --project dom -t "scope panel"
 npm run lint
 ```
 
-`npm run test:legacy -- <filter>` runs the Node tests whose path contains any of the filters. `npm run test:e2e` drives the built extension through its main flows (new tab and overlay search, the tab switcher, link preview, every extension page) in a headless Chrome; CI runs it after `npm run verify`, and `npm run test:e2e -- <flow>` runs some of them. `npm run check:locales` checks the copy in every language; strings the AI-translated languages still wait for are warnings, which `npm run package:store` turns into errors. `npm run audit:i18n` and `npm run audit:style` report Chinese text written straight into the code and leftover style debt.
+Every test is TypeScript and runs in Vitest: `npx vitest run <paths>` runs the test files under those paths, and `-t <name>` the tests whose name matches. `npm run test:e2e` drives the built extension through its main flows (new tab and overlay search, the tab switcher, link preview, every extension page) in a headless Chrome; CI runs it after `npm run verify`, and `npm run test:e2e -- -t <flow>` runs some of them. `npm run check:locales` checks the copy in every language; strings the AI-translated languages still wait for are warnings, which `npm run package:store` turns into errors. `npm run audit:i18n` and `npm run audit:style` report Chinese text written straight into the code and leftover style debt.
 
 `npm run package:store` reads the version from `manifest.json` and creates `dist/lumno-store-v<version>.zip`. It requires `zip` and `zipinfo` to be available on the system.
 
@@ -270,7 +270,7 @@ npm run lint
 | `_locales/` | Extension UI copy |
 | `assets/data/` | Built-in site-search and browser shortcut data |
 | `assets/wallpapers/` | Built-in new tab wallpapers and thumbnails |
-| `tests/` | Node regression tests by area (`tests/<area>/test-*.js`, shared `tests/helpers/`); `npm run test:legacy -- <filter>` runs a subset; browser flows in `tests/e2e/` |
+| `tests/` | What is not beside a module: whole-page tests (`tests/pages/<page>/`), repository and build checks (`tests/repo/`), browser flows (`tests/e2e/`) and the shared fakes (`tests/fakes/`). Unit and component tests sit beside their modules as `*.test.ts(x)` |
 | `scripts/` | Tooling by purpose: `build/` (packaging), `check/` (static checks and audits), `dev/` (e2e experiments, profiling), `release/` (store submissions) |
 
 ## Contributing

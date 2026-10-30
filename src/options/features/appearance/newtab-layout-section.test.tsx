@@ -88,6 +88,26 @@ describe('Options Appearance New Tab layout section', () => {
     expect(host.querySelector('#_x_extension_recent_mode_tabs_wrap_2024_unique_')).toBeNull();
   });
 
+  it('sets the recent site cards in rows of four on the shared slider, before the mode choice', async () => {
+    const { host, writes, settings } = setUp({ [Settings.recentCount.key]: 8 });
+    await settings.settle();
+    const control = getElement(host, '#_x_extension_recent_count_control_2026_unique_');
+    const slider = getTag(control, '#_x_extension_recent_count_slider_2026_unique_', 'input');
+    expect(control.compareDocumentPosition(getElement(host, '#_x_extension_recent_mode_tabs_wrap_2024_unique_')) &
+      Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect([slider.min, slider.max, slider.step, slider.value]).toEqual(['0', '2', '1', '2']);
+    slide(host, '_x_extension_recent_count_slider_2026_unique_', 1);
+    act(() => {
+      slider.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await settings.settle();
+    expect(writes.at(-1)).toEqual({ [Settings.recentCount.key]: 4 });
+    const modes = getTags(host, '#_x_extension_recent_mode_tabs_wrap_2024_unique_ [data-recent-mode]', 'button');
+    expect(modes.length).toBeGreaterThanOrEqual(2);
+    // Text labels, no icons.
+    expect(modes.every((mode) => mode.textContent?.trim() && !mode.querySelector('i, svg'))).toBe(true);
+  });
+
   it('saves the page button switches', async () => {
     const { host, writes, settings } = setUp();
     act(() => toggle(host, 'newtab_feedback_button_visible').click());
@@ -97,5 +117,37 @@ describe('Options Appearance New Tab layout section', () => {
       { [Settings.newtabFeedbackButtonVisible.key]: !Settings.newtabFeedbackButtonVisible.parse(undefined) },
       { [Settings.newtabInputAutoFocusEnabled.key]: !Settings.newtabInputAutoFocusEnabled.parse(undefined) }
     ]);
+  });
+
+  it('folds the per-row bookmark setting and hides the recent site mode while there are none, and brings both back', async () => {
+    const { host, store, settings } = setUp({ [Settings.bookmarkCount.key]: 0, [Settings.recentCount.key]: 0 });
+    await settings.settle();
+    const subrows = getElement(host, '#_x_extension_bookmark_subrows_2026_unique_');
+    expect(subrows.contains(getElement(host, '#_x_extension_bookmark_columns_setting_row_2026_unique_'))).toBe(true);
+    expect(subrows.dataset.expanded).toBe('false');
+    expect(host.querySelector('#_x_extension_recent_mode_tabs_wrap_2024_unique_')).toBeNull();
+    await store(Settings.bookmarkCount, 8);
+    await store(Settings.recentCount, 4);
+    expect(subrows.dataset.expanded).toBe('true');
+    expect(host.querySelector('#_x_extension_recent_mode_tabs_wrap_2024_unique_')).not.toBeNull();
+  });
+});
+
+describe('Options Appearance New Tab bookmark grid rows', () => {
+  it('holds the bookmark rows and per-row settings, each with its info and slider, in place of the old count select', async () => {
+    const { host, settings } = setUp();
+    await settings.settle();
+    ['rows', 'columns'].forEach((kind) => {
+      const row = getElement(host, `#_x_extension_bookmark_${kind}_setting_row_2026_unique_`);
+      expect(row.querySelector('._x_extension_info_button_2026_unique_')).not.toBeNull();
+      expect(row.contains(getElement(host, `#_x_extension_bookmark_${kind}_control_2026_unique_`))).toBe(true);
+    });
+    expect(host.querySelector('#_x_extension_bookmark_count_select_2024_unique_')).toBeNull();
+    const range = (id: string) => {
+      const slider = getTag(host, `#${id}`, 'input');
+      return [slider.min, slider.max, slider.step];
+    };
+    expect(range('_x_extension_bookmark_rows_slider_2026_unique_')).toEqual(['0', '8', '1']);
+    expect(range('_x_extension_bookmark_columns_slider_2026_unique_')).toEqual(['4', '8', '1']);
   });
 });

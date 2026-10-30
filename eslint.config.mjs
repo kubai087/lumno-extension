@@ -131,9 +131,9 @@ export default tseslint.config(
     }
   },
   {
-    // Node tooling. Tests also hand functions to the pages they drive, so
-    // they see the browser's globals too.
-    files: ['scripts/**/*.js', 'tests/**/*.js'],
+    // Node tooling, which also hands functions to the pages it drives, so it
+    // sees the browser's globals too.
+    files: ['scripts/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: {

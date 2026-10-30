@@ -109,6 +109,14 @@ afterEach(() => {
 });
 
 describe('Onboarding page runtime', () => {
+  it('draws the page through its React view', async () => {
+    const { root } = await bootOnboardingPage();
+    await waitForFirstRender(root);
+
+    expect(root.getAttribute('data-react-island')).toBe('onboarding-page');
+    expect(document.getElementById('onboarding-page-strip')).not.toBeNull();
+  });
+
   it('reads the stored language and renders every slide visual through the React surface', async () => {
     const { chrome, root, stage } = await bootOnboardingPage({
       [LANGUAGE_STORAGE_KEY]: 'ja'

@@ -26,6 +26,21 @@ if (typeof window.AnimationEvent !== 'function') {
   window.AnimationEvent = AnimationEventShim;
 }
 
+// Tests run offline: a request that no test answered fails as it would
+// without a connection, instead of reaching the network. A test that needs an
+// answer stubs fetch (vi.stubGlobal), and unstubbing comes back to this.
+globalThis.fetch = async (input) => {
+  const url = input instanceof Request ? input.url : String(input);
+  throw new TypeError(`Failed to fetch ${url} (tests run offline)`);
+};
+
+// JSDOM's selector engine adds window listeners (focus, keys, mouse) the first
+// time the document runs a selector, and reads :hover and :focus-visible from
+// them for the document's lifetime. Start it here, before any test: a page
+// boot that removes the listeners added while its page ran would otherwise
+// take the engine's with them, and :hover would never match again in the file.
+document.querySelector('*');
+
 afterEach(() => {
   document.body.replaceChildren();
 });

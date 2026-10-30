@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { holdSuggestionsHeight, releaseSuggestionsHeight } from './suggestions-height-layout';
+import { applyNaturalSuggestionsHeightLayout, holdSuggestionsHeight, releaseSuggestionsHeight } from './suggestions-height-layout';
 
 function listOf(height: number): HTMLElement {
   const list = document.createElement('div');
@@ -52,5 +52,26 @@ describe('holding the suggestions list height (#120)', () => {
     list.style.setProperty('min-height', '0px');
     releaseSuggestionsHeight(list, window);
     expect(list.style.minHeight).toBe('0px');
+  });
+});
+
+describe('natural suggestions height', () => {
+  it('clears the height states and constraints, turns height transitions off and keeps the safety caps', () => {
+    const list = document.createElement('div');
+    ['data-height-clipped', 'data-input-height-locked', 'data-resizing'].forEach((name) => list.setAttribute(name, 'true'));
+    [['flex', '0 0 auto'], ['height', '580px'], ['overflow-y', 'hidden'], ['padding-top', '12px'],
+      ['transition', 'height 180ms ease-in-out'], ['will-change', 'height']].forEach(([name, value]) => {
+      list.style.setProperty(name, value, 'important');
+    });
+    list.style.setProperty('max-height', '420px');
+    expect(applyNaturalSuggestionsHeightLayout(list)).toBe(true);
+    expect(list.getAttributeNames()).toEqual(['style']);
+    ['flex', 'height', 'overflow-y', 'padding-top', 'will-change'].forEach((name) => expect([name, list.style.getPropertyValue(name)]).toEqual([name, '']));
+    expect([list.style.getPropertyValue('transition'), list.style.getPropertyPriority('transition')]).toEqual(['none', 'important']);
+    expect([list.style.getPropertyValue('max-height'), list.style.getPropertyPriority('max-height')]).toEqual(['420px', '']);
+  });
+
+  it('does nothing without a list', () => {
+    expect(applyNaturalSuggestionsHeightLayout(null)).toBe(false);
   });
 });

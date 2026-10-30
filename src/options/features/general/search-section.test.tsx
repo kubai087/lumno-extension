@@ -4,6 +4,9 @@ import * as Settings from '../../../domain/settings';
 import type { Setting } from '../../../domain/settings/define';
 import { getElement, getTag, getTags } from '../../../../tests/fakes/dom';
 import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
+import { fetchPackaged } from '../../../../tests/fakes/packaged-fetch';
+import enMessages from '../../../../_locales/en/messages.json';
+import jaMessages from '../../../../_locales/ja/messages.json';
 import { GeneralSearchSection } from './search-section';
 
 const SOURCE_TYPES_KEY = Settings.searchResultSourceTypes.key;
@@ -81,7 +84,7 @@ describe('Options General search results section', () => {
     const { host, writes, store, settings } = setUp();
     await store(Settings.searchResultDisplayLimit, 7);
     const slider = getTag(host, '#_x_extension_search_result_display_limit_slider_2026_unique_', 'input');
-    expect(slider.value).toBe('7');
+    expect([slider.type, slider.min, slider.max, slider.step, slider.value]).toEqual(['range', '5', '10', '1', '7']);
     act(() => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(slider, '9');
       slider.dispatchEvent(new Event('input', { bubbles: true }));
@@ -98,5 +101,21 @@ describe('Options General search results section', () => {
     expect(writes).toEqual([
       { [Settings.searchFuzzyPinyinEnabled.key]: !Settings.searchFuzzyPinyinEnabled.parse(undefined) }
     ]);
+  });
+
+  it('labels the result types in the page language from the first draw on, and follows a new one', async () => {
+    vi.stubGlobal('fetch', vi.fn(fetchPackaged));
+    const { host, page, settings } = setUp({ [Settings.language.key]: 'en' });
+    const stop = page.locale.follow();
+    await page.locale.ready;
+    await settings.settle();
+    const labels = () => getTags(host, '#_x_extension_search_result_source_types_2026_unique_ label', 'label')
+      .map((label) => label.textContent?.trim());
+    const expected = (messages: Record<string, { message: string }>) => ['search_tag_top_site', 'search_tag_bookmark', 'search_tag_history']
+      .map((key) => messages[key]?.message);
+    expect(labels()).toEqual(expected(enMessages));
+    await settings.change(Settings.language, 'ja');
+    await vi.waitFor(() => expect(labels()).toEqual(expected(jaMessages)));
+    stop();
   });
 });

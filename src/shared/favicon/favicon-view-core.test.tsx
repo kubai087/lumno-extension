@@ -2,7 +2,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FaviconFallback, FolderPreviewFaviconFallback } from '../react/favicon-fallback';
-import { createFallbackIconPresenter } from './favicon-view-core';
+import { createFallbackIconPresenter, createFaviconViewCore } from './favicon-view-core';
 import { getElement, getElements, getTag, getTags } from '../../../tests/fakes/dom';
 
 let root: Root | null = null;
@@ -100,5 +100,92 @@ describe('favicon fallback presenter', () => {
     act(() => root?.render(row(true)));
     timers[0]();
     expect(getElement(host, '.x-nt-favicon-fallback').dataset.visible).toBe('true');
+  });
+});
+
+describe('favicon view caches', () => {
+  it('keep only the newest icon data and preloaded images past their limits', () => {
+    const faviconDataCache = new Map<string, string>();
+    const iconPreloadCache = new Map<string, HTMLImageElement>();
+    const core = createFaviconViewCore({
+      chromeApi: null,
+      requestFaviconData: () => null,
+      faviconDataCache,
+      iconPreloadCache,
+      faviconDataCacheMaxEntries: 2,
+      iconPreloadCacheMaxEntries: 2,
+      getHostFromUrl: () => '',
+      shouldBlockFaviconForHost: () => false,
+      isBlockedLocalFaviconUrl: () => false
+    });
+    const urls = ['https://one.example/favicon.ico', 'https://two.example/favicon.ico', 'https://three.example/favicon.ico'];
+
+    urls.forEach((url, index) => core.cacheFaviconData(url, `data:image/png;base64,${index}`));
+    expect(Array.from(faviconDataCache.keys())).toEqual(urls.slice(1));
+
+    urls.forEach((url) => core.preloadIcon(url));
+    expect(Array.from(iconPreloadCache.keys())).toEqual(urls.slice(1));
+  });
+});
+
+// An image that has loaded whatever it was given, as a cached icon does.
+function loadedImage(): HTMLImageElement {
+  const img = document.createElement('img');
+  Object.defineProperty(img, 'complete', { get: () => Boolean(img.getAttribute('src')) });
+  Object.defineProperty(img, 'naturalWidth', { get: () => (img.getAttribute('src') ? 16 : 0) });
+  Object.defineProperty(img, 'naturalHeight', { get: () => (img.getAttribute('src') ? 16 : 0) });
+  return img;
+}
+
+describe('favicon data answers', () => {
+  it('never replace the icon an image shows since it asked', async () => {
+    const pending = new Map<string, (response: unknown) => void>();
+    const core = createFaviconViewCore({
+      chromeApi: {
+        runtime: {
+          sendMessage(message: unknown, callback?: (response: unknown) => void) {
+            const url: unknown = message && typeof message === 'object' ? Reflect.get(message, 'url') : undefined;
+            if (typeof url === 'string' && callback) pending.set(url, callback);
+            return undefined;
+          }
+        }
+      },
+      getPersistCacheKey: () => 'light::futurecomm.cn'
+    });
+    const img = loadedImage();
+    const proxyUrl = 'chrome-extension://abc/_favicon/?pageUrl=https%3A%2F%2Fm2.futurecomm.cn%2F&size=128';
+    const realUrl = 'https://m2.futurecomm.cn/favicon.ico';
+    img.loading = 'lazy';
+
+    expect(core.setFaviconSrcWithAnimation(img, proxyUrl)).toBe(true);
+    expect(img.loading).toBe('eager');
+    expect(img.getAttribute('loading')).toBe('eager');
+    expect(img.getAttribute('width')).toBe('128');
+    expect(img.getAttribute('height')).toBe('128');
+    core.attachFaviconData(img, proxyUrl, 'futurecomm.cn');
+    expect(core.setFaviconSrcWithAnimation(img, realUrl)).toBe(true);
+    expect(img.getAttribute('src')).toBe(realUrl);
+
+    const answer = pending.get(proxyUrl);
+    expect(answer).toEqual(expect.any(Function));
+    if (answer) answer({ data: 'data:image/png;base64,ZmFrZS1wcm94eS1mYWxsYmFjaw==' });
+    await Promise.resolve();
+    expect(img.getAttribute('src')).toBe(realUrl);
+  });
+
+  // A failed live candidate (e.g. _favicon in Firefox) can stay the rendered
+  // src after an interrupted reveal.
+  it('swaps the remembered working icon back in and ends the blurred priming state', () => {
+    const core = createFaviconViewCore({ chromeApi: null });
+    const img = loadedImage();
+    const working = 'data:image/png;base64,d29ya2luZy1pY29u';
+    img.setAttribute('data-favicon-current-src', working);
+    img.setAttribute('data-favicon-has-appeared', 'true');
+    img.setAttribute('data-favicon-load-state', 'priming');
+    img.src = 'moz-extension://abc/_favicon/?pageUrl=https%3A%2F%2Fexample.com%2F';
+
+    expect(core.restoreWorkingFaviconOrFallback(img, working)).toBe(true);
+    expect(img.getAttribute('src')).toBe(working);
+    expect(img.getAttribute('data-favicon-load-state')).toBe('loaded');
   });
 });

@@ -27,22 +27,58 @@ export async function waitFor(check: () => boolean, message: string): Promise<vo
   throw new Error(message);
 }
 
-export async function bootNewtab(browser: BrowserFake): Promise<void> {
+// What the page's fetch answers with; the English messages for every URL
+// unless a test passes its own.
+interface NewtabBootOptions {
+  fetch?: (url: string) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
+  // Whether prefers-color-scheme: dark matches; light by default.
+  darkSystem?: boolean;
+}
+
+// The document and the window outlive a test, so the listeners a page adds to
+// them are removed when its test ends: a page booted later in the same file
+// is then the only one that answers keys and pointers.
+const pageListeners: Array<() => void> = [];
+
+const followed = new Set<Document | Window>();
+
+// Once per test: a second boot in the same test must not wrap the wrapper.
+function followListeners(target: Document | Window): void {
+  if (followed.has(target)) {
+    return;
+  }
+  followed.add(target);
+  const add = target.addEventListener;
+  vi.spyOn(target, 'addEventListener').mockImplementation((type: string, listener: unknown, options?: unknown) => {
+    Reflect.apply(add, target, [type, listener, options]);
+    pageListeners.push(() => Reflect.apply(target.removeEventListener, target, [type, listener, options]));
+  });
+}
+
+export async function bootNewtab(browser: BrowserFake, options: NewtabBootOptions = {}): Promise<void> {
+  followListeners(document);
+  followListeners(window);
   const parsed = new DOMParser().parseFromString(newtabHtml, 'text/html');
+  if (!headBeforeBoot) {
+    headBeforeBoot = new Set(Array.from(document.head.childNodes));
+  }
+  clearAttributes(document.documentElement);
+  Array.from(parsed.documentElement.attributes)
+    .forEach((attribute) => document.documentElement.setAttribute(attribute.name, attribute.value));
   Array.from(parsed.body.attributes).forEach((attribute) => document.body.setAttribute(attribute.name, attribute.value));
   Array.from(parsed.body.children)
     .filter((node) => node.tagName !== 'SCRIPT')
     .forEach((node) => document.body.appendChild(document.importNode(node, true)));
   vi.stubGlobal('chrome', browser);
   vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: false,
+    matches: Boolean(options.darkSystem) && /prefers-color-scheme:\s*dark/.test(query),
     media: query,
     addEventListener() {},
     removeEventListener() {},
     addListener() {},
     removeListener() {}
   }));
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => enMessages })));
+  vi.stubGlobal('fetch', vi.fn(options.fetch || (async () => ({ ok: true, json: async () => enMessages }))));
   vi.resetModules();
   await runPageBundle('newtab-preload');
   await runPageBundle('wallpaper-effect-preload');
@@ -52,13 +88,31 @@ export async function bootNewtab(browser: BrowserFake): Promise<void> {
   await settle();
 }
 
+// What the test document's head held before the first boot; the page's own
+// links, styles and favicon come out again after each test.
+let headBeforeBoot: Set<ChildNode> | null = null;
+
+function clearAttributes(element: Element): void {
+  Array.from(element.attributes).forEach((attribute) => element.removeAttribute(attribute.name));
+}
+
 afterEach(() => {
+  pageListeners.splice(0).forEach((remove) => remove());
+  followed.clear();
   document.body.replaceChildren();
-  Array.from(document.body.attributes).forEach((attribute) => document.body.removeAttribute(attribute.name));
+  clearAttributes(document.body);
+  clearAttributes(document.documentElement);
+  const kept = headBeforeBoot;
+  if (kept) {
+    Array.from(document.head.childNodes).filter((node) => !kept.has(node)).forEach((node) => node.remove());
+  }
+  // The page caches settings and layout here; each boot is a fresh profile.
+  window.localStorage.clear();
+  window.sessionStorage.clear();
   vi.unstubAllGlobals();
 });
 
-export async function bootReadyNewtab(browser: BrowserFake): Promise<void> {
-  await bootNewtab(browser);
+export async function bootReadyNewtab(browser: BrowserFake, options: NewtabBootOptions = {}): Promise<void> {
+  await bootNewtab(browser, options);
   await waitFor(() => document.body.getAttribute('data-nt-ready') === '1', 'New Tab did not mark itself ready');
 }

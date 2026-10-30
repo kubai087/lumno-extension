@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BackgroundAction, BackgroundReply, BackgroundRequest } from '../domain/messages';
 import { PopupActions } from './actions';
 import type { PopupPorts } from './browser';
+import type { PopupActionId } from './react/popup-view';
+import { missingMessages } from '../../tests/fakes/locale-messages';
 
 const t = (_key: string, fallback: string) => fallback;
 const tab = { id: 7, url: 'https://example.com/a', title: 'A' };
@@ -102,5 +104,38 @@ describe('Popup actions', () => {
     await actions.run('pin');
     expect(actions.store.getSnapshot().notice).toEqual({ text: 'You can pin up to 3 cards.', tone: 'error' });
     expect(actions.store.getSnapshot().recentPin).toEqual({ pinned: false, full: false });
+  });
+
+  it('finds every string its outcomes ask for in every language', async () => {
+    vi.useFakeTimers();
+    const keys = new Set<string>();
+    const record = (key: string, fallback: string) => {
+      keys.add(key);
+      return fallback;
+    };
+    const outcomes: Array<[PopupActionId, ReplyTable]> = [
+      ['copy', { popupShowPageToast: { ok: false } }],
+      ['pip', {}],
+      ['pin', { popupToggleRecentPin: { status: 'limit' } }],
+      ['pin', {}],
+      ['pin', { popupToggleRecentPin: { status: 'pinned', tracking: true }, popupShowPageToast: { ok: true } }],
+      ['pin', { popupToggleRecentPin: { status: 'pinned', tracking: false }, popupShowPageToast: { ok: true } }],
+      ['pin', { popupToggleRecentPin: { status: 'unpinned' }, popupShowPageToast: { ok: true } }],
+      ['shortcut', {}]
+    ];
+    for (const [id, replies] of outcomes) {
+      const actions = new PopupActions(createPorts(replies).ports, {
+        tab,
+        pip: { supported: true, hasVideo: true, active: false },
+        recentPin: { pinned: false, full: false }
+      }, record, { show: vi.fn() });
+      await actions.run(id);
+    }
+    const failedCopy = createPorts().ports;
+    failedCopy.writeClipboard = () => Promise.reject(new Error('denied'));
+    await new PopupActions(failedCopy, { tab, pip: { supported: true, hasVideo: true, active: false }, recentPin: null }, record, { show: vi.fn() })
+      .run('copy');
+    expect(keys.size).toBeGreaterThan(5);
+    expect(missingMessages(keys)).toEqual([]);
   });
 });

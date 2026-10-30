@@ -9,7 +9,7 @@ import {
   type SiteSearchFormSaveHandler
 } from './settings-forms';
 import { createReactRootController } from '../../shared/react/root-controller';
-import { getElement, getTags } from '../../../tests/fakes/dom';
+import { getElement, getTag, getTags } from '../../../tests/fakes/dom';
 import { queryHtmlElement, queryHtmlTag } from '../../shared/dom-lookup';
 
 let controllers: Array<{ destroy(): void }> = [];
@@ -152,6 +152,42 @@ describe('Options settings forms', () => {
       category: 'site',
       template: '{query}'
     }));
+  });
+
+  it('puts the query insert button at the right of the template header', () => {
+    const { host } = createSiteSearchFormFixture(vi.fn());
+    const button = getTag(host, '#_x_extension_site_search_insert_query_2026_unique_', 'button');
+    const header = getElement(host, '._x_extension_site_search_template_header_2026_unique_');
+    expect(header.contains(button)).toBe(true);
+    expect(header.classList.contains('_x_extension_shortcut_label_row_2024_unique_')).toBe(true);
+    expect(getElement(header, '._x_extension_site_search_template_label_2026_unique_').compareDocumentPosition(button) &
+      Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(button.type).toBe('button');
+    expect(['_x_extension_shortcut_submit_2024_unique_', '_x_extension_shortcut_ghost_2026_unique_',
+      '_x_extension_site_search_insert_query_2026_unique_'].every((name) => button.classList.contains(name))).toBe(true);
+    expect(getElement(button, 'span[data-i18n="shortcuts_insert_query"]').textContent).toBe('插入查询变量');
+    expect(button.querySelector('i.ri-icon.ri-add-line')).not.toBeNull();
+    expect(host.querySelector('#_x_extension_site_search_template_2024_unique_')).not.toBeNull();
+  });
+
+  it('inserts the query token at the caret and keeps editing after it', async () => {
+    const { host } = createSiteSearchFormFixture(vi.fn());
+    const input = getTag(host, '#_x_extension_site_search_template_2024_unique_', 'input');
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'https://example.com/?q=&lang=en');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const caret = 'https://example.com/?q='.length;
+    input.focus();
+    input.setSelectionRange(caret, caret);
+    act(() => getTag(host, '#_x_extension_site_search_insert_query_2026_unique_', 'button').click());
+    // The caret moves on the next frame, once the new value is drawn.
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(input.value).toBe('https://example.com/?q={query}&lang=en');
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([caret + '{query}'.length, caret + '{query}'.length]);
   });
 
   it('stores the selected search-engine placement in the custom draft', async () => {

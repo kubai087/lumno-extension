@@ -12,9 +12,13 @@
 
 const fs = require('fs');
 const path = require('path');
-require('../node/register-typescript');
-const { launchBrowser, delay } = require('../../tests/e2e/browser');
-const { startFixtureServer } = require('../../tests/e2e/fixtures');
+const { importSource } = require('../node/source-module');
+
+// The E2E suite's headless Chrome driver and fixture pages (tests/e2e/driver),
+// loaded at the start of main().
+let launchBrowser = null;
+let startFixtureServer = null;
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const OVERLAY_HOST_ID = '_x_extension_overlay_host_2026_unique_';
 const OVERLAY_INPUT = '#_x_extension_search_input_2024_unique_';
@@ -326,6 +330,8 @@ function compare(head, baseline) {
 }
 
 async function main() {
+  ({ launchBrowser } = await importSource('tests/e2e/driver/browser.ts'));
+  ({ startFixtureServer } = await importSource('tests/e2e/driver/fixtures.ts'));
   const options = parseArguments(process.argv.slice(2));
   const fixtures = await startFixtureServer();
   try {

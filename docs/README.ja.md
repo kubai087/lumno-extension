@@ -238,15 +238,15 @@ npm run build
 
 その後、`chrome://extensions/` でデベロッパーモードを有効のままにし、`dist/chrome` をパッケージ化されていない拡張機能として読み込みます。新しいアセットを生成した後、またはバックグラウンドスクリプトや `manifest.json` を変更した後は、拡張機能ページで手動で再読み込みしてください。起動時の新しいタブの置き換えを中断しないよう、開発版は Chrome プロファイルの起動時に二度目の更新を強制しません。
 
-プルリクエストを送る前に `npm run verify` を実行してください。拡張機能をビルドし、Node と React の 2 つのテスト、静的チェック、ESLint を CI と同じように実行します。作業中は一部だけを実行できます。
+プルリクエストを送る前に `npm run verify` を実行してください。拡張機能をビルドし、テスト、静的チェック、ESLint を CI と同じように実行します。作業中は一部だけを実行できます。
 
 ```bash
-npm run test:legacy -- settings search/
-npm run test:react
+npx vitest run src/domain/search tests/pages/newtab
+npx vitest run --project dom -t "scope panel"
 npm run lint
 ```
 
-`npm run test:legacy -- <filter>` は、パスにいずれかのフィルターを含む Node テストだけを実行します。`npm run check:locales` はすべての言語の文言をチェックします。AI 翻訳の言語でまだ翻訳されていない文言は警告にとどまり、`npm run package:store` ではエラーになります。`npm run audit:i18n` と `npm run audit:style` は、コードに直接書かれた中国語と残っているスタイルの課題を一覧にします。
+テストはすべて TypeScript で書かれ、Vitest で実行します。`npx vitest run <パス>` はそのパスにあるテストファイルを、`-t <名前>` は名前が一致するテストだけを実行します。`npm run check:locales` はすべての言語の文言をチェックします。AI 翻訳の言語でまだ翻訳されていない文言は警告にとどまり、`npm run package:store` ではエラーになります。`npm run audit:i18n` と `npm run audit:style` は、コードに直接書かれた中国語と残っているスタイルの課題を一覧にします。
 
 `npm run package:store` は `manifest.json` のバージョンを読み取り、`dist/lumno-store-v<version>.zip` を生成します。このコマンドにはシステム上の `zip` と `zipinfo` が必要です。
 
@@ -270,7 +270,7 @@ npm run lint
 | `_locales/` | 拡張 UI 文言 |
 | `assets/data/` | 内蔵サイト内検索とブラウザショートカットのデータ |
 | `assets/wallpapers/` | 新しいタブの内蔵壁紙とサムネイル |
-| `tests/` | 領域ごとの Node 回帰テスト（`tests/<領域>/test-*.js`、共通の `tests/helpers/`）。`npm run test:legacy -- <フィルター>` で一部だけ実行 |
+| `tests/` | モジュールの隣に置かないテスト：ページ全体のテスト（`tests/pages/<ページ>/`）、リポジトリとビルドのチェック（`tests/repo/`）、ブラウザのフロー（`tests/e2e/`）、共通のフェイク（`tests/fakes/`）。単体テストとコンポーネントテストは `*.test.ts(x)` としてモジュールの隣に置く |
 | `scripts/` | 用途別のツール：`build/`（パッケージング）、`check/`（静的チェックと監査）、`dev/`（e2e の試作、プロファイル）、`release/`（ストア提出） |
 
 ## コントリビュート

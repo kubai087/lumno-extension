@@ -4,6 +4,7 @@ import type { ModeMenuItem } from '../search/input-mode/types';
 import type { CursorTooltipController } from '../ui/cursor-tooltip-model';
 import { queryHtmlElement, queryHtmlTag } from '../dom-lookup';
 import { getElement, getElements, getTags, required } from '../../../tests/fakes/dom';
+import { createLayout } from '../../../tests/fakes/layout';
 import { LumnoSearchInputMode, createModeParts, getTestContrastRatio, resetModeTest } from '../../../tests/fakes/search-input-mode';
 
 afterEach(resetModeTest);
@@ -653,5 +654,60 @@ describe('Search scope menu: layout, icons and reordering', () => {
     expect(parts.modePrefixGlyph.style.display).toBe('inline-flex');
     expect(parts.modePrefixGlyph.className).toContain('ri-global-line');
     controller.destroy();
+  });
+
+  it('keeps the caret past the scope tag as the tag resizes, and lets go of the layout on destroy', () => {
+    const observers: Array<{ targets: Element[]; disconnected: boolean; trigger(): void }> = [];
+    vi.stubGlobal('ResizeObserver', class {
+      targets: Element[] = [];
+      disconnected = false;
+      private readonly callback: ResizeObserverCallback;
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+        observers.push(this);
+      }
+      observe(target: Element) {
+        this.targets.push(target);
+      }
+      unobserve() {}
+      disconnect() {
+        this.disconnected = true;
+        this.targets = [];
+      }
+      trigger() {
+        this.callback([], this);
+      }
+    });
+    const parts = createModeParts();
+    const badge = document.createElement('span');
+    badge.setAttribute('data-visible', 'true');
+    let tagWidth = 69;
+    const layout = createLayout();
+    layout.place(parts.modePrefix, () => ({ left: 0, top: 0, width: tagWidth, height: 26 }));
+    layout.place(badge, { left: 0, top: 0, width: 48, height: 26 });
+    const controller = LumnoSearchInputMode.createInputModeController(parts, {
+      baseInputPaddingLeft: 44,
+      prefixGap: 8,
+      modeBadgeElement: badge
+    });
+    expect(observers).toHaveLength(1);
+    const observer = required(observers[0], 'the layout observer');
+    [controller.prefixElement, controller.tabHintElement, badge].forEach((target) => expect(observer.targets).toContain(target));
+
+    act(() => controller.setPrefixText('豆包', {}, { isAi: true }));
+    expect(parts.input.style.getPropertyValue('padding-left')).toBe('121px');
+
+    tagWidth = 103;
+    expect(parts.input.style.getPropertyValue('padding-left')).toBe('121px');
+    observer.trigger();
+    expect(parts.input.style.getPropertyValue('padding-left')).toBe('155px');
+
+    act(() => controller.clearProviderPrefix());
+    expect(parts.input.style.getPropertyValue('padding-left')).toBe('44px');
+
+    controller.destroy();
+    expect(observer.disconnected).toBe(true);
+    expect(parts.modePrefix.parentNode).toBe(parts.container);
+    expect(parts.modeTabHint.parentNode).toBe(parts.container);
   });
 });

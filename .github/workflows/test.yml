@@ -71,7 +71,7 @@ jobs:
             echo "::warning::Could not build the scripts of $LUMNO_BUNDLE_BASE; only the bundle ceilings are checked."
           fi
 
-      # Builds the extension once, runs both test suites, then the static
+      # Builds the extension once, runs the Vitest projects, then the static
       # checks (the same ones npm run check runs after its own build).
       - name: Run tests and checks
         run: npm run verify
