@@ -17,6 +17,7 @@ const customQuotes = '_x_extension_custom_quotes_2026_unique_';
 const quotePick = '_x_extension_custom_quote_pick_2026_unique_';
 const engine = (name: string) => [{ name, url: `https://${name}.example/?q=%s` }];
 const [topbarMode, topbarLight, topbarDark, topbarLegacy] = settings.BOOKMARK_TOPBAR_SURFACE_KEYS;
+const topbarLayout = settings.bookmarkTopbarLayout.key;
 const icon = readFileSync(resolve(REPO_ROOT, 'assets/images/lumno.png'));
 const wallpaper = readFileSync(resolve(REPO_ROOT, 'assets/wallpapers/lumno-newtab-seurat-coast-white-thumb.webp'));
 const webp = `data:image/webp;base64,${wallpaper.toString('base64')}`;
@@ -26,12 +27,12 @@ function wallpaperRecord(id: string, name: string, width: number, height: number
 }
 
 // The first device has settings, an overflowing shortcut, an icon, a
-// wallpaper in use, the bookmark bar material and custom quotes.
+// wallpaper in use, the bookmark bar layout and material and custom quotes.
 function createFirstDevice(server: DavServer) {
   const firstShortcut = createShortcutRecord({ id: 'first', title: 'First', url: 'https://example.com/' }, { now: 100 });
   const overflowShortcut = createShortcutRecord({ id: 'overflow', title: 'Overflow', url: 'https://other.example/' }, { now: 100 });
   return createDevice(server, {
-    sync: { [theme]: 'light', [language]: 'en', [newtabShortcutsLegacy.key]: [firstShortcut] },
+    sync: { [theme]: 'light', [language]: 'en', [newtabShortcutsLegacy.key]: [firstShortcut], [topbarLayout]: 'floating' },
     local: {
       [OVERFLOW_KEY]: { authoritative: false, items: [overflowShortcut] },
       [ICONS_KEY]: { first: `data:image/png;base64,${icon.toString('base64')}` },
@@ -112,21 +113,24 @@ describe('a device joining a server that already has a state', () => {
     expect((await damaged.wallpaperStore.readAll()).map((item) => item.id)).toEqual(['custom-wallpaper-damaged']);
   });
 
-  it('carries the bookmark bar material through WebDAV only, merging each value on its own', async () => {
+  it('carries the bookmark bar layout with the preferences and its material through WebDAV only, merging each value on its own', async () => {
     const { server, first, second } = await joinedPair();
 
     expect([topbarMode, topbarLight, topbarDark].map((key) => second.chrome.storage.local.values[key])).toEqual(['custom', '#112233', '#445566']);
+    expect(second.chrome.storage.sync.values[topbarLayout]).toBe('floating');
     expect(Object.hasOwn(server.state().data, topbarLegacy)).toBe(false);
     [first, second].forEach((device) => settings.BOOKMARK_TOPBAR_SURFACE_KEYS.forEach((key) => {
       expect(Object.hasOwn(device.chrome.storage.sync.values, key)).toBe(false);
     }));
     await storageSet(first.chrome.storage.local, { [topbarMode]: 'clear' });
     await storageSet(second.chrome.storage.local, { [topbarDark]: '#000000' });
+    await storageSet(second.chrome.storage.sync, { [topbarLayout]: 'docked' });
     await first.controller.handle({ operation: 'sync' });
     await second.controller.handle({ operation: 'sync' });
     await first.controller.handle({ operation: 'sync' });
     [first, second].forEach((device) => {
       expect([topbarMode, topbarLight, topbarDark].map((key) => device.chrome.storage.local.values[key])).toEqual(['clear', '#112233', '#000000']);
+      expect(device.chrome.storage.sync.values[topbarLayout]).toBe('docked');
     });
   });
 });

@@ -19,7 +19,7 @@ type ResolvedTheme = 'light' | 'dark';
 
 
 interface BookmarkDisplaySettingsDeps {
-  // The bar's material and layout stay on this device.
+  // The material stays on this device; the layout follows preferences.
   settings: Pick<SettingsStore, 'get' | 'getStored' | 'include' | 'remove' | 'set' | 'subscribe'>;
   showToast: ShowToast;
   t: Translate;

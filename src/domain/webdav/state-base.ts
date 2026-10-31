@@ -50,6 +50,7 @@ const KEYS_UNKNOWN_TO_LEGACY_WRITERS: readonly string[] = Object.freeze([
   settings.newtabTimeInk.key,
   settings.newtabTime12Hour.key,
   settings.searchSourceOrder.key,
+  settings.bookmarkTopbarLayout.key,
   customQuotes.key
 ]);
 const FIELD_MERGE_KEYS: readonly string[] = [settings.newtabQuotePrefs.key,

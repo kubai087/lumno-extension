@@ -21,6 +21,8 @@ const FONTS = [
   { fontId: 'Inter', displayName: 'Inter' },
   { fontId: 'Inter', displayName: 'Inter Duplicate' }
 ];
+const sortedFontOptions = [['Inter', 'Inter'], ['PingFangSC', '苹方-简']]
+  .sort((left, right) => left[1].localeCompare(right[1], undefined, { sensitivity: 'base' }));
 
 async function setUp({ fonts = FONTS, browserFamily = 'chromium' } = {}) {
   installedFonts = Promise.resolve(fonts);
@@ -109,8 +111,7 @@ describe('Options Appearance webpage overlay section', () => {
     const { host, localWrites, settings } = await setUp();
     expect(openMenu(FONT).map((option) => [option.dataset.value, option.textContent])).toEqual([
       ['', '默认'],
-      ['Inter', 'Inter'],
-      ['PingFangSC', '苹方-简']
+      ...sortedFontOptions
     ]);
     expect(getElement(host, `[data-select="${FONT}"]`).dataset.selectSearchable).toBe('true');
     pick(FONT, 'PingFangSC');
@@ -250,6 +251,6 @@ describe('Options Appearance webpage overlay section', () => {
     renderOptionsView(<AppearanceOverlaySection />);
     expect(openMenu(FONT).map((option) => option.dataset.value)).toEqual(['']);
     await act(async () => resolveFonts(FONTS));
-    expect(openMenu(FONT).map((option) => option.dataset.value)).toEqual(['', 'Inter', 'PingFangSC']);
+    expect(openMenu(FONT).map((option) => option.dataset.value)).toEqual(['', ...sortedFontOptions.map(([value]) => value)]);
   });
 });

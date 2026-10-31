@@ -106,7 +106,8 @@ const bookmarkTopbarSurfaceColorLegacy = defineSetting({
 
 const bookmarkTopbarLayout = defineSetting({
   key: '_x_extension_bookmark_topbar_layout_2026_unique_',
-  area: 'device',
+  area: 'preferences',
+  sync: 'browser',
   schema: opaque()
 });
 

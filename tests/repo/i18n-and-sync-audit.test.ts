@@ -81,6 +81,7 @@ describe('the sync contract', () => {
     ['_x_extension_overlay_enter_animation_2026_unique_', settings.overlayEnterAnimation],
     ['_x_extension_bookmark_view_mode_2026_unique_', settings.bookmarkViewMode],
     ['_x_extension_bookmark_folder_icons_visible_2026_unique_', settings.bookmarkFolderIconsVisible],
+    ['_x_extension_bookmark_topbar_layout_2026_unique_', settings.bookmarkTopbarLayout],
     ['_x_extension_newtab_shortcuts_2026_unique_', settings.newtabShortcutsLegacy],
     ['_x_extension_newtab_shortcut_add_visible_2026_unique_', settings.newtabShortcutAddVisible],
     ['_x_extension_newtab_shortcut_dock_magnification_enabled_2026_unique_', settings.newtabShortcutDockMagnificationEnabled]
