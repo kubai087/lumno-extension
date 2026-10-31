@@ -244,11 +244,22 @@ async function openFrontend(acquisition: Acquisition, pageUrl: string, options: 
       await waitFor(() => !document.querySelector(TILE), 'The removed shortcut is still drawn');
     },
     async openEditor() {
-      await act(async () => {
-        tile().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 20, clientY: 20, button: 2 }));
-      });
-      await settle();
-      await act(async () => click(getElement(document, `${CONTEXT_MENU} [role="menuitem"][data-value="edit"]`)));
+      // A redraw of the shortcuts closes their menu, and the icon the page
+      // is still saving can redraw them between the right click and the
+      // click on Edit. The menu then opens again.
+      const opened = () => document.querySelector('.x-nt-shortcut-dialog-backdrop') !== null;
+      for (let attempt = 1; !opened(); attempt += 1) {
+        await act(async () => {
+          tile().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 20, clientY: 20, button: 2 }));
+        });
+        await settle();
+        const edit = document.querySelector(`${CONTEXT_MENU} [role="menuitem"][data-value="edit"]`);
+        if (edit instanceof HTMLElement) await act(async () => click(edit));
+        // The editor loads on first use.
+        await waitFor(opened, 'The shortcut editor did not open', 3000).catch((error: unknown) => {
+          if (attempt >= 3) throw error;
+        });
+      }
       await settle(20);
     },
     editorSource: () => getTag(dialog(), '.x-nt-shortcut-icon-source-select select', 'select').value,

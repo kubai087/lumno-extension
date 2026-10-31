@@ -747,9 +747,20 @@ async function bootWorker(options: WorkerFakeOptions = {}): Promise<WorkerFake> 
   return fake;
 }
 
+// Turns of the event loop a settle takes after its wait. Node runs timers in
+// the order they come due, so each turn moves every chain of zero-length
+// timers (the fakes' storage callbacks, the steps they start) one step on.
+// On a busy machine a chain's later steps come due after the wait's own
+// timer, so the wait alone can end first; counting turns does not depend on
+// how fast the machine is.
+const SETTLE_TURNS = 10;
+
 // Lets the worker's pending callbacks and timers of a few milliseconds run.
 async function settleWorker(ms = 20): Promise<void> {
   await new Promise((done) => setTimeout(done, ms));
+  for (let turn = 0; turn < SETTLE_TURNS; turn += 1) {
+    await new Promise((done) => setTimeout(done, 0));
+  }
 }
 
 // The modules an executeScript call imports into a page, as extension paths

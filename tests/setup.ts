@@ -1,4 +1,4 @@
-import { afterEach } from 'vitest';
+import { afterAll, afterEach } from 'vitest';
 
 declare global {
   // Tells React that tests drive updates through act().
@@ -43,4 +43,37 @@ document.querySelector('*');
 
 afterEach(() => {
   document.body.replaceChildren();
+});
+
+// Timers the file's code started and left running are cleared once its tests
+// are done. A page or runtime under test may still have one due as the file's
+// environment is torn down, and it would then run against a window that is
+// gone. Fake timers replace these while a test uses them, and give them back
+// after.
+const fileTimers = new Set<ReturnType<typeof setTimeout>>();
+const startTimeout = globalThis.setTimeout;
+const startInterval = globalThis.setInterval;
+
+Reflect.set(globalThis, 'setTimeout', (handler: unknown, ms?: number, ...args: unknown[]) => {
+  const id = startTimeout(() => {
+    fileTimers.delete(id);
+    if (typeof handler === 'function') Reflect.apply(handler, undefined, args);
+  }, ms);
+  fileTimers.add(id);
+  return id;
+});
+Reflect.set(globalThis, 'setInterval', (handler: unknown, ms?: number, ...args: unknown[]) => {
+  const id = startInterval(() => {
+    if (typeof handler === 'function') Reflect.apply(handler, undefined, args);
+  }, ms);
+  fileTimers.add(id);
+  return id;
+});
+
+afterAll(() => {
+  fileTimers.forEach((id) => {
+    clearTimeout(id);
+    clearInterval(id);
+  });
+  fileTimers.clear();
 });

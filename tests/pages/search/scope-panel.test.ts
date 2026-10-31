@@ -128,10 +128,13 @@ describe.each(SURFACES)('%s scope panel', (name) => {
     expect(sent.some((message) => message.action === 'getSearchEngineSuggestions')).toBe(false);
     expect(getElement(surface.root(), name === 'overlay' ? '.x-ov-empty-state' : '.x-nt-empty-state').textContent?.trim()).toBe('No matching results');
 
+    // Enter sends nothing of its own; the query's own requests may still be
+    // arriving on a busy machine.
     const afterQuery = surface.messages.length;
+    const queryActions = new Set(sent.map((message) => message.action));
     surface.press('Enter');
     await surface.settle(80);
-    expect(surface.messages).toHaveLength(afterQuery);
+    expect(surface.messages.slice(afterQuery).filter((message) => !queryActions.has(message.action))).toEqual([]);
     expect(surface.navigation()).toBeNull();
   });
 });

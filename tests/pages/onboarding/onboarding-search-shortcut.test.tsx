@@ -54,9 +54,13 @@ describe('Onboarding search shortcut', () => {
     await press({ key: 'J', code: 'KeyJ', metaKey: true, shiftKey: true });
     expect(opens()).toBe(0);
 
+    // The overlay is not served here: its load fails, and the warning must
+    // come while the test still holds console.warn.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     await press({ key: 'k', code: 'KeyK', metaKey: true });
     await vi.waitFor(() => {
       expect(opens()).toBe(1);
     });
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledWith('[Lumno] The demo overlay could not load.', expect.anything()));
   });
 });

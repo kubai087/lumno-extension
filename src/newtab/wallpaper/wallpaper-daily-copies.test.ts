@@ -150,14 +150,16 @@ describe('a daily curated photo on this device', () => {
     // Once today's photo is cached, the idle page downloads tomorrow's.
     await vi.waitFor(() => expect(network.urls()).toEqual([today.imageUrl, tomorrow.imageUrl]));
     await vi.waitFor(() => expect(Array.from(images.keys()).sort()).toEqual([today.id, tomorrow.id].sort()));
-    await settle();
-    const stored = required(localStorage.getItem(WALLPAPER_PRELOAD_STORAGE_KEY), 'the preload cache');
-    const entry = readField(readPreloadCache(), 'wallpapers', 'light');
-    expect(readField(entry, 'cachedImage')).toEqual({ id: today.id, url: today.imageUrl });
-    expect(readField(entry, 'next')).toEqual({
-      day: REMOTE_CONTENT.localDay(at(1)),
-      cachedImage: { id: tomorrow.id, url: tomorrow.imageUrl }
+    // The preload cache records both copies once they are stored.
+    await vi.waitFor(() => {
+      const entry = readField(readPreloadCache(), 'wallpapers', 'light');
+      expect(readField(entry, 'cachedImage')).toEqual({ id: today.id, url: today.imageUrl });
+      expect(readField(entry, 'next')).toEqual({
+        day: REMOTE_CONTENT.localDay(at(1)),
+        cachedImage: { id: tomorrow.id, url: tomorrow.imageUrl }
+      });
     });
+    const stored = required(localStorage.getItem(WALLPAPER_PRELOAD_STORAGE_KEY), 'the preload cache');
 
     first.runtime.createControls();
     openPanel(first.runtime);
@@ -174,7 +176,11 @@ describe('a daily curated photo on this device', () => {
     const { name, store, keyPath } = WALLPAPER_DATABASES.images;
     installIndexedDb({ [name]: { [store]: { keyPath, records: Array.from(images.values()) } } });
     localStorage.setItem(WALLPAPER_PRELOAD_STORAGE_KEY, stored);
+    // While the preload loads, the earlier tab must not replace what it left.
+    const heldWrites = [vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {}),
+      vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {})];
     const preload = required(await runWallpaperPreload(), 'the preload state');
+    heldWrites.forEach((spy) => spy.mockRestore());
     expect(await preload.imageReady).toBe(copyDataUrl(String(tomorrow.imageUrl)));
     // Today's luminance does not carry over to tomorrow's photo.
     expect(preload.luminance).toBeNull();

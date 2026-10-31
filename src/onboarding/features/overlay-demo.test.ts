@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 describe('Onboarding search command', () => {
-  it('opens the demo overlay when the worker forwards the browser search command', () => {
+  it('opens the demo overlay when the worker forwards the browser search command', async () => {
     const { listeners, sendMessage } = stubBrowser();
     expect(listeners).toHaveLength(1);
     const sendResponse = vi.fn();
@@ -49,6 +49,9 @@ describe('Onboarding search command', () => {
     expect(sendResponse).toHaveBeenCalledWith({ ok: true });
     // Opening the overlay asks the worker for the tabs it lists.
     expect(sendMessage.mock.calls.map(([message]) => message)).toEqual([{ action: 'getTabsForOverlay', currentTabId: 5 }]);
+    // The overlay app is not served here: its load fails, and the warning
+    // must come while the test still holds console.warn.
+    await vi.waitFor(() => expect(console.warn).toHaveBeenCalledWith('[Lumno] The demo overlay could not load.', expect.anything()));
   });
 
   it('leaves the overlay closed when the command was meant for another tab', () => {

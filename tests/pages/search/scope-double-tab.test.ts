@@ -82,8 +82,8 @@ describe('Overlay double Tab', () => {
   it('commits the stored engine, not the Google fallback', async () => {
     const surface = await openSearchSurface('overlay', { settings: { [defaultSearchEngine.key]: BING } });
     await doubleTab(surface);
-    await surface.settle(150);
-    expect([surface.scopeLabel(), surface.scopeMenuOpen()]).toEqual(['Bing', true]);
+    await surface.waitFor(() => surface.scopeMenuOpen(), 'the overlay scope panel did not open');
+    expect(surface.scopeLabel()).toBe('Bing');
   });
 
   it('picks the site search of the current site and leaves focus in the input', async () => {
