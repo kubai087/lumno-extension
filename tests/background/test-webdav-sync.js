@@ -719,12 +719,13 @@ async function run() {
   const firstShortcut = shortcuts.createShortcutRecord({ id: 'first', title: 'First', url: 'https://example.com/' }, { now: 100 });
   const overflowShortcut = shortcuts.createShortcutRecord({ id: 'overflow', title: 'Overflow', url: 'https://other.example/' }, { now: 100 });
   const [topbarMode, topbarLight, topbarDark, topbarLegacy] = settings.BOOKMARK_TOPBAR_SURFACE_KEYS;
+  const topbarLayout = settings.bookmarkTopbarLayout.key;
   const customQuotes = '_x_extension_custom_quotes_2026_unique_';
   const quotePick = '_x_extension_custom_quote_pick_2026_unique_';
   assert(contract.LOCAL_PREFERENCE_KEYS.includes(customQuotes), 'the custom quote collection travels with WebDAV');
   assert(!settings.BROWSER_SYNC_KEYS.includes(customQuotes), 'the custom quote collection stays out of browser sync');
   const first = createDevice(server, {
-    sync: { [theme]: 'light', [language]: 'en', [newtabShortcutsLegacy.key]: [firstShortcut] },
+    sync: { [theme]: 'light', [language]: 'en', [newtabShortcutsLegacy.key]: [firstShortcut], [topbarLayout]: 'floating' },
     local: { [contract.OVERFLOW_KEY]: { authoritative: false, items: [overflowShortcut] },
       [contract.ICONS_KEY]: { first: `data:image/png;base64,${icon.toString('base64')}` },
       [contract.LOCAL_WALLPAPER_KEY]: { version: 1, light: 'custom-wallpaper-test', dark: 'custom-wallpaper-test' },
@@ -773,17 +774,20 @@ async function run() {
   // The bookmark bar material travels with the wallpapers through WebDAV only.
   assert.deepStrictEqual([topbarMode, topbarLight, topbarDark].map((key) => second.chrome.storage.local.values[key]),
     ['custom', '#112233', '#445566'], 'WebDAV carries the bookmark bar material into local storage');
+  assert.strictEqual(second.chrome.storage.sync.values[topbarLayout], 'floating', 'WebDAV carries bookmark bar layout to another device');
   assert.strictEqual(Object.hasOwn(server.state().data, topbarLegacy), false, 'the legacy single color migrates locally and never syncs');
   [first, second].forEach((device) => settings.BOOKMARK_TOPBAR_SURFACE_KEYS.forEach((key) => {
     assert.strictEqual(Object.hasOwn(device.chrome.storage.sync.values, key), false, 'bookmark bar material never enters browser sync');
   }));
   await set(first.chrome.storage.local, { [topbarMode]: 'clear' });
   await set(second.chrome.storage.local, { [topbarDark]: '#000000' });
+  await set(second.chrome.storage.sync, { [topbarLayout]: 'docked' });
   await first.controller.handle({ operation: 'sync' });
   await second.controller.handle({ operation: 'sync' });
   await first.controller.handle({ operation: 'sync' });
   [first, second].forEach((device) => assert.deepStrictEqual([topbarMode, topbarLight, topbarDark].map((key) =>
     device.chrome.storage.local.values[key]), ['clear', '#112233', '#000000'], 'each bookmark bar value merges on its own'));
+  [first, second].forEach((device) => assert.strictEqual(device.chrome.storage.sync.values[topbarLayout], 'docked'));
 
   await set(first.chrome.storage.sync, { [theme]: 'dark' });
   await set(second.chrome.storage.sync, { [language]: 'ja' });

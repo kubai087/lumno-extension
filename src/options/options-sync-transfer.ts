@@ -1,7 +1,10 @@
-// Settings export, import and "sync now" payloads. Only keys in the shared
-// Chrome Sync contract (LumnoSettings.BROWSER_SYNC_KEYS) ever leave
-// or enter through these paths.
+// Settings export/import carry browser preferences and the complete shortcut
+// state. "Sync now" writes only the Chrome Sync contract.
 import type * as Settings from '../domain/settings';
+import { createShortcutStoragePlan, readShortcutState } from '../domain/shortcuts/storage-plan';
+import { newtabShortcutsLocalOverflow } from '../domain/settings/newtab-shortcuts';
+
+const PORTABLE_SHORTCUTS = 'lumnoShortcutState';
 
 type StoredValues = Record<string, unknown>;
 
@@ -27,6 +30,8 @@ interface SettingsImportPlan {
   // Keys the import clears after writing.
   keysToClear: string[];
   payload: StoredValues;
+  devicePayload?: StoredValues;
+  deviceKeysToClear?: string[];
 }
 
 function isStoredValues(value: unknown): value is StoredValues {
@@ -61,10 +66,17 @@ function createSyncTransfer(deps: SyncTransferDeps) {
 
   // The file written by "Export".
   function buildExportFile(storedValues: StoredValues | null | undefined, exportedAt: string): SettingsExportFile {
+    const values = storedValues || {};
+    const hasShortcuts = [...groupedShortcutKeys, ...legacyShortcutKeys, newtabShortcutsLocalOverflow.key].some((key) => has(values, key));
+    const shortcuts = hasShortcuts ? readShortcutState(values, values[newtabShortcutsLocalOverflow.key]) : null;
+    if (shortcuts?.torn && shortcuts.source !== 'local') throw new Error('incomplete-shortcuts');
     return {
       version: 1,
       exportedAt,
-      data: pickSyncValues(storedValues || {}, (values, key) => typeof values[key] !== 'undefined')
+      data: {
+        ...pickSyncValues(values, (entry, key) => typeof entry[key] !== 'undefined'),
+        ...(shortcuts ? { [PORTABLE_SHORTCUTS]: { groups: shortcuts.groups, items: shortcuts.items, migratedAt: shortcuts.migratedAt } } : {})
+      }
     };
   }
 
@@ -90,8 +102,18 @@ function createSyncTransfer(deps: SyncTransferDeps) {
 
   // What an import writes, and which keys it clears afterwards; null when
   // the file holds no known setting.
-  function buildImportPlan(data: StoredValues, now: number): SettingsImportPlan | null {
+  function buildImportPlan(data: StoredValues, now: number, maxShortcutBytes?: number, localMode = false): SettingsImportPlan | null {
     const payload = pickSyncValues(data, has);
+    const devicePayload: StoredValues = {};
+    const portable = data[PORTABLE_SHORTCUTS];
+    if (has(data, PORTABLE_SHORTCUTS)) {
+      if (!isStoredValues(portable) || !Array.isArray(portable.groups) || !Array.isArray(portable.items)) return null;
+      const shortcutPlan = createShortcutStoragePlan(portable, localMode
+        ? { maxItemBytes: Number.MAX_SAFE_INTEGER, maxTotalBytes: Number.MAX_SAFE_INTEGER }
+        : { maxTotalBytes: maxShortcutBytes });
+      Object.assign(payload, shortcutPlan.payload);
+      if (!localMode) devicePayload[newtabShortcutsLocalOverflow.key] = shortcutPlan.overflowRecord;
+    }
     // A single-key shortcut list from an old file must not be joined with
     // chunks of a newer list already in storage.
     if (has(data, settings.newtabShortcutsLegacy.key)) {
@@ -104,7 +126,7 @@ function createSyncTransfer(deps: SyncTransferDeps) {
     }
     // A file from before shortcut groups holds only the flat list. Clearing
     // the grouped copy makes New Tab read and migrate the imported list.
-    const importsGroupedShortcuts = has(data, groupedShortcutKeys[0]);
+    const importsGroupedShortcuts = has(data, groupedShortcutKeys[0]) || has(data, PORTABLE_SHORTCUTS);
     const keysToClear = !importsGroupedShortcuts &&
       legacyShortcutKeys.some((key) => has(payload, key))
       ? groupedShortcutKeys.slice()
@@ -116,11 +138,14 @@ function createSyncTransfer(deps: SyncTransferDeps) {
     if (!has(data, autoGroupKey) && has(data, settings.aggregateSearches.key)) {
       payload[autoGroupKey] = deriveLegacyAutoGroupEnabled(data[settings.aggregateSearches.key]);
     }
-    if (Object.keys(payload).length === 0) {
+    if (Object.keys(payload).length === 0 && Object.keys(devicePayload).length === 0) {
       return null;
     }
     payload[settings.syncMeta.key] = createSyncMeta('import', now);
-    return { keysToClear, payload };
+    const importsShortcuts = importsGroupedShortcuts || legacyShortcutKeys.some((key) => has(payload, key));
+    const deviceKeysToClear = importsShortcuts && (localMode || !has(data, PORTABLE_SHORTCUTS)) ? [newtabShortcutsLocalOverflow.key] : [];
+    return { keysToClear, payload, ...(Object.keys(devicePayload).length ? { devicePayload } : {}),
+      ...(deviceKeysToClear.length ? { deviceKeysToClear } : {}) };
   }
 
   return Object.freeze({

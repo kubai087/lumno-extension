@@ -11,7 +11,8 @@ import type { FormatTemplate, GetMessage, ToastTask } from './options-types';
 import type { BrowserSyncCardHandlers, BrowserSyncCardModel, BrowserSyncTone } from './react/account-tab';
 import * as NewtabShortcutSettings from '../domain/settings/newtab-shortcuts';
 import { SHORTCUT_STORAGE_KEYS } from '../domain/shortcuts/constants';
-import { summarizeShortcutSync } from '../domain/shortcuts/storage-plan';
+import { getShortcutSyncBudget, measureShortcutSyncUsage, summarizeShortcutSync } from '../domain/shortcuts/storage-plan';
+import { callStorage } from '../platform/storage-call';
 
 interface SyncSectionChromeApi {
   runtime: { lastError?: { message?: string } | null };
@@ -298,16 +299,27 @@ function createSyncSection(options: SyncSectionOptions) {
 
   function exportSettings(): void {
     const transfer = syncTransfer;
-    if (!transfer || !storageArea) {
+    if (!transfer || !storageArea || !localStorageArea) {
       return;
     }
     storageArea.get(SETTINGS.BROWSER_SYNC_KEYS.slice(), (result) => {
-      downloadJsonFile(
-        documentObj,
-        `lumno-settings-${Date.now()}.json`,
-        transfer.buildExportFile(result, new Date().toISOString())
-      );
-      showToast(getMessage('sync_export_done', '已导出配置'), false);
+      if (chrome.runtime.lastError) {
+        showToast(getSyncFailureMessage(), true);
+        return;
+      }
+      localStorageArea.get([NewtabShortcutSettings.newtabShortcutsLocalOverflow.key], (deviceResult) => {
+        if (chrome.runtime.lastError) {
+          showToast(getSyncFailureMessage(), true);
+          return;
+        }
+        try {
+          downloadJsonFile(documentObj, `lumno-settings-${Date.now()}.json`,
+            transfer.buildExportFile({ ...result, ...(getActivePrimaryAreaName() === 'sync' ? deviceResult : {}) }, new Date().toISOString()));
+          showToast(getMessage('sync_export_done', '已导出配置'), false);
+        } catch (_error) {
+          showToast(getSyncFailureMessage(), true);
+        }
+      });
     });
   }
 
@@ -321,20 +333,72 @@ function createSyncSection(options: SyncSectionOptions) {
   }
 
   function applySyncImport(area: StorageAreaLike, plan: SettingsImportPlan, toastTask: ToastTask): void {
-    area.set(plan.payload, () => {
-      if (chrome.runtime.lastError) {
-        toastTask.fail(getSyncFailureMessage());
-        return;
+    if ((plan.devicePayload || plan.deviceKeysToClear?.length) && !localStorageArea) {
+      toastTask.fail(getSyncFailureMessage());
+      return;
+    }
+    const primaryKeys = [...new Set([...Object.keys(plan.payload), ...plan.keysToClear])];
+    const localKeys = [...new Set([...Object.keys(plan.devicePayload || {}), ...(plan.deviceKeysToClear || [])])];
+    const invoke = (start: (done: (result?: unknown) => void) => unknown) => callStorage(chrome, start);
+    const restore = async (target: StorageAreaLike, attempted: Record<string, unknown>, snapshot: Record<string, unknown>) => {
+      const keys = Object.keys(attempted);
+      if (!keys.length) return;
+      const result = await invoke((done) => target.get(keys, done));
+      if (!isRecord(result)) throw new Error('rollback-read-failed');
+      const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
+      const safe = keys.filter((key) => same(result[key], attempted[key]));
+      const conflict = keys.some((key) => !same(result[key], attempted[key]) && !same(result[key], snapshot[key]));
+      const missing = safe.filter((key) => !Object.hasOwn(snapshot, key));
+      if (missing.length) {
+        const remove = target.remove;
+        if (!remove) throw new Error('remove-unavailable');
+        await invoke((done) => remove.call(target, missing, done));
       }
-      const finishImport = (): void => {
-        toastTask.done(getMessage('sync_import_done', '导入完成'));
-        refreshSyncStatus();
-      };
-      if (!plan.keysToClear.length || !area.remove) {
-        finishImport();
-        return;
+      const previous = Object.fromEntries(safe.filter((key) => Object.hasOwn(snapshot, key)).map((key) => [key, snapshot[key]]));
+      if (Object.keys(previous).length) await invoke((done) => target.set(previous, done));
+      if (conflict) throw new Error('rollback-conflict');
+    };
+    void (async () => {
+      if ((plan.keysToClear.length && !area.remove) || (plan.deviceKeysToClear?.length && !localStorageArea?.remove)) throw new Error('remove-unavailable');
+      const primaryResult = await invoke((done) => area.get(primaryKeys, done));
+      const primaryBefore = isRecord(primaryResult) ? primaryResult : {};
+      const localResult = localKeys.length && localStorageArea ? await invoke((done) => localStorageArea.get(localKeys, done)) : {};
+      const localBefore = isRecord(localResult) ? localResult : {};
+      const primaryAttempted: Record<string, unknown> = {};
+      const localAttempted: Record<string, unknown> = {};
+      try {
+        Object.assign(primaryAttempted, plan.payload);
+        await invoke((done) => area.set(plan.payload, done));
+        const devicePayload = plan.devicePayload;
+        if (localStorageArea && devicePayload) {
+          Object.assign(localAttempted, devicePayload);
+          await invoke((done) => localStorageArea.set(devicePayload, done));
+        }
+        const deviceKeysToClear = plan.deviceKeysToClear;
+        const localRemove = localStorageArea?.remove;
+        if (localStorageArea && localRemove && deviceKeysToClear?.length) {
+          deviceKeysToClear.forEach((key) => { localAttempted[key] = undefined; });
+          await invoke((done) => localRemove.call(localStorageArea, deviceKeysToClear, done));
+        }
+        const primaryRemove = area.remove;
+        if (primaryRemove && plan.keysToClear.length) {
+          plan.keysToClear.forEach((key) => { primaryAttempted[key] = undefined; });
+          await invoke((done) => primaryRemove.call(area, plan.keysToClear, done));
+        }
+      } catch (error) {
+        const results = await Promise.allSettled([
+          restore(area, primaryAttempted, primaryBefore),
+          ...(localKeys.length && localStorageArea ? [restore(localStorageArea, localAttempted, localBefore)] : [])
+        ]);
+        if (results.some((result) => result.status === 'rejected')) throw new Error('rollback-failed', { cause: error });
+        throw error;
       }
-      area.remove(plan.keysToClear, finishImport);
+      toastTask.done(getMessage('sync_import_done', '导入完成'));
+      refreshSyncStatus();
+    })().catch((error: unknown) => {
+      toastTask.fail(error instanceof Error && error.message === 'rollback-failed'
+        ? getMessage('sync_import_rollback_failed', '导入失败，部分设置可能已更改，请重新检查。')
+        : getMessage('sync_status_failed', '同步失败'));
     });
   }
 
@@ -350,8 +414,15 @@ function createSyncSection(options: SyncSectionOptions) {
       const plan = data ? transfer.buildImportPlan(data, Date.now()) : null;
       if (!plan) {
         failInvalid();
-      } else if (storageArea) {
-        applySyncImport(storageArea, plan, toastTask);
+      } else if (storageArea && data) {
+        const target = storageArea;
+        void callStorage(chrome, (done) => target.get(null, done)).then((existing) => {
+          const projected = { ...(isRecord(existing) ? existing : {}), ...plan.payload };
+          const budget = getActivePrimaryAreaName() === 'sync'
+            ? getShortcutSyncBudget(measureShortcutSyncUsage(projected)) : undefined;
+          const finalPlan = transfer.buildImportPlan(data, Date.now(), budget, getActivePrimaryAreaName() === 'local');
+          if (finalPlan) applySyncImport(target, finalPlan, toastTask); else failInvalid();
+        }).catch(() => toastTask.fail(getMessage('sync_status_failed', '同步失败')));
       } else {
         toastTask.cancel();
       }
