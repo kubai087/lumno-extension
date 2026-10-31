@@ -25,7 +25,7 @@ describe('New Tab page buttons', () => {
     const hiddenWhenReady: boolean[] = [];
     const observer = new MutationObserver(() => {
       if (!hiddenWhenReady.length && document.body.getAttribute('data-nt-ready') === '1') {
-        hiddenWhenReady.push(expectElement(document.querySelector(control), control).hidden);
+        hiddenWhenReady.push(expectElement(document.querySelector(control), control).hidden !== false);
       }
     });
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-nt-ready'] });

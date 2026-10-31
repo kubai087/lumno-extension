@@ -15,6 +15,7 @@ export class FakeAnimation extends EventTarget implements Animation {
   oncancel: ((this: Animation, event: AnimationPlaybackEvent) => unknown) | null = null;
   onfinish: ((this: Animation, event: AnimationPlaybackEvent) => unknown) | null = null;
   onremove: ((this: Animation, event: Event) => unknown) | null = null;
+  readonly overallProgress: number | null = null;
   readonly pending = false;
   playState: AnimationPlayState = 'running';
   playbackRate = 1;
