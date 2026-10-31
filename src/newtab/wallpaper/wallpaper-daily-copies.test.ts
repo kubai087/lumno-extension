@@ -167,10 +167,13 @@ describe('a daily curated photo on this device', () => {
     // The panel shows a cached photo from its local thumbnail, not the network.
     expect(todayTile?.thumbnailUrl).toBe(`${copyDataUrl(String(today.imageUrl))}#thumb`);
 
-    // After midnight the first frame paints tomorrow's copy.
+    // After midnight the first frame paints tomorrow's copy from what the
+    // tab left before midnight. That tab's runtime cannot be shut down, and
+    // once the clock moves it may cache the new day itself.
     vi.setSystemTime(at(1));
     const { name, store, keyPath } = WALLPAPER_DATABASES.images;
     installIndexedDb({ [name]: { [store]: { keyPath, records: Array.from(images.values()) } } });
+    localStorage.setItem(WALLPAPER_PRELOAD_STORAGE_KEY, stored);
     const preload = required(await runWallpaperPreload(), 'the preload state');
     expect(await preload.imageReady).toBe(copyDataUrl(String(tomorrow.imageUrl)));
     // Today's luminance does not carry over to tomorrow's photo.
