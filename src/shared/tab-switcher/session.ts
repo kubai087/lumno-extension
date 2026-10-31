@@ -2,7 +2,8 @@
 // the switch to the selected tab, closing tabs from their cards, and the
 // cleanup when it closes. The page bridge and the next toggle reach it
 // through the functions it puts on its host.
-import type { TabSwitcherTab, TabSwitcherViewController } from '../react/tab-switcher';
+import type { TabSwitcherViewController } from '../react/tab-switcher';
+import type { TabSwitcherTab } from '../react/tab-switcher-options';
 import * as LumnoMessaging from '../../platform/messaging';
 import { getMessage } from './card-text';
 import type { TabSwitcherHost, TabSwitcherReply } from './host';

@@ -1,21 +1,9 @@
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { queryHtmlTags } from '../dom-lookup';
+import { normalizeOptions } from './tab-switcher-options';
+import type { NormalizedOptions, TabSwitcherTab, TabSwitcherViewOptions } from './tab-switcher-options';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-
-export type TabSwitcherCloseButtonPlacement = 'left' | 'right';
-
-export interface TabSwitcherTab {
-  id: number;
-  windowId?: number | null;
-  title?: string;
-  url?: string;
-  favIconUrl?: string;
-  thumbnail?: string;
-  thumbnailStatus?: string;
-  thumbnailReason?: string;
-  accentRgb?: unknown;
-}
 
 export interface TabSwitcherThumbnailUpdate {
   tabId?: number;
@@ -23,27 +11,6 @@ export interface TabSwitcherThumbnailUpdate {
   thumbnail?: string;
   thumbnailStatus?: string;
   thumbnailReason?: string;
-}
-
-export interface TabSwitcherViewOptions {
-  document?: Document;
-  root?: Element | ShadowRoot | null;
-  panelId?: string;
-  tabs?: TabSwitcherTab[];
-  selectedIndex?: number;
-  ariaLabel?: string;
-  closeButtonPlacement?: TabSwitcherCloseButtonPlacement;
-  sanitizeText?: (value: unknown, fallback?: string) => string;
-  getHostLabel?: (url: string) => string;
-  getMessage?: (key: string, fallback: string) => string;
-  normalizeAccentCss?: (accent: unknown) => string;
-  getThumbnailStatus?: (
-    tab: TabSwitcherTab,
-    thumbnail: string
-  ) => string;
-  onSelect?: (index: number) => void;
-  onActivate?: (index: number, event: MouseEvent) => void;
-  onClose?: (index: number, event: MouseEvent) => void;
 }
 
 export type TabSwitcherTheme = 'light' | 'dark';
@@ -66,71 +33,6 @@ interface InternalTab extends TabSwitcherTab {
   _previousThumbnail?: string;
   _thumbnailEntering?: boolean;
   _closing?: boolean;
-}
-
-interface NormalizedOptions {
-  document: Document;
-  root: Element | ShadowRoot;
-  panelId: string;
-  ariaLabel: string;
-  closeButtonPlacement: TabSwitcherCloseButtonPlacement;
-  sanitizeText: NonNullable<TabSwitcherViewOptions['sanitizeText']>;
-  getHostLabel: NonNullable<TabSwitcherViewOptions['getHostLabel']>;
-  getMessage: NonNullable<TabSwitcherViewOptions['getMessage']>;
-  normalizeAccentCss: NonNullable<
-    TabSwitcherViewOptions['normalizeAccentCss']
-  >;
-  getThumbnailStatus: NonNullable<
-    TabSwitcherViewOptions['getThumbnailStatus']
-  >;
-  onSelect: NonNullable<TabSwitcherViewOptions['onSelect']>;
-  onActivate: NonNullable<TabSwitcherViewOptions['onActivate']>;
-  onClose: NonNullable<TabSwitcherViewOptions['onClose']>;
-}
-
-function normalizeOptions(
-  raw: TabSwitcherViewOptions
-): NormalizedOptions | null {
-  const documentRef = raw.document || globalThis.document;
-  if (!documentRef || !raw.root) {
-    return null;
-  }
-  return {
-    document: documentRef,
-    root: raw.root,
-    panelId:
-      raw.panelId ||
-      '_x_extension_tab_switcher_panel_2026_unique_',
-    ariaLabel: raw.ariaLabel || 'Recent tabs',
-    closeButtonPlacement:
-      raw.closeButtonPlacement === 'right' ? 'right' : 'left',
-    sanitizeText:
-      raw.sanitizeText ||
-      ((value, fallback = '') => {
-        const text = String(value || '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        return text || fallback;
-      }),
-    getHostLabel:
-      raw.getHostLabel ||
-      ((url) => {
-        try {
-          return new URL(url).hostname.replace(/^www\./i, '');
-        } catch {
-          return '';
-        }
-      }),
-    getMessage: raw.getMessage || ((_key, fallback) => fallback),
-    normalizeAccentCss: raw.normalizeAccentCss || (() => ''),
-    getThumbnailStatus:
-      raw.getThumbnailStatus ||
-      ((_tab, thumbnail) =>
-        thumbnail.startsWith('data:image/') ? 'ok' : 'missing'),
-    onSelect: raw.onSelect || (() => {}),
-    onActivate: raw.onActivate || (() => {}),
-    onClose: raw.onClose || (() => {})
-  };
 }
 
 // macOS turns a primary click with Control held into a context menu and sends
@@ -294,7 +196,8 @@ function TabCard({ options, tab, index, active }: CardProps & { active: boolean 
         aria-label={title}
         tabIndex={active ? 0 : -1}
         style={accent ? { '--x-tab-switcher-card-accent': accent } : undefined}
-        onPointerEnter={() => options.onSelect(index)}
+        onPointerEnter={(event) => options.onHover(index, active, event)}
+        onPointerMove={(event) => options.onHover(index, active, event)}
         onFocus={() => options.onSelect(index)}
         onClick={(event) => {
           event.preventDefault();

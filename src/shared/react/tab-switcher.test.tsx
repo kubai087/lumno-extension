@@ -97,6 +97,25 @@ describe('Overlay tab switcher React island', () => {
     expect(controller.buttons[0]).toBe(first);
   });
 
+  it('keeps the tab the shortcut picked when the switcher opens under a resting pointer', () => {
+    const { controller, onSelect } = createView();
+    act(() => controller.updateSelection(1));
+    const current = controller.buttons[0];
+    const point = (type: string, clientX: number) => act(() => {
+      current.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX, clientY: 40 }));
+    });
+
+    // The card the pointer rests on appears beneath it.
+    point('pointerover', 20);
+    point('pointermove', 20);
+    point('pointermove', 21);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    // The reader moves the pointer.
+    point('pointermove', 30);
+    expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
   it('updates selection without replacing stable card nodes', () => {
     const { controller, onSelect, onActivate } = createView();
     const first = controller.buttons[0];

@@ -163,13 +163,19 @@ describe('Tab switcher theme', () => {
 });
 
 describe('Tab switcher pointer and cards', () => {
-  it('selects a hovered card, stays open on presses inside and closes on presses outside', async () => {
+  it('selects a hovered card once the pointer moves, stays open on presses inside and closes on presses outside', async () => {
     const page = await bootTabSwitcherPage();
     openDefault(page);
-    const third = page.cards()[2];
-    act(() => {
-      third.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, composed: true }));
+    const selected = page.selectedIndex();
+    const [first, , third] = page.cards();
+    const point = (card: HTMLElement, type: string, clientX: number) => act(() => {
+      card.dispatchEvent(new PointerEvent(type, { bubbles: true, composed: true, clientX, clientY: 40 }));
     });
+    // Opening under a resting pointer selects nothing.
+    point(first, 'pointerover', 20);
+    expect(page.selectedIndex()).toBe(selected);
+    point(first, 'pointermove', 60);
+    point(third, 'pointerover', 260);
     expect(page.selectedIndex()).toBe(2);
     act(() => {
       third.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));

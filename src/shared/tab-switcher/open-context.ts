@@ -1,7 +1,8 @@
 // What the worker or the page sends the switcher, read as untrusted: the
 // context it opens with, the thumbnails captured after it opened, and the
 // offsets that move its selection.
-import type { TabSwitcherTab, TabSwitcherThumbnailUpdate } from '../react/tab-switcher';
+import type { TabSwitcherThumbnailUpdate } from '../react/tab-switcher';
+import type { TabSwitcherTab } from '../react/tab-switcher-options';
 
 // The context the worker opens the switcher with, as read from its message.
 interface OpenContext {

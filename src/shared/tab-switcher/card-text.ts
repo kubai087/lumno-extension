@@ -1,5 +1,5 @@
 // The text and colors a switcher card shows for its tab.
-import type { TabSwitcherTab } from '../react/tab-switcher';
+import type { TabSwitcherTab } from '../react/tab-switcher-options';
 
 const THUMBNAIL_STATUSES = new Set(['ok', 'pending', 'failed', 'restricted', 'stale']);
 
