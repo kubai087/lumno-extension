@@ -2234,6 +2234,24 @@
   "sync_export_done": {
     "message": "已导出配置"
   },
+  "sync_export_options_hint": {
+    "message": "会导出设置和全部快捷方式。换浏览器时可以把图片一起带走，文件会更大。"
+  },
+  "sync_export_include_wallpapers": {
+    "message": "包含自定义壁纸"
+  },
+  "sync_export_include_icons": {
+    "message": "包含快捷方式图标"
+  },
+  "sync_export_confirm": {
+    "message": "导出"
+  },
+  "sync_export_media_failed": {
+    "message": "有壁纸或快捷方式图标无法导出，取消勾选后再试。"
+  },
+  "sync_export_shortcuts_pending": {
+    "message": "快捷方式还在从其他设备同步，请稍后再导出。"
+  },
   "sync_importing": {
     "message": "正在导入配置…"
   },

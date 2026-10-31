@@ -3,6 +3,7 @@ import { InfoButton } from './info-button';
 import { SettingDivider } from './setting-rows';
 import { WebDavList, type WebDavListModel, type WebDavListOptions } from './webdav-list';
 import { RemixIcon } from '../../shared/react/remix-icon';
+import { SettingsExportButton, type SettingsExportCopy, type SettingsExportIncludes } from './settings-export-button';
 
 export type BrowserSyncTone = 'success' | 'danger' | '';
 
@@ -18,14 +19,14 @@ export interface BrowserSyncCardModel {
   available: boolean;
   syncing: boolean;
   syncNowTooltip: string;
-  exportLabel: string;
+  exportCopy: SettingsExportCopy;
   importLabel: string;
   syncNowLabel: string;
 }
 
 export interface BrowserSyncCardHandlers {
   onSyncNow(): void;
-  onExport(): void;
+  onExport(includes: SettingsExportIncludes): Promise<void>;
   onImport(file: File): void;
 }
 
@@ -99,17 +100,12 @@ function BrowserSyncCard({
         </div>
         <div className="_x_extension_sync_actions_2024_unique_">
           <div className="_x_extension_sync_buttons_2024_unique_">
-            <button
+            <SettingsExportButton
               className={`${SYNC_BUTTON_CLASS} _x_extension_sync_icon_faded_2024_unique_`}
-              data-disabled={disabledState}
+              copy={model.exportCopy}
               disabled={disabled}
-              id="_x_extension_sync_export_2024_unique_"
-              onClick={handlers.onExport}
-              type="button"
-            >
-              <RemixIcon name="ri-upload-line" size={16} />
-              <span>{model.exportLabel}</span>
-            </button>
+              onExport={handlers.onExport}
+            />
             <button
               className={`${SYNC_BUTTON_CLASS} _x_extension_sync_icon_faded_2024_unique_`}
               data-disabled={disabledState}

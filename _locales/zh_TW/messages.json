@@ -2234,6 +2234,24 @@
   "sync_export_done": {
     "message": "已匯出設定"
   },
+  "sync_export_options_hint": {
+    "message": "會匯出設定和全部捷徑。換瀏覽器時可以把圖片一起帶走，檔案會更大。"
+  },
+  "sync_export_include_wallpapers": {
+    "message": "包含自訂桌布"
+  },
+  "sync_export_include_icons": {
+    "message": "包含捷徑圖示"
+  },
+  "sync_export_confirm": {
+    "message": "匯出"
+  },
+  "sync_export_media_failed": {
+    "message": "有桌布或捷徑圖示無法匯出，取消勾選後再試。"
+  },
+  "sync_export_shortcuts_pending": {
+    "message": "捷徑仍在從其他裝置同步，請稍後再匯出。"
+  },
   "sync_importing": {
     "message": "正在匯入設定…"
   },

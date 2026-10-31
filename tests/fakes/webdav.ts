@@ -482,6 +482,7 @@ export {
   STATE_PATH,
   createDavServer,
   createDevice,
+  createDeviceChrome,
   decode,
   emptyState,
   encode,

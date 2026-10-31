@@ -1,12 +1,12 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId } from 'react';
 import { useExclusiveAsyncAction } from '../../shared/react/use-exclusive-async-action';
 import {
   PopconfirmContent,
   type PopconfirmCopy
 } from '../../shared/react/popconfirm-content';
-import { isNode } from '../../shared/dom-guards';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 import { RemixIcon } from '../../shared/react/remix-icon';
+import { usePopconfirm } from './use-popconfirm';
 
 export type InlinePopconfirmCopy = PopconfirmCopy;
 
@@ -30,49 +30,10 @@ export function InlinePopconfirm({
   // Shown by the page's floating tooltip.
   triggerTooltip?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const restoreTriggerFocusRef = useRef(false);
+  const { open, toggle, close: closeAndRestoreTriggerFocus, wrapRef, triggerRef } = usePopconfirm();
   const generatedId = useId();
   const popconfirmId = triggerId ? `${triggerId}_popconfirm` : generatedId;
   const confirmAction = useExclusiveAsyncAction(onConfirm);
-
-  const closeAndRestoreTriggerFocus = () => {
-    restoreTriggerFocusRef.current = true;
-    setOpen(false);
-  };
-
-  useEffect(() => {
-    if (open || !restoreTriggerFocusRef.current) {
-      return;
-    }
-    restoreTriggerFocusRef.current = false;
-    triggerRef.current?.focus({ preventScroll: true });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-    const onDocumentPointerDown = (event: PointerEvent) => {
-      if (!wrapRef.current?.contains(isNode(event.target) ? event.target : null)) {
-        setOpen(false);
-      }
-    };
-    const onDocumentKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeAndRestoreTriggerFocus();
-      }
-    };
-    document.addEventListener('pointerdown', onDocumentPointerDown);
-    document.addEventListener('keydown', onDocumentKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onDocumentPointerDown);
-      document.removeEventListener('keydown', onDocumentKeyDown);
-    };
-  }, [open]);
 
   return (
     <div
@@ -91,7 +52,7 @@ export function InlinePopconfirm({
         id={triggerId}
         onClick={(event) => {
           event.stopPropagation();
-          setOpen((value) => !value);
+          toggle();
         }}
         ref={triggerRef}
         type="button"

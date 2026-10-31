@@ -12,6 +12,7 @@ import type { SettingsStore } from '../../platform/settings-store';
 import { createToastController } from '../../shared/react/toast';
 import * as LumnoTooltip from '../../shared/ui/tooltip';
 import { Account } from '../features/account/account';
+import { loadDeviceSnapshots } from '../features/account/device-snapshots-lazy';
 import { AggregateSearches } from '../features/aggregate-search/searches';
 import { APPEARANCE_TAB_SETTINGS } from '../features/appearance/appearance-tab';
 import { PageTheme } from '../features/appearance/page-theme';
@@ -71,6 +72,7 @@ function createAccount(
       formatTemplate,
       getActivePrimaryAreaName: () => providerStorage.runtime.getActiveAreaName(),
       getMessage: locale.t,
+      loadDeviceSnapshots: () => loadDeviceSnapshots(providerStorage.runtime),
       localStorageArea: chrome.storage ? chrome.storage.local || null : null,
       settings: SETTINGS,
       showToast: feedback.showToast,

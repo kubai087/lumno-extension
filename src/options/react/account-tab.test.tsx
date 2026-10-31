@@ -15,7 +15,15 @@ const model: AccountTabModel = {
     available: true,
     syncing: false,
     syncNowTooltip: '手动同步',
-    exportLabel: '导出配置',
+    exportCopy: {
+      label: '导出配置',
+      message: '设置和全部快捷方式都会导出。',
+      messageKey: 'sync_export_options_hint',
+      wallpapersLabel: '包含自定义壁纸',
+      iconsLabel: '包含快捷方式图标',
+      confirmLabel: '导出',
+      cancelLabel: '取消'
+    },
     importLabel: '导入配置',
     syncNowLabel: '手动同步'
   },
@@ -34,7 +42,7 @@ function setUp() {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const handlers = {
-    browserSync: { onSyncNow: vi.fn(), onExport: vi.fn(), onImport: vi.fn() },
+    browserSync: { onSyncNow: vi.fn(), onExport: vi.fn().mockResolvedValue(undefined), onImport: vi.fn() },
     webdav: { onAction: vi.fn().mockResolvedValue({}) }
   };
   const root = createRoot(host);
@@ -78,10 +86,36 @@ describe('Options Account tab', () => {
     expect(exportButton.textContent).toBe('导出配置');
     expect(getTag(host, '#_x_extension_sync_import_2024_unique_', 'button').textContent).toBe('导入配置');
     expect(syncNow.dataset.tooltip).toBe('手动同步');
-    act(() => exportButton.click());
     act(() => syncNow.click());
-    expect(handlers.browserSync.onExport).toHaveBeenCalledTimes(1);
     expect(handlers.browserSync.onSyncNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks whether the export carries the wallpapers and shortcut icons, then exports with that choice', async () => {
+    const { host, handlers } = setUp();
+    const exportButton = getTag(host, '#_x_extension_sync_export_2024_unique_', 'button');
+    const bubble = getElement(host, '#_x_extension_sync_export_options_2026_unique_');
+    expect(bubble.dataset.open).toBe('false');
+    act(() => exportButton.click());
+    expect(bubble.dataset.open).toBe('true');
+    expect(exportButton.getAttribute('aria-expanded')).toBe('true');
+    const wallpapers = getTag(host, '#_x_extension_sync_export_wallpapers_2026_unique_', 'input');
+    const icons = getTag(host, '#_x_extension_sync_export_icons_2026_unique_', 'input');
+    expect([wallpapers.checked, icons.checked]).toEqual([true, true]);
+    expect(handlers.browserSync.onExport).not.toHaveBeenCalled();
+    act(() => wallpapers.click());
+    const confirm = Array.from(bubble.querySelectorAll('button')).find((button) => button.textContent === '导出');
+    await act(async () => confirm?.click());
+    expect(handlers.browserSync.onExport).toHaveBeenCalledWith({ wallpapers: false, icons: true });
+    expect(bubble.dataset.open).toBe('false');
+  });
+
+  it('closes the export bubble without exporting on Cancel', () => {
+    const { host, handlers } = setUp();
+    act(() => getTag(host, '#_x_extension_sync_export_2024_unique_', 'button').click());
+    const bubble = getElement(host, '#_x_extension_sync_export_options_2026_unique_');
+    act(() => Array.from(bubble.querySelectorAll('button')).find((button) => button.textContent === '取消')?.click());
+    expect(bubble.dataset.open).toBe('false');
+    expect(handlers.browserSync.onExport).not.toHaveBeenCalled();
   });
 
   it('opens the file picker from Import and hands over the chosen file', () => {

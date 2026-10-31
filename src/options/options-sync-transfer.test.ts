@@ -36,8 +36,8 @@ describe('Options settings transfer', () => {
   });
 
   it('reads the wrapped export format and older bare objects, and nothing else', () => {
-    expect(transfer.parseImportFile('{"data":{"a":1}}')).toEqual({ a: 1 });
-    expect(transfer.parseImportFile('{"a":1}')).toEqual({ a: 1 });
+    expect(transfer.parseImportFile('{"data":{"a":1}}')).toEqual({ data: { a: 1 }, snapshot: null });
+    expect(transfer.parseImportFile('{"a":1}')).toEqual({ data: { a: 1 }, snapshot: null });
     expect(transfer.parseImportFile('not json')).toBeNull();
     expect(transfer.parseImportFile('"text"')).toBeNull();
     expect(transfer.parseImportFile('')).toBeNull();
@@ -83,5 +83,27 @@ describe('Options settings transfer', () => {
     expect(aggregates.payload[Settings.aggregateSearchAutoGroupEnabled.key]).toBe(false);
     const explicit = plan({ [Settings.aggregateSearches.key]: [], [Settings.aggregateSearchAutoGroupEnabled.key]: true });
     expect(explicit.payload[Settings.aggregateSearchAutoGroupEnabled.key]).toBe(true);
+  });
+});
+
+describe('Options settings file versions', () => {
+  const snapshot = { state: { version: 1 }, includes: { wallpapers: false, icons: false }, files: {} };
+
+  it('writes a version 2 file whose data older versions still import, and a version 1 file without a snapshot', () => {
+    const stored = { [Settings.themeMode.key]: 'dark' };
+    const file = transfer.buildExportFile(stored, 'now', snapshot);
+    expect(file).toEqual({ version: 2, exportedAt: 'now', data: { [Settings.themeMode.key]: 'dark' }, snapshot });
+    expect(transfer.buildExportFile(stored, 'now')).toEqual({ version: 1, exportedAt: 'now', data: { [Settings.themeMode.key]: 'dark' } });
+  });
+
+  it('reads the snapshot only from a version 2 file', () => {
+    const data = { [Settings.themeMode.key]: 'dark' };
+    expect(transfer.parseImportFile(JSON.stringify({ version: 2, data, snapshot }))).toEqual({ data, snapshot });
+    expect(transfer.parseImportFile(JSON.stringify({ version: 1, data, snapshot }))).toEqual({ data, snapshot: null });
+  });
+
+  it('plans an import that only stamps the time when a snapshot brings no browser sync setting', () => {
+    expect(transfer.buildImportPlan({}, 5)).toBeNull();
+    expect(transfer.buildImportPlan({}, 5, true)).toEqual({ keysToClear: [], payload: { [META]: { lastSyncAt: 5, source: 'import' } } });
   });
 });

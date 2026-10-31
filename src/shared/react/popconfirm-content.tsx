@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { BusyLabel } from './busy-label';
 
 export interface PopconfirmCopy {
@@ -30,12 +30,16 @@ const SETTINGS_CLASS_NAMES: PopconfirmClassNames = Object.freeze({
 
 export function PopconfirmContent({
   busy = false,
+  children,
   classNames = SETTINGS_CLASS_NAMES,
   copy,
   onCancel,
   onConfirm
 }: {
   busy?: boolean;
+  // Choices that go with the confirmation, drawn between the message and
+  // the buttons.
+  children?: ReactNode;
   classNames?: PopconfirmClassNames;
   copy: PopconfirmCopy;
   // Leave it out where the surface dismisses another way; the bubble then
@@ -48,6 +52,7 @@ export function PopconfirmContent({
       <div className={classNames.text} data-i18n={copy.messageKey}>
         {copy.message}
       </div>
+      {children}
       <div className={classNames.actions}>
         {onCancel ? (
           <button

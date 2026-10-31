@@ -1,12 +1,14 @@
 // The browser sync card on the Account tab: its status line and last-sync
 // tooltip, the note on how many New Tab shortcuts browser sync carries, what
-// its "sync now", export and import buttons do, and moving settings that
-// older versions kept only in chrome.storage.local into browser sync. The
-// card itself is drawn from the model this hands to onRender.
+// its "sync now" button does, and moving settings that older versions kept
+// only in chrome.storage.local into browser sync. Its export and import
+// buttons go to the settings file. The card itself is drawn from the model
+// this hands to onRender.
 import type * as Settings from '../domain/settings';
 import type { StorageAreaLike } from '../domain/storage-port';
-import { downloadJsonFile } from './options-download';
-import type { createSyncTransfer, SettingsImportPlan } from './options-sync-transfer';
+import type { DeviceSnapshots } from '../platform/device-snapshot';
+import { createSettingsFile } from './options-settings-file';
+import type { createSyncTransfer } from './options-sync-transfer';
 import type { FormatTemplate, GetMessage, ToastTask } from './options-types';
 import type { BrowserSyncCardHandlers, BrowserSyncCardModel, BrowserSyncTone } from './react/account-tab';
 import * as NewtabShortcutSettings from '../domain/settings/newtab-shortcuts';
@@ -23,6 +25,7 @@ interface SyncSectionOptions {
   settings: Pick<typeof Settings, 'BROWSER_SYNC_KEYS' | 'syncMeta' |
     'NEWTAB_SHORTCUTS_GROUP_KEYS' | 'webdavStatus'>;
   syncTransfer: ReturnType<typeof createSyncTransfer> | null;
+  loadDeviceSnapshots(): Promise<DeviceSnapshots>;
   // The provider area.
   storageArea: StorageAreaLike | null;
   localStorageArea: StorageAreaLike | null;
@@ -99,7 +102,16 @@ function createSyncSection(options: SyncSectionOptions) {
       syncNowTooltip: lastSyncText
         ? formatTemplate(getMessage('sync_tooltip_last_manual', '最近导入/手动同步 {time}'), { time: lastSyncText })
         : getMessage('sync_tooltip_default', '手动同步'),
-      exportLabel: getMessage('sync_action_export', '导出配置'),
+      exportCopy: {
+        label: getMessage('sync_action_export', '导出配置'),
+        message: getMessage('sync_export_options_hint', '设置和全部快捷方式都会导出。换浏览器时可一并带走图片，文件会更大。'),
+        messageKey: 'sync_export_options_hint',
+        wallpapersLabel: getMessage('sync_export_include_wallpapers', '包含自定义壁纸'),
+        iconsLabel: getMessage('sync_export_include_icons', '包含快捷方式图标'),
+        confirmLabel: getMessage('sync_export_confirm', '导出'),
+        confirmLabelKey: 'sync_export_confirm',
+        cancelLabel: getMessage('confirm_cancel', '取消')
+      },
       importLabel: getMessage('sync_action_import', '导入配置'),
       syncNowLabel: getMessage('sync_action_now', '手动同步')
     };
@@ -296,72 +308,24 @@ function createSyncSection(options: SyncSectionOptions) {
     });
   }
 
-  function exportSettings(): void {
-    const transfer = syncTransfer;
-    if (!transfer || !storageArea) {
-      return;
-    }
-    storageArea.get(SETTINGS.BROWSER_SYNC_KEYS.slice(), (result) => {
-      downloadJsonFile(
-        documentObj,
-        `lumno-settings-${Date.now()}.json`,
-        transfer.buildExportFile(result, new Date().toISOString())
-      );
-      showToast(getMessage('sync_export_done', '已导出配置'), false);
-    });
-  }
-
-  function readTextFile(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error || new Error('file-read-failed'));
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.readAsText(file);
-    });
-  }
-
-  function applySyncImport(area: StorageAreaLike, plan: SettingsImportPlan, toastTask: ToastTask): void {
-    area.set(plan.payload, () => {
-      if (chrome.runtime.lastError) {
-        toastTask.fail(getSyncFailureMessage());
-        return;
-      }
-      const finishImport = (): void => {
-        toastTask.done(getMessage('sync_import_done', '导入完成'));
-        refreshSyncStatus();
-      };
-      if (!plan.keysToClear.length || !area.remove) {
-        finishImport();
-        return;
-      }
-      area.remove(plan.keysToClear, finishImport);
-    });
-  }
-
-  function importSettings(file: File): void {
-    const transfer = syncTransfer;
-    if (!transfer) {
-      return;
-    }
-    const toastTask = beginToast(getMessage('sync_importing', '正在导入配置…'));
-    const failInvalid = () => toastTask.fail(getMessage('sync_import_invalid', '配置文件无效'));
-    readTextFile(file).then((text) => {
-      const data = transfer.parseImportFile(text);
-      const plan = data ? transfer.buildImportPlan(data, Date.now()) : null;
-      if (!plan) {
-        failInvalid();
-      } else if (storageArea) {
-        applySyncImport(storageArea, plan, toastTask);
-      } else {
-        toastTask.cancel();
-      }
-    }, failInvalid);
-  }
+  const settingsFile = syncTransfer && storageArea ? createSettingsFile({
+    chromeApi: chrome,
+    settings: SETTINGS,
+    syncTransfer,
+    storageArea,
+    loadDeviceSnapshots: options.loadDeviceSnapshots,
+    getMessage,
+    formatTemplate,
+    showToast,
+    beginToast,
+    documentObj,
+    onImported: refreshSyncStatus
+  }) : null;
 
   const handlers: BrowserSyncCardHandlers = {
     onSyncNow: syncNow,
-    onExport: exportSettings,
-    onImport: importSettings
+    onExport: (includes) => settingsFile ? settingsFile.exportFile(includes) : Promise.resolve(),
+    onImport: (file) => { if (settingsFile) void settingsFile.importFile(file); }
   };
 
   render();

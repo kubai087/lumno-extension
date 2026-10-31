@@ -2246,6 +2246,15 @@ body[data-theme="dark"] ._x_extension_shortcut_ghost_2026_unique_ {
   justify-content: flex-end;
   gap: 8px;
 }
+/* The export bubble holds a sentence and the two things a file may carry. */
+._x_extension_sync_export_options_2026_unique_ {
+  width: 260px;
+}
+._x_extension_sync_export_choices_2026_unique_ {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 ._x_extension_shortcut_edit_2024_unique_ {
   all: unset;
   cursor: pointer;

@@ -52,6 +52,7 @@ function setUp(sync: StorageItems, local: StorageItems, options: SectionOptions 
     formatTemplate,
     getActivePrimaryAreaName: () => options.primary || 'sync',
     getMessage: (_key, fallback) => fallback,
+    loadDeviceSnapshots: () => Promise.reject(new Error('not used')),
     localStorageArea: options.withoutStorage ? null : localStorageArea,
     settings: Settings,
     showToast() {},

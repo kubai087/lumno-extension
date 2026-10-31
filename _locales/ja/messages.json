@@ -2234,6 +2234,24 @@
   "sync_export_done": {
     "message": "設定を書き出しました"
   },
+  "sync_export_options_hint": {
+    "message": "設定とすべてのショートカットを書き出します。別のブラウザーへ移るときは画像も一緒に持ち出せますが、ファイルが大きくなります。"
+  },
+  "sync_export_include_wallpapers": {
+    "message": "カスタム壁紙を含める"
+  },
+  "sync_export_include_icons": {
+    "message": "ショートカットのアイコンを含める"
+  },
+  "sync_export_confirm": {
+    "message": "書き出す"
+  },
+  "sync_export_media_failed": {
+    "message": "書き出せない壁紙またはショートカットのアイコンがあります。チェックを外してもう一度お試しください。"
+  },
+  "sync_export_shortcuts_pending": {
+    "message": "ショートカットはまだ別のデバイスから同期中です。少し待ってからもう一度書き出してください。"
+  },
   "sync_importing": {
     "message": "設定を読み込んでいます…"
   },
