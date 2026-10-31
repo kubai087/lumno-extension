@@ -165,6 +165,11 @@ function ensureTabSwitcherStateLoaded(): Promise<boolean> {
   return tabSwitcherStateLoadPromise;
 }
 
+// Saves run one at a time, each writing the state as it is when it starts.
+// A save works out what to remove from what the save before it wrote, so a
+// second save started meanwhile could leave a dropped thumbnail stored.
+let tabSwitcherStatePersistQueue: Promise<unknown> = Promise.resolve();
+
 function persistTabSwitcherState(): Promise<boolean> {
   tabSwitcherStatePersistTimer = null;
   if (!tabSwitcherStateLoaded) {
@@ -172,7 +177,9 @@ function persistTabSwitcherState(): Promise<boolean> {
     // changes; the load merges them and schedules the write itself.
     return Promise.resolve(false);
   }
-  return setTabSwitcherStateToStorage(recentTabTracker.exportState());
+  const save = tabSwitcherStatePersistQueue.then(() => setTabSwitcherStateToStorage(recentTabTracker.exportState()));
+  tabSwitcherStatePersistQueue = save.catch(() => {});
+  return save;
 }
 
 function schedulePersistTabSwitcherState(): void {

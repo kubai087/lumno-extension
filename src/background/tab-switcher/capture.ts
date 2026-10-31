@@ -195,6 +195,12 @@ function storeCapturedThumbnail(resolvedTab: chrome.tabs.Tab, tabId: number, dat
       logSwitcherThumbnailCaptureFailure(resolvedTab, 'empty-thumbnail-data', reason);
       return false;
     }
+    // Turning the switcher off while this shot was taken has dropped the
+    // thumbnails already; this one must not come back after them.
+    if (!workerSettings.get(tabSwitcherEnabled)) {
+      logSwitcherThumbnailCaptureFailure(resolvedTab, 'switcher-disabled', reason);
+      return false;
+    }
     const resolvedTabId = typeof resolvedTab.id === 'number' ? resolvedTab.id : tabId;
     const didSet = recentTabTracker.setThumbnail(resolvedTabId, thumbnailDataUrl, Date.now(), {
       url: getResolvedTabUrl(resolvedTab)

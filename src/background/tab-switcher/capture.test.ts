@@ -166,7 +166,7 @@ describe('tab switcher thumbnails', () => {
     session.activate(12);
     await vi.waitFor(() => expect(storedThumbnailTabIds(session.fake)).toEqual([12]), { timeout: 3000 });
     session.fake.storage.sync.externalSet({ [tabSwitcherEnabled.key]: false });
-    await vi.waitFor(() => expect(storedThumbnailTabIds(session.fake)).toEqual([]));
+    await vi.waitFor(() => expect(storedThumbnailTabIds(session.fake)).toEqual([]), { timeout: 3000 });
 
     session.activate(13);
     await settleWorker(SETTLE_WAIT_MS);
