@@ -59,11 +59,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # The JSDOM page tests miss their timing windows when several run at
-      # once on a hosted runner, so they run one at a time here.
       - name: Run tests and checks
-        env:
-          LUMNO_TEST_JOBS: 1
         run: npm run verify
 
       - name: Read version
