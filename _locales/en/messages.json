@@ -2240,6 +2240,9 @@
   "sync_import_done": {
     "message": "Import complete"
   },
+  "sync_import_rollback_failed": {
+    "message": "Import failed. Some settings may have changed; please check them."
+  },
   "sync_import_invalid": {
     "message": "Invalid settings file"
   },

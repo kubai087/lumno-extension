@@ -2240,6 +2240,9 @@
   "sync_import_done": {
     "message": "匯入完成"
   },
+  "sync_import_rollback_failed": {
+    "message": "匯入失敗，部分設定可能已變更，請重新檢查。"
+  },
   "sync_import_invalid": {
     "message": "設定檔無效"
   },

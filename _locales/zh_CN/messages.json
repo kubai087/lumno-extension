@@ -2240,6 +2240,9 @@
   "sync_import_done": {
     "message": "导入完成"
   },
+  "sync_import_rollback_failed": {
+    "message": "导入失败，部分设置可能已更改，请重新检查。"
+  },
   "sync_import_invalid": {
     "message": "配置文件无效"
   },
