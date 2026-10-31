@@ -210,7 +210,9 @@ async function main() {
     assert.strictEqual(page.documentElement.getAttribute('data-nt-focus-route-pending'), null);
     assert.strictEqual(skipped, 1, 'the held old frame gives way at once');
     assert.deepStrictEqual(calls[calls.length - 1], ['focus']);
-    await wait(10);
+    for (let attempt = 0; attempt < 100 && page.documentElement.hasAttribute('data-nt-focus-resume-settling'); attempt += 1) {
+      await wait(10);
+    }
     assert.strictEqual(page.documentElement.getAttribute('data-nt-focus-resume-settling'), null);
   }
 

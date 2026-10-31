@@ -59,7 +59,7 @@ function resolveSourceFile(file) {
 }
 
 function isRelativeSpecifier(specifier) {
-  return specifier.startsWith('./') || specifier.startsWith('../') || specifier.startsWith('/') || specifier.startsWith('file:');
+  return specifier.startsWith('./') || specifier.startsWith('../') || path.isAbsolute(specifier) || specifier.startsWith('file:');
 }
 
 function compileTypeScript(file) {
@@ -158,7 +158,7 @@ nodeModule.registerHooks({
         throw error;
       }
       // A file URL for import; require takes paths only.
-      const resolved = specifier.startsWith('file:') ? pathToFileURL(file).href : file;
+      const resolved = context.conditions.includes('require') ? file : pathToFileURL(file).href;
       return nextResolve(resolved, context);
     }
   },

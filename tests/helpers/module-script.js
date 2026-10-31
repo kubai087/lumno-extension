@@ -127,7 +127,7 @@ function bundleScript(name, expose, stubs) {
 // is built from its entry in scripts/build/entries.js, anything else is read
 // from disk.
 function workerScriptSource(url) {
-  const match = String(url).match(/(?:^|\/)build\/([\w-]+)\.js$/);
+  const match = String(url).replace(/\\/g, '/').match(/(?:^|\/)build\/([\w-]+)\.js$/);
   return match ? bundleScript(match[1]) : fs.readFileSync(String(url), 'utf8');
 }
 

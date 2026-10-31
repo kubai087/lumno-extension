@@ -5,7 +5,7 @@ const { readPageSource } = require('../helpers/page-source');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const read = (relativePath) =>
-  fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  fs.readFileSync(path.join(repoRoot, relativePath), 'utf8').replace(/\r\n/g, '\n');
 
 const newtabHtml = readPageSource('newtab.html');
 const optionsHtml = readPageSource('src/options/options.html');
@@ -22,10 +22,10 @@ const shortcutDialogCss = read('src/newtab/shortcuts/shortcut-dialog.css');
 const infoButtonCss = read('src/shared/ui/info-button.css');
 
 function getRule(source, selector) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedSelector = selector.replace(/\r\n/g, '\n').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // The selector must open its rule, not end a longer selector such as
   // `.x-nt-shortcut-group-empty .x-nt-shortcut-icon`.
-  const match = source.match(new RegExp(`(?:^|[\\n}])[ \\t]*${escapedSelector}\\s*\\{([^}]*)\\}`));
+  const match = source.replace(/\r\n/g, '\n').match(new RegExp(`(?:^|[\\n}])[ \\t]*${escapedSelector}\\s*\\{([^}]*)\\}`));
   assert.ok(match, `Expected CSS rule for ${selector}`);
   return match[1];
 }

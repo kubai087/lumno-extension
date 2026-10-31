@@ -41,12 +41,13 @@ async function testInstalledFontsAreListedAndChosenOnThisDevice() {
     return options.length > 1 && options.every((option) => option.label);
   };
   await page.waitFor(() => listed(FONT_SELECT) && listed(FALLBACK_SELECT), 'the installed fonts should be listed');
+  const installed = [{ value: 'Inter', label: 'Inter' }, { value: 'PingFangSC', label: '苹方-简' }]
+    .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
   assert.deepStrictEqual(page.menuOptions(FONT_SELECT), [
     { value: '', label: '默认' },
-    { value: 'Inter', label: 'Inter' },
-    { value: 'PingFangSC', label: '苹方-简' }
+    ...installed
   ], 'the bundled default should come first, then the installed fonts by display name');
-  assert.deepStrictEqual(page.menuOptions(FALLBACK_SELECT).map((option) => option.label), ['无', 'Inter', '苹方-简'],
+  assert.deepStrictEqual(page.menuOptions(FALLBACK_SELECT).map((option) => option.label), ['无', ...installed.map((option) => option.label)],
     'the fallback row should be optional and list the same fonts');
 
   const syncWritesBefore = fontWrites(page.storage.sync).length;

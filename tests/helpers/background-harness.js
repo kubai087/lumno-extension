@@ -131,7 +131,7 @@ function createChromeStub(config) {
       getURL(relativePath) {
         return config.extensionUrls === true
           ? `${EXTENSION_ORIGIN}/${String(relativePath || '').replace(/^\//, '')}`
-          : path.join(repoRoot, relativePath);
+          : path.join(repoRoot, relativePath).split(path.sep).join('/');
       },
       getManifest() {
         return { version: config.version || '1.0.0' };

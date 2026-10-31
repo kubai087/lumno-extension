@@ -21,10 +21,10 @@ function loadedFiles(details) {
     return Array.from(details.files);
   }
   const urls = Array.isArray(details.args) && Array.isArray(details.args[0]) ? details.args[0] : [];
-  return urls.map((url) => String(url)
+  const normalizedRoot = repoRoot.split(path.sep).join('/');
+  return urls.map((url) => String(url).split(path.sep).join('/')
     .replace(/^chrome-extension:\/\/[^/]+\//, '')
-    .replace(`${repoRoot}${path.sep}`, '')
-    .split(path.sep).join('/'));
+    .replace(`${normalizedRoot}/`, ''));
 }
 
 function injectedFiles(harness, predicate) {
