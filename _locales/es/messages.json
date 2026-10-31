@@ -2234,6 +2234,24 @@
   "sync_export_done": {
     "message": "Configuración exportada"
   },
+  "sync_export_options_hint": {
+    "message": "Exporta tu configuración y todos los accesos directos. Para pasar a otro navegador, también puedes llevarte tus imágenes; el archivo será más grande."
+  },
+  "sync_export_include_wallpapers": {
+    "message": "Incluir fondos personalizados"
+  },
+  "sync_export_include_icons": {
+    "message": "Incluir iconos de accesos directos"
+  },
+  "sync_export_confirm": {
+    "message": "Exportar"
+  },
+  "sync_export_media_failed": {
+    "message": "No se pudo exportar un fondo o un icono de acceso directo. Desmarca su opción e inténtalo de nuevo."
+  },
+  "sync_export_shortcuts_pending": {
+    "message": "Los accesos directos aún se están sincronizando desde otro dispositivo. Vuelve a exportar en un momento."
+  },
   "sync_importing": {
     "message": "Importando configuración…"
   },

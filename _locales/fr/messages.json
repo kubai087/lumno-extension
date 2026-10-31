@@ -2234,6 +2234,24 @@
   "sync_export_done": {
     "message": "Paramètres exportés"
   },
+  "sync_export_options_hint": {
+    "message": "Exporte vos paramètres et tous vos raccourcis. Pour passer à un autre navigateur, vous pouvez aussi emporter vos images ; le fichier sera plus volumineux."
+  },
+  "sync_export_include_wallpapers": {
+    "message": "Inclure les fonds d’écran personnalisés"
+  },
+  "sync_export_include_icons": {
+    "message": "Inclure les icônes des raccourcis"
+  },
+  "sync_export_confirm": {
+    "message": "Exporter"
+  },
+  "sync_export_media_failed": {
+    "message": "Un fond d’écran ou une icône de raccourci n’a pas pu être exporté. Décochez cette option et réessayez."
+  },
+  "sync_export_shortcuts_pending": {
+    "message": "Les raccourcis sont encore en cours de synchronisation depuis un autre appareil. Réessayez l’export dans un instant."
+  },
   "sync_importing": {
     "message": "Importation des paramètres…"
   },

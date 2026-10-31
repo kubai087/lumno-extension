@@ -2234,6 +2234,24 @@
   "sync_export_done": {
     "message": "Настройки экспортированы"
   },
+  "sync_export_options_hint": {
+    "message": "Экспортирует настройки и все ярлыки. При переходе в другой браузер можно взять с собой и изображения — файл станет больше."
+  },
+  "sync_export_include_wallpapers": {
+    "message": "Включить свои обои"
+  },
+  "sync_export_include_icons": {
+    "message": "Включить значки ярлыков"
+  },
+  "sync_export_confirm": {
+    "message": "Экспортировать"
+  },
+  "sync_export_media_failed": {
+    "message": "Не удалось экспортировать обои или значок ярлыка. Снимите отметку и попробуйте ещё раз."
+  },
+  "sync_export_shortcuts_pending": {
+    "message": "Ярлыки ещё синхронизируются с другого устройства. Попробуйте экспортировать чуть позже."
+  },
   "sync_importing": {
     "message": "Импорт настроек…"
   },

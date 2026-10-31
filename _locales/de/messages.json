@@ -2234,6 +2234,24 @@
   "sync_export_done": {
     "message": "Einstellungen exportiert"
   },
+  "sync_export_options_hint": {
+    "message": "Exportiert Ihre Einstellungen und alle Verknüpfungen. Für den Wechsel in einen anderen Browser können Sie auch Ihre Bilder mitnehmen; die Datei wird dadurch größer."
+  },
+  "sync_export_include_wallpapers": {
+    "message": "Eigene Hintergrundbilder einschließen"
+  },
+  "sync_export_include_icons": {
+    "message": "Verknüpfungssymbole einschließen"
+  },
+  "sync_export_confirm": {
+    "message": "Exportieren"
+  },
+  "sync_export_media_failed": {
+    "message": "Ein Hintergrundbild oder Verknüpfungssymbol konnte nicht exportiert werden. Entfernen Sie das Häkchen und versuchen Sie es erneut."
+  },
+  "sync_export_shortcuts_pending": {
+    "message": "Verknüpfungen werden noch von einem anderen Gerät synchronisiert. Versuchen Sie den Export gleich noch einmal."
+  },
   "sync_importing": {
     "message": "Einstellungen werden importiert…"
   },
