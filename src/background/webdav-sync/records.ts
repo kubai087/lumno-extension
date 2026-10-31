@@ -2,7 +2,6 @@
 import { diagnostic } from '../webdav-client/errors';
 import type { WebDavReply, WebDavRequest } from '../../domain/messages';
 import type { Session, StoredConnection } from './types';
-import type { GroupedShortcutItem } from '../../domain/shortcuts/types';
 import * as WebDavConflicts from '../../domain/webdav/conflicts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -38,10 +37,6 @@ function isArrayBufferBytes(value: unknown): value is Uint8Array<ArrayBuffer> {
 
 // A folder named by its portable reference syncs; one named by this
 // device's bookmark id stays local.
-function hasFolderRef(item: GroupedShortcutItem): boolean {
-  return 'folderRef' in item && Boolean(item.folderRef);
-}
-
 function readStoredConnection(value: unknown): StoredConnection | null {
   if (!isRecord(value) || typeof value.endpoint !== 'string' || typeof value.directory !== 'string' ||
       typeof value.username !== 'string' || typeof value.password !== 'string') return null;
@@ -116,7 +111,6 @@ export {
   errorCode,
   errorField,
   failureReply,
-  hasFolderRef,
   ignoreRejection,
   isArrayBufferBytes,
   isRecord,

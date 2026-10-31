@@ -43,6 +43,7 @@ type WebDavErrorCode =
   | 'state-too-large'
   | 'invalid-shortcuts'
   | 'invalid-asset'
+  | 'asset-too-large'
   | 'invalid-icon'
   | 'invalid-wallpaper'
   | 'merge-too-large';

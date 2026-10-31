@@ -1,8 +1,8 @@
 // Applying a merged state to this device, and mirroring it into Chrome sync.
 import type { StorageItems } from '../../domain/storage-port';
 import type { WallpaperRecordInput } from '../../shared/wallpaper-records';
-import { capture, pickLocalPreferences } from './capture';
-import { getAsset, toDataUrl } from './media';
+import { capture } from './capture';
+import { getAsset } from './media';
 import { isRecord, isRecorded, readSession } from './records';
 import { fail, report, setStatus, storage } from './runtime';
 import type { Captured, ChromePreparation, MirrorResult, Session } from './types';
@@ -10,6 +10,8 @@ import type { Connection } from './connection';
 import type { WebDavClient } from '../webdav-client/types';
 import type { WebDavState } from '../../domain/webdav/types';
 import { planChromeBackup } from '../../domain/webdav/chrome-backup';
+import { insertLocalFolders, pickLocalPreferences } from '../../domain/webdav/device-state';
+import { toDataUrl } from '../../domain/webdav/images';
 import { ICONS_KEY, LOCAL_PREFERENCE_KEYS, MAX_SHORTCUTS, OVERFLOW_KEY, byteLength, canonical, equal } from '../../domain/webdav/state-base';
 import { validateState } from '../../domain/webdav/validation';
 import { error } from '../webdav-client/errors';
@@ -20,11 +22,7 @@ import * as LumnoSettings from '../../domain/settings';
 // This device's local-only folder shortcuts go back where they were; the
 // rest of the list beyond the browser sync budget goes to the overflow record.
 function preferencePayload(conn: Connection, state: WebDavState, captured: Captured, maxTotalBytes: number): StorageItems {
-  const list = [...state.shortcuts];
-  for (const folder of captured.folders) {
-    const index = (captured.shortcutOrder || []).indexOf(folder.id);
-    list.splice(index < 0 ? list.length : Math.min(index, list.length), 0, folder);
-  }
+  const list = insertLocalFolders(state.shortcuts, captured.folders, captured.shortcutOrder || []);
   if (list.length > MAX_SHORTCUTS) fail(conn, 'shortcut-capacity');
   if (new Set(list.map((item) => item.id)).size !== list.length) fail(conn, 'shortcut-id-conflict');
   const plan = createShortcutStoragePlan({ groups: state.groups, items: list,
@@ -91,7 +89,7 @@ async function apply(
     const removed = LOCAL_PREFERENCE_KEYS.filter((key) =>
       Object.prototype.hasOwnProperty.call(captured.local, key) && !Object.prototype.hasOwnProperty.call(state.data, key));
     const localValues: StorageItems = {
-      ...pickLocalPreferences(conn, payload),
+      ...pickLocalPreferences(payload),
       [OVERFLOW_KEY]: payload[OVERFLOW_KEY], [ICONS_KEY]: icons,
       [LumnoSettings.assetRevision.key]: conn.ports.crypto.randomUUID(),
       ...(conn.ports.runtime.isActiveAreaName('local') && conn.ports.syncArea ? { [LumnoSettings.localPrimary.key]: false } : {}) };

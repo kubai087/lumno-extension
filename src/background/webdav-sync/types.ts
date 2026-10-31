@@ -78,15 +78,6 @@ interface ChromePreparation {
   remove: string[];
 }
 
-interface ImageCheck {
-  width: number;
-  height: number;
-}
-
-interface DecodedImage extends ImageCheck {
-  bytes: Uint8Array<ArrayBuffer>;
-}
-
 // The status a connection's card shows, as kept in local storage.
 interface StatusUpdate {
   state?: string;
@@ -183,9 +174,7 @@ export type {
   ConnectionControllerOptions,
   ConnectionHint,
   ConnectionStatus,
-  DecodedImage,
   HandleResult,
-  ImageCheck,
   ManagerStatus,
   MirrorResult,
   PrivateStore,
