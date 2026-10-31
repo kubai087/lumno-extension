@@ -250,6 +250,8 @@ body[data-glass-style]:not([data-glass-style="liquid"]) #_x_extension_newtab_sug
 body[data-glass-style] ._x_extension_menu_surface_2024_unique_:is(*, [data-glass-ink]),
 body[data-glass-style] .x-nt-wallpaper-panel,
 body[data-glass-style] .x-nt-feedback-popover,
+/* The search bar's confirm bubble inherits the bar's ink, so it takes the bar's glass as well. */
+body[data-glass-style] .x-lumno-search-input__popconfirm,
 /* Failures keep their red. */
 body[data-glass-style] .x-lumno-toast:not([data-tone="error"]) {
   --x-nt-glass-tint-rgb: var(--x-nt-glass-float-rgb);
@@ -266,6 +268,7 @@ body[data-glass-style][data-nt-suggestions-open="true"] #_x_extension_newtab_sug
 body[data-glass-style] ._x_extension_menu_surface_2024_unique_:is([data-open="true"], [data-open="true"] > :not([data-open])),
 body[data-glass-style] .x-nt-wallpaper-panel[data-open="true"],
 body[data-glass-style] .x-lumno-toast[data-show="true"]:not([data-tone="error"]),
+body[data-glass-style] .x-lumno-search-input__popconfirm[data-open="true"],
 /* The feedback menu leaves the page (hidden) once closed. */
 body[data-glass-style] .x-nt-feedback-popover {
   backdrop-filter: var(--x-nt-glass-float-filter) saturate(var(--x-nt-glass-saturate, 1)) brightness(var(--x-nt-glass-backdrop-brightness, 1)) var(--x-nt-glass-refraction,);
@@ -666,22 +669,32 @@ body[data-glass-style="liquid"] .x-lumno-search-input-mode__menu[data-surface="n
   backdrop-filter: var(--x-nt-glass-filter) saturate(var(--x-nt-glass-saturate, 1)) brightness(var(--x-nt-glass-backdrop-brightness, 1)) var(--x-nt-glass-refraction,) !important;
   -webkit-backdrop-filter: var(--x-nt-glass-filter) saturate(var(--x-nt-glass-saturate, 1)) brightness(var(--x-nt-glass-backdrop-brightness, 1)) var(--x-nt-glass-refraction,) !important;
 }
-/* The panel opens inside the search bar, and an element with a backdrop filter is the backdrop root
-   of everything in it: the panel's blur would see only the bar's empty inside, never the wallpaper.
-   While the panel shows, the bar's glass moves onto a layer behind its content, so the bar itself
-   filters nothing. Only then: the bar fades in on entry, and an ancestor below full opacity would
-   cut the layer off the wallpaper the same way. The layer covers the bar's border box and keeps a
-   clear border as wide as the bar's, so its fill and blur reach the same edge and its inset rim sits
-   inside that border as the bar's does, not a border's width further out. */
+/* The confirm bubble would otherwise inherit the bar's lens, which is sized to the bar. */
+body[data-glass-style] .x-lumno-search-input__popconfirm {
+  --x-nt-glass-refraction: initial;
+}
+/* The panel and the confirm bubble open inside the search bar, and an element with a backdrop filter
+   is the backdrop root of everything in it: their blur would see only the bar's empty inside, never
+   the wallpaper. While either shows, the bar's glass moves onto a layer behind its content, so the
+   bar itself filters nothing. Only then: the bar fades in on entry, and an ancestor below full
+   opacity would cut the layer off the wallpaper the same way. The layer covers the bar's border box
+   and keeps a clear border as wide as the bar's, so its fill and blur reach the same edge and its
+   inset rim sits inside that border as the bar's does, not a border's width further out. */
 body[data-glass-style]:not([data-nt-suggestions-open="true"])
-  #_x_extension_newtab_root_2024_unique_:has(.x-lumno-search-input-mode__menu[data-surface="newtab"]:not([hidden])) {
+  #_x_extension_newtab_root_2024_unique_:has(
+    .x-lumno-search-input-mode__menu[data-surface="newtab"]:not([hidden]),
+    .x-lumno-search-input__popconfirm[data-open="true"]
+  ) {
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 body[data-glass-style]:not([data-nt-suggestions-open="true"])
-  #_x_extension_newtab_root_2024_unique_:has(.x-lumno-search-input-mode__menu[data-surface="newtab"]:not([hidden]))::before {
+  #_x_extension_newtab_root_2024_unique_:has(
+    .x-lumno-search-input-mode__menu[data-surface="newtab"]:not([hidden]),
+    .x-lumno-search-input__popconfirm[data-open="true"]
+  )::before {
   content: "";
   position: absolute;
   inset: calc(-1 * var(--x-nt-search-shell-border-width, 1px));

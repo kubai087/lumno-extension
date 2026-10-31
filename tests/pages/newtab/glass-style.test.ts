@@ -132,6 +132,15 @@ describe('New Tab glass stylesheet', () => {
     expect([...darkDialog].filter((name) => !glassDialog.has(name))).toEqual([]);
   });
 
+  it('floats the search bar’s confirm bubble as glass, so it carries the ink it inherits from the bar', () => {
+    const bubbleRule = (selector: string) => glass.entries.find((entry) => entry.selectors.includes(selector));
+
+    expect(bubbleRule('body[data-glass-style] .x-lumno-search-input__popconfirm')?.style.getPropertyValue('background')).toBe('var(--x-nt-glass-fill)');
+    expect(bubbleRule('body[data-glass-style] .x-lumno-search-input__popconfirm[data-open="true"]')?.style.getPropertyValue('backdrop-filter')).toContain('var(--x-nt-glass-float-filter)');
+    expect(glass.entries.some((entry) => entry.style.getPropertyValue('backdrop-filter') === 'none' && entry.selectors.some((selector) =>
+      selector.includes('#_x_extension_newtab_root_2024_unique_:has(') && selector.includes('.x-lumno-search-input__popconfirm[data-open="true"]')))).toBe(true);
+  });
+
   it('loads after the page styles it overrides', () => {
     const page = new DOMParser().parseFromString(newtabHtml, 'text/html');
     const links = Array.from(page.querySelectorAll('link[rel="stylesheet"]'), (link) => link.getAttribute('href') || '');
