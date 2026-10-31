@@ -30,9 +30,8 @@ describe.each(SURFACES)('%s IME composition', (name) => {
   });
 
   // The overlay hears keys at the window, where a key's target is the overlay
-  // host rather than the input that composed, so its commit window never
-  // matches the Enter (reported, not fixed here).
-  (name === 'overlay' ? it.fails : it)('does not search on an Enter right after the composition ends', async () => {
+  // host, not the input that composed; the commit window still holds there.
+  it('does not search on an Enter right after the composition ends', async () => {
     const surface = await openSearchSurface(name);
     await composeNi(surface);
     surface.press('Enter', { keyCode: 13 });

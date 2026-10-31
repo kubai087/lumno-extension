@@ -1,6 +1,6 @@
 // Keys inside the panel: Tab into modes and autocomplete, the input's
 // keydown, and navigating, opening and deleting results.
-import type { ImeKeyGuard } from '../../domain/search/ime-key-guard';
+import type { ImeKeyEvent, ImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { WebAppearanceMode } from '../../domain/messages';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
@@ -80,6 +80,18 @@ interface PanelKeysDeps {
 
 function isWebAppearanceMode(value: unknown): value is WebAppearanceMode {
   return value === 'auto' || value === 'light' || value === 'dark';
+}
+
+// The IME guard holds back the Enter that commits a candidate by comparing
+// the key's target with the field that composed. Keys reach the panel at the
+// page's window, where their target is the overlay host, so a key is read as
+// the input's while the input holds the focus inside the panel.
+function asInputKey(e: KeyboardEvent, input: HTMLInputElement): ImeKeyEvent {
+  const root = input.getRootNode();
+  const focused = 'activeElement' in root ? root.activeElement : null;
+  return focused === input
+    ? { key: e.key, code: e.code, isComposing: e.isComposing, keyCode: e.keyCode, which: e.which, target: input }
+    : e;
 }
 
 function createPanelKeys(deps: PanelKeysDeps) {
@@ -243,7 +255,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
       clearOpenTabsSearchMode();
       return;
     }
-    if (imeKeyGuard.shouldIgnoreKeydown(e)) {
+    if (imeKeyGuard.shouldIgnoreKeydown(asInputKey(e, input))) {
       return;
     }
     const inputHistoryDirection =
@@ -331,7 +343,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
     )) {
       return;
     }
-    if (imeKeyGuard.shouldIgnoreKeydown(e)) {
+    if (imeKeyGuard.shouldIgnoreKeydown(asInputKey(e, input))) {
       return;
     }
     const suggestionNavigationKey = getSuggestionNavigationKey(e);
