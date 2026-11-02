@@ -546,6 +546,7 @@ body[data-glass-style] [data-glass-ink-theme="dark"] {
   --x-nt-upload-hover-ink: rgba(229, 231, 235, 0.82);
   --x-nt-favicon-thumb-bg: rgba(255, 255, 255, 0.06);
   --x-nt-choice-hover-border: rgba(156, 163, 175, 0.42);
+  --choice-card-light-dim: rgba(0, 0, 0, 0.16);
   --x-nt-cascade-ink: #e5e7eb;
   --x-nt-cascade-surface: rgba(17, 24, 39, 0.95);
   --x-nt-cascade-shadow:

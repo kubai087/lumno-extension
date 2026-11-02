@@ -3,6 +3,7 @@
  * the theme gallery) and the New Tab appearance panel (x-nt-appearance-*).
  * Pages set the card size and may tune the check badge through:
  *   --choice-card-check-size, --choice-card-check-offset, --choice-card-check-icon-size
+ * and set --choice-card-light-dim in their dark theme to tone down the light previews.
  */
 :is(._x_extension_theme_preview_2026_unique_, .x-nt-appearance-preview) {
   --choice-card-radius: var(--lumno-radius-md);
@@ -24,6 +25,28 @@
   pointer-events: none;
   box-sizing: border-box;
   transition: border-color 170ms ease;
+}
+
+/* Shades the light previews (all of Light, the right half of System) so they
+   don't glare on a dark page. */
+:is(
+  ._x_extension_theme_preview_2026_unique_[data-preview-mode="light"],
+  ._x_extension_theme_preview_2026_unique_[data-preview-mode="system"],
+  .x-nt-appearance-option[data-theme-mode="light"] .x-nt-appearance-preview,
+  .x-nt-appearance-option[data-theme-mode="system"] .x-nt-appearance-preview
+)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--choice-card-light-dim, transparent);
+  pointer-events: none;
+}
+
+:is(
+  ._x_extension_theme_preview_2026_unique_[data-preview-mode="system"],
+  .x-nt-appearance-option[data-theme-mode="system"] .x-nt-appearance-preview
+)::before {
+  inset: 0 0 0 50%;
 }
 
 :is(._x_extension_theme_gallery_2026_unique_ ._x_extension_theme_option_2024_unique_, .x-nt-appearance-option):active

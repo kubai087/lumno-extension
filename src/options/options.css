@@ -154,6 +154,7 @@ body {
 }
 body[data-theme="dark"] {
   --page-bg: #111111;
+  --choice-card-light-dim: rgba(0, 0, 0, 0.16);
   --panel-text: var(--lumno-color-text);
   --tab-bg: #2f2f2f;
   --tab-active-bg: #475569;
