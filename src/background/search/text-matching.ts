@@ -3,7 +3,7 @@
 import * as SETTINGS from '../../domain/settings';
 import { getShownSearchResultSourceTypes } from '../../domain/settings';
 import { loadWorkerLazyModule } from '../../platform/worker-lazy';
-import { readPinyinApi } from '../../domain/search/pinyin-api';
+import { readPinyinApi, readSearchTitleHanReadings, readSearchUsualHanReading } from '../../domain/search/pinyin-api';
 import { PINYIN_DATA_SCRIPT_PATH, getImportScripts, workerSettings } from '../worker-context';
 import type {
   SearchPolicy,
@@ -61,57 +61,46 @@ function getPinyinPro(): PinyinApi | null {
   return pinyinProApi;
 }
 
-// Every reading of each Han character, so a polyphone matches either way:
-// 重庆 matches "chongqing" and "zhongqing", 银行 "yinhang" and "yinxing".
-// Readings depend on the character alone, so a few thousand entries cover
-// every title.
-const hanCharacterReadingsCache = new Map<string, string[]>();
-const hanCharacterFuzzyReadingsCache = new Map<string, string[]>();
+// Each Han character of a title reads as it is said in the title and as it
+// is usually said (readSearchTitleHanReadings): 重庆 matches "chongqing"
+// and "zhongqing", 银行 "yinhang" and "yinxing", while 和平 is not "huping".
+// Usual readings depend on the character alone, so a few thousand entries
+// cover every title.
+const hanUsualReadingCache = new Map<string, string>();
+const hanFuzzyReadingsCache = new Map<string, string[]>();
 const BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES = 8192;
 
-function getTitleHanReadings(_text: string, characters: string[]): string[][] | null {
+function getTitleHanReadings(text: string, characters: string[]): string[][] | null {
   const pinyinApi = getPinyinPro();
   if (!pinyinApi) {
     return null;
   }
+  const readings = readSearchTitleHanReadings(pinyinApi, text, characters, (character) => (
+    getHanUsualReading(pinyinApi, character)
+  ));
   if (!workerSettings.get(SETTINGS.searchFuzzyPinyinEnabled)) {
-    return characters.map((character) => getHanCharacterReadings(pinyinApi, character));
+    return readings;
   }
-  return characters.map((character) => {
-    const cached = hanCharacterFuzzyReadingsCache.get(character);
+  return readings.map((characterReadings) => {
+    const key = characterReadings.join(',');
+    const cached = hanFuzzyReadingsCache.get(key);
     if (cached) {
       return cached;
     }
-    const readings = SearchTextNormalize.expandSearchFuzzyPinyinReadings(getHanCharacterReadings(pinyinApi, character));
-    BoundedCache.setBoundedCacheEntry(
-      hanCharacterFuzzyReadingsCache,
-      character,
-      readings,
-      BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES
-    );
-    return readings;
+    const expanded = SearchTextNormalize.expandSearchFuzzyPinyinReadings(characterReadings);
+    BoundedCache.setBoundedCacheEntry(hanFuzzyReadingsCache, key, expanded, BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES);
+    return expanded;
   });
 }
 
-function getHanCharacterReadings(pinyinApi: PinyinApi, character: string): string[] {
-  const cached = hanCharacterReadingsCache.get(character);
-  if (cached) {
+function getHanUsualReading(pinyinApi: PinyinApi, character: string): string {
+  const cached = hanUsualReadingCache.get(character);
+  if (cached !== undefined) {
     return cached;
   }
-  const converted = pinyinApi.pinyin(character, {
-    toneType: 'none',
-    type: 'array',
-    multiple: true,
-    v: true
-  });
-  const readings = Array.isArray(converted) ? converted : [];
-  BoundedCache.setBoundedCacheEntry(
-    hanCharacterReadingsCache,
-    character,
-    readings,
-    BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES
-  );
-  return readings;
+  const reading = readSearchUsualHanReading(pinyinApi, character);
+  BoundedCache.setBoundedCacheEntry(hanUsualReadingCache, character, reading, BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES);
+  return reading;
 }
 
 function getTitleTextMatcher(): SearchTextMatcher | null {

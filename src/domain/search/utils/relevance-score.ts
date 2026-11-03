@@ -7,13 +7,11 @@ import type {
   SearchSuggestion,
   SuggestionLike
 } from '../types';
-import { normalizeHost } from './direct-navigation';
-import { getOwnExtensionUtilityPenalty, getSearchSourceAdjustment, getSearchSuggestionCategoryAdjustment, getSearchSuggestionClusterInfo, getSearchTermCoverageStats, matchesSearchHostSpelling } from './query-intent';
+import { readSearchItemFields, scoreSearchItemText } from './item-matching';
+import { getOwnExtensionUtilityPenalty, getSearchSourceAdjustment, getSearchSuggestionCategoryAdjustment, getSearchSuggestionClusterInfo, getSearchTermCoverageStats } from './query-intent';
 import { buildSearchDedupUrlKey, getSearchSuggestionDisplayTitle } from './result-dedup';
 import { SEARCH_POLICY, SEARCH_SELECTION_POLICY } from './search-policy';
 import { getNow, normalizeSearchSelectionQuery } from './selection-stats';
-import { normalizeSearchText, shouldAllowLooseTextContains, splitSearchTitleTokens } from './text-normalize';
-import { getSearchTitleUnitMatch } from './text-matching';
 import { getSearchDirectNavigationAdjustment } from './navigation-signals';
 
 // What a ranking pass scores: a browser page, with the source it came from.
@@ -29,120 +27,6 @@ interface SuggestionExtras {
   favicon?: string;
   reasons?: string[];
   [field: string]: unknown;
-}
-
-// How a query word appears in the title: a whole token, a token's start,
-// anywhere, or spelled by its units.
-function scoreTitleWord(word: string, title: string, titleLower: string, titleTokens: readonly string[], settings: SearchRankingOptions): number {
-  if (titleTokens.includes(word)) {
-    return 24;
-  }
-  if (titleTokens.some((token) => token.startsWith(word))) {
-    return 14;
-  }
-  if (shouldAllowLooseTextContains(word) && titleLower.includes(word)) {
-    return 8;
-  }
-  const wordUnitMatch = getSearchTitleUnitMatch(title, word, settings, { skipLiteral: true });
-  if (!wordUnitMatch) {
-    return 0;
-  }
-  if (wordUnitMatch.pieces > 1) {
-    return 6;
-  }
-  return wordUnitMatch.exact ? 24 : (wordUnitMatch.anchored ? 16 : 10);
-}
-
-function scoreTitleText(title: string, titleLower: string, titleTokens: readonly string[], context: SearchQueryContext, settings: SearchRankingOptions): number {
-  let score = 0;
-  if (titleLower === context.queryLower) score += 140;
-  if (titleLower.startsWith(context.queryLower)) score += 70;
-  if (titleTokens.includes(context.queryLower)) score += 45;
-  // Pinyin, initials and words spelled across spaces, where the title does
-  // not already hold the query as typed.
-  const titleUnitMatch = context.unitQuery
-    ? getSearchTitleUnitMatch(title, context.unitQuery, settings, { skipLiteral: true })
-    : null;
-  if (titleUnitMatch) score += titleUnitMatch.score;
-  context.queryTerms.forEach((word) => {
-    if (word) score += scoreTitleWord(word, title, titleLower, titleTokens, settings);
-  });
-  if (shouldAllowLooseTextContains(context.queryLower) && titleLower.includes(context.queryLower)) score += 24;
-  return score;
-}
-
-function readHostLabels(url: string): { hostname: string; hostLabels: string[] } {
-  try {
-    const hostname = normalizeHost(new URL(url).hostname);
-    return { hostname, hostLabels: hostname.split('.').filter(Boolean) };
-  } catch (e) {
-    return { hostname: '', hostLabels: [] };
-  }
-}
-
-function scoreHostWord(word: string, hostname: string, hostLabels: readonly string[]): number {
-  if (hostLabels.includes(word)) {
-    return 28;
-  }
-  if (hostLabels.some((label) => label.startsWith(word))) {
-    return 16;
-  }
-  return shouldAllowLooseTextContains(word) && hostname.includes(word) ? 8 : 0;
-}
-
-function scoreHostText(hostname: string, hostLabels: string[], context: SearchQueryContext): number {
-  if (!hostname) {
-    return 0;
-  }
-  let score = 0;
-  if (shouldAllowLooseTextContains(context.queryLower) && hostname.includes(context.queryLower)) score += 14;
-  if (hostname.startsWith(context.queryLower)) score += 20;
-  if (hostLabels.includes(context.queryLower)) {
-    score += 42;
-  } else if (matchesSearchHostSpelling(hostLabels, context)) {
-    score += 28;
-  }
-  context.queryTerms.forEach((word) => {
-    if (word) score += scoreHostWord(word, hostname, hostLabels);
-  });
-  return score;
-}
-
-// The decoded path and its word tokens; nothing for a path that does not decode.
-function readPathTokens(url: string): { decodedPathnameLower: string; pathTokens: string[] } {
-  try {
-    const decodedPathnameLower = decodeURIComponent(String(new URL(url).pathname || '').toLowerCase());
-    const pathTokens = decodedPathnameLower.split('/').filter(Boolean)
-      .flatMap((segment) => segment.split(/[^a-z0-9\u4e00-\u9fff]+/i).filter(Boolean));
-    return { decodedPathnameLower, pathTokens };
-  } catch (e) {
-    return { decodedPathnameLower: '', pathTokens: [] };
-  }
-}
-
-function scorePathWord(word: string, decodedPathnameLower: string, pathTokens: readonly string[]): number {
-  if (pathTokens.includes(word)) {
-    return 32;
-  }
-  if (pathTokens.some((token) => token.startsWith(word))) {
-    return 18;
-  }
-  if (shouldAllowLooseTextContains(word) && pathTokens.some((token) => token.includes(word))) {
-    return 10;
-  }
-  return shouldAllowLooseTextContains(word) && decodedPathnameLower.includes(word) ? 8 : 0;
-}
-
-// A page on this computer or the local network matches by its title.
-function scoreLocalNetworkTitle(hostname: string, titleLower: string, urlLower: string, context: SearchQueryContext, settings: SearchRankingOptions): number {
-  if (!hostname || typeof settings.isLocalNetworkHost !== 'function' || !settings.isLocalNetworkHost(hostname)) {
-    return 0;
-  }
-  const loose = shouldAllowLooseTextContains(context.queryLower);
-  if (titleLower === context.queryLower) return 60;
-  if (titleLower.startsWith(context.queryLower)) return 42;
-  if (loose && titleLower.includes(context.queryLower)) return 24;
-  return loose && urlLower.includes(context.queryLower) ? 20 : 0;
 }
 
 // Recent, frequent and typed visits.
@@ -180,38 +64,14 @@ function calculateSearchRelevanceScore(
   options?: SearchRankingOptions | null
 ): number {
   const settings: SearchRankingOptions = options && typeof options === 'object' ? options : {};
-  const title = item.title ? String(item.title) : '';
-  const titleLower = normalizeSearchText(title);
-  const urlLower = item.url.toLowerCase();
-  const titleTokens = splitSearchTitleTokens(title);
-  const { hostname, hostLabels } = readHostLabels(item.url);
-  const { decodedPathnameLower, pathTokens } = readPathTokens(item.url);
-  let textScore = scoreTitleText(title, titleLower, titleTokens, context, settings) +
-    scoreHostText(hostname, hostLabels, context);
-  if (shouldAllowLooseTextContains(context.queryLower) && urlLower.includes(context.queryLower)) textScore += 10;
-  if (decodedPathnameLower) {
-    context.queryTerms.forEach((word) => {
-      if (word) textScore += scorePathWord(word, decodedPathnameLower, pathTokens);
-    });
-  }
-  textScore += scoreLocalNetworkTitle(hostname, titleLower, urlLower, context, settings);
+  const fields = readSearchItemFields(item);
+  const textScore = scoreSearchItemText(fields, context, settings);
   if (textScore <= 0) {
     return 0;
   }
-  const coverageStats = getSearchTermCoverageStats(context, {
-    titleLower,
-    hostname,
-    urlLower,
-    titleTokens,
-    hostLabels,
-    pathTokens,
-    matchesTitleUnits: (term: string) => (
-      Boolean(getSearchTitleUnitMatch(title, term, settings)) ||
-      matchesSearchHostSpelling(hostLabels, context)
-    )
-  });
+  const coverageStats = getSearchTermCoverageStats(context, fields, settings);
   const clusterInfo = getSearchSuggestionClusterInfo(item.url);
-  const isGenericBrandDeepTitle = context.intentType === 'brand' && titleLower === context.queryLower && clusterInfo.depth > 0;
+  const isGenericBrandDeepTitle = context.intentType === 'brand' && fields.titleLower === context.queryLower && clusterInfo.depth > 0;
   return textScore +
     scoreVisits(item, getNow(settings)) +
     scoreSource(sourceType, context.intentType) +

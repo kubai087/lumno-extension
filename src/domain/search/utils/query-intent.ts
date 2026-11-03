@@ -1,7 +1,6 @@
 // What a query is after: URL clusters, navigation versus information
 // intent, source adjustments, term coverage and category adjustments.
 import type {
-  SearchCandidateParts,
   SearchClusterCategory,
   SearchClusterInfo,
   SearchIntentType,
@@ -9,9 +8,10 @@ import type {
   SearchTermCoverage
 } from '../types';
 import { getSearchSiteConfig, normalizeHost } from './direct-navigation';
-import { normalizeSearchText, shouldAllowLooseTextContains, splitSearchTerms, splitSearchTitleTokens } from './text-normalize';
+import { matchesSearchHostSpelling, matchesSearchItem, matchesSearchTerm } from './item-matching';
+import type { SearchItemFields } from './item-matching';
+import { splitSearchTerms } from './text-normalize';
 import type { TitleMatchOptions } from './text-matching';
-import { getSearchTitleUnitMatch } from './text-matching';
 
 // What the intent checks read from a result.
 interface IntentItem {
@@ -280,19 +280,8 @@ function getSearchSourceAdjustment(sourceType: unknown, intentType: unknown): nu
   return bySource && Object.prototype.hasOwnProperty.call(bySource, source) ? bySource[source] : 0;
 }
 
-// A Han query spelled the way a site's address writes it: 知乎 is
-// zhihu.com, 京东 is jd.com. The background fills queryHostSpellings with
-// the query's pinyin and initials; only a whole address label counts.
-function matchesSearchHostSpelling(
-  hostLabels: string[],
-  context: Pick<SearchQueryContext, 'queryHostSpellings'> | null | undefined
-): boolean {
-  const spellings = context && Array.isArray(context.queryHostSpellings) ? context.queryHostSpellings : [];
-  return spellings.length > 0 && hostLabels.some((label) => spellings.includes(label));
-}
-
-// Title units (pinyin, initials, words across spaces) are walked only when
-// the plain text checks fail, since most queries match the text itself.
+// Whether a page matches the query: the whole query, or every word of it,
+// in its title, the labels that name its host or its path (item-matching).
 function matchesSearchQueryText(
   item: IntentItem | null | undefined,
   context: QueryTextContext,
@@ -301,73 +290,15 @@ function matchesSearchQueryText(
   if (!item || !item.url) {
     return false;
   }
-  const title = item.title ? String(item.title) : '';
-  const titleLower = normalizeSearchText(title);
-  const urlLower = item.url.toLowerCase();
-  const titleTokens = splitSearchTitleTokens(title);
-  let hostname = '';
-  let hostLabels: string[] = [];
-  try {
-    hostname = normalizeHost(new URL(item.url).hostname);
-    hostLabels = hostname.split('.').filter(Boolean);
-  } catch (e) {
-    hostname = '';
-    hostLabels = [];
-  }
-  const matchesTerm = (term: string) => {
-    if (!term) {
-      return false;
-    }
-    if (
-      titleLower === term ||
-      titleLower.startsWith(term) ||
-      titleTokens.includes(term) ||
-      titleTokens.some((token) => token.startsWith(term))
-    ) {
-      return true;
-    }
-    if (
-      hostname.startsWith(term) ||
-      hostLabels.includes(term) ||
-      hostLabels.some((label) => label.startsWith(term))
-    ) {
-      return true;
-    }
-    if (shouldAllowLooseTextContains(term) && (titleLower.includes(term) || urlLower.includes(term))) {
-      return true;
-    }
-    return Boolean(getSearchTitleUnitMatch(title, term, options));
-  };
-  if (matchesTerm(context.queryLower) || matchesSearchHostSpelling(hostLabels, context)) {
-    return true;
-  }
-  const coreTerms = Array.isArray(context.coreQueryTerms) && context.coreQueryTerms.length > 0
-    ? context.coreQueryTerms
-    : (Array.isArray(context.queryTerms) ? context.queryTerms : []);
-  return coreTerms.length > 0 && coreTerms.every((term) => matchesTerm(term));
+  return matchesSearchItem(item, context, options);
 }
 
-// Whether a query term appears in the candidate: a whole token or a token's
-// start in the title, host or path, loosely anywhere, or by title units.
-function candidateHasTerm(candidate: SearchCandidateParts, term: string): boolean {
-  const titleTokens = Array.isArray(candidate.titleTokens) ? candidate.titleTokens : [];
-  const hostLabels = Array.isArray(candidate.hostLabels) ? candidate.hostLabels : [];
-  const pathTokens = Array.isArray(candidate.pathTokens) ? candidate.pathTokens : [];
-  const tokenLists = [titleTokens, hostLabels, pathTokens];
-  if (tokenLists.some((tokens) => tokens.includes(term)) ||
-      tokenLists.some((tokens) => tokens.some((token) => token.startsWith(term)))) {
-    return true;
-  }
-  if (shouldAllowLooseTextContains(term) && [candidate.titleLower, candidate.hostname, candidate.urlLower]
-    .some((text) => String(text || '').includes(term))) {
-    return true;
-  }
-  return typeof candidate.matchesTitleUnits === 'function' && candidate.matchesTitleUnits(term);
-}
-
+// How many of the query's words the page shows, by the same rules a match
+// reads. A Han query its host spells counts for every word.
 function getSearchTermCoverageStats(
-  context: Partial<Pick<SearchQueryContext, 'coreQueryTerms' | 'queryLower'>> | null | undefined,
-  candidateParts: SearchCandidateParts | null | undefined
+  context: Partial<Pick<SearchQueryContext, 'coreQueryTerms' | 'queryLower' | 'queryHostSpellings'>> | null | undefined,
+  fields: SearchItemFields,
+  options?: TitleMatchOptions | null
 ): SearchTermCoverage {
   const coreTerms = context && context.coreQueryTerms;
   const terms = Array.isArray(coreTerms) && coreTerms.length > 0
@@ -376,8 +307,10 @@ function getSearchTermCoverageStats(
   if (terms.length === 0) {
     return { total: 0, matchedCount: 0, missingCount: 0, allMatched: false };
   }
-  const candidate: SearchCandidateParts = candidateParts && typeof candidateParts === 'object' ? candidateParts : {};
-  const matchedCount = terms.filter((term) => Boolean(term) && candidateHasTerm(candidate, term)).length;
+  const spelledByHost = matchesSearchHostSpelling(fields.hostLabels, context);
+  const matchedCount = terms.filter((term) => (
+    Boolean(term) && (spelledByHost || matchesSearchTerm(fields, term, options))
+  )).length;
   return {
     total: terms.length,
     matchedCount,
@@ -502,7 +435,6 @@ export {
   getSearchSuggestionCategoryAdjustment,
   getSearchSuggestionClusterInfo,
   getSearchTermCoverageStats,
-  matchesSearchHostSpelling,
   matchesSearchQueryText
 };
 export type { IntentItem, QueryTextContext, SearchClusterCategory };

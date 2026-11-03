@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { getHangulCarriedQuery } from './keyboard-layouts';
 import { buildSearchTextIndex, resolveSearchTextIndexReadings } from './text-index';
-import { SEARCH_HAN_PATTERN, SEARCH_LETTER_ALTERNATES, SEARCH_TEXT_MATCHER_CACHE_MAX_ENTRIES, compactSearchQuery, foldSearchCharacter, normalizeSearchText, shouldAllowLooseTextContains } from './text-normalize';
+import { SEARCH_HAN_PATTERN, SEARCH_LETTER_ALTERNATES, SEARCH_TEXT_MATCHER_CACHE_MAX_ENTRIES, compactSearchQuery, foldSearchCharacter, normalizeSearchText, allowsSearchMidWordMatch } from './text-normalize';
 
 import { extendSearchRangesOverMarks, findSearchUnitPieces, findSearchUnitRun, getSearchUnitStepRange, mergeSearchRanges } from './unit-paths';
 
@@ -205,8 +205,9 @@ function getSearchTitleUnitMatch(
 
 // Where a title shows the query: the text as typed, each term, and when
 // neither is there literally, the units a pinyin or initials match spelled.
-// A short ASCII term is only marked where a word starts, the way it matches,
-// so "ai" marks OpenAI but not "Detail". Ranges index the given text.
+// A term shorter than four letters is only marked where a word starts, the
+// way it matches, so "ai" marks OpenAI but not "Detail". Ranges index the
+// given text.
 function getSearchTitleHighlightRanges(
   title: unknown,
   context: HighlightContext | null | undefined,
@@ -240,7 +241,7 @@ function getSearchTitleHighlightRanges(
     if (!needle) {
       return false;
     }
-    const wordStartOnly = !shouldAllowLooseTextContains(needle);
+    const wordStartOnly = !allowsSearchMidWordMatch(needle);
     let found = false;
     let position = foldedText.indexOf(needle);
     while (position >= 0) {

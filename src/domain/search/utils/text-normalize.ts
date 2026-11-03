@@ -350,20 +350,71 @@ function expandSearchFuzzyPinyinReadings(readings: unknown): string[] {
   return expanded;
 }
 
-function isShortWordSearchTerm(term: unknown): boolean {
-  const value = String(term || '').trim();
-  return Boolean(value) && Array.from(value).length <= 2 && SEARCH_WORD_CHARACTERS_PATTERN.test(value);
+const SEARCH_WORD_CHARACTER_PATTERN = new RegExp(`[${SEARCH_WORD_LETTERS}\\d]`, 'u');
+const SEARCH_WORD_LEAD_PATTERN = new RegExp(`^[${SEARCH_WORD_LETTERS}\\d]+`, 'u');
+
+// The code point that ends just before position, or ''.
+function readCharacterBefore(text: string, position: number): string {
+  if (position <= 0) {
+    return '';
+  }
+  const low = text.charCodeAt(position - 1);
+  return low >= 0xdc00 && low <= 0xdfff && position >= 2 ? text.slice(position - 2, position) : text.charAt(position - 1);
 }
 
-function shouldAllowLooseTextContains(term: unknown): boolean {
+// Whether a word starts at position in lowercased text: at its start, after
+// anything that is not a letter or digit of a script that writes words
+// apart, and where letters meet digits ("15" in "iphone15"). Han, kana and
+// the scripts written without case start a word at every character, so
+// they match anywhere.
+function isSearchWordStart(text: string, position: number): boolean {
+  const before = readCharacterBefore(text, position);
+  if (!before) {
+    return true;
+  }
+  const at = String.fromCodePoint(text.codePointAt(position) ?? 0);
+  if (!SEARCH_WORD_CHARACTER_PATTERN.test(before) || !SEARCH_WORD_CHARACTER_PATTERN.test(at)) {
+    return true;
+  }
+  return /\d/.test(before) !== /\d/.test(at);
+}
+
+// A term may start inside a word only when it spells at least four of that
+// word's letters: "tube" finds YouTube and "mail" Gmail, while "art" does
+// not find "Start", nor "co" every ".com". A term that starts with a Han
+// character or a letter of a script without word spaces may start anywhere.
+function allowsSearchMidWordMatch(term: unknown): boolean {
   const value = String(term || '').trim().toLowerCase();
   if (!value) {
     return false;
   }
-  if (SEARCH_HAN_PATTERN.test(value)) {
-    return true;
+  const lead = SEARCH_WORD_LEAD_PATTERN.exec(value);
+  return !lead || Array.from(lead[0]).length >= 4;
+}
+
+// Where lowercased text holds the term as typed: 'word' where a word
+// starts, 'inside' only inside words, '' nowhere.
+function findSearchLiteral(text: string, term: string): 'word' | 'inside' | '' {
+  if (!term) {
+    return '';
   }
-  return !isShortWordSearchTerm(value);
+  let position = text.indexOf(term);
+  let found: 'inside' | '' = '';
+  while (position >= 0) {
+    if (isSearchWordStart(text, position)) {
+      return 'word';
+    }
+    found = 'inside';
+    position = text.indexOf(term, position + 1);
+  }
+  return found;
+}
+
+// Whether lowercased text holds the term where matching counts it: at a
+// word start, or inside a word when the term is long enough to.
+function hasSearchLiteral(text: string, term: string): boolean {
+  const found = findSearchLiteral(text, term);
+  return found === 'word' || (found === 'inside' && allowsSearchMidWordMatch(term));
 }
 
 export {
@@ -372,14 +423,16 @@ export {
   SEARCH_TEXT_MATCHER_CACHE_MAX_ENTRIES,
   SEARCH_WORD_CHARACTERS_PATTERN,
   SEARCH_WORD_PART_PATTERN,
+  allowsSearchMidWordMatch,
   compactSearchQuery,
   expandSearchFuzzyPinyinReadings,
+  findSearchLiteral,
   foldSearchCharacter,
   hasSearchHanCharacters,
-  isShortWordSearchTerm,
+  hasSearchLiteral,
+  isSearchWordStart,
   normalizeSearchHanReadings,
   normalizeSearchText,
-  shouldAllowLooseTextContains,
   splitSearchTerms,
   splitSearchTitleTokens
 };

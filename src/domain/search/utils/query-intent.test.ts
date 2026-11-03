@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getSearchSuggestionClusterInfo, getSearchTermCoverageStats, matchesSearchQueryText } from './query-intent';
+import { readSearchItemFields } from './item-matching';
 import { buildSearchQueryContext } from './selection-stats';
 
 describe('search query intent', () => {
@@ -17,14 +18,10 @@ describe('search query intent', () => {
 
   it("covers a multi-term query with title and path tokens", () => {
     const releaseContext = buildSearchQueryContext('lumno release');
-    const releaseCoverage = getSearchTermCoverageStats(releaseContext, {
-      titleLower: 'lumno',
-      hostname: 'lumno.kubai.design',
-      urlLower: 'https://lumno.kubai.design/release/',
-      titleTokens: ['lumno'],
-      hostLabels: ['lumno', 'kubai', 'design'],
-      pathTokens: ['release']
-    });
+    const releaseCoverage = getSearchTermCoverageStats(releaseContext, readSearchItemFields({
+      title: 'Lumno',
+      url: 'https://lumno.kubai.design/release/'
+    }));
     expect(releaseCoverage.allMatched, 'title + path tokens should cover multi-term queries').toBe(true);
   });
 

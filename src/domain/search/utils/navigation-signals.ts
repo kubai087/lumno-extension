@@ -1,12 +1,11 @@
 // How strongly a row stands for the site a query names: home titles,
 // brand and product queries, and the direct navigation adjustment.
 import type { SearchClusterInfo, SearchTermCoverage } from '../types';
-import { normalizeHost } from './direct-navigation';
+import { getSearchHostNameLabels, readSearchItemFields } from './item-matching';
 import { getSearchSuggestionClusterInfo, getSearchTermCoverageStats } from './query-intent';
 import type { IntentItem } from './query-intent';
-import { normalizeSearchText, splitSearchTerms, splitSearchTitleTokens } from './text-normalize';
+import { hasSearchLiteral, normalizeSearchText, splitSearchTerms } from './text-normalize';
 import type { TitleMatchOptions } from './text-matching';
-import { getSearchTitleUnitMatch } from './text-matching';
 import type { SlateContext } from './slate-types';
 
 const SEARCH_HOME_TITLE_TERMS = new Set([
@@ -57,7 +56,7 @@ function getSearchBrandHostMatchScore(host: string, context: SlateContext | null
   if (!query) {
     return 0;
   }
-  const hostLabels = normalizeHost(host).split('.').filter(Boolean);
+  const hostLabels = getSearchHostNameLabels(host);
   let score = 0;
   hostLabels.forEach((label) => {
     if (label === query) {
@@ -100,14 +99,14 @@ function getTitleSignal(titleLower: string, context: SlateContext): number {
   if (titleLower.startsWith(context.queryLower)) {
     return 3;
   }
-  return context.queryTerms.every((term) => term && titleLower.includes(term)) ? 2 : 0;
+  return context.queryTerms.every((term) => term && hasSearchLiteral(titleLower, term)) ? 2 : 0;
 }
 
 // Query terms that name the host, or start one of its labels.
 function getHostTermSignal(url: string, context: SlateContext): number {
   let hostLabels: string[];
   try {
-    hostLabels = normalizeHost(new URL(url).hostname).split('.').filter(Boolean);
+    hostLabels = getSearchHostNameLabels(new URL(url).hostname);
   } catch (e) {
     return 0;
   }
@@ -134,22 +133,6 @@ function getSearchNavigationRepresentativeSignal(item: IntentItem | null | undef
     getTitleSignal(titleLower, context) +
     getHostTermSignal(item.url, context) +
     sourceSignal;
-}
-
-// The host and path tokens of a URL; nothing when it does not parse or its
-// path does not decode.
-function readNavigationUrlParts(url: string): { hostname: string; hostLabels: string[]; pathTokens: string[] } {
-  try {
-    const parsedUrl = new URL(url);
-    const hostname = normalizeHost(parsedUrl.hostname);
-    const pathTokens = decodeURIComponent(String(parsedUrl.pathname || '').toLowerCase())
-      .split('/')
-      .filter(Boolean)
-      .flatMap((segment) => segment.split(/[^a-z0-9\u4e00-\u9fff]+/i).filter(Boolean));
-    return { hostname, hostLabels: hostname.split('.').filter(Boolean), pathTokens };
-  } catch (e) {
-    return { hostname: '', hostLabels: [], pathTokens: [] };
-  }
 }
 
 // For a brand or a brand's product, the site's own pages rank up and deep
@@ -195,13 +178,7 @@ function getSearchDirectNavigationAdjustment(
   const info = getSearchSuggestionClusterInfo(url);
   const hasHomeTitle = hasSearchHomeTitle(item.title);
   const representativeSignal = getSearchNavigationRepresentativeSignal(item, context);
-  const coverageStats = getSearchTermCoverageStats(context, {
-    ...readNavigationUrlParts(url),
-    titleLower: normalizeSearchText(item.title),
-    urlLower: url.toLowerCase(),
-    titleTokens: splitSearchTitleTokens(item.title),
-    matchesTitleUnits: (term: string) => Boolean(getSearchTitleUnitMatch(item.title, term, options))
-  });
+  const coverageStats = getSearchTermCoverageStats(context, readSearchItemFields(item), options);
   const representativeAdjustment = representativeSignal >= 6 ? 18 : (representativeSignal <= 0 ? -12 : 0);
   const unrequestedUtilityPenalty = (info.category === 'utility' || info.category === 'action' || info.category === 'user') &&
     !context.hasSettingsIntent ? 36 : 0;
@@ -226,6 +203,5 @@ export {
   getTitleSignal,
   hasSearchHomeTitle,
   isSearchLikelyBrandProductQuery,
-  isSearchLikelyDirectNavigationQuery,
-  readNavigationUrlParts
+  isSearchLikelyDirectNavigationQuery
 };

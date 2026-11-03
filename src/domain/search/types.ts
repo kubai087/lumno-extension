@@ -119,17 +119,6 @@ interface SearchTermCoverage {
   allMatched: boolean;
 }
 
-// A candidate's text, prepared once for getSearchTermCoverageStats.
-interface SearchCandidateParts {
-  titleLower?: string;
-  hostname?: string;
-  urlLower?: string;
-  titleTokens?: string[];
-  hostLabels?: string[];
-  pathTokens?: string[];
-  matchesTitleUnits?: (term: string) => boolean;
-}
-
 // A unit kind of the text index: a word, a digit run, a Han character, or
 // another single character.
 type SearchUnitKind = 'w' | 'd' | 'h' | 'c';
@@ -338,7 +327,6 @@ export type {
   LocalSearchScope,
   LocalSearchScopeRule,
   NormalizedSiteSearchProvider,
-  SearchCandidateParts,
   SearchClusterCategory,
   SearchClusterInfo,
   SearchEngineState,

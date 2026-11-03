@@ -4,7 +4,7 @@
 import type { SiteSearchProvider, SuggestionLike } from '../types';
 import { normalizeHost } from './direct-navigation';
 import { buildSearchUrlFromTemplate, findSiteSearchProvider, getSiteSearchProviderHost, getUrlHost, isAiSiteSearchProvider, isSearchEngineSiteSearchProvider, normalizeSiteSearchTemplate, siteSearchHostsMatch } from './site-search-providers';
-import { normalizeSearchText, shouldAllowLooseTextContains, splitSearchTitleTokens } from './text-normalize';
+import { hasSearchLiteral, normalizeSearchText, splitSearchTitleTokens } from './text-normalize';
 
 type Providers = readonly SiteSearchProvider[] | null | undefined;
 type MaybeProvider = SiteSearchProvider | null | undefined;
@@ -288,7 +288,7 @@ function siteSearchSuggestionTitleMatchesInput(suggestion: MaybeSuggestion, inpu
   const titleTokens = splitSearchTitleTokens(title);
   return titleTokens.includes(needle) ||
     titleTokens.some((token) => token.startsWith(needle)) ||
-    (shouldAllowLooseTextContains(needle) && titleLower.includes(needle));
+    hasSearchLiteral(titleLower, needle);
 }
 
 function providerMatchesSiteSearchSuggestionTitle(provider: MaybeProvider, suggestion: MaybeSuggestion, input: unknown): boolean {

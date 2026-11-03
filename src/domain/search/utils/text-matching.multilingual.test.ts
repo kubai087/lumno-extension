@@ -6,6 +6,8 @@ import { compactSearchQuery, splitSearchTerms } from './text-normalize';
 import { pinyin } from 'pinyin-pro';
 import { HAN_VARIANT_PAIRS } from '../han-variants.generated';
 import { installHanVariantPairs } from '../han-variants';
+import { readSearchTitleHanReadings, readSearchUsualHanReading } from '../pinyin-api';
+import type { PinyinApi } from '../pinyin-api';
 
 // How local search reads titles in other languages: letters a reader sees
 // as the same, marks that can or cannot be left out, words and initials in
@@ -13,11 +15,12 @@ import { installHanVariantPairs } from '../han-variants';
 
 installHanVariantPairs(HAN_VARIANT_PAIRS);
 
+const pinyinApi: PinyinApi = { pinyin: (text, readOptions) => pinyin(text, readOptions) };
 const options = {
   titleMatcher: createSearchTextMatcher({
-    getHanReadings: (_text, characters) => characters.map((character) => (
-      pinyin(character, { toneType: 'none', type: 'array', multiple: true, v: true })
-    ))
+    getHanReadings: (text, characters) => readSearchTitleHanReadings(
+      pinyinApi, text, characters, (character) => readSearchUsualHanReading(pinyinApi, character)
+    )
   })
 };
 

@@ -8,6 +8,8 @@ import { expandSearchFuzzyPinyinReadings, splitSearchTitleTokens } from './text-
 import { pinyin } from 'pinyin-pro';
 import { HAN_VARIANT_PAIRS } from '../han-variants.generated';
 import { installHanVariantPairs } from '../han-variants';
+import { readSearchTitleHanReadings, readSearchUsualHanReading } from '../pinyin-api';
+import type { PinyinApi } from '../pinyin-api';
 
 // How local search matches a title: short terms, pinyin, initials and words
 // spelled across spaces, pieces, fuzzy pinyin, Han queries against
@@ -22,13 +24,17 @@ function score(item: { title: string; url: string }, query: string, sourceType =
   return calculateSearchRelevanceScore(item, sourceType, buildSearchQueryContext(query), RANKING);
 }
 
-const readings = (character: string): string[] => pinyin(character, { toneType: 'none', type: 'array', multiple: true, v: true });
+// Titles read their characters the way the worker does.
+const pinyinApi: PinyinApi = { pinyin: (text, options) => pinyin(text, options) };
+const readings = (text: string, characters: string[]): string[][] => readSearchTitleHanReadings(
+  pinyinApi, text, characters, (character) => readSearchUsualHanReading(pinyinApi, character)
+);
 const pinyinOptions = {
-  titleMatcher: createSearchTextMatcher({ getHanReadings: (_text, characters) => characters.map(readings) })
+  titleMatcher: createSearchTextMatcher({ getHanReadings: readings })
 };
 const fuzzyOptions = {
   titleMatcher: createSearchTextMatcher({
-    getHanReadings: (_text, characters) => characters.map((character) => expandSearchFuzzyPinyinReadings(readings(character)))
+    getHanReadings: (text, characters) => readings(text, characters).map(expandSearchFuzzyPinyinReadings)
   })
 };
 
