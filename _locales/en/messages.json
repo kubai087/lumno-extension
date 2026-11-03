@@ -2321,6 +2321,9 @@
   "link_preview_open_in_tab": {
     "message": "Open in new tab"
   },
+  "link_preview_open_in_split_view": {
+    "message": "Open in split view"
+  },
   "link_preview_copy_link": {
     "message": "Copy link"
   },

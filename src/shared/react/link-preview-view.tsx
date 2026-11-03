@@ -8,7 +8,7 @@ import { createReactRootController, type ReactRootController } from './root-cont
 // layer, so the page's toast would stay under it). The content script drives
 // the opening and closing motion on the elements this draws.
 
-type LinkPreviewIconName = 'close' | 'openInTab' | 'copyLink' | 'reload' | 'back';
+type LinkPreviewIconName = 'close' | 'openInTab' | 'openInSplitView' | 'copyLink' | 'reload' | 'back';
 
 export const LINK_PREVIEW_FRAME_NAME = 'lumno-link-preview';
 const FRAME_SANDBOX = [
@@ -27,6 +27,7 @@ const FRAME_ALLOW = 'autoplay; clipboard-read; clipboard-write; encrypted-media;
 const ICON_PATHS: Readonly<Record<LinkPreviewIconName, string>> = {
   close: 'M12 10.586l4.95-4.95 1.414 1.414-4.95 4.95 4.95 4.95-1.414 1.414-4.95-4.95-4.95 4.95-1.414-1.414 4.95-4.95-4.95-4.95L7.05 5.636z',
   openInTab: 'M10 6v2H5v11h11v-5h2v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6zm11-3v8h-2V6.413l-7.793 7.794-1.414-1.414L17.585 5H13V3h8z',
+  openInSplitView: 'M11 5H5v14h6V5zm2 0v14h6V5h-6zM4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z',
   copyLink: 'M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .552-.45 1-1.007 1H4.007A1.001 1.001 0 0 1 3 21l.003-14c0-.552.45-1 1.007-1H7zM5.003 8L5 20h10V8H5.003zM9 6h8v10h2V4H9v2z',
   reload: 'M5.463 4.433A9.961 9.961 0 0 1 12 2c5.523 0 10 4.477 10 10 0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228l-.997-1.795zm13.074 15.134A9.961 9.961 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772l.997 1.795z',
   back: 'M7.828 11H20v2H7.828l5.364 5.364-1.414 1.414L4 12l7.778-7.778 1.414 1.414z'
@@ -56,9 +57,12 @@ export interface LinkPreviewViewModel {
   closing: boolean;
   frameUrl: string;
   placeholder: string;
+  // The browser can move the preview into a split view beside the page.
+  splitViewAvailable: boolean;
   labels: {
     close: string;
     openInTab: string;
+    openInSplitView: string;
     copyLink: string;
     reload: string;
     back: string;
@@ -69,6 +73,7 @@ export interface LinkPreviewViewModel {
 export interface LinkPreviewViewHandlers {
   onClose(): void;
   onOpenInTab(): void;
+  onOpenInSplitView(): void;
   onCopyLink(): void;
   onReload(): void;
   onBack(): void;
@@ -206,6 +211,7 @@ function LinkPreviewView({ model, handlers, refs, styles, toastStylesheetUrl }: 
           <div className="controls" ref={refs.controls}>
             <Control className="control-close" label={model.labels.close} name="close" onClick={handlers.onClose} />
             <Control label={model.labels.openInTab} name="openInTab" onClick={handlers.onOpenInTab} />
+            <Control hidden={!model.splitViewAvailable} label={model.labels.openInSplitView} name="openInSplitView" onClick={handlers.onOpenInSplitView} />
             <Control label={model.labels.copyLink} name="copyLink" onClick={handlers.onCopyLink} />
             <Control label={model.labels.reload} name="reload" onClick={handlers.onReload} />
             {/* Last, so it comes and goes without moving the others. */}

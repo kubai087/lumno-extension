@@ -194,9 +194,11 @@ function retryRefusedPage(preview: LinkPreview, loadNumber: number): void {
 }
 
 
-function moveToTab(preview: LinkPreview): void {
+// Moves the page to a tab next to this one, or with `split` into a split
+// view beside it.
+function moveToTab(preview: LinkPreview, options?: { split?: boolean }): void {
   const url = preview.currentUrl || preview.url;
-  send({ action: 'linkPreviewOpenInTab', url });
+  send({ action: 'linkPreviewOpenInTab', url, ...(options && options.split ? { split: true } : {}) });
   close(preview, { instant: true });
 }
 

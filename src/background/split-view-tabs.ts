@@ -3,21 +3,12 @@
 // the source tab is already in a split view or cannot join one, the result
 // opens as a new tab.
 import { createSearchResultTab } from './browser-urls-service';
+import { canSplitBeside } from '../domain/split-view';
 import type { OpenDisposition } from '../domain/messages';
 import type { TabPlacement } from './search-result-tabs';
 import type { CreatedTabCallback } from './tab-groups';
 
 type SplitSourceTab = chrome.tabs.Tab & { id: number };
-
-function canSplitBeside(sourceTab: chrome.tabs.Tab | null | undefined): sourceTab is SplitSourceTab {
-  return Boolean(
-    sourceTab &&
-    typeof sourceTab.id === 'number' &&
-    chrome.tabs &&
-    typeof chrome.tabs.createSplit === 'function' &&
-    !(typeof sourceTab.splitViewId === 'number' && sourceTab.splitViewId >= 0)
-  );
-}
 
 // The new tab on the right of the source tab; null when the browser refused.
 function createSplitTab(url: string, sourceTab: SplitSourceTab, callback: (tab: chrome.tabs.Tab | null) => void): void {
@@ -43,7 +34,7 @@ function openSearchResultTab(
   const openAsNewTab = (): void => {
     createSearchResultTab({ url, active: disposition !== 'backgroundTab' }, sourceTab, callback, resolvedPlacement);
   };
-  if (disposition !== 'splitTab' || !canSplitBeside(sourceTab)) {
+  if (disposition !== 'splitTab' || !canSplitBeside(chrome.tabs, sourceTab)) {
     openAsNewTab();
     return;
   }

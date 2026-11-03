@@ -2321,6 +2321,9 @@
   "link_preview_open_in_tab": {
     "message": "新しいタブで開く"
   },
+  "link_preview_open_in_split_view": {
+    "message": "分割ビューで開く"
+  },
   "link_preview_copy_link": {
     "message": "リンクをコピー"
   },

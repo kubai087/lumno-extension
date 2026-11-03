@@ -2321,6 +2321,9 @@
   "link_preview_open_in_tab": {
     "message": "새 탭에서 열기"
   },
+  "link_preview_open_in_split_view": {
+    "message": "분할 화면으로 열기"
+  },
   "link_preview_copy_link": {
     "message": "링크 복사"
   },

@@ -2321,6 +2321,9 @@
   "link_preview_open_in_tab": {
     "message": "Abrir en una pestaña nueva"
   },
+  "link_preview_open_in_split_view": {
+    "message": "Abrir en vista dividida"
+  },
   "link_preview_copy_link": {
     "message": "Copiar enlace"
   },

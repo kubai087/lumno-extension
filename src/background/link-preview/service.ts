@@ -164,7 +164,7 @@ function createMessageHandlers(preview: LinkPreview): HandlersFor<LinkPreviewAct
       return false;
     },
     linkPreviewOpenInTab(request, sender, sendResponse) {
-      void openInTab(preview, sender && sender.tab, request.url).then((opened) => {
+      void openInTab(preview, sender && sender.tab, request.url, { split: request.split === true }).then((opened) => {
         sendResponse({ ok: opened });
       });
       return true;

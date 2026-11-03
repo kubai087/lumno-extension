@@ -46,6 +46,8 @@ interface ShowRequest {
   frameSecret: string;
   screenshot: string;
   origin: LinkPreviewOrigin | null;
+  // Whether the browser can move the preview into a split view.
+  splitView: boolean;
 }
 
 

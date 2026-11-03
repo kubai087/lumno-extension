@@ -21,7 +21,11 @@ function model(overrides: Partial<LinkPreviewViewModel> = {}): LinkPreviewViewMo
     closing: false,
     frameUrl: 'https://example.com/',
     placeholder: 'example.com',
-    labels: { close: 'Close', openInTab: 'Open in new tab', copyLink: 'Copy link', reload: 'Reload', back: 'Back', blocked: 'Blocked' },
+    splitViewAvailable: false,
+    labels: {
+      close: 'Close', openInTab: 'Open in new tab', openInSplitView: 'Open in split view', copyLink: 'Copy link',
+      reload: 'Reload', back: 'Back', blocked: 'Blocked'
+    },
     ...overrides
   };
 }
@@ -31,7 +35,8 @@ function setUp() {
   document.body.appendChild(host);
   const shadow = host.attachShadow({ mode: 'open' });
   const handlers = {
-    onClose: vi.fn(), onOpenInTab: vi.fn(), onCopyLink: vi.fn(), onReload: vi.fn(), onBack: vi.fn(), onFrameLoad: vi.fn()
+    onClose: vi.fn(), onOpenInTab: vi.fn(), onOpenInSplitView: vi.fn(), onCopyLink: vi.fn(), onReload: vi.fn(), onBack: vi.fn(),
+    onFrameLoad: vi.fn()
   };
   const drawnViews: LinkPreviewViewController[] = [];
   act(() => {
@@ -68,8 +73,9 @@ describe('Link preview view', () => {
     expect(toastStylesheet.getAttribute('href')).toBe('toast.css');
     expect(toastElement.getAttribute('data-show')).toBe('false');
     expect(Array.from(shadow.querySelectorAll('.control'), (button) => button.getAttribute('aria-label')))
-      .toEqual(['Close', 'Open in new tab', 'Copy link', 'Reload', 'Back']);
+      .toEqual(['Close', 'Open in new tab', 'Open in split view', 'Copy link', 'Reload', 'Back']);
     expect(getTag(shadow, '.control[aria-label="Back"]', 'button').hidden).toBe(true);
+    expect(getTag(shadow, '.control[aria-label="Open in split view"]', 'button').hidden).toBe(true);
     expect(shadow.querySelector('.placeholder')?.textContent).toBe('example.com');
   });
 
@@ -102,5 +108,14 @@ describe('Link preview view', () => {
     press('.stage');
     expect([handlers.onClose.mock.calls.length, handlers.onCopyLink.mock.calls.length, handlers.onOpenInTab.mock.calls.length])
       .toEqual([2, 1, 1]);
+  });
+
+  it('offers the split view only where the browser has one, and reports it', () => {
+    const { shadow, handlers, view } = setUp();
+    act(() => view.render(model({ splitViewAvailable: true })));
+    const split = getTag(shadow, '.control[aria-label="Open in split view"]', 'button');
+    expect(split.hidden).toBe(false);
+    act(() => split.click());
+    expect([handlers.onOpenInSplitView.mock.calls.length, handlers.onOpenInTab.mock.calls.length]).toEqual([1, 0]);
   });
 });

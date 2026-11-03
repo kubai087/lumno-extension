@@ -2321,6 +2321,9 @@
   "link_preview_open_in_tab": {
     "message": "在新标签页中打开"
   },
+  "link_preview_open_in_split_view": {
+    "message": "分屏打开"
+  },
   "link_preview_copy_link": {
     "message": "复制链接"
   },

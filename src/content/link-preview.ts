@@ -54,7 +54,7 @@ function applyHostStyle(host: HTMLElement): void {
   ].map((declaration) => `${declaration} !important`).join('; ');
 }
 
-function build(token: string, url: string): LinkPreview | null {
+function build(token: string, url: string, splitView: boolean): LinkPreview | null {
   const host = document.createElement('div');
   host.id = HOST_ID;
   host.setAttribute('translate', 'no');
@@ -82,9 +82,11 @@ function build(token: string, url: string): LinkPreview | null {
     closing: false,
     frameUrl: toPreviewFrameUrl(url),
     placeholder: readHostLabel(url),
+    splitViewAvailable: splitView,
     labels: {
       close: getMessage('link_preview_close', 'Close'),
       openInTab: getMessage('link_preview_open_in_tab', 'Open in new tab'),
+      openInSplitView: getMessage('link_preview_open_in_split_view', 'Open in split view'),
       copyLink: getMessage('link_preview_copy_link', 'Copy link'),
       reload: getMessage('link_preview_reload', 'Reload'),
       back: getMessage('link_preview_back', 'Back'),
@@ -95,6 +97,7 @@ function build(token: string, url: string): LinkPreview | null {
   const view = createLinkPreviewView(shadow, {
     onClose: () => close(preview),
     onOpenInTab: () => { if (preview) moveToTab(preview); },
+    onOpenInSplitView: () => { if (preview) moveToTab(preview, { split: true }); },
     onCopyLink: () => { if (preview) copyLink(preview); },
     onReload: () => { if (preview) reload(preview); },
     onBack: () => { if (preview) goBack(preview); },
@@ -195,7 +198,7 @@ function holdPageScroll(preview: LinkPreview): void {
   preview.cleanups.push(restore);
 }
 
-function prewarm(token: string, url: string, frameSecret: string): boolean {
+function prewarm(token: string, url: string, frameSecret: string, splitView: boolean): boolean {
   if (surface.current && !surface.current.shown) {
     teardown(surface.current);
   }
@@ -203,7 +206,7 @@ function prewarm(token: string, url: string, frameSecret: string): boolean {
     // A preview is already on screen; the page under it cannot be pressed.
     return false;
   }
-  const preview = build(token, url);
+  const preview = build(token, url, splitView);
   if (!preview) {
     return false;
   }
@@ -253,7 +256,7 @@ async function show(message: ShowRequest): Promise<boolean> {
     return false;
   }
   if (!surface.current || surface.current.token !== message.token || surface.current.url !== message.url) {
-    prewarm(message.token, message.url, message.frameSecret);
+    prewarm(message.token, message.url, message.frameSecret, message.splitView);
   }
   const preview = surface.current;
   if (!preview) {
@@ -308,7 +311,8 @@ function handleShowMessage(message: PageMessage, sendResponse: Respond): boolean
     url: String(message.url || ''),
     frameSecret: String(message.frameSecret || ''),
     screenshot: typeof message.screenshot === 'string' ? message.screenshot : '',
-    origin: readOrigin(message.origin)
+    origin: readOrigin(message.origin),
+    splitView: message.splitView === true
   }).then(sendResponse, () => sendResponse(false));
   return true;
 }
@@ -328,7 +332,7 @@ function handleDiscardMessage(message: PageMessage, sendResponse: Respond): bool
 // says, and returns true when it answers later.
 const PAGE_MESSAGE_HANDLERS: Record<string, (message: PageMessage, sendResponse: Respond) => boolean> = {
   lumnoLinkPreviewPrewarm(message, sendResponse) {
-    sendResponse(prewarm(readToken(message), String(message.url || ''), String(message.frameSecret || '')));
+    sendResponse(prewarm(readToken(message), String(message.url || ''), String(message.frameSecret || ''), message.splitView === true));
     return false;
   },
   lumnoLinkPreviewScreenshot: handleScreenshotMessage,

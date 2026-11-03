@@ -356,7 +356,8 @@ interface BackgroundMessages {
   // The press was released away from the link.
   linkPreviewCancel: { request: NoFields; reply: OkReply };
   linkPreviewClose: { request: { token?: string }; reply: OkReply };
-  linkPreviewOpenInTab: { request: { url: string }; reply: OkReply };
+  // `split` opens it in a split view beside the page where the browser can.
+  linkPreviewOpenInTab: { request: { url: string; split?: boolean }; reply: OkReply };
   // Sent by the preview frame: the secret binds it, then it reports where it goes.
   linkPreviewFrameBind: { request: { secret: string }; reply: OkReply };
   linkPreviewFrameNavigating: { request: { url: string }; reply: OkReply };
@@ -454,10 +455,11 @@ interface PageMessages {
   getOpenTabSwitcherState: { request: NoFields; reply: { ok: boolean; open: boolean } };
   updateTabSwitcherThumbnail: { request: TabSwitcherThumbnailUpdate; reply: OkReply };
   // The link preview surface answers whether it took the request.
-  lumnoLinkPreviewPrewarm: { request: { token: string; url: string; frameSecret: string }; reply: boolean };
+  // `splitView` says whether the preview can move into a split view.
+  lumnoLinkPreviewPrewarm: { request: { token: string; url: string; frameSecret: string; splitView: boolean }; reply: boolean };
   lumnoLinkPreviewScreenshot: { request: { token: string; screenshot: string }; reply: boolean };
   lumnoLinkPreviewShow: {
-    request: { token: string; url: string; frameSecret: string; screenshot: string; origin: LinkPreviewOrigin | null };
+    request: { token: string; url: string; frameSecret: string; screenshot: string; origin: LinkPreviewOrigin | null; splitView: boolean };
     reply: boolean;
   };
   // A press released away from the link drops the preview it prepared.

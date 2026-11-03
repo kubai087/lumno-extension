@@ -99,6 +99,52 @@ describe('the link preview service', () => {
     expect(preview.hasTabRules(5)).toBe(false);
   });
 
+  describe('moving the preview into a split view', () => {
+    const openInTab = (preview: ReturnType<typeof createPreviewHarness>, split: boolean) => new Promise((resolve) => {
+      preview.service.messageHandlers.linkPreviewOpenInTab(
+        { action: 'linkPreviewOpenInTab', url: 'https://example.com/s', ...(split ? { split: true } : {}) },
+        { tab: tab(8, 2, 4), frameId: 0 },
+        resolve
+      );
+    });
+    const withSplitViews = (preview: ReturnType<typeof createPreviewHarness>) => {
+      Reflect.set(preview.fake.chrome.tabs, 'createSplit', vi.fn());
+      return preview;
+    };
+
+    it('tells the surface whether the browser has split views', async () => {
+      const without = createPreviewHarness();
+      const withSplit = withSplitViews(createPreviewHarness());
+      await without.service.open(tab(3), 'https://example.com/a', null);
+      await withSplit.service.open(tab(3), 'https://example.com/a', null);
+      const flags = (preview: ReturnType<typeof createPreviewHarness>) => preview.sent()
+        .filter((entry) => entry.message.action === 'lumnoLinkPreviewPrewarm' || entry.message.action === 'lumnoLinkPreviewShow')
+        .map((entry) => entry.message.splitView);
+      expect([flags(without), flags(withSplit)]).toEqual([[false, false], [true, true]]);
+    });
+
+    it('opens the page on the right of the tab, or as a tab where the browser cannot split', async () => {
+      const withSplit = withSplitViews(createPreviewHarness());
+      const without = createPreviewHarness();
+      expect(await openInTab(withSplit, true)).toEqual({ ok: true });
+      expect(await openInTab(without, true)).toEqual({ ok: true });
+      expect(withSplit.created()).toEqual([{ url: 'https://example.com/s', windowId: 2, splitWithTabId: 8, active: true }]);
+      expect(without.created()).toEqual([{ url: 'https://example.com/s', active: true, index: 5, openerTabId: 8, windowId: 2 }]);
+    });
+
+    it('opens a tab when the browser refuses the split', async () => {
+      const preview = withSplitViews(createPreviewHarness());
+      preview.fake.chrome.tabs.create.mockImplementationOnce((_properties, callback) => {
+        Reflect.set(chrome.runtime, 'lastError', { message: 'Tabs cannot be split.' });
+        if (callback) Reflect.apply(callback, undefined, []);
+        Reflect.set(chrome.runtime, 'lastError', null);
+        return undefined;
+      });
+      expect(await openInTab(preview, true)).toEqual({ ok: true });
+      expect(preview.created().map((properties) => properties.splitWithTabId)).toEqual([8, undefined]);
+    });
+  });
+
   // The preview's frame loading can report the tab as loading before the
   // click reaches the surface.
   it('keeps an opening preview when its frame loads, and opens no tab beside it', async () => {

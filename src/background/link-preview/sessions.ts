@@ -1,6 +1,7 @@
 // Preview sessions per tab: preparing, opening and closing them, with the
 // header rules and redirects that follow each one.
 import type { LinkPreviewOrigin, OkReply } from '../../domain/messages';
+import { canSplitBeside } from '../../domain/split-view';
 import { callback, captureTab, getDnr, injectSurface, sendToSurface } from './chrome-calls';
 import { PREPARED_TTL_MS } from './constants';
 import { isPreviewableUrl, isSameAddress, readUrlDomain, sessionDomains } from './frame-rules';
@@ -80,7 +81,8 @@ function prepare(
         action: 'lumnoLinkPreviewPrewarm',
         token,
         url,
-        frameSecret: session.frameSecret
+        frameSecret: session.frameSecret,
+        splitView: canSplitBeside(getTabsApi(preview), tab)
       }).then(Boolean);
     });
   if (session.capture) {
@@ -135,7 +137,8 @@ async function open(
     url: session.url,
     frameSecret: session.frameSecret,
     screenshot: screenshotDelivered ? '' : (screenshot || ''),
-    origin: origin || null
+    origin: origin || null,
+    splitView: canSplitBeside(getTabsApi(preview), tab)
   });
   if (!shown) {
     // The surface was asked to show and may be on screen; it moves the
@@ -177,10 +180,26 @@ function cancel(preview: LinkPreview, tabId: number): Promise<boolean> {
   return discard(preview, tabId, session.token);
 }
 
-function openInTab(preview: LinkPreview, tab: chrome.tabs.Tab | null | undefined, url: unknown): Promise<boolean> {
-  const tabs = preview.ports.chromeApi && preview.ports.chromeApi.tabs;
+function getTabsApi(preview: LinkPreview): typeof chrome.tabs | null {
+  return (preview.ports.chromeApi && preview.ports.chromeApi.tabs) || null;
+}
+
+// Opens the previewed page in a tab next to the page, or with `split` in a
+// split view beside it; a split the browser refuses opens as a tab.
+function openInTab(
+  preview: LinkPreview,
+  tab: chrome.tabs.Tab | null | undefined,
+  url: unknown,
+  options?: { split?: boolean }
+): Promise<boolean> {
+  const tabs = getTabsApi(preview);
   if (!tabs || typeof tabs.create !== 'function' || !isPreviewableUrl(url)) {
     return Promise.resolve(false);
+  }
+  if (options && options.split && canSplitBeside(tabs, tab)) {
+    const splitProperties: chrome.tabs.CreateProperties = { url, windowId: tab.windowId, splitWithTabId: tab.id, active: true };
+    return callback<chrome.tabs.Tab>(preview, (done) => tabs.create(splitProperties, done))
+      .then((created) => (created ? true : openInTab(preview, tab, url)));
   }
   const properties: chrome.tabs.CreateProperties = { url, active: true };
   if (tab && typeof tab.index === 'number') {

@@ -2321,6 +2321,9 @@
   "link_preview_open_in_tab": {
     "message": "Открыть в новой вкладке"
   },
+  "link_preview_open_in_split_view": {
+    "message": "Открыть в разделённом окне"
+  },
   "link_preview_copy_link": {
     "message": "Копировать ссылку"
   },
