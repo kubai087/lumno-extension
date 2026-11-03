@@ -1,0 +1,115 @@
+name: Publish Chrome and Edge
+
+# Builds the store package from the released commit and submits it to the
+# Chrome Web Store and Microsoft Edge Add-ons. Both stores review it and serve
+# it once approved; watch-store-publication.yml picks it up from there. The
+# store listings (description, screenshots) stay in each store's dashboard.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      store:
+        description: "Which store to submit to"
+        type: choice
+        options: [all, chrome, edge]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-chromium
+  cancel-in-progress: false
+
+env:
+  CWS_EXTENSION_ID: nggfkkbmogmadfoikakkfegkoilfcfao
+  EDGE_EXTENSION_ID: pfbklkaefmfamjpibfiapaiihlddhchc
+
+jobs:
+  publish:
+    name: Submit to Chrome Web Store and Edge Add-ons
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check store credentials
+        env:
+          STORE: ${{ inputs.store || 'all' }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+        run: |
+          missing=""
+          if [ "$STORE" != "edge" ]; then
+            for name in CWS_CLIENT_ID CWS_CLIENT_SECRET CWS_REFRESH_TOKEN CWS_PUBLISHER_ID; do
+              [ -n "${!name:-}" ] || missing="$missing $name"
+            done
+          fi
+          if [ "$STORE" != "chrome" ]; then
+            for name in EDGE_CLIENT_ID EDGE_API_KEY EDGE_PRODUCT_ID; do
+              [ -n "${!name:-}" ] || missing="$missing $name"
+            done
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Add these to this repository's Actions secrets:$missing. Chrome: an OAuth client and refresh token for the Chrome Web Store API (https://developer.chrome.com/docs/webstore/using-api); the publisher ID is under Publisher > Settings in the developer dashboard. Edge: Partner Center > Microsoft Edge > Publish API; the product ID is on the extension's overview page."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests and checks
+        run: npm run verify
+
+      - name: Read version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(node -p "require('./manifest.json').version")"
+          if [ -n "${RELEASE_TAG:-}" ] && [ "${RELEASE_TAG#v}" != "$version" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not match manifest version $version."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build store package
+        run: npm run package:store
+
+      - name: Submit to Chrome Web Store
+        if: ${{ inputs.store != 'edge' }}
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/release/chrome-web-store-publish.js "dist/lumno-store-v${VERSION}.zip" "$VERSION"
+
+      # Runs even when the Chrome submission failed, so one store's trouble
+      # doesn't hold back the other.
+      - name: Submit to Edge Add-ons
+        if: ${{ !cancelled() && inputs.store != 'chrome' && steps.version.outcome == 'success' && hashFiles('dist/lumno-store-v*.zip') != '' }}
+        env:
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}
+        run: |
+          node scripts/release/edge-addons-publish.js "dist/lumno-store-v${VERSION}.zip" "$VERSION" "Release notes: $RELEASE_URL"
