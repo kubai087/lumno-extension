@@ -3,7 +3,7 @@
 import type { SearchSourceType } from '../search/types';
 import { defineSetting } from './define';
 import type { Setting } from './define';
-import { newtabZenMode } from './newtab-page';
+import { newtabPresentationMode } from './newtab-page';
 import { custom, flag, opaque } from './schema';
 
 // Whether search engine suggestions or matching pages come first.
@@ -66,12 +66,12 @@ const searchResultSourceTypes = defineSetting({
 });
 
 // What decides the browser content search shows.
-const SHOWN_SEARCH_RESULT_SOURCE_SETTINGS: readonly Setting<unknown>[] = Object.freeze([searchResultSourceTypes, newtabZenMode]);
+const SHOWN_SEARCH_RESULT_SOURCE_SETTINGS: readonly Setting<unknown>[] = Object.freeze([searchResultSourceTypes, newtabPresentationMode]);
 
-// The browser content search shows: none in zen mode, which doubles as a
-// presentation mode, else the chosen types.
+// The browser content search shows: none in presentation mode, else the
+// chosen types.
 function getShownSearchResultSourceTypes(settings: { get<T>(setting: Setting<T>): T }): SearchSourceType[] {
-  return settings.get(newtabZenMode) ? [] : settings.get(searchResultSourceTypes);
+  return settings.get(newtabPresentationMode) ? [] : settings.get(searchResultSourceTypes);
 }
 
 const searchResultDisplayLimit = defineSetting({

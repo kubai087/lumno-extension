@@ -73,7 +73,7 @@ describe('local search suggestions by source', () => {
 
   it.each([
     ['every result source turned off', { _x_extension_search_result_source_types_2026_unique_: [] }],
-    ['Zen mode, the presentation mode', { _x_extension_newtab_zen_mode_2026_unique_: true }]
+    ['presentation mode on', { _x_extension_newtab_presentation_mode_2026_unique_: true }]
   ])('shows no frequent sites, bookmarks or history with %s', async (_case, sync) => {
     const { search } = await bootSearchWorker({ sync });
 

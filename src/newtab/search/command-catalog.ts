@@ -1,6 +1,6 @@
 // The New Tab's slash commands: what typed input matches, the suggestion
-// rows they show, and the mode badge's text for the theme, zen and website
-// appearance commands.
+// rows they show, and the mode badge's text for the theme, page mode (zen,
+// presentation) and website appearance commands.
 import { getExtensionResourceUrl } from '../../platform/extension-url';
 import type { ThemeMode } from '../../domain/settings';
 import type { WebAppearanceMode } from '../../domain/messages';
@@ -8,7 +8,8 @@ import type { Suggestion } from '../../shared/react/search/suggestion-list/types
 import type { FormatMessage, Translate } from '../newtab-types';
 import type { SlashCommand } from './search-types';
 import type { SettingsStore } from '../../platform/settings-store';
-import { newtabZenMode } from '../../domain/settings/newtab-page';
+import type { Setting } from '../../domain/settings/define';
+import { newtabPresentationMode, newtabZenMode } from '../../domain/settings/newtab-page';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
 import type { WebAppearance } from './web-appearance';
 
@@ -22,13 +23,45 @@ interface CommandCatalogDeps {
 
 const THEME_MODE_ORDER: readonly ThemeMode[] = ['system', 'light', 'dark'];
 const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'dark'];
-// Zen mode also serves as a presentation mode, so /present reaches it too.
-const ZEN_COMMANDS: readonly string[] = ['/zen', '/present'];
 
-// The zen command the input names, shown as typed: /present stays /present.
-function getZenCommandText(rawInput: unknown): string {
-  const typed = String(rawInput || '').trim().toLowerCase().split(/\s+/)[0];
-  return ZEN_COMMANDS.find((token) => token.startsWith(typed)) || ZEN_COMMANDS[0];
+// A message key and the text shown when it is missing.
+type Message = readonly [key: string, fallback: string];
+
+// A command that turns a New Tab page mode on or off.
+interface PageModeCommand {
+  type: 'zenSwitch' | 'presentationSwitch';
+  command: string;
+  setting: Setting<boolean>;
+  badgeOn: Message;
+  badgeOff: Message;
+  enableTitle: Message;
+  disableTitle: Message;
+}
+
+const PAGE_MODE_COMMANDS: readonly PageModeCommand[] = [
+  {
+    type: 'zenSwitch',
+    command: '/zen',
+    setting: newtabZenMode,
+    badgeOn: ['zen_badge_on', 'Zen：已开启'],
+    badgeOff: ['zen_badge_off', 'Zen：已关闭'],
+    enableTitle: ['zen_enable_title', '{name}：进入 Zen 模式'],
+    disableTitle: ['zen_disable_title', '{name}：退出 Zen 模式']
+  },
+  {
+    type: 'presentationSwitch',
+    command: '/present',
+    setting: newtabPresentationMode,
+    badgeOn: ['presentation_badge_on', '演示模式：已开启'],
+    badgeOff: ['presentation_badge_off', '演示模式：已关闭'],
+    enableTitle: ['presentation_enable_title', '{name}：进入演示模式'],
+    disableTitle: ['presentation_disable_title', '{name}：退出演示模式']
+  }
+];
+
+// The page mode a command row of this type turns on or off.
+function getPageModeCommandForType(type: unknown): PageModeCommand | null {
+  return PAGE_MODE_COMMANDS.find((mode) => mode.type === type) || null;
 }
 
 function createCommandCatalog(deps: CommandCatalogDeps) {
@@ -56,11 +89,11 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
       primary: '/mode',
       aliases: []
     },
-    {
-      type: 'zenSwitch',
-      primary: ZEN_COMMANDS[0],
-      aliases: ZEN_COMMANDS.slice(1)
-    },
+    ...PAGE_MODE_COMMANDS.map((mode) => ({
+      type: mode.type,
+      primary: mode.command,
+      aliases: []
+    })),
     {
       type: 'webAppearanceSwitch',
       primary: '/appearance',
@@ -110,7 +143,7 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
         }
       : null;
   }
-  function buildCommandSuggestion(command: SlashCommand, rawInput?: unknown): Suggestion {
+  function buildCommandSuggestion(command: SlashCommand): Suggestion {
     if (command.type === 'modeSwitch') {
       return {
         ...buildModeSuggestion(),
@@ -118,8 +151,9 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
         commandAliases: command.aliases || []
       };
     }
-    if (command.type === 'zenSwitch') {
-      return buildZenSuggestion(rawInput);
+    const pageMode = getPageModeCommandForType(command.type);
+    if (pageMode) {
+      return buildPageModeSuggestion(pageMode);
     }
     if (command.type === 'webAppearanceSwitch') {
       return {
@@ -144,17 +178,14 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
       commandAliases: command.aliases || []
     };
   }
-  function getModeBadgeText(zenCommandActive: boolean, webAppearanceCommandActive: boolean): string {
+  function getModeBadgeText(pageMode: PageModeCommand | null, webAppearanceCommandActive: boolean): string {
     if (webAppearanceCommandActive) {
       return formatMessage('web_appearance_badge', '网站外观：{mode}', {
         mode: getWebAppearanceModeLabel(webAppearance.state.mode)
       });
     }
-    if (zenCommandActive) {
-      return t(
-        settings.get(newtabZenMode) ? 'zen_badge_on' : 'zen_badge_off',
-        settings.get(newtabZenMode) ? 'Zen：已开启' : 'Zen：已关闭'
-      );
+    if (pageMode) {
+      return t(...(settings.get(pageMode.setting) ? pageMode.badgeOn : pageMode.badgeOff));
     }
     return formatMessage('mode_badge', '模式：{mode}', {
       mode: getThemeModeLabel(appliedTheme.mode)
@@ -171,9 +202,10 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
     const raw = String(input || '').trim().toLowerCase();
     return raw === '/mode' || raw.startsWith('/mode ');
   }
-  function isZenCommand(input: unknown): boolean {
+  // The page mode command typed in full, or null.
+  function getPageModeCommand(input: unknown): PageModeCommand | null {
     const raw = String(input || '').trim().toLowerCase();
-    return ZEN_COMMANDS.some((token) => raw === token || raw.startsWith(`${token} `));
+    return PAGE_MODE_COMMANDS.find((mode) => raw === mode.command || raw.startsWith(`${mode.command} `)) || null;
   }
   function isSlashCommandInput(input: unknown): boolean {
     const raw = String(input || '').trim();
@@ -207,18 +239,17 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
       nextMode: nextMode
     };
   }
-  function buildZenSuggestion(rawInput?: unknown): Suggestion {
-    const commandText = getZenCommandText(rawInput);
+  function buildPageModeSuggestion(pageMode: PageModeCommand): Suggestion {
+    const enabled = settings.get(pageMode.setting);
+    const [key, fallback] = enabled ? pageMode.disableTitle : pageMode.enableTitle;
     return {
-      type: 'zenSwitch',
-      title: settings.get(newtabZenMode)
-        ? formatMessage('zen_disable_title', '{name}：退出 Zen 模式', { name: 'Lumno' })
-        : formatMessage('zen_enable_title', '{name}：进入 Zen 模式', { name: 'Lumno' }),
+      type: pageMode.type,
+      title: formatMessage(key, fallback, { name: 'Lumno' }),
       url: '',
       favicon: getExtensionResourceUrl('assets/images/lumno.png'),
-      commandText,
-      commandAliases: ZEN_COMMANDS.filter((token) => token !== commandText),
-      nextEnabled: !settings.get(newtabZenMode)
+      commandText: pageMode.command,
+      commandAliases: [],
+      nextEnabled: !enabled
     };
   }
   function buildWebAppearanceSuggestion(): Suggestion {
@@ -242,15 +273,15 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
     getModeBadgeText,
     getNextThemeMode,
     isModeCommand,
-    isZenCommand,
+    getPageModeCommand,
     isSlashCommandInput,
     isWebAppearanceCommand,
     buildModeSuggestion,
-    buildZenSuggestion
+    buildPageModeSuggestion
   };
 }
 
 type CommandCatalog = ReturnType<typeof createCommandCatalog>;
 
-export { createCommandCatalog };
-export type { CommandCatalog, CommandCatalogDeps };
+export { PAGE_MODE_COMMANDS, createCommandCatalog, getPageModeCommandForType };
+export type { CommandCatalog, CommandCatalogDeps, PageModeCommand };

@@ -118,6 +118,7 @@ describe('settings registry', () => {
   it('keeps every key browser sync carried in the last release', () => {
     expect(RELEASED_BROWSER_SYNC_KEYS.filter((key) => !BROWSER_SYNC_KEYS.includes(key))).toEqual([]);
     expect(BROWSER_SYNC_KEYS.filter((key) => !RELEASED_BROWSER_SYNC_KEYS.includes(key))).toEqual([
+      '_x_extension_newtab_presentation_mode_2026_unique_',
       '_x_extension_bookmark_topbar_layout_2026_unique_'
     ]);
   });

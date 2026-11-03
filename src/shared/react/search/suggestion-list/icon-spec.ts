@@ -71,7 +71,7 @@ function getSuggestionIconSpec(options: NormalizedOptions, suggestion: Suggestio
   if (Object.prototype.hasOwnProperty.call(GLYPH_ICONS, type)) {
     return { kind: 'inline', iconName: GLYPH_ICONS[type], tone: 'subtext' };
   }
-  if ((type === 'modeSwitch' || type === 'zenSwitch') && favicon) {
+  if ((type === 'modeSwitch' || type === 'zenSwitch' || type === 'presentationSwitch') && favicon) {
     return { kind: 'favicon', src: favicon, fallbackIconName: 'ri-link' };
   }
   if (type === 'helpFeedback') {

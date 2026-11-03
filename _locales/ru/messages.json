@@ -1877,6 +1877,18 @@
   "zen_disable_title": {
     "message": "{name}: выйти из режима Zen"
   },
+  "presentation_badge_on": {
+    "message": "Презентация: вкл."
+  },
+  "presentation_badge_off": {
+    "message": "Презентация: выкл."
+  },
+  "presentation_enable_title": {
+    "message": "{name}: включить режим презентации"
+  },
+  "presentation_disable_title": {
+    "message": "{name}: выйти из режима презентации"
+  },
   "switch_to_tab": {
     "message": "Перейти"
   },
@@ -3241,6 +3253,9 @@
   },
   "webdav_preference_zen_mode": {
     "message": "Режим Zen"
+  },
+  "webdav_preference_presentation_mode": {
+    "message": "Режим презентации"
   },
   "webdav_remove": {
     "message": "Удалить подключение WebDAV"

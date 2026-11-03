@@ -11,7 +11,7 @@ import {
   searchResultSourceTypes,
   tabRankScoreDebug
 } from './search';
-import { newtabZenMode } from './newtab-page';
+import { newtabPresentationMode } from './newtab-page';
 import type { Setting } from './define';
 
 describe('search settings', () => {
@@ -49,14 +49,14 @@ describe('search settings', () => {
     ]);
   });
 
-  it('shows no browser content in Zen mode, whatever sources are chosen', () => {
+  it('shows no browser content in presentation mode, whatever sources are chosen', () => {
     const reader = (values: Map<Setting<unknown>, unknown>) => ({
       get: <T>(setting: Setting<T>): T => setting.parse(values.get(setting))
     });
     expect(getShownSearchResultSourceTypes(reader(new Map([[searchResultSourceTypes, ['history']]])))).toEqual(['history']);
     expect(getShownSearchResultSourceTypes(reader(new Map<Setting<unknown>, unknown>([
       [searchResultSourceTypes, ['history']],
-      [newtabZenMode, true]
+      [newtabPresentationMode, true]
     ])))).toEqual([]);
   });
 });

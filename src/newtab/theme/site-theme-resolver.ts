@@ -701,7 +701,7 @@ function createSiteThemeResolver(deps: SiteThemeResolverDeps) {
     if (!suggestion) {
       return false;
     }
-    const neutralTypes = ['googleSuggest', 'newtab', 'modeSwitch', 'zenSwitch', 'webAppearanceSwitch', 'chatgpt', 'perplexity', 'commandNewTab', 'commandSettings', 'commandDocumentPip'];
+    const neutralTypes = ['googleSuggest', 'newtab', 'modeSwitch', 'zenSwitch', 'presentationSwitch', 'webAppearanceSwitch', 'chatgpt', 'perplexity', 'commandNewTab', 'commandSettings', 'commandDocumentPip'];
     if (neutralTypes.includes(String(suggestion.type || ''))) {
       return false;
     }

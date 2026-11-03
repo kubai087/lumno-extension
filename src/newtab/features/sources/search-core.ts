@@ -69,10 +69,10 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
     buildCommandSuggestion,
     getNextThemeMode,
     isModeCommand,
-    isZenCommand,
+    getPageModeCommand,
     isSlashCommandInput,
     buildModeSuggestion,
-    buildZenSuggestion
+    buildPageModeSuggestion
   } = commandCatalog;
 
   const siteSearchIconCache = new SiteSearchIconCache(LumnoShortcutFaviconStore.createSiteSearchIconStore({
@@ -210,7 +210,7 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
     buildCommandSuggestion,
     buildModeSuggestion,
     buildThemeFromAccent,
-    buildZenSuggestion,
+    buildPageModeSuggestion,
     commandCatalog,
     createAggregateSearchScopeProvider,
     defaultTheme,
@@ -237,7 +237,7 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
     isModeCommand,
     isNewtabDarkMode,
     isSlashCommandInput,
-    isZenCommand,
+    getPageModeCommand,
     menuOrder,
     modeActions,
     modeMenu,

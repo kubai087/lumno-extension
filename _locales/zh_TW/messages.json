@@ -1877,6 +1877,18 @@
   "zen_disable_title": {
     "message": "{name}：退出 Zen 模式"
   },
+  "presentation_badge_on": {
+    "message": "簡報模式：已開啟"
+  },
+  "presentation_badge_off": {
+    "message": "簡報模式：已關閉"
+  },
+  "presentation_enable_title": {
+    "message": "{name}：進入簡報模式"
+  },
+  "presentation_disable_title": {
+    "message": "{name}：退出簡報模式"
+  },
   "switch_to_tab": {
     "message": "切換"
   },
@@ -3241,6 +3253,9 @@
   },
   "webdav_preference_zen_mode": {
     "message": "Zen 模式"
+  },
+  "webdav_preference_presentation_mode": {
+    "message": "簡報模式"
   },
   "webdav_remove": {
     "message": "刪除 WebDAV 設定"

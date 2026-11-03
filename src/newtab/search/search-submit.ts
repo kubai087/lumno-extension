@@ -7,7 +7,8 @@ import type { Suggestion, SuggestionElement } from '../../shared/react/search/su
 import type { RenderSuggestions } from './search-types';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { AppearanceModes } from '../appearance-modes';
-import { newtabZenMode } from '../../domain/settings/newtab-page';
+import { getPageModeCommandForType } from './command-catalog';
+import type { PageModeCommand } from './command-catalog';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
@@ -35,7 +36,7 @@ interface SearchSubmitDeps extends Pick<SearchNavigation, 'quickNavigation' | 's
   isSlashCommandInput(query: string): boolean;
   getCommandMatch(query: string): CommandMatch | null;
   isModeCommand(query: string): boolean;
-  isZenCommand(query: string): boolean;
+  getPageModeCommand(query: string): PageModeCommand | null;
   getNextThemeMode(mode: string): string;
   setVisibleThemeMode: AppearanceModes['setVisibleThemeMode'];
   webAppearance: Pick<WebAppearance, 'set'>;
@@ -64,7 +65,7 @@ function createSearchSubmit(deps: SearchSubmitDeps) {
     isSlashCommandInput,
     getCommandMatch,
     isModeCommand,
-    isZenCommand,
+    getPageModeCommand,
     getNextThemeMode,
     setVisibleThemeMode,
     webAppearance,
@@ -94,8 +95,9 @@ function createSearchSubmit(deps: SearchSubmitDeps) {
       setVisibleThemeMode(getNextThemeMode(appliedTheme.mode));
       return;
     }
-    if (!searchMode.local && isZenCommand(query)) {
-      void settings.set(newtabZenMode, !settings.get(newtabZenMode));
+    const typedPageMode = searchMode.local ? null : getPageModeCommand(query);
+    if (typedPageMode) {
+      void settings.set(typedPageMode.setting, !settings.get(typedPageMode.setting));
       return;
     }
     const executeSuggestion = (
@@ -113,8 +115,9 @@ function createSearchSubmit(deps: SearchSubmitDeps) {
         setVisibleThemeMode(selectedSuggestion.nextMode);
         return true;
       }
-      if (selectedSuggestion.type === 'zenSwitch') {
-        void settings.set(newtabZenMode, newtabZenMode.parse(selectedSuggestion.nextEnabled));
+      const selectedPageMode = getPageModeCommandForType(selectedSuggestion.type);
+      if (selectedPageMode) {
+        void settings.set(selectedPageMode.setting, selectedPageMode.setting.parse(selectedSuggestion.nextEnabled));
         return true;
       }
       if (selectedSuggestion.type === 'webAppearanceSwitch') {

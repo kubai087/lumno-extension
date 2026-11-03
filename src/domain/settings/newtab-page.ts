@@ -1,6 +1,7 @@
 // The New Tab's page-wide settings: width, search box, theme, glass
 // material, buttons, zen mode and where clicks open.
 import { defineSetting } from './define';
+import type { Setting } from './define';
 import { custom, flag, isRecord, oneOf } from './schema';
 import { themeMode } from './appearance';
 
@@ -102,6 +103,21 @@ const newtabZenMode = defineSetting({
   schema: flag(false)
 });
 
+// Presentation mode keeps what is personal off a shared screen: recent
+// sites, bookmarks, and frequent sites, bookmarks and history in search.
+const newtabPresentationMode = defineSetting({
+  key: '_x_extension_newtab_presentation_mode_2026_unique_',
+  area: 'preferences',
+  sync: 'browser',
+  schema: flag(false)
+});
+
+// Whether New Tab hides its recent sites and bookmarks: in zen mode, and in
+// presentation mode.
+function hidesNewtabPersonalSections(settings: { get<T>(setting: Setting<T>): T }): boolean {
+  return settings.get(newtabZenMode) || settings.get(newtabPresentationMode);
+}
+
 const newtabFeedbackButtonVisible = defineSetting({
   key: '_x_extension_newtab_feedback_button_visible_2026_unique_',
   area: 'preferences',
@@ -174,6 +190,8 @@ export {
   newtabThemeMode,
   newtabThemeScope,
   newtabWidthMode,
+  hidesNewtabPersonalSections,
+  newtabPresentationMode,
   newtabZenMode,
   normalizeNewtabSearchWidth
 };

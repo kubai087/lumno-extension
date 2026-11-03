@@ -9,6 +9,7 @@ describe('suggestion action model', () => {
     'commandSettings',
     'modeSwitch',
     'zenSwitch',
+    'presentationSwitch',
     'commandOpenTabs',
     'commandCopyUrl',
     'commandDocumentPip'

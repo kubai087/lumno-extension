@@ -102,6 +102,7 @@ const COMMAND_SUGGESTION_TYPES = new Set([
   'commandSettings',
   'modeSwitch',
   'zenSwitch',
+  'presentationSwitch',
   'webAppearanceSwitch',
   'commandOpenTabs',
   'commandCopyUrl',
@@ -243,7 +244,7 @@ function createSearchActionModel(options?: SearchActionModelOptions | null): Sea
     ? 'go'
     : defaultVisitButtonAction;
   const alwaysHideVisitButton = Boolean(config.simpleMode) || !visitButtonAction || Boolean(
-    suggestion && (suggestion.type === 'modeSwitch' || suggestion.type === 'zenSwitch')
+    suggestion && (suggestion.type === 'modeSwitch' || suggestion.type === 'zenSwitch' || suggestion.type === 'presentationSwitch')
   );
 
   return {

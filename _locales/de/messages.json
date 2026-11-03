@@ -1877,6 +1877,18 @@
   "zen_disable_title": {
     "message": "{name}: Zen-Modus beenden"
   },
+  "presentation_badge_on": {
+    "message": "Präsentation: An"
+  },
+  "presentation_badge_off": {
+    "message": "Präsentation: Aus"
+  },
+  "presentation_enable_title": {
+    "message": "{name}: Präsentationsmodus aktivieren"
+  },
+  "presentation_disable_title": {
+    "message": "{name}: Präsentationsmodus beenden"
+  },
   "switch_to_tab": {
     "message": "Wechseln"
   },
@@ -3241,6 +3253,9 @@
   },
   "webdav_preference_zen_mode": {
     "message": "Zen-Modus"
+  },
+  "webdav_preference_presentation_mode": {
+    "message": "Präsentationsmodus"
   },
   "webdav_remove": {
     "message": "WebDAV-Verbindung löschen"

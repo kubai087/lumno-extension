@@ -8,7 +8,7 @@ import type { ShortcutContextMenu } from './shortcuts/shortcut-context-menu';
 import type { ShortcutDock } from './dom/shortcut-dock';
 import type { ShortcutDialogActions } from './shortcuts/shortcut-dialog-actions';
 import type { ShortcutData } from './shortcuts/shortcut-data';
-import { newtabZenMode } from '../domain/settings/newtab-page';
+import { hidesNewtabPersonalSections, newtabZenMode } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import { newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../domain/settings/newtab-shortcuts';
 import type { SettingPreview } from './setting-preview';
@@ -226,13 +226,19 @@ function createPageLayout(deps: PageLayoutDeps) {
     return changed;
   }
 
+  // Zen hides every section, presentation mode only recent sites and bookmarks.
+  function isSectionHiddenByPageMode(section: HTMLElement): boolean {
+    return section === shortcutSection ? settings.get(newtabZenMode) : hidesNewtabPersonalSections(settings);
+  }
+
   function setContentSectionVisible(section: HTMLElement | null, visible: boolean): void {
     if (!section) {
       return;
     }
+    const hidden = isSectionHiddenByPageMode(section);
     section.setAttribute('data-content-visible', visible ? 'true' : 'false');
-    section.setAttribute('data-visible', visible && !settings.get(newtabZenMode) ? 'true' : 'false');
-    if (section === recentSection && (!visible || settings.get(newtabZenMode))) {
+    section.setAttribute('data-visible', visible && !hidden ? 'true' : 'false');
+    if (section === recentSection && (!visible || hidden)) {
       closeRecentContextMenu();
     }
     adaptiveToneEvents.emit('stale', {});

@@ -1877,6 +1877,18 @@
   "zen_disable_title": {
     "message": "{name}：Zen モードを終了"
   },
+  "presentation_badge_on": {
+    "message": "プレゼンモード：オン"
+  },
+  "presentation_badge_off": {
+    "message": "プレゼンモード：オフ"
+  },
+  "presentation_enable_title": {
+    "message": "{name}：プレゼンモードに切り替え"
+  },
+  "presentation_disable_title": {
+    "message": "{name}：プレゼンモードを終了"
+  },
   "switch_to_tab": {
     "message": "切り替え"
   },
@@ -3241,6 +3253,9 @@
   },
   "webdav_preference_zen_mode": {
     "message": "Zen モード"
+  },
+  "webdav_preference_presentation_mode": {
+    "message": "プレゼンモード"
   },
   "webdav_remove": {
     "message": "WebDAV 接続を削除"

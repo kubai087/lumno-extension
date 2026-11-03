@@ -1877,6 +1877,18 @@
   "zen_disable_title": {
     "message": "{name}: Zen 모드 종료"
   },
+  "presentation_badge_on": {
+    "message": "발표 모드: 켜짐"
+  },
+  "presentation_badge_off": {
+    "message": "발표 모드: 꺼짐"
+  },
+  "presentation_enable_title": {
+    "message": "{name}: 발표 모드 시작"
+  },
+  "presentation_disable_title": {
+    "message": "{name}: 발표 모드 종료"
+  },
   "switch_to_tab": {
     "message": "전환"
   },
@@ -3241,6 +3253,9 @@
   },
   "webdav_preference_zen_mode": {
     "message": "Zen 모드"
+  },
+  "webdav_preference_presentation_mode": {
+    "message": "발표 모드"
   },
   "webdav_remove": {
     "message": "WebDAV 연결 삭제"

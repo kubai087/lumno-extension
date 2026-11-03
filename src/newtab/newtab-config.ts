@@ -101,6 +101,7 @@ const SYNCED_PAGE_STORAGE_KEYS: readonly string[] = Object.freeze([
   LumnoSettings.newtabThemeMode.key,
   LumnoSettings.newtabThemeScope.key,
   LumnoSettings.newtabZenMode.key,
+  LumnoSettings.newtabPresentationMode.key,
   LumnoSettings.newtabWallpaper.key,
   LumnoSettings.newtabWallpaperOverlay.key,
   LumnoSettings.newtabWallpaperEffect.key,

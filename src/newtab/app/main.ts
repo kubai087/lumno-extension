@@ -58,7 +58,7 @@ function startNewtab(): void {
       appearance.initialAppearanceReadyTask,
       menus.initialBookmarkTopbarLayoutReady,
       sections.followBookmarkViewMode(),
-      search.followZenMode(),
+      search.followPageModes(),
       actionButtonVisibilityReady,
       glassStyleReady,
       motionPreferenceReady,

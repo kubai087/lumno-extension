@@ -15,6 +15,8 @@ import type {
   RequestSuggestionsOptions,
   SlashCommand
 } from './search-types';
+import { getPageModeCommandForType } from './command-catalog';
+import type { PageModeCommand } from './command-catalog';
 import type { SiteSearchProviders } from './site-search-providers';
 import * as SearchEngineSuggestions from '../../domain/search/utils/engine-suggestions';
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
@@ -24,7 +26,6 @@ import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } fro
 import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
-import { newtabZenMode } from '../../domain/settings/newtab-page';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
@@ -79,14 +80,14 @@ interface SuggestionsControllerDeps {
   refreshTabsForSearchContext: SearchNavigation['refreshTabsForSearchContext'];
   isSlashCommandInput(query: string): boolean;
   isModeCommand(query: string): boolean;
-  isZenCommand(query: string): boolean;
+  getPageModeCommand(query: string): PageModeCommand | null;
   // The theme mode the page follows: its own, or the global one.
   getScopedThemeMode: AppearanceModes['getScopedThemeMode'];
   applyThemeMode: AppearanceModes['applyThemeMode'];
   getCommandMatches(rawInput: string): SlashCommand[];
   buildModeSuggestion(): Suggestion;
-  buildZenSuggestion(rawInput: string): Suggestion;
-  buildCommandSuggestion(command: SlashCommand, rawInput: string): Suggestion;
+  buildPageModeSuggestion(pageMode: PageModeCommand): Suggestion;
+  buildCommandSuggestion(command: SlashCommand): Suggestion;
   getDirectUrlSuggestion: SearchNavigation['getDirectUrlSuggestion'];
   quickNavigation: Pick<QuickNavigation, 'keywordRows'>;
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
@@ -148,12 +149,12 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
     refreshTabsForSearchContext,
     isSlashCommandInput,
     isModeCommand,
-    isZenCommand,
+    getPageModeCommand,
     getScopedThemeMode,
     applyThemeMode,
     getCommandMatches,
     buildModeSuggestion,
-    buildZenSuggestion,
+    buildPageModeSuggestion,
     buildCommandSuggestion,
     getDirectUrlSuggestion,
     quickNavigation,
@@ -240,8 +241,9 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       searchBox.focusInput();
       return;
     }
-    if (suggestion.type === 'zenSwitch') {
-      void settings.set(newtabZenMode, newtabZenMode.parse(suggestion.nextEnabled));
+    const pageMode = getPageModeCommandForType(suggestion.type);
+    if (pageMode) {
+      void settings.set(pageMode.setting, pageMode.setting.parse(suggestion.nextEnabled));
       searchBox.focusInput();
       return;
     }
@@ -396,8 +398,8 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         !slashCommandModeActive &&
         Boolean(searchMode.site && String(query || '').trim());
       const modeCommandActive = slashCommandModeActive && !siteSearchQueryModeActive && isModeCommand(rawTagInput);
-      const zenCommandActive = slashCommandModeActive && !siteSearchQueryModeActive && isZenCommand(rawTagInput);
-      const toggleCommandActive = modeCommandActive || zenCommandActive;
+      const pageModeCommand = slashCommandModeActive && !siteSearchQueryModeActive ? getPageModeCommand(rawTagInput) : null;
+      const toggleCommandActive = modeCommandActive || Boolean(pageModeCommand);
       if (modeCommandActive) {
         // The command shows the stored theme, which another page may have changed.
         const storedMode = getScopedThemeMode();
@@ -412,11 +414,11 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       const preSuggestions: Suggestion[] = [];
       if (modeCommandActive) {
         preSuggestions.push(buildModeSuggestion());
-      } else if (zenCommandActive) {
-        preSuggestions.push(buildZenSuggestion(rawTagInput));
+      } else if (pageModeCommand) {
+        preSuggestions.push(buildPageModeSuggestion(pageModeCommand));
       } else if (slashCommandModeActive && !siteSearchQueryModeActive) {
         commandMatches.forEach((command) => {
-          preSuggestions.push(buildCommandSuggestion(command, rawTagInput));
+          preSuggestions.push(buildCommandSuggestion(command));
         });
       } else if (!siteSearchQueryModeActive && !localSearchQueryModeActive) {
         const directUrlSuggestion = getDirectUrlSuggestion(query);
@@ -637,12 +639,12 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         clearSiteSearchTabHint();
         primaryHighlightIndex = 0;
         primaryHighlightReason = 'modeSwitch';
-      } else if (zenCommandActive) {
+      } else if (pageModeCommand) {
         searchAutocomplete.clear();
         searchMode.clearHints();
         clearSiteSearchTabHint();
         primaryHighlightIndex = 0;
-        primaryHighlightReason = 'zenSwitch';
+        primaryHighlightReason = pageModeCommand.type;
       } else if (slashCommandModeActive) {
         searchAutocomplete.clear();
         searchMode.clearHints();

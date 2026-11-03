@@ -6,7 +6,7 @@ import type { Translate } from './newtab-types';
 import type { PageLayout } from './page-layout';
 import type { BookmarkHeaderStore } from './react/bookmark-header';
 import type { TooltipBindings } from './tooltip-bindings';
-import { newtabZenMode } from '../domain/settings/newtab-page';
+import { hidesNewtabPersonalSections } from '../domain/settings/newtab-page';
 import type { SettingsStore } from '../platform/settings-store';
 import type { SettingPreview } from './setting-preview';
 import { bookmarkCount, bookmarkViewMode } from '../domain/settings/bookmarks';
@@ -117,7 +117,7 @@ function createSectionHeaders(deps: SectionHeadersDeps) {
     if (settings.get(bookmarkViewMode) === 'top') {
       setContentSectionVisible(bookmarkSection, false);
       if (bookmarkParts.topbar) {
-        bookmarkParts.topbar.setVisible(nextVisible && !settings.get(newtabZenMode));
+        bookmarkParts.topbar.setVisible(nextVisible && !hidesNewtabPersonalSections(settings));
       }
       return;
     }

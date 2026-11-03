@@ -7,7 +7,7 @@ import { openSearchPage, pause, suggestionOf, type SearchPage } from './search-p
 // Typing "/" in the New Tab search box lists its commands, filtered as the
 // user types, as command rows only; anything else is ordinary search. The
 // overlay's side is in tests/pages/overlay/slash-commands.test.ts.
-const COMMAND_TYPE = /^(command|modeSwitch|zenSwitch|webAppearanceSwitch)/;
+const COMMAND_TYPE = /^(command|modeSwitch|zenSwitch|presentationSwitch|webAppearanceSwitch)/;
 const MODE_BADGE_ID = '_x_extension_newtab_mode_badge_2024_unique_';
 
 // The row types for a query; only command results are laid out as command rows.
@@ -30,10 +30,11 @@ describe('New Tab slash commands', () => {
   it('lists every command for a bare slash and filters as the user types', async () => {
     const search = await openSearchPage(createBrowserFake());
 
-    expect(await rowsFor(search, '/')).toEqual(['commandNewTab', 'commandSettings', 'modeSwitch', 'zenSwitch']);
+    expect(await rowsFor(search, '/')).toEqual(['commandNewTab', 'commandSettings', 'modeSwitch', 'zenSwitch', 'presentationSwitch']);
     expect(await rowsFor(search, '/m')).toEqual(['modeSwitch']);
     expect(await rowsFor(search, '/set')).toEqual(['commandSettings']);
     expect(await rowsFor(search, '/z')).toEqual(['zenSwitch']);
+    expect(await rowsFor(search, '/p')).toEqual(['presentationSwitch']);
     expect(await rowsFor(search, '/c')).toEqual([]);
   });
 
