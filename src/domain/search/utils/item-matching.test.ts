@@ -8,7 +8,7 @@ import { createSearchTextMatcher } from './text-matching';
 import { pinyin } from 'pinyin-pro';
 import { HAN_VARIANT_PAIRS } from '../han-variants.generated';
 import { installHanVariantPairs } from '../han-variants';
-import { readSearchTitleHanReadings, readSearchUsualHanReading } from '../pinyin-api';
+import { readSearchTitleHanReadings, readSearchUsualHanReadings } from '../pinyin-api';
 import type { PinyinApi } from '../pinyin-api';
 
 // Where a page shows a query: the title, the labels that name its host and
@@ -21,7 +21,7 @@ const pinyinApi: PinyinApi = { pinyin: (text, options) => pinyin(text, options) 
 const options = {
   titleMatcher: createSearchTextMatcher({
     getHanReadings: (text, characters) => readSearchTitleHanReadings(
-      pinyinApi, text, characters, (character) => readSearchUsualHanReading(pinyinApi, character)
+      pinyinApi, text, characters, (character) => readSearchUsualHanReadings(pinyinApi, character)
     )
   })
 };
@@ -103,11 +103,18 @@ describe('search item matching', () => {
     expect(matches('heping', '和平精英官网', 'https://gp.qq.com/'), 'the reading in the title should match').toBe(true);
     expect(matches('hp', '和平精英官网', 'https://gp.qq.com/'), 'its initials should match').toBe(true);
     expect(matches('huping', '和平精英官网', 'https://gp.qq.com/'), 'a rare reading should not match').toBe(false);
-    expect(matches('hu', '和平精英官网', 'https://gp.qq.com/'), 'a rare reading alone should not match').toBe(false);
+    expect(matches('cenkao', '参考资料', 'https://example.cn/'), 'a third reading should not match').toBe(false);
     expect(matches('chongqing', '重庆火锅', 'https://example.cn/'), 'the reading in the title should match').toBe(true);
     expect(matches('zhongqing', '重庆火锅', 'https://example.cn/'), 'the usual reading should match').toBe(true);
     expect(matches('yinxing', '中国银行', 'https://www.boc.cn/'), 'the usual reading of 行 should match').toBe(true);
     expect(matches('yinhang', '中国银行', 'https://www.boc.cn/'), 'the reading of 行 in 银行 should match').toBe(true);
+  });
+
+  it('keeps a polyphone\'s second usual reading for words pinyin-pro reads wrong', () => {
+    expect(matches('huankuan', '信用卡还款计划', 'https://example.cn/'), '还 in 还款 should read huan').toBe(true);
+    expect(matches('chailv', '差旅报销', 'https://example.cn/'), '差 in 差旅 should read chai').toBe(true);
+    expect(matches('hangzhang', '行长讲话', 'https://example.cn/'), '长 in 行长 should read zhang').toBe(true);
+    expect(matches('haikuan', '信用卡还款计划', 'https://example.cn/'), 'the usual reading should still match').toBe(true);
   });
 
   it('matches a number whole, or from the start of the host', () => {

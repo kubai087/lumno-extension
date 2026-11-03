@@ -57,21 +57,21 @@ function readHanRuns(text: string, characters: readonly string[]): string[][] {
 
 // The readings a title's Han characters are matched by: the one each takes
 // in the title's own words (重庆 is chongqing, 银行 yinhang) and its usual
-// one (zhong, xing), so a polyphone matches as said there or as most often
-// typed. Rarer readings are left out, since they let "hu" find 和平 and
-// "di" find 我的.
+// ones (zhong and chong, xing and hang), so a polyphone matches as said
+// there or as most often typed, even in words pinyin-pro reads wrong (还款
+// as haikuan). Rarer readings are left out, since they let "hu" find 和平.
 function readSearchTitleHanReadings(
   api: PinyinApi,
   text: string,
   characters: readonly string[],
-  getUsualReading: (character: string) => string
+  getUsualReadings: (character: string) => readonly string[]
 ): string[][] {
   return readHanRuns(text, characters).flatMap((run) => {
     const said = api.pinyin(run.join(''), { toneType: 'none', type: 'array', v: true });
     const inContext = said.length === run.length ? said : [];
     return run.map((character, position) => {
       const readings: string[] = [];
-      [inContext[position], getUsualReading(character)].forEach((reading) => {
+      [inContext[position], ...getUsualReadings(character)].forEach((reading) => {
         if (reading && !readings.includes(reading)) {
           readings.push(reading);
         }
@@ -81,10 +81,19 @@ function readSearchTitleHanReadings(
   });
 }
 
-// A character's usual reading: the one pinyin-pro gives it alone.
-function readSearchUsualHanReading(api: PinyinApi, character: string): string {
-  return api.pinyin(character, { toneType: 'none', type: 'array', v: true })[0] || '';
+// A character's usual readings: the two it is most often said by, which
+// pinyin-pro lists first. Readings that differ only in tone count once.
+const USUAL_HAN_READING_COUNT = 2;
+
+function readSearchUsualHanReadings(api: PinyinApi, character: string): string[] {
+  const readings: string[] = [];
+  api.pinyin(character, { toneType: 'none', type: 'array', multiple: true, v: true }).forEach((reading) => {
+    if (reading && !readings.includes(reading) && readings.length < USUAL_HAN_READING_COUNT) {
+      readings.push(reading);
+    }
+  });
+  return readings;
 }
 
-export { readPinyinApi, readSearchTitleHanReadings, readSearchUsualHanReading, toPinyinApi };
+export { readPinyinApi, readSearchTitleHanReadings, readSearchUsualHanReadings, toPinyinApi };
 export type { PinyinApi, PinyinOptions };

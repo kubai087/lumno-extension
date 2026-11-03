@@ -3,7 +3,7 @@
 import * as SETTINGS from '../../domain/settings';
 import { getShownSearchResultSourceTypes } from '../../domain/settings';
 import { loadWorkerLazyModule } from '../../platform/worker-lazy';
-import { readPinyinApi, readSearchTitleHanReadings, readSearchUsualHanReading } from '../../domain/search/pinyin-api';
+import { readPinyinApi, readSearchTitleHanReadings, readSearchUsualHanReadings } from '../../domain/search/pinyin-api';
 import { PINYIN_DATA_SCRIPT_PATH, getImportScripts, workerSettings } from '../worker-context';
 import type {
   SearchPolicy,
@@ -63,10 +63,10 @@ function getPinyinPro(): PinyinApi | null {
 
 // Each Han character of a title reads as it is said in the title and as it
 // is usually said (readSearchTitleHanReadings): 重庆 matches "chongqing"
-// and "zhongqing", 银行 "yinhang" and "yinxing", while 和平 is not "huping".
-// Usual readings depend on the character alone, so a few thousand entries
-// cover every title.
-const hanUsualReadingCache = new Map<string, string>();
+// and "zhongqing", 银行 "yinhang" and "yinxing", 还款 "huankuan", while 和平
+// is not "huping". Usual readings depend on the character alone, so a few
+// thousand entries cover every title.
+const hanUsualReadingCache = new Map<string, readonly string[]>();
 const hanFuzzyReadingsCache = new Map<string, string[]>();
 const BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES = 8192;
 
@@ -76,7 +76,7 @@ function getTitleHanReadings(text: string, characters: string[]): string[][] | n
     return null;
   }
   const readings = readSearchTitleHanReadings(pinyinApi, text, characters, (character) => (
-    getHanUsualReading(pinyinApi, character)
+    getHanUsualReadings(pinyinApi, character)
   ));
   if (!workerSettings.get(SETTINGS.searchFuzzyPinyinEnabled)) {
     return readings;
@@ -93,14 +93,14 @@ function getTitleHanReadings(text: string, characters: string[]): string[][] | n
   });
 }
 
-function getHanUsualReading(pinyinApi: PinyinApi, character: string): string {
+function getHanUsualReadings(pinyinApi: PinyinApi, character: string): readonly string[] {
   const cached = hanUsualReadingCache.get(character);
   if (cached !== undefined) {
     return cached;
   }
-  const reading = readSearchUsualHanReading(pinyinApi, character);
-  BoundedCache.setBoundedCacheEntry(hanUsualReadingCache, character, reading, BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES);
-  return reading;
+  const readings = readSearchUsualHanReadings(pinyinApi, character);
+  BoundedCache.setBoundedCacheEntry(hanUsualReadingCache, character, readings, BACKGROUND_HAN_READINGS_CACHE_MAX_ENTRIES);
+  return readings;
 }
 
 function getTitleTextMatcher(): SearchTextMatcher | null {
