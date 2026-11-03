@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SuggestionLike } from '../types';
 import { applySearchSuggestionHostDiversity, buildSearchBrandDirectSuggestion, composeSearchSuggestionSlate, filterSearchSuggestionsBySourceTypes, limitSearchSuggestionsForDisplay } from './brand-suggestions';
 import { getSearchSuggestionFamilyKey } from './direct-navigation';
+import { getSearchSuggestionClusterInfo } from './query-intent';
 import { calculateSearchRelevanceScore } from './relevance-score';
 import { buildSearchQueryContext } from './selection-stats';
 
@@ -82,6 +83,24 @@ describe('brand suggestions and the result slate', () => {
     expect(xiaohongshuSlate[1]._xMatchedTabId, 'an already-open brand page should stay ahead of supplemental search suggestions').toBe(26);
     expect(xiaohongshuSlate[xiaohongshuSlate.length - 1].type, 'brand result composition should keep search suggestions after the contiguous navigation group').toBe('googleSuggest');
     expect(xiaohongshuSlate.slice(0, -1).every((item) => item.type !== 'googleSuggest'), 'brand result composition should not interleave webpages and search suggestions').toBeTruthy();
+  });
+
+  it("names the row that goes to a site by the part of a page title that names it", () => {
+    const direct = buildSearchBrandDirectSuggestion([{
+      type: 'history',
+      title: 'TypeScript: Handbook - Generics',
+      url: 'https://www.typescriptlang.org/docs/handbook/2/generics.html',
+      score: 120
+    }], buildSearchQueryContext('typescript'), RANKING);
+    expect(direct && direct.url, 'a brand query should add a row for the site itself').toBe('https://typescriptlang.org/');
+    expect(direct && direct.title, 'the site row should not borrow a deep page title').toBe('TypeScript');
+  });
+
+  it("ranks an app's start page and dashboard as the site, not as an action or utility page", () => {
+    expect(getSearchSuggestionClusterInfo('https://claude.ai/new').category, 'a top-level /new is where an app starts').toBe('section');
+    expect(getSearchSuggestionClusterInfo('https://www.yuque.com/dashboard').category, 'a dashboard is an app\'s home').toBe('section');
+    expect(getSearchSuggestionClusterInfo('https://example.com/new/project').category, 'a deeper /new still creates something').toBe('action');
+    expect(score({ title: 'Claude', url: 'https://claude.ai/new' }, 'claude') > 200, 'an app\'s start page should rank as its site').toBeTruthy();
   });
 
   it("stops at the display limit, keeping the order, and filters only disabled local types", () => {

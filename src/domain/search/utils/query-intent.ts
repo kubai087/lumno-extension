@@ -78,7 +78,6 @@ const SEARCH_UTILITY_SEGMENTS = new Set([
   'like',
   'likes',
   'admin',
-  'dashboard',
   'manage',
   'management',
   'billing',
@@ -182,7 +181,8 @@ function getPathClusterInfo(place: ClusterPlace, segments: readonly string[]): S
   if (utilitySegment) {
     return { host, category: 'utility', clusterKey: `${host}/utility/${utilitySegment}`, depth, path };
   }
-  if (SEARCH_ACTION_SEGMENTS.has(first)) {
+  // claude.ai/new is where an app starts, not an action under the site.
+  if (SEARCH_ACTION_SEGMENTS.has(first) && !(first === 'new' && depth === 1)) {
     return { host, category: 'action', clusterKey: `${host}/action/${first}`, depth, path };
   }
   if (USER_SEGMENTS.has(first) && second) {

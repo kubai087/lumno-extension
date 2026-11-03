@@ -17,6 +17,8 @@ import { findSiteSearchProviderByKey } from './site-search-matching';
 import { findSiteSearchProvider } from './site-search-providers';
 import { groupSearchSuggestionsByKind } from './engine-suggestions';
 import { getSearchBrandHostMatchScore, getSearchNavigationRepresentativeSignal, hasSearchHomeTitle } from './navigation-signals';
+import { getSearchTitleUnitMatch } from './text-matching';
+import { hasSearchLiteral, normalizeSearchText } from './text-normalize';
 
 interface BrandDirectOptions extends SearchRankingOptions {
   siteSearchProviders?: readonly SiteSearchProvider[];
@@ -170,6 +172,22 @@ function directSourceType(source: SlateRow): DirectSourceType {
   return source.type === 'topSite' || source.isTopSite ? 'topSite' : 'history';
 }
 
+// The part of a page's title that names its site, for the row that goes to
+// the site's root: "TypeScript" from "TypeScript: Handbook - Generics",
+// 小红书 from "小红书 - 你的生活兴趣社区". The whole title when no one part
+// shows the query.
+function readSiteNameFromTitle(title: string, context: SearchQueryContext, settings: BrandDirectOptions): string {
+  const parts = title.split(/\s+[-–—|·•]\s+|\s*[|｜_]\s*|:\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) {
+    return title;
+  }
+  const naming = parts.filter((part) => (
+    hasSearchLiteral(normalizeSearchText(part), context.queryLower) ||
+    Boolean(context.unitQuery && getSearchTitleUnitMatch(part, context.unitQuery, settings))
+  ));
+  return naming.length > 0 ? naming.sort((left, right) => left.length - right.length)[0] : title;
+}
+
 // For a brand query whose site has rows but none for its home page, a row
 // that goes to the site itself.
 function buildSearchBrandDirectSuggestion(
@@ -191,7 +209,7 @@ function buildSearchBrandDirectSuggestion(
   }
   const source = bestGroup.sourceSuggestion;
   const directItem: ScoredItem = {
-    title: getSearchDirectNavigationTitle(bestGroup.host, source.title || bestGroup.host),
+    title: getSearchDirectNavigationTitle(bestGroup.host, readSiteNameFromTitle(source.title || '', context, settings) || bestGroup.host),
     url: getSearchDirectNavigationUrl(bestGroup.host),
     lastVisitTime: source.lastVisitTime || 0,
     visitCount: Number(source.visitCount) || 0,
