@@ -230,26 +230,40 @@ function canSearchUnitStartWith(index: SearchTextIndex, unit: number, character:
   return Boolean(readings && readings.some((reading) => reading.charAt(0) === character));
 }
 
+// Whether a run may go on from this step to the next unit. Across
+// punctuation only whole words and syllables carry on ("wifi" for Wi-Fi,
+// "gpt4" for GPT-4): initials there are a coincidence of the title and its
+// site name, as "dd" in "Dribbble - Discover". This checks the step before
+// a break; walk drops initials after one.
+function canSearchRunContinue(index: SearchTextIndex, step: UnitStep, next: number, position: number, query: string): boolean {
+  return position >= query.length || index.breaks.charAt(next) !== '1' || step.type === 'full';
+}
+
 // The first place the query reads as consecutive units of the text, each
 // spelled in full, by its initial, or by a prefix where the query ends.
 function findSearchUnitRun(index: SearchTextIndex, compact: string): UnitRun | null {
   const failed = new Set<number>();
   const path: UnitStep[] = [];
-  const walk = (unit: number, position: number): boolean => {
+  const walk = (unit: number, position: number, afterBreak: boolean): boolean => {
     if (position === compact.length) {
       return true;
     }
     if (unit >= index.count) {
       return false;
     }
-    const key = unit * (compact.length + 1) + position;
+    const key = (unit * (compact.length + 1) + position) * 2 + (afterBreak ? 1 : 0);
     if (failed.has(key) || !canSearchUnitStartWith(index, unit, compact.charAt(position))) {
       return false;
     }
-    const steps = getSearchUnitSteps(index, unit, compact, position);
+    const steps = getSearchUnitSteps(index, unit, compact, position)
+      .filter((step) => !afterBreak || step.type !== 'initial');
     for (let i = 0; i < steps.length; i += 1) {
+      const next = position + steps[i].length;
+      if (!canSearchRunContinue(index, steps[i], unit + 1, next, compact)) {
+        continue;
+      }
       path.push(steps[i]);
-      if (walk(unit + 1, position + steps[i].length)) {
+      if (walk(unit + 1, next, next < compact.length && index.breaks.charAt(unit + 1) === '1')) {
         return true;
       }
       path.pop();
@@ -260,7 +274,7 @@ function findSearchUnitRun(index: SearchTextIndex, compact: string): UnitRun | n
 
   for (let start = 0; start < index.count; start += 1) {
     path.length = 0;
-    if (!walk(start, 0)) {
+    if (!walk(start, 0, false)) {
       continue;
     }
     const shape = describeSearchUnitPath(index, path);

@@ -136,6 +136,9 @@ interface SearchTextIndex {
   kinds: string;
   // '1' where a unit starts a segment, '0' elsewhere.
   segments: string;
+  // '1' where punctuation comes before a unit ("Home - Docs", "a|b"), '0'
+  // where only a space or nothing does.
+  breaks: string;
   texts: string[];
   // Start and end offset in text of each unit, as pairs.
   spans: number[];

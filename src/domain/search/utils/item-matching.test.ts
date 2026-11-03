@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getSearchHostNameLabels } from './item-matching';
+import { promoteStrongNavigationMatch } from './navigation-matching';
 import { matchesSearchQueryText } from './query-intent';
+import { calculateSearchRelevanceScore } from './relevance-score';
 import { buildSearchQueryContext } from './selection-stats';
 import { createSearchTextMatcher } from './text-matching';
 import { pinyin } from 'pinyin-pro';
@@ -26,6 +28,14 @@ const options = {
 
 function matches(query: string, title: string, url: string): boolean {
   return matchesSearchQueryText({ title, url }, buildSearchQueryContext(query), options);
+}
+
+function score(query: string, title: string, url: string): number {
+  return calculateSearchRelevanceScore({ title, url }, 'history', buildSearchQueryContext(query), {
+    ...options,
+    isLocalNetworkHost: () => false,
+    isOwnExtensionUrl: () => false
+  });
 }
 
 describe('search item matching', () => {
@@ -98,5 +108,41 @@ describe('search item matching', () => {
     expect(matches('zhongqing', '重庆火锅', 'https://example.cn/'), 'the usual reading should match').toBe(true);
     expect(matches('yinxing', '中国银行', 'https://www.boc.cn/'), 'the usual reading of 行 should match').toBe(true);
     expect(matches('yinhang', '中国银行', 'https://www.boc.cn/'), 'the reading of 行 in 银行 should match').toBe(true);
+  });
+
+  it('matches a number whole, or from the start of the host', () => {
+    expect(matches('163', 'Music', 'https://music.163.com/'), 'a number label should match whole').toBe(true);
+    expect(matches('16', 'Music', 'https://music.163.com/'), 'a number should not match the start of a later label').toBe(false);
+    expect(matches('19', 'Router', 'http://192.168.1.1/'), 'a number should match the start of an IP address').toBe(true);
+    expect(matches('16', 'Router', 'http://192.168.1.1/'), 'a number should not match inside an IP address').toBe(false);
+    expect(matches('168', 'Router', 'http://192.168.1.1/'), 'a number should not match a later part of an IP address').toBe(false);
+    expect(matches('1234', 'Zoom', 'https://us02web.zoom.us/j/123456789'), 'a number should not match the start of a path ID').toBe(false);
+  });
+
+  it('does not match an extension ID or a query of punctuation alone', () => {
+    expect(matches('a', 'Options', 'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html'), 'an extension ID should not match').toBe(false);
+    expect(matches('options', 'Settings', 'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html'), 'an extension page should match by its path').toBe(true);
+    ['-', '?', '/', '|'].forEach((query) => {
+      expect(matches(query, 'GitHub - Pull requests | Repo?', 'https://github.com/a/b'), `"${query}" should match nothing`).toBe(false);
+    });
+  });
+
+  it('does not run initials across punctuation, only whole words', () => {
+    expect(matches('dd', 'Dribbble - Discover the World', 'https://example.com/'), 'initials should not run across " - "').toBe(false);
+    expect(matches('cl', '天猫tmall.com--理想生活', 'https://example.com/'), 'initials should not run across "--"').toBe(false);
+    expect(matches('wifi', 'Wi-Fi settings', 'https://example.com/'), 'whole words should run across a hyphen').toBe(true);
+    expect(matches('gpt4', 'GPT-4 Technical Report', 'https://example.com/'), 'a word and a number should run across a hyphen').toBe(true);
+    expect(matches('wxds', '微信读书 - 正版书籍', 'https://example.com/'), 'initials before the punctuation should still match').toBe(true);
+  });
+
+  it('gives a page found only inside its words no lift as the site the query names', () => {
+    const insideRoot = score('sign', 'Dribbble - Discover the World’s Top Designers', 'https://dribbble.com/');
+    const wordPage = score('sign', 'Sign up for the newsletter', 'https://example.com/newsletter/subscribe');
+    expect(insideRoot < wordPage, 'a site root showing "sign" inside a word should rank below a page whose title starts with it').toBe(true);
+    const list = [
+      { type: 'history', title: 'Dribbble - Discover the World', url: 'https://dribbble.com/' },
+      { type: 'history', title: 'Release notes', url: 'https://example.com/notes/overview-2' }
+    ];
+    expect(promoteStrongNavigationMatch(list, 'over'), 'a title holding the query inside a word should not be promoted').toBe(null);
   });
 });

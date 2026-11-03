@@ -37,6 +37,7 @@ function isSearchKanaCode(code: number): boolean {
 interface IndexBuilder {
   kinds: string;
   segments: string;
+  breaks: string;
   texts: string[];
   spans: number[];
   // Per word: where each of its letters ends, when the letters are not one
@@ -45,6 +46,7 @@ interface IndexBuilder {
   letterEnds: Record<number, number[]> | null;
   alternates: Record<number, string> | null;
   segmentStart: boolean;
+  breakBefore: boolean;
   spaceBefore: boolean;
   lastKind: string;
   attachable: boolean;
@@ -77,9 +79,11 @@ function pushUnit(
   const startsSegment = builder.segmentStart || (builder.spaceBefore && (isCjkKind(kind) || isCjkKind(builder.lastKind)));
   builder.kinds += kind;
   builder.segments += startsSegment ? '1' : '0';
+  builder.breaks += builder.breakBefore ? '1' : '0';
   builder.texts.push(unitText);
   builder.spans.push(span[0], span[1]);
   builder.segmentStart = false;
+  builder.breakBefore = false;
   builder.spaceBefore = false;
   builder.lastKind = kind;
   builder.attachable = true;
@@ -161,6 +165,7 @@ function addOtherCharacter(builder: IndexBuilder, character: string, folded: str
   builder.attachable = false;
   if (/[^\s\p{M}]/u.test(character)) {
     builder.segmentStart = true;
+    builder.breakBefore = builder.texts.length > 0;
   } else if (/\s/.test(character)) {
     builder.spaceBefore = true;
   }
@@ -188,11 +193,13 @@ function buildSearchTextIndex(text: unknown, options?: SearchTextIndexOptions | 
   const builder: IndexBuilder = {
     kinds: '',
     segments: '',
+    breaks: '',
     texts: [],
     spans: [],
     letterEnds: null,
     alternates: null,
     segmentStart: true,
+    breakBefore: false,
     spaceBefore: false,
     lastKind: '',
     attachable: false,
@@ -211,6 +218,7 @@ function buildSearchTextIndex(text: unknown, options?: SearchTextIndexOptions | 
     count: builder.texts.length,
     kinds: builder.kinds,
     segments: builder.segments,
+    breaks: builder.breaks,
     texts: builder.texts.slice(),
     spans: builder.spans.slice(),
     letterEnds: builder.letterEnds,

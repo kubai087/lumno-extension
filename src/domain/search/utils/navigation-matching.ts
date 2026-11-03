@@ -5,7 +5,7 @@ import type { SuggestionLike } from '../types';
 import { normalizeHost } from './direct-navigation';
 import { matchesSearchQueryText } from './query-intent';
 import type { IntentItem, QueryTextContext } from './query-intent';
-import { hasSearchLiteral, normalizeSearchText, splitSearchTerms } from './text-normalize';
+import { findSearchLiteral, normalizeSearchText, splitSearchTerms } from './text-normalize';
 import type { TitleMatchOptions } from './text-matching';
 
 interface CollectMatchesOptions extends TitleMatchOptions {
@@ -220,8 +220,9 @@ const GENERIC_NAVIGATION_TERMS: ReadonlySet<string> = new Set([
   'home', 'login', 'account', 'settings', 'dashboard', 'search', 'docs', 'help', 'api'
 ]);
 
-// How the query appears in the title: a whole word, its start, or elsewhere
-// where matching counts it.
+// How the query appears in the title: a whole word, its start, or where
+// another word starts. Inside a word ("over" in "Discover") it names no
+// page strongly enough to lead the list.
 function scoreTitleMatch(titleLower: string, queryLower: string): number {
   if (splitSearchTerms(titleLower).includes(queryLower)) {
     return 140;
@@ -229,7 +230,7 @@ function scoreTitleMatch(titleLower: string, queryLower: string): number {
   if (titleLower.startsWith(queryLower)) {
     return 100;
   }
-  return hasSearchLiteral(titleLower, queryLower) ? 42 : 0;
+  return findSearchLiteral(titleLower, queryLower) === 'word' ? 42 : 0;
 }
 
 // Site roots rank first, deep pages lower.

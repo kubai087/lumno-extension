@@ -83,7 +83,13 @@ function decodePath(value: string): string {
   }
 }
 
-function readUrlParts(url: string): Pick<SearchItemFields, 'hostname' | 'port' | 'pathLower' | 'address'> {
+// An extension page's host is its random ID, which names nothing a reader
+// would type: "a" would find every chrome-extension:// page.
+const SEARCH_ID_HOST_PROTOCOL_PATTERN = /^[a-z-]*-extension:$/;
+
+type UrlParts = Pick<SearchItemFields, 'hostname' | 'port' | 'pathLower' | 'address'> & { namesSite: boolean };
+
+function readUrlParts(url: string): UrlParts {
   try {
     const parsed = new URL(url);
     const hostname = normalizeHost(parsed.hostname);
@@ -93,16 +99,16 @@ function readUrlParts(url: string): Pick<SearchItemFields, 'hostname' | 'port' |
     const address = normalizeSearchText(decodePath(
       `${hostname}${parsed.port ? `:${parsed.port}` : ''}${parsed.pathname}${parsed.search}${parsed.hash}`
     ));
-    return { hostname, port: parsed.port, pathLower, address };
+    return { hostname, port: parsed.port, pathLower, address, namesSite: !SEARCH_ID_HOST_PROTOCOL_PATTERN.test(parsed.protocol) };
   } catch (e) {
-    return { hostname: '', port: '', pathLower: '', address: '' };
+    return { hostname: '', port: '', pathLower: '', address: '', namesSite: false };
   }
 }
 
 function buildSearchItemFields(item: SearchItemText): SearchItemFields {
   const title = item.title ? String(item.title) : '';
-  const { hostname, port, pathLower, address } = readUrlParts(String(item.url || ''));
-  const hostLabels = getSearchHostNameLabels(hostname);
+  const { hostname, port, pathLower, address, namesSite } = readUrlParts(String(item.url || ''));
+  const hostLabels = namesSite ? getSearchHostNameLabels(hostname) : [];
   const hostWords = hostLabels.slice();
   hostLabels.forEach((label) => {
     label.split('-').filter(Boolean).forEach((word) => {
@@ -141,6 +147,12 @@ function readSearchItemFields(item: SearchItemText): SearchItemFields {
   return fields;
 }
 
+// What a term found only inside a word scores in the title, host or path.
+const SEARCH_MID_WORD_SCORE = 8;
+
+// A query of punctuation alone ("-", "?", "/") names no page.
+const SEARCH_NAMING_CHARACTER_PATTERN = /[\p{L}\p{N}]/u;
+
 // How a query word appears in the title: a whole token, a token's start,
 // as typed where a word starts (or inside one, for a long enough term), or
 // spelled by the title's units: pinyin, initials, words across spaces.
@@ -159,7 +171,7 @@ function scoreSearchTitleTerm(fields: SearchItemFields, term: string, options?: 
     return 14;
   }
   if (literal === 'inside' && allowsSearchMidWordMatch(term)) {
-    return 8;
+    return SEARCH_MID_WORD_SCORE;
   }
   const unitMatch = getSearchTitleUnitMatch(fields.title, term, options);
   if (!unitMatch) {
@@ -202,6 +214,19 @@ function scoreSearchHostTerm(fields: SearchItemFields, term: string): number {
   if (!term) {
     return 0;
   }
+  // A number names a label whole, or starts the host: "163" finds
+  // music.163.com and "19" 192.168.1.1, but "16" neither, and "168" not
+  // every 192.168.x.x.
+  if (/^\d+$/.test(term)) {
+    const isIpAddress = fields.hostLabels.every((label) => /^\d+$/.test(label));
+    if (!isIpAddress && fields.hostLabels.includes(term)) {
+      return 28;
+    }
+    if (fields.hostLabels.length > 0 && fields.hostLabels[0].startsWith(term)) {
+      return 16;
+    }
+    return fields.port && term === fields.port ? 28 : 0;
+  }
   if (fields.hostLabels.includes(term)) {
     return 28;
   }
@@ -209,7 +234,7 @@ function scoreSearchHostTerm(fields: SearchItemFields, term: string): number {
     return 16;
   }
   if (allowsSearchMidWordMatch(term) && fields.hostLabels.some((label) => label.includes(term))) {
-    return 8;
+    return SEARCH_MID_WORD_SCORE;
   }
   if (fields.port && term === fields.port) {
     return 28;
@@ -217,7 +242,7 @@ function scoreSearchHostTerm(fields: SearchItemFields, term: string): number {
   return scoreSearchAddressTerm(fields, term);
 }
 
-// A path names a page by terms of three characters or more, digits or Han
+// A path names a page by terms of three characters or more, numbers or Han
 // text: "en", "u" and "p" are in too many paths to tell pages apart.
 function canSearchPathHoldTerm(term: string): boolean {
   return Array.from(term).length >= 3 || /^\d+$/.test(term) || SEARCH_HAN_PATTERN.test(term);
@@ -232,6 +257,11 @@ function scoreSearchPathTerm(fields: SearchItemFields, term: string): number {
   if (fields.pathTokens.includes(term)) {
     return 32;
   }
+  // A number in a path is an ID, matched only whole: "1234" is not
+  // meeting 123456789.
+  if (/^\d+$/.test(term)) {
+    return 0;
+  }
   if (fields.pathTokens.some((token) => token.startsWith(term))) {
     return 18;
   }
@@ -239,7 +269,7 @@ function scoreSearchPathTerm(fields: SearchItemFields, term: string): number {
   if (literal === 'word') {
     return 10;
   }
-  return literal === 'inside' && allowsSearchMidWordMatch(term) ? 8 : 0;
+  return literal === 'inside' && allowsSearchMidWordMatch(term) ? SEARCH_MID_WORD_SCORE : 0;
 }
 
 // A Han query spelled the way a site's address writes it: 知乎 is
@@ -287,12 +317,36 @@ function matchesSearchItem(
   context: Pick<SearchQueryContext, 'queryLower'> & Partial<Pick<SearchQueryContext, 'coreQueryTerms' | 'queryTerms' | 'queryHostSpellings'>>,
   options?: TitleMatchOptions | null
 ): boolean {
+  if (!SEARCH_NAMING_CHARACTER_PATTERN.test(context.queryLower)) {
+    return false;
+  }
   const fields = readSearchItemFields(item);
   if (matchesSearchTerm(fields, context.queryLower, options) || matchesSearchHostSpelling(fields.hostLabels, context)) {
     return true;
   }
   const coreTerms = getSearchCoreTerms(context);
   return coreTerms.length > 0 && coreTerms.every((term) => matchesSearchTerm(fields, term, options));
+}
+
+// Whether the page shows a term where a word starts ('word'), only inside
+// words ('inside'), or not at all.
+function readSearchTermEvidence(fields: SearchItemFields, term: string, options?: TitleMatchOptions | null): 'word' | 'inside' | '' {
+  const scores = [scoreSearchTitleTerm(fields, term, options), scoreSearchHostTerm(fields, term), scoreSearchPathTerm(fields, term)];
+  if (scores.every((score) => score === 0)) {
+    return '';
+  }
+  return scores.every((score) => score === 0 || score === SEARCH_MID_WORD_SCORE) ? 'inside' : 'word';
+}
+
+// Whether the page shows the query, or one of its words, only inside words:
+// "over" in "Discover", "sign" in "Designers". Such a page still matches,
+// but does not stand for a site the query names.
+function isSearchItemMatchedInsideWords(fields: SearchItemFields, context: SearchQueryContext, options?: TitleMatchOptions | null): boolean {
+  if (readSearchTermEvidence(fields, context.queryLower, options) === 'word' ||
+      matchesSearchHostSpelling(fields.hostLabels, context)) {
+    return false;
+  }
+  return getSearchCoreTerms(context).some((term) => readSearchTermEvidence(fields, term, options) !== 'word');
 }
 
 // The text part of a page's relevance: the whole query in the title, in
@@ -353,6 +407,9 @@ function scoreSearchLocalNetworkTitle(fields: SearchItemFields, context: SearchQ
 }
 
 function scoreSearchItemText(fields: SearchItemFields, context: SearchQueryContext, options: SearchRankingOptions): number {
+  if (!SEARCH_NAMING_CHARACTER_PATTERN.test(context.queryLower)) {
+    return 0;
+  }
   return scoreSearchTitleText(fields, context, options) +
     scoreSearchHostText(fields, context) +
     scoreSearchPathText(fields, context) +
@@ -362,6 +419,7 @@ function scoreSearchItemText(fields: SearchItemFields, context: SearchQueryConte
 export {
   getSearchCoreTerms,
   getSearchHostNameLabels,
+  isSearchItemMatchedInsideWords,
   matchesSearchHostSpelling,
   matchesSearchItem,
   matchesSearchTerm,

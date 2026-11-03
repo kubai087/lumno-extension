@@ -7,7 +7,7 @@ import type {
   SearchSuggestion,
   SuggestionLike
 } from '../types';
-import { readSearchItemFields, scoreSearchItemText } from './item-matching';
+import { isSearchItemMatchedInsideWords, readSearchItemFields, scoreSearchItemText } from './item-matching';
 import { getOwnExtensionUtilityPenalty, getSearchSourceAdjustment, getSearchSuggestionCategoryAdjustment, getSearchSuggestionClusterInfo, getSearchTermCoverageStats } from './query-intent';
 import { buildSearchDedupUrlKey, getSearchSuggestionDisplayTitle } from './result-dedup';
 import { SEARCH_POLICY, SEARCH_SELECTION_POLICY } from './search-policy';
@@ -72,11 +72,15 @@ function calculateSearchRelevanceScore(
   const coverageStats = getSearchTermCoverageStats(context, fields, settings);
   const clusterInfo = getSearchSuggestionClusterInfo(item.url);
   const isGenericBrandDeepTitle = context.intentType === 'brand' && fields.titleLower === context.queryLower && clusterInfo.depth > 0;
+  // A site root or home page ranks up for a query that names its site, not
+  // for one found inside its words ("over" in "Discover the World").
+  const matchedInsideWords = isSearchItemMatchedInsideWords(fields, context, settings);
+  const siteAdjustment = (adjustment: number) => (matchedInsideWords ? Math.min(0, adjustment) : adjustment);
   return textScore +
     scoreVisits(item, getNow(settings)) +
     scoreSource(sourceType, context.intentType) +
-    getSearchSuggestionCategoryAdjustment(item, context, coverageStats) +
-    getSearchDirectNavigationAdjustment(item, sourceType, context, settings) -
+    siteAdjustment(getSearchSuggestionCategoryAdjustment(item, context, coverageStats)) +
+    siteAdjustment(getSearchDirectNavigationAdjustment(item, sourceType, context, settings)) -
     (isGenericBrandDeepTitle ? SEARCH_POLICY.genericBrandDeepTitlePenalty : 0) -
     getOwnExtensionUtilityPenalty(item, {
       hasSettingsIntent: context.hasSettingsIntent,
