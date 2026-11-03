@@ -110,6 +110,6 @@ jobs:
           EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
           EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
           VERSION: ${{ steps.version.outputs.version }}
-          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}
         run: |
           node scripts/release/edge-addons-publish.js "dist/lumno-store-v${VERSION}.zip" "$VERSION" "Release notes: $RELEASE_URL"
