@@ -2,7 +2,7 @@
 // input, the tag before it and the answers on their way. Both search panels
 // run these one set of actions; a surface only says how it themes the tag,
 // and clears its rows when told the rows no longer apply.
-import { searchResultSourceTypes } from '../../domain/settings/search';
+import { getShownSearchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { InputModeProvider, InputModeTheme } from '../search/input-mode/types';
 import type { InputModeController } from '../search/search-input-mode';
@@ -79,7 +79,7 @@ class SearchModeActions<Provider extends InputModeProvider> {
 
   // False when the scope's source is off.
   readonly activateLocalSearchScope = (scope: ActiveLocalScope | null | undefined, activation?: ModeActivationOptions | null): boolean => {
-    if (!scope || !this.options.settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
+    if (!scope || !getShownSearchResultSourceTypes(this.options.settings).includes(scope.sourceType)) {
       return false;
     }
     this.options.source.cancel();

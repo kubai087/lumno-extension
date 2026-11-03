@@ -2,6 +2,8 @@
 // searches, the default engine, blocklists, and what search remembers.
 import type { SearchSourceType } from '../search/types';
 import { defineSetting } from './define';
+import type { Setting } from './define';
+import { newtabZenMode } from './newtab-page';
 import { custom, flag, opaque } from './schema';
 
 // Whether search engine suggestions or matching pages come first.
@@ -62,6 +64,15 @@ const searchResultSourceTypes = defineSetting({
     return selected.length > 0 ? selected : SEARCH_RESULT_SOURCE_TYPES.slice();
   })
 });
+
+// What decides the browser content search shows.
+const SHOWN_SEARCH_RESULT_SOURCE_SETTINGS: readonly Setting<unknown>[] = Object.freeze([searchResultSourceTypes, newtabZenMode]);
+
+// The browser content search shows: none in zen mode, which doubles as a
+// presentation mode, else the chosen types.
+function getShownSearchResultSourceTypes(settings: { get<T>(setting: Setting<T>): T }): SearchSourceType[] {
+  return settings.get(newtabZenMode) ? [] : settings.get(searchResultSourceTypes);
+}
 
 const searchResultDisplayLimit = defineSetting({
   key: '_x_extension_search_result_display_limit_2026_unique_',
@@ -233,6 +244,7 @@ const tabRankScoreDebug = defineSetting({
 
 export {
   SEARCH_RESULT_SOURCE_TYPES,
+  SHOWN_SEARCH_RESULT_SOURCE_SETTINGS,
   aggregateSearchAutoGroupEnabled,
   aggregateSearches,
   defaultSearchEngine,
@@ -241,6 +253,7 @@ export {
   faviconRequestBlacklist,
   faviconUrlCache,
   faviconVisitDirty,
+  getShownSearchResultSourceTypes,
   macosCtrlSuggestionNavigationEnabled,
   normalizeSearchResultSourceType,
   numberShortcutInstantEnabled,

@@ -1,7 +1,7 @@
 // Matching titles to a query: the title matcher with its pinyin readings,
 // the query context, and where a result's title shows the query.
 import * as SETTINGS from '../../domain/settings';
-import { searchResultSourceTypes } from '../../domain/settings';
+import { getShownSearchResultSourceTypes } from '../../domain/settings';
 import { loadWorkerLazyModule } from '../../platform/worker-lazy';
 import { readPinyinApi } from '../../domain/search/pinyin-api';
 import { PINYIN_DATA_SCRIPT_PATH, getImportScripts, workerSettings } from '../worker-context';
@@ -31,7 +31,7 @@ let titleTextMatcher: SearchTextMatcher | null = null;
 // Fuzzy pinyin (模糊音) is off unless the reader turns it on in Options.
 
 function loadSearchResultSourceTypes(): Promise<SearchSourceType[]> {
-  return workerSettings.ready.then(() => workerSettings.get(searchResultSourceTypes));
+  return workerSettings.ready.then(() => getShownSearchResultSourceTypes(workerSettings));
 }
 
 function loadSearchFuzzyPinyinEnabled(): Promise<boolean> {

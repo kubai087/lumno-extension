@@ -21,6 +21,7 @@ import { language } from '../domain/settings/locale';
 import { restrictedAction, restrictedActionAutoBrowserSettingDone } from '../domain/settings/overlay-panel';
 import { pinnedRecentSites, progressTrackingEnabled } from '../domain/settings/recent-sites';
 import {
+  SHOWN_SEARCH_RESULT_SOURCE_SETTINGS,
   aggregateSearchAutoGroupEnabled,
   aggregateSearches,
   defaultSearchEngine,
@@ -29,7 +30,6 @@ import {
   faviconVisitDirty,
   searchBlacklist,
   searchFuzzyPinyinEnabled,
-  searchResultSourceTypes,
   searchResultTabPosition,
   searchSelectionStats,
   siteSearchCustom,
@@ -72,7 +72,7 @@ const WORKER_SETTINGS: readonly Setting<unknown>[] = Object.freeze([
   aggregateSearches,
   aggregateSearchAutoGroupEnabled,
   searchBlacklist,
-  searchResultSourceTypes,
+  ...SHOWN_SEARCH_RESULT_SOURCE_SETTINGS,
   searchResultTabPosition,
   searchFuzzyPinyinEnabled,
   searchSelectionStats,

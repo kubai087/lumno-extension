@@ -8,9 +8,10 @@ import {
   faviconRequestBlacklist,
   numberShortcutInstantEnabled,
   searchBlacklist,
+  SHOWN_SEARCH_RESULT_SOURCE_SETTINGS,
+  getShownSearchResultSourceTypes,
   searchResultDisplayLimit,
-  searchResultPriority,
-  searchResultSourceTypes
+  searchResultPriority
 } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { Suggestion } from '../../shared/react/search/suggestion-list/types';
@@ -76,9 +77,9 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
     }
   }
 
-  settings.subscribe(searchResultSourceTypes, () => {
+  settings.subscribe(SHOWN_SEARCH_RESULT_SOURCE_SETTINGS, () => {
     const scope = searchMode.local;
-    if (scope && !settings.get(searchResultSourceTypes).includes(scope.sourceType)) {
+    if (scope && !getShownSearchResultSourceTypes(settings).includes(scope.sourceType)) {
       modeActions.clearLocalSearchScope();
     }
   });
@@ -107,7 +108,7 @@ function createSearchSettingsSync(deps: SearchSettingsSyncDeps): void {
   searchEngine.store.subscribe(refreshSuggestions);
   settings.subscribe([
     searchResultPriority,
-    searchResultSourceTypes,
+    ...SHOWN_SEARCH_RESULT_SOURCE_SETTINGS,
     overlayTabPriority,
     searchBlacklist,
     faviconRequestBlacklist,

@@ -6,8 +6,9 @@ import { getElements } from '../../fakes/dom';
 import { bootReadyNewtab } from './boot';
 import { openSearchPage, pause, type SearchPage } from './search-page';
 
-// /zen hides everything on New Tab but the search box, without changing what
-// each section is set to show, and is remembered for the next New Tab.
+// /zen (or /present) hides everything on New Tab but the search box, without
+// changing what each section is set to show, and is remembered for the next
+// New Tab.
 const ZEN = newtabZenMode.key;
 
 function sections() {
@@ -45,6 +46,17 @@ describe('/zen on New Tab', () => {
     await pause(100);
     expect(document.body.getAttribute('data-zen-mode')).toBe('false');
     expect(sections()).toEqual(before);
+  });
+
+  it('turns Zen on from /present', async () => {
+    const search = await openSearchPage(createBrowserFake());
+
+    await search.type('/present');
+    await search.waitForRows();
+    expect(search.rows()[0].textContent).toContain('enter Zen mode');
+    await search.press('Enter');
+    await pause(100);
+    expect(document.body.getAttribute('data-zen-mode')).toBe('true');
   });
 
   it('applies a remembered Zen mode before New Tab first shows', async () => {

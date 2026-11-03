@@ -65,7 +65,7 @@ const NEWTAB_WIDTH_MODE_CONFIGS: Readonly<Record<LumnoSettings.NewtabWidthMode, 
 // The search settings the page reads as it starts.
 const NEWTAB_SEARCH_SETTINGS = [
   SearchSettings.searchResultPriority,
-  SearchSettings.searchResultSourceTypes,
+  ...SearchSettings.SHOWN_SEARCH_RESULT_SOURCE_SETTINGS,
   SearchSettings.searchResultDisplayLimit,
   SearchSettings.numberShortcutInstantEnabled,
   SearchSettings.macosCtrlSuggestionNavigationEnabled,

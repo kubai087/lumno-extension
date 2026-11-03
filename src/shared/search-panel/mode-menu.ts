@@ -8,7 +8,7 @@ import { createScopeProvider, isAggregateSearchProvider } from '../../domain/sea
 import { rankScopeItems } from '../../domain/search/search-source-order';
 import type { SearchSourceType, SiteSearchProvider } from '../../domain/search/types';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
-import { searchResultSourceTypes } from '../../domain/settings/search';
+import { getShownSearchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { InputModeController } from '../search/search-input-mode';
 import type { InputModeProvider, ModeMenuItem } from '../search/input-mode/types';
@@ -197,7 +197,7 @@ class SearchModeMenu {
     if (ownItem) {
       items.push(ownItem);
     }
-    const sources = settings.get(searchResultSourceTypes);
+    const sources = getShownSearchResultSourceTypes(settings);
     LOCAL_SOURCES.filter((sourceType) => sources.includes(sourceType)).forEach((sourceType) => {
       items.push({
         id: `local:${sourceType}`,

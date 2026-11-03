@@ -6,7 +6,7 @@ import type { LocalSearchScope, LocalSearchScopeRule, SiteSearchProvider, Sugges
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import * as SearchSiteSearchMatching from '../../domain/search/utils/site-search-matching';
 import * as SearchSiteSearchProviders from '../../domain/search/utils/site-search-providers';
-import { searchResultSourceTypes } from '../../domain/settings/search';
+import { getShownSearchResultSourceTypes } from '../../domain/settings/search';
 import type { SettingsStore } from '../../platform/settings-store';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 
@@ -111,7 +111,7 @@ class SearchMatching {
     rules: ReadonlyArray<LocalSearchScopeRule | null | undefined> | null | undefined
   ): LocalSearchScope | null => {
     const scope = SearchSiteSearchProviders.findLocalSearchScope(input, rules);
-    return scope && this.options.settings.get(searchResultSourceTypes).includes(scope.sourceType) ? scope : null;
+    return scope && getShownSearchResultSourceTypes(this.options.settings).includes(scope.sourceType) ? scope : null;
   };
 }
 

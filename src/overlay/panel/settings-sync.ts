@@ -17,8 +17,9 @@ import {
   numberShortcutInstantEnabled,
   searchBlacklist,
   searchResultDisplayLimit,
+  SHOWN_SEARCH_RESULT_SOURCE_SETTINGS,
+  getShownSearchResultSourceTypes,
   searchResultPriority,
-  searchResultSourceTypes,
   tabRankScoreDebug
 } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
@@ -124,9 +125,9 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
   searchEngine.store.subscribe(refreshOverlaySuggestionsFromLastResponse);
 
   settings.follow([searchResultPriority, searchBlacklist, overlayTabPriority], refreshOverlaySuggestionsFromLastResponse);
-  settings.follow(searchResultSourceTypes, () => {
+  settings.follow(SHOWN_SEARCH_RESULT_SOURCE_SETTINGS, () => {
     const scope = searchMode.local;
-    if (scope && !settings.get(searchResultSourceTypes).some((type) => type === scope.sourceType)) {
+    if (scope && !getShownSearchResultSourceTypes(settings).includes(scope.sourceType)) {
       modeActions.clearLocalSearchScope();
     }
     if (searchQuery.text) {

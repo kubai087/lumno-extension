@@ -22,6 +22,8 @@ interface CommandCatalogDeps {
 
 const THEME_MODE_ORDER: readonly ThemeMode[] = ['system', 'light', 'dark'];
 const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'dark'];
+// Zen mode also serves as a presentation mode, so /present reaches it too.
+const ZEN_COMMAND_ALIASES: readonly string[] = ['/present'];
 
 function createCommandCatalog(deps: CommandCatalogDeps) {
   const {
@@ -51,7 +53,7 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
     {
       type: 'zenSwitch',
       primary: '/zen',
-      aliases: []
+      aliases: ZEN_COMMAND_ALIASES.slice()
     },
     {
       type: 'webAppearanceSwitch',
@@ -169,7 +171,7 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
   }
   function isZenCommand(input: unknown): boolean {
     const raw = String(input || '').trim().toLowerCase();
-    return raw === '/zen' || raw.startsWith('/zen ');
+    return ['/zen', ...ZEN_COMMAND_ALIASES].some((token) => raw === token || raw.startsWith(`${token} `));
   }
   function isSlashCommandInput(input: unknown): boolean {
     const raw = String(input || '').trim();
@@ -212,7 +214,7 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
       url: '',
       favicon: getExtensionResourceUrl('assets/images/lumno.png'),
       commandText: '/zen',
-      commandAliases: [],
+      commandAliases: ZEN_COMMAND_ALIASES.slice(),
       nextEnabled: !settings.get(newtabZenMode)
     };
   }

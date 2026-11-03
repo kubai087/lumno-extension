@@ -71,6 +71,17 @@ describe('local search suggestions by source', () => {
     expect(history.filter((item) => item.type === 'history')).toHaveLength(0);
   });
 
+  it.each([
+    ['every result source turned off', { _x_extension_search_result_source_types_2026_unique_: [] }],
+    ['Zen mode, the presentation mode', { _x_extension_newtab_zen_mode_2026_unique_: true }]
+  ])('shows no frequent sites, bookmarks or history with %s', async (_case, sync) => {
+    const { search } = await bootSearchWorker({ sync });
+
+    const all = await search.getSearchSuggestions('github', { includeOpenTabs: false });
+
+    expect(all.filter((item) => item.type === 'topSite' || item.isTopSite || item.type === 'bookmark' || item.type === 'history')).toEqual([]);
+  });
+
   it('keeps open tabs in a scoped search unless told to leave them out', async () => {
     const { search } = await bootSearchWorker();
     const openTabUrl = 'https://app.testmu.com/enterprise-cloud';
