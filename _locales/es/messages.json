@@ -1887,10 +1887,10 @@
     "message": "Presentación: desactivada"
   },
   "presentation_enable_title": {
-    "message": "{name}: entrar en modo presentación"
+    "message": "{name}: entrar en modo presentación, que oculta los sitios recientes, los marcadores y los resultados frecuentes, de marcadores e historial"
   },
   "presentation_disable_title": {
-    "message": "{name}: salir del modo presentación"
+    "message": "{name}: salir del modo presentación y volver a mostrar los sitios recientes, los marcadores y todos los resultados"
   },
   "switch_to_tab": {
     "message": "Cambiar"

@@ -1887,10 +1887,10 @@
     "message": "Apresentação: desativada"
   },
   "presentation_enable_title": {
-    "message": "{name}: entrar no modo apresentação"
+    "message": "{name}: entrar no modo apresentação, que oculta sites recentes, favoritos e os resultados frequentes, de favoritos e do histórico"
   },
   "presentation_disable_title": {
-    "message": "{name}: sair do modo apresentação"
+    "message": "{name}: sair do modo apresentação e mostrar de novo os sites recentes, os favoritos e todos os resultados"
   },
   "switch_to_tab": {
     "message": "Alternar"

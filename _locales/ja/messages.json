@@ -1887,10 +1887,10 @@
     "message": "プレゼンモード：オフ"
   },
   "presentation_enable_title": {
-    "message": "{name}：プレゼンモードに切り替え"
+    "message": "{name}：プレゼンモードに切り替え（最近のサイト・ブックマークと、検索のよく使うサイト・ブックマーク・履歴を隠す）"
   },
   "presentation_disable_title": {
-    "message": "{name}：プレゼンモードを終了"
+    "message": "{name}：プレゼンモードを終了（最近のサイト・ブックマークと検索結果を再表示）"
   },
   "switch_to_tab": {
     "message": "切り替え"

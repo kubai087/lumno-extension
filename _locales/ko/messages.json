@@ -1887,10 +1887,10 @@
     "message": "발표 모드: 꺼짐"
   },
   "presentation_enable_title": {
-    "message": "{name}: 발표 모드 시작"
+    "message": "{name}: 발표 모드 시작 (최근 사이트·북마크와 검색의 자주 방문·북마크·기록 결과 숨김)"
   },
   "presentation_disable_title": {
-    "message": "{name}: 발표 모드 종료"
+    "message": "{name}: 발표 모드 종료 (최근 사이트·북마크와 검색 결과 다시 표시)"
   },
   "switch_to_tab": {
     "message": "전환"

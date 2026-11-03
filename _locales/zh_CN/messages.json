@@ -1887,10 +1887,10 @@
     "message": "演示模式：已关闭"
   },
   "presentation_enable_title": {
-    "message": "{name}：进入演示模式"
+    "message": "{name}：进入演示模式，隐藏最近访问、书签，搜索时不显示常用、书签和历史"
   },
   "presentation_disable_title": {
-    "message": "{name}：退出演示模式"
+    "message": "{name}：退出演示模式，恢复显示最近访问、书签和搜索结果"
   },
   "switch_to_tab": {
     "message": "切换"

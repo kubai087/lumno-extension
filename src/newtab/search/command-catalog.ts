@@ -54,8 +54,8 @@ const PAGE_MODE_COMMANDS: readonly PageModeCommand[] = [
     setting: newtabPresentationMode,
     badgeOn: ['presentation_badge_on', '演示模式：已开启'],
     badgeOff: ['presentation_badge_off', '演示模式：已关闭'],
-    enableTitle: ['presentation_enable_title', '{name}：进入演示模式'],
-    disableTitle: ['presentation_disable_title', '{name}：退出演示模式']
+    enableTitle: ['presentation_enable_title', '{name}：进入演示模式，隐藏最近访问、书签，搜索时不显示常用、书签和历史'],
+    disableTitle: ['presentation_disable_title', '{name}：退出演示模式，恢复显示最近访问、书签和搜索结果']
   }
 ];
 

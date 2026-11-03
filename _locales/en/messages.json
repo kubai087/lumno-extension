@@ -1887,10 +1887,10 @@
     "message": "Presentation: Off"
   },
   "presentation_enable_title": {
-    "message": "{name}: enter presentation mode"
+    "message": "{name}: enter presentation mode, hiding recent sites, bookmarks, and frequent, bookmark and history results"
   },
   "presentation_disable_title": {
-    "message": "{name}: exit presentation mode"
+    "message": "{name}: exit presentation mode, showing recent sites, bookmarks and all search results again"
   },
   "switch_to_tab": {
     "message": "Switch"

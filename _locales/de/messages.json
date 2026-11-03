@@ -1887,10 +1887,10 @@
     "message": "Präsentation: Aus"
   },
   "presentation_enable_title": {
-    "message": "{name}: Präsentationsmodus aktivieren"
+    "message": "{name}: Präsentationsmodus aktivieren – blendet zuletzt besuchte Seiten, Lesezeichen sowie häufige, Lesezeichen- und Verlaufsergebnisse aus"
   },
   "presentation_disable_title": {
-    "message": "{name}: Präsentationsmodus beenden"
+    "message": "{name}: Präsentationsmodus beenden – zeigt zuletzt besuchte Seiten, Lesezeichen und alle Suchergebnisse wieder"
   },
   "switch_to_tab": {
     "message": "Wechseln"

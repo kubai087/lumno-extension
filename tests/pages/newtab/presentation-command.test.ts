@@ -38,7 +38,7 @@ describe('/present on New Tab', () => {
     await search.type('/present');
     await search.waitForRows();
     expect(search.rows()[0].textContent).toContain('/present');
-    expect(search.rows()[0].textContent).toContain('enter presentation mode');
+    expect(search.rows()[0].textContent).toContain('enter presentation mode, hiding recent sites, bookmarks, and frequent, bookmark and history results');
     await search.press('Enter');
     await pause(100);
     expect(sections()).toEqual(before.map((section) => ({

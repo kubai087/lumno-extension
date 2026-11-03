@@ -1887,10 +1887,10 @@
     "message": "簡報模式：已關閉"
   },
   "presentation_enable_title": {
-    "message": "{name}：進入簡報模式"
+    "message": "{name}：進入簡報模式，隱藏最近造訪、書籤，搜尋時不顯示常用、書籤和歷史"
   },
   "presentation_disable_title": {
-    "message": "{name}：退出簡報模式"
+    "message": "{name}：退出簡報模式，恢復顯示最近造訪、書籤和搜尋結果"
   },
   "switch_to_tab": {
     "message": "切換"
