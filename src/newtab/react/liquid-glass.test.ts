@@ -1,16 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  LIQUID_GLASS_DISPERSION,
   buildLensFilter,
   createLiquidSurfaces,
-  getLensLayout,
-  getLensTilePixels,
-  getRimDisplacement,
-  getSurfaceBezel,
-  getSurfaceDisplacementScale,
   isLiquidGlassSupported,
   placeLensFilter,
   type LensTileCanvas
 } from '../dom/liquid-glass';
+import { getSurfaceDisplacementScale } from '../../domain/liquid-glass-lens';
 import { required } from '../../../tests/fakes/dom';
 import { createSvgElement } from '../../shared/ui/svg-tree';
 
@@ -28,112 +25,12 @@ describe('New Tab bookmarks bar liquid glass', () => {
     expect(isLiquidGlassSupported(fakeWindow(false, 'Mozilla/5.0 Chrome/140.0'))).toBe(false);
   });
 
-  it('bends only the docked bar\'s bottom rim, inward', () => {
-    expect(getRimDisplacement(400, 1, 800, 36, 'docked')).toEqual([0, 0]);
-    expect(getRimDisplacement(400, 18, 800, 36, 'docked')).toEqual([0, 0]);
-    const [dx, dy] = getRimDisplacement(400, 35.5, 800, 36, 'docked');
-    expect(dx).toBe(0);
-    expect(dy).toBeLessThan(-0.6);
-    expect(getRimDisplacement(400, 30, 800, 36, 'docked')[1]).toBeGreaterThan(dy);
-  });
-
-  it('bends every floating rim toward the middle and leaves the middle flat', () => {
-    expect(getRimDisplacement(400, 18, 800, 36, 'floating')).toEqual([0, 0]);
-    expect(getRimDisplacement(400, 0.5, 800, 36, 'floating')[1]).toBeGreaterThan(0.6);
-    expect(getRimDisplacement(400, 35.5, 800, 36, 'floating')[1]).toBeLessThan(-0.6);
-    expect(getRimDisplacement(0.5, 18, 800, 36, 'floating')[0]).toBeGreaterThan(0.6);
-    expect(getRimDisplacement(799.5, 18, 800, 36, 'floating')[0]).toBeLessThan(-0.6);
-    const [cornerX, cornerY] = getRimDisplacement(2, 2, 800, 36, 'floating');
-    expect(cornerX).toBeGreaterThan(0);
-    expect(cornerY).toBeGreaterThan(0);
-  });
-
-  it('fits the rim to any surface size and corner radius', () => {
-    expect(getSurfaceBezel(800, 200)).toBe(40);
-    expect(getSurfaceBezel(800, 70)).toBe(20);
-    expect(getSurfaceBezel(42, 42)).toBe(12);
-    expect(getSurfaceBezel(8, 8)).toBe(4);
-    // The outer edge samples 0.8 of the rim inward, half the map's scale.
-    expect(getSurfaceDisplacementScale(16)).toBe(26);
-    expect(getSurfaceDisplacementScale(30)).toBe(48);
-    // A surface's strength scales the bend.
-    expect(getSurfaceDisplacementScale(30, 1.6)).toBe(77);
-    // A rounder corner pushes the rim's bend off the straight edge near the corner.
-    const straight = getRimDisplacement(40, 2, 120, 120, 'floating', { radius: 4, bezel: 16 });
-    const round = getRimDisplacement(4, 2, 48, 48, 'floating', { radius: 16, bezel: 16 });
-    expect(straight[0]).toBe(0);
-    expect(round[0]).toBeGreaterThan(0);
-    expect(getRimDisplacement(24, 24, 48, 48, 'floating', { radius: 16, bezel: 16 })).toEqual([0, 0]);
-    // A corner tighter than its rim turns the bend as one as wide as the rim does, so it never
-    // snaps from sideways to upward along the corner's diagonal.
-    const tight = { radius: 22, bezel: 40 };
-    expect(getRimDisplacement(30, 32, 230, 165, 'floating', tight))
-      .toEqual(getRimDisplacement(30, 32, 230, 165, 'floating', { radius: 40, bezel: 40 }));
-    const [beforeX, beforeY] = getRimDisplacement(29.5, 30.5, 230, 165, 'floating', tight);
-    const [afterX, afterY] = getRimDisplacement(30.5, 29.5, 230, 165, 'floating', tight);
-    expect(Math.abs(beforeX - afterX)).toBeLessThan(0.03);
-    expect(Math.abs(beforeY - afterY)).toBeLessThan(0.03);
-  });
-
-  it('bends hardest at the edge and fades out 0.7 of the way across the rim, as Figma\'s glass does', () => {
-    const bezel = 20;
-    const at = (y: number) => getRimDisplacement(400, y, 800, 72, 'floating', { bezel, radius: 36 })[1];
-    expect(at(0)).toBe(1);
-    // Quadratic falloff, measured off Figma's renders: a quarter strength halfway to the reach.
-    expect(at(7)).toBeCloseTo(0.25, 5);
-    // No slope left where the bend ends, so no line where the rim meets the flat middle.
-    expect(at(13.5)).toBeLessThan(0.01);
-    expect(at(14)).toBe(0);
-    expect(at(18)).toBe(0);
-    // Where each point samples the scene runs back from the edge before it runs forward: the outer
-    // rim mirrors the scene, squeezed, and the inner rim magnifies it into the flat middle.
-    const shift = getSurfaceDisplacementScale(bezel) / 2;
-    const sampled = (y: number) => y + at(y) * shift;
-    expect(sampled(0)).toBe(16);
-    expect(sampled(2)).toBeLessThan(sampled(0));
-    expect(sampled(14)).toBeGreaterThan(sampled(10));
-    expect(sampled(14)).toBe(14);
-  });
-
-  it('rebuilds the whole rim from nine-slice tiles at any size', () => {
-    const geometry = { bezel: 16, radius: 12 };
-    const { size, tiles } = getLensTilePixels('floating', geometry.radius, geometry.bezel);
-    expect(size).toBe(16);
-    for (const [width, height] of [[40, 40], [200, 64], [33, 120]]) {
-      const rects = getLensLayout('floating', width, height, size);
-      // Every point reads the tile covering it (a strip stretched along its side), or flat.
-      const read = (x: number, y: number) => {
-        const index = rects.findIndex(([left, top, w, h]) => x >= left && x < left + w && y >= top && y < top + h);
-        if (index < 0) {
-          return [128, 128];
-        }
-        const tile = tiles[index];
-        const [left, top] = rects[index];
-        const tx = tile.width === 1 ? 0 : x - left;
-        const ty = tile.height === 1 ? 0 : y - top;
-        const offset = (ty * tile.width + tx) * 4;
-        return [tile.data[offset], tile.data[offset + 1]];
-      };
-      for (let y = 0; y < height; y += 3) {
-        for (let x = 0; x < width; x += 3) {
-          const [dx, dy] = getRimDisplacement(x + 0.5, y + 0.5, width, height, 'floating', geometry);
-          expect(read(x, y)).toEqual([Math.round(128 + dx * 127), Math.round(128 + dy * 127)]);
-        }
-      }
-    }
-    const docked = getLensTilePixels('docked', 0, 16);
-    expect(docked.tiles).toHaveLength(1);
-    expect(getLensLayout('docked', 800, 36, docked.size)).toEqual([[0, 20, 800, 16]]);
-  });
-
   it('splits the bend into color channels on plates, red bending furthest', () => {
     const tiles = { shape: 'floating' as const, size: 20, urls: Array.from({ length: 8 }, (_, i) => `data:t${i}`) };
     const filter = createSvgElement(document, buildLensFilter('lens', 120, 70, tiles, 90, true));
     const scales = Array.from(filter.querySelectorAll('feDisplacementMap'), (bend) => Number(bend.getAttribute('scale')));
-    expect(scales).toHaveLength(3);
-    expect(scales[0]).toBeGreaterThan(90);
-    expect(scales[1]).toBe(90);
-    expect(scales[2]).toBeLessThan(90);
+    expect(LIQUID_GLASS_DISPERSION).toBe(0.15);
+    expect(scales).toEqual([103.5, 90, 76.5]);
     expect(filter.querySelectorAll('feColorMatrix')[1].getAttribute('values')).toBe('0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0');
     expect(filter.querySelectorAll('feBlend')).toHaveLength(2);
     expect(filter.querySelectorAll('feImage')).toHaveLength(8);
@@ -189,7 +86,7 @@ describe('New Tab bookmarks bar liquid glass', () => {
         return element;
       };
       const size = { width: 200, height: 64 };
-      const corner = { radius: '16px', rim: '', strength: '' };
+      const corner = { radius: '16px', rim: '', strength: '', shape: '' };
       const card = addSurface(size);
       type ResizedCallback = (entries: ReadonlyArray<Pick<ResizeObserverEntry, 'target'>>) => void;
       let resized: ResizedCallback = () => {};
@@ -206,7 +103,11 @@ describe('New Tab bookmarks bar liquid glass', () => {
         navigator: { userAgent: 'Chrome/140.0' },
         getComputedStyle: () => ({
           borderTopLeftRadius: corner.radius,
-          getPropertyValue: (name: string) => (name === '--rim' ? corner.rim : name === '--strength' ? corner.strength : '')
+          getPropertyValue: (name: string) => ({
+            '--rim': corner.rim,
+            '--strength': corner.strength,
+            'corner-top-left-shape': corner.shape
+          })[name] ?? ''
         }),
         requestAnimationFrame: (callback: FrameRequestCallback) => frames.push(callback),
         cancelAnimationFrame() {},
@@ -289,6 +190,22 @@ describe('New Tab bookmarks bar liquid glass', () => {
       surfaces.destroy();
       expect(filters()).toEqual([]);
       expect(pointedAt()).toBe('');
+    });
+
+    it('draws the rim for the corner\'s own curve', async () => {
+      const { corner, encoded, pointedAt, resize, settle, surfaces } = setup();
+      corner.shape = 'round';
+      resize(200, 64);
+      await settle();
+      const round = pointedAt();
+      const builds = encoded.mock.calls.length;
+      // A superellipse corner of the same radius needs corner tiles of its own.
+      corner.shape = 'superellipse(1.25)';
+      resize(200, 65);
+      await settle();
+      expect(pointedAt()).not.toBe(round);
+      expect(encoded.mock.calls.length).toBeGreaterThan(builds);
+      surfaces.destroy();
     });
 
     it('gives every surface its own lens, sized to it', async () => {

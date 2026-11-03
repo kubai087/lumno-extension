@@ -125,6 +125,8 @@ describe('settings registry', () => {
       .forEach((key) => expect(REMOVED_KEYS).toContain(key));
     expect(BROWSER_SYNC_KEYS.filter((key) => !RELEASED_BROWSER_SYNC_KEYS.includes(key))).toEqual([
       '_x_extension_newtab_glass_adaptive_2026_unique_',
+      '_x_extension_newtab_liquid_glass_tint_dark_2026_unique_',
+      '_x_extension_newtab_liquid_glass_tint_light_2026_unique_',
       '_x_extension_newtab_presentation_mode_2026_unique_',
       '_x_extension_bookmark_topbar_layout_2026_unique_'
     ]);

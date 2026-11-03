@@ -1,23 +1,45 @@
 // The glass material: which surfaces the liquid style bends the wallpaper
-// under, the stored glass style and whether it adapts to the wallpaper, and
-// the ink hint remembered for the next load.
+// under, the stored glass style, whether it adapts to the wallpaper and the
+// liquid tint, and the ink hint remembered for the next load.
 import { createLiquidSurfaces } from '../dom/liquid-glass';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
-import { newtabGlassAdaptive, newtabGlassStyle } from '../../domain/settings/newtab-page';
+import type { SettingPreview } from '../setting-preview';
+import {
+  newtabGlassAdaptive,
+  newtabGlassStyle,
+  newtabLiquidGlassTintDark,
+  newtabLiquidGlassTintLight
+} from '../../domain/settings/newtab-page';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 interface GlassSurfacesDeps {
   settings: Pick<SettingsStore, 'get' | 'include' | 'subscribe'>;
+  preview: Pick<SettingPreview, 'get' | 'store'>;
   syncBookmarkTopbarSurfaceAppearance(options: { updateMenu: boolean }): void;
+}
+
+// How dense the liquid glass tint is under each theme, as a factor of the material's own; the
+// stylesheet takes the one for the page's theme. A dragged slider's value shows at once.
+function applyLiquidGlassTint(preview: GlassSurfacesDeps['preview']): void {
+  document.body.style.setProperty('--x-nt-glass-tint-k-light', String(preview.get(newtabLiquidGlassTintLight) / 100));
+  document.body.style.setProperty('--x-nt-glass-tint-k-dark', String(preview.get(newtabLiquidGlassTintDark) / 100));
+}
+
+function followLiquidGlassTint(settings: GlassSurfacesDeps['settings'], preview: GlassSurfacesDeps['preview']): Promise<void> {
+  const tints = [newtabLiquidGlassTintLight, newtabLiquidGlassTintDark];
+  const apply = () => applyLiquidGlassTint(preview);
+  settings.subscribe(tints, apply);
+  preview.store.subscribe(apply);
+  return settings.include(tints).then(apply);
 }
 
 function createGlassSurfaces(deps: GlassSurfacesDeps) {
   const {
     settings,
+    preview,
     syncBookmarkTopbarSurfaceAppearance
   } = deps;
-
 
   // Surfaces whose rim bends the wallpaper under the liquid style; the search bar, the results
   // plate it grows into and the site search panel that opens under it, and the dock's cards.
@@ -127,10 +149,13 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     }
   }
 
-  // Puts the stored material on the page once read, and again on every change.
+  // Puts the stored material and its tint on the page once read, and again on every change.
   function followNewtabGlassStyle(): Promise<void> {
     settings.subscribe([newtabGlassStyle, newtabGlassAdaptive], applyNewtabGlassStyle);
-    return settings.include([newtabGlassStyle, newtabGlassAdaptive]).then(applyNewtabGlassStyle);
+    return Promise.all([
+      followLiquidGlassTint(settings, preview),
+      settings.include([newtabGlassStyle, newtabGlassAdaptive]).then(applyNewtabGlassStyle)
+    ]).then(() => {});
   }
 
   return {

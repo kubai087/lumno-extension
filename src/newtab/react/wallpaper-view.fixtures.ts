@@ -23,6 +23,7 @@ export function createPanelActions<F extends () => void>(make: () => F): Record<
     openOnlineWallpaperMenu: make(),
     primeWallpaper: make(),
     refreshBing: make(),
+    resetLiquidGlassTint: make(),
     resetShortcutGap: make(),
     resetShortcutSize: make(),
     resetTimeFontSize: make(),
@@ -49,6 +50,7 @@ export function createPanelActions<F extends () => void>(make: () => F): Record<
     setGlassStyle: make(),
     setInputAutoFocus: make(),
     setGlassAdaptive: make(),
+    setLiquidGlassTint: make(),
     setModeSync: make(),
     setOverlay: make(),
     setSearchWidth: make(),
@@ -131,6 +133,13 @@ export function createDefaultPanelState(): WallpaperPanelState {
         title: 'Adapt material to wallpaper',
         toggle: toggle('Adapt material to wallpaper', true),
         visible: false
+      },
+      tint: {
+        infoTooltip: 'How much tint the liquid glass keeps.',
+        title: 'Tint opacity',
+        visible: false,
+        light: { ...slider('Light tint', 100, 0, 150, { suffix: '%', step: 5 }), resetLabel: 'Reset light tint', resetVisible: false },
+        dark: { ...slider('Dark tint', 100, 0, 150, { suffix: '%', step: 5 }), resetLabel: 'Reset dark tint', resetVisible: false }
       },
       title: 'Material',
       value: 'none'

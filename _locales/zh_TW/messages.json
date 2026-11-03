@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "淺色模式下，桌布較暗時材質改用深色，讓文字保持清晰。關閉後，材質始終與新分頁的深淺色一致。"
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "著色不透明度"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "液態玻璃在各主題下保留多少著色。數值越低越通透；為 0% 時只保留模糊與邊緣。"
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "淺色"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "還原淺色預設著色"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "深色"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "還原深色預設著色"
+  },
   "settings_search_source_group_order_title": {
     "message": "搜尋面板順序"
   },

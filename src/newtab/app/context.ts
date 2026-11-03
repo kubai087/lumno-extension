@@ -4,6 +4,7 @@
 import { bookmarkColumns, bookmarkCount, bookmarkFolderIconsVisible, newtabSearchWidth, newtabShortcutColumns, recentCount } from '../../domain/settings';
 import { newtabShortcutGap, newtabShortcutSize } from '../../domain/settings/newtab-shortcuts';
 import { newtabTimeFontSize, newtabTimeOpacity } from '../../domain/settings/newtab-time';
+import { newtabLiquidGlassTintDark, newtabLiquidGlassTintLight } from '../../domain/settings/newtab-page';
 import { getContextSettingsStore } from '../../platform/settings-store';
 import type { SettingsStore } from '../../platform/settings-store';
 import { SurfaceLocale } from '../../shared/i18n/surface-locale';
@@ -39,7 +40,8 @@ function createPageContext(): { ctx: PageContext; migrateLocalSettings: StartupS
   const preview = new SettingPreview(settings);
   preview.follow([
     newtabTimeFontSize, newtabTimeOpacity, newtabShortcutColumns, newtabShortcutSize, newtabShortcutGap, newtabSearchWidth,
-    recentCount, bookmarkCount, bookmarkColumns, bookmarkFolderIconsVisible
+    recentCount, bookmarkCount, bookmarkColumns, bookmarkFolderIconsVisible,
+    newtabLiquidGlassTintLight, newtabLiquidGlassTintDark
   ]);
   const root = getPageRoot(document);
   if (!root) {

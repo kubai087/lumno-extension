@@ -56,7 +56,7 @@ import type { WallpaperPanelView } from './panel-view';
 import { getAppearanceModeLabels } from './appearance-labels';
 import { isLinkWallpaperId } from './wallpaper-library';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../../domain/settings/newtab-shortcuts';
-import { newtabGlassAdaptive, newtabGlassStyle, newtabInputAutoFocusEnabled, newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
+import { newtabGlassAdaptive, newtabGlassStyle, newtabInputAutoFocusEnabled, newtabLiquidGlassTintDark, newtabLiquidGlassTintLight, newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -960,6 +960,42 @@ function createPanelState(deps: PanelStateDeps) {
     };
   }
 
+  // The liquid material's tint sliders, one per theme, in percent of the material's own.
+  function buildLiquidGlassTintState(visible: boolean): WallpaperPanelState['glassStyle']['tint'] {
+    const slider = (setting: typeof newtabLiquidGlassTintLight, label: string, resetLabel: string) => {
+      const value = preview.get(setting);
+      return {
+        label,
+        value,
+        min: SETTINGS.NEWTAB_LIQUID_GLASS_TINT_MIN,
+        max: SETTINGS.NEWTAB_LIQUID_GLASS_TINT_MAX,
+        step: 5,
+        suffix: '%',
+        valueText: `${value}%`,
+        resetLabel,
+        resetVisible: value !== SETTINGS.NEWTAB_LIQUID_GLASS_TINT_DEFAULT
+      };
+    };
+    return {
+      visible,
+      title: t('settings_newtab_liquid_glass_tint_title', 'Tint opacity'),
+      infoTooltip: t(
+        'settings_newtab_liquid_glass_tint_desc',
+        'How much tint liquid glass keeps in each theme. Lower is clearer; at 0% only the blur and the edge remain.'
+      ),
+      light: slider(
+        newtabLiquidGlassTintLight,
+        t('settings_newtab_liquid_glass_tint_light', 'Light'),
+        t('settings_newtab_liquid_glass_tint_light_reset', 'Reset light tint')
+      ),
+      dark: slider(
+        newtabLiquidGlassTintDark,
+        t('settings_newtab_liquid_glass_tint_dark', 'Dark'),
+        t('settings_newtab_liquid_glass_tint_dark_reset', 'Reset dark tint')
+      )
+    };
+  }
+
   // The panel's state, once its actions exist.
   function buildWallpaperPanelState(): WallpaperPanelState | null {
     const actions = panelActions;
@@ -991,7 +1027,8 @@ function createPanelState(deps: PanelStateDeps) {
           title: glassAdaptiveTitle,
           infoTooltip: t('settings_newtab_glass_adaptive_desc', 'In light mode, the material turns dark over darker wallpapers to keep text legible. When off, the material always matches the New Tab theme.'),
           toggle: buildPanelToggle(getGlassAdaptive(), glassAdaptiveTitle)
-        }
+        },
+        tint: buildLiquidGlassTintState(glassStyleValue === 'liquid')
       },
       search: buildWallpaperSearchState(),
       shortcuts: buildWallpaperShortcutsState(),
@@ -1157,7 +1194,9 @@ function createPanelState(deps: PanelStateDeps) {
       newtabSearchWidth,
       newtabInputAutoFocusEnabled,
       newtabGlassStyle,
-      newtabGlassAdaptive
+      newtabGlassAdaptive,
+      newtabLiquidGlassTintLight,
+      newtabLiquidGlassTintDark
     ],
     () => renderWallpaperPanelState()
   );

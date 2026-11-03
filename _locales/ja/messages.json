@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "ライトモードでは、壁紙が暗いときに文字が読みやすいよう暗いガラスに切り替えます。オフにすると、ガラスは常に新しいタブのテーマに合わせます。"
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "色味の不透明度"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "リキッドグラスがテーマごとに残す色味の量です。低いほど透明になり、0% ではぼかしと縁だけが残ります。"
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "ライト"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "ライトの色味を初期値に戻す"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "ダーク"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "ダークの色味を初期値に戻す"
+  },
   "settings_search_source_group_order_title": {
     "message": "検索パネルの並び順"
   },

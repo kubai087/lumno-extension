@@ -1,39 +1,32 @@
 import { isElementNode, isHtmlElement } from '../../shared/dom-guards';
 import { queryHtmlElements } from '../../shared/dom-lookup';
 import { SVG_NS, createSvgElement, type SvgNode } from '../../shared/ui/svg-tree';
+import {
+  BAR_BEZEL_PX,
+  BAR_RADIUS_PX,
+  ROUND_CORNER,
+  getCornerExponent,
+  getLensLayout,
+  getLensTilePixels,
+  getSurfaceBezel,
+  getSurfaceDisplacementScale,
+  type LiquidGlassShape
+} from '../../domain/liquid-glass-lens';
 // Liquid glass: the wallpaper behind a surface's rim bends inward the way a thick glass edge
 // refracts, and splits slightly into its colors there. An SVG displacement map drives the bend
 // through `backdrop-filter: url(#…)`, which only Chromium renders; other browsers keep the CSS-only
 // glass. The bookmarks bar drives one surface; New Tab's glass style drives many through
 // createLiquidSurfaces.
 //
-// The map is a nine-slice lens. Only the rim bends, and a rim depends on the corner radius and rim
-// width alone, so a lens is four corner tiles and four one-pixel edge strips (stretched along the
-// sides), on a flat flood. The tiles are built and decoded once per radius and rim and shared by
-// every surface; a surface that resizes only moves its tiles, in the same frame, so nothing is
-// rebuilt, encoded or decoded while the page resizes or the results plate grows.
+// The map is a nine-slice lens (domain/liquid-glass-lens.ts). The tiles are built and decoded once
+// per corner and rim and shared by every surface; a surface that resizes only moves its tiles, in
+// the same frame, so nothing is rebuilt, encoded or decoded while the page resizes or the results
+// plate grows.
 
-// The rim follows Figma's glass effect, measured off its renders: the outer edge samples the
-// scene `refraction` times the rim width inward, and the bend falls off quadratically to nothing
-// 0.7 of the way across the rim. The falloff is steepest at the edge, so the outer part of the rim
-// folds the scene back on itself (a mirrored, squeezed band, as a thick glass edge shows) and the
-// inner part magnifies it into the flat middle.
-const BEZEL_PX = 16;
-export const LIQUID_GLASS_REFRACTION = 0.8;
-const RIM_REACH = 0.7;
-// Red bends further than blue, as in Figma: each channel samples the backdrop at its own share of
-// the bend, so the rim fringes where the wallpaper has edges. Nothing splits in the flat middle.
-// About Figma's dispersion at 50%; the split grows with the bend, so it stays small.
-export const LIQUID_GLASS_DISPERSION = 0.06;
-const FLOATING_RADIUS_PX = 14;
-
-export type LiquidGlassShape = 'docked' | 'floating';
-
-// A floating surface's corner radius and rim width; the bar's own values when left out.
-export interface LiquidGlassGeometry {
-  bezel?: number;
-  radius?: number;
-}
+// Red bends further than blue: each channel samples the backdrop at its own share of the bend, so
+// the rim fringes where the wallpaper has edges. Nothing splits in the flat middle. The split
+// grows with the bend, so it stays small.
+export const LIQUID_GLASS_DISPERSION = 0.15;
 
 // What a lens tile is drawn on: a canvas, or a stand-in where there is none.
 export interface LensTileCanvas {
@@ -79,126 +72,25 @@ export function isLiquidGlassSupported(windowObj: Pick<LiquidGlassWindow, 'CSS' 
   );
 }
 
-// Inward offset at a point, as unit direction times strength (0 in the flat middle, 1 at the rim).
-export function getRimDisplacement(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  shape: LiquidGlassShape,
-  geometry: LiquidGlassGeometry = {}
-): [number, number] {
-  const bezel = Math.min(geometry.bezel ?? BEZEL_PX, height / 2);
-  if (shape === 'docked') {
-    // The docked bar meets the browser and window at its top and sides; only its bottom edge shows.
-    const distance = height - y;
-    if (distance >= bezel) {
-      return [0, 0];
-    }
-    return [0, -rimStrength(distance / bezel)];
-  }
-  // The rim turns its corners on a curve at least as wide as the rim. On a tighter one, the rim's
-  // inner edge has a sharp corner, so the bend snaps from sideways to upward along its diagonal: a
-  // seam that the color split lights as a glow in each corner. Past the surface's own, tighter
-  // curve the rim is at full strength anyway.
-  const radius = Math.min(Math.max(geometry.radius ?? FLOATING_RADIUS_PX, bezel), width / 2, height / 2);
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const qx = Math.abs(x - centerX) - (centerX - radius);
-  const qy = Math.abs(y - centerY) - (centerY - radius);
-  let normalX = 0;
-  let normalY = 0;
-  let distance = 0;
-  if (qx > 0 && qy > 0) {
-    const length = Math.hypot(qx, qy) || 1;
-    normalX = qx / length;
-    normalY = qy / length;
-    distance = radius - length;
-  } else if (qx > qy) {
-    normalX = 1;
-    distance = radius - qx;
-  } else {
-    normalY = 1;
-    distance = radius - qy;
-  }
-  if (distance >= bezel) {
-    return [0, 0];
-  }
-  const strength = rimStrength(Math.max(0, distance) / bezel);
-  return [
-    -normalX * Math.sign(x - centerX || 1) * strength,
-    -normalY * Math.sign(y - centerY || 1) * strength
-  ];
-}
-
-// Full at the outer edge, falling off quadratically to nothing at RIM_REACH of the rim, where its
-// slope also reaches zero, so the rim melts into the flat middle without a visible line.
-function rimStrength(progressFromRim: number) {
-  const rest = 1 - Math.min(1, progressFromRim / RIM_REACH);
-  return rest * rest;
-}
-
 export interface LensTiles {
   shape: LiquidGlassShape;
   size: number;
   urls: string[];
 }
 
-type Rect = [number, number, number, number];
-
-// Where each tile of a lens sits on a surface of this size: corners (top left, top right, bottom
-// left, bottom right) then edges (top, bottom, left, right); a docked bar has its bottom edge only.
-export function getLensLayout(shape: LiquidGlassShape, width: number, height: number, size: number): Rect[] {
-  if (shape === 'docked') {
-    return [[0, height - size, width, size]];
-  }
-  const across = Math.max(1, width - size * 2);
-  const down = Math.max(1, height - size * 2);
-  return [
-    [0, 0, size, size],
-    [width - size, 0, size, size],
-    [0, height - size, size, size],
-    [width - size, height - size, size, size],
-    [size, 0, across, size],
-    [size, height - size, across, size],
-    [0, size, size, down],
-    [width - size, size, size, down]
-  ];
+// The rim a lens draws: the surface's shape, its corner radius and corner shape (a superellipse
+// exponent), and the rim's width.
+interface LensRim {
+  shape: LiquidGlassShape;
+  radius: number;
+  corner: number;
+  bezel: number;
 }
 
-// The tiles' pixels, read off a probe surface one pixel wider than two tiles: its rims bend as
-// any surface at least twice the tile size does, and its edges are the one-pixel strips.
-export function getLensTilePixels(shape: LiquidGlassShape, radius: number, bezel: number) {
-  const size = Math.max(1, Math.ceil(shape === 'docked' ? bezel : Math.max(radius, bezel)));
-  const probe = size * 2 + 1;
-  const geometry = { bezel, radius };
-  const probeWidth = shape === 'docked' ? 1 : probe;
-  return {
-    size,
-    tiles: getLensLayout(shape, probeWidth, probe, size).map(([left, top, w, h]) => {
-      const data = new Uint8ClampedArray(w * h * 4);
-      for (let y = 0; y < h; y += 1) {
-        for (let x = 0; x < w; x += 1) {
-          const [dx, dy] = getRimDisplacement(left + x + 0.5, top + y + 0.5, probeWidth, probe, shape, geometry);
-          const offset = (y * w + x) * 4;
-          data[offset] = Math.round(128 + dx * 127);
-          data[offset + 1] = Math.round(128 + dy * 127);
-          data[offset + 2] = 128;
-          data[offset + 3] = 255;
-        }
-      }
-      return { width: w, height: h, data };
-    })
-  };
-}
+type Rect = ReturnType<typeof getLensLayout>[number];
 
-function buildLensTiles(
-  createTileCanvas: () => LensTileCanvas,
-  shape: LiquidGlassShape,
-  radius: number,
-  bezel: number
-): LensTiles | null {
-  const { size, tiles } = getLensTilePixels(shape, radius, bezel);
+function buildLensTiles(createTileCanvas: () => LensTileCanvas, rim: LensRim): LensTiles | null {
+  const { size, tiles } = getLensTilePixels(rim.shape, rim.radius, rim.bezel, rim.corner);
   const urls: string[] = [];
   for (const tile of tiles) {
     const canvas = createTileCanvas();
@@ -213,18 +105,18 @@ function buildLensTiles(
     context.putImageData(image, 0, 0);
     urls.push(canvas.toDataURL('image/png'));
   }
-  return { shape, size, urls };
+  return { shape: rim.shape, size, urls };
 }
 
-// Lens tiles for one shape, radius and rim, built once and resolved once every tile has decoded,
+// Lens tiles for one rim, built once and resolved once every tile has decoded,
 // so no surface points at a filter whose images are still loading (it would draw without its blur).
 function createLensCache(documentObj: Document, createTileCanvas: () => LensTileCanvas) {
   const cache = new Map<string, Promise<LensTiles>>();
-  return (shape: LiquidGlassShape, radius: number, bezel: number) => {
-    const key = `${shape}:${radius}:${bezel}`;
+  return (rim: LensRim) => {
+    const key = `${rim.shape}:${rim.radius}:${rim.corner}:${rim.bezel}`;
     let entry = cache.get(key);
     if (!entry) {
-      const tiles = buildLensTiles(createTileCanvas, shape, radius, bezel);
+      const tiles = buildLensTiles(createTileCanvas, rim);
       entry = tiles
         ? Promise.all(tiles.urls.map((url) => {
           const image = documentObj.createElement('img');
@@ -350,14 +242,8 @@ function createLensSwitcher(options: {
   let destroyed = false;
   return {
     // Fits the current lens when the key holds, or prepares one for the new key.
-    update(
-      key: string,
-      shape: LiquidGlassShape,
-      radius: number,
-      bezel: number,
-      scale: number,
-      dispersion: boolean
-    ) {
+    update(rim: LensRim, scale: number, dispersion: boolean) {
+      const key = `${rim.shape}:${rim.radius}:${rim.corner}:${rim.bezel}:${scale}:${dispersion ? 'rgb' : 'g'}`;
       const [width, height] = measure();
       // The current lens follows the size even while a lens for a new key is prepared, so its filter
       // never stops short of the surface.
@@ -372,7 +258,7 @@ function createLensSwitcher(options: {
         return;
       }
       wanted = key;
-      tilesFor(shape, radius, bezel).then((tiles) => {
+      tilesFor(rim).then((tiles) => {
         if (destroyed || wanted !== key) {
           return;
         }
@@ -491,31 +377,15 @@ export function createLiquidGlass(options: {
         });
       }
       const shape = shapeOf();
-      const radius = shape === 'floating' ? Math.round(Math.min(FLOATING_RADIUS_PX, width / 2, height / 2)) : 0;
-      const bezel = Math.round(Math.min(BEZEL_PX, height / 2));
-      lens.update(`${shape}:${radius}:${bezel}`, shape, radius, bezel, getSurfaceDisplacementScale(bezel), false);
+      const radius = shape === 'floating' ? Math.round(Math.min(BAR_RADIUS_PX, width / 2, height / 2)) : 0;
+      const bezel = Math.round(Math.min(BAR_BEZEL_PX, height / 2));
+      lens.update({ shape, radius, corner: ROUND_CORNER, bezel }, getSurfaceDisplacementScale(bezel), false);
     },
     destroy() {
       destroyed = true;
       disable();
     }
   };
-}
-
-// The ring around a New Tab plate: wide enough on a card for the bend to show over a calm
-// wallpaper. The bend stops short of the ring's inner edge, so even a plate whose ring takes up
-// most of its height still reads as a clear window in the middle.
-const SURFACE_BEZEL_PX = 40;
-
-// Rim width for a surface of this size, narrowed so small plates keep a flat middle.
-export function getSurfaceBezel(width: number, height: number) {
-  return Math.max(4, Math.min(SURFACE_BEZEL_PX, Math.min(width, height) / 3.5));
-}
-
-// How far the rim moves the backdrop. feDisplacementMap moves a pixel by up to half the scale, so
-// the outer edge samples LIQUID_GLASS_REFRACTION of the rim inward, times the surface's `strength`.
-export function getSurfaceDisplacementScale(bezel: number, strength = 1) {
-  return Math.round(2 * LIQUID_GLASS_REFRACTION * strength * bezel);
 }
 
 function readCornerRadius(style: LensStyle, width: number, height: number) {
@@ -531,12 +401,12 @@ export interface LiquidSurfaces {
 
 // Gives every element matching `selector` a rim-refraction filter in the inline custom property
 // `property`. Only surfaces matching `dispersionSelector` split the bend into colors; each costs
-// three displacement passes instead of one. A surface may
-// set its own rim width in the CSS property `rimProperty`, held whatever its size (narrowed only
-// on a surface too short for it), so a plate that grows keeps one lens instead of a new one at
-// every step. It may also scale how far its rim bends in the CSS property `strengthProperty` (1 when
-// unset), for a plate whose dense tint would otherwise hide the bend. Sizes are followed from a ResizeObserver, which runs after layout and before paint,
-// so a surface's lens fits its new size in the frame it changes.
+// three displacement passes instead of one. A surface may set its own rim width in the CSS property
+// `rimProperty`, held whatever its size (narrowed only on a surface too short for it), so a plate
+// that grows keeps one lens instead of a new one at every step. It may also scale how far its rim
+// bends in the CSS property `strengthProperty` (1 when unset). Sizes are followed from a
+// ResizeObserver, which runs after layout and before paint, so a surface's lens fits its new size
+// in the frame it changes.
 export function createLiquidSurfaces(options: {
   documentObj: Document;
   dispersionSelector?: string;
@@ -601,8 +471,9 @@ export function createLiquidSurfaces(options: {
     const dispersion = Boolean(dispersionSelector && element.matches(dispersionSelector));
     const setStrength = strengthProperty ? Number.parseFloat(style.getPropertyValue(strengthProperty)) : 0;
     const strength = setStrength > 0 ? setStrength : 1;
-    lens.update(`${radius}:${bezel}:${strength}:${dispersion ? 'rgb' : 'g'}`, 'floating', radius, bezel,
-      getSurfaceDisplacementScale(bezel, strength), dispersion);
+    // The lens follows the corner's own curve: a circle, or the superellipse New Tab's plates use.
+    const corner = getCornerExponent(String(style.getPropertyValue('corner-top-left-shape') || ''));
+    lens.update({ shape: 'floating', radius, corner, bezel }, getSurfaceDisplacementScale(bezel, strength), dispersion);
   };
 
   const ResizeObserverCtor = windowObj.ResizeObserver;

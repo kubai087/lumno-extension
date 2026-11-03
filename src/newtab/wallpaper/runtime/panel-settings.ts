@@ -14,6 +14,8 @@ import {
   newtabTimeSecondsVisible,
   newtabTopContentMode
 } from '../../../domain/settings/newtab-time';
+import { newtabLiquidGlassTintDark, newtabLiquidGlassTintLight } from '../../../domain/settings/newtab-page';
+import type { LiquidGlassTintTheme } from '../../react/wallpaper-panel/panel-model';
 import { createDebouncedSaver } from './debounced-saver';
 import type { WallpaperPanelView } from './panel-view';
 
@@ -86,6 +88,14 @@ function createPanelSettings(deps: PanelSettingsDeps) {
     const opacity = newtabTimeOpacity.parse(value);
     preview.show(newtabTimeOpacity, opacity);
     saveSliderSetting('timeOpacity', () => void settings.set(newtabTimeOpacity, opacity), change);
+  }
+
+  // The glass follows the slider at once; the value is saved once it settles.
+  function persistLiquidGlassTintFromSlider(theme: LiquidGlassTintTheme, value: unknown, change?: SliderSaveOptions): void {
+    const setting = theme === 'dark' ? newtabLiquidGlassTintDark : newtabLiquidGlassTintLight;
+    const tint = setting.parse(value);
+    preview.show(setting, tint);
+    saveSliderSetting(`liquidGlassTint:${theme}`, () => void settings.set(setting, tint), change);
   }
 
   function persistTimeInk(value: unknown): void {
@@ -317,6 +327,7 @@ function createPanelSettings(deps: PanelSettingsDeps) {
     persistTimeFontWeight,
     persistTimeFontSizeFromSlider,
     persistTimeOpacityFromSlider,
+    persistLiquidGlassTintFromSlider,
     persistTimeInk,
     persistTimeFont,
     persistTimeSecondsVisible,

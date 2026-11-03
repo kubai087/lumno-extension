@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "No modo claro, o material fica escuro sobre planos de fundo mais escuros para manter o texto legível. Desativado, o material sempre segue o tema da Nova guia."
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "Opacidade da tonalidade"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "Quanta tonalidade o vidro líquido mantém em cada tema. Quanto menor, mais transparente; em 0% restam apenas o desfoque e a borda."
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "Claro"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "Redefinir tonalidade clara"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "Escuro"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "Redefinir tonalidade escura"
+  },
   "settings_search_source_group_order_title": {
     "message": "Ordem do painel de pesquisa"
   },

@@ -104,6 +104,7 @@ function createPagePart(ctx: PageContext, deps: PagePartDeps) {
     followNewtabGlassStyle
   } = NEWTAB_GLASS_SURFACES.createGlassSurfaces({
     settings,
+    preview: ctx.preview,
     syncBookmarkTopbarSurfaceAppearance
   });
 

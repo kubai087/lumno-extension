@@ -192,6 +192,31 @@ describe('New Tab React wallpaper view', () => {
     expect(actions.setGlassAdaptive).toHaveBeenCalledWith(false);
   });
 
+  it('shows a tint slider per theme under liquid glass only, each with its own reset', () => {
+    const { state, actions } = createState();
+    mount(state);
+    expect(refs().liquidTintGroup.hidden).toBe(true);
+    state.glassStyle.value = 'liquid';
+    state.glassStyle.tint = {
+      ...state.glassStyle.tint,
+      visible: true,
+      dark: { ...state.glassStyle.tint.dark, value: 40, valueText: '40%', resetVisible: true }
+    };
+    rerender(state);
+    expect(refs().liquidTintGroup.hidden).toBe(false);
+    expect(refs().liquidTintInfoButton.getAttribute('aria-label')).toBe('Tint opacity');
+    const light = expectTag(refs().liquidTintLightSlider, 'input');
+    const dark = expectTag(refs().liquidTintDarkSlider, 'input');
+    expect([light.min, light.max, light.step, light.value]).toEqual(['0', '150', '5', '100']);
+    expect(dark.value).toBe('40');
+    expect(dark.getAttribute('aria-valuetext')).toBe('40%');
+    expect(expectTag(refs().liquidTintLightResetButton, 'button').disabled).toBe(true);
+    act(() => expectTag(refs().liquidTintDarkResetButton, 'button').click());
+    expect(actions.resetLiquidGlassTint).toHaveBeenCalledWith('dark');
+    typeInto(light, '60');
+    expect(actions.setLiquidGlassTint).toHaveBeenLastCalledWith('light', 60, { dragging: false, final: false });
+  });
+
   it('marks only the theme option that carries a badge', () => {
     const { state } = createState();
     state.theme.modes[0].badgeUrl = '/lumno.png';
@@ -271,7 +296,7 @@ describe('New Tab React wallpaper view', () => {
     expect(refs().effectSelectHost.closest('.x-nt-appearance-setting-row'))
       .toBe(refs().effectLabel.parentElement);
     const sliderRows = getElements(view.control, '.x-nt-range-slider-row');
-    expect(sliderRows).toHaveLength(18);
+    expect(sliderRows).toHaveLength(20);
     sliderRows.forEach((row) => {
       const slider = queryHtmlTag(row, 'input[type="range"]', 'input');
       const valueInput = queryHtmlTag(row, 'input[type="number"]', 'input');

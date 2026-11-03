@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "En mode clair, la matière passe au sombre sur les fonds d’écran plus sombres pour garder le texte lisible. Désactivée, la matière suit toujours le thème du Nouvel onglet."
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "Opacité de la teinte"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "Quantité de teinte que garde le verre liquide dans chaque thème. Plus bas, plus transparent ; à 0 % il ne reste que le flou et le bord."
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "Clair"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "Réinitialiser la teinte claire"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "Sombre"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "Réinitialiser la teinte sombre"
+  },
   "settings_search_source_group_order_title": {
     "message": "Ordre du panneau de recherche"
   },

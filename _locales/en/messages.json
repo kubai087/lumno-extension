@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "In light mode, the material turns dark over darker wallpapers to keep text legible. When off, the material always matches the New Tab theme."
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "Tint opacity"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "How much tint liquid glass keeps in each theme. Lower is clearer; at 0% only the blur and the edge remain."
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "Light"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "Reset light tint"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "Dark"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "Reset dark tint"
+  },
   "settings_search_source_group_order_title": {
     "message": "Search Panel Order"
   },

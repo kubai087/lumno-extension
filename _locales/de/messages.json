@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "Im hellen Modus wird das Material über dunkleren Hintergrundbildern dunkel, damit Text lesbar bleibt. Ausgeschaltet folgt das Material immer dem Farbmodus des neuen Tabs."
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "Tönungsdeckkraft"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "Wie viel Tönung Flüssigglas in jedem Design behält. Niedriger ist klarer; bei 0 % bleiben nur Unschärfe und Rand."
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "Hell"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "Helle Tönung zurücksetzen"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "Dunkel"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "Dunkle Tönung zurücksetzen"
+  },
   "settings_search_source_group_order_title": {
     "message": "Reihenfolge im Suchbereich"
   },

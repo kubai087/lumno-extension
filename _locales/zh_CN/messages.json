@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "浅色模式下，壁纸较暗时材质改用深色，让文字保持清晰。关闭后，材质始终与新标签页的深浅色一致。"
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "着色不透明度"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "液态玻璃在各主题下保留多少着色。数值越低越通透；为 0% 时只保留模糊和边缘。"
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "浅色"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "恢复浅色默认着色"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "深色"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "恢复深色默认着色"
+  },
   "settings_search_source_group_order_title": {
     "message": "搜索面板顺序"
   },

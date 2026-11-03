@@ -2,7 +2,7 @@
 // material, buttons, zen mode and where clicks open.
 import { defineSetting } from './define';
 import type { Setting } from './define';
-import { custom, flag, isRecord, oneOf } from './schema';
+import { custom, flag, integer, isRecord, oneOf } from './schema';
 import { themeMode } from './appearance';
 
 type NewtabWidthMode = 'standard' | 'wide';
@@ -35,6 +35,11 @@ const NEWTAB_OPEN_IN_NEW_TAB_SURFACES: readonly NewtabOpenInNewTabSurface[] =
 const NEWTAB_SEARCH_WIDTH_MIN = 640;
 const NEWTAB_SEARCH_WIDTH_MAX = 1040;
 const NEWTAB_SEARCH_WIDTH_DEFAULT = 920;
+// How dense the liquid glass tint is, in percent of the material's own: at 0 the tint, the veil
+// and the inner sheet are gone and only the blur, the rim and the shadow remain.
+const NEWTAB_LIQUID_GLASS_TINT_MIN = 0;
+const NEWTAB_LIQUID_GLASS_TINT_MAX = 150;
+const NEWTAB_LIQUID_GLASS_TINT_DEFAULT = 100;
 
 function getNumberOption(value: unknown, fallback: number): number {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -143,6 +148,28 @@ const newtabGlassAdaptive = defineSetting({
   schema: flag(true)
 });
 
+const liquidGlassTint = () => integer({
+  min: NEWTAB_LIQUID_GLASS_TINT_MIN,
+  max: NEWTAB_LIQUID_GLASS_TINT_MAX,
+  fallback: NEWTAB_LIQUID_GLASS_TINT_DEFAULT,
+  blankIsMissing: true
+});
+
+// The liquid glass tint under the light theme and under the dark theme, each set on its own.
+const newtabLiquidGlassTintLight = defineSetting({
+  key: '_x_extension_newtab_liquid_glass_tint_light_2026_unique_',
+  area: 'preferences',
+  sync: 'browser',
+  schema: liquidGlassTint()
+});
+
+const newtabLiquidGlassTintDark = defineSetting({
+  key: '_x_extension_newtab_liquid_glass_tint_dark_2026_unique_',
+  area: 'preferences',
+  sync: 'browser',
+  schema: liquidGlassTint()
+});
+
 // Which New Tab surfaces open a plain click in a new foreground tab instead of the New Tab itself.
 const newtabOpenInNewTab = defineSetting({
   key: '_x_extension_newtab_open_in_new_tab_2026_unique_',
@@ -165,6 +192,9 @@ const NEWTAB_THEME_SETTINGS = [themeMode, newtabThemeMode, newtabThemeScope];
 export {
   NEWTAB_THEME_SETTINGS,
   NEWTAB_GLASS_STYLES,
+  NEWTAB_LIQUID_GLASS_TINT_DEFAULT,
+  NEWTAB_LIQUID_GLASS_TINT_MAX,
+  NEWTAB_LIQUID_GLASS_TINT_MIN,
   NEWTAB_OPEN_IN_NEW_TAB_SURFACES,
   NEWTAB_SEARCH_WIDTH_DEFAULT,
   NEWTAB_SEARCH_WIDTH_MAX,
@@ -174,6 +204,8 @@ export {
   newtabGlassAdaptive,
   newtabGlassStyle,
   newtabInputAutoFocusEnabled,
+  newtabLiquidGlassTintDark,
+  newtabLiquidGlassTintLight,
   newtabOpenInNewTab,
   newtabSearchWidth,
   newtabThemeMode,

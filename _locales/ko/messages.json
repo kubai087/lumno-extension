@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "라이트 모드에서 배경화면이 어두우면 글자가 잘 보이도록 어두운 소재로 바꿉니다. 끄면 소재가 항상 새 탭 테마를 따릅니다."
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "틴트 불투명도"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "리퀴드 글라스가 테마별로 유지하는 틴트의 양입니다. 낮을수록 투명해지며, 0%에서는 블러와 테두리만 남습니다."
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "라이트"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "라이트 틴트 재설정"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "다크"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "다크 틴트 재설정"
+  },
   "settings_search_source_group_order_title": {
     "message": "검색 패널 순서"
   },

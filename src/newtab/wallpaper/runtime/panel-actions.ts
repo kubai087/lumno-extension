@@ -53,7 +53,8 @@ interface PanelActionsDeps extends
   Pick<PanelMotion, 'isWallpaperPanelOpen' | 'animateWallpaperAppearanceScopeChange' | 'setWallpaperActiveMode' |
     'setWallpaperActiveTab' | 'syncWallpaperSourceTabToEditMode' | 'setWallpaperPanelOpenState'>,
   Pick<PanelSettings, 'persistSearchWidthFromSlider' | 'persistTopContentMode' | 'persistTimeFontWeight' |
-    'persistTimeFontSizeFromSlider' | 'persistTimeOpacityFromSlider' | 'persistTimeInk' | 'persistTimeFont' |
+    'persistTimeFontSizeFromSlider' | 'persistTimeOpacityFromSlider' | 'persistLiquidGlassTintFromSlider' |
+    'persistTimeInk' | 'persistTimeFont' |
     'persistTimeSecondsVisible' | 'persistTime12Hour' | 'persistShortcutColumnsFromSlider' |
     'persistShortcutSizeFromSlider' | 'persistShortcutGapFromSlider' | 'getShortcutLayoutDefault'>,
   Pick<CustomWallpapers, 'deleteCustomWallpaper' | 'importCustomWallpaperFile' | 
@@ -135,6 +136,7 @@ function createPanelActions(deps: PanelActionsDeps) {
     persistTimeFontWeight,
     persistTimeFontSizeFromSlider,
     persistTimeOpacityFromSlider,
+    persistLiquidGlassTintFromSlider,
     persistTimeInk,
     persistTimeFont,
     persistTimeSecondsVisible,
@@ -241,6 +243,9 @@ function createPanelActions(deps: PanelActionsDeps) {
         setGlassAdaptive(enabled);
         renderWallpaperPanelState();
       },
+      setLiquidGlassTint: persistLiquidGlassTintFromSlider,
+      resetLiquidGlassTint: (theme) =>
+        persistLiquidGlassTintFromSlider(theme, SETTINGS.NEWTAB_LIQUID_GLASS_TINT_DEFAULT, { final: true }),
       selectTopContent: persistTopContentMode,
       setTimeFontWeight: persistTimeFontWeight,
       resetTimeFontWeight: () => persistTimeFontWeight(SETTINGS.getNewtabTimeFont(settings.get(newtabTimeFont)).defaultWeight),

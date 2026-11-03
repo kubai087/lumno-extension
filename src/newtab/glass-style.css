@@ -5,7 +5,8 @@
    - frosted: the pre-Liquid Glass system material. The backdrop is blurred hard, saturated and
      pulled toward a mid tone (contrast + brightness), so a plate reads the same over a bright sky
      and a dark forest; the edge is lit from inside.
-   - liquid: clear glass. A light blur, a vivid backdrop, an even tint and a bright specular rim;
+   - liquid: clear glass. A light blur, a vivid backdrop, a thin tint, a bright specular rim and
+     soft light caught inside the rim (the bevel), as a thick slab shows it;
      where Chromium draws SVG backdrop filters, the rim of the search bar, its results and the
      dock's cards also bends the wallpaper inward and fringes it into its colors
      (--x-nt-glass-refraction, set by newtab.js through createLiquidSurfaces). The lens comes last, after the blur and every
@@ -47,41 +48,57 @@ body[data-glass-style="frosted"][data-theme="dark"] {
 }
 body[data-glass-style="liquid"] {
   --x-nt-glass-tint-rgb: 255 255 255;
-  --x-nt-glass-tint-thin: 0.14;
-  --x-nt-glass-tint-dense: 0.44;
+  --x-nt-glass-tint-thin: 0.06;
+  --x-nt-glass-tint-dense: 0.22;
   /* Liquid glass is lit at its rim, not washed from the top. */
   --x-nt-glass-sheen: transparent;
   --x-nt-glass-float-rgb: 250 250 252;
-  --x-nt-glass-float-thin: 0.26;
-  --x-nt-glass-float-dense: 0.48;
+  --x-nt-glass-float-thin: 0.22;
+  --x-nt-glass-float-dense: 0.44;
   --x-nt-glass-inset: rgba(255, 255, 255, 0.3);
-  /* macOS-style liquid rim: no glow along the inside, light caught where the curve faces it, on
-     the top left and fainter on the bottom right, over a faint even line that keeps the outline.
-     The negative spread keeps each catch to the rim and lets it fade out along the sides. */
-  --x-nt-glass-edge:
-    inset 1px 1px 0.5px -0.5px rgba(255, 255, 255, 0.62),
-    inset -1px -1px 0.5px -0.5px rgba(255, 255, 255, 0.26),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.1),
+  /* macOS-style liquid rim: light caught where the curve faces it, on the top left and fainter on
+     the bottom right, over a faint even line that keeps the outline. The negative spread keeps
+     each catch to the rim and lets it fade out along the sides. */
+  --x-nt-glass-catch:
+    inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 0.95),
+    inset -1.5px -1.5px 1px -1px rgba(255, 255, 255, 0.55),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.3),
     0 0 0 0.5px rgba(0, 0, 0, 0.07),
     0 4px 14px rgba(0, 0, 0, 0.08);
+  --x-nt-glass-edge: var(--x-nt-glass-catch);
+  /* The bevel: the rounded rim's own light, soft bands just inside the edge, bright where it faces
+     the light at the top and left, a little on the right and shaded at the bottom, so a plate
+     reads as a thick slab. Plates add it to their edge (below); small controls go without. */
+  --x-nt-glass-bevel:
+    inset 0 10px 16px -8px rgba(255, 255, 255, 0.5),
+    inset 8px 0 16px -8px rgba(255, 255, 255, 0.22),
+    inset -8px 0 16px -8px rgba(255, 255, 255, 0.12),
+    inset 0 -10px 16px -8px rgba(0, 0, 0, 0.1);
   --x-nt-glass-inset-edge: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   --x-nt-glass-float-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
 }
 body[data-glass-style="liquid"][data-theme="dark"] {
   --x-nt-glass-tint-rgb: 30 30 34;
-  --x-nt-glass-tint-thin: 0.28;
-  --x-nt-glass-tint-dense: 0.56;
+  --x-nt-glass-tint-thin: 0.16;
+  --x-nt-glass-tint-dense: 0.38;
   --x-nt-glass-sheen: transparent;
   --x-nt-glass-float-rgb: 30 30 34;
-  --x-nt-glass-float-thin: 0.32;
-  --x-nt-glass-float-dense: 0.54;
+  --x-nt-glass-float-thin: 0.26;
+  --x-nt-glass-float-dense: 0.46;
   --x-nt-glass-inset: rgba(255, 255, 255, 0.07);
-  --x-nt-glass-edge:
-    inset 1px 1px 0.5px -0.5px rgba(255, 255, 255, 0.4),
-    inset -1px -1px 0.5px -0.5px rgba(255, 255, 255, 0.15),
+  --x-nt-glass-catch:
+    inset 1px 1px 0.5px -0.5px rgba(255, 255, 255, 0.46),
+    inset -1px -1px 0.5px -0.5px rgba(255, 255, 255, 0.18),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.06),
     0 0 0 0.5px rgba(0, 0, 0, 0.28),
     0 4px 14px rgba(0, 0, 0, 0.22);
+  --x-nt-glass-edge: var(--x-nt-glass-catch);
+  /* Dimmer in the dark, and the shade deeper. */
+  --x-nt-glass-bevel:
+    inset 0 10px 16px -8px rgba(255, 255, 255, 0.2),
+    inset 8px 0 16px -8px rgba(255, 255, 255, 0.08),
+    inset -8px 0 16px -8px rgba(255, 255, 255, 0.05),
+    inset 0 -10px 16px -8px rgba(0, 0, 0, 0.25);
   --x-nt-glass-inset-edge: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   --x-nt-glass-float-shadow: 0 16px 48px rgba(0, 0, 0, 0.34);
 }
@@ -101,21 +118,41 @@ body[data-glass-style="frosted"][data-nt-ready="1"][data-theme="dark"] {
   --x-nt-glass-float-filter: var(--x-nt-glass-filter);
 }
 /* Liquid glass lightens or dims the scene inside the backdrop filter, the way a screen or multiply
-   overlay would, rather than with a colored wash on top:
+   overlay would, rather than with a colored wash on top (the veil):
    - light: contrast c then brightness 2 / (1 + c), which is screen with white at (1 - c) / (1 + c):
      whites stay white and the darks lift toward them, so the glass brightens instead of graying;
    - dark: brightness alone, which is multiply with black: blacks stay black and the lights come
      down, so the glass dims instead of going muddy.
-   The saturation boost stays small, so a strongly colored wallpaper does not stain the glass. */
-body[data-glass-style="liquid"][data-nt-ready="1"] {
-  --x-nt-glass-filter: blur(2px) saturate(120%) contrast(0.86) brightness(1.075);
+   The saturation deepens the scene's colors, so the glass takes its color from what is under it
+   instead of turning milky; the wallpaper sample keeps less of it over a vivid patch
+   (--x-nt-glass-saturate).
+   The filter is written in parts, blur, saturation, contrast and brightness (the float parts for
+   floating layers), and put together on every plate below, so a plate can change one part and the
+   veil can thin with the tint. */
+body[data-glass-style="liquid"] {
+  --x-nt-glass-blur: 2px;
+  --x-nt-glass-saturation: 1.8;
+  --x-nt-glass-contrast: 1;
+  --x-nt-glass-brightness: 1.06;
   /* Floating layers carry lists of text: still clear glass, the scene behind softened rather than
      erased, with a little more tint than the plates to hold the labels. */
-  --x-nt-glass-float-filter: blur(10px) saturate(130%) contrast(0.82) brightness(1.1);
+  --x-nt-glass-float-blur: 10px;
+  --x-nt-glass-float-saturation: 1.6;
+  --x-nt-glass-float-contrast: 0.92;
+  --x-nt-glass-float-brightness: 1.06;
+  /* The tint opacity the user set for the theme (Appearance → Style; the page sets both factors on
+     the body), scaling every plate's tint. Below 1x the veil and the recent cards' inner sheet thin
+     out with it, so at 0 only the blur, the rim and the shadow are left. */
+  --x-nt-glass-tint-k: var(--x-nt-glass-tint-k-light, 1);
+  --x-nt-glass-veil-k: min(1, var(--x-nt-glass-tint-k));
 }
-body[data-glass-style="liquid"][data-nt-ready="1"][data-theme="dark"] {
-  --x-nt-glass-filter: blur(1px) saturate(120%) brightness(0.78);
-  --x-nt-glass-float-filter: blur(10px) saturate(130%) brightness(0.76);
+body[data-glass-style="liquid"][data-theme="dark"] {
+  --x-nt-glass-saturation: 1.6;
+  --x-nt-glass-brightness: 0.8;
+  --x-nt-glass-float-saturation: 1.5;
+  --x-nt-glass-float-contrast: 1;
+  --x-nt-glass-float-brightness: 0.78;
+  --x-nt-glass-tint-k: var(--x-nt-glass-tint-k-dark, 1);
 }
 /* Tint density adapts per plate: newtab.js samples the wallpaper under each one and sets
    --x-nt-glass-density (0 thin, 1 dense) and --x-nt-glass-saturate (how much of the material's
@@ -139,10 +176,11 @@ body[data-glass-style] :is(
   .x-nt-feedback-popover,
   .x-lumno-toast
 ) {
-  --x-nt-glass-tint-alpha: calc(
-    var(--x-nt-glass-tint-thin) +
-    (var(--x-nt-glass-tint-dense) - var(--x-nt-glass-tint-thin)) * var(--x-nt-glass-density, 0.35)
-  );
+  --x-nt-glass-tint-alpha: min(0.95, calc(
+    (var(--x-nt-glass-tint-thin) +
+    (var(--x-nt-glass-tint-dense) - var(--x-nt-glass-tint-thin)) * var(--x-nt-glass-density, 0.35)) *
+    var(--x-nt-glass-tint-k, 1)
+  ));
   --x-nt-glass-tint: rgb(var(--x-nt-glass-tint-rgb) / var(--x-nt-glass-tint-alpha));
   --x-nt-glass-tint-hover: rgb(var(--x-nt-glass-tint-rgb) / calc(var(--x-nt-glass-tint-alpha) + 0.14));
   --x-nt-glass-fill:
@@ -151,6 +189,37 @@ body[data-glass-style] :is(
   --x-nt-glass-fill-hover:
     linear-gradient(180deg, var(--x-nt-glass-sheen), transparent 60%),
     linear-gradient(var(--x-nt-glass-tint-hover), var(--x-nt-glass-tint-hover));
+}
+/* The liquid filter from its parts, on the same plates, so each puts together its own. The veil
+   (contrast and brightness) thins with the tint opacity below 1x. */
+body[data-glass-style="liquid"][data-nt-ready="1"],
+body[data-glass-style="liquid"][data-nt-ready="1"] :is(
+  #_x_extension_newtab_root_2024_unique_,
+  .x-nt-shortcut-icon,
+  .x-nt-bookmark-card,
+  .x-nt-recent-card-visual,
+  .x-nt-wallpaper-button,
+  .x-nt-feedback-button,
+  .x-nt-bookmark-cascade-debug-button,
+  .x-nt-bookmarks-pager-btn,
+  .x-nt-section-mode-select ._x_extension_select_trigger_2024_unique_,
+  #_x_extension_newtab_suggestions_surface_2026_unique_,
+  ._x_extension_menu_surface_2024_unique_,
+  .x-nt-wallpaper-panel,
+  .x-nt-bookmarks-topbar,
+  .x-nt-feedback-popover,
+  .x-lumno-toast
+) {
+  --x-nt-glass-filter:
+    blur(var(--x-nt-glass-blur))
+    saturate(var(--x-nt-glass-saturation))
+    contrast(calc(1 + (var(--x-nt-glass-contrast) - 1) * var(--x-nt-glass-veil-k)))
+    brightness(calc(1 + (var(--x-nt-glass-brightness) - 1) * var(--x-nt-glass-veil-k)));
+  --x-nt-glass-float-filter:
+    blur(var(--x-nt-glass-float-blur))
+    saturate(var(--x-nt-glass-float-saturation))
+    contrast(calc(1 + (var(--x-nt-glass-float-contrast) - 1) * var(--x-nt-glass-veil-k)))
+    brightness(calc(1 + (var(--x-nt-glass-float-brightness) - 1) * var(--x-nt-glass-veil-k)));
 }
 /* Ink palettes. Everything drawn on the glass (labels, row highlights, marks, tags, fields, tracks,
    lifted pills) comes from one of two palettes, each a single ink in fixed steps, so a layer reads
@@ -279,14 +348,14 @@ body[data-glass-style] .x-nt-feedback-popover {
    sampler gives the bar and the plate one tint, measured over the area the plate can cover). */
 /* One rim for the bar and the plate (read by createLiquidSurfaces): the plate takes over the bar's
    backdrop as it opens, so a rim of its own would visibly bend and fringe the bar differently. The
-   rim is wide and bends further than a card's, as a thick glass edge does: the bar and its results
-   carry a denser tint, which would otherwise hide a narrow bend. */
+   rim is wide and bends a little further than the material's own: the bar and its results carry a
+   denser tint, which would otherwise hide a narrow bend. */
 body[data-glass-style="liquid"] :is(
   #_x_extension_newtab_root_2024_unique_,
   #_x_extension_newtab_suggestions_surface_2026_unique_
 ) {
   --x-nt-glass-rim: 30px;
-  --x-nt-glass-refraction-strength: 1.6;
+  --x-nt-glass-refraction-strength: 1.2;
 }
 body[data-glass-style="liquid"] #_x_extension_newtab_suggestions_surface_2026_unique_ {
   background: var(--x-nt-glass-fill);
@@ -440,66 +509,47 @@ body[data-glass-style]:has(.x-lumno-search-input-mode__menu[data-surface="newtab
   transition-duration: var(--x-nt-shortcut-dock-duration, 300ms), var(--lumno-duration-sm), var(--lumno-duration-sm), var(--lumno-duration-sm), 0s;
 }
 
-/* Light liquid glass under text: a light veil. Plates that carry lists and labels (the results,
-   cards, menus, the Appearance panel) flatten the scene behind them a little (contrast down, light
-   up) and take a slightly denser tint, so a busy photo calms under the text while the glass stays
-   clear.
-   It is part of the backdrop filter, not a layer of its own. Only on light glass with dark ink:
-   flipped plates have their own tint. */
-body[data-glass-style="liquid"][data-nt-ready="1"]:not([data-theme="dark"]) :is(
-  #_x_extension_newtab_root_2024_unique_,
-  #_x_extension_newtab_suggestions_surface_2026_unique_,
-  .x-nt-recent-card-visual,
-  .x-nt-bookmark-card,
-  ._x_extension_menu_surface_2024_unique_,
-  .x-nt-wallpaper-panel,
-  .x-nt-feedback-popover,
-  .x-lumno-toast
-)[data-glass-ink="dark"] {
-  /* brightness is 1 / (0.5 + contrast / 2): whites stay white, the darks lift toward them, so the
-     veil lightens the scene instead of graying it. */
-  --x-nt-glass-filter: blur(2px) saturate(115%) contrast(0.74) brightness(1.15);
-  --x-nt-glass-float-filter: blur(10px) saturate(125%) contrast(0.76) brightness(1.14);
-}
-/* The dock's cards and the shortcut plates carry labels and icons too, and on light glass they
-   read like the results plate: the same veil, blur and tint (below), so each is as solid as the
-   open results rather than a thin film over the wallpaper. */
-body[data-glass-style="liquid"][data-nt-ready="1"]:not([data-theme="dark"]) :is(.x-nt-recent-card-visual, .x-nt-bookmark-card, .x-nt-shortcut-icon)[data-glass-ink="dark"] {
-  --x-nt-glass-filter: blur(3px) saturate(115%) contrast(0.7) brightness(1.18);
-}
-/* The search bar takes the results' veil and tint, so it reads the same pane closed and open.
-   The open results run over the bookmark cards, whose labels and icons ghosted through the plain
-   veil's light blur and thin tint and competed with the rows; the search stack takes a deeper veil,
-   a denser tint (a pale, quiet wallpaper samples near the thin end) and a little more blur. Only a
-   little: the blur comes ahead of the lens, so a heavy one leaves the rim nothing sharp to bend.
+/* Light liquid glass is clear: a thin white wash over the scene, its colors deepened, with no veil
+   flattening it, so the glass takes its color from what is under it instead of turning milky.
+   Plates that carry lists of text keep a little more tint than the cards (below). */
+/* The search bar takes the results' tint, so it reads the same pane closed and open. The open
+   results run over the bookmark cards, whose labels and icons ghost through clear glass and
+   compete with the rows; the search stack takes a light veil, a little more tint and a little more
+   blur. Only a little: the blur comes ahead of the lens, so a heavy one leaves the rim nothing
+   sharp to bend.
    White glass on a near white wallpaper also loses its outline, and a bent rim alone cannot show
    there, so the edge catches light along the top left and faintly on the bottom right, over a
    firmer outer hairline. Only at the edge: a glow along the inside and a shade on the far side
    made the plate look embossed. */
-body[data-glass-style="liquid"][data-nt-ready="1"]:not([data-theme="dark"]) :is(
+body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   #_x_extension_newtab_root_2024_unique_,
   #_x_extension_newtab_suggestions_surface_2026_unique_
 )[data-glass-ink="dark"] {
-  --x-nt-glass-filter: blur(3px) saturate(115%) contrast(0.7) brightness(1.18);
+  --x-nt-glass-blur: 3px;
+  --x-nt-glass-saturation: 1.6;
+  --x-nt-glass-contrast: 0.9;
+  --x-nt-glass-brightness: 1.06;
 }
 body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   #_x_extension_newtab_root_2024_unique_,
   #_x_extension_newtab_suggestions_surface_2026_unique_
 )[data-glass-ink="dark"] {
-  --x-nt-glass-tint-thin: 0.6;
-  --x-nt-glass-tint-dense: 0.74;
+  --x-nt-glass-tint-thin: 0.2;
+  --x-nt-glass-tint-dense: 0.4;
   --x-nt-glass-edge:
     inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 1),
-    inset -1px -1px 0.5px -0.5px rgba(255, 255, 255, 0.6),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.25),
+    inset -1.5px -1.5px 1px -1px rgba(255, 255, 255, 0.6),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.3),
     0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.1);
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    var(--x-nt-glass-bevel);
   --x-nt-glass-float-shadow: 0 18px 52px rgba(0, 0, 0, 0.16);
 }
 /* The rest of the light glass takes the search stack's edge: light caught along the top left and
-   faintly on the bottom right, over a firmer hairline, with no glow or shade inside. Only the edge:
-   the shortcuts, buttons, menus, the panel and toasts go without a lens (newtab.js says why), and
-   the catch needs nothing behind the glass to show. */
+   faintly on the bottom right, over a firmer hairline. The catch needs nothing behind the glass to
+   show, so the shortcuts, buttons, menus, the panel and toasts, which go without a lens
+   (glass-surfaces.ts says why), take it too. Plates also take the bevel; the shortcuts and toasts,
+   too small for its bands, keep the catch alone. */
 body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   .x-nt-bookmark-card,
   .x-nt-recent-card-visual,
@@ -511,10 +561,49 @@ body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
 )[data-glass-ink="dark"] {
   --x-nt-glass-edge:
     inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 1),
-    inset -1px -1px 0.5px -0.5px rgba(255, 255, 255, 0.6),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.25),
+    inset -1.5px -1.5px 1px -1px rgba(255, 255, 255, 0.6),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.3),
     0 0 0 0.5px rgba(0, 0, 0, 0.12),
     0 4px 16px rgba(0, 0, 0, 0.1);
+}
+body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
+  .x-nt-bookmark-card,
+  .x-nt-recent-card-visual,
+  ._x_extension_menu_surface_2024_unique_,
+  .x-nt-wallpaper-panel,
+  .x-nt-feedback-popover
+)[data-glass-ink="dark"] {
+  --x-nt-glass-edge:
+    inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 1),
+    inset -1.5px -1.5px 1px -1px rgba(255, 255, 255, 0.6),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.3),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    var(--x-nt-glass-bevel);
+}
+/* Dark glass over a light wallpaper is where light text has least to stand on, so the plates that
+   carry lists of text (the search stack, menus, the panel) keep a denser tint than the cards. */
+body[data-glass-style="liquid"][data-theme="dark"] :is(
+  #_x_extension_newtab_root_2024_unique_,
+  #_x_extension_newtab_suggestions_surface_2026_unique_,
+  ._x_extension_menu_surface_2024_unique_,
+  .x-nt-wallpaper-panel,
+  .x-nt-feedback-popover
+) {
+  --x-nt-glass-tint-thin: 0.22;
+  --x-nt-glass-tint-dense: 0.44;
+}
+/* The dark theme's plates take its bevel over the theme's catch. */
+body[data-glass-style="liquid"][data-theme="dark"] :is(
+  #_x_extension_newtab_root_2024_unique_,
+  #_x_extension_newtab_suggestions_surface_2026_unique_,
+  .x-nt-bookmark-card,
+  .x-nt-recent-card-visual,
+  ._x_extension_menu_surface_2024_unique_,
+  .x-nt-wallpaper-panel,
+  .x-nt-feedback-popover
+) {
+  --x-nt-glass-edge: var(--x-nt-glass-catch), var(--x-nt-glass-bevel);
 }
 body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   .x-nt-wallpaper-button,
@@ -532,7 +621,7 @@ body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
 /* The dock's cards bend their rim as far as the search stack does. In every theme: a lens follows
    the surface's size, not the theme, so a strength set per theme would hold until the next resize. */
 body[data-glass-style="liquid"] :is(.x-nt-bookmark-card, .x-nt-recent-card-visual) {
-  --x-nt-glass-refraction-strength: 1.6;
+  --x-nt-glass-refraction-strength: 1.2;
 }
 /* The bookmarks bar's clear glass follows the page's liquid material: a small saturation boost,
    and on dark glass the same dim. */
@@ -544,10 +633,10 @@ body[data-glass-style="liquid"] .x-nt-bookmarks-topbar[data-surface-mode="clear"
 }
 /* The bookmarks bar carries a row of labels across the top of the scene. */
 body[data-glass-style="liquid"]:not([data-theme="dark"]) .x-nt-bookmarks-topbar[data-surface-mode="clear"][data-glass-ink="dark"] {
-  --x-nt-glass-tint-thin: 0.38;
-  --x-nt-glass-tint-dense: 0.58;
-  /* The bar's own backdrop chain ends in this tone step: the same veil as the plates. */
-  --x-nt-bookmarks-topbar-liquid-tone: contrast(0.8) brightness(1.11);
+  --x-nt-glass-tint-thin: 0.2;
+  --x-nt-glass-tint-dense: 0.4;
+  /* The bar's own backdrop chain ends in this tone step: the plates' brightening. */
+  --x-nt-bookmarks-topbar-liquid-tone: brightness(1.06);
 }
 body[data-glass-style="frosted"]:not([data-theme="dark"]) #_x_extension_newtab_root_2024_unique_[data-glass-ink="dark"] {
   --x-nt-glass-tint-thin: var(--x-nt-glass-float-thin);
@@ -557,15 +646,13 @@ body[data-glass-style="frosted"]:not([data-theme="dark"]) .x-nt-bookmarks-topbar
   --x-nt-glass-tint-thin: 0.52;
   --x-nt-glass-tint-dense: 0.76;
 }
-body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(.x-nt-recent-card-visual, .x-nt-bookmark-card)[data-glass-ink="dark"] {
-  --x-nt-glass-tint-thin: 0.6;
-  --x-nt-glass-tint-dense: 0.74;
-  /* The recent card's inner sheet stays a lighter layer of the denser plate. */
+body[data-glass-style="liquid"]:not([data-theme="dark"]) .x-nt-recent-card-visual[data-glass-ink="dark"] {
+  /* The recent card's inner sheet is a lighter layer of the clear plate. */
   --x-nt-glass-inset: rgba(255, 255, 255, 0.5);
 }
 body[data-glass-style="liquid"]:not([data-theme="dark"]) .x-nt-shortcut-icon[data-glass-ink="dark"] {
-  --x-nt-glass-tint-thin: 0.6;
-  --x-nt-glass-tint-dense: 0.74;
+  --x-nt-glass-tint-thin: 0.48;
+  --x-nt-glass-tint-dense: 0.64;
 }
 body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   ._x_extension_menu_surface_2024_unique_,
@@ -573,8 +660,8 @@ body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   .x-nt-feedback-popover,
   .x-lumno-toast
 )[data-glass-ink="dark"] {
-  --x-nt-glass-tint-thin: 0.42;
-  --x-nt-glass-tint-dense: 0.62;
+  --x-nt-glass-tint-thin: 0.26;
+  --x-nt-glass-tint-dense: 0.46;
 }
 /* On light glass a highlighted row is a lighter layer of the glass rather than a gray wash, which
    reads muddy over color: hover lightens, the selection lightens further. Each takes a solid
@@ -648,7 +735,7 @@ body[data-glass-style] .x-lumno-search-input-mode__menu[data-surface="newtab"] {
      is sized to the bar. */
   --x-nt-glass-refraction: initial;
   --x-nt-glass-rim: 30px;
-  --x-nt-glass-refraction-strength: 1.6;
+  --x-nt-glass-refraction-strength: 1.2;
   background: var(--x-nt-glass-fill) !important;
   border-color: transparent !important;
   box-shadow: var(--x-nt-glass-edge), var(--x-nt-glass-float-shadow) !important;
@@ -1111,11 +1198,11 @@ body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
     .x-nt-bookmarks-pager-btn
   ):not([data-glass-ink]):not(.x-nt-bookmarks-topbar *)
 ) {
-  --x-nt-glass-tint-thin: 0.22;
-  --x-nt-glass-tint-dense: 0.5;
-  --x-nt-glass-float-thin: 0.28;
-  --x-nt-glass-float-dense: 0.5;
-  --x-nt-glass-backdrop-brightness: 0.78;
+  --x-nt-glass-tint-thin: 0.1;
+  --x-nt-glass-tint-dense: 0.3;
+  --x-nt-glass-float-thin: 0.2;
+  --x-nt-glass-float-dense: 0.4;
+  --x-nt-glass-backdrop-brightness: 0.8;
   --x-nt-glass-sheen: transparent;
   --x-nt-glass-edge:
     inset 1px 1px 0.5px -0.5px rgba(255, 255, 255, 0.4),
@@ -1204,6 +1291,10 @@ body[data-glass-style] .x-nt-recent-card[data-recent-context-menu-open="true"] .
 }
 body[data-glass-style] .x-nt-recent-card.x-nt-recent-card--rollback:hover .x-nt-recent-inner {
   background-color: var(--x-nt-glass-inset);
+}
+/* Under liquid glass the resting inset thins with the tint opacity below 1x. */
+body[data-glass-style="liquid"] .x-nt-recent-inner {
+  background-color: color-mix(in srgb, var(--x-nt-glass-inset) calc(var(--x-nt-glass-veil-k) * 100%), transparent);
 }
 /* Dark mode draws its own gradient rim on the inset; the material's edge replaces it. */
 body[data-glass-style][data-theme="dark"] .x-nt-recent-inner::before {

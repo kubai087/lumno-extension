@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import newtabHtml from '../../../newtab.html?raw';
-import { newtabGlassAdaptive, newtabGlassStyle } from '../../../src/domain/settings/newtab-page';
+import { newtabGlassAdaptive, newtabGlassStyle, newtabLiquidGlassTintDark, newtabLiquidGlassTintLight } from '../../../src/domain/settings/newtab-page';
 import { createBrowserFake } from '../../fakes/browser';
 import { parseCss, readStylesheetSource } from '../../fakes/css';
 import { bootReadyNewtab } from './boot';
@@ -33,9 +33,9 @@ vi.mock(import('../../../src/newtab/dom/liquid-glass'), async (importOriginal) =
   };
 });
 
-async function openNewtab(style?: string, adaptive?: boolean) {
+async function openNewtab(style?: string, adaptive?: boolean, stored: Record<string, unknown> = {}) {
   Object.assign(surfaces, { created: 0, destroyed: 0, selector: '', properties: [] });
-  const sync: Record<string, unknown> = {};
+  const sync: Record<string, unknown> = { ...stored };
   if (style !== undefined) sync[newtabGlassStyle.key] = style;
   if (adaptive !== undefined) sync[newtabGlassAdaptive.key] = adaptive;
   const browser = createBrowserFake({ sync });
@@ -49,6 +49,11 @@ async function openNewtab(style?: string, adaptive?: boolean) {
     theme: () => body.getAttribute('data-theme'),
     async change(next: string) {
       await act(async () => browser.storage.sync.externalSet({ [newtabGlassStyle.key]: next }));
+      await pause(80);
+    },
+    tint: (theme: 'light' | 'dark') => body.style.getPropertyValue(`--x-nt-glass-tint-k-${theme}`),
+    async store(values: Record<string, unknown>) {
+      await act(async () => browser.storage.sync.externalSet(values));
       await pause(80);
     },
     async changeAdaptive(next: boolean) {
@@ -104,6 +109,14 @@ describe('New Tab glass style', () => {
     expect([page.inkFixed(), page.theme()]).toEqual([false, 'dark']);
   });
 
+  it('scales the liquid tint by the opacity set for each theme, and follows a synced change', async () => {
+    const page = await openNewtab('liquid', undefined, { [newtabLiquidGlassTintDark.key]: 40 });
+    expect([page.tint('light'), page.tint('dark')]).toEqual(['1', '0.4']);
+
+    await page.store({ [newtabLiquidGlassTintLight.key]: 150, [newtabLiquidGlassTintDark.key]: 0 });
+    expect([page.tint('light'), page.tint('dark')]).toEqual(['1.5', '0']);
+  });
+
   it('adapts to the wallpaper and follows the New Tab theme by default', async () => {
     const page = await openNewtab('frosted');
 
@@ -136,6 +149,39 @@ describe('New Tab glass stylesheet', () => {
     expect(bubbleRule('body[data-glass-style] .x-lumno-search-input__popconfirm[data-open="true"]')?.style.getPropertyValue('backdrop-filter')).toContain('var(--x-nt-glass-float-filter)');
     expect(glass.entries.some((entry) => entry.style.getPropertyValue('backdrop-filter') === 'none' && entry.selectors.some((selector) =>
       selector.includes('#_x_extension_newtab_root_2024_unique_:has(') && selector.includes('.x-lumno-search-input__popconfirm[data-open="true"]')))).toBe(true);
+  });
+
+  it('scales the liquid tint, its veil and the recent cards\' inner sheet by the theme\'s opacity', () => {
+    // The declaration of `name` in a rule for `selector`.
+    const declared = (selector: string, name: string) => glass.entries
+      .find((entry) => entry.selectors.includes(selector) && entry.style.getPropertyValue(name) !== '')?.style.getPropertyValue(name);
+    const plates = glass.entries.find((entry) => entry.selectors.includes('body[data-glass-style]') &&
+      entry.style.getPropertyValue('--x-nt-glass-tint-alpha') !== '')?.style;
+    expect(plates?.getPropertyValue('--x-nt-glass-tint-alpha')).toContain('var(--x-nt-glass-tint-k, 1)');
+    // Each theme takes its own factor, set on the body by the page.
+    expect(declared('body[data-glass-style="liquid"]', '--x-nt-glass-tint-k')).toBe('var(--x-nt-glass-tint-k-light, 1)');
+    expect(declared('body[data-glass-style="liquid"][data-theme="dark"]', '--x-nt-glass-tint-k')).toBe('var(--x-nt-glass-tint-k-dark, 1)');
+    expect(declared('body[data-glass-style="liquid"]', '--x-nt-glass-veil-k')).toBe('min(1, var(--x-nt-glass-tint-k))');
+    // The veil (contrast and brightness) thins with it; blur and saturation stay.
+    const filter = declared('body[data-glass-style="liquid"][data-nt-ready="1"]', '--x-nt-glass-filter') || '';
+    expect(filter).toContain('blur(var(--x-nt-glass-blur))');
+    expect(filter).toContain('contrast(calc(1 + (var(--x-nt-glass-contrast) - 1) * var(--x-nt-glass-veil-k)))');
+    expect(filter).toContain('brightness(calc(1 + (var(--x-nt-glass-brightness) - 1) * var(--x-nt-glass-veil-k)))');
+    expect(declared('body[data-glass-style="liquid"] .x-nt-recent-inner', 'background-color')).toContain('var(--x-nt-glass-veil-k)');
+  });
+
+  it('lights the rim of the liquid plates from inside, in both themes, and not the small controls', () => {
+    const edgeRules = glass.entries.filter((entry) => entry.style.getPropertyValue('--x-nt-glass-edge').includes('var(--x-nt-glass-bevel)'));
+    const selectors = edgeRules.flatMap((entry) => entry.selectors).join(' ');
+    ['#_x_extension_newtab_suggestions_surface_2026_unique_', '.x-nt-bookmark-card', '.x-nt-recent-card-visual', '._x_extension_menu_surface_2024_unique_']
+      .forEach((plate) => expect(selectors).toContain(plate));
+    expect(selectors).toContain('[data-theme="dark"]');
+    expect(selectors).not.toContain('.x-nt-shortcut-icon');
+    expect(selectors).not.toContain('.x-nt-wallpaper-button');
+    const bevel = (selector: string) => glass.entries
+      .find((entry) => entry.selectors.includes(selector) && entry.style.getPropertyValue('--x-nt-glass-bevel') !== '')?.style.getPropertyValue('--x-nt-glass-bevel');
+    expect(bevel('body[data-glass-style="liquid"]')).toContain('inset 0 10px 16px -8px rgba(255, 255, 255, 0.5)');
+    expect(bevel('body[data-glass-style="liquid"][data-theme="dark"]')).toContain('inset 0 10px 16px -8px rgba(255, 255, 255, 0.2)');
   });
 
   it('loads after the page styles it overrides', () => {

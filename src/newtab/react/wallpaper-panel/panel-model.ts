@@ -21,6 +21,8 @@ export type WallpaperMode = 'light' | 'dark';
 export type ThemeScope = 'global' | 'home';
 export type TopContentMode = 'brand' | 'time' | 'off';
 export type TimeInk = 'auto' | 'light' | 'dark';
+// The theme a liquid glass tint slider sets.
+export type LiquidGlassTintTheme = 'light' | 'dark';
 export type EffectSliderKey =
   | 'strength'
   | 'size'
@@ -211,6 +213,7 @@ export interface WallpaperPanelActions extends TooltipActions {
   openOnlineWallpaperMenu(id: string, element: HTMLElement, point: { x: number; y: number }): void;
   primeWallpaper(id: string): void;
   refreshBing(): void;
+  resetLiquidGlassTint(theme: LiquidGlassTintTheme): void;
   resetShortcutGap(): void;
   resetShortcutSize(): void;
   resetTimeFontWeight(): void;
@@ -236,6 +239,7 @@ export interface WallpaperPanelActions extends TooltipActions {
   setEffectParameter(key: EffectSliderKey, value: number, change: SliderChange): void;
   setInputAutoFocus(enabled: boolean): void;
   setGlassAdaptive(enabled: boolean): void;
+  setLiquidGlassTint(theme: LiquidGlassTintTheme, value: number, change: SliderChange): void;
   setGlassStyle(value: string): void;
   setModeSync(enabled: boolean): void;
   setOverlay(value: number, change: SliderChange): void;
@@ -284,6 +288,14 @@ export interface WallpaperPanelState {
     options: SelectMenuOption[];
     sectionTitle: string;
     adaptive: { infoTooltip: string; title: string; toggle: ToggleState; visible: boolean };
+    // The liquid material's tint under each theme.
+    tint: {
+      infoTooltip: string;
+      title: string;
+      visible: boolean;
+      light: SliderState & { resetLabel: string; resetVisible: boolean };
+      dark: SliderState & { resetLabel: string; resetVisible: boolean };
+    };
     title: string;
     value: string;
   };

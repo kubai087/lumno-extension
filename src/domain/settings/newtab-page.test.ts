@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BROWSER_SYNC_KEYS } from './registry';
 import { NEWTAB_GLASS_STYLES, newtabGlassAdaptive, newtabGlassStyle } from './newtab-page';
+import { NEWTAB_LIQUID_GLASS_TINT_DEFAULT, newtabLiquidGlassTintDark, newtabLiquidGlassTintLight } from './newtab-page';
 import { newtabAppearanceButtonVisible, newtabFeedbackButtonVisible, newtabInputAutoFocusEnabled, newtabOpenInNewTab, newtabWidthMode, normalizeNewtabSearchWidth } from './newtab-page';
 
 // The New Tab glass material and whether it adapts to the wallpaper.
@@ -13,6 +14,17 @@ describe('New Tab glass settings', () => {
     expect(NEWTAB_GLASS_STYLES).toEqual(['none', 'frosted', 'liquid']);
     [undefined, null, false, true, 'Frosted', 'glass', 1, {}].forEach((value) => expect(newtabGlassStyle.parse(value)).toBe('none'));
     ['none', 'frosted', 'liquid'].forEach((value) => expect(newtabGlassStyle.parse(value)).toBe(value));
+  });
+
+  it('keeps a liquid glass tint for each theme, synced, from clear to half again as dense', () => {
+    expect(newtabLiquidGlassTintLight.key).toBe('_x_extension_newtab_liquid_glass_tint_light_2026_unique_');
+    expect(newtabLiquidGlassTintDark.key).toBe('_x_extension_newtab_liquid_glass_tint_dark_2026_unique_');
+    expect(BROWSER_SYNC_KEYS).toEqual(expect.arrayContaining([newtabLiquidGlassTintLight.key, newtabLiquidGlassTintDark.key]));
+    expect(NEWTAB_LIQUID_GLASS_TINT_DEFAULT).toBe(100);
+    [newtabLiquidGlassTintLight, newtabLiquidGlassTintDark].forEach((setting) => {
+      expect([undefined, null, '', 'x', -20, 0, 42.4, 150, 400].map((value) => setting.parse(value)))
+        .toEqual([100, 100, 100, 100, 0, 0, 42, 150, 150]);
+    });
   });
 
   it('adapts the material to the wallpaper unless turned off', () => {

@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "En modo claro, el material se vuelve oscuro sobre fondos más oscuros para que el texto se lea bien. Si se desactiva, el material sigue siempre el tema de la Nueva pestaña."
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "Opacidad del tinte"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "Cuánto tinte conserva el cristal líquido en cada tema. Cuanto más bajo, más transparente; al 0 % solo quedan el desenfoque y el borde."
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "Claro"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "Restablecer tinte claro"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "Oscuro"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "Restablecer tinte oscuro"
+  },
   "settings_search_source_group_order_title": {
     "message": "Orden del panel de búsqueda"
   },

@@ -3653,6 +3653,24 @@
   "settings_newtab_glass_adaptive_desc": {
     "message": "В светлой теме на темных обоях материал становится темным, чтобы текст оставался читаемым. Если выключено, материал всегда следует теме новой вкладки."
   },
+  "settings_newtab_liquid_glass_tint_title": {
+    "message": "Непрозрачность оттенка"
+  },
+  "settings_newtab_liquid_glass_tint_desc": {
+    "message": "Сколько оттенка сохраняет жидкое стекло в каждой теме. Чем ниже, тем прозрачнее; при 0% остаются только размытие и край."
+  },
+  "settings_newtab_liquid_glass_tint_light": {
+    "message": "Светлая"
+  },
+  "settings_newtab_liquid_glass_tint_light_reset": {
+    "message": "Сбросить оттенок светлой темы"
+  },
+  "settings_newtab_liquid_glass_tint_dark": {
+    "message": "Темная"
+  },
+  "settings_newtab_liquid_glass_tint_dark_reset": {
+    "message": "Сбросить оттенок темной темы"
+  },
   "settings_search_source_group_order_title": {
     "message": "Порядок в панели поиска"
   },
