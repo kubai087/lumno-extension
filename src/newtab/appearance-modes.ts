@@ -12,7 +12,7 @@ import { localeToHtmlLang } from '../domain/settings/locale';
 import { cacheNewtabLocale } from '../platform/settings-storage';
 import type { SettingsStore } from '../platform/settings-store';
 import { themeMode } from '../domain/settings/appearance';
-import { NEWTAB_THEME_SETTINGS, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
+import { NEWTAB_THEME_SETTINGS, newtabThemeMode, newtabThemeScope } from '../domain/settings/newtab-page';
 import type { SearchQuery } from '../shared/search-panel/search-query';
 import type { SearchMode } from '../shared/search-panel/search-mode';
 import type { SearchResults } from '../shared/search-panel/search-results';
@@ -147,12 +147,7 @@ function createAppearanceModes(deps: AppearanceModesDeps) {
     return settings.get(newtabThemeMode) === 'global';
   }
 
-  // A glass material set to light or dark holds the page there, over whatever the theme says.
   function getScopedThemeMode(): ThemeMode {
-    const override = getNewtabGlassThemeOverride(settings.get(newtabGlassStyle), settings.get(newtabGlassTheme));
-    if (override) {
-      return override;
-    }
     const pageMode = settings.get(newtabThemeMode);
     return pageMode === 'global' ? settings.get(themeMode) : pageMode;
   }

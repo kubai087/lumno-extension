@@ -87,7 +87,7 @@ Show a clock in one of six fonts, with its own size, opacity, color and an optio
 
 System, light and dark themes, applied globally or only to the new tab page. Pick built-in wallpapers, the Bing daily wallpaper, curated photos and open-access artwork (limit the random mix to the categories you like), or your own image file or image URL, and save Bing or curated wallpapers you like to your local library. Fine-tune overlay opacity, grain, halftone, dither and ASCII filters, search-box width and the Lumno wordmark.
 
-Give the search bar, cards, menus and dialogs an **Acrylic** or **Liquid glass** material that refracts the wallpaper behind it, and keep the glass in light or dark with Material theme.
+Give the search bar, cards, menus and dialogs an **Acrylic** or **Liquid glass** material that refracts the wallpaper behind it. Over a dark wallpaper the glass turns dark to keep text legible, or it can always match the New Tab theme.
 
 ### Picture-in-Picture: Web Clip and auto video PiP
 

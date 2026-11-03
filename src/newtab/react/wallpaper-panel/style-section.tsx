@@ -1,6 +1,6 @@
-// The style section: the glass material and its theme.
+// The style section: the glass material and whether it adapts to the wallpaper.
 import { SectionTrigger, InfoButton, PanelSelect } from './panel-controls';
-import { ref, SegmentedChoice } from './panel-primitives';
+import { ref, Switch } from './panel-primitives';
 import { collapsible, GLASS_STYLE_SELECT_ID } from './panel-model';
 import type { WallpaperPanelContext } from './use-wallpaper-panel';
 
@@ -11,8 +11,7 @@ export function StyleSection({ panel }: { panel: WallpaperPanelContext }) {
     glassStyle,
     actions,
     documentObj,
-    registerSelect,
-    state
+    registerSelect
   } = panel;
   return (
     <div className="x-nt-wallpaper-section">
@@ -58,32 +57,25 @@ export function StyleSection({ panel }: { panel: WallpaperPanelContext }) {
           />
         </div>
         <div
-          {...ref('glassThemeRow')}
-          {...collapsible(glassStyle.theme.visible)}
+          {...ref('glassAdaptiveRow')}
+          {...collapsible(glassStyle.adaptive.visible)}
           className="x-nt-appearance-setting-row x-nt-panel-collapsible"
         >
           <span className="x-nt-appearance-setting-title-group">
-            <span {...ref('glassThemeTitle')} className="x-nt-appearance-setting-title">
-              {glassStyle.theme.title}
+            <span {...ref('glassAdaptiveTitle')} className="x-nt-appearance-setting-title">
+              {glassStyle.adaptive.title}
             </span>
             <InfoButton
               actions={actions}
-              label={glassStyle.theme.title}
-              name="glassThemeInfoButton"
-              tooltip={glassStyle.theme.infoTooltip}
+              label={glassStyle.adaptive.title}
+              name="glassAdaptiveInfoButton"
+              tooltip={glassStyle.adaptive.infoTooltip}
             />
           </span>
-          <SegmentedChoice
-            buttonClassName="x-nt-segmented-tab x-nt-wallpaper-tab"
-            className="x-nt-wallpaper-tabs x-nt-row-tabs"
-            indicatorClassName="x-nt-wallpaper-tabs-indicator"
-            indicatorRef="glassThemeIndicator"
-            name="glassThemeTabs"
-            onSelect={actions.selectGlassTheme}
-            role="group"
-            segment={glassStyle.theme.tabs}
-            valueAttribute="data-newtab-glass-theme"
-            visible={state.open && styleExpanded && glassStyle.theme.visible}
+          <Switch
+            name="glassAdaptiveToggle"
+            onChange={actions.setGlassAdaptive}
+            toggle={glassStyle.adaptive.toggle}
           />
         </div>
       </div>

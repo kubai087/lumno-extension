@@ -3,7 +3,7 @@
 import type * as LumnoFeatureHints from '../../../shared/ui/feature-hints';
 import type { FeatureHintChromeApi, FeatureHintController, FeatureHintOptions } from '../../../shared/ui/feature-hint-catalog';
 import type { Translate } from '../../newtab-types';
-import type { EffectSliderKey, GlassTheme, ThemeScope, WallpaperPanelActions } from '../../react/wallpaper-panel/panel-model';
+import type { EffectSliderKey, ThemeScope, WallpaperPanelActions } from '../../react/wallpaper-panel/panel-model';
 import type { SliderChange } from '../../react/wallpaper-panel/panel-primitives';
 import type { QuoteRuntime } from '../../top-content/quotes';
 import type { Store } from '../../../shared/state/store';
@@ -70,7 +70,7 @@ interface PanelActionsDeps extends
   setThemeMode(mode: string): void;
   setInputAutoFocusEnabled(enabled: boolean): void;
   setGlassStyle(value: string): void;
-  setGlassTheme(value: GlassTheme): void;
+  setGlassAdaptive(enabled: boolean): void;
   setShortcutsVisible(visible: boolean, options: PersistOptions): void;
   setShortcutAddVisible(visible: boolean, options: PersistOptions): void;
   setShortcutDockMagnificationEnabled(enabled: boolean, options: PersistOptions): void;
@@ -130,7 +130,7 @@ function createPanelActions(deps: PanelActionsDeps) {
     setInputAutoFocusEnabled,
     renderWallpaperPanelState,
     setGlassStyle,
-    setGlassTheme,
+    setGlassAdaptive,
     persistTopContentMode,
     persistTimeFontWeight,
     persistTimeFontSizeFromSlider,
@@ -237,8 +237,8 @@ function createPanelActions(deps: PanelActionsDeps) {
         setGlassStyle(value);
         renderWallpaperPanelState();
       },
-      selectGlassTheme(value) {
-        setGlassTheme(value);
+      setGlassAdaptive(enabled) {
+        setGlassAdaptive(enabled);
         renderWallpaperPanelState();
       },
       selectTopContent: persistTopContentMode,

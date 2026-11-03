@@ -1637,8 +1637,8 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
     const weighed = plates.length > 0 ? plates : entries;
     const pageLuminance = weighed.reduce((total, entry) => total + entry.sample.luminance, 0) / weighed.length;
     const previousInk = !resetInk && documentObj.body ? documentObj.body.getAttribute('data-glass-ink-hint') : '';
-    // A material held light (newtab.js sets data-glass-theme) keeps dark ink over any wallpaper.
-    const heldLight = Boolean(documentObj.body) && documentObj.body.getAttribute('data-glass-theme') === 'light';
+    // With adaptation off (glass-surfaces.ts sets data-glass-ink-fixed) the plates keep the theme's ink.
+    const inkFixed = Boolean(documentObj.body) && documentObj.body.hasAttribute('data-glass-ink-fixed');
     [entries].forEach((members) => {
       const groupLuminance = pageLuminance;
       members.forEach((entry) => {
@@ -1649,7 +1649,7 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
             themeMode,
             previousInk,
             groupLuminance,
-            entry.target.themeInk || heldLight ? (themeMode === 'dark' ? 'light' : 'dark') : ''
+            entry.target.themeInk || inkFixed ? (themeMode === 'dark' ? 'light' : 'dark') : ''
         );
         applyGlassAdaptationStyles(entry.target.element, adaptation);
         // Panels and menus carry controls styled per theme; flipped to light ink under the light
@@ -1665,9 +1665,9 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
         }
       });
     });
-    // Only the light theme's sampled ink is worth remembering: a held material or the dark theme
+    // Only the light theme's sampled ink is worth remembering: a fixed ink or the dark theme
     // would leave the next light page opening in an ink it did not choose.
-    if (!heldLight && themeMode !== 'dark') {
+    if (!inkFixed && themeMode !== 'dark') {
       rememberGlassInkHint(inkCounts);
     }
   }
@@ -1691,7 +1691,7 @@ function createWallpaperAdaptiveTone<W>(options?: WallpaperAdaptiveToneOptions<W
   }
 
   // { resetInk: true } when a setting changed what the ink should be (the theme, the material or
-  // its theme): the next sample decides afresh, as a newly opened page would. Other callers pass
+  // its adaptation): the next sample decides afresh, as a newly opened page would. Other callers pass
   // nothing (or an event) and the page keeps its ink within the hysteresis band.
   function schedule(options?: ToneScheduleOptions | Event | null): void {
     if (!getCurrentWallpaper() || !sampler || pendingImageUrl) {

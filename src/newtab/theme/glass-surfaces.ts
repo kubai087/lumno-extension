@@ -1,11 +1,10 @@
 // The glass material: which surfaces the liquid style bends the wallpaper
-// under, the stored glass style and theme, and the ink hint remembered for
-// the next load.
+// under, the stored glass style and whether it adapts to the wallpaper, and
+// the ink hint remembered for the next load.
 import { createLiquidSurfaces } from '../dom/liquid-glass';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
 import type { SettingsStore } from '../../platform/settings-store';
-import { newtabGlassStyle, newtabGlassTheme } from '../../domain/settings/newtab-page';
-import * as SETTINGS from '../../domain/settings';
+import { newtabGlassAdaptive, newtabGlassStyle } from '../../domain/settings/newtab-page';
 import { adaptiveToneEvents } from '../wallpaper/tone-requests';
 
 interface GlassSurfacesDeps {
@@ -109,7 +108,7 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
       document.body.setAttribute('data-glass-style', style);
       applyRememberedGlassInkHint();
     }
-    syncNewtabGlassThemeOverride();
+    syncNewtabGlassAdaptive(style !== 'none');
     syncNewtabLiquidSurfaces(style === 'liquid');
     syncNewtabGlassOpenObserver(style !== 'none');
     // The bookmarks bar's "match style" background follows the page's material.
@@ -117,25 +116,21 @@ function createGlassSurfaces(deps: GlassSurfacesDeps) {
     adaptiveToneEvents.emit('stale', { resetInk: true });
   }
 
-  // A material set to light or dark holds the page's theme there (appearance-modes.ts reads the
-  // same settings) and marks the body, so the wallpaper sampler keeps light glass light instead
-  // of turning it dark over a dark wallpaper.
-  function syncNewtabGlassThemeOverride(): void {
-    const override = SETTINGS.getNewtabGlassThemeOverride(settings.get(newtabGlassStyle), settings.get(newtabGlassTheme));
-    if (override) {
-      document.body.setAttribute('data-glass-theme', override);
-      if (override === 'light') {
-        document.body.setAttribute('data-glass-ink-hint', 'dark');
-      }
+  // With adaptation off the plates keep the theme's ink over any wallpaper: the body tells the
+  // wallpaper sampler so, and the ink hint opens them in it rather than in the last page's.
+  function syncNewtabGlassAdaptive(glassOn: boolean): void {
+    if (glassOn && !settings.get(newtabGlassAdaptive)) {
+      document.body.setAttribute('data-glass-ink-fixed', '');
+      document.body.setAttribute('data-glass-ink-hint', 'dark');
     } else {
-      document.body.removeAttribute('data-glass-theme');
+      document.body.removeAttribute('data-glass-ink-fixed');
     }
   }
 
   // Puts the stored material on the page once read, and again on every change.
   function followNewtabGlassStyle(): Promise<void> {
-    settings.subscribe([newtabGlassStyle, newtabGlassTheme], applyNewtabGlassStyle);
-    return settings.include([newtabGlassStyle, newtabGlassTheme]).then(applyNewtabGlassStyle);
+    settings.subscribe([newtabGlassStyle, newtabGlassAdaptive], applyNewtabGlassStyle);
+    return settings.include([newtabGlassStyle, newtabGlassAdaptive]).then(applyNewtabGlassStyle);
   }
 
   return {

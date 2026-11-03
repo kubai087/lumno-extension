@@ -19,7 +19,6 @@ const SETTINGS_ROUNDS: Array<Record<string, unknown>> = [
     language: 'en',
     newtabThemeMode: 'dark',
     newtabGlassStyle: 'liquid',
-    newtabGlassTheme: 'dark',
     newtabTopContentMode: 'time',
     newtabTimeFontSize: 72,
     newtabTimeSecondsVisible: true,

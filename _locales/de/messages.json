@@ -3647,20 +3647,11 @@
   "settings_newtab_glass_style_liquid": {
     "message": "Flüssigglas"
   },
-  "settings_newtab_glass_theme_title": {
-    "message": "Materialdesign"
+  "settings_newtab_glass_adaptive_title": {
+    "message": "Material an Hintergrundbild anpassen"
   },
-  "settings_newtab_glass_theme_desc": {
-    "message": "Automatisch: folgt dem Farbmodus, wechselt aber bei dunkleren Hintergrundbildern zu dunklem Material, damit Text lesbar bleibt.\nHell / Dunkel: legen das Material fest und zeigen den neuen Tab im selben Modus."
-  },
-  "settings_newtab_glass_theme_follow": {
-    "message": "Automatisch"
-  },
-  "settings_newtab_glass_theme_light": {
-    "message": "Hell"
-  },
-  "settings_newtab_glass_theme_dark": {
-    "message": "Dunkel"
+  "settings_newtab_glass_adaptive_desc": {
+    "message": "Im hellen Modus wird das Material über dunkleren Hintergrundbildern dunkel, damit Text lesbar bleibt. Ausgeschaltet folgt das Material immer dem Farbmodus des neuen Tabs."
   },
   "settings_search_source_group_order_title": {
     "message": "Reihenfolge im Suchbereich"

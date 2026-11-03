@@ -10,10 +10,6 @@ type NewtabWidthMode = 'standard' | 'wide';
 // 'none' keeps the original New Tab surfaces; the others swap in a glass material.
 type NewtabGlassStyle = 'none' | 'frosted' | 'liquid';
 
-// Light or dark under a glass material: 'follow' takes the New Tab's own theme (where the light
-// theme still turns plates dark over a dark wallpaper); 'light' and 'dark' hold the page there.
-type NewtabGlassTheme = 'follow' | 'light' | 'dark';
-
 // The New Tab's own theme, or 'global' to follow the global theme.
 type NewtabThemeMode = 'global' | 'light' | 'dark';
 
@@ -34,7 +30,6 @@ interface SearchWidthOptions {
 }
 
 const NEWTAB_GLASS_STYLES: readonly NewtabGlassStyle[] = Object.freeze(['none', 'frosted', 'liquid']);
-const NEWTAB_GLASS_THEMES: readonly NewtabGlassTheme[] = Object.freeze(['follow', 'light', 'dark']);
 const NEWTAB_OPEN_IN_NEW_TAB_SURFACES: readonly NewtabOpenInNewTabSurface[] =
   Object.freeze(['search', 'shortcuts', 'bookmarks', 'recentSites']);
 const NEWTAB_SEARCH_WIDTH_MIN = 640;
@@ -139,11 +134,13 @@ const newtabGlassStyle = defineSetting({
   schema: oneOf(NEWTAB_GLASS_STYLES, 'none')
 });
 
-const newtabGlassTheme = defineSetting({
-  key: '_x_extension_newtab_glass_theme_2026_unique_',
+// Whether a glass material under the light theme turns dark over a dark wallpaper to keep its
+// text legible; off, the material always takes the page's theme.
+const newtabGlassAdaptive = defineSetting({
+  key: '_x_extension_newtab_glass_adaptive_2026_unique_',
   area: 'preferences',
   sync: 'browser',
-  schema: oneOf(NEWTAB_GLASS_THEMES, 'follow')
+  schema: flag(true)
 });
 
 // Which New Tab surfaces open a plain click in a new foreground tab instead of the New Tab itself.
@@ -162,28 +159,20 @@ const newtabOpenInNewTab = defineSetting({
   })
 });
 
-// The theme a glass material holds the New Tab in, or '' when the page keeps its own theme.
-function getNewtabGlassThemeOverride(style: unknown, theme: unknown): Exclude<NewtabGlassTheme, 'follow'> | '' {
-  const glassTheme = newtabGlassTheme.parse(theme);
-  return newtabGlassStyle.parse(style) !== 'none' && glassTheme !== 'follow' ? glassTheme : '';
-}
-
 // The settings that decide the page's theme.
-const NEWTAB_THEME_SETTINGS = [themeMode, newtabThemeMode, newtabThemeScope, newtabGlassStyle, newtabGlassTheme];
+const NEWTAB_THEME_SETTINGS = [themeMode, newtabThemeMode, newtabThemeScope];
 
 export {
   NEWTAB_THEME_SETTINGS,
   NEWTAB_GLASS_STYLES,
-  NEWTAB_GLASS_THEMES,
   NEWTAB_OPEN_IN_NEW_TAB_SURFACES,
   NEWTAB_SEARCH_WIDTH_DEFAULT,
   NEWTAB_SEARCH_WIDTH_MAX,
   NEWTAB_SEARCH_WIDTH_MIN,
-  getNewtabGlassThemeOverride,
   newtabAppearanceButtonVisible,
   newtabFeedbackButtonVisible,
+  newtabGlassAdaptive,
   newtabGlassStyle,
-  newtabGlassTheme,
   newtabInputAutoFocusEnabled,
   newtabOpenInNewTab,
   newtabSearchWidth,
@@ -197,7 +186,6 @@ export {
 };
 export type {
   NewtabGlassStyle,
-  NewtabGlassTheme,
   NewtabOpenInNewTab,
   NewtabOpenInNewTabSurface,
   NewtabThemeMode,

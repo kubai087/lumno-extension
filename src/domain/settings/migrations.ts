@@ -8,10 +8,12 @@
 // convert data this device's own older versions left behind.
 import type { StorageItems } from '../storage-port';
 import { BOOKMARK_TOPBAR_SURFACE_SETTINGS } from './bookmarks';
+import { newtabGlassAdaptive, newtabGlassStyle, newtabThemeMode, newtabThemeScope } from './newtab-page';
 import { OVERLAY_FONT_SETTINGS } from './overlay-panel';
 import {
   LANGUAGE_MESSAGES_KEY,
   LEGACY_SITE_SEARCH_ICON_KEYS,
+  NEWTAB_GLASS_THEME_KEY,
   REMOVED_AI_LOCAL_KEYS,
   REMOVED_AI_SYNC_KEYS
 } from './removed';
@@ -61,6 +63,23 @@ function removeKeys(keys: Partial<Record<SettingsArea, readonly string[]>>): Set
   return patch;
 }
 
+// A material held light or dark kept the whole New Tab in that theme and stopped the glass
+// from turning dark over a dark wallpaper. The page keeps that theme as its own, shown as such
+// in the Appearance panel, and the glass stays out of the wallpaper's way.
+function migrateNewtabGlassTheme(snapshot: SettingsSnapshot): SettingsPatch {
+  const patch = removeKeys({ sync: [NEWTAB_GLASS_THEME_KEY] });
+  const held = snapshot.sync[NEWTAB_GLASS_THEME_KEY];
+  if (held !== 'light' && held !== 'dark') {
+    return patch;
+  }
+  patch.sync.set[newtabGlassAdaptive.key] = false;
+  if (newtabGlassStyle.parse(snapshot.sync[newtabGlassStyle.key]) !== 'none') {
+    patch.sync.set[newtabThemeMode.key] = held;
+    patch.sync.set[newtabThemeScope.key] = 'home';
+  }
+  return patch;
+}
+
 // In version order. A released migration never changes: a device that ran
 // it does not run it again. A new one takes the next version.
 const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = Object.freeze([
@@ -95,6 +114,13 @@ const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = Object.freeze([
       'they name this computer\'s installed faces.',
     reads: NO_READS,
     migrate: () => removeKeys({ sync: OVERLAY_FONT_SETTINGS.map((setting) => setting.key) })
+  },
+  {
+    version: 6,
+    summary: 'Replace the New Tab material theme with the glass adaptive switch: a material held ' +
+      'light or dark becomes the New Tab\'s own theme, over which the glass no longer adapts.',
+    reads: { sync: [NEWTAB_GLASS_THEME_KEY, newtabGlassStyle.key], local: [] },
+    migrate: migrateNewtabGlassTheme
   }
 ]);
 

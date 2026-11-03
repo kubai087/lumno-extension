@@ -5,6 +5,7 @@ import { planSettingsMigrations } from '../../src/domain/settings/migrations';
 import {
   LANGUAGE_MESSAGES_KEY,
   LEGACY_SITE_SEARCH_ICON_KEYS,
+  NEWTAB_GLASS_THEME_KEY,
   REMOVED_AI_LOCAL_KEYS,
   REMOVED_AI_SYNC_KEYS
 } from '../../src/domain/settings/removed';
@@ -46,7 +47,8 @@ describe('stored data safety', () => {
       LANGUAGE_MESSAGES_KEY,
       ...REMOVED_AI_SYNC_KEYS,
       ...BOOKMARK_TOPBAR_SURFACE_KEYS,
-      ...OVERLAY_FONT_KEYS
+      ...OVERLAY_FONT_KEYS,
+      NEWTAB_GLASS_THEME_KEY
     ].sort());
     expect(patch.local.remove.slice().sort()).toEqual([
       LANGUAGE_MESSAGES_KEY,
@@ -65,7 +67,8 @@ describe('stored data safety', () => {
       ...LEGACY_SITE_SEARCH_ICON_KEYS,
       ...REMOVED_AI_SYNC_KEYS,
       ...REMOVED_AI_LOCAL_KEYS,
-      LANGUAGE_MESSAGES_KEY
+      LANGUAGE_MESSAGES_KEY,
+      NEWTAB_GLASS_THEME_KEY
     ];
 
     expect(removed.filter((key) => BROWSER_SYNC_KEYS.includes(key))).toEqual([]);

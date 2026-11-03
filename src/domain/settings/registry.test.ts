@@ -2,9 +2,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ALL_SETTINGS, BROWSER_SYNC_KEYS, WEBDAV_ONLY_KEYS, getSetting } from './registry';
+import { REMOVED_KEYS } from './removed';
 
 // The keys browser sync carried in the last release. Older devices read and
-// write exactly these, so the list only ever grows.
+// write exactly these, so the list only ever grows; a key this version no
+// longer uses is listed as removed.
 const RELEASED_BROWSER_SYNC_KEYS: readonly string[] = [
   '_x_extension_theme_mode_2024_unique_',
   '_x_extension_language_2024_unique_',
@@ -115,9 +117,14 @@ describe('settings registry', () => {
     expect(keys.filter((key, index) => keys.indexOf(key) !== index)).toEqual([]);
   });
 
-  it('keeps every key browser sync carried in the last release', () => {
-    expect(RELEASED_BROWSER_SYNC_KEYS.filter((key) => !BROWSER_SYNC_KEYS.includes(key))).toEqual([]);
+  it('keeps every key browser sync carried in the last release unless it is removed', () => {
+    expect(RELEASED_BROWSER_SYNC_KEYS.filter((key) => !BROWSER_SYNC_KEYS.includes(key))).toEqual([
+      '_x_extension_newtab_glass_theme_2026_unique_'
+    ]);
+    RELEASED_BROWSER_SYNC_KEYS.filter((key) => !BROWSER_SYNC_KEYS.includes(key))
+      .forEach((key) => expect(REMOVED_KEYS).toContain(key));
     expect(BROWSER_SYNC_KEYS.filter((key) => !RELEASED_BROWSER_SYNC_KEYS.includes(key))).toEqual([
+      '_x_extension_newtab_glass_adaptive_2026_unique_',
       '_x_extension_newtab_presentation_mode_2026_unique_',
       '_x_extension_bookmark_topbar_layout_2026_unique_'
     ]);

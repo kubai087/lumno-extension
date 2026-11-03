@@ -31,7 +31,7 @@ import type { Store } from '../../shared/state/store';
 import { getWallpaperPanelRef, getWallpaperPanelRefTag, getWallpaperPanelRefs } from '../dom/wallpaper-panel-refs';
 import { getSelectMenuByOwner, getSelectTrigger } from '../dom/select-menus';
 export { EFFECT_SLIDER_KEYS } from './wallpaper-panel/panel-model';
-export type { WallpaperSourceTab, WallpaperMode, ThemeScope, TopContentMode, TimeInk, GlassTheme, EffectSliderKey, WallpaperPanelModel, TileState, OnlineTileState, SelectedSourceState, DailyState, PanelSelectModel, CuratedMixState, WallpaperPanelActions, WallpaperPanelState, SectionSettingsActions, SectionSettingsModel, QuoteSettingsActions, QuoteSettingsModel, WallpaperPanelStateSlot, SectionSettingsSlot, QuoteSettingsSlot } from './wallpaper-panel/panel-model';
+export type { WallpaperSourceTab, WallpaperMode, ThemeScope, TopContentMode, TimeInk, EffectSliderKey, WallpaperPanelModel, TileState, OnlineTileState, SelectedSourceState, DailyState, PanelSelectModel, CuratedMixState, WallpaperPanelActions, WallpaperPanelState, SectionSettingsActions, SectionSettingsModel, QuoteSettingsActions, QuoteSettingsModel, WallpaperPanelStateSlot, SectionSettingsSlot, QuoteSettingsSlot } from './wallpaper-panel/panel-model';
 
 function WallpaperPanel(props: WallpaperPanelProps) {
   const panel = useWallpaperPanel(props);

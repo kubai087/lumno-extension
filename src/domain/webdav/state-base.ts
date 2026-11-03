@@ -43,7 +43,7 @@ const LOCAL_PREFERENCE_KEYS: readonly string[] = [LOCAL_WALLPAPER_KEY, ...settin
 const KNOWN_KEYS: readonly string[] = Object.freeze([...PREFERENCE_KEYS, ...LOCAL_PREFERENCE_KEYS]);
 const KEYS_UNKNOWN_TO_LEGACY_WRITERS: readonly string[] = Object.freeze([
   settings.newtabGlassStyle.key,
-  settings.newtabGlassTheme.key,
+  settings.newtabGlassAdaptive.key,
   settings.newtabTimeFontSize.key,
   settings.newtabTimeOpacity.key,
   settings.newtabTimeFont.key,

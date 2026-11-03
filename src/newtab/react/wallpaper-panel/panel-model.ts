@@ -21,7 +21,6 @@ export type WallpaperMode = 'light' | 'dark';
 export type ThemeScope = 'global' | 'home';
 export type TopContentMode = 'brand' | 'time' | 'off';
 export type TimeInk = 'auto' | 'light' | 'dark';
-export type GlassTheme = 'follow' | 'light' | 'dark';
 export type EffectSliderKey =
   | 'strength'
   | 'size'
@@ -236,7 +235,7 @@ export interface WallpaperPanelActions extends TooltipActions {
   setCuratedDaily(enabled: boolean): void;
   setEffectParameter(key: EffectSliderKey, value: number, change: SliderChange): void;
   setInputAutoFocus(enabled: boolean): void;
-  selectGlassTheme(theme: GlassTheme): void;
+  setGlassAdaptive(enabled: boolean): void;
   setGlassStyle(value: string): void;
   setModeSync(enabled: boolean): void;
   setOverlay(value: number, change: SliderChange): void;
@@ -284,7 +283,7 @@ export interface WallpaperPanelState {
     infoTooltip: string;
     options: SelectMenuOption[];
     sectionTitle: string;
-    theme: { infoTooltip: string; tabs: SegmentState<GlassTheme>; title: string; visible: boolean };
+    adaptive: { infoTooltip: string; title: string; toggle: ToggleState; visible: boolean };
     title: string;
     value: string;
   };

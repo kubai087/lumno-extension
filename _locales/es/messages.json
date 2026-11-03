@@ -3647,20 +3647,11 @@
   "settings_newtab_glass_style_liquid": {
     "message": "Cristal líquido"
   },
-  "settings_newtab_glass_theme_title": {
-    "message": "Tema del material"
+  "settings_newtab_glass_adaptive_title": {
+    "message": "Adaptar el material al fondo"
   },
-  "settings_newtab_glass_theme_desc": {
-    "message": "Automático: sigue el modo de tema, pero usa material oscuro sobre fondos más oscuros para que el texto se lea bien.\nClaro / Oscuro: fijan el material y aplican el mismo tema a la Nueva pestaña."
-  },
-  "settings_newtab_glass_theme_follow": {
-    "message": "Automático"
-  },
-  "settings_newtab_glass_theme_light": {
-    "message": "Claro"
-  },
-  "settings_newtab_glass_theme_dark": {
-    "message": "Oscuro"
+  "settings_newtab_glass_adaptive_desc": {
+    "message": "En modo claro, el material se vuelve oscuro sobre fondos más oscuros para que el texto se lea bien. Si se desactiva, el material sigue siempre el tema de la Nueva pestaña."
   },
   "settings_search_source_group_order_title": {
     "message": "Orden del panel de búsqueda"

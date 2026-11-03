@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { BROWSER_SYNC_KEYS } from './registry';
-import { NEWTAB_GLASS_STYLES, NEWTAB_GLASS_THEMES, getNewtabGlassThemeOverride, newtabGlassStyle, newtabGlassTheme } from './newtab-page';
+import { NEWTAB_GLASS_STYLES, newtabGlassAdaptive, newtabGlassStyle } from './newtab-page';
 import { newtabAppearanceButtonVisible, newtabFeedbackButtonVisible, newtabInputAutoFocusEnabled, newtabOpenInNewTab, newtabWidthMode, normalizeNewtabSearchWidth } from './newtab-page';
 
-// The New Tab glass material and the light or dark it may hold the page in.
+// The New Tab glass material and whether it adapts to the wallpaper.
 describe('New Tab glass settings', () => {
-  it('syncs the material and its theme', () => {
-    expect(BROWSER_SYNC_KEYS).toEqual(expect.arrayContaining([newtabGlassStyle.key, newtabGlassTheme.key]));
+  it('syncs the material and its adaptation', () => {
+    expect(BROWSER_SYNC_KEYS).toEqual(expect.arrayContaining([newtabGlassStyle.key, newtabGlassAdaptive.key]));
   });
 
   it('reads a known material, none otherwise', () => {
@@ -15,17 +15,8 @@ describe('New Tab glass settings', () => {
     ['none', 'frosted', 'liquid'].forEach((value) => expect(newtabGlassStyle.parse(value)).toBe(value));
   });
 
-  it('reads a known material theme, following the page otherwise', () => {
-    expect(NEWTAB_GLASS_THEMES).toEqual(['follow', 'light', 'dark']);
-    [undefined, null, 'system', 'Light', 1].forEach((value) => expect(newtabGlassTheme.parse(value)).toBe('follow'));
-  });
-
-  it('holds the page’s theme only for a material set to light or dark', () => {
-    expect(getNewtabGlassThemeOverride('none', 'dark')).toBe('');
-    expect(getNewtabGlassThemeOverride('liquid', 'follow')).toBe('');
-    expect(getNewtabGlassThemeOverride('liquid', undefined)).toBe('');
-    expect(getNewtabGlassThemeOverride('frosted', 'light')).toBe('light');
-    expect(getNewtabGlassThemeOverride('liquid', 'dark')).toBe('dark');
+  it('adapts the material to the wallpaper unless turned off', () => {
+    expect([undefined, 'dark', true, false].map((value) => newtabGlassAdaptive.parse(value))).toEqual([true, true, true, false]);
   });
 });
 

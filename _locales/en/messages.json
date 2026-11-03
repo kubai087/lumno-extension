@@ -3647,20 +3647,11 @@
   "settings_newtab_glass_style_liquid": {
     "message": "Liquid glass"
   },
-  "settings_newtab_glass_theme_title": {
-    "message": "Material theme"
+  "settings_newtab_glass_adaptive_title": {
+    "message": "Adapt material to wallpaper"
   },
-  "settings_newtab_glass_theme_desc": {
-    "message": "Auto: follows Theme mode, but switches to dark material over darker wallpapers to keep text legible.\nLight / Dark: fix the material and set New Tab to the same theme."
-  },
-  "settings_newtab_glass_theme_follow": {
-    "message": "Auto"
-  },
-  "settings_newtab_glass_theme_light": {
-    "message": "Light"
-  },
-  "settings_newtab_glass_theme_dark": {
-    "message": "Dark"
+  "settings_newtab_glass_adaptive_desc": {
+    "message": "In light mode, the material turns dark over darker wallpapers to keep text legible. When off, the material always matches the New Tab theme."
   },
   "settings_search_source_group_order_title": {
     "message": "Search Panel Order"

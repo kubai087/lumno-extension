@@ -1,14 +1,14 @@
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import newtabHtml from '../../../newtab.html?raw';
-import { newtabGlassStyle, newtabGlassTheme } from '../../../src/domain/settings/newtab-page';
+import { newtabGlassAdaptive, newtabGlassStyle } from '../../../src/domain/settings/newtab-page';
 import { createBrowserFake } from '../../fakes/browser';
 import { parseCss, readStylesheetSource } from '../../fakes/css';
 import { bootReadyNewtab } from './boot';
 import { pause } from './search-page';
 
-// The New Tab glass material: none, frosted or liquid, and the light or dark
-// it holds the page in. The liquid material's rim refraction is drawn by the
+// The New Tab glass material: none, frosted or liquid, and whether it adapts
+// to the wallpaper. The liquid material's rim refraction is drawn by the
 // liquid glass module, which needs a real canvas; the test counts the
 // surfaces New Tab asks it for and hands each to the real one.
 const surfaces = vi.hoisted(() => ({ created: 0, destroyed: 0, selector: '', properties: new Array<string>() }));
@@ -33,26 +33,26 @@ vi.mock(import('../../../src/newtab/dom/liquid-glass'), async (importOriginal) =
   };
 });
 
-async function openNewtab(style?: string, theme?: string) {
+async function openNewtab(style?: string, adaptive?: boolean) {
   Object.assign(surfaces, { created: 0, destroyed: 0, selector: '', properties: [] });
   const sync: Record<string, unknown> = {};
   if (style !== undefined) sync[newtabGlassStyle.key] = style;
-  if (theme !== undefined) sync[newtabGlassTheme.key] = theme;
+  if (adaptive !== undefined) sync[newtabGlassAdaptive.key] = adaptive;
   const browser = createBrowserFake({ sync });
   await bootReadyNewtab(browser, { darkSystem: true });
   await pause(250);
   const body = document.body;
   return {
     style: () => body.getAttribute('data-glass-style'),
-    glassTheme: () => body.getAttribute('data-glass-theme'),
+    inkFixed: () => body.hasAttribute('data-glass-ink-fixed'),
     inkHint: () => body.getAttribute('data-glass-ink-hint'),
     theme: () => body.getAttribute('data-theme'),
     async change(next: string) {
       await act(async () => browser.storage.sync.externalSet({ [newtabGlassStyle.key]: next }));
       await pause(80);
     },
-    async changeTheme(next: string) {
-      await act(async () => browser.storage.sync.externalSet({ [newtabGlassTheme.key]: next }));
+    async changeAdaptive(next: boolean) {
+      await act(async () => browser.storage.sync.externalSet({ [newtabGlassAdaptive.key]: next }));
       await pause(80);
     }
   };
@@ -90,27 +90,24 @@ describe('New Tab glass style', () => {
     expect(page.style()).toBeNull();
   });
 
-  it('holds the page’s theme with the material’s light or dark only while a material is on', async () => {
+  it('fixes the glass ink to the theme only while a material is on and adaptation is off', async () => {
     // The system theme here is dark.
-    const page = await openNewtab('liquid', 'light');
-    expect([page.glassTheme(), page.theme()]).toEqual(['light', 'light']);
+    const page = await openNewtab('liquid', false);
+    expect([page.inkFixed(), page.theme()]).toEqual([true, 'dark']);
     expect(page.inkHint()).toBe('dark');
 
-    await page.changeTheme('dark');
-    expect([page.glassTheme(), page.theme()]).toEqual(['dark', 'dark']);
-    await page.changeTheme('light');
     await page.change('none');
-    expect([page.glassTheme(), page.theme()]).toEqual([null, 'dark']);
+    expect(page.inkFixed()).toBe(false);
     await page.change('frosted');
-    expect([page.glassTheme(), page.theme()]).toEqual(['light', 'light']);
-    await page.changeTheme('follow');
-    expect([page.glassTheme(), page.theme()]).toEqual([null, 'dark']);
+    expect(page.inkFixed()).toBe(true);
+    await page.changeAdaptive(true);
+    expect([page.inkFixed(), page.theme()]).toEqual([false, 'dark']);
   });
 
-  it('follows the New Tab theme for a material without a theme of its own', async () => {
+  it('adapts to the wallpaper and follows the New Tab theme by default', async () => {
     const page = await openNewtab('frosted');
 
-    expect([page.glassTheme(), page.theme()]).toEqual([null, 'dark']);
+    expect([page.inkFixed(), page.theme()]).toEqual([false, 'dark']);
   });
 });
 

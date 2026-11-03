@@ -3647,20 +3647,11 @@
   "settings_newtab_glass_style_liquid": {
     "message": "リキッドグラス"
   },
-  "settings_newtab_glass_theme_title": {
-    "message": "ガラスの明暗"
+  "settings_newtab_glass_adaptive_title": {
+    "message": "壁紙に合わせてガラスの明暗を調整"
   },
-  "settings_newtab_glass_theme_desc": {
-    "message": "「自動」：テーマに合わせ、壁紙が暗いときは文字が読みやすいよう暗いガラスに切り替えます。\n「ライト」「ダーク」：ガラスを固定し、新しいタブも同じテーマにします。"
-  },
-  "settings_newtab_glass_theme_follow": {
-    "message": "自動"
-  },
-  "settings_newtab_glass_theme_light": {
-    "message": "ライト"
-  },
-  "settings_newtab_glass_theme_dark": {
-    "message": "ダーク"
+  "settings_newtab_glass_adaptive_desc": {
+    "message": "ライトモードでは、壁紙が暗いときに文字が読みやすいよう暗いガラスに切り替えます。オフにすると、ガラスは常に新しいタブのテーマに合わせます。"
   },
   "settings_search_source_group_order_title": {
     "message": "検索パネルの並び順"

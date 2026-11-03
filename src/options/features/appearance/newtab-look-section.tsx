@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 import {
   getNewtabTimeFont,
+  newtabGlassAdaptive,
   newtabGlassStyle,
-  newtabGlassTheme,
   newtabTime12Hour,
   newtabTimeFont,
   newtabTimeFontSize,
@@ -21,14 +21,14 @@ import { saveSetting } from '../../app/save-setting';
 import { SettingsRows, type SettingsRowsHandlers } from '../../react/settings-rows-view';
 import { getNewtabLookRows } from './newtab-look-rows';
 
-const TOGGLES = [newtabTimeSecondsVisible, newtabTime12Hour];
+const TOGGLES = [newtabGlassAdaptive, newtabTimeSecondsVisible, newtabTime12Hour];
 
 export function NewtabLookSection() {
   const { settingsStore, notifyNewtab, getViewportTopInset } = useOptionsPage();
   const t = useMessages();
   const values = {
     glassStyle: useSetting(settingsStore, newtabGlassStyle),
-    glassTheme: useSetting(settingsStore, newtabGlassTheme),
+    glassAdaptive: useSetting(settingsStore, newtabGlassAdaptive),
     widthMode: useSetting(settingsStore, newtabWidthMode),
     topContent: useSetting(settingsStore, newtabTopContentMode),
     timeFont: useSetting(settingsStore, newtabTimeFont),
@@ -50,9 +50,6 @@ export function NewtabLookSection() {
       switch (key) {
         case newtabGlassStyle.key:
           saveSetting(settingsStore, newtabGlassStyle, newtabGlassStyle.parse(value));
-          break;
-        case newtabGlassTheme.key:
-          saveSetting(settingsStore, newtabGlassTheme, newtabGlassTheme.parse(value));
           break;
         case newtabWidthMode.key:
           saveSetting(settingsStore, newtabWidthMode, newtabWidthMode.parse(value));

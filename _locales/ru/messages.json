@@ -3647,20 +3647,11 @@
   "settings_newtab_glass_style_liquid": {
     "message": "Жидкое стекло"
   },
-  "settings_newtab_glass_theme_title": {
-    "message": "Тема материала"
+  "settings_newtab_glass_adaptive_title": {
+    "message": "Подстраивать материал под обои"
   },
-  "settings_newtab_glass_theme_desc": {
-    "message": "Авто: следует режиму темы, но на темных обоях переключается на темный материал, чтобы текст оставался читаемым.\nСветлая / Темная: закрепляют материал и применяют ту же тему к новой вкладке."
-  },
-  "settings_newtab_glass_theme_follow": {
-    "message": "Авто"
-  },
-  "settings_newtab_glass_theme_light": {
-    "message": "Светлая"
-  },
-  "settings_newtab_glass_theme_dark": {
-    "message": "Темная"
+  "settings_newtab_glass_adaptive_desc": {
+    "message": "В светлой теме на темных обоях материал становится темным, чтобы текст оставался читаемым. Если выключено, материал всегда следует теме новой вкладки."
   },
   "settings_search_source_group_order_title": {
     "message": "Порядок в панели поиска"

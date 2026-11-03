@@ -1,5 +1,5 @@
 // The rows of the New Tab look in the Appearance tab, from their values:
-// the material and its light or dark choice, the content width, what sits
+// the material and whether it adapts to the wallpaper, the content width, what sits
 // above the search box, and the clock's face, weight, size, opacity, color
 // and format.
 import {
@@ -11,8 +11,8 @@ import {
   NEWTAB_TIME_OPACITY_MAX,
   NEWTAB_TIME_OPACITY_MIN,
   getNewtabTimeFont,
+  newtabGlassAdaptive,
   newtabGlassStyle,
-  newtabGlassTheme,
   newtabTime12Hour,
   newtabTimeFont,
   newtabTimeFontSize,
@@ -24,7 +24,7 @@ import {
   newtabWidthMode,
   resolveNewtabTimeFontWeight
 } from '../../../domain/settings';
-import type { NewtabGlassStyle, NewtabGlassTheme, NewtabWidthMode } from '../../../domain/settings/newtab-page';
+import type { NewtabGlassStyle, NewtabWidthMode } from '../../../domain/settings/newtab-page';
 import type { NewtabTimeInk, NewtabTopContentMode } from '../../../domain/settings/newtab-time';
 import type { GetMessage } from '../../options-types';
 import type { SegmentedControlItemModel } from '../../react/segmented-control';
@@ -33,7 +33,7 @@ import type { SettingsRowModel } from '../../react/settings-rows-view';
 
 interface NewtabLookValues {
   glassStyle: NewtabGlassStyle;
-  glassTheme: NewtabGlassTheme;
+  glassAdaptive: boolean;
   widthMode: NewtabWidthMode;
   topContent: NewtabTopContentMode;
   timeFont: string;
@@ -65,20 +65,6 @@ function getGlassStyleItems(t: GetMessage): SelectControlItemModel[] {
           label: t('settings_newtab_glass_style_liquid', '液态玻璃'),
           badge: 'Beta'
         };
-    }
-  });
-}
-
-function getGlassThemeItems(t: GetMessage): SegmentedControlItemModel[] {
-  const themes: readonly NewtabGlassTheme[] = ['follow', 'light', 'dark'];
-  return themes.map((theme) => {
-    switch (theme) {
-      case 'follow':
-        return { value: theme, labelKey: 'settings_newtab_glass_theme_follow', label: t('settings_newtab_glass_theme_follow', '自动') };
-      case 'light':
-        return { value: theme, labelKey: 'settings_newtab_glass_theme_light', label: t('settings_newtab_glass_theme_light', '浅色') };
-      case 'dark':
-        return { value: theme, labelKey: 'settings_newtab_glass_theme_dark', label: t('settings_newtab_glass_theme_dark', '深色') };
     }
   });
 }
@@ -259,7 +245,7 @@ function getTimeRows(t: GetMessage, values: NewtabLookValues): SettingsRowModel[
 }
 
 function getNewtabLookRows(t: GetMessage, values: NewtabLookValues): SettingsRowModel[] {
-  const glassThemeTitle = t('settings_newtab_glass_theme_title', '材质深浅色');
+  const glassAdaptiveTitle = t('settings_newtab_glass_adaptive_title', '随壁纸调整材质深浅');
   const widthTitle = t('settings_newtab_width_title', '新标签页内容宽度');
   const topContentTitle = t('settings_newtab_wordmark_title', '搜索框上方内容');
   return [
@@ -278,25 +264,27 @@ function getNewtabLookRows(t: GetMessage, values: NewtabLookValues): SettingsRow
       }
     },
     {
-      // The material's light/dark choice only matters while a glass material is on.
+      // Adapting to the wallpaper only matters while a glass material is on.
       type: 'reveal',
-      key: 'glass-theme',
-      id: '_x_extension_newtab_glass_theme_subrows_2026_unique_',
+      key: 'glass-adaptive',
+      id: '_x_extension_newtab_glass_adaptive_subrows_2026_unique_',
       expanded: values.glassStyle !== 'none',
       rows: [{
-        type: 'segmented',
-        key: newtabGlassTheme.key,
-        rowId: '_x_extension_newtab_glass_theme_row_2026_unique_',
-        compact: false,
+        type: 'toggle',
+        key: newtabGlassAdaptive.key,
+        rowId: '_x_extension_newtab_glass_adaptive_row_2026_unique_',
         subrow: true,
-        title: { text: glassThemeTitle },
+        title: { text: glassAdaptiveTitle },
         description: t(
-          'settings_newtab_glass_theme_desc',
-          '「自动」：跟随深浅色模式，壁纸较暗时改用深色材质，让文字保持清晰。\n「浅色」「深色」：固定材质，并让新标签页使用同样的深浅色。'
+          'settings_newtab_glass_adaptive_desc',
+          '浅色模式下，壁纸较暗时材质改用深色，让文字保持清晰。关闭后，材质始终与新标签页的深浅色一致。'
         ),
-        groupId: '_x_extension_newtab_glass_theme_tabs_wrap_2026_unique_',
-        ariaLabel: glassThemeTitle,
-        segmented: { activeValue: values.glassTheme, dataAttribute: 'data-newtab-glass-theme', items: getGlassThemeItems(t) }
+        toggle: {
+          id: '_x_extension_newtab_glass_adaptive_toggle_2026_unique_',
+          checked: values.glassAdaptive,
+          ariaLabel: glassAdaptiveTitle,
+          ariaLabelKey: 'settings_newtab_glass_adaptive_title'
+        }
       }]
     },
     {

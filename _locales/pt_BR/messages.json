@@ -3647,20 +3647,11 @@
   "settings_newtab_glass_style_liquid": {
     "message": "Vidro líquido"
   },
-  "settings_newtab_glass_theme_title": {
-    "message": "Tema do material"
+  "settings_newtab_glass_adaptive_title": {
+    "message": "Adaptar o material ao plano de fundo"
   },
-  "settings_newtab_glass_theme_desc": {
-    "message": "Automático: segue o modo de tema, mas usa material escuro sobre planos de fundo mais escuros para manter o texto legível.\nClaro / Escuro: fixam o material e aplicam o mesmo tema à Nova guia."
-  },
-  "settings_newtab_glass_theme_follow": {
-    "message": "Automático"
-  },
-  "settings_newtab_glass_theme_light": {
-    "message": "Claro"
-  },
-  "settings_newtab_glass_theme_dark": {
-    "message": "Escuro"
+  "settings_newtab_glass_adaptive_desc": {
+    "message": "No modo claro, o material fica escuro sobre planos de fundo mais escuros para manter o texto legível. Desativado, o material sempre segue o tema da Nova guia."
   },
   "settings_search_source_group_order_title": {
     "message": "Ordem do painel de pesquisa"

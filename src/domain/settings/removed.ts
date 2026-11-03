@@ -21,11 +21,16 @@ const LEGACY_SITE_SEARCH_ICON_KEYS: readonly string[] = Object.freeze([
   '_x_extension_site_search_icon_cache_retina_2026_unique_'
 ]);
 
+// The New Tab material theme, which held the page light or dark under a glass
+// material. The New Tab theme and the glass adaptive switch replaced it.
+const NEWTAB_GLASS_THEME_KEY = '_x_extension_newtab_glass_theme_2026_unique_';
+
 const REMOVED_KEYS: readonly string[] = Object.freeze([
   LANGUAGE_MESSAGES_KEY,
   ...REMOVED_AI_SYNC_KEYS,
   ...REMOVED_AI_LOCAL_KEYS,
-  ...LEGACY_SITE_SEARCH_ICON_KEYS
+  ...LEGACY_SITE_SEARCH_ICON_KEYS,
+  NEWTAB_GLASS_THEME_KEY
 ]);
 
-export { LANGUAGE_MESSAGES_KEY, LEGACY_SITE_SEARCH_ICON_KEYS, REMOVED_AI_LOCAL_KEYS, REMOVED_AI_SYNC_KEYS, REMOVED_KEYS };
+export { LANGUAGE_MESSAGES_KEY, LEGACY_SITE_SEARCH_ICON_KEYS, NEWTAB_GLASS_THEME_KEY, REMOVED_AI_LOCAL_KEYS, REMOVED_AI_SYNC_KEYS, REMOVED_KEYS };

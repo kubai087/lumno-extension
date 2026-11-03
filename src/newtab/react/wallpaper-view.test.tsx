@@ -176,19 +176,20 @@ describe('New Tab React wallpaper view', () => {
     expect(refs().glassStyleTitle.textContent).toBe(state.glassStyle.title);
   });
 
-  it('shows the material theme only under a glass style', () => {
+  it('shows the wallpaper adaptation switch only under a glass style', () => {
     const { state, actions } = createState();
     mount(state);
-    expect(refs().glassThemeRow.hidden).toBe(true);
+    expect(refs().glassAdaptiveRow.hidden).toBe(true);
     state.glassStyle.value = 'liquid';
-    state.glassStyle.theme.visible = true;
+    state.glassStyle.adaptive.visible = true;
     rerender(state);
-    expect(refs().glassThemeRow.hidden).toBe(false);
-    expect(refs().glassThemeTitle.textContent).toBe('Material theme');
-    expect(refs().glassThemeInfoButton.getAttribute('aria-label')).toBe('Material theme');
-    expect(refs().glassThemeTabs.querySelector('[data-newtab-glass-theme="follow"]')?.getAttribute('aria-pressed')).toBe('true');
-    act(() => getElement(refs().glassThemeTabs, '[data-newtab-glass-theme="dark"]').click());
-    expect(actions.selectGlassTheme).toHaveBeenCalledWith('dark');
+    expect(refs().glassAdaptiveRow.hidden).toBe(false);
+    expect(refs().glassAdaptiveTitle.textContent).toBe('Adapt material to wallpaper');
+    expect(refs().glassAdaptiveInfoButton.getAttribute('aria-label')).toBe('Adapt material to wallpaper');
+    const toggle = expectTag(refs().glassAdaptiveToggle, 'input');
+    expect(toggle.checked).toBe(true);
+    act(() => toggle.click());
+    expect(actions.setGlassAdaptive).toHaveBeenCalledWith(false);
   });
 
   it('marks only the theme option that carries a badge', () => {

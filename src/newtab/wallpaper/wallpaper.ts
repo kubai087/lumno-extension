@@ -6,7 +6,7 @@ import type { StorageAreaLike } from '../../domain/storage-port';
 import type { ToastTask } from '../../shared/ui/toast-screen';
 import type { FeatureHintChromeApi } from '../../shared/ui/feature-hint-catalog';
 import type { FormatMessage, ShowToast, Translate } from '../newtab-types';
-import type { GlassTheme, ThemeScope } from '../react/wallpaper-panel/panel-model';
+import type { ThemeScope } from '../react/wallpaper-panel/panel-model';
 import type { QuoteRuntime } from '../top-content/quotes';
 import type { AdaptiveToneTarget, ToneScheduleOptions } from './wallpaper-adaptive-tone';
 import type { WallpaperEffectPrefs, WallpaperEffectStoragePrefs } from '../dom/wallpaper-effects';
@@ -147,8 +147,8 @@ interface WallpaperRuntimeOptions {
   inputAutoFocusReady?: PromiseLike<unknown>;
   getGlassStyle?: () => string;
   setGlassStyle?: (value: string) => void;
-  getGlassTheme?: () => unknown;
-  setGlassTheme?: (value: GlassTheme) => void;
+  getGlassAdaptive?: () => unknown;
+  setGlassAdaptive?: (enabled: boolean) => void;
   // Feature hints stay hidden until this settles.
   featureHintVisibilityGate?: PromiseLike<unknown>;
   showToast?: ShowToast;
@@ -294,11 +294,11 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
   const setGlassStyle = typeof options.setGlassStyle === 'function'
     ? options.setGlassStyle
     : function() {};
-  const getGlassTheme = typeof options.getGlassTheme === 'function'
-    ? options.getGlassTheme
-    : function() { return 'follow'; };
-  const setGlassTheme = typeof options.setGlassTheme === 'function'
-    ? options.setGlassTheme
+  const getGlassAdaptive = typeof options.getGlassAdaptive === 'function'
+    ? options.getGlassAdaptive
+    : function() { return true; };
+  const setGlassAdaptive = typeof options.setGlassAdaptive === 'function'
+    ? options.setGlassAdaptive
     : function() {};
   const featureHintVisibilityGate: PromiseLike<unknown> | null = options.featureHintVisibilityGate &&
     typeof options.featureHintVisibilityGate.then === 'function'
@@ -986,7 +986,7 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     getWallpaperModeLabel,
     getWallpaperLocalPath,
     getGlassStyle,
-    getGlassTheme,
+    getGlassAdaptive,
     buildNewtabFaviconState,
     animateWallpaperPanelResize,
     document,
@@ -1029,7 +1029,7 @@ function createWallpaperRuntime(options: WallpaperRuntimeOptions) {
     setInputAutoFocusEnabled,
     renderWallpaperPanelState,
     setGlassStyle,
-    setGlassTheme,
+    setGlassAdaptive,
     persistTopContentMode,
     persistTimeFontWeight,
     persistTimeFontSizeFromSlider,

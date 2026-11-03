@@ -14,7 +14,7 @@ import { readBootValue } from '../../platform/boot-handoff';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SettingPreview } from '../setting-preview';
 import { themeMode } from '../../domain/settings/appearance';
-import { NEWTAB_THEME_SETTINGS, newtabGlassStyle, newtabGlassTheme, newtabInputAutoFocusEnabled } from '../../domain/settings/newtab-page';
+import { NEWTAB_THEME_SETTINGS, newtabGlassAdaptive, newtabGlassStyle, newtabInputAutoFocusEnabled } from '../../domain/settings/newtab-page';
 import { NEWTAB_SHORTCUT_COLUMNS_DEFAULT, NEWTAB_SHORTCUT_COLUMNS_MAX, NEWTAB_SHORTCUT_COLUMNS_MIN, NEWTAB_SHORTCUT_GAP_DEFAULT, NEWTAB_SHORTCUT_GAP_MAX, NEWTAB_SHORTCUT_GAP_MIN, NEWTAB_SHORTCUT_SIZE_DEFAULT, NEWTAB_SHORTCUT_SIZE_MAX, NEWTAB_SHORTCUT_SIZE_MIN, newtabShortcutAddVisible, newtabShortcutColumns, newtabShortcutDockMagnificationEnabled, newtabShortcutGap, newtabShortcutSize, newtabShortcutsVisible } from '../../domain/settings/newtab-shortcuts';
 import * as EXTENSION_ROUTES from '../../domain/extension-routes';
 import { SEARCH_WIDTH_CONFIG } from '../dom/layout';
@@ -162,8 +162,8 @@ function createWallpaperPage(deps: WallpaperPageDeps) {
     setInputAutoFocusEnabled: (enabled) => void settings.set(newtabInputAutoFocusEnabled, enabled),
     getGlassStyle: () => settings.get(newtabGlassStyle),
     setGlassStyle: (value) => void settings.set(newtabGlassStyle, newtabGlassStyle.parse(value)),
-    getGlassTheme: () => settings.get(newtabGlassTheme),
-    setGlassTheme: (value) => void settings.set(newtabGlassTheme, newtabGlassTheme.parse(value)),
+    getGlassAdaptive: () => settings.get(newtabGlassAdaptive),
+    setGlassAdaptive: (enabled) => void settings.set(newtabGlassAdaptive, enabled),
     getAdaptiveToneTargets
   });
 

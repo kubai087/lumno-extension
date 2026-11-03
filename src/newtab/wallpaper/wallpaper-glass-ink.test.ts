@@ -140,16 +140,16 @@ describe('page glass ink', () => {
     expect(page.remembered()).toBe('light');
   });
 
-  it('keeps dark ink while a material is held light, and decides afresh back on Auto', async () => {
+  it('keeps the theme\'s ink while adaptation is off, and decides afresh once it is back on', async () => {
     const plate = plateAt(100, 100);
     const page = await openPage(grey(120), [{ element: plate, sampleElement: plate, glass: true }]);
-    document.body.setAttribute('data-glass-theme', 'light');
+    document.body.setAttribute('data-glass-ink-fixed', '');
     document.body.setAttribute('data-glass-ink-hint', 'dark');
 
     await page.resample();
     expect(plate.getAttribute('data-glass-ink')).toBe('dark');
     expect(page.remembered()).toBe('light');
-    document.body.removeAttribute('data-glass-theme');
+    document.body.removeAttribute('data-glass-ink-fixed');
     await page.resample({ resetInk: true });
     expect(plate.getAttribute('data-glass-ink')).toBe('light');
     expect(document.body.getAttribute('data-glass-ink-hint')).toBe('light');

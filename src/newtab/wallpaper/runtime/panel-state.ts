@@ -7,7 +7,6 @@ import type { WallpaperLocalStore } from '../../../shared/wallpaper-records';
 import type { WallpaperThumbnailCache } from '../../../shared/wallpaper-caches';
 import type { FormatMessage, Translate } from '../../newtab-types';
 import type {
-  GlassTheme,
   TileState,
   OnlineTileState,
   SelectedSourceState,
@@ -57,7 +56,7 @@ import type { WallpaperPanelView } from './panel-view';
 import { getAppearanceModeLabels } from './appearance-labels';
 import { isLinkWallpaperId } from './wallpaper-library';
 import { NEWTAB_SHORTCUT_GRID_SETTINGS } from '../../../domain/settings/newtab-shortcuts';
-import { newtabInputAutoFocusEnabled, newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
+import { newtabGlassAdaptive, newtabGlassStyle, newtabInputAutoFocusEnabled, newtabSearchWidth, newtabWidthMode } from '../../../domain/settings/newtab-page';
 
 // The CRT settings stored as physical values and shown as percentages.
 type CrtParameterKey = 'crtStrength' | 'crtBloom' | 'crtRgbOffset' | 'crtCurvature';
@@ -105,7 +104,7 @@ interface PanelStateDeps extends
   getShortcutDockMagnificationEnabled(): unknown;
   getShortcutColumns(): unknown;
   getGlassStyle(): string;
-  getGlassTheme(): unknown;
+  getGlassAdaptive(): unknown;
   remoteClient: Pick<RemoteContentClient, 'getWallpaper'>;
   wallpaperThumbnailCache: WallpaperThumbnailCache | null;
   localWallpaperStore: Pick<WallpaperLocalStore, 'buildTileThumbnail'>;
@@ -229,7 +228,7 @@ function createPanelState(deps: PanelStateDeps) {
     getWallpaperModeLabel,
     getWallpaperLocalPath,
     getGlassStyle,
-    getGlassTheme,
+    getGlassAdaptive,
     buildNewtabFaviconState,
     animateWallpaperPanelResize,
     document,
@@ -968,7 +967,7 @@ function createPanelState(deps: PanelStateDeps) {
       return null;
     }
     const glassStyleValue = getGlassStyle();
-    const glassThemeTitle = t('settings_newtab_glass_theme_title', 'Material theme');
+    const glassAdaptiveTitle = t('settings_newtab_glass_adaptive_title', 'Adapt material to wallpaper');
     return {
       actions,
       open: panelUi.state.open,
@@ -987,19 +986,11 @@ function createPanelState(deps: PanelStateDeps) {
           { value: 'frosted', label: t('settings_newtab_glass_style_frosted', 'Frosted glass'), badge: 'Beta' },
           { value: 'liquid', label: t('settings_newtab_glass_style_liquid', 'Liquid glass'), badge: 'Beta' }
         ],
-        theme: {
+        adaptive: {
           visible: glassStyleValue !== 'none',
-          title: glassThemeTitle,
-          infoTooltip: t('settings_newtab_glass_theme_desc', 'Auto: follows Theme mode, but switches to dark material over darker wallpapers to keep text legible.\nLight / Dark: fix the material and set New Tab to the same theme.'),
-          tabs: {
-            active: SETTINGS.newtabGlassTheme.parse(getGlassTheme()),
-            label: glassThemeTitle,
-            options: withAriaLabels<GlassTheme>([
-              { value: 'follow', label: t('settings_newtab_glass_theme_follow', 'Auto') },
-              { value: 'light', label: t('settings_newtab_glass_theme_light', 'Light') },
-              { value: 'dark', label: t('settings_newtab_glass_theme_dark', 'Dark') }
-            ])
-          }
+          title: glassAdaptiveTitle,
+          infoTooltip: t('settings_newtab_glass_adaptive_desc', 'In light mode, the material turns dark over darker wallpapers to keep text legible. When off, the material always matches the New Tab theme.'),
+          toggle: buildPanelToggle(getGlassAdaptive(), glassAdaptiveTitle)
         }
       },
       search: buildWallpaperSearchState(),
@@ -1159,7 +1150,15 @@ function createPanelState(deps: PanelStateDeps) {
   });
   // The settings the panel shows, whoever changed them, and the sliders' previews.
   settings.subscribe(
-    [...NEWTAB_TOP_CONTENT_SETTINGS, ...NEWTAB_SHORTCUT_GRID_SETTINGS, newtabWidthMode, newtabSearchWidth, newtabInputAutoFocusEnabled],
+    [
+      ...NEWTAB_TOP_CONTENT_SETTINGS,
+      ...NEWTAB_SHORTCUT_GRID_SETTINGS,
+      newtabWidthMode,
+      newtabSearchWidth,
+      newtabInputAutoFocusEnabled,
+      newtabGlassStyle,
+      newtabGlassAdaptive
+    ],
     () => renderWallpaperPanelState()
   );
   preview.store.subscribe(() => renderWallpaperPanelState());

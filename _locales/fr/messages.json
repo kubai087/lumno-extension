@@ -3647,20 +3647,11 @@
   "settings_newtab_glass_style_liquid": {
     "message": "Verre liquide"
   },
-  "settings_newtab_glass_theme_title": {
-    "message": "Thème de la matière"
+  "settings_newtab_glass_adaptive_title": {
+    "message": "Adapter la matière au fond d’écran"
   },
-  "settings_newtab_glass_theme_desc": {
-    "message": "Auto : suit le mode du thème, mais passe à une matière sombre sur les fonds d’écran plus sombres pour garder le texte lisible.\nClair / Sombre : fixent la matière et appliquent le même thème au Nouvel onglet."
-  },
-  "settings_newtab_glass_theme_follow": {
-    "message": "Auto"
-  },
-  "settings_newtab_glass_theme_light": {
-    "message": "Clair"
-  },
-  "settings_newtab_glass_theme_dark": {
-    "message": "Sombre"
+  "settings_newtab_glass_adaptive_desc": {
+    "message": "En mode clair, la matière passe au sombre sur les fonds d’écran plus sombres pour garder le texte lisible. Désactivée, la matière suit toujours le thème du Nouvel onglet."
   },
   "settings_search_source_group_order_title": {
     "message": "Ordre du panneau de recherche"

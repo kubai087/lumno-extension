@@ -31,21 +31,21 @@ afterEach(cleanUpOptionsViews);
 
 describe('Options Appearance New Tab look section', () => {
 
-  it('offers the material\'s light or dark choice only with a glass material', async () => {
+  it('offers the wallpaper adaptation only with a glass material', async () => {
     const { host, writes, store, settings } = await setUp();
-    const glassTheme = '_x_extension_newtab_glass_theme_subrows_2026_unique_';
-    expect(expanded(host, glassTheme)).toBe('false');
+    const glassAdaptive = '_x_extension_newtab_glass_adaptive_subrows_2026_unique_';
+    const toggle = () => getTag(host, '#_x_extension_newtab_glass_adaptive_toggle_2026_unique_', 'input');
+    expect(expanded(host, glassAdaptive)).toBe('false');
     pick('_x_extension_newtab_glass_style_select_2026_unique_', 'liquid');
     await settings.settle();
     expect(writes).toEqual([{ [Settings.newtabGlassStyle.key]: 'liquid' }]);
-    expect(expanded(host, glassTheme)).toBe('true');
-    act(() => getElement(host, '[data-newtab-glass-theme="dark"]').click());
+    expect(expanded(host, glassAdaptive)).toBe('true');
+    expect(toggle().checked).toBe(true);
+    act(() => toggle().click());
     await settings.settle();
-    expect(writes.at(-1)).toEqual({ [Settings.newtabGlassTheme.key]: 'dark' });
+    expect(writes.at(-1)).toEqual({ [Settings.newtabGlassAdaptive.key]: false });
     await store(Settings.newtabGlassStyle, 'none');
-    expect(expanded(host, glassTheme)).toBe('false');
-    const description = getElement(host, '#_x_extension_newtab_glass_theme_row_2026_unique_ ._x_extension_setting_desc_2024_unique_');
-    expect(description.classList.contains('_x_extension_setting_desc_lines_2026_unique_')).toBe(true);
+    expect(expanded(host, glassAdaptive)).toBe('false');
   });
 
   it('saves the content width and asks open New Tab pages to redraw', async () => {

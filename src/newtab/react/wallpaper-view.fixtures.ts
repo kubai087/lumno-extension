@@ -34,7 +34,6 @@ export function createPanelActions<F extends () => void>(make: () => F): Record<
     selectCuratedWallpaper: make(),
     selectEffect: make(),
     selectFavicon: make(),
-    selectGlassTheme: make(),
     selectInkTone: make(),
     selectSourceTab: make(),
     selectThemeMode: make(),
@@ -49,6 +48,7 @@ export function createPanelActions<F extends () => void>(make: () => F): Record<
     setEffectParameter: make(),
     setGlassStyle: make(),
     setInputAutoFocus: make(),
+    setGlassAdaptive: make(),
     setModeSync: make(),
     setOverlay: make(),
     setSearchWidth: make(),
@@ -126,18 +126,10 @@ export function createDefaultPanelState(): WallpaperPanelState {
         { value: 'liquid', label: 'Liquid glass' }
       ],
       sectionTitle: 'Style',
-      theme: {
-        infoTooltip: 'Auto follows Theme mode.',
-        tabs: {
-          active: 'follow',
-          label: 'Material theme',
-          options: [
-            { value: 'follow', label: 'Auto', ariaLabel: 'Auto' },
-            { value: 'light', label: 'Light', ariaLabel: 'Light' },
-            { value: 'dark', label: 'Dark', ariaLabel: 'Dark' }
-          ]
-        },
-        title: 'Material theme',
+      adaptive: {
+        infoTooltip: 'Turns dark over darker wallpapers.',
+        title: 'Adapt material to wallpaper',
+        toggle: toggle('Adapt material to wallpaper', true),
         visible: false
       },
       title: 'Material',

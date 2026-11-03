@@ -90,6 +90,7 @@ const SYNCED_PAGE_STORAGE_KEYS: readonly string[] = Object.freeze([
   LumnoSettings.newtabFeedbackButtonVisible.key,
   LumnoSettings.newtabAppearanceButtonVisible.key,
   LumnoSettings.newtabGlassStyle.key,
+  LumnoSettings.newtabGlassAdaptive.key,
   LumnoSettings.newtabTopContentMode.key,
   LumnoSettings.newtabTimeFontWeight.key,
   LumnoSettings.newtabTimeFontSize.key,

@@ -4,7 +4,8 @@ import { SETTINGS_MIGRATIONS, SETTINGS_SCHEMA_VERSION, applySettingsPatch, getSe
 import type { SettingsMigration, SettingsSnapshot } from './migrations';
 import { OVERLAY_FONT_KEYS } from './overlay-panel';
 import { BROWSER_SYNC_KEYS } from './registry';
-import { LANGUAGE_MESSAGES_KEY, LEGACY_SITE_SEARCH_ICON_KEYS, REMOVED_AI_LOCAL_KEYS, REMOVED_AI_SYNC_KEYS } from './removed';
+import { newtabGlassAdaptive, newtabGlassStyle, newtabThemeMode, newtabThemeScope } from './newtab-page';
+import { LANGUAGE_MESSAGES_KEY, LEGACY_SITE_SEARCH_ICON_KEYS, NEWTAB_GLASS_THEME_KEY, REMOVED_AI_LOCAL_KEYS, REMOVED_AI_SYNC_KEYS } from './removed';
 import { settingsSchemaVersion } from './sync-state';
 import { AI_SEARCH_LOCAL, AI_SEARCH_SYNC, BOOKMARK_TOPBAR_SYNC, LANGUAGE_MESSAGES_CACHE, LEGACY_ICON_CACHES, OVERLAY_FONT_SYNC, SHARED_SYNC_PREFERENCES } from '../../../tests/fakes/older-device-settings';
 
@@ -36,7 +37,7 @@ describe('settings migrations', () => {
     expect(plan.patch.sync.set).toEqual({});
     expect(plan.patch.local.set).toEqual({});
     expect(new Set(plan.patch.sync.remove)).toEqual(new Set([
-      LANGUAGE_MESSAGES_KEY, ...REMOVED_AI_SYNC_KEYS, ...BOOKMARK_TOPBAR_SURFACE_KEYS, ...OVERLAY_FONT_KEYS
+      LANGUAGE_MESSAGES_KEY, ...REMOVED_AI_SYNC_KEYS, ...BOOKMARK_TOPBAR_SURFACE_KEYS, ...OVERLAY_FONT_KEYS, NEWTAB_GLASS_THEME_KEY
     ]));
     expect(new Set(plan.patch.local.remove)).toEqual(new Set([
       LANGUAGE_MESSAGES_KEY, ...REMOVED_AI_LOCAL_KEYS, ...LEGACY_SITE_SEARCH_ICON_KEYS
@@ -51,6 +52,19 @@ describe('settings migrations', () => {
     expect(partial.version).toBe(SETTINGS_SCHEMA_VERSION);
     expect(partial.patch.local.remove).toEqual([]);
     expect(planSettingsMigrations(SETTINGS_SCHEMA_VERSION, EMPTY).patch).toEqual({ sync: { set: {}, remove: [] }, local: { set: {}, remove: [] } });
+  });
+
+  it('turns a material held light or dark into the New Tab\'s own theme with the glass not adapting', () => {
+    const held = planSettingsMigrations(5, { sync: { [NEWTAB_GLASS_THEME_KEY]: 'dark', [newtabGlassStyle.key]: 'liquid' }, local: {} });
+    expect(held.patch.sync).toEqual({
+      set: { [newtabGlassAdaptive.key]: false, [newtabThemeMode.key]: 'dark', [newtabThemeScope.key]: 'home' },
+      remove: [NEWTAB_GLASS_THEME_KEY]
+    });
+    // Without a glass material the held theme never showed, so the page keeps its own.
+    const unused = planSettingsMigrations(5, { sync: { [NEWTAB_GLASS_THEME_KEY]: 'light' }, local: {} });
+    expect(unused.patch.sync).toEqual({ set: { [newtabGlassAdaptive.key]: false }, remove: [NEWTAB_GLASS_THEME_KEY] });
+    const following = planSettingsMigrations(5, { sync: { [NEWTAB_GLASS_THEME_KEY]: 'follow', [newtabGlassStyle.key]: 'frosted' }, local: {} });
+    expect(following.patch.sync).toEqual({ set: {}, remove: [NEWTAB_GLASS_THEME_KEY] });
   });
 
   it('keeps the version of a device that ran a newer release', () => {
