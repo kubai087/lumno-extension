@@ -391,19 +391,17 @@ function getSearchSuggestionFilterType(suggestion: SuggestionLike | null | undef
   return '';
 }
 
-// Rows of the chosen local sources; rows of no local source always stay.
+// Rows of the chosen local sources (none when the list is empty); rows of no
+// local source always stay.
 function filterSearchSuggestionsBySourceTypes<T extends SuggestionLike>(
   list: readonly T[] | null | undefined,
   sourceTypes: unknown
 ): T[] {
   const suggestions: readonly T[] = Array.isArray(list) ? list : [];
-  const selectedTypes = Array.isArray(sourceTypes)
-    ? sourceTypes.map(normalizeSearchSuggestionSourceFilterType).filter(Boolean)
-    : [];
-  if (selectedTypes.length <= 0) {
+  if (!Array.isArray(sourceTypes)) {
     return suggestions.slice();
   }
-  const selected = new Set(selectedTypes);
+  const selected = new Set(sourceTypes.map(normalizeSearchSuggestionSourceFilterType).filter(Boolean));
   return suggestions.filter((suggestion) => {
     const filterType = getSearchSuggestionFilterType(suggestion);
     return !filterType || selected.has(filterType);

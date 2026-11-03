@@ -86,7 +86,6 @@ function getSearchRows(t: GetMessage, values: SearchValues): SettingsRowModel[] 
       groupId: searchResultSourceTypes.key,
       ariaLabel: t('settings_search_result_sources_title', '显示结果类型'),
       checkboxes: {
-        required: true,
         sortable: true,
         items: values.ordered.flatMap((type) => {
           const item = SOURCE_TYPES.find((entry) => entry.value === type);

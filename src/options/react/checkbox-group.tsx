@@ -11,8 +11,6 @@ export interface CheckboxItemModel {
 
 export interface CheckboxGroupRenderModel {
   items: CheckboxItemModel[];
-  // At least one item stays checked: unchecking the last one does nothing.
-  required?: boolean;
   // The items can be reordered: dragged (wired by the page) or moved with
   // Alt+Left and Alt+Right from a focused checkbox.
   sortable?: boolean;
@@ -77,9 +75,6 @@ export function CheckboxGroup({
                 next.add(item.value);
               } else {
                 next.delete(item.value);
-              }
-              if (model.required && next.size === 0) {
-                return;
               }
               setSelected(next);
               onChange(model.items

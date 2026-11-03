@@ -38,13 +38,16 @@ const searchResultPriority = defineSetting({
   schema: custom((value): SearchResultPriority => (value === 'search' ? 'search' : 'autocomplete'))
 });
 
-// The browser content search lists. Older versions stored a comma-separated
-// string and other names for the types.
+// The browser content search lists; an empty list turns them all off. Older
+// versions stored a comma-separated string and other names for the types.
 const searchResultSourceTypes = defineSetting({
   key: '_x_extension_search_result_source_types_2026_unique_',
   area: 'preferences',
   sync: 'browser',
   schema: custom((value): SearchSourceType[] => {
+    if (isUnknownArray(value) && value.length === 0) {
+      return [];
+    }
     const rawItems: unknown[] = isUnknownArray(value)
       ? value
       : (typeof value === 'string' ? value.split(/[\s,]+/) : []);

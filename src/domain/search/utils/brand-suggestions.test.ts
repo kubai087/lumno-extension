@@ -94,14 +94,16 @@ describe('brand suggestions and the result slate', () => {
     expect(limitSearchSuggestionsForDisplay(displaySuggestionItems, { limit: 5 }).map((item) => item.title), 'display suggestion limiting should preserve ranking order').toEqual(['Result 1', 'Result 2', 'Result 3', 'Result 4', 'Result 5']);
     expect(limitSearchSuggestionsForDisplay(displaySuggestionItems, { limit: 10 }).length, 'display suggestions should accept the maximum configurable visible-result cap').toBe(10);
     expect(limitSearchSuggestionsForDisplay(displaySuggestionItems, { limit: 11 }).length, 'display suggestions should fall back to the shared cap for out-of-range values').toBe(10);
-    expect(filterSearchSuggestionsBySourceTypes([
-        { type: 'topSite', title: 'Frequent', url: 'https://frequent.example.com/' },
-        { type: 'bookmark', title: 'Bookmark', url: 'https://bookmark.example.com/' },
-        { type: 'history', title: 'History', url: 'https://history.example.com/' },
-        { type: 'googleSuggest', title: 'Search Suggestion', url: 'https://google.example.com/' },
-        { type: 'newtab', title: 'Search', url: 'https://example.com/' },
-        { type: 'directUrl', title: 'Direct', url: 'https://direct.example.com/' }
-      ], ['bookmark']).map((item) => item.type), 'source filtering should only remove disabled local result types').toEqual(['bookmark', 'googleSuggest', 'newtab', 'directUrl']);
+    const sourceRows = [
+      { type: 'topSite', title: 'Frequent', url: 'https://frequent.example.com/' },
+      { type: 'bookmark', title: 'Bookmark', url: 'https://bookmark.example.com/' },
+      { type: 'history', title: 'History', url: 'https://history.example.com/' },
+      { type: 'googleSuggest', title: 'Search Suggestion', url: 'https://google.example.com/' },
+      { type: 'newtab', title: 'Search', url: 'https://example.com/' },
+      { type: 'directUrl', title: 'Direct', url: 'https://direct.example.com/' }
+    ];
+    expect(filterSearchSuggestionsBySourceTypes(sourceRows, ['bookmark']).map((item) => item.type), 'source filtering should only remove disabled local result types').toEqual(['bookmark', 'googleSuggest', 'newtab', 'directUrl']);
+    expect(filterSearchSuggestionsBySourceTypes(sourceRows, []).map((item) => item.type), 'no chosen sources should remove every local result type').toEqual(['googleSuggest', 'newtab', 'directUrl']);
   });
 
   it("does not collapse search engine suggestions by host", () => {

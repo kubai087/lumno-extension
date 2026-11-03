@@ -33,18 +33,18 @@ describe('Options General search results section', () => {
     expect(writes).toEqual([]);
   });
 
-  it('keeps at least one type checked and saves the choice', async () => {
+  it('lets every type be turned off and saves the choice', async () => {
     const { host, writes, settings } = setUp({ [SOURCE_TYPES_KEY]: ['history'] });
     await settings.settle();
     const history = getTag(host, '#_x_extension_search_result_source_history_2026_unique_', 'input');
     expect(history.checked).toBe(true);
     act(() => history.click());
-    expect(history.checked).toBe(true);
     await settings.settle();
-    expect(writes).toEqual([]);
+    expect(history.checked).toBe(false);
+    expect(writes).toEqual([{ [SOURCE_TYPES_KEY]: [] }]);
     act(() => getTag(host, '#_x_extension_search_result_source_bookmark_2026_unique_', 'input').click());
     await settings.settle();
-    expect(writes).toEqual([{ [SOURCE_TYPES_KEY]: ['bookmark', 'history'] }]);
+    expect(writes).toEqual([{ [SOURCE_TYPES_KEY]: [] }, { [SOURCE_TYPES_KEY]: ['bookmark'] }]);
   });
 
   it('moves a type with Alt and the arrow keys and offers a reset until the defaults return', async () => {

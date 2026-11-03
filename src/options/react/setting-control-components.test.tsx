@@ -87,44 +87,7 @@ describe('Options settings controls', () => {
     expect(host.querySelector('[data-sortable]')).toBeNull();
   });
 
-  it('keeps at least one required checkbox selected', () => {
-    const host = document.createElement('div');
-    const onChange = vi.fn();
-    document.body.appendChild(host);
-    const controller = mountCheckboxGroup(host, {
-      onChange
-    });
-
-    act(() => controller.render({
-      items: [
-        {
-          checked: true,
-          id: 'bookmark',
-          label: '书签',
-          labelKey: 'search_tag_bookmark',
-          value: 'bookmark'
-        },
-        {
-          checked: false,
-          id: 'history',
-          label: '历史',
-          labelKey: 'search_tag_history',
-          value: 'history'
-        }
-      ],
-      required: true
-    }));
-    const inputs = getTags(host, 'input', 'input');
-
-    act(() => inputs[0]?.click());
-    expect(inputs[0]?.checked).toBe(true);
-    expect(onChange).not.toHaveBeenCalled();
-
-    act(() => inputs[1]?.click());
-    expect(onChange).toHaveBeenLastCalledWith(['bookmark', 'history']);
-  });
-
-  it('lets an optional group be cleared', () => {
+  it('lets the group be cleared', () => {
     const host = document.createElement('div');
     const onChange = vi.fn();
     document.body.appendChild(host);

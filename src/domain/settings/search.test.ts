@@ -35,9 +35,14 @@ describe('search settings', () => {
     expect([5, '8', 10, 4, 11, 7.5, undefined].map((value) => searchResultDisplayLimit.parse(value))).toEqual([5, 8, 10, 10, 10, 10, 10]);
   });
 
-  it('reads the result sources under their current and old names, once each, all of them when none are left', () => {
+  it('reads the result sources under their current and old names, once each, none when all were turned off', () => {
     expect(searchResultSourceTypes.parse(['topSite', 'bookmark'])).toEqual(['topSite', 'bookmark']);
     expect(searchResultSourceTypes.parse(['frequent', 'bookmarks', 'history', 'history'])).toEqual(['topSite', 'bookmark', 'history']);
-    expect(searchResultSourceTypes.parse([])).toEqual(['topSite', 'bookmark', 'history']);
+    expect(searchResultSourceTypes.parse([])).toEqual([]);
+    expect([undefined, '', ['unknown']].map((value) => searchResultSourceTypes.parse(value))).toEqual([
+      ['topSite', 'bookmark', 'history'],
+      ['topSite', 'bookmark', 'history'],
+      ['topSite', 'bookmark', 'history']
+    ]);
   });
 });
