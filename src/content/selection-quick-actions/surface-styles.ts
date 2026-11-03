@@ -143,7 +143,8 @@ const SELECTION_SURFACE_STYLES = `
       min-height: 18px;
       padding: 0;
       border-radius: 5px;
-      background: rgba(250, 250, 250, 0.76);
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.1), 0 1px 3px rgba(15, 23, 42, 0.16);
       -webkit-backdrop-filter: blur(10px) saturate(150%);
       backdrop-filter: blur(10px) saturate(150%);
       opacity: 0;
@@ -186,7 +187,6 @@ const SELECTION_SURFACE_STYLES = `
     }
     .lumno-selection-surface[data-icon-only="true"] .lumno-selection-main:focus-visible {
       background: rgba(255, 255, 255, 0.94);
-      box-shadow: none;
     }
     :host([data-visible="true"]) .lumno-selection-main[data-icon-only="true"] {
       opacity: 1;

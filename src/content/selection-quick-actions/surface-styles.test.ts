@@ -20,7 +20,7 @@ describe('selection toolbar stylesheet', () => {
       .toEqual(['none', 'important', 'none', 'important']);
   });
 
-  it('draws the compact entry as an 18 px acrylic button that rises into view', () => {
+  it('draws the compact entry as an 18 px acrylic button, edged so it shows on white, that rises into view', () => {
     const entry = rule('.lumno-selection-main[data-icon-only="true"]');
     expect(entry.get('width')).toBe('18px');
     expect(entry.get('min-height')).toBe('18px');
@@ -29,6 +29,7 @@ describe('selection toolbar stylesheet', () => {
     expect(entry.get('backdrop-filter')).toMatch(/blur\(/);
     expect(entry.get('opacity')).toBe('0');
     expect(entry.get('filter')).toBeNull();
+    expect(entry.get('box-shadow')).toMatch(/^0 0 0 1px rgba\(15, 23, 42/);
     const shown = rule(':host([data-visible="true"]) .lumno-selection-main[data-icon-only="true"]');
     expect([shown.get('opacity'), shown.get('transform')]).toEqual(['1', 'translateY(0) scale(1)']);
     expect(styles.entries.some((entry) => entry.style.getPropertyValue('mix-blend-mode') === 'difference')).toBe(false);
