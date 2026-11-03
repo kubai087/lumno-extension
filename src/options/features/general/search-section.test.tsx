@@ -33,6 +33,13 @@ describe('Options General search results section', () => {
     expect(writes).toEqual([]);
   });
 
+  it('explains in the types row tooltip what presentation mode hides', () => {
+    const { host } = setUp();
+    const row = getElement(host, '#_x_extension_search_result_source_types_2026_unique_').closest('._x_extension_setting_row_2024_unique_');
+    const info = row ? getElement(row, '._x_extension_info_button_2026_unique_') : null;
+    expect(info?.dataset.tooltip).toBe('演示模式（输入 /present 开关）下不显示这三类结果，并隐藏最近访问和书签');
+  });
+
   it('lets every type be turned off and saves the choice', async () => {
     const { host, writes, settings } = setUp({ [SOURCE_TYPES_KEY]: ['history'] });
     await settings.settle();

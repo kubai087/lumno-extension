@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "Показываемые типы результатов"
   },
+  "settings_search_result_sources_desc": {
+    "message": "В режиме презентации (включается и выключается командой /present) эти результаты, недавние сайты и закладки скрыты"
+  },
   "settings_search_result_display_limit_title": {
     "message": "Максимум результатов"
   },

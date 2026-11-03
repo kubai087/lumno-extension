@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "表示する結果タイプ"
   },
+  "settings_search_result_sources_desc": {
+    "message": "プレゼンモード（/present で切り替え）では、これらの結果と最近のサイト・ブックマークを隠します"
+  },
   "settings_search_result_display_limit_title": {
     "message": "検索結果の最大表示数"
   },

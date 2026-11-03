@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "Tipos de resultado exibidos"
   },
+  "settings_search_result_sources_desc": {
+    "message": "No modo apresentação (digite /present para ativar ou desativar), estes resultados, os sites recentes e os favoritos ficam ocultos"
+  },
   "settings_search_result_display_limit_title": {
     "message": "Máximo de resultados exibidos"
   },

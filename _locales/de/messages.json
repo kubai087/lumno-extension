@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "Angezeigte Ergebnistypen"
   },
+  "settings_search_result_sources_desc": {
+    "message": "Im Präsentationsmodus (mit /present ein- und ausschalten) werden diese Ergebnisse sowie zuletzt besuchte Seiten und Lesezeichen ausgeblendet"
+  },
   "settings_search_result_display_limit_title": {
     "message": "Maximal angezeigte Ergebnisse"
   },

@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "Visible Result Types"
   },
+  "settings_search_result_sources_desc": {
+    "message": "In presentation mode (type /present to turn it on or off), these results and your recent sites and bookmarks are hidden"
+  },
   "settings_search_result_display_limit_title": {
     "message": "Maximum Visible Results"
   },

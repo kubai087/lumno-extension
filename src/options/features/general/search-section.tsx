@@ -36,13 +36,46 @@ interface SearchValues {
   localOrderIsDefault: boolean;
 }
 
-function getSearchRows(t: GetMessage, values: SearchValues): SettingsRowModel[] {
+// The browser content types search shows, in their order, with what
+// presentation mode hides explained in the title's tooltip.
+function getSourceTypesRow(t: GetMessage, values: SearchValues): SettingsRowModel {
   const { selected } = values;
   const labels: Record<SearchSourceType, string> = {
     topSite: t('search_tag_top_site', '常用'),
     bookmark: t('search_tag_bookmark', '书签'),
     history: t('search_tag_history', '历史')
   };
+  return {
+    type: 'checkbox-group',
+    key: searchResultSourceTypes.key,
+    title: {
+      text: t('settings_search_result_sources_title', '显示结果类型'),
+      info: t('settings_search_result_sources_desc', '演示模式（输入 /present 开关）下不显示这三类结果，并隐藏最近访问和书签')
+    },
+    groupId: searchResultSourceTypes.key,
+    ariaLabel: t('settings_search_result_sources_title', '显示结果类型'),
+    checkboxes: {
+      sortable: true,
+      items: values.ordered.flatMap((type) => {
+        const item = SOURCE_TYPES.find((entry) => entry.value === type);
+        return item ? [{
+          value: item.value,
+          id: item.id,
+          checked: selected.has(item.value),
+          label: labels[item.value],
+          labelKey: item.labelKey
+        }] : [];
+      })
+    },
+    reset: {
+      id: '_x_extension_search_result_source_types_reset_2026_unique_',
+      label: t('settings_search_result_sources_reset', '恢复默认'),
+      hidden: selected.size >= SOURCE_TYPES.length && values.localOrderIsDefault
+    }
+  };
+}
+
+function getSearchRows(t: GetMessage, values: SearchValues): SettingsRowModel[] {
   return [
     { type: 'header', key: 'header', title: t('settings_search_results_section_title', '搜索结果设置') },
     {
@@ -79,31 +112,7 @@ function getSearchRows(t: GetMessage, values: SearchValues): SettingsRowModel[] 
         select: { id: '_x_extension_search_result_priority_select_2026_unique_' }
       }
     },
-    {
-      type: 'checkbox-group',
-      key: searchResultSourceTypes.key,
-      title: { text: t('settings_search_result_sources_title', '显示结果类型') },
-      groupId: searchResultSourceTypes.key,
-      ariaLabel: t('settings_search_result_sources_title', '显示结果类型'),
-      checkboxes: {
-        sortable: true,
-        items: values.ordered.flatMap((type) => {
-          const item = SOURCE_TYPES.find((entry) => entry.value === type);
-          return item ? [{
-            value: item.value,
-            id: item.id,
-            checked: selected.has(item.value),
-            label: labels[item.value],
-            labelKey: item.labelKey
-          }] : [];
-        })
-      },
-      reset: {
-        id: '_x_extension_search_result_source_types_reset_2026_unique_',
-        label: t('settings_search_result_sources_reset', '恢复默认'),
-        hidden: selected.size >= SOURCE_TYPES.length && values.localOrderIsDefault
-      }
-    },
+    getSourceTypesRow(t, values),
     {
       type: 'slider',
       key: searchResultDisplayLimit.key,

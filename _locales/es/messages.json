@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "Tipos de resultados visibles"
   },
+  "settings_search_result_sources_desc": {
+    "message": "En el modo presentación (escribe /present para activarlo o desactivarlo) se ocultan estos resultados, los sitios recientes y los marcadores"
+  },
   "settings_search_result_display_limit_title": {
     "message": "Máximo de resultados visibles"
   },

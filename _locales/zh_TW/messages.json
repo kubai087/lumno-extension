@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "顯示結果類型"
   },
+  "settings_search_result_sources_desc": {
+    "message": "簡報模式（輸入 /present 開關）下不顯示這三類結果，並隱藏最近造訪和書籤"
+  },
   "settings_search_result_display_limit_title": {
     "message": "最多顯示結果"
   },

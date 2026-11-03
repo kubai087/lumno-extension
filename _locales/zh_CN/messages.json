@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "显示结果类型"
   },
+  "settings_search_result_sources_desc": {
+    "message": "演示模式（输入 /present 开关）下不显示这三类结果，并隐藏最近访问和书签"
+  },
   "settings_search_result_display_limit_title": {
     "message": "最多显示结果"
   },

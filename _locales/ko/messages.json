@@ -362,6 +362,9 @@
   "settings_search_result_sources_title": {
     "message": "표시할 결과 유형"
   },
+  "settings_search_result_sources_desc": {
+    "message": "발표 모드(/present로 켜고 끄기)에서는 이 결과와 최근 사이트, 북마크를 숨깁니다"
+  },
   "settings_search_result_display_limit_title": {
     "message": "최대 표시 결과 수"
   },
