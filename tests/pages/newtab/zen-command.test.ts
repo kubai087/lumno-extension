@@ -48,11 +48,16 @@ describe('/zen on New Tab', () => {
     expect(sections()).toEqual(before);
   });
 
-  it('turns Zen on from /present', async () => {
+  it('turns Zen on from /present, showing the command as typed', async () => {
     const search = await openSearchPage(createBrowserFake());
 
+    await search.type('/pre');
+    await search.waitForRows();
+    expect(search.rows()[0].textContent).toContain('/present');
     await search.type('/present');
     await search.waitForRows();
+    expect(search.rows()[0].textContent).toContain('/present');
+    expect(search.rows()[0].textContent).not.toContain('/zen');
     expect(search.rows()[0].textContent).toContain('enter Zen mode');
     await search.press('Enter');
     await pause(100);

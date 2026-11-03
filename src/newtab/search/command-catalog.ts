@@ -23,7 +23,13 @@ interface CommandCatalogDeps {
 const THEME_MODE_ORDER: readonly ThemeMode[] = ['system', 'light', 'dark'];
 const WEB_APPEARANCE_ORDER: readonly WebAppearanceMode[] = ['auto', 'light', 'dark'];
 // Zen mode also serves as a presentation mode, so /present reaches it too.
-const ZEN_COMMAND_ALIASES: readonly string[] = ['/present'];
+const ZEN_COMMANDS: readonly string[] = ['/zen', '/present'];
+
+// The zen command the input names, shown as typed: /present stays /present.
+function getZenCommandText(rawInput: unknown): string {
+  const typed = String(rawInput || '').trim().toLowerCase().split(/\s+/)[0];
+  return ZEN_COMMANDS.find((token) => token.startsWith(typed)) || ZEN_COMMANDS[0];
+}
 
 function createCommandCatalog(deps: CommandCatalogDeps) {
   const {
@@ -52,8 +58,8 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
     },
     {
       type: 'zenSwitch',
-      primary: '/zen',
-      aliases: ZEN_COMMAND_ALIASES.slice()
+      primary: ZEN_COMMANDS[0],
+      aliases: ZEN_COMMANDS.slice(1)
     },
     {
       type: 'webAppearanceSwitch',
@@ -104,7 +110,7 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
         }
       : null;
   }
-  function buildCommandSuggestion(command: SlashCommand): Suggestion {
+  function buildCommandSuggestion(command: SlashCommand, rawInput?: unknown): Suggestion {
     if (command.type === 'modeSwitch') {
       return {
         ...buildModeSuggestion(),
@@ -113,11 +119,7 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
       };
     }
     if (command.type === 'zenSwitch') {
-      return {
-        ...buildZenSuggestion(),
-        commandText: command.primary,
-        commandAliases: command.aliases || []
-      };
+      return buildZenSuggestion(rawInput);
     }
     if (command.type === 'webAppearanceSwitch') {
       return {
@@ -171,7 +173,7 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
   }
   function isZenCommand(input: unknown): boolean {
     const raw = String(input || '').trim().toLowerCase();
-    return ['/zen', ...ZEN_COMMAND_ALIASES].some((token) => raw === token || raw.startsWith(`${token} `));
+    return ZEN_COMMANDS.some((token) => raw === token || raw.startsWith(`${token} `));
   }
   function isSlashCommandInput(input: unknown): boolean {
     const raw = String(input || '').trim();
@@ -205,7 +207,8 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
       nextMode: nextMode
     };
   }
-  function buildZenSuggestion(): Suggestion {
+  function buildZenSuggestion(rawInput?: unknown): Suggestion {
+    const commandText = getZenCommandText(rawInput);
     return {
       type: 'zenSwitch',
       title: settings.get(newtabZenMode)
@@ -213,8 +216,8 @@ function createCommandCatalog(deps: CommandCatalogDeps) {
         : formatMessage('zen_enable_title', '{name}：进入 Zen 模式', { name: 'Lumno' }),
       url: '',
       favicon: getExtensionResourceUrl('assets/images/lumno.png'),
-      commandText: '/zen',
-      commandAliases: ZEN_COMMAND_ALIASES.slice(),
+      commandText,
+      commandAliases: ZEN_COMMANDS.filter((token) => token !== commandText),
       nextEnabled: !settings.get(newtabZenMode)
     };
   }

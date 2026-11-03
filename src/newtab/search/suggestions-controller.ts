@@ -85,8 +85,8 @@ interface SuggestionsControllerDeps {
   applyThemeMode: AppearanceModes['applyThemeMode'];
   getCommandMatches(rawInput: string): SlashCommand[];
   buildModeSuggestion(): Suggestion;
-  buildZenSuggestion(): Suggestion;
-  buildCommandSuggestion(command: SlashCommand): Suggestion;
+  buildZenSuggestion(rawInput: string): Suggestion;
+  buildCommandSuggestion(command: SlashCommand, rawInput: string): Suggestion;
   getDirectUrlSuggestion: SearchNavigation['getDirectUrlSuggestion'];
   quickNavigation: Pick<QuickNavigation, 'keywordRows'>;
   getProviderIcon: SiteSearchProviders['getProviderIcon'];
@@ -413,10 +413,10 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       if (modeCommandActive) {
         preSuggestions.push(buildModeSuggestion());
       } else if (zenCommandActive) {
-        preSuggestions.push(buildZenSuggestion());
+        preSuggestions.push(buildZenSuggestion(rawTagInput));
       } else if (slashCommandModeActive && !siteSearchQueryModeActive) {
         commandMatches.forEach((command) => {
-          preSuggestions.push(buildCommandSuggestion(command));
+          preSuggestions.push(buildCommandSuggestion(command, rawTagInput));
         });
       } else if (!siteSearchQueryModeActive && !localSearchQueryModeActive) {
         const directUrlSuggestion = getDirectUrlSuggestion(query);
