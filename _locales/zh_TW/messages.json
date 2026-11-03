@@ -375,7 +375,7 @@
     "message": "在網頁叫出時，結果在目前分頁開啟"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "關閉後在目前分頁開啟（固定分頁除外），按住 Option/Alt 可暫時改用另一種"
+    "message": "關閉後在目前分頁開啟（固定分頁除外），按住 Shift 可暫時改用另一種，按住 Option/Alt 分割畫面開啟"
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "預設顯示所有已開啟分頁"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "在背景新開"
+  },
+  "action_open_split_view": {
+    "message": "分割畫面開啟"
   },
   "action_open_background_tab": {
     "message": "在背景開啟"
@@ -3498,7 +3501,7 @@
     "message": "點擊後在新分頁開啟"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "不勾選的在目前分頁開啟，按住 Option/Alt 可暫時改用另一種"
+    "message": "不勾選的在目前分頁開啟，按住 Shift 可暫時改用另一種，搜尋時按住 Option/Alt 分割畫面開啟"
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "搜尋結果"

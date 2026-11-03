@@ -15,7 +15,7 @@ import type { HelpSearchResult } from './search/help-center/types';
 type NoFields = Record<never, never>;
 
 // Where a link opens.
-type OpenDisposition = 'currentTab' | 'newTab' | 'backgroundTab';
+type OpenDisposition = 'currentTab' | 'newTab' | 'backgroundTab' | 'splitTab';
 
 // The reply of most actions: whether it worked, and why not.
 interface OkReply {

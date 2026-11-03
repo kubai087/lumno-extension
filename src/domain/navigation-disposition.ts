@@ -4,9 +4,12 @@ interface OpenEvent {
   metaKey?: boolean;
   ctrlKey?: boolean;
   altKey?: boolean;
+  shiftKey?: boolean;
 }
 
-type Disposition = 'backgroundTab' | 'newTab' | 'currentTab';
+// splitTab opens a new tab in a split view beside the current one, where
+// the browser has split views; elsewhere it is a new tab.
+type Disposition = 'backgroundTab' | 'newTab' | 'currentTab' | 'splitTab';
 
 function isMiddleClick(event: OpenEvent | null | undefined): boolean {
   return Boolean(event && Number(event.button) === 1);
@@ -26,16 +29,21 @@ function getDisposition(event: OpenEvent | null | undefined, fallback?: Disposit
 interface DefaultTabOpen {
   // The surface opens in the current tab unless a key says otherwise.
   currentTabByDefault?: boolean;
-  // Option/Alt: the other of the current and a new tab.
+  // Shift: the other of the current and a new tab.
   openInOtherTab?: boolean;
+  // Option/Alt, in the search boxes: a split view beside the current tab.
+  openInSplitView?: boolean;
   // Command/Ctrl or a middle click.
   openInBackgroundTab?: boolean;
 }
 
-// Option/Alt flips the surface's default tab and wins over Command/Ctrl,
-// which otherwise opens in the background.
+// Option/Alt opens in a split view; otherwise Shift flips the surface's
+// default tab and wins over Command/Ctrl, which opens in the background.
 function getDefaultTabDisposition(options: DefaultTabOpen): Disposition {
   const defaultDisposition: Disposition = options.currentTabByDefault ? 'currentTab' : 'newTab';
+  if (options.openInSplitView) {
+    return 'splitTab';
+  }
   if (options.openInOtherTab) {
     return defaultDisposition === 'currentTab' ? 'newTab' : 'currentTab';
   }

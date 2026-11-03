@@ -375,7 +375,7 @@
     "message": "Abrir resultados na guia atual ao abrir o Lumno em uma página da Web"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "Desativado, abre na guia atual, exceto se estiver fixada. Segure Option/Alt para usar a outra opção."
+    "message": "Desativado, abre na guia atual, exceto se estiver fixada. Segure Shift para usar a outra opção, ou Option/Alt para a tela dividida."
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "Mostrar todas as guias abertas por padrão"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "Abrir em segundo plano"
+  },
+  "action_open_split_view": {
+    "message": "Tela dividida"
   },
   "action_open_background_tab": {
     "message": "Abrir em segundo plano"
@@ -3498,7 +3501,7 @@
     "message": "Abrir em nova guia ao clicar"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "Desmarcado, abre na guia atual. Segure Option/Alt para usar a outra opção."
+    "message": "Desmarcado, abre na guia atual. Segure Shift para usar a outra opção; na busca, Option/Alt abre em tela dividida."
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "Resultados de pesquisa"

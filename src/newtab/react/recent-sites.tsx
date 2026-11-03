@@ -104,7 +104,7 @@ export interface RecentSitesViewOptions {
   // Returns where the URL opened; anything but 'currentTab' keeps this page.
   openUrl?: (
     url: string,
-    // openInOtherTab is Option/Alt: the other of the current and a new tab.
+    // openInOtherTab is Shift: the other of the current and a new tab.
     options: { openInBackgroundTab: boolean; openInOtherTab: boolean }
   ) => string | void;
   bindCursorTooltip?: (
@@ -219,7 +219,7 @@ interface RecentSiteCardProps {
 interface ActivationEvent {
   metaKey?: boolean;
   ctrlKey?: boolean;
-  altKey?: boolean;
+  shiftKey?: boolean;
   button?: number;
 }
 
@@ -613,7 +613,7 @@ function RecentSiteCard({
     const openInBackgroundTab = shouldOpenUrlInBackground(event);
     const disposition = options.openUrl(itemUrl, {
       openInBackgroundTab,
-      openInOtherTab: Boolean(event && event.altKey)
+      openInOtherTab: Boolean(event && event.shiftKey)
     });
     const navigatesAway = disposition
       ? disposition === 'currentTab'

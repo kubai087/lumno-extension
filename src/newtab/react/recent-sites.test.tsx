@@ -289,14 +289,14 @@ describe('Recent Sites React island', () => {
     ]);
   });
 
-  it('passes Option/Alt on so the card opens in the other tab', () => {
+  it('passes Shift on so the card opens in the other tab', () => {
     const opened = vi.fn();
     const { view } = createView({ openUrl: opened });
     renderItems(view, [site({ title: 'Example', url: 'https://example.com/' })]);
     const card = view.controller.getCards()[0];
     act(() => {
-      card.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, altKey: true }));
-      card.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, altKey: true }));
+      card.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, shiftKey: true }));
+      card.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, shiftKey: true }));
     });
     expect(opened).toHaveBeenCalledWith('https://example.com/', {
       openInBackgroundTab: false,

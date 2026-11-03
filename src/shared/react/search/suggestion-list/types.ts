@@ -75,6 +75,7 @@ interface SuggestionActionModel {
       openInCurrentTab: boolean;
       openSwitchInNewTab: boolean;
       openInBackgroundTab: boolean;
+      openInSplitView: boolean;
     }
   ) => string;
   shouldShowVisitButton?: (
@@ -451,6 +452,7 @@ export interface ModifierState {
   openInCurrentTab: boolean;
   openSwitchInNewTab: boolean;
   openInBackgroundTab: boolean;
+  openInSplitView: boolean;
 }
 
 // The list's own state: the row under the pointer.

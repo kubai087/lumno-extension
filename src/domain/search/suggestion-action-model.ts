@@ -4,16 +4,19 @@
 import { getDefaultTabDisposition } from '../navigation-disposition';
 import type { SiteSearchProvider, SuggestionLike } from './types';
 
-type SearchAction = 'switch' | 'search' | 'open' | 'openNewTab' | 'openBackgroundTab' | 'go';
+type SearchAction = 'switch' | 'search' | 'open' | 'openNewTab' | 'openBackgroundTab' | 'openSplitView' | 'go';
 
-type OpenDisposition = 'currentTab' | 'backgroundTab' | 'newTab';
+type OpenDisposition = 'currentTab' | 'backgroundTab' | 'newTab' | 'splitTab';
 
-// The keys held when a result is opened. `openInCurrentTab` is Option/Alt,
-// which flips a result to the other of the current and a new tab.
+// The keys held when a result is opened. `openInCurrentTab` is Shift, which
+// flips a result to the other of the current and a new tab, and also opens a
+// switch-to-tab row in a new tab (`openSwitchInNewTab`). Option/Alt opens a
+// result in a split view beside the current tab.
 interface OpenModifiers {
   openInCurrentTab?: boolean;
   openSwitchInNewTab?: boolean;
   openInBackgroundTab?: boolean;
+  openInSplitView?: boolean;
   // The surface opens results in the current tab unless a key says otherwise.
   currentTabByDefault?: boolean;
 }
@@ -154,7 +157,7 @@ function getVisitButtonAction(suggestion: MaybeSuggestion, options?: { shouldSwi
   return 'openNewTab';
 }
 
-// Option/Alt flips a result between the current and a new tab.
+// Shift flips a result between the current and a new tab.
 function getOtherTabAction(rawAction: string, config: OpenModifiers): string | null {
   if (rawAction === 'openNewTab') {
     return 'go';
@@ -162,13 +165,17 @@ function getOtherTabAction(rawAction: string, config: OpenModifiers): string | n
   return config.currentTabByDefault && rawAction === 'go' ? 'openNewTab' : null;
 }
 
+// The actions that open an address, which Option/Alt opens in a split view.
+const SPLIT_VIEW_ACTIONS: ReadonlySet<string> = new Set(['switch', 'open', 'openNewTab', 'go']);
+
 function getModifierAdjustedAction(action: unknown, options?: OpenModifiers | null): string {
   const rawAction = String(action || '');
   const config = options || {};
+  if (config.openInSplitView && SPLIT_VIEW_ACTIONS.has(rawAction)) {
+    return 'openSplitView';
+  }
   if (config.openSwitchInNewTab && rawAction === 'switch') {
-    return config.openInBackgroundTab && !config.openInCurrentTab
-      ? 'openBackgroundTab'
-      : 'openNewTab';
+    return config.openInBackgroundTab ? 'openBackgroundTab' : 'openNewTab';
   }
   const otherTabAction = config.openInCurrentTab ? getOtherTabAction(rawAction, config) : null;
   if (otherTabAction) {
@@ -198,6 +205,7 @@ function getSearchResultOpenDisposition(options?: OpenModifiers | null): OpenDis
   return getDefaultTabDisposition({
     currentTabByDefault: config.currentTabByDefault,
     openInOtherTab: config.openInCurrentTab,
+    openInSplitView: config.openInSplitView,
     openInBackgroundTab: config.openInBackgroundTab
   });
 }

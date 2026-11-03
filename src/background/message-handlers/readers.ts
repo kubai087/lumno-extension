@@ -3,7 +3,7 @@ import type * as SHORTCUT_KEY_MATCHER from '../../domain/shortcut-key-matcher';
 import type { OpenDisposition } from '../../domain/messages';
 
 function readDisposition(value: unknown): OpenDisposition | undefined {
-  return value === 'currentTab' || value === 'newTab' || value === 'backgroundTab' ? value : undefined;
+  return value === 'currentTab' || value === 'newTab' || value === 'backgroundTab' || value === 'splitTab' ? value : undefined;
 }
 
 function readString(value: unknown): string {

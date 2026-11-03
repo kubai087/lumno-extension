@@ -375,7 +375,7 @@
     "message": "在网页唤起时，结果在当前标签页打开"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "关闭后在当前页打开（固定标签页除外），按住 Option/Alt 可临时换成另一种"
+    "message": "关闭后在当前页打开（固定标签页除外），按住 Shift 可临时换成另一种，按住 Option/Alt 分屏打开"
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "默认展示所有已打开标签页"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "在后台新开"
+  },
+  "action_open_split_view": {
+    "message": "分屏打开"
   },
   "action_open_background_tab": {
     "message": "在后台打开"
@@ -3498,7 +3501,7 @@
     "message": "点击后在新标签页打开"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "不勾选的在当前页打开，按住 Option/Alt 可临时换成另一种"
+    "message": "不勾选的在当前页打开，按住 Shift 可临时换成另一种，搜索时按住 Option/Alt 分屏打开"
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "搜索结果"

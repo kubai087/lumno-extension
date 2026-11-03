@@ -28,10 +28,12 @@ describe('navigation disposition', () => {
     [{ currentTabByDefault: true }, 'currentTab'],
     [{ currentTabByDefault: true, openInOtherTab: true }, 'newTab'],
     [{ currentTabByDefault: true, openInBackgroundTab: true }, 'backgroundTab'],
-    [{ currentTabByDefault: true, openInOtherTab: true, openInBackgroundTab: true }, 'newTab']
+    [{ currentTabByDefault: true, openInOtherTab: true, openInBackgroundTab: true }, 'newTab'],
+    [{ openInSplitView: true }, 'splitTab'],
+    [{ currentTabByDefault: true, openInSplitView: true, openInOtherTab: true, openInBackgroundTab: true }, 'splitTab']
   ];
 
-  it.each(cases)('lets Option/Alt flip the default tab and win over background opening: %j', (options, disposition) => {
+  it.each(cases)('opens in a split view on Option/Alt, else lets Shift flip the default tab and win over background opening: %j', (options, disposition) => {
     expect(getDefaultTabDisposition(options)).toBe(disposition);
   });
 });

@@ -91,8 +91,11 @@ export function getModifierAction(
   if (actionModel.getModifierAdjustedAction) {
     return actionModel.getModifierAdjustedAction(action, modifiers);
   }
+  if (modifiers.openInSplitView && ['switch', 'open', 'openNewTab', 'go'].includes(action)) {
+    return 'openSplitView';
+  }
   if (modifiers.openSwitchInNewTab && action === 'switch') {
-    return modifiers.openInBackgroundTab && !modifiers.openInCurrentTab ? 'openBackgroundTab' : 'openNewTab';
+    return modifiers.openInBackgroundTab ? 'openBackgroundTab' : 'openNewTab';
   }
   if (modifiers.openInBackgroundTab && !modifiers.openInCurrentTab && ['openNewTab', 'go', 'switch'].includes(action)) {
     return 'openBackgroundTab';
@@ -122,6 +125,7 @@ export function getActionLabel(
     switch: ['action_switch', '切换'],
     open: ['action_open', '打开'],
     openBackgroundTab: ['action_open_background_new_tab', '在后台新开'],
+    openSplitView: ['action_open_split_view', '分屏打开'],
     openNewTab: ['action_open_new_tab', '新开'],
     go: ['action_go_current_tab', '前往'],
     commandNewTab: ['command_newtab', '新建标签页'],

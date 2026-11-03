@@ -1,9 +1,10 @@
 // Where a result opens, and opening it. Ctrl/Cmd or a middle click opens it
-// in the background (unless Ctrl/Cmd+number opens rows at once), Option/Alt
-// flips the surface's default between the current and a new tab, and Shift
-// opens a switch-to-tab row in a new tab instead. Both search panels open
-// results here; a surface says which tab is its default and how it opens an
-// address in the current tab.
+// in the background (unless Ctrl/Cmd+number opens rows at once), Shift flips
+// the surface's default between the current and a new tab and opens a
+// switch-to-tab row in a new tab instead, and Option/Alt opens it in a split
+// view beside the current tab. Both search panels open results here; a
+// surface says which tab is its default and how it opens an address in the
+// current tab.
 import * as NAVIGATION_DISPOSITION from '../../domain/navigation-disposition';
 import type { Disposition } from '../../domain/navigation-disposition';
 import * as SUGGESTION_ACTION_MODEL from '../../domain/search/suggestion-action-model';
@@ -41,7 +42,7 @@ class ResultActivation {
   private readonly settings: Pick<SettingsStore, 'get'>;
   private readonly surface: ResultActivationSurface;
   // The rows' action model: while results open in the current tab rows say
-  // 「前往」, and Option/Alt says where a result would go instead.
+  // 「前往」, and Shift or Option/Alt says where a result would go instead.
   readonly actionModel: typeof SUGGESTION_ACTION_MODEL;
 
   constructor(settings: Pick<SettingsStore, 'get'>, surface: ResultActivationSurface) {
@@ -72,14 +73,18 @@ class ResultActivation {
   readonly getDisposition = (event: ActivationEvent | null | undefined): Disposition => {
     return SUGGESTION_ACTION_MODEL.getSearchResultOpenDisposition({
       openInBackgroundTab: this.opensInBackground(event),
-      openInCurrentTab: Boolean(event && event.altKey),
+      openInCurrentTab: Boolean(event && event.shiftKey),
+      openInSplitView: Boolean(event && event.altKey),
       currentTabByDefault: this.surface.isCurrentTabDefault()
     });
   };
 
-  // For results that always open beside the current tab: Shift on a
-  // matched open tab, and aggregate searches.
-  readonly getNewTabDisposition = (event: ActivationEvent | null | undefined): 'backgroundTab' | 'newTab' => {
+  // For results that always open beside the current tab: Shift or
+  // Option/Alt on a matched open tab, and aggregate searches.
+  readonly getNewTabDisposition = (event: ActivationEvent | null | undefined): 'backgroundTab' | 'newTab' | 'splitTab' => {
+    if (event && event.altKey) {
+      return 'splitTab';
+    }
     return this.opensInBackground(event) ? 'backgroundTab' : 'newTab';
   };
 
@@ -130,7 +135,8 @@ class ResultActivation {
     row: ActivatedRow | null | undefined,
     query: string
   ): void => {
-    if (suggestion.url && (this.opensSwitchInNewTab(suggestion, event, row) || this.opensInBackground(event))) {
+    if (suggestion.url && (this.opensSwitchInNewTab(suggestion, event, row) || this.opensInBackground(event) ||
+        Boolean(event && event.altKey))) {
       this.recordSelection(suggestion, query);
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
         action: 'createTab',

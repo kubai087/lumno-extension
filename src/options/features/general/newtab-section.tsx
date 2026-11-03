@@ -67,7 +67,7 @@ export function GeneralNewtabSection() {
           key: newtabOpenInNewTab.key,
           title: {
             text: t('settings_newtab_open_in_new_tab_title', '点击后在新标签页打开'),
-            info: t('settings_newtab_open_in_new_tab_desc', '不勾选的在当前页打开，按住 Option/Alt 可临时换成另一种')
+            info: t('settings_newtab_open_in_new_tab_desc', '不勾选的在当前页打开，按住 Shift 可临时换成另一种，搜索时按住 Option/Alt 分屏打开')
           },
           groupId: newtabOpenInNewTab.key,
           ariaLabel: t('settings_newtab_open_in_new_tab_title', '点击后在新标签页打开'),

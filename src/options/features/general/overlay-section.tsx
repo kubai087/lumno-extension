@@ -35,7 +35,7 @@ export function GeneralOverlaySection() {
           key: overlayOpenInCurrentTab.key,
           title: {
             text: t('settings_newtab_open_in_new_tab_title', '点击后在新标签页打开'),
-            info: t('settings_overlay_open_in_current_tab_desc', '关闭后在当前页打开（固定标签页除外），按住 Option/Alt 可临时换成另一种')
+            info: t('settings_overlay_open_in_current_tab_desc', '关闭后在当前页打开（固定标签页除外），按住 Shift 可临时换成另一种，按住 Option/Alt 分屏打开')
           },
           toggle: { id: '_x_extension_overlay_open_in_new_tab_toggle_2026_unique_', checked: !openInCurrentTab }
         },

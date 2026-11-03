@@ -375,7 +375,7 @@
     "message": "Ouvrir les résultats dans l’onglet actuel lorsque Lumno s’ouvre sur une page Web"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "Désactivé, ouverture dans l’onglet actuel sauf s’il est épinglé. Maintenez Option/Alt pour l’autre option."
+    "message": "Désactivé, ouverture dans l’onglet actuel sauf s’il est épinglé. Maintenez Maj pour l’autre option, ou Option/Alt pour l’écran partagé."
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "Afficher par défaut tous les onglets ouverts"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "Ouvrir en arrière-plan"
+  },
+  "action_open_split_view": {
+    "message": "Écran partagé"
   },
   "action_open_background_tab": {
     "message": "Ouvrir en arrière-plan"
@@ -3498,7 +3501,7 @@
     "message": "Ouvrir dans un nouvel onglet au clic"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "Non coché, ouverture dans l’onglet actuel. Maintenez Option/Alt pour l’autre option."
+    "message": "Non coché, ouverture dans l’onglet actuel. Maintenez Maj pour l’autre option ; dans la recherche, Option/Alt ouvre en écran partagé."
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "Résultats de recherche"

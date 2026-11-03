@@ -375,7 +375,7 @@
     "message": "웹페이지에서 Lumno를 열 때 결과를 현재 탭에서 열기"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "끄면 현재 탭에서 열립니다(고정 탭 제외). Option/Alt를 누르면 다른 방식으로 엽니다."
+    "message": "끄면 현재 탭에서 열립니다(고정 탭 제외). Shift를 누르면 다른 방식으로, Option/Alt를 누르면 분할 화면으로 엽니다."
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "열린 탭을 기본으로 모두 표시"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "백그라운드에서 열기"
+  },
+  "action_open_split_view": {
+    "message": "분할 화면으로 열기"
   },
   "action_open_background_tab": {
     "message": "백그라운드에서 열기"
@@ -3498,7 +3501,7 @@
     "message": "클릭하면 새 탭에서 열기"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "선택하지 않은 항목은 현재 탭에서 열립니다. Option/Alt를 누르면 다른 방식으로 엽니다."
+    "message": "선택하지 않은 항목은 현재 탭에서 열립니다. Shift를 누르면 다른 방식으로 열고, 검색에서는 Option/Alt로 분할 화면에 엽니다."
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "검색 결과"

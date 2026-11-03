@@ -29,7 +29,8 @@ import { clearPendingSearch, markPendingSearchTab, pendingSearchTabId } from './
 import { getSearchSuggestions } from './search/pipeline';
 import { recordSearchSuggestionSelection } from './search/selection-stats';
 import { getSiteSearchProviderEntryUrl, isInteractiveSiteSearchProvider, loadSiteSearchProviders } from './search/site-search-providers';
-import { createSearchResultTab, resolveSearchResultTabPlacement } from './browser-urls-service';
+import { resolveSearchResultTabPlacement } from './browser-urls-service';
+import { openSearchResultTab } from './split-view-tabs';
 import type { CreatedTabCallback } from './tab-groups';
 import type { SiteSearchProvider } from '../domain/search/types';
 import type { OkReply, OpenDisposition } from '../domain/messages';
@@ -74,7 +75,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 function readDisposition(value: unknown): OpenDisposition | undefined {
-  return value === 'currentTab' || value === 'newTab' || value === 'backgroundTab' ? value : undefined;
+  return value === 'currentTab' || value === 'newTab' || value === 'backgroundTab' || value === 'splitTab' ? value : undefined;
 }
 
 // A provider a page asks to run, with only the string fields running it reads.
@@ -101,9 +102,7 @@ function runInteractiveSiteSearchProvider(
   const prompt = String(query || '').trim();
   const entryUrl = getSiteSearchProviderEntryUrl(provider, prompt);
   const submitStrategy = String((provider && provider.submitStrategy) || '').trim();
-  const targetDisposition = disposition === 'currentTab'
-    ? 'currentTab'
-    : (disposition === 'backgroundTab' ? 'backgroundTab' : 'newTab');
+  const targetDisposition = disposition || 'newTab';
   return new Promise((resolve) => {
     if (!entryUrl || !prompt || !isInteractiveSiteSearchProvider(provider)) {
       resolve({ ok: false, reason: 'invalid-provider-request' });
@@ -177,7 +176,7 @@ function runInteractiveSiteSearchProvider(
       return;
     }
     const sourceTab = sender && sender.tab ? sender.tab : null;
-    createSearchResultTab({ url: entryUrl, active: targetDisposition !== 'backgroundTab' }, sourceTab, (tab, info) => {
+    openSearchResultTab(entryUrl, targetDisposition, sourceTab, (tab, info) => {
       if (!info || info.ok === false) {
         finish({ ok: false, reason: (info && info.reason) || 'tab-create-failed' });
         return;
@@ -264,10 +263,7 @@ export const SEARCH_MESSAGE_HANDLERS: HandlersFor<SearchAction> = Object.freeze(
     }
     Promise.all([loadShortcutRules(), resolveSearchResultTabPlacement(sourceTab)]).then(([rules, placement]) => {
       const createResolvedTab = (url: string, callback: CreatedTabCallback): void => {
-        createSearchResultTab({
-          url,
-          active: !openInBackgroundTab
-        }, sourceTab, callback, placement);
+        openSearchResultTab(url, readDisposition(request.disposition), sourceTab, callback, placement);
       };
       const shortcutUrl = getShortcutUrl(query, rules);
       if (shortcutUrl) {
@@ -284,8 +280,9 @@ export const SEARCH_MESSAGE_HANDLERS: HandlersFor<SearchAction> = Object.freeze(
       } else {
         // It's a search query - use browser default search engine
         const fallbackUrl = buildDefaultSearchUrl(query);
-        // Preserve the original browser search path unless an adjacent position is selected.
-        if (typeof placement.index !== 'number') {
+        // Preserve the original browser search path unless an adjacent
+        // position is selected or the search opens in a split view.
+        if (typeof placement.index !== 'number' && request.disposition !== 'splitTab') {
           if (openInBackgroundTab) {
             createResolvedTab(fallbackUrl, () => {
               sendResponse({ ok: true, url: fallbackUrl });

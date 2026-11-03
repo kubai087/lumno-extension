@@ -375,7 +375,7 @@
     "message": "Open results in the current tab when Lumno opens on a webpage"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "When off, results open in the current tab unless it’s pinned. Hold Option/Alt to use the other one."
+    "message": "When off, results open in the current tab unless it’s pinned. Hold Shift to use the other one, or Option/Alt to open in split view."
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "Show all open tabs by default"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "Open in Background"
+  },
+  "action_open_split_view": {
+    "message": "Split View"
   },
   "action_open_background_tab": {
     "message": "Open in Background"
@@ -3498,7 +3501,7 @@
     "message": "Open in a new tab when clicked"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "Unchecked items open in the current tab. Hold Option/Alt to use the other one."
+    "message": "Unchecked items open in the current tab. Hold Shift to use the other one; in search, Option/Alt opens in split view."
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "Search results"

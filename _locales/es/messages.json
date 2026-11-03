@@ -375,7 +375,7 @@
     "message": "Abrir los resultados en la pestaña actual al abrir Lumno en una página web"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "Desactivado, se abre en la pestaña actual salvo si está fijada. Mantén Option/Alt para usar la otra opción."
+    "message": "Desactivado, se abre en la pestaña actual salvo si está fijada. Mantén Mayús para usar la otra opción, u Option/Alt para la vista dividida."
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "Mostrar todas las pestañas abiertas"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "Abrir en segundo plano"
+  },
+  "action_open_split_view": {
+    "message": "Vista dividida"
   },
   "action_open_background_tab": {
     "message": "Abrir en segundo plano"
@@ -3498,7 +3501,7 @@
     "message": "Abrir en una pestaña nueva al hacer clic"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "Lo no marcado se abre en la pestaña actual. Mantén Option/Alt para usar la otra opción."
+    "message": "Lo no marcado se abre en la pestaña actual. Mantén Mayús para usar la otra opción; en la búsqueda, Option/Alt abre en vista dividida."
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "Resultados de búsqueda"

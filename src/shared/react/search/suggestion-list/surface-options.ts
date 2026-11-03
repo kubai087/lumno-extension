@@ -286,7 +286,7 @@ function readCallbacks(raw: SuggestionsViewOptions): OptionGroup<'setSuggestions
   return {
     setSuggestionsVisible: raw.setSuggestionsVisible || noop,
     selection: raw.selection || createLocalSelection(),
-    modifiers: raw.modifiers || { store: createStore<ModifierState>({ openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false }) },
+    modifiers: raw.modifiers || { store: createStore<ModifierState>({ openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false, openInSplitView: false }) },
     colorScheme: raw.colorScheme || createColorScheme(),
     onSwitchToTab: raw.onSwitchToTab || noop,
     onActivateSuggestion: raw.onActivateSuggestion || noop,

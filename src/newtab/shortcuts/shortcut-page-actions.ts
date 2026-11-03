@@ -170,7 +170,7 @@ function createShortcutPageActions(deps: ShortcutPageActionsDeps) {
     }
     openUrlFromNewtabCard(shortcut.url, {
       openInBackgroundTab: NAVIGATION_DISPOSITION.isBackgroundOpenEvent(event),
-      openInOtherTab: Boolean(event && event.altKey),
+      openInOtherTab: Boolean(event && event.shiftKey),
       surface: 'shortcuts'
     });
   }

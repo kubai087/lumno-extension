@@ -84,8 +84,8 @@ function createPageNavigation(deps: PageNavigationDeps) {
   }
 
   // A plain click opens in the current tab unless the surface's "open in a new
-  // tab" setting is on; Option/Alt opens in the other one, and a
-  // background-open click goes to the background.
+  // tab" setting is on; Shift opens in the other one, and a background-open
+  // click goes to the background.
   function getSurfaceOpenDisposition(surface: string | undefined, keys: SurfaceOpenKeys): Disposition {
     const prefs = settings.get(newtabOpenInNewTab);
     return NAVIGATION_DISPOSITION.getDefaultTabDisposition({

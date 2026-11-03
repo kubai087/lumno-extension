@@ -34,9 +34,14 @@ describe('suggestion action model', () => {
     ['switch', { openInBackgroundTab: true }, 'openBackgroundTab'],
     ['switch', { openSwitchInNewTab: true, openInBackgroundTab: true }, 'openBackgroundTab'],
     ['switch', { openInCurrentTab: true, openSwitchInNewTab: true }, 'openNewTab'],
-    ['switch', { openInCurrentTab: true, openSwitchInNewTab: true, openInBackgroundTab: true }, 'openNewTab'],
+    ['switch', { openInCurrentTab: true, openSwitchInNewTab: true, openInBackgroundTab: true }, 'openBackgroundTab'],
     ['go', { openInCurrentTab: true, currentTabByDefault: true }, 'openNewTab'],
-    ['go', { openInCurrentTab: true }, 'go']
+    ['go', { openInCurrentTab: true }, 'go'],
+    ['openNewTab', { openInSplitView: true }, 'openSplitView'],
+    ['go', { openInSplitView: true, currentTabByDefault: true }, 'openSplitView'],
+    ['open', { openInSplitView: true }, 'openSplitView'],
+    ['switch', { openInSplitView: true, openSwitchInNewTab: true }, 'openSplitView'],
+    ['search', { openInSplitView: true }, 'search']
   ])('labels %s as the held modifiers %j change it', (action, modifiers, expected) => {
     expect(actionModel.getModifierAdjustedAction(action, modifiers)).toBe(expected);
   });

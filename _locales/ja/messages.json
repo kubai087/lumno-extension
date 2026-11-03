@@ -375,7 +375,7 @@
     "message": "Web ページで Lumno を開いたとき、結果を現在のタブで開く"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "オフにすると現在のタブで開きます（固定タブを除く）。Option/Alt を押すともう一方で開きます。"
+    "message": "オフにすると現在のタブで開きます（固定タブを除く）。Shift を押すともう一方で、Option/Alt を押すと分割ビューで開きます。"
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "開いているすべてのタブを既定で表示"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "バックグラウンドで新規"
+  },
+  "action_open_split_view": {
+    "message": "分割ビューで開く"
   },
   "action_open_background_tab": {
     "message": "バックグラウンドで開く"
@@ -3498,7 +3501,7 @@
     "message": "クリックで新しいタブで開く"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "チェックしない項目は現在のタブで開きます。Option/Alt を押すともう一方で開きます。"
+    "message": "チェックしない項目は現在のタブで開きます。Shift を押すともう一方で開き、検索では Option/Alt で分割ビューで開きます。"
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "検索結果"

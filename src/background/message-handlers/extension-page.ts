@@ -2,7 +2,8 @@
 import * as BOOKMARK_TAB_GROUPS from '../bookmark-tab-groups';
 import { getExtensionDetailsUrl, openBookmarkManagerPage, openExtensionOptionsPage, openExtensionShortcutsPage, openOnboardingPage, openReleasePage, openSiteSearchOptionsPage } from '../extension-pages';
 import { isProgressTrackingEnabled, progressTracker } from '../worker-controllers';
-import { createSearchResultTab, createTabWithSourceGroup } from '../browser-urls-service';
+import { createTabWithSourceGroup } from '../browser-urls-service';
+import { openSearchResultTab } from '../split-view-tabs';
 import type { HandlersFor } from '../message-router';
 import { getErrorMessage, readDisposition, readString } from './readers';
 
@@ -112,7 +113,7 @@ const EXTENSION_PAGE_MESSAGE_HANDLERS: HandlersFor<ExtensionPageAction> = Object
       });
       return true;
     }
-    createSearchResultTab({ url: targetUrl, active: request.disposition !== 'backgroundTab' }, sourceTab, (_tab, info) => {
+    openSearchResultTab(targetUrl, readDisposition(request.disposition), sourceTab, (_tab, info) => {
       sendResponse({ ok: Boolean(info && info.ok) });
     });
     return true;

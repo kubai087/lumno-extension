@@ -375,7 +375,7 @@
     "message": "Beim Öffnen von Lumno auf einer Webseite Ergebnisse im aktuellen Tab öffnen"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "Aus: im aktuellen Tab, außer er ist angeheftet. Mit Option/Alt die andere Variante."
+    "message": "Aus: im aktuellen Tab, außer er ist angeheftet. Mit Shift die andere Variante, mit Option/Alt in geteilter Ansicht."
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "Standardmäßig alle offenen Tabs anzeigen"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "Im Hintergrund öffnen"
+  },
+  "action_open_split_view": {
+    "message": "Geteilte Ansicht"
   },
   "action_open_background_tab": {
     "message": "Im Hintergrund öffnen"
@@ -3498,7 +3501,7 @@
     "message": "Beim Klicken in neuem Tab öffnen"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "Nicht ausgewählt: im aktuellen Tab. Mit Option/Alt die andere Variante."
+    "message": "Nicht ausgewählt: im aktuellen Tab. Mit Shift die andere Variante; in der Suche mit Option/Alt in geteilter Ansicht."
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "Suchergebnisse"

@@ -375,7 +375,7 @@
     "message": "Открывать результаты в текущей вкладке при вызове Lumno на веб-странице"
   },
   "settings_overlay_open_in_current_tab_desc": {
-    "message": "Если выключено, открывается в текущей вкладке, кроме закреплённой. С Option/Alt — другим способом."
+    "message": "Если выключено, открывается в текущей вкладке, кроме закреплённой. С Shift — другим способом, с Option/Alt — в разделённом окне."
   },
   "settings_overlay_open_tabs_default_title": {
     "message": "Показывать все открытые вкладки"
@@ -1804,6 +1804,9 @@
   },
   "action_open_background_new_tab": {
     "message": "Открыть в фоне"
+  },
+  "action_open_split_view": {
+    "message": "Разделить окно"
   },
   "action_open_background_tab": {
     "message": "Открыть в фоне"
@@ -3498,7 +3501,7 @@
     "message": "Открывать по клику в новой вкладке"
   },
   "settings_newtab_open_in_new_tab_desc": {
-    "message": "Неотмеченное открывается в текущей вкладке. С Option/Alt — другим способом."
+    "message": "Неотмеченное открывается в текущей вкладке. С Shift — другим способом; в поиске Option/Alt открывает в разделённом окне."
   },
   "settings_newtab_open_in_new_tab_search": {
     "message": "Результаты поиска"

@@ -40,7 +40,7 @@ export function createOptions(
   document.body.appendChild(container);
   const items: SuggestionElement[] = [];
   const selectionStore = createStore({ selectedIndex: -1 });
-  const modifierStore = createStore({ openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false });
+  const modifierStore = createStore({ openInCurrentTab: false, openSwitchInNewTab: false, openInBackgroundTab: false, openInSplitView: false });
   const select = (selectedIndex: number) => selectionStore.setState({ selectedIndex });
   const defaultTheme = {
     buttonText: '#111',
