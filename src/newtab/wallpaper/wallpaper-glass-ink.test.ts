@@ -47,6 +47,16 @@ describe('glass adaptation', () => {
     expect(darkThemeBright.density).toBeGreaterThan(darkThemeDark.density + 0.4);
   });
 
+  it('asks for the tint a plate\'s text needs over its patch, and none where the ink stands out', () => {
+    // Light text over a bright patch in the dark theme, or dark text over a mid tone, needs a tint.
+    expect(darkThemeBright.tintFloor).toBeGreaterThan(0.5);
+    expect(getGlassAdaptation(0.48, 0.04, grey(122), 'light', 'dark').tintFloor).toBeGreaterThan(0.1);
+    // Dark text over a bright calm patch, or light text over a dark one, reads with no tint at all.
+    expect(bright.tintFloor).toBe(0);
+    expect(dark.tintFloor).toBe(0);
+    expect(darkThemeDark.tintFloor).toBe(0);
+  });
+
   it('keeps less of the saturation boost over a vivid patch, and stays within range', () => {
     expect(bright.saturate).toBe(1);
     expect(vivid.saturate).toBeLessThan(0.6);

@@ -3,6 +3,7 @@
 import { createCanvas } from '../../shared/dom/canvas';
 import type { WallpaperSample } from '../dom/wallpaper-effects';
 import { newtabGlassInkHint } from '../../domain/settings/newtab-wallpaper';
+import { getGlassTintFloor } from '../../domain/glass-legibility';
 import { adaptiveToneEvents } from './tone-requests';
 
 type ToneInk = 'light' | 'dark';
@@ -20,11 +21,12 @@ interface Tone {
   alpha: number;
 }
 
-// What a glass plate needs: its ink, tint density (0-1) and how much of the
-// material's saturation boost to keep.
+// What a glass plate needs: its ink, tint density (0-1), the least tint opacity its ink
+// reads on (0-1) and how much of the material's saturation boost to keep.
 interface GlassAdaptation {
   ink: ToneInk;
   density: number;
+  tintFloor: number;
   saturate: number;
 }
 
@@ -936,6 +938,9 @@ const GLASS_INK_HYSTERESIS = 0.05;
 //   decision) holds it within the hysteresis band. The dark theme always reads light.
 // - density (0 thin, 1 dense): how much tint the plate needs for its ink to read. It grows with
 //   texture and color, and with how close the patch's brightness is to the ink's own.
+// - tintFloor (0-1): the least tint opacity at which the ink keeps body text contrast over the
+//   patch (domain/glass-legibility.ts). Neither the material's own tint nor a lower tint opacity
+//   setting goes below it; 0 where the ink stands out on its own.
 // - saturate: how much of the material's saturation boost to keep; a vivid patch keeps less, or
 //   the plate turns the wallpaper's own color up to a flat blue or orange.
 // groupLuminance, when given, decides the ink for a whole row of plates so neighbors never mix.
@@ -966,8 +971,9 @@ function getGlassAdaptation(
     ? smoothstep(clampNumber((0.8 - lum) / 0.35, 0, 1))
     : smoothstep(clampNumber((lum - 0.12) / 0.4, 0, 1));
   const density = clampNumber((nearInk * 0.55) + (texture * 0.7) + (chroma * 0.3), 0, 1);
+  const tintFloor = getGlassTintFloor(lum, texture, ink);
   const saturate = clampNumber(1 - (chroma * 0.75), 0.45, 1);
-  return { ink, density, saturate };
+  return { ink, density, tintFloor, saturate };
 }
 
 function applyGlassAdaptationStyles(element: HTMLElement, adaptation: GlassAdaptation): void {
@@ -975,6 +981,7 @@ function applyGlassAdaptationStyles(element: HTMLElement, adaptation: GlassAdapt
     element.setAttribute('data-glass-ink', adaptation.ink);
   }
   setStyleProperty(element, '--x-nt-glass-density', adaptation.density.toFixed(3));
+  setStyleProperty(element, '--x-nt-glass-tint-floor', adaptation.tintFloor.toFixed(3));
   setStyleProperty(element, '--x-nt-glass-saturate', adaptation.saturate.toFixed(3));
 }
 
@@ -982,6 +989,7 @@ function clearGlassAdaptationStyles(element: HTMLElement): void {
   element.removeAttribute('data-glass-ink');
   element.removeAttribute('data-glass-ink-theme');
   element.style.removeProperty('--x-nt-glass-density');
+  element.style.removeProperty('--x-nt-glass-tint-floor');
   element.style.removeProperty('--x-nt-glass-saturate');
 }
 

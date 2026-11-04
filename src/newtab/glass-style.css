@@ -71,12 +71,13 @@ body[data-glass-style="liquid"] {
      reads as a thick slab. Plates add it to their edge (below); small controls go without.
      The bands stay within a few pixels of the edge: a box shadow only mixes plain white and black
      over the glass, so a wide band washes the scene's color out of the plate (a milky haze on
-     light glass, a gray one on dark glass over a light wallpaper). */
+     light glass, a gray one on dark glass over a light wallpaper). A lower tint opacity fades it
+     with the tint. */
   --x-nt-glass-bevel:
-    inset 0 6px 8px -6px rgba(255, 255, 255, 0.5),
-    inset 4px 0 8px -6px rgba(255, 255, 255, 0.22),
-    inset -4px 0 8px -6px rgba(255, 255, 255, 0.12),
-    inset 0 -6px 8px -6px rgba(0, 0, 0, 0.06);
+    inset 0 6px 8px -6px rgb(255 255 255 / calc(0.5 * var(--x-nt-glass-veil-k))),
+    inset 4px 0 8px -6px rgb(255 255 255 / calc(0.22 * var(--x-nt-glass-veil-k))),
+    inset -4px 0 8px -6px rgb(255 255 255 / calc(0.12 * var(--x-nt-glass-veil-k))),
+    inset 0 -6px 8px -6px rgb(0 0 0 / calc(0.06 * var(--x-nt-glass-veil-k)));
   --x-nt-glass-inset-edge: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   --x-nt-glass-float-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
 }
@@ -99,10 +100,10 @@ body[data-glass-style="liquid"][data-theme="dark"] {
   /* Dimmer in the dark. The shade stays faint: over a light wallpaper dark glass is a mid tone,
      which black only muddies. */
   --x-nt-glass-bevel:
-    inset 0 6px 8px -6px rgba(255, 255, 255, 0.18),
-    inset 4px 0 8px -6px rgba(255, 255, 255, 0.07),
-    inset -4px 0 8px -6px rgba(255, 255, 255, 0.04),
-    inset 0 -6px 8px -6px rgba(0, 0, 0, 0.08);
+    inset 0 6px 8px -6px rgb(255 255 255 / calc(0.18 * var(--x-nt-glass-veil-k))),
+    inset 4px 0 8px -6px rgb(255 255 255 / calc(0.07 * var(--x-nt-glass-veil-k))),
+    inset -4px 0 8px -6px rgb(255 255 255 / calc(0.04 * var(--x-nt-glass-veil-k))),
+    inset 0 -6px 8px -6px rgb(0 0 0 / calc(0.08 * var(--x-nt-glass-veil-k)));
   --x-nt-glass-inset-edge: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   --x-nt-glass-float-shadow: 0 16px 48px rgba(0, 0, 0, 0.34);
 }
@@ -145,10 +146,10 @@ body[data-glass-style="liquid"] {
   --x-nt-glass-float-contrast: 0.92;
   --x-nt-glass-float-brightness: 1.06;
   /* The tint opacity the user set for the theme (Appearance → Style; the page sets both factors on
-     the body), scaling every plate's tint. Below 1x the veil and the recent cards' inner sheet thin
-     out with it, so at 0 only the blur, the rim and the shadow are left. */
+     the body), scaling every plate's tint. Below 1x the veil, the bevel and the recent cards' inner
+     sheet thin out with it, so at 0 only the blur, the rim and the shadow are left, wherever the
+     plate's text still reads without a tint (below). */
   --x-nt-glass-tint-k: var(--x-nt-glass-tint-k-light, 1);
-  --x-nt-glass-veil-k: min(1, var(--x-nt-glass-tint-k));
 }
 body[data-glass-style="liquid"][data-theme="dark"] {
   --x-nt-glass-saturation: 1.6;
@@ -180,11 +181,15 @@ body[data-glass-style] :is(
   .x-nt-feedback-popover,
   .x-lumno-toast
 ) {
-  --x-nt-glass-tint-alpha: min(0.95, calc(
+  /* The tint never goes below the least opacity at which the plate's text keeps its contrast over
+     the wallpaper sampled under it (--x-nt-glass-tint-floor, 0 where the ink stands out on its
+     own), whatever the material's tint or the tint opacity setting asks for. */
+  --x-nt-glass-veil-k: min(1, var(--x-nt-glass-tint-k, 1));
+  --x-nt-glass-tint-alpha: min(0.95, max(var(--x-nt-glass-tint-floor, 0), calc(
     (var(--x-nt-glass-tint-thin) +
     (var(--x-nt-glass-tint-dense) - var(--x-nt-glass-tint-thin)) * var(--x-nt-glass-density, 0.35)) *
     var(--x-nt-glass-tint-k, 1)
-  ));
+  )));
   --x-nt-glass-tint: rgb(var(--x-nt-glass-tint-rgb) / var(--x-nt-glass-tint-alpha));
   --x-nt-glass-tint-hover: rgb(var(--x-nt-glass-tint-rgb) / calc(var(--x-nt-glass-tint-alpha) + 0.14));
   --x-nt-glass-fill:
