@@ -20,7 +20,11 @@ class ModeMenuIcons {
   // Provider themes by item id, and the ids still being resolved.
   private providerThemes = new Map<string, InputModeTheme>();
   private pendingThemes = new Set<string>();
+  // Themes kept on the tiles after a refresh until their new answer comes.
+  private staleThemes = new Set<string>();
+  // What each theme was resolved for: the provider and its icon.
   private providerKeys = new Map<string, string>();
+  // Bumped to retire the answer still on its way for an item.
   private requestVersions = new Map<string, number>();
   private redrawPending = false;
   private disposed = false;
@@ -33,13 +37,13 @@ class ModeMenuIcons {
     this.onThemesChange = onThemesChange;
   }
 
-  // A host refresh may change icon data or theme settings without changing
-  // the provider itself. Retire pending answers as well as cached colors.
+  // A refresh may change icon data or theme settings without changing the
+  // provider, so every theme is asked for again. The tiles keep the ones
+  // they have until the new answers come, instead of flashing the default.
   invalidate(): void {
-    this.providerThemes.clear();
+    this.providerThemes.forEach((_theme, id) => this.staleThemes.add(id));
+    this.pendingThemes.forEach((id) => this.retireRequest(id));
     this.pendingThemes.clear();
-    this.providerKeys.clear();
-    this.requestVersions.forEach((version, id) => this.requestVersions.set(id, version + 1));
   }
 
   // Asks the surface for the themes of the providers not asked about yet.
@@ -48,47 +52,49 @@ class ModeMenuIcons {
     if (!resolveTheme) {
       return;
     }
-    const themes = this.providerThemes;
-    const pending = this.pendingThemes;
     const activeIds = new Set(items.filter((item) => item.provider).map((item) => item.id));
     this.providerKeys.forEach((_key, id) => {
       if (!activeIds.has(id)) {
         this.providerKeys.delete(id);
-        themes.delete(id);
-        pending.delete(id);
-        this.requestVersions.set(id, (this.requestVersions.get(id) || 0) + 1);
+        this.forget(id);
       }
     });
     items.forEach((item) => {
       const provider = item.provider;
-      const providerKey = JSON.stringify([provider, item.iconUrl]);
-      if (provider && this.providerKeys.get(item.id) !== providerKey) {
-        this.providerKeys.set(item.id, providerKey);
-        themes.delete(item.id);
-        pending.delete(item.id);
-      }
-      if (!provider || themes.has(item.id) || pending.has(item.id)) {
+      if (!provider) {
         return;
       }
-      pending.add(item.id);
-      const requestVersion = (this.requestVersions.get(item.id) || 0) + 1;
-      this.requestVersions.set(item.id, requestVersion);
+      const providerKey = JSON.stringify([provider, item.iconUrl]);
+      if (this.providerKeys.get(item.id) !== providerKey) {
+        this.providerKeys.set(item.id, providerKey);
+        this.forget(item.id);
+      }
+      const current = this.providerThemes.has(item.id) && !this.staleThemes.has(item.id);
+      if (current || this.pendingThemes.has(item.id)) {
+        return;
+      }
+      this.pendingThemes.add(item.id);
+      const requestVersion = this.retireRequest(item.id);
+      const isCurrentRequest = () => this.requestVersions.get(item.id) === requestVersion;
       Promise.resolve(resolveTheme(provider)).then((theme: InputModeTheme | null | undefined) => {
-        if (this.requestVersions.get(item.id) !== requestVersion) return;
-        pending.delete(item.id);
-        if (this.disposed || !theme) {
+        if (!isCurrentRequest()) {
           return;
         }
-        themes.set(item.id, theme);
-        if (!this.redrawPending) {
-          this.redrawPending = true;
-          queueMicrotask(() => {
-            this.redrawPending = false;
-            if (!this.disposed) this.onThemesChange();
-          });
+        this.pendingThemes.delete(item.id);
+        this.staleThemes.delete(item.id);
+        if (this.disposed) {
+          return;
+        }
+        if (theme) {
+          this.providerThemes.set(item.id, theme);
+          this.scheduleRedraw();
+        } else if (this.providerThemes.delete(item.id)) {
+          this.scheduleRedraw();
         }
       }).catch(() => {
-        if (this.requestVersions.get(item.id) === requestVersion) pending.delete(item.id);
+        if (isCurrentRequest()) {
+          this.pendingThemes.delete(item.id);
+        }
       });
     });
   }
@@ -110,6 +116,35 @@ class ModeMenuIcons {
 
   dispose(): void {
     this.disposed = true;
+  }
+
+  // Drops an item's theme and retires the answer still on its way.
+  private forget(id: string): void {
+    this.providerThemes.delete(id);
+    this.staleThemes.delete(id);
+    this.pendingThemes.delete(id);
+    this.retireRequest(id);
+  }
+
+  // Bumps the item's request version and returns the new one.
+  private retireRequest(id: string): number {
+    const version = (this.requestVersions.get(id) || 0) + 1;
+    this.requestVersions.set(id, version);
+    return version;
+  }
+
+  // Themes that arrive together redraw the tiles once.
+  private scheduleRedraw(): void {
+    if (this.redrawPending) {
+      return;
+    }
+    this.redrawPending = true;
+    queueMicrotask(() => {
+      this.redrawPending = false;
+      if (!this.disposed) {
+        this.onThemesChange();
+      }
+    });
   }
 }
 

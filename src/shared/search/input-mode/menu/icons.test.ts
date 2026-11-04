@@ -52,4 +52,38 @@ describe('mode menu themes', () => {
     expect(resolve).toHaveBeenCalledTimes(4);
     icons.dispose();
   });
+
+  it('keeps the drawn theme through a refresh until the new one arrives', async () => {
+    const pending: Array<(theme: { accent: string } | null) => void> = [];
+    const resolve = vi.fn(() => new Promise<{ accent: string } | null>((done) => pending.push(done)));
+    const redraw = vi.fn();
+    const icons = new ModeMenuIcons(readControllerOptions({ getThemeForProvider: resolve }, document.createElement('input')), redraw);
+    const item: ModeMenuItem = { id: 'site', label: 'Site', provider: { key: 'site' } };
+    const settle = async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    };
+    const unthemed = icons.tileColors(item);
+    icons.request([item]);
+    pending[0]({ accent: '#112233' });
+    await settle();
+    const first = icons.tileColors(item);
+    expect(first).not.toEqual(unthemed);
+
+    icons.invalidate();
+    icons.request([item]);
+    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(icons.tileColors(item), 'the tile keeps its colors while the theme is asked for again').toEqual(first);
+    pending[1]({ accent: '#445566' });
+    await settle();
+    expect(icons.tileColors(item)).not.toEqual(first);
+
+    icons.invalidate();
+    icons.request([item]);
+    pending[2](null);
+    await settle();
+    expect(icons.tileColors(item), 'a theme that is gone falls back').toEqual(unthemed);
+    expect(redraw).toHaveBeenCalledTimes(3);
+    icons.dispose();
+  });
 });
