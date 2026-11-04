@@ -7,6 +7,7 @@ import type { SettingsStore } from '../platform/settings-store';
 import type { FocusResume } from './focus-resume';
 import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
 import type { SearchBoxParts } from './search/search-box-parts';
+import type { SearchFocusPress } from './search/focus-press';
 import { isEditableElement } from '../shared/dom-guards';
 
 
@@ -20,6 +21,8 @@ interface InputFocusDeps {
   isImeCompositionEvent(event: KeyboardEvent): boolean;
   searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController'>;
   isFolderColorPickerOpen(): boolean;
+  // Plays the search box's shrink when the shortcut focuses it.
+  focusPress?: Pick<SearchFocusPress, 'play'>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -34,7 +37,8 @@ function createInputFocus(deps: InputFocusDeps) {
     refreshTabsIfIdle,
     initialNewtabInputAutoFocusReadyTask,
     isImeCompositionEvent,
-    isFolderColorPickerOpen
+    isFolderColorPickerOpen,
+    focusPress
   } = deps;
 
 
@@ -91,6 +95,7 @@ function createInputFocus(deps: InputFocusDeps) {
     if (!input || !tryFocusSearchInput(true)) {
       return false;
     }
+    focusPress?.play();
     try {
       input.select();
     } catch {

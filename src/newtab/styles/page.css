@@ -761,6 +761,27 @@ body ._x_extension_tooltip_2026_unique_._x_extension_cursor_tooltip_tag_2026_uni
 #_x_extension_newtab_root_2024_unique_:focus-within {
   box-shadow: var(--x-nt-panel-shadow-focus, var(--x-nt-panel-shadow));
 }
+/* Focusing the search box by hand shrinks it a little and springs it back. */
+#_x_extension_newtab_root_2024_unique_[data-nt-focus-press="run"] {
+  animation: _x_nt_search_focus_press_2026_unique_ var(--lumno-duration-3xl, 280ms) var(--lumno-ease-spring, cubic-bezier(0.32, 0.72, 0, 1)) both;
+  transform-origin: center center;
+}
+@keyframes _x_nt_search_focus_press_2026_unique_ {
+  0% {
+    scale: 1;
+  }
+  35% {
+    scale: 0.985;
+  }
+  100% {
+    scale: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #_x_extension_newtab_root_2024_unique_[data-nt-focus-press] {
+    animation: none;
+  }
+}
 body[data-nt-ready="1"] #_x_extension_newtab_root_2024_unique_ {
   opacity: 1;
   pointer-events: auto;

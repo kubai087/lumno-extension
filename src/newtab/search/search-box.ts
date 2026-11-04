@@ -15,6 +15,7 @@ import type {
 } from '../../shared/react/search/suggestion-list/types';
 import type { BindCursorTooltip, FormatMessage, Translate } from '../newtab-types';
 import * as NEWTAB_BACKGROUND_SEARCH_FOCUS from './background-search-focus';
+import type { SearchFocusPress } from './focus-press';
 import type { RenderSuggestions, RequestSuggestions } from './search-types';
 import { createSuggestionsView } from '../../shared/react/search/suggestions';
 import { macosCtrlSuggestionNavigationEnabled, tabRankScoreDebug } from '../../domain/settings/search';
@@ -126,6 +127,8 @@ interface SearchBoxDeps {
   suggestionInputPreview: SuggestionInputPreview;
   suggestionsContainer: HTMLElement;
   searchLayer: HTMLElement;
+  // Plays the search box's shrink when a click focuses it.
+  focusPress?: Pick<SearchFocusPress, 'play' | 'handleInputPointerDown'>;
 }
 
 // The text in the input an event came from.
@@ -135,6 +138,7 @@ function readInputValue(event: Event): string {
 
 function createSearchBox(deps: SearchBoxDeps) {
   const {
+    focusPress,
     searchLayer,
     suggestionsContainer,
     suggestionInputPreview,
@@ -592,7 +596,13 @@ function createSearchBox(deps: SearchBoxDeps) {
     getBackgroundTargets: () => [document.body, root, searchLayer],
     getSearchValue: () => inputParts.input.value,
     dismissSearchResults: dismissSearchSuggestionsFromBackground,
-    focusSearch: () => searchBox.focusInput()
+    focusSearch: () => {
+      const focused = searchBox.focusInput();
+      if (focused) {
+        focusPress?.play();
+      }
+      return focused;
+    }
   });
 
   window.addEventListener('keydown', finishNewtabEntryAnimation, true);
@@ -608,6 +618,9 @@ function createSearchBox(deps: SearchBoxDeps) {
   window.addEventListener('mousedown', handleBackgroundPointerFocus, true);
   const searchInput = inputParts.input;
   searchInput.addEventListener('focus', restoreDismissedSearchSuggestions);
+  if (focusPress) {
+    searchInput.addEventListener('pointerdown', focusPress.handleInputPointerDown);
+  }
   const rightIcon = inputParts.rightIcon;
   const searchScopeTooltipText = (): string => t(
     'shortcut_reference_search_open_scope_menu_title',

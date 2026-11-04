@@ -10,6 +10,7 @@ import * as NEWTAB_MODE_COMMANDS from '../../mode-commands';
 import * as NEWTAB_PAGE_NOTICES from '../../page-notices';
 import * as NEWTAB_SEARCH_BOX_CONTROLS from '../../search/search-box-controls';
 import * as NEWTAB_SEARCH_BOX from '../../search/search-box';
+import { createSearchFocusPress } from '../../search/focus-press';
 import * as NEWTAB_SEARCH_INPUT_COMPOSITION from '../../search/search-input-composition';
 import * as NEWTAB_SEARCH_MODE_CONTROLLER from '../../search/search-mode-controller';
 import * as NEWTAB_SEARCH_NAVIGATION from '../../search/search-navigation';
@@ -354,12 +355,18 @@ function createSearchUiPart(ctx: PageContext, deps: SearchUiPartDeps) {
     defaultTheme
   });
 
+  const focusPress = createSearchFocusPress({
+    root,
+    getInput: () => (searchBox.inputParts ? searchBox.inputParts.input : null)
+  });
+
   const {
     refreshFallbackShortcut,
     handleGlobalTypingFocus
   } = NEWTAB_INPUT_FOCUS.createInputFocus({
     isFolderColorPickerOpen,
     searchBox,
+    focusPress,
     settings,
     focusResume,
     refreshTabsIfIdle,
@@ -405,6 +412,7 @@ function createSearchUiPart(ctx: PageContext, deps: SearchUiPartDeps) {
     rightIcon,
     setSearchScopeIconEnabled
   } = NEWTAB_SEARCH_BOX.createSearchBox({
+    focusPress,
     searchLayer,
     suggestionsContainer,
     suggestionInputPreview,
