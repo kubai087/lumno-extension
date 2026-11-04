@@ -48,6 +48,25 @@ describe('Options Appearance New Tab look section', () => {
     expect(expanded(host, glassAdaptive)).toBe('false');
   });
 
+  it('offers the tint opacity for each theme only with liquid glass, and saves it', async () => {
+    const { host, writes, store, settings } = await setUp();
+    const tint = '_x_extension_newtab_liquid_glass_tint_subrows_2026_unique_';
+    const slider = (theme: string) => getTag(host, `#_x_extension_newtab_liquid_glass_tint_${theme}_slider_2026_unique_`, 'input');
+    expect(expanded(host, tint)).toBe('false');
+    await store(Settings.newtabGlassStyle, 'frosted');
+    expect(expanded(host, tint)).toBe('false');
+    await store(Settings.newtabGlassStyle, 'liquid');
+    await store(Settings.newtabLiquidGlassTintDark, 40);
+    expect(expanded(host, tint)).toBe('true');
+    expect([slider('light').value, slider('dark').value]).toEqual(['100', '40']);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(slider('light'), '60');
+      slider('light').dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await settings.settle();
+    expect(writes.at(-1)).toEqual({ [Settings.newtabLiquidGlassTintLight.key]: 60 });
+  });
+
   it('saves the content width and asks open New Tab pages to redraw', async () => {
     const { host, writes, notifyNewtabSectionsRefresh, settings } = await setUp();
     act(() => getElement(host, '[data-newtab-width="standard"]').click());

@@ -527,6 +527,9 @@
   "settings_overlay_tab_priority_desc": {
     "message": "入力内容が開いているタブに一致したとき、先頭候補でEnterを押して実行する操作"
   },
+  "settings_overlay_tab_quick_switch_tooltip": {
+    "message": "結果のページがすでに開いている場合、Enterで新しく開かずにそのタブへ切り替えます"
+  },
   "overlay_tab_priority_switch_first": {
     "message": "Enterで開いているタブに切り替える"
   },

@@ -25,12 +25,11 @@ interface OpenTabMatchOptions extends DirectNavigationOptions {
   primaryHighlightIndex?: number;
   prioritizeCurrentPageMatch?: boolean;
   currentTabId?: number;
-  openTabQuickSwitchEnabled?: boolean;
 }
 
 interface OpenTabMatch {
   index: number;
-  reason: '' | 'currentOpenTab' | 'openTab';
+  reason: '' | 'currentOpenTab';
 }
 
 interface StrongNavigationOptions extends DirectNavigationOptions {
@@ -157,13 +156,6 @@ function findSearchOpenTabMatchIndex(
     ));
     if (currentIndex >= 0) {
       return { index: currentIndex, reason: 'currentOpenTab' };
-    }
-  }
-
-  if (settings.openTabQuickSwitchEnabled) {
-    const openTabIndex = suggestions.findIndex(isEligibleOpenTab);
-    if (openTabIndex >= 0) {
-      return { index: openTabIndex, reason: 'openTab' };
     }
   }
 

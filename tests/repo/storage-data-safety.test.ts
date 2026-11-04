@@ -53,7 +53,8 @@ describe('stored data safety', () => {
     expect(patch.local.remove.slice().sort()).toEqual([
       LANGUAGE_MESSAGES_KEY,
       ...REMOVED_AI_LOCAL_KEYS,
-      ...LEGACY_SITE_SEARCH_ICON_KEYS
+      ...LEGACY_SITE_SEARCH_ICON_KEYS,
+      NEWTAB_GLASS_THEME_KEY
     ].sort());
   });
 

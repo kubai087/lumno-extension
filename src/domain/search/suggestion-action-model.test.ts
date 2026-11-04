@@ -97,7 +97,7 @@ describe('suggestion action model', () => {
     expect(actionModel.createSearchActionModel({
       suggestion: HISTORY,
       isPrimaryHighlight: true,
-      primaryHighlightReason: 'openTab',
+      primaryHighlightReason: 'default',
       shouldSwitchMatchedTab: true
     }).actionTags).toEqual([{ action: 'switch' }]);
     expect(actionModel.createSearchActionModel({

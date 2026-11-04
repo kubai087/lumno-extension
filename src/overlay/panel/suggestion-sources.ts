@@ -19,7 +19,6 @@ import type {
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-slate';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
-import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
@@ -375,11 +374,10 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
           preferAutocompleteFirst: settings.get(searchResultPriority) !== 'search',
           onlyKeywordSuggestions,
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
-          openTabMatch: settings.get(overlayTabPriority) || prioritizeCurrentPageMatch
+          openTabMatch: prioritizeCurrentPageMatch
             ? {
                 prioritizeCurrentPageMatch: prioritizeCurrentPageMatch,
                 currentTabId: overlayTabs.currentTabId === null ? undefined : overlayTabs.currentTabId,
-                openTabQuickSwitchEnabled: settings.get(overlayTabPriority),
                 getDirectNavigationUrl: SearchDirectNavigation.getDirectNavigationUrl
               }
             : null,

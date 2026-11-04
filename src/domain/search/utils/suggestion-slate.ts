@@ -149,8 +149,9 @@ function moveSuggestionToFront<T>(list: T[], index: number): void {
 // Orders a default-mode suggestion slate (no slash command, scope or
 // site-search tag active) and decides which row the input highlights first:
 // a strong navigation match, the autocomplete target, an inline site search,
-// a top site, a matching open tab, or else the first row. Shared by the
-// Overlay and the New Tab search box, which supply their own matchers.
+// a top site, the page the panel was opened from, or else the first row.
+// Shared by the Overlay and the New Tab search box, which supply their own
+// matchers.
 // Returns a new list; `suggestions` itself is not reordered.
 // The list being ranked and the row Enter will open.
 interface SlateRanking<T> {
@@ -191,7 +192,8 @@ function promoteAutocomplete<T extends SuggestionLike>(ranking: SlateRanking<T>,
   }
 }
 
-// An open tab that matches moves first, so Enter switches to it.
+// The page the panel was opened from moves first when it matches, so Enter
+// switches back to it. Other open tabs keep their rank.
 function promoteOpenTab<T extends SuggestionLike>(ranking: SlateRanking<T>, config: RankSlateOptions<T>, trimmedRawQuery: string): void {
   if (!config.openTabMatch) {
     return;
@@ -202,7 +204,7 @@ function promoteOpenTab<T extends SuggestionLike>(ranking: SlateRanking<T>, conf
   }));
   if (openTabMatch.index >= 0) {
     moveSuggestionToFront(ranking.list, openTabMatch.index);
-    highlightFirst(ranking, openTabMatch.reason || 'openTab');
+    highlightFirst(ranking, 'currentOpenTab');
   }
 }
 

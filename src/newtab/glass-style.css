@@ -68,12 +68,16 @@ body[data-glass-style="liquid"] {
   --x-nt-glass-edge: var(--x-nt-glass-catch);
   /* The bevel: the rounded rim's own light, soft bands just inside the edge, bright where it faces
      the light at the top and left, a little on the right and shaded at the bottom, so a plate
-     reads as a thick slab. Plates add it to their edge (below); small controls go without. */
+     reads as a thick slab. Plates add it to their edge (below); small controls go without.
+     The bands stay within a few pixels of the edge: a box shadow only mixes plain white and black
+     over the glass, so a wide band washes the scene's color out of the plate (a milky haze on
+     light glass, a gray one on dark glass over a light wallpaper). A lower tint opacity fades it
+     with the tint. */
   --x-nt-glass-bevel:
-    inset 0 10px 16px -8px rgba(255, 255, 255, 0.5),
-    inset 8px 0 16px -8px rgba(255, 255, 255, 0.22),
-    inset -8px 0 16px -8px rgba(255, 255, 255, 0.12),
-    inset 0 -10px 16px -8px rgba(0, 0, 0, 0.1);
+    inset 0 6px 8px -6px rgb(255 255 255 / calc(0.5 * var(--x-nt-glass-veil-k))),
+    inset 4px 0 8px -6px rgb(255 255 255 / calc(0.22 * var(--x-nt-glass-veil-k))),
+    inset -4px 0 8px -6px rgb(255 255 255 / calc(0.12 * var(--x-nt-glass-veil-k))),
+    inset 0 -6px 8px -6px rgb(0 0 0 / calc(0.06 * var(--x-nt-glass-veil-k)));
   --x-nt-glass-inset-edge: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   --x-nt-glass-float-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
 }
@@ -93,12 +97,13 @@ body[data-glass-style="liquid"][data-theme="dark"] {
     0 0 0 0.5px rgba(0, 0, 0, 0.28),
     0 4px 14px rgba(0, 0, 0, 0.22);
   --x-nt-glass-edge: var(--x-nt-glass-catch);
-  /* Dimmer in the dark, and the shade deeper. */
+  /* Dimmer in the dark. The shade stays faint: over a light wallpaper dark glass is a mid tone,
+     which black only muddies. */
   --x-nt-glass-bevel:
-    inset 0 10px 16px -8px rgba(255, 255, 255, 0.2),
-    inset 8px 0 16px -8px rgba(255, 255, 255, 0.08),
-    inset -8px 0 16px -8px rgba(255, 255, 255, 0.05),
-    inset 0 -10px 16px -8px rgba(0, 0, 0, 0.25);
+    inset 0 6px 8px -6px rgb(255 255 255 / calc(0.18 * var(--x-nt-glass-veil-k))),
+    inset 4px 0 8px -6px rgb(255 255 255 / calc(0.07 * var(--x-nt-glass-veil-k))),
+    inset -4px 0 8px -6px rgb(255 255 255 / calc(0.04 * var(--x-nt-glass-veil-k))),
+    inset 0 -6px 8px -6px rgb(0 0 0 / calc(0.08 * var(--x-nt-glass-veil-k)));
   --x-nt-glass-inset-edge: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   --x-nt-glass-float-shadow: 0 16px 48px rgba(0, 0, 0, 0.34);
 }
@@ -141,10 +146,10 @@ body[data-glass-style="liquid"] {
   --x-nt-glass-float-contrast: 0.92;
   --x-nt-glass-float-brightness: 1.06;
   /* The tint opacity the user set for the theme (Appearance → Style; the page sets both factors on
-     the body), scaling every plate's tint. Below 1x the veil and the recent cards' inner sheet thin
-     out with it, so at 0 only the blur, the rim and the shadow are left. */
+     the body), scaling every plate's tint. Below 1x the veil, the bevel and the recent cards' inner
+     sheet thin out with it, so at 0 only the blur, the rim and the shadow are left, wherever the
+     plate's text still reads without a tint (below). */
   --x-nt-glass-tint-k: var(--x-nt-glass-tint-k-light, 1);
-  --x-nt-glass-veil-k: min(1, var(--x-nt-glass-tint-k));
 }
 body[data-glass-style="liquid"][data-theme="dark"] {
   --x-nt-glass-saturation: 1.6;
@@ -176,11 +181,15 @@ body[data-glass-style] :is(
   .x-nt-feedback-popover,
   .x-lumno-toast
 ) {
-  --x-nt-glass-tint-alpha: min(0.95, calc(
+  /* The tint never goes below the least opacity at which the plate's text keeps its contrast over
+     the wallpaper sampled under it (--x-nt-glass-tint-floor, 0 where the ink stands out on its
+     own), whatever the material's tint or the tint opacity setting asks for. */
+  --x-nt-glass-veil-k: min(1, var(--x-nt-glass-tint-k, 1));
+  --x-nt-glass-tint-alpha: min(0.95, max(var(--x-nt-glass-tint-floor, 0), calc(
     (var(--x-nt-glass-tint-thin) +
     (var(--x-nt-glass-tint-dense) - var(--x-nt-glass-tint-thin)) * var(--x-nt-glass-density, 0.35)) *
     var(--x-nt-glass-tint-k, 1)
-  ));
+  )));
   --x-nt-glass-tint: rgb(var(--x-nt-glass-tint-rgb) / var(--x-nt-glass-tint-alpha));
   --x-nt-glass-tint-hover: rgb(var(--x-nt-glass-tint-rgb) / calc(var(--x-nt-glass-tint-alpha) + 0.14));
   --x-nt-glass-fill:
@@ -664,9 +673,7 @@ body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   --x-nt-glass-tint-dense: 0.46;
 }
 /* On light glass a highlighted row is a lighter layer of the glass rather than a gray wash, which
-   reads muddy over color: hover lightens, the selection lightens further. Each takes a solid
-   white stroke for a crisp edge, drawn on the row's own (otherwise transparent) border so it sits
-   flush with the outer edge; no dark hairline or shadow, which blur it against the light glass. */
+   reads muddy over color: hover lightens, the selection lightens further. */
 body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   #_x_extension_newtab_suggestions_container_2024_unique_,
   ._x_extension_menu_surface_2024_unique_
@@ -676,24 +683,11 @@ body[data-glass-style="liquid"]:not([data-theme="dark"]) :is(
   --select-hover-bg: rgba(255, 255, 255, 0.42);
   --select-selected-bg: rgba(255, 255, 255, 0.76);
 }
-body[data-glass-style="liquid"]:not([data-theme="dark"]) #_x_extension_newtab_suggestions_container_2024_unique_[data-glass-ink="dark"] .x-nt-suggestion-item[data-row-state="hover"] {
-  border-color: rgba(255, 255, 255, 0.5);
-}
-body[data-glass-style="liquid"]:not([data-theme="dark"]) #_x_extension_newtab_suggestions_container_2024_unique_[data-glass-ink="dark"] .x-nt-suggestion-item[data-row-state="active"] {
-  border-color: rgba(255, 255, 255, 0.9);
-}
-/* The results plate is close to white (its denser tint, above), so a lighter layer alone no longer
-   shows on it: there the rows are lit further and lifted by a soft shadow, the way a selected tile
-   rises off the glass. */
+/* The results rows stay flat on the clear plate: a thinner layer, with no stroke or shadow lifting
+   the row off the glass, so the open list reads as one pane rather than a stack of tiles. */
 body[data-glass-style="liquid"]:not([data-theme="dark"]) #_x_extension_newtab_suggestions_container_2024_unique_[data-glass-ink="dark"] {
-  --x-nt-glass-row-hover: rgba(255, 255, 255, 0.64);
-  --x-nt-glass-row-active: rgba(255, 255, 255, 0.94);
-}
-body[data-glass-style="liquid"]:not([data-theme="dark"]) #_x_extension_newtab_suggestions_container_2024_unique_[data-glass-ink="dark"] .x-nt-suggestion-item[data-row-state="hover"] {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-body[data-glass-style="liquid"]:not([data-theme="dark"]) #_x_extension_newtab_suggestions_container_2024_unique_[data-glass-ink="dark"] .x-nt-suggestion-item[data-row-state="active"] {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 3px 12px rgba(0, 0, 0, 0.06);
+  --x-nt-glass-row-hover: rgba(255, 255, 255, 0.3);
+  --x-nt-glass-row-active: rgba(255, 255, 255, 0.52);
 }
 
 /* The bookmarks bar under "match style" with the frosted material: the plates' glass, sampled and

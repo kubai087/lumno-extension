@@ -110,6 +110,17 @@ describe('Options General search results section', () => {
     ]);
   });
 
+  it('shows the quick tab switching switch, on by default, and saves it off', async () => {
+    const { host, writes, settings, store } = setUp({ [SOURCE_TYPES_KEY]: ['topSite', 'bookmark', 'history'] });
+    const toggle = () => getTag(host, '#_x_extension_overlay_tab_quick_switch_2024_unique_', 'input');
+    expect(toggle().checked).toBe(true);
+    act(() => toggle().click());
+    await settings.settle();
+    expect(writes).toEqual([{ [Settings.overlayTabPriority.key]: false }]);
+    await store(Settings.overlayTabPriority, true);
+    expect(toggle().checked).toBe(true);
+  });
+
   it('labels the result types in the page language from the first draw on, and follows a new one', async () => {
     vi.stubGlobal('fetch', vi.fn(fetchPackaged));
     const { host, page, settings } = setUp({ [Settings.language.key]: 'en' });

@@ -1,13 +1,12 @@
 // The General tab's Shortcuts section: the way to the browser's shortcuts
 // page, the search shortcut's chip, what the shortcut does on restricted
-// pages, the list of shortcuts, and quick tab switching.
+// pages, and the list of shortcuts.
 import { useMemo } from 'react';
-import { overlayTabPriority, restrictedAction, restrictedActionAutoBrowserSettingDone } from '../../../domain/settings';
+import { restrictedAction, restrictedActionAutoBrowserSettingDone } from '../../../domain/settings';
 import * as LumnoMessaging from '../../../platform/messaging';
 import { useSetting } from '../../../shared/react/use-setting';
 import { useStore } from '../../../shared/react/use-store';
 import { useMessages, useOptionsPage } from '../../app/context';
-import { saveSetting } from '../../app/save-setting';
 import {
   GeneralShortcutsSection as GeneralShortcutsView,
   type GeneralShortcutsSectionHandlers
@@ -34,10 +33,6 @@ export function GeneralShortcutsSection() {
         [restrictedAction, restrictedAction.parse(value)],
         [restrictedActionAutoBrowserSettingDone, true]
       ]).catch(() => {});
-    },
-    // Quick tab switching stays on: the switch always shows on and saves on.
-    onQuickSwitch() {
-      saveSetting(settingsStore, overlayTabPriority, true);
     }
   }), [settingsStore, showToast, t]);
 
@@ -79,11 +74,7 @@ export function GeneralShortcutsSection() {
           }
         },
         referenceLabel: t('shortcut_reference_title', '快捷键列表'),
-        reference: commandsState.read ? buildShortcutReference(commandsState, isMacPlatform, t) : null,
-        quickSwitch: {
-          title: t('settings_overlay_tab_priority_title', '快速切换已开启标签页'),
-          toggle: { id: '_x_extension_overlay_tab_quick_switch_2024_unique_', checked: true }
-        }
+        reference: commandsState.read ? buildShortcutReference(commandsState, isMacPlatform, t) : null
       }}
     />
   );

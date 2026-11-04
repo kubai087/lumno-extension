@@ -62,12 +62,4 @@ describe('Options General shortcuts section', () => {
     act(() => page.commands.store.setState({ read: true, commands: [{ name: 'show-tab-switcher', shortcut: '⌥Q' }] }));
     expect(getElement(host, '[data-shortcut-id="show-tab-switcher"]').textContent).toContain('⌥Q');
   });
-
-  it('keeps quick switching on', async () => {
-    const { host, store } = setUp();
-    const toggle = () => getTag(host, '#_x_extension_overlay_tab_quick_switch_2024_unique_', 'input');
-    expect(toggle().checked).toBe(true);
-    await store(Settings.overlayTabPriority, false);
-    expect(toggle().checked).toBe(true);
-  });
 });

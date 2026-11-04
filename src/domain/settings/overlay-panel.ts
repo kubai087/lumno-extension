@@ -93,8 +93,8 @@ const overlayOpenInCurrentTab = defineSetting({
   schema: flag(false)
 });
 
-// Whether opening a result switches to its open tab first. Older versions
-// stored the mode names.
+// Whether Enter on a result that is already open switches to its tab
+// instead of opening it again. Older versions stored the mode names.
 const overlayTabPriority = defineSetting({
   key: '_x_extension_overlay_tab_priority_2024_unique_',
   area: 'preferences',

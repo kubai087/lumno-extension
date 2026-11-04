@@ -150,6 +150,19 @@ describe('finding pages by their title', () => {
     expect(security.some((item) => item._xMatchedTabId === 28 && Number(item.score) > 0)).toBe(true);
   });
 
+  it('ranks an open tab like the page it shows, and keeps it among the candidates', async () => {
+    const closed = await bootSearchWorker({ bookmarks: [{ id: '11', parentId: '1', ...DEVELOPER_DASHBOARD }] });
+    const open = await bootSearchWorker({
+      bookmarks: [{ id: '11', parentId: '1', ...DEVELOPER_DASHBOARD }],
+      openTabs: [{ id: 27, windowId: 1, ...DEVELOPER_DASHBOARD }]
+    });
+    const closedRow = (await closed.search.getSearchSuggestions('开发者信息中心', { sourceTypes: ['bookmark'], includeOpenTabs: false }))[0];
+    const openRow = (await open.search.getSearchSuggestions('开发者信息中心', { sourceTypes: ['bookmark'] }))[0];
+
+    expect(openRow).toMatchObject({ url: DEVELOPER_DASHBOARD.url, _xMatchedTabId: 27 });
+    expect(openRow.score, 'being open earns no extra rank').toBe(closedRow.score);
+  });
+
   it('shows a visited page that is also bookmarked once, as the bookmark, without lowering its rank', async () => {
     const historyOnly = await bootSearchWorker();
     const historyRow = (await historyOnly.search.getSearchSuggestions('github', { includeOpenTabs: false }))

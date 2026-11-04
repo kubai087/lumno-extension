@@ -57,27 +57,39 @@ describe('navigation matching', () => {
       ], {
         rawQuery: complexUrlInput,
         primaryHighlightIndex: 0,
-        openTabQuickSwitchEnabled: true,
+        prioritizeCurrentPageMatch: true,
+        currentTabId: 42,
         getDirectNavigationUrl: testDirectNavigationUrl
-      }), 'open-tab promotion should not override a direct URL primary with an unrelated open tab').toEqual({ index: -1, reason: '' });
+      }), 'current-page promotion should not override a direct URL primary with an unrelated page').toEqual({ index: -1, reason: '' });
     expect(findSearchOpenTabMatchIndex([
         { ...directComplexUrlSuggestion, _xMatchedTabId: 99 },
         unrelatedOpenTabSuggestion
       ], {
         rawQuery: complexUrlInput,
         primaryHighlightIndex: 0,
-        openTabQuickSwitchEnabled: true,
+        prioritizeCurrentPageMatch: true,
+        currentTabId: 99,
         getDirectNavigationUrl: testDirectNavigationUrl
-      }), 'open-tab promotion should still recognize an already-open exact URL navigation match').toEqual({ index: 0, reason: 'openTab' });
+      }), 'current-page promotion should still recognize the current page as the exact URL navigation match').toEqual({ index: 0, reason: 'currentOpenTab' });
     expect(findSearchOpenTabMatchIndex([
         { type: 'newtab', title: 'Search', url: 'https://example.com/?q=github' },
         unrelatedOpenTabSuggestion
       ], {
         rawQuery: 'github',
         primaryHighlightIndex: -1,
-        openTabQuickSwitchEnabled: true,
+        prioritizeCurrentPageMatch: true,
+        currentTabId: 42,
         getDirectNavigationUrl: testDirectNavigationUrl
-      }), 'open-tab promotion should continue to work for non-URL queries').toEqual({ index: 1, reason: 'openTab' });
+      }), 'current-page promotion should continue to work for non-URL queries').toEqual({ index: 1, reason: 'currentOpenTab' });
+    expect(findSearchOpenTabMatchIndex([
+        { type: 'newtab', title: 'Search', url: 'https://example.com/?q=github' },
+        unrelatedOpenTabSuggestion
+      ], {
+        rawQuery: 'github',
+        primaryHighlightIndex: -1,
+        currentTabId: 1,
+        getDirectNavigationUrl: testDirectNavigationUrl
+      }), 'another open tab never moves first on its own').toEqual({ index: -1, reason: '' });
     expect(
       () => findSearchOpenTabMatchIndex([
         directComplexUrlSuggestion,
@@ -85,7 +97,8 @@ describe('navigation matching', () => {
       ], {
         rawQuery: complexUrlInput,
         primaryHighlightIndex: 0,
-        openTabQuickSwitchEnabled: true,
+        prioritizeCurrentPageMatch: true,
+        currentTabId: 42,
         getDirectNavigationUrl: () => {
           throw new Error('resolver unavailable');
         }

@@ -209,7 +209,7 @@ describe('ranking the suggestion slate', () => {
     const engineTab = Object.assign({}, engine, { _xMatchedTabId: 3 });
     const result = rank([searchAction, engineTab], {
       onlyKeywordSuggestions: true,
-      openTabMatch: { openTabQuickSwitchEnabled: true }
+      openTabMatch: { prioritizeCurrentPageMatch: true, currentTabId: 3 }
   });
     expect(result.primarySuggestion).toBe(searchAction);
   });
@@ -253,20 +253,19 @@ describe('ranking the suggestion slate', () => {
     expect(result.siteSearchTrigger).toBe(provider);
   });
 
-  it("switches to a matching open tab only with quick switch on, and to the current page when asked", () => {
+  it("keeps a matching open tab at its rank, and moves only the page the panel was opened from first", () => {
     const tabRow = Object.assign({}, history, { _xMatchedTabId: 7 });
-    const options = {
-      openTabMatch: { openTabQuickSwitchEnabled: true, currentTabId: 1 }
-    };
-    const result = rank([searchAction, bookmark, tabRow], options);
-    expect(result.primaryHighlightReason).toBe('openTab');
-    expect(result.suggestions[0]).toBe(tabRow);
+    const result = rank([searchAction, bookmark, tabRow], {
+      openTabMatch: { prioritizeCurrentPageMatch: true, currentTabId: 1 }
+    });
+    expect(result.suggestions, 'an open tab ranks like any other result').toEqual([bookmark, searchAction, tabRow]);
+    expect(result.primaryHighlightReason).toBe('default');
 
-    const disabled = rank([searchAction, bookmark, tabRow], { openTabMatch: null });
-    expect(disabled.primaryHighlightReason).toBe('default');
+    const leading = rank([searchAction, tabRow, bookmark], { openTabMatch: null });
+    expect(leading.primarySuggestion, 'an open tab that ranks best still leads').toBe(tabRow);
 
     const currentPage = rank([searchAction, bookmark, Object.assign({}, tabRow, { _xMatchedTabId: 1 })], {
-      openTabMatch: { prioritizeCurrentPageMatch: true, currentTabId: 1, openTabQuickSwitchEnabled: false }
+      openTabMatch: { prioritizeCurrentPageMatch: true, currentTabId: 1 }
   });
     expect(currentPage.primaryHighlightReason).toBe('currentOpenTab');
   });
@@ -274,7 +273,7 @@ describe('ranking the suggestion slate', () => {
   it("keeps the slate order and skips local promotions when search comes first", () => {
     const result = rank([searchAction, history, bookmark], {
       preferAutocompleteFirst: false,
-      openTabMatch: { openTabQuickSwitchEnabled: true },
+      openTabMatch: { prioritizeCurrentPageMatch: true, currentTabId: 1 },
       matchers: createMatchers({
         promoteStrongNavigationMatch: () => expect.unreachable('search-first skips navigation promotion'),
         promoteTopSiteMatch: () => expect.unreachable('search-first skips top-site promotion'),

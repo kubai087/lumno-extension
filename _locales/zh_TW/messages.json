@@ -527,6 +527,9 @@
   "settings_overlay_tab_priority_desc": {
     "message": "當輸入文字符合到已開啟分頁時，首個候選項的快速鍵動作"
   },
+  "settings_overlay_tab_quick_switch_tooltip": {
+    "message": "結果所在頁面已開啟時，按下 Enter 切換到該分頁，不再重複開啟"
+  },
   "overlay_tab_priority_switch_first": {
     "message": "按下 Enter 切換已開啟分頁"
   },

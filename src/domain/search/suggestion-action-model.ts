@@ -116,7 +116,6 @@ const PRIMARY_ACTION_REASONS = new Set<string>([
   'topSite',
   'inline',
   'autocomplete',
-  'openTab',
   'currentOpenTab'
 ]);
 

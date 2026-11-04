@@ -151,17 +151,19 @@ describe('New Tab glass stylesheet', () => {
       selector.includes('#_x_extension_newtab_root_2024_unique_:has(') && selector.includes('.x-lumno-search-input__popconfirm[data-open="true"]')))).toBe(true);
   });
 
-  it('scales the liquid tint, its veil and the recent cards\' inner sheet by the theme\'s opacity', () => {
+  it('scales the liquid tint, its veil, its bevel and the recent cards\' inner sheet by the theme\'s opacity, down to what the ink needs', () => {
     // The declaration of `name` in a rule for `selector`.
     const declared = (selector: string, name: string) => glass.entries
       .find((entry) => entry.selectors.includes(selector) && entry.style.getPropertyValue(name) !== '')?.style.getPropertyValue(name);
     const plates = glass.entries.find((entry) => entry.selectors.includes('body[data-glass-style]') &&
       entry.style.getPropertyValue('--x-nt-glass-tint-alpha') !== '')?.style;
     expect(plates?.getPropertyValue('--x-nt-glass-tint-alpha')).toContain('var(--x-nt-glass-tint-k, 1)');
+    // No tint goes below what the plate's text needs over its sample.
+    expect(plates?.getPropertyValue('--x-nt-glass-tint-alpha')).toContain('max(var(--x-nt-glass-tint-floor, 0),');
+    expect(plates?.getPropertyValue('--x-nt-glass-veil-k')).toBe('min(1, var(--x-nt-glass-tint-k, 1))');
     // Each theme takes its own factor, set on the body by the page.
     expect(declared('body[data-glass-style="liquid"]', '--x-nt-glass-tint-k')).toBe('var(--x-nt-glass-tint-k-light, 1)');
     expect(declared('body[data-glass-style="liquid"][data-theme="dark"]', '--x-nt-glass-tint-k')).toBe('var(--x-nt-glass-tint-k-dark, 1)');
-    expect(declared('body[data-glass-style="liquid"]', '--x-nt-glass-veil-k')).toBe('min(1, var(--x-nt-glass-tint-k))');
     // The veil (contrast and brightness) thins with it; blur and saturation stay.
     const filter = declared('body[data-glass-style="liquid"][data-nt-ready="1"]', '--x-nt-glass-filter') || '';
     expect(filter).toContain('blur(var(--x-nt-glass-blur))');
@@ -180,8 +182,8 @@ describe('New Tab glass stylesheet', () => {
     expect(selectors).not.toContain('.x-nt-wallpaper-button');
     const bevel = (selector: string) => glass.entries
       .find((entry) => entry.selectors.includes(selector) && entry.style.getPropertyValue('--x-nt-glass-bevel') !== '')?.style.getPropertyValue('--x-nt-glass-bevel');
-    expect(bevel('body[data-glass-style="liquid"]')).toContain('inset 0 10px 16px -8px rgba(255, 255, 255, 0.5)');
-    expect(bevel('body[data-glass-style="liquid"][data-theme="dark"]')).toContain('inset 0 10px 16px -8px rgba(255, 255, 255, 0.2)');
+    expect(bevel('body[data-glass-style="liquid"]')).toContain('inset 0 6px 8px -6px rgb(255 255 255 / calc(0.5 * var(--x-nt-glass-veil-k)))');
+    expect(bevel('body[data-glass-style="liquid"][data-theme="dark"]')).toContain('inset 0 6px 8px -6px rgb(255 255 255 / calc(0.18 * var(--x-nt-glass-veil-k)))');
   });
 
   it('loads after the page styles it overrides', () => {
