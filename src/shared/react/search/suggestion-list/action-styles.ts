@@ -303,7 +303,7 @@ function applyRowStyles(options: NormalizedOptions, elements: RowStyleElements, 
   if (elements.title && options.surface === 'overlay') {
     elements.title.style.setProperty('--x-ov-suggestion-title-weight', row.highlighted ? '600' : '400');
   }
-  setIconEmphasis(elements, row.highlighted || row.hovering);
+  setIconEmphasis(elements, row.highlighted);
   if (facts.isSearch) {
     applySearchActionStyles(options, elements, facts, row);
   } else {

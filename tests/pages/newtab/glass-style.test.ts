@@ -180,8 +180,8 @@ describe('New Tab glass stylesheet', () => {
     expect(selectors).not.toContain('.x-nt-wallpaper-button');
     const bevel = (selector: string) => glass.entries
       .find((entry) => entry.selectors.includes(selector) && entry.style.getPropertyValue('--x-nt-glass-bevel') !== '')?.style.getPropertyValue('--x-nt-glass-bevel');
-    expect(bevel('body[data-glass-style="liquid"]')).toContain('inset 0 10px 16px -8px rgba(255, 255, 255, 0.5)');
-    expect(bevel('body[data-glass-style="liquid"][data-theme="dark"]')).toContain('inset 0 10px 16px -8px rgba(255, 255, 255, 0.2)');
+    expect(bevel('body[data-glass-style="liquid"]')).toContain('inset 0 6px 8px -6px rgba(255, 255, 255, 0.5)');
+    expect(bevel('body[data-glass-style="liquid"][data-theme="dark"]')).toContain('inset 0 6px 8px -6px rgba(255, 255, 255, 0.18)');
   });
 
   it('loads after the page styles it overrides', () => {
