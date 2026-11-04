@@ -527,6 +527,9 @@
   "settings_overlay_tab_priority_desc": {
     "message": "Si lo que escribes coincide con una pestaña abierta, Enter sigue la acción de pestaña de la primera sugerencia"
   },
+  "settings_overlay_tab_quick_switch_tooltip": {
+    "message": "Si un resultado ya está abierto, Intro cambia a su pestaña en lugar de abrirlo de nuevo"
+  },
   "overlay_tab_priority_switch_first": {
     "message": "Pulsa Enter para ir a la pestaña abierta"
   },

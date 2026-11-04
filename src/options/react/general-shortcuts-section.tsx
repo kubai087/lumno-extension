@@ -1,12 +1,10 @@
 import { InfoButton } from './info-button';
 import { SegmentedControl, type SegmentedControlRenderModel } from './segmented-control';
-import { SettingSwitch } from './setting-rows';
 import { ShortcutReference, type ShortcutReferenceRenderModel } from './shortcut-reference';
-import type { ToggleControlRenderModel } from './toggle-control';
 
 // The General tab's Shortcuts section: where the browser's shortcuts are
-// changed, the search shortcut, what happens on restricted pages, the list
-// of shortcuts, and quick tab switching.
+// changed, the search shortcut, what happens on restricted pages, and the
+// list of shortcuts.
 export interface GeneralShortcutsSectionModel {
   title: string;
   // "Change them in <Extensions> -> <Keyboard shortcuts>", in parts.
@@ -17,13 +15,11 @@ export interface GeneralShortcutsSectionModel {
   referenceLabel: string;
   // Null until the browser's commands are read.
   reference: ShortcutReferenceRenderModel | null;
-  quickSwitch: { title: string; toggle: ToggleControlRenderModel };
 }
 
 export interface GeneralShortcutsSectionHandlers {
   onOpenShortcutsPage(): void;
   onRestrictedAction(value: string): void;
-  onQuickSwitch(checked: boolean): void;
 }
 
 export function GeneralShortcutsSection({
@@ -33,7 +29,7 @@ export function GeneralShortcutsSection({
   model: GeneralShortcutsSectionModel;
   handlers: GeneralShortcutsSectionHandlers;
 }) {
-  const { description, search, restricted, quickSwitch } = model;
+  const { description, search, restricted } = model;
   return (
     <>
       <div className="_x_extension_setting_row_2024_unique_ _x_extension_section_header_2026_unique_">
@@ -103,14 +99,6 @@ export function GeneralShortcutsSection({
         <div className="_x_extension_shortcut_reference_list_2026_unique_" id="_x_extension_shortcut_reference_list_2026_unique_">
           {model.reference ? <ShortcutReference model={model.reference} /> : null}
         </div>
-      </div>
-      <div className="_x_extension_setting_row_2024_unique_ _x_extension_setting_row_compact_2024_unique_" id="_x_extension_overlay_tab_priority_row_2024_unique_">
-        <div>
-          <p className="_x_extension_setting_title_2024_unique_">
-            <span>{quickSwitch.title}</span>
-          </p>
-        </div>
-        <SettingSwitch model={quickSwitch.toggle} onChange={handlers.onQuickSwitch} />
       </div>
     </>
   );

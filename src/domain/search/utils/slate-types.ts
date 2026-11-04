@@ -41,7 +41,7 @@ interface RankSlateOptions<T> {
 }
 
 type PrimaryHighlightReason =
-  | 'none' | 'navigation' | 'autocomplete' | 'inline' | 'topSite' | 'currentOpenTab' | 'openTab' | 'default';
+  | 'none' | 'navigation' | 'autocomplete' | 'inline' | 'topSite' | 'currentOpenTab' | 'default';
 
 interface RankedSlate<T> {
   suggestions: T[];

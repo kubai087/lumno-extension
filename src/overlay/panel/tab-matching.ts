@@ -168,7 +168,8 @@ function createTabMatching(deps: TabMatchingDeps) {
     return Boolean(targetNoSearch && currentNoSearch && targetNoSearch === currentNoSearch);
   }
 
-  // Enter on this row switches to the tab it is open in.
+  // Enter on this row switches to the tab it is open in, wherever the row
+  // ranks, as in the New Tab search box.
   function shouldSwitchMatchedTabSuggestion(suggestion: SuggestionLike | null, index: number): boolean {
     if (!suggestion || typeof suggestion._xMatchedTabId !== 'number') {
       return false;
@@ -179,10 +180,7 @@ function createTabMatching(deps: TabMatchingDeps) {
       index === 0) {
       return true;
     }
-    if (!settings.get(overlayTabPriority)) {
-      return false;
-    }
-    return index === 0;
+    return settings.get(overlayTabPriority);
   }
 
   return {

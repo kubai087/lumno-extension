@@ -4,6 +4,7 @@ import type { SearchQueryContext, SearchRankingOptions, SearchSelectionStats, Su
 import { getSearchSelectionBoost } from './selection-stats';
 import { buildSearchSuggestionFavicon, buildSuggestionReasons } from './suggestion-rows';
 import type { OpenTabItem, RowExtras, SourceItem, SuggestionRow } from './types';
+import * as SearchBrandSuggestions from '../../domain/search/utils/brand-suggestions';
 import * as SearchRelevanceScore from '../../domain/search/utils/relevance-score';
 import * as SearchResultDedup from '../../domain/search/utils/result-dedup';
 
@@ -17,19 +18,20 @@ function getSuggestionKey(item: SourceItem | SuggestionLike | null | undefined):
   return SearchResultDedup.buildSearchDedupEntryKey(item);
 }
 
-// The rows in ranking order, one per page, at most `limit`.
+// The rows in ranking order, one per page, at most `limit`, keeping a
+// matching open tab among them.
 function takeRankedUniqueRows(rows: readonly SuggestionRow[], limit: number): SuggestionRow[] {
   const sorted = rows.slice().sort((a, b) => SearchRelevanceScore.compareSearchSuggestions(a, b));
   const unique: SuggestionRow[] = [];
   const seenKeys = new Set<string>();
-  for (let index = 0; index < sorted.length && unique.length < limit; index += 1) {
+  for (let index = 0; index < sorted.length; index += 1) {
     const key = getSuggestionKey(sorted[index]);
     if (key && !seenKeys.has(key)) {
       seenKeys.add(key);
       unique.push(sorted[index]);
     }
   }
-  return unique;
+  return SearchBrandSuggestions.keepOpenTabWithinLimit(unique, limit);
 }
 
 class SuggestionSet {
@@ -93,7 +95,8 @@ class SuggestionSet {
     }
     const rankedScore = baseScore + scoreAdjustment + selectionBoost;
     // Open tabs have already passed query matching. Ranking penalties must
-    // not make a matching live page disappear from search.
+    // not make a matching live page disappear from search, and being open
+    // earns no extra rank.
     const sourceScore = sourceType === 'openTab' ? Math.max(1, rankedScore) : rankedScore;
     // The page keeps its strongest evidence: a bookmark title that matches
     // the query less well must not demote a page history already ranked.
@@ -119,7 +122,7 @@ class SuggestionSet {
       this.rows[index] = { ...this.rows[index], _xMatchedTabId: item._xMatchedTabId };
       return;
     }
-    this.upsert(item, 'openTab', { _xMatchedTabId: item._xMatchedTabId, scoreAdjustment: 12 });
+    this.upsert(item, 'openTab', { _xMatchedTabId: item._xMatchedTabId });
   }
 
   // A top site already listed only gains its mark and a little score;

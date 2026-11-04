@@ -1,9 +1,10 @@
 // The General tab's search results section, shared by the webpage overlay
 // and the New Tab search box: where result tabs open, which result comes
-// first, the browser content types shown and their order, how many results
-// show, and fuzzy pinyin.
+// first, whether Enter switches to a result's open tab, the browser content
+// types shown and their order, how many results show, and fuzzy pinyin.
 import { useMemo } from 'react';
 import type { SearchSourceType } from '../../../domain/search/types';
+import { overlayTabPriority } from '../../../domain/settings/overlay-panel';
 import {
   searchFuzzyPinyinEnabled,
   searchResultDisplayLimit,
@@ -28,6 +29,7 @@ const SOURCE_TYPES: ReadonlyArray<{ value: SearchSourceType; id: string; labelKe
 interface SearchValues {
   tabPosition: string;
   priority: string;
+  quickSwitch: boolean;
   displayLimit: number;
   fuzzyPinyin: boolean;
   selected: ReadonlySet<string>;
@@ -112,6 +114,19 @@ function getSearchRows(t: GetMessage, values: SearchValues): SettingsRowModel[] 
         select: { id: '_x_extension_search_result_priority_select_2026_unique_' }
       }
     },
+    {
+      type: 'toggle',
+      key: overlayTabPriority.key,
+      title: {
+        text: t('settings_overlay_tab_priority_title', '快速切换已开启标签页'),
+        info: t('settings_overlay_tab_quick_switch_tooltip', '结果所在页面已打开时，按下 Enter 切换到该标签页，不再重复打开')
+      },
+      toggle: {
+        id: '_x_extension_overlay_tab_quick_switch_2024_unique_',
+        checked: values.quickSwitch,
+        ariaLabel: t('settings_overlay_tab_priority_title', '快速切换已开启标签页')
+      }
+    },
     getSourceTypesRow(t, values),
     {
       type: 'slider',
@@ -150,6 +165,7 @@ export function GeneralSearchSection() {
   const t = useMessages();
   const tabPosition = useSetting(settingsStore, searchResultTabPosition);
   const priority = useSetting(settingsStore, searchResultPriority);
+  const quickSwitch = useSetting(settingsStore, overlayTabPriority);
   const displayLimit = useSetting(settingsStore, searchResultDisplayLimit);
   const fuzzyPinyin = useSetting(settingsStore, searchFuzzyPinyinEnabled);
   const sourceTypes = useSetting(settingsStore, searchResultSourceTypes);
@@ -163,6 +179,8 @@ export function GeneralSearchSection() {
       onToggle(key, checked) {
         if (key === searchFuzzyPinyinEnabled.key) {
           saveSetting(settingsStore, searchFuzzyPinyinEnabled, checked);
+        } else if (key === overlayTabPriority.key) {
+          saveSetting(settingsStore, overlayTabPriority, checked);
         }
       },
       onSelect(key, value) {
@@ -204,6 +222,7 @@ export function GeneralSearchSection() {
   const rows = getSearchRows(t, {
     tabPosition,
     priority,
+    quickSwitch,
     displayLimit,
     fuzzyPinyin,
     selected: new Set<string>(sourceTypes),

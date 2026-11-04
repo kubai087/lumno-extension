@@ -47,6 +47,20 @@ function isSearchOpenTabSuggestion(suggestion: SuggestionLike | null | undefined
   );
 }
 
+// The first `limit` rows. A matching open tab always shows: when none of
+// them is one, the first open tab further down takes the last place.
+function keepOpenTabWithinLimit<T extends SuggestionLike>(list: readonly T[], limit: number): T[] {
+  const shown = list.slice(0, Math.max(0, limit));
+  if (shown.length === 0 || list.length <= shown.length || shown.some(isSearchOpenTabSuggestion)) {
+    return shown;
+  }
+  const openTab = list.slice(shown.length).find(isSearchOpenTabSuggestion);
+  if (openTab) {
+    shown[shown.length - 1] = openTab;
+  }
+  return shown;
+}
+
 type DirectSourceType = 'topSite' | 'bookmark' | 'history';
 
 // A synthetic "go to the site" row; the scored item must still match the query.
@@ -298,7 +312,7 @@ function takeTopSiteRepresentatives<T extends SlateRow>(selection: DiverseSelect
   });
 }
 
-// For a brand query, the first open tabs keep their place whatever the limits.
+// The first open tabs keep their place whatever the limits.
 function takeProtectedOpenTabs<T extends SlateRow>(selection: DiverseSelection<T>, candidates: readonly T[]): void {
   let protectedOpenTabCount = 0;
   candidates.forEach((suggestion) => {
@@ -328,9 +342,7 @@ function applySearchSuggestionHostDiversity<T extends SlateRow>(
     familyCounts: new Map()
   };
   takeTopSiteRepresentatives(selection, candidates, useBrandFamilyLimit ? SEARCH_POLICY.brandPrimaryFamilyLimit : Infinity);
-  if (useBrandFamilyLimit) {
-    takeProtectedOpenTabs(selection, candidates);
-  }
+  takeProtectedOpenTabs(selection, candidates);
   candidates.forEach((suggestion) => {
     takeDiverse(selection, suggestion, {
       host: SEARCH_POLICY.primaryHostLimit,
@@ -355,7 +367,7 @@ function applySearchSuggestionHostDiversity<T extends SlateRow>(
     });
   }
 
-  return selection.selected.slice(0, SEARCH_POLICY.finalSuggestionLimit);
+  return keepOpenTabWithinLimit(selection.selected, SEARCH_POLICY.finalSuggestionLimit);
 }
 
 function composeSearchSuggestionSlate<T extends SlateRow>(
@@ -369,7 +381,7 @@ function composeSearchSuggestionSlate<T extends SlateRow>(
   return groupSearchSuggestionsByKind(suggestions);
 }
 
-function limitSearchSuggestionsForDisplay<T>(list: readonly T[] | null | undefined, options?: { limit?: number } | null): T[] {
+function limitSearchSuggestionsForDisplay<T extends SuggestionLike>(list: readonly T[] | null | undefined, options?: { limit?: number } | null): T[] {
   const suggestions: readonly T[] = Array.isArray(list) ? list : [];
   const settings: { limit?: number } = options && typeof options === 'object' ? options : {};
   const rawLimit = Number(settings.limit);
@@ -377,7 +389,7 @@ function limitSearchSuggestionsForDisplay<T>(list: readonly T[] | null | undefin
   const limit = Number.isInteger(rawLimit) && rawLimit >= 5 && rawLimit <= 10
     ? rawLimit
     : fallbackLimit;
-  return suggestions.slice(0, limit);
+  return keepOpenTabWithinLimit(suggestions, limit);
 }
 
 function normalizeSearchSuggestionSourceFilterType(value: unknown): '' | 'topSite' | 'bookmark' | 'history' {
@@ -432,6 +444,7 @@ export {
   composeSearchSuggestionSlate,
   filterSearchSuggestionsBySourceTypes,
   isSearchOpenTabSuggestion,
+  keepOpenTabWithinLimit,
   limitSearchSuggestionsForDisplay
 };
 export type { BrandDirectOptions };

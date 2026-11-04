@@ -527,6 +527,9 @@
   "settings_overlay_tab_priority_desc": {
     "message": "Quando o texto digitado corresponde a uma guia aberta, Enter segue a ação de guia da primeira sugestão"
   },
+  "settings_overlay_tab_quick_switch_tooltip": {
+    "message": "Se um resultado já estiver aberto, Enter muda para a aba dele em vez de abri-lo de novo"
+  },
   "overlay_tab_priority_switch_first": {
     "message": "Pressionar Enter alterna para a guia aberta"
   },

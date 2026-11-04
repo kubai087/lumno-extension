@@ -23,7 +23,6 @@ import * as SearchSuggestionSlate from '../../domain/search/utils/suggestion-sla
 import type { SiteSearchCatalog } from '../../shared/search-panel/site-search/catalog';
 import type { DefaultSearchEngine } from '../../shared/search-panel/default-engine';
 import { searchResultDisplayLimit, searchResultPriority, tabRankScoreDebug } from '../../domain/settings/search';
-import { overlayTabPriority } from '../../domain/settings/overlay-panel';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
 import type { SettingsStore } from '../../platform/settings-store';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
@@ -47,7 +46,6 @@ import { HelpCenterRows } from '../../shared/search-panel/help-center-rows';
 import type { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import type { QuickNavigation } from '../../shared/search-panel/quick-navigation';
 import { loadShortcutRules } from '../../shared/search-panel/shortcut-rules';
-import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import type { SearchBoxParts } from './search-box-parts';
 import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { AppliedThemeMode } from '../theme/applied-theme-mode';
@@ -103,7 +101,7 @@ interface SuggestionsControllerDeps {
   setSuggestionsVisible(visible: boolean): void;
   openCommunityQrDialog?(url: string | undefined): void;
   searchBox: Pick<SearchBoxParts, 'focusInput' | 'inputParts' | 'modeController' | 'suggestionList' | 'suggestionsView'>;
-  openTabs: Pick<OpenTabs, 'clear' | 'currentTabId' | 'tabs'>;
+  openTabs: Pick<OpenTabs, 'clear'>;
   appliedTheme: Pick<AppliedThemeMode, 'mode'>;
 }
 
@@ -572,13 +570,6 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           preferAutocompleteFirst: settings.get(searchResultPriority) !== 'search',
           onlyKeywordSuggestions,
           autocompleteSuggestions: keywordSuggestionState.autocompleteSuggestions,
-          openTabMatch: settings.get(overlayTabPriority)
-            ? {
-                ...(openTabs.currentTabId === null ? {} : { currentTabId: openTabs.currentTabId }),
-                openTabQuickSwitchEnabled: settings.get(overlayTabPriority),
-                getDirectNavigationUrl: SearchDirectNavigation.getDirectNavigationUrl
-              }
-            : null,
           matchers: {
             promoteStrongNavigationMatch: searchMatching.promoteStrongNavigationMatch,
             promoteTopSiteMatch: searchMatching.promoteTopSiteMatch,

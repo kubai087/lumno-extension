@@ -527,6 +527,9 @@
   "settings_overlay_tab_priority_desc": {
     "message": "Lorsque la saisie correspond à un onglet ouvert, Enter applique l’action d’onglet de la première suggestion"
   },
+  "settings_overlay_tab_quick_switch_tooltip": {
+    "message": "Si un résultat est déjà ouvert, Entrée bascule vers son onglet au lieu de le rouvrir"
+  },
   "overlay_tab_priority_switch_first": {
     "message": "Enter pour basculer vers l’onglet ouvert"
   },

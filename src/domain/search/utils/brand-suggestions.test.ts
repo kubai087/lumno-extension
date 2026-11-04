@@ -113,6 +113,10 @@ describe('brand suggestions and the result slate', () => {
     expect(limitSearchSuggestionsForDisplay(displaySuggestionItems, { limit: 5 }).map((item) => item.title), 'display suggestion limiting should preserve ranking order').toEqual(['Result 1', 'Result 2', 'Result 3', 'Result 4', 'Result 5']);
     expect(limitSearchSuggestionsForDisplay(displaySuggestionItems, { limit: 10 }).length, 'display suggestions should accept the maximum configurable visible-result cap').toBe(10);
     expect(limitSearchSuggestionsForDisplay(displaySuggestionItems, { limit: 11 }).length, 'display suggestions should fall back to the shared cap for out-of-range values').toBe(10);
+    const withLateTab = [...displaySuggestionItems.slice(0, 7), { ...displaySuggestionItems[7], title: 'Open tab', _xMatchedTabId: 5 }];
+    expect(limitSearchSuggestionsForDisplay(withLateTab, { limit: 5 }).map((item) => item.title), 'a matching open tab past the cap should take the last visible place').toEqual(['Result 1', 'Result 2', 'Result 3', 'Result 4', 'Open tab']);
+    const withShownTab = [{ ...displaySuggestionItems[0], _xMatchedTabId: 1 }, ...withLateTab.slice(1)];
+    expect(limitSearchSuggestionsForDisplay(withShownTab, { limit: 5 }).map((item) => item.title), 'one visible open tab is enough').toEqual(['Result 1', 'Result 2', 'Result 3', 'Result 4', 'Result 5']);
     const sourceRows = [
       { type: 'topSite', title: 'Frequent', url: 'https://frequent.example.com/' },
       { type: 'bookmark', title: 'Bookmark', url: 'https://bookmark.example.com/' },

@@ -527,6 +527,9 @@
   "settings_overlay_tab_priority_desc": {
     "message": "当输入文字匹配到已打开标签页时，首个候选项的快捷键动作"
   },
+  "settings_overlay_tab_quick_switch_tooltip": {
+    "message": "结果所在页面已打开时，按下 Enter 切换到该标签页，不再重复打开"
+  },
   "overlay_tab_priority_switch_first": {
     "message": "按下 Enter 切换已打开标签页"
   },

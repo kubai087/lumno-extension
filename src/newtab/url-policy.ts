@@ -8,6 +8,7 @@ import type { FaviconUrlResolver } from '../domain/favicon/resolver';
 import * as SearchBrandSuggestions from '../domain/search/utils/brand-suggestions';
 import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, searchResultDisplayLimit } from '../domain/settings/search';
 import type { SettingsStore } from '../platform/settings-store';
+import type { SuggestionLike } from '../domain/search/types';
 import * as EXTENSION_ROUTES from '../domain/extension-routes';
 import * as BLACKLIST_UTILS from '../domain/blacklist-utils';
 import * as FaviconDecisionLog from '../domain/favicon/decision-log';
@@ -273,7 +274,7 @@ function createUrlPolicy(deps: UrlPolicyDeps) {
     return list.filter((suggestion) => !isSuggestionBlockedBySearchBlacklist(suggestion));
   }
 
-  function limitSuggestionsForDisplay<T>(list: T[] | null | undefined, options?: { uncapped?: boolean } | null): T[] {
+  function limitSuggestionsForDisplay<T extends SuggestionLike>(list: T[] | null | undefined, options?: { uncapped?: boolean } | null): T[] {
     const config = options && typeof options === 'object' ? options : {};
     if (config.uncapped === true) {
       return list || [];

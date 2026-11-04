@@ -9,6 +9,7 @@ import * as FaviconUrlKinds from '../../domain/favicon/url-kinds';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import type { FaviconUrlResolver } from '../../domain/favicon/resolver';
 import type { FaviconDecisionLogger } from '../../domain/favicon/types';
+import type { SuggestionLike } from '../../domain/search/types';
 import * as SearchBrandSuggestions from '../../domain/search/utils/brand-suggestions';
 import { faviconEnhancedFetchEnabled, faviconRequestBlacklist, searchBlacklist, searchResultDisplayLimit } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
@@ -102,7 +103,7 @@ function createFaviconPolicy(deps: FaviconPolicyDeps) {
   }
 
   // The rows the user's display limit allows; uncapped keeps them all.
-  function limitOverlaySuggestionsForDisplay<T>(list: T[] | null, options?: { uncapped?: boolean } | null): T[] {
+  function limitOverlaySuggestionsForDisplay<T extends SuggestionLike>(list: T[] | null, options?: { uncapped?: boolean } | null): T[] {
     const config = options && typeof options === 'object' ? options : {};
     if (config.uncapped === true) {
       return Array.isArray(list) ? list : [];

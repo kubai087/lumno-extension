@@ -527,6 +527,9 @@
   "settings_overlay_tab_priority_desc": {
     "message": "Wenn die Eingabe einem offenen Tab entspricht, folgt Enter der Tab-Aktion des ersten Vorschlags"
   },
+  "settings_overlay_tab_quick_switch_tooltip": {
+    "message": "Ist ein Ergebnis bereits geöffnet, wechselt Enter zu seinem Tab, statt es erneut zu öffnen"
+  },
   "overlay_tab_priority_switch_first": {
     "message": "Enter wechselt zum offenen Tab"
   },
