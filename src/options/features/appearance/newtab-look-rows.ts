@@ -1,8 +1,11 @@
 // The rows of the New Tab look in the Appearance tab, from their values:
-// the material and whether it adapts to the wallpaper, the content width, what sits
+// the material, whether it adapts to the wallpaper and the liquid tint, the content width, what sits
 // above the search box, and the clock's face, weight, size, opacity, color
 // and format.
 import {
+  NEWTAB_LIQUID_GLASS_TINT_DEFAULT,
+  NEWTAB_LIQUID_GLASS_TINT_MAX,
+  NEWTAB_LIQUID_GLASS_TINT_MIN,
   NEWTAB_TIME_FONTS,
   NEWTAB_TIME_FONT_SIZE_DEFAULT,
   NEWTAB_TIME_FONT_SIZE_MAX,
@@ -13,6 +16,8 @@ import {
   getNewtabTimeFont,
   newtabGlassAdaptive,
   newtabGlassStyle,
+  newtabLiquidGlassTintDark,
+  newtabLiquidGlassTintLight,
   newtabTime12Hour,
   newtabTimeFont,
   newtabTimeFontSize,
@@ -34,6 +39,8 @@ import type { SettingsRowModel } from '../../react/settings-rows-view';
 interface NewtabLookValues {
   glassStyle: NewtabGlassStyle;
   glassAdaptive: boolean;
+  liquidTintLight: number;
+  liquidTintDark: number;
   widthMode: NewtabWidthMode;
   topContent: NewtabTopContentMode;
   timeFont: string;
@@ -102,6 +109,64 @@ function getTimeInkItems(t: GetMessage): SegmentedControlItemModel[] {
         return { value: ink, labelKey: 'newtab_time_ink_dark', label: t('newtab_time_ink_dark', '深色') };
     }
   });
+}
+
+// The liquid material's tint under each theme, in percent of the material's own.
+function getLiquidTintRows(t: GetMessage, values: NewtabLookValues): SettingsRowModel[] {
+  const min = NEWTAB_LIQUID_GLASS_TINT_MIN;
+  const max = NEWTAB_LIQUID_GLASS_TINT_MAX;
+  const tintSlider = (theme: 'light' | 'dark'): SettingsRowModel => {
+    const setting = theme === 'dark' ? newtabLiquidGlassTintDark : newtabLiquidGlassTintLight;
+    const title = theme === 'dark'
+      ? t('settings_newtab_liquid_glass_tint_dark', '深色')
+      : t('settings_newtab_liquid_glass_tint_light', '浅色');
+    return {
+      type: 'slider',
+      key: setting.key,
+      rowId: `_x_extension_newtab_liquid_glass_tint_${theme}_row_2026_unique_`,
+      subrow: true,
+      title: { text: title },
+      hostId: `_x_extension_newtab_liquid_glass_tint_${theme}_control_2026_unique_`,
+      slider: {
+        ariaLabel: `${t('settings_newtab_liquid_glass_tint_title', '着色不透明度')} · ${title}`,
+        defaultValue: NEWTAB_LIQUID_GLASS_TINT_DEFAULT,
+        id: `_x_extension_newtab_liquid_glass_tint_${theme}_slider_2026_unique_`,
+        min,
+        max,
+        resetAriaLabel: theme === 'dark'
+          ? t('settings_newtab_liquid_glass_tint_dark_reset', '重置深色着色不透明度')
+          : t('settings_newtab_liquid_glass_tint_light_reset', '重置浅色着色不透明度'),
+        resetButtonId: `_x_extension_newtab_liquid_glass_tint_${theme}_reset_2026_unique_`,
+        step: 5,
+        ticks: [
+          { align: 'start', label: `${min}%` },
+          {
+            label: `${NEWTAB_LIQUID_GLASS_TINT_DEFAULT}%`,
+            percent: ((NEWTAB_LIQUID_GLASS_TINT_DEFAULT - min) / (max - min)) * 100
+          },
+          { align: 'end', label: `${max}%` }
+        ],
+        value: theme === 'dark' ? values.liquidTintDark : values.liquidTintLight,
+        valueSuffix: '%'
+      }
+    };
+  };
+  return [
+    {
+      type: 'label',
+      key: 'liquid-tint',
+      subrow: true,
+      title: {
+        text: t('settings_newtab_liquid_glass_tint_title', '着色不透明度'),
+        info: t(
+          'settings_newtab_liquid_glass_tint_desc',
+          '液态玻璃在各深浅色模式下保留多少着色。越低越通透，0% 时只保留模糊和边缘。'
+        )
+      }
+    },
+    tintSlider('light'),
+    tintSlider('dark')
+  ];
 }
 
 function getTimeRows(t: GetMessage, values: NewtabLookValues): SettingsRowModel[] {
@@ -286,6 +351,14 @@ function getNewtabLookRows(t: GetMessage, values: NewtabLookValues): SettingsRow
           ariaLabelKey: 'settings_newtab_glass_adaptive_title'
         }
       }]
+    },
+    {
+      // The tint sliders belong to the liquid material alone.
+      type: 'reveal',
+      key: 'liquid-tint',
+      id: '_x_extension_newtab_liquid_glass_tint_subrows_2026_unique_',
+      expanded: values.glassStyle === 'liquid',
+      rows: getLiquidTintRows(t, values)
     },
     {
       type: 'segmented',

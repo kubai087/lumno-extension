@@ -5,6 +5,8 @@ import {
   getNewtabTimeFont,
   newtabGlassAdaptive,
   newtabGlassStyle,
+  newtabLiquidGlassTintDark,
+  newtabLiquidGlassTintLight,
   newtabTime12Hour,
   newtabTimeFont,
   newtabTimeFontSize,
@@ -29,6 +31,8 @@ export function NewtabLookSection() {
   const values = {
     glassStyle: useSetting(settingsStore, newtabGlassStyle),
     glassAdaptive: useSetting(settingsStore, newtabGlassAdaptive),
+    liquidTintLight: useSetting(settingsStore, newtabLiquidGlassTintLight),
+    liquidTintDark: useSetting(settingsStore, newtabLiquidGlassTintDark),
     widthMode: useSetting(settingsStore, newtabWidthMode),
     topContent: useSetting(settingsStore, newtabTopContentMode),
     timeFont: useSetting(settingsStore, newtabTimeFont),
@@ -74,6 +78,12 @@ export function NewtabLookSection() {
     },
     onSlide(key, value) {
       switch (key) {
+        case newtabLiquidGlassTintLight.key:
+          saveSetting(settingsStore, newtabLiquidGlassTintLight, newtabLiquidGlassTintLight.parse(value));
+          break;
+        case newtabLiquidGlassTintDark.key:
+          saveSetting(settingsStore, newtabLiquidGlassTintDark, newtabLiquidGlassTintDark.parse(value));
+          break;
         case newtabTimeFontWeight.key:
           saveSetting(settingsStore, newtabTimeFontWeight, newtabTimeFontWeight.parse(value));
           break;
