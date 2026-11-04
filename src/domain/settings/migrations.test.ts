@@ -40,7 +40,7 @@ describe('settings migrations', () => {
       LANGUAGE_MESSAGES_KEY, ...REMOVED_AI_SYNC_KEYS, ...BOOKMARK_TOPBAR_SURFACE_KEYS, ...OVERLAY_FONT_KEYS, NEWTAB_GLASS_THEME_KEY
     ]));
     expect(new Set(plan.patch.local.remove)).toEqual(new Set([
-      LANGUAGE_MESSAGES_KEY, ...REMOVED_AI_LOCAL_KEYS, ...LEGACY_SITE_SEARCH_ICON_KEYS
+      LANGUAGE_MESSAGES_KEY, ...REMOVED_AI_LOCAL_KEYS, ...LEGACY_SITE_SEARCH_ICON_KEYS, NEWTAB_GLASS_THEME_KEY
     ]));
     Object.keys(SHARED_SYNC_PREFERENCES).forEach((key) => {
       expect(plan.patch.sync.remove).not.toContain(key);
@@ -50,7 +50,7 @@ describe('settings migrations', () => {
   it('skips what a device already ran and changes nothing on a current device', () => {
     const partial = planSettingsMigrations(3, EMPTY);
     expect(partial.version).toBe(SETTINGS_SCHEMA_VERSION);
-    expect(partial.patch.local.remove).toEqual([]);
+    expect(partial.patch.local.remove).toEqual([NEWTAB_GLASS_THEME_KEY]);
     expect(planSettingsMigrations(SETTINGS_SCHEMA_VERSION, EMPTY).patch).toEqual({ sync: { set: {}, remove: [] }, local: { set: {}, remove: [] } });
   });
 
@@ -65,6 +65,20 @@ describe('settings migrations', () => {
     expect(unused.patch.sync).toEqual({ set: { [newtabGlassAdaptive.key]: false }, remove: [NEWTAB_GLASS_THEME_KEY] });
     const following = planSettingsMigrations(5, { sync: { [NEWTAB_GLASS_THEME_KEY]: 'follow', [newtabGlassStyle.key]: 'frosted' }, local: {} });
     expect(following.patch.sync).toEqual({ set: {}, remove: [NEWTAB_GLASS_THEME_KEY] });
+  });
+
+  it('converts a held material kept on this device as well as one in browser sync', () => {
+    const plan = planSettingsMigrations(5, {
+      sync: {},
+      local: { [NEWTAB_GLASS_THEME_KEY]: 'light', [newtabGlassStyle.key]: 'frosted' }
+    });
+    expect(plan.patch.local).toEqual({
+      set: { [newtabGlassAdaptive.key]: false, [newtabThemeMode.key]: 'light', [newtabThemeScope.key]: 'home' },
+      remove: [NEWTAB_GLASS_THEME_KEY]
+    });
+    expect(plan.patch.sync).toEqual({ set: {}, remove: [NEWTAB_GLASS_THEME_KEY] });
+    expect(getSettingsMigrationReads(SETTINGS_MIGRATIONS.filter((migration) => migration.version === 6)).local)
+      .toEqual([NEWTAB_GLASS_THEME_KEY, newtabGlassStyle.key]);
   });
 
   it('keeps the version of a device that ran a newer release', () => {

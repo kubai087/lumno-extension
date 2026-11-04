@@ -65,18 +65,25 @@ function removeKeys(keys: Partial<Record<SettingsArea, readonly string[]>>): Set
 
 // A material held light or dark kept the whole New Tab in that theme and stopped the glass
 // from turning dark over a dark wallpaper. The page keeps that theme as its own, shown as such
-// in the Appearance panel, and the glass stays out of the wallpaper's way.
-function migrateNewtabGlassTheme(snapshot: SettingsSnapshot): SettingsPatch {
-  const patch = removeKeys({ sync: [NEWTAB_GLASS_THEME_KEY] });
-  const held = snapshot.sync[NEWTAB_GLASS_THEME_KEY];
+// in the Appearance panel, and the glass stays out of the wallpaper's way. Preferences live in
+// browser sync or, when the user keeps them on this device, in the local area, so each area
+// converts what it holds.
+function convertNewtabGlassTheme(values: StorageItems, patch: SettingsAreaPatch): void {
+  const held = values[NEWTAB_GLASS_THEME_KEY];
   if (held !== 'light' && held !== 'dark') {
-    return patch;
+    return;
   }
-  patch.sync.set[newtabGlassAdaptive.key] = false;
-  if (newtabGlassStyle.parse(snapshot.sync[newtabGlassStyle.key]) !== 'none') {
-    patch.sync.set[newtabThemeMode.key] = held;
-    patch.sync.set[newtabThemeScope.key] = 'home';
+  patch.set[newtabGlassAdaptive.key] = false;
+  if (newtabGlassStyle.parse(values[newtabGlassStyle.key]) !== 'none') {
+    patch.set[newtabThemeMode.key] = held;
+    patch.set[newtabThemeScope.key] = 'home';
   }
+}
+
+function migrateNewtabGlassTheme(snapshot: SettingsSnapshot): SettingsPatch {
+  const patch = removeKeys({ sync: [NEWTAB_GLASS_THEME_KEY], local: [NEWTAB_GLASS_THEME_KEY] });
+  convertNewtabGlassTheme(snapshot.sync, patch.sync);
+  convertNewtabGlassTheme(snapshot.local, patch.local);
   return patch;
 }
 
@@ -119,7 +126,10 @@ const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = Object.freeze([
     version: 6,
     summary: 'Replace the New Tab material theme with the glass adaptive switch: a material held ' +
       'light or dark becomes the New Tab\'s own theme, over which the glass no longer adapts.',
-    reads: { sync: [NEWTAB_GLASS_THEME_KEY, newtabGlassStyle.key], local: [] },
+    reads: {
+      sync: [NEWTAB_GLASS_THEME_KEY, newtabGlassStyle.key],
+      local: [NEWTAB_GLASS_THEME_KEY, newtabGlassStyle.key]
+    },
     migrate: migrateNewtabGlassTheme
   }
 ]);
