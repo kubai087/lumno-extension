@@ -420,7 +420,7 @@ describe('Search scope menu: layout, icons and reordering', () => {
     );
     controller.setPrefixText('Bilibili');
     controller.openModeMenu();
-    await Promise.resolve();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
     const icon = queryHtmlElement(controller.menuElement, '.x-lumno-search-input-mode__menu-icon');
     const menuItem = queryHtmlElement(controller.menuElement, '.x-lumno-search-input-mode__menu-item');

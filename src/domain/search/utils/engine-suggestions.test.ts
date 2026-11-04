@@ -32,6 +32,10 @@ describe('search engine suggestions', () => {
     expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp web').map((item) => item.title), 'a suggestion equal to the query is the search action itself and should not carry over').toEqual(['whatsapp web login']);
     expect(carryOverEngineSuggestions(previousEngineSlate, '  ')).toEqual([]);
     expect(carryOverEngineSuggestions(null, 'whatsapp')).toEqual([]);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp web', 'WhatsApp').map((item) => item.title)).toEqual(['whatsapp web login']);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', 'whatsapp').length).toBeGreaterThan(0);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', 'whatsapp web')).toEqual([]);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', '')).toEqual([]);
   });
 
   it("drops the query itself and duplicates before the cap", () => {

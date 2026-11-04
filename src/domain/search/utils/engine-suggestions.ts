@@ -78,11 +78,16 @@ function isSearchEngineSuggestion(suggestion: SuggestionLike | null | undefined)
 // every key.
 function carryOverEngineSuggestions<T extends SuggestionLike>(
   previous: ReadonlyArray<T | null | undefined> | null | undefined,
-  query: unknown
+  query: unknown,
+  previousQuery?: string
 ): T[] {
   const typed = normalizeSearchText(String(query || '').trim());
   if (!typed) {
     return [];
+  }
+  if (previousQuery !== undefined) {
+    const origin = normalizeSearchText(previousQuery.trim());
+    if (!origin || !typed.startsWith(origin)) return [];
   }
   return (Array.isArray(previous) ? previous : []).filter((suggestion): suggestion is T => {
     if (!suggestion || !isSearchEngineSuggestion(suggestion)) {

@@ -764,13 +764,20 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         suggestionsContainer.getAttribute('data-visible') === 'true') {
       holdSuggestionsHeight(suggestionsContainer, window);
     }
-    // Shown with the local results until this query's suggestions arrive.
+    // Only fill previously occupied slots with relevant cached suggestions.
+    // Fresh local results take precedence, and a shorter query does not reuse
+    // suggestions produced for the longer query.
+    const previousVisibleCount = searchResults.rows.length;
     const carriedEngineSuggestions = SearchEngineSuggestions.carryOverEngineSuggestions(
       searchResults.lastEngineResponse,
-      requestQuery
+      requestQuery,
+      suggestionSource.lastEngineQuery
+    );
+    const carryWithinPreviousRows = (localCount: number) => carriedEngineSuggestions.slice(
+      0, Math.max(0, previousVisibleCount - localCount - 1)
     );
     if (showExactSearchPendingState) {
-      void renderSuggestions(carriedEngineSuggestions, requestQuery, { pendingRemote: true });
+      void renderSuggestions(carryWithinPreviousRows(0), requestQuery, { pendingRemote: true });
     }
     let localFailed = false;
     const requestSeq = suggestionSource.request({
@@ -788,7 +795,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           return null;
         }
         if (!showExactSearchPendingState) {
-          void renderSuggestions([...localSuggestions, ...carriedEngineSuggestions], requestQuery, { pendingRemote: true });
+          void renderSuggestions([...localSuggestions, ...carryWithinPreviousRows(localSuggestions.length)], requestQuery, { pendingRemote: true });
         }
         refreshTabsForSearchContext(() => {});
         return (requestSearchFirst || immediate) ? 0 : Math.max(0, 120 - (Date.now() - requestStartedAt));

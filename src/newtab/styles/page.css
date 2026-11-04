@@ -800,6 +800,10 @@ body[data-nt-suggestions-open="true"] #_x_extension_newtab_root_2024_unique_ {
 #_x_extension_newtab_root_2024_unique_:has(.x-lumno-search-input-mode__menu[data-surface="newtab"]:not([hidden])) {
   z-index: 22;
 }
+/* The confirmation extends over the separately positioned results and outline. */
+#_x_extension_newtab_root_2024_unique_:has(.x-lumno-search-input__popconfirm[data-open="true"]) {
+  z-index: 25;
+}
 body[data-nt-suggestions-open="true"] #_x_extension_newtab_search_layer_2024_unique_ {
   z-index: 20;
   border-radius:

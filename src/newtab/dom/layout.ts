@@ -1,4 +1,5 @@
 import { queryHtmlElement } from '../../shared/dom-lookup';
+import { createSuggestionsMotion } from './suggestions-motion';
 import * as SUGGESTIONS_HEIGHT_LAYOUT from '../../shared/search/suggestions-height-layout';
 import { isPinchZoomed } from '../viewport-insets';
 
@@ -260,6 +261,8 @@ function createLayoutController(layoutOptions?: LayoutControllerOptions) {
   const cornerControlSelector = '.x-nt-wallpaper-control, .x-nt-feedback-control';
   const suggestionsViewportFitMaxHeightProperty =
     '--x-nt-suggestions-viewport-fit-max-height';
+  const suggestionsMotion = createSuggestionsMotion(windowObj, documentObj);
+  let changingSuggestionsVisibility = false;
   const visibleAttribute = 'data-visible';
   const suggestionsOpenAttribute = 'data-nt-suggestions-open';
   const getTopInsetPx = typeof options.getTopInsetPx === 'function'
@@ -380,6 +383,7 @@ function createLayoutController(layoutOptions?: LayoutControllerOptions) {
     setPixelStyle(element, 'top', frame.top);
     setPixelStyle(element, 'width', frame.width);
     setPixelStyle(element, 'height', frame.height);
+    setPixelStyle(element, '--x-nt-suggestions-motion-height', frame.height);
   }
 
   function updateSuggestionsSurfaceFrame(): void {
@@ -399,15 +403,27 @@ function createLayoutController(layoutOptions?: LayoutControllerOptions) {
     const anchorRect = anchor.getBoundingClientRect();
     const rootRect = root ? root.getBoundingClientRect() : anchorRect;
     const suggestionsRect = suggestionsContainer.getBoundingClientRect();
-    const surfaceBottom = Math.max(rootRect.bottom, suggestionsRect.bottom);
+    // The content may be translating during its reveal. Use its layout box
+    // rather than the transformed visual box so that the target stays still.
+    const fixedTop = Number.parseFloat(suggestionsContainer.style.getPropertyValue('top'));
+    const listTop = Number.isFinite(fixedTop) ? fixedTop : suggestionsRect.top;
+    const listHeight = suggestionsContainer.offsetHeight || suggestionsRect.height;
+    const surfaceBottom = Math.max(rootRect.bottom, listTop + listHeight);
     const surfaceFrame = {
       left: rootRect.left,
       top: rootRect.top,
       width: Math.max(0, rootRect.width),
       height: Math.max(0, surfaceBottom - rootRect.top)
     };
+    const previousHeight = Number.parseFloat(suggestionsSurface?.style.getPropertyValue('--x-nt-suggestions-motion-height') || '0');
+    const currentHeight = suggestionsSurface?.getBoundingClientRect().height || previousHeight;
     setFixedFrame(suggestionsSurface, surfaceFrame);
     setFixedFrame(suggestionsOutline, surfaceFrame);
+    if (!changingSuggestionsVisibility && suggestionsContainer.getAttribute(visibleAttribute) === 'true' &&
+        previousHeight > 0 && Math.abs(previousHeight - surfaceFrame.height) >= 1) {
+      suggestionsMotion.resize({ content: suggestionsContainer, surface: suggestionsSurface, outline: suggestionsOutline },
+        currentHeight, surfaceFrame.height, rootRect.height);
+    }
   }
 
   function commitSuggestionsNaturalHeightAfterRender(): boolean {
@@ -1047,15 +1063,25 @@ function createLayoutController(layoutOptions?: LayoutControllerOptions) {
     if (!suggestionsContainer) {
       return;
     }
+    const visibilityChanged = (suggestionsContainer.getAttribute(visibleAttribute) === 'true') !== shouldShow;
+    const layers = { content: suggestionsContainer, surface: suggestionsSurface, outline: suggestionsOutline };
+    const previousMotion = visibilityChanged ? suggestionsMotion.capture(layers) : null;
     if (!shouldShow) {
       // A hidden list lets go of a height held for pending suggestions.
       SUGGESTIONS_HEIGHT_LAYOUT.releaseSuggestionsHeight(suggestionsContainer, windowObj);
     }
+    changingSuggestionsVisibility = visibilityChanged;
     setSuggestionsOpenState(shouldShow);
     setBooleanAttribute(suggestionsContainer, visibleAttribute, shouldShow);
     setBooleanAttribute(suggestionsSurface, visibleAttribute, shouldShow);
     setBooleanAttribute(suggestionsOutline, visibleAttribute, shouldShow);
     commitSuggestionsNaturalHeightAfterRender();
+    changingSuggestionsVisibility = false;
+    if (visibilityChanged) {
+      const root = getRoot();
+      const anchor = root || getInputParts()?.container;
+      suggestionsMotion.play(shouldShow, layers, anchor?.getBoundingClientRect().height || 0, previousMotion);
+    }
     if (shouldShow) {
       if (typeof windowObj.requestAnimationFrame === 'function') {
         windowObj.requestAnimationFrame(updateSuggestionsFloatingLayout);

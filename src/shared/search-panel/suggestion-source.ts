@@ -35,6 +35,7 @@ class SuggestionSource {
   private readonly query: Pick<SearchQuery, 'text'>;
   private readonly results: Pick<SearchResults<unknown>, 'beginRequest' | 'cancelRequests' | 'isCurrentRequest' | 'setLastEngineResponse'>;
   private remoteTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastEngineQueryValue = '';
   private lateTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -43,6 +44,11 @@ class SuggestionSource {
   ) {
     this.query = query;
     this.results = results;
+  }
+
+  // The query that produced the cached engine rows, not the latest request.
+  get lastEngineQuery(): string {
+    return this.lastEngineQueryValue;
   }
 
   // Starts a request and returns it; its answers go to the handlers.
@@ -117,6 +123,7 @@ class SuggestionSource {
         handlers.onRemote(null, localRows);
         return;
       }
+      this.lastEngineQueryValue = request.query;
       this.results.setLastEngineResponse(reply.suggestions);
       handlers.onRemote(reply.suggestions, localRows);
     });
