@@ -46,7 +46,8 @@ class SuggestionSource {
     this.results = results;
   }
 
-  // The query that produced the cached engine rows, not the latest request.
+  // The query the last search engine suggestions answered, which may be
+  // older than the latest request.
   get lastEngineQuery(): string {
     return this.lastEngineQueryValue;
   }

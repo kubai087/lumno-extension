@@ -755,20 +755,21 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
         suggestionsContainer.getAttribute('data-visible') === 'true') {
       holdSuggestionsHeight(suggestionsContainer, window);
     }
-    // Only fill previously occupied slots with relevant cached suggestions.
-    // Fresh local results take precedence, and a shorter query does not reuse
-    // suggestions produced for the longer query.
-    const previousVisibleCount = searchResults.rows.length;
+    // Shown with the local results until this query's suggestions arrive,
+    // in the rows the list already had.
+    const shownRowCount = searchResults.rows.length;
     const carriedEngineSuggestions = SearchEngineSuggestions.carryOverEngineSuggestions(
       searchResults.lastEngineResponse,
       requestQuery,
       suggestionSource.lastEngineQuery
     );
-    const carryWithinPreviousRows = (localCount: number) => carriedEngineSuggestions.slice(
-      0, Math.max(0, previousVisibleCount - localCount - 1)
+    const fitCarried = (localCount: number) => SearchEngineSuggestions.fitCarriedEngineSuggestions(
+      carriedEngineSuggestions,
+      shownRowCount,
+      localCount
     );
     if (showExactSearchPendingState) {
-      void renderSuggestions(carryWithinPreviousRows(0), requestQuery, { pendingRemote: true });
+      void renderSuggestions(fitCarried(0), requestQuery, { pendingRemote: true });
     }
     let localFailed = false;
     const requestSeq = suggestionSource.request({
@@ -786,7 +787,11 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
           return null;
         }
         if (!showExactSearchPendingState) {
-          void renderSuggestions([...localSuggestions, ...carryWithinPreviousRows(localSuggestions.length)], requestQuery, { pendingRemote: true });
+          void renderSuggestions(
+            [...localSuggestions, ...fitCarried(localSuggestions.length)],
+            requestQuery,
+            { pendingRemote: true }
+          );
         }
         refreshTabsForSearchContext(() => {});
         return (requestSearchFirst || immediate) ? 0 : Math.max(0, 120 - (Date.now() - requestStartedAt));

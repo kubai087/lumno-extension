@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { carryOverEngineSuggestions, getKeywordSearchSuggestionState, getSearchEngineSuggestionPolicy, groupSearchSuggestionsByKind, normalizeSearchEngineSuggestions } from './engine-suggestions';
+import { carryOverEngineSuggestions, fitCarriedEngineSuggestions, getKeywordSearchSuggestionState, getSearchEngineSuggestionPolicy, groupSearchSuggestionsByKind, normalizeSearchEngineSuggestions } from './engine-suggestions';
 import { buildSearchQueryContext } from './selection-stats';
 
 describe('search engine suggestions', () => {
@@ -28,14 +28,29 @@ describe('search engine suggestions', () => {
       { type: 'googleSuggest', title: 'whatsapp desktop' },
       { type: 'googleSuggest', title: 'whatsapp' }
     ];
-    expect(carryOverEngineSuggestions(previousEngineSlate, 'WhatsApp W').map((item) => item.title), 'only search suggestions that extend the new query should carry over').toEqual(['whatsapp web', 'whatsapp web login']);
-    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp web').map((item) => item.title), 'a suggestion equal to the query is the search action itself and should not carry over').toEqual(['whatsapp web login']);
-    expect(carryOverEngineSuggestions(previousEngineSlate, '  ')).toEqual([]);
-    expect(carryOverEngineSuggestions(null, 'whatsapp')).toEqual([]);
-    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp web', 'WhatsApp').map((item) => item.title)).toEqual(['whatsapp web login']);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'WhatsApp W', 'whatsapp').map((item) => item.title), 'only search suggestions that extend the new query should carry over').toEqual(['whatsapp web', 'whatsapp web login']);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp web', 'WhatsApp').map((item) => item.title), 'a suggestion equal to the query is the search action itself and should not carry over').toEqual(['whatsapp web login']);
+    expect(carryOverEngineSuggestions(previousEngineSlate, '  ', 'whatsapp')).toEqual([]);
+    expect(carryOverEngineSuggestions(null, 'whatsapp', 'whatsapp')).toEqual([]);
     expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', 'whatsapp').length).toBeGreaterThan(0);
-    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', 'whatsapp web')).toEqual([]);
-    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', '')).toEqual([]);
+  });
+
+  it("keeps nothing for a query that does not go on from the suggestions' own", () => {
+    const previousEngineSlate = [
+      { type: 'googleSuggest', title: 'whatsapp web' },
+      { type: 'googleSuggest', title: 'whatsapp web login' }
+    ];
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', 'whatsapp web'), 'after a backspace').toEqual([]);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', ''), 'before any suggestions came').toEqual([]);
+    expect(carryOverEngineSuggestions(previousEngineSlate, 'whatsapp', null)).toEqual([]);
+  });
+
+  it("fits carried suggestions in the rows shown below the search action", () => {
+    const carried = ['a', 'b', 'c', 'd'];
+    expect(fitCarriedEngineSuggestions(carried, 6, 2)).toEqual(['a', 'b', 'c']);
+    expect(fitCarriedEngineSuggestions(carried, 4, 3)).toEqual([]);
+    expect(fitCarriedEngineSuggestions(carried, 0, 0), 'a list that was closed').toEqual([]);
+    expect(fitCarriedEngineSuggestions(carried, 9, 0)).toEqual(carried);
   });
 
   it("drops the query itself and duplicates before the cap", () => {
