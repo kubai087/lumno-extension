@@ -1,6 +1,6 @@
 // Remote search suggestions: requesting them from the background and
 // merging late responses into what is shown.
-import { carryOverEngineSuggestions } from '../../domain/search/utils/engine-suggestions';
+import { carryOverEngineSuggestions, fitCarriedEngineSuggestions } from '../../domain/search/utils/engine-suggestions';
 import type { SuggestionLike } from '../../domain/search/types';
 import { holdSuggestionsHeight } from '../../shared/search/suggestions-height-layout';
 import { searchResultPriority } from '../../domain/settings/search';
@@ -108,14 +108,22 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
         isResultsListOpen(elements.suggestionsContainer)) {
       holdSuggestionsHeight(elements.suggestionsContainer, window);
     }
-    // Shown with the local results until this query's suggestions arrive.
+    // Shown with the local results until this query's suggestions arrive,
+    // in the rows the list already had.
+    const shownRowCount = searchResults.rows.length;
     const carriedEngineSuggestions = carryOverEngineSuggestions(
       searchResults.lastEngineResponse,
-      requestQuery
+      requestQuery,
+      suggestionSource.lastEngineQuery
+    );
+    const fitCarried = (localCount: number) => fitCarriedEngineSuggestions(
+      carriedEngineSuggestions,
+      shownRowCount,
+      localCount
     );
     clearFirstResultRevealTimer();
     if (showExactSearchPendingState) {
-      updateSearchSuggestions(carriedEngineSuggestions, requestQuery, { remoteMixState });
+      updateSearchSuggestions(fitCarried(0), requestQuery, { remoteMixState });
     }
     // Search-first already shows the exact search action while remote
     // suggestions are pending. Autocomplete-first keeps its short mix
@@ -155,7 +163,7 @@ function createRemoteSuggestions(deps: RemoteSuggestionsDeps) {
             settleFirstResultMix(localSuggestions);
           }, OVERLAY_FIRST_RESULT_REVEAL_DELAY_MS);
         } else if (!showExactSearchPendingState) {
-          updateSearchSuggestions([...localSuggestions, ...carriedEngineSuggestions], requestQuery, {
+          updateSearchSuggestions([...localSuggestions, ...fitCarried(localSuggestions.length)], requestQuery, {
             remoteMixState
           });
         }

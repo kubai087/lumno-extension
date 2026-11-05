@@ -32,7 +32,7 @@ const LOCAL_SEARCH_TERMS: Readonly<Record<SearchSourceType, string[]>> = {
 // What differs per surface.
 interface SearchModeMenuSurface {
   getInput(): HTMLInputElement | null;
-  getModeController(): Pick<InputModeController, 'openModeMenu'> | null;
+  getModeController(): Pick<InputModeController, 'openModeMenu' | 'refreshModeMenu'> | null;
   // A site search's icon as this surface may draw it.
   getProviderIcon(provider: SiteSearchProvider): string;
   // An item of the surface's own ahead of the local sources.
@@ -61,15 +61,22 @@ interface SearchModeMenuOptions {
 
 class SearchModeMenu {
   private readonly options: SearchModeMenuOptions;
+  private iconLoadStarted = false;
 
   constructor(options: SearchModeMenuOptions) {
     this.options = options;
   }
 
   readonly getItems = (): Promise<ModeMenuItem[]> => {
-    const { catalog, iconCache, order } = this.options;
-    return Promise.all([iconCache.load(), catalog.loadProviders(), catalog.loadAggregates(), order.load()])
-      .then((results) => this.buildItems(results[3]));
+    const { catalog, iconCache, order, surface } = this.options;
+    if (!this.iconLoadStarted) {
+      this.iconLoadStarted = true;
+      void iconCache.load().then(() => {
+        surface.getModeController()?.refreshModeMenu();
+      }).catch(() => {});
+    }
+    return Promise.all([catalog.loadProviders(), catalog.loadAggregates(), order.load()])
+      .then((results) => this.buildItems(results[2]));
   };
 
   // Starts the item's mode and runs what was typed in it, keeping the rows

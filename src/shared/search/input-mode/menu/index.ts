@@ -29,7 +29,7 @@ import {
 import type { ModeMenuState } from './state';
 import { handleModeMenuKeydown, isPlainTabKey } from './keyboard';
 import type { TabKeyEvent } from './keyboard';
-import type { AttachFaviconData, FormatMessage, ModeMenuItem } from '../types';
+import type { AttachFaviconData, FormatMessage, ModeMenuItem, ModeMenuSearchIndex } from '../types';
 
 type ModeMenuItemList = ReadonlyArray<ModeMenuItem | null | undefined> | null | undefined;
 
@@ -151,6 +151,8 @@ class ModeMenu {
   private readonly search: ModeMenuSearchApi;
   private readonly icons: ModeMenuIcons;
   private readonly drawing: ModeMenuDrawing;
+  private readonly searchIndexes = new Map<string, Readonly<ModeMenuSearchIndex>>();
+  private pinyinTimer: number | null = null;
 
   constructor(env: ModeMenuEnv, events: EventBus<ModeMenuEvents>) {
     const { config, parts, options } = env;
@@ -203,6 +205,7 @@ class ModeMenu {
 
   // Loads pinyin-pro and the Han variant table for the filter, once.
   requestPinyin(): PromiseLike<unknown> | null | undefined {
+    this.cancelPinyinTimer();
     return requestPinyinRuntime(this.pinyin, () => this.refreshSearchIndexes());
   }
 
@@ -216,13 +219,11 @@ class ModeMenu {
     const requestId = ++this.state.requestId;
     this.state.pending = true;
     const items = getItems();
-    this.requestPinyin();
-    const pinyinReady = this.pinyin.ready;
-    if (!isPromiseLike(items) && !isPromiseLike(pinyinReady)) {
+    if (!isPromiseLike(items)) {
       return this.finishOpen(requestId, items, focusTarget);
     }
     this.setBusy(true);
-    return Promise.all([Promise.resolve(items), Promise.resolve(pinyinReady)]).then(([resolvedItems]) => (
+    return Promise.resolve(items).then((resolvedItems) => (
       requestId === this.state.requestId && this.finishOpen(requestId, resolvedItems, focusTarget)
     ), () => this.failRequest(requestId));
   }
@@ -230,6 +231,7 @@ class ModeMenu {
   // Draws the items again, keeping focus on the same mode where it can.
   refresh(preferredModeId?: string): boolean | Promise<boolean> {
     const getItems = this.env.config.getModeMenuItems;
+    this.icons.invalidate();
     if (this.state.destroyed || !this.state.open || typeof getItems !== 'function') {
       return false;
     }
@@ -254,6 +256,7 @@ class ModeMenu {
     }
     state.requestId += 1;
     state.pending = false;
+    this.cancelPinyinTimer();
     this.surface.cancelReveal();
     this.hideTooltip();
     state.open = false;
@@ -382,6 +385,7 @@ class ModeMenu {
     this.state.destroyed = true;
     this.state.requestId += 1;
     this.state.pending = false;
+    this.cancelPinyinTimer();
     this.surface.cancelReveal();
     this.icons.dispose();
   }
@@ -411,7 +415,6 @@ class ModeMenu {
     state.filterQuery = '';
     state.focusId = '';
     this.hideTooltip();
-    this.icons.clear();
     const shown = this.setItems(items);
     if (shown.length === 0) {
       this.drawing.draw();
@@ -422,6 +425,11 @@ class ModeMenu {
     this.drawing.draw();
     this.surface.alignFooter();
     this.surface.reveal();
+    // Let the panel begin its entrance before loading the filter's optional
+    // language data. Typing into the filter requests it immediately.
+    if (!this.pinyin.requested && this.env.win.setTimeout) {
+      this.pinyinTimer = this.env.win.setTimeout(() => this.requestPinyin(), 360);
+    }
     this.events.emit('openChanged', { open: true });
     this.surface.notifyLayoutChange();
     this.focusOnOpen(shown, focusTarget);
@@ -480,7 +488,17 @@ class ModeMenu {
 
   // Takes the items to show; returns those that can be shown.
   private setItems(items: ModeMenuItemList): ModeMenuItem[] {
-    this.state.entries = createModeMenuEntries(items, (item) => this.search.buildModeMenuSearchIndex(item));
+    this.state.entries = createModeMenuEntries(items, (item) => {
+      const provider = item.provider;
+      const key = JSON.stringify([item.label, item.searchTerms, provider?.key, provider?.name, provider?.aliases]);
+      let index = this.searchIndexes.get(key);
+      if (!index) {
+        index = this.search.buildModeMenuSearchIndex(item);
+        if (this.searchIndexes.size >= 512) this.searchIndexes.clear();
+        this.searchIndexes.set(key, index);
+      }
+      return index;
+    });
     const shown = this.state.entries.map((entry) => entry.item);
     this.icons.request(shown);
     return shown;
@@ -555,14 +573,16 @@ class ModeMenu {
   }
 
   private refreshSearchIndexes(): void {
-    if (this.state.entries.length === 0) {
-      return;
-    }
-    this.state.entries.forEach((entry) => {
-      entry.searchIndex = this.search.buildModeMenuSearchIndex(entry.item);
-    });
+    this.searchIndexes.clear();
     if (this.drawing.isFiltered()) {
       this.applyFilter(this.state.filterQuery, { preserveScroll: true });
+    }
+  }
+
+  private cancelPinyinTimer(): void {
+    if (this.pinyinTimer !== null) {
+      this.env.win.clearTimeout?.(this.pinyinTimer);
+      this.pinyinTimer = null;
     }
   }
 }

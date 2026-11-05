@@ -1,7 +1,6 @@
 // Which icon a mode menu tile shows (a built-in line icon, a site icon or a
 // glyph) and its colors. A site search's theme can come from its icon, so
-// the surface resolves provider themes once per opening; the tiles redraw
-// as each one arrives.
+// the surface caches provider themes and batches redraws as they arrive.
 import { getModeLineIconPaths } from '../line-icons';
 import { getModeMenuTileColors } from '../colors';
 import type { ModeColorOptions } from '../colors';
@@ -21,6 +20,13 @@ class ModeMenuIcons {
   // Provider themes by item id, and the ids still being resolved.
   private providerThemes = new Map<string, InputModeTheme>();
   private pendingThemes = new Set<string>();
+  // Themes kept on the tiles after a refresh until their new answer comes.
+  private staleThemes = new Set<string>();
+  // What each theme was resolved for: the provider and its icon.
+  private providerKeys = new Map<string, string>();
+  // Bumped to retire the answer still on its way for an item.
+  private requestVersions = new Map<string, number>();
+  private redrawPending = false;
   private disposed = false;
   private readonly options: ModeMenuIconOptions;
   // Called when a provider theme arrives, to draw the tiles again.
@@ -31,10 +37,13 @@ class ModeMenuIcons {
     this.onThemesChange = onThemesChange;
   }
 
-  // Forgets the resolved themes, so the next opening asks again.
-  clear(): void {
-    this.providerThemes = new Map();
-    this.pendingThemes = new Set();
+  // A refresh may change icon data or theme settings without changing the
+  // provider, so every theme is asked for again. The tiles keep the ones
+  // they have until the new answers come, instead of flashing the default.
+  invalidate(): void {
+    this.providerThemes.forEach((_theme, id) => this.staleThemes.add(id));
+    this.pendingThemes.forEach((id) => this.retireRequest(id));
+    this.pendingThemes.clear();
   }
 
   // Asks the surface for the themes of the providers not asked about yet.
@@ -43,23 +52,49 @@ class ModeMenuIcons {
     if (!resolveTheme) {
       return;
     }
-    const themes = this.providerThemes;
-    const pending = this.pendingThemes;
+    const activeIds = new Set(items.filter((item) => item.provider).map((item) => item.id));
+    this.providerKeys.forEach((_key, id) => {
+      if (!activeIds.has(id)) {
+        this.providerKeys.delete(id);
+        this.forget(id);
+      }
+    });
     items.forEach((item) => {
       const provider = item.provider;
-      if (!provider || themes.has(item.id) || pending.has(item.id)) {
+      if (!provider) {
         return;
       }
-      pending.add(item.id);
+      const providerKey = JSON.stringify([provider, item.iconUrl]);
+      if (this.providerKeys.get(item.id) !== providerKey) {
+        this.providerKeys.set(item.id, providerKey);
+        this.forget(item.id);
+      }
+      const current = this.providerThemes.has(item.id) && !this.staleThemes.has(item.id);
+      if (current || this.pendingThemes.has(item.id)) {
+        return;
+      }
+      this.pendingThemes.add(item.id);
+      const requestVersion = this.retireRequest(item.id);
+      const isCurrentRequest = () => this.requestVersions.get(item.id) === requestVersion;
       Promise.resolve(resolveTheme(provider)).then((theme: InputModeTheme | null | undefined) => {
-        pending.delete(item.id);
-        if (this.disposed || themes !== this.providerThemes || !theme) {
+        if (!isCurrentRequest()) {
           return;
         }
-        themes.set(item.id, theme);
-        this.onThemesChange();
+        this.pendingThemes.delete(item.id);
+        this.staleThemes.delete(item.id);
+        if (this.disposed) {
+          return;
+        }
+        if (theme) {
+          this.providerThemes.set(item.id, theme);
+          this.scheduleRedraw();
+        } else if (this.providerThemes.delete(item.id)) {
+          this.scheduleRedraw();
+        }
       }).catch(() => {
-        pending.delete(item.id);
+        if (isCurrentRequest()) {
+          this.pendingThemes.delete(item.id);
+        }
       });
     });
   }
@@ -81,6 +116,35 @@ class ModeMenuIcons {
 
   dispose(): void {
     this.disposed = true;
+  }
+
+  // Drops an item's theme and retires the answer still on its way.
+  private forget(id: string): void {
+    this.providerThemes.delete(id);
+    this.staleThemes.delete(id);
+    this.pendingThemes.delete(id);
+    this.retireRequest(id);
+  }
+
+  // Bumps the item's request version and returns the new one.
+  private retireRequest(id: string): number {
+    const version = (this.requestVersions.get(id) || 0) + 1;
+    this.requestVersions.set(id, version);
+    return version;
+  }
+
+  // Themes that arrive together redraw the tiles once.
+  private scheduleRedraw(): void {
+    if (this.redrawPending) {
+      return;
+    }
+    this.redrawPending = true;
+    queueMicrotask(() => {
+      this.redrawPending = false;
+      if (!this.disposed) {
+        this.onThemesChange();
+      }
+    });
   }
 }
 
