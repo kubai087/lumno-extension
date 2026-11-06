@@ -11,7 +11,8 @@ const KEYS: Record<string, { code: string; keyCode: number }> = {
   ArrowUp: { code: 'ArrowUp', keyCode: 38 },
   Alt: { code: 'AltLeft', keyCode: 18 },
   Shift: { code: 'ShiftLeft', keyCode: 16 },
-  q: { code: 'KeyQ', keyCode: 81 }
+  q: { code: 'KeyQ', keyCode: 81 },
+  K: { code: 'KeyK', keyCode: 75 }
 };
 
 // CDP modifier bits.

@@ -448,6 +448,10 @@ interface PageMessages {
   copyCurrentPageUrlFromCommand: { request: NoFields; reply: OkReply };
   // The keys whose release commits the switcher, sent to every tab of the window.
   armTabSwitcherShortcutRelease: { request: { keys: string[]; commandStartedAt: number }; reply: OkReply };
+  // The overlay starts opening on the tab (its top frame holds the keys
+  // typed meanwhile), or did not open after all.
+  armOverlayTypeAhead: { request: NoFields; reply: OkReply };
+  cancelOverlayTypeAhead: { request: NoFields; reply: OkReply };
   openTabSwitcherFromCommand: { request: { context: TabSwitcherContext }; reply: OkReply };
   advanceOpenTabSwitcherFromCommand: { request: { offset: number }; reply: OkReply & { advanced?: boolean } };
   commitOpenTabSwitcherFromShortcutRelease: { request: NoFields; reply: OkReply & { committed: boolean } };

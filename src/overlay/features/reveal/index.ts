@@ -3,7 +3,7 @@
 // input or open tabs, the entry motion and the page's scroll pauses.
 import { createFullscreenEscapeLock } from '../../../shared/ui/fullscreen-escape-lock';
 import * as LumnoOverlayLifecycle from '../../dom/lifecycle';
-import { isOverlayOpenState, setOverlayOpenState } from '../../../platform/content-registry';
+import { isOverlayOpenState, setOverlayOpenState, takeOverlayTypeAhead } from '../../../platform/content-registry';
 import type { OverlayContext } from '../../app/context';
 import type { StyleGateAnswer } from '../../app/startup';
 import type { CoreFeature } from '../core';
@@ -85,6 +85,20 @@ function createRevealFeature(ctx: OverlayContext, deps: RevealFeatureDeps) {
     elements.searchInput.focus({ preventScroll: true });
   }
 
+  // Puts the keys typed while the overlay opened, which the shortcut
+  // observer held back from the page, in the focused input as if typed now.
+  function placeTypedAhead() {
+    const searchInput = elements.searchInput;
+    const typed = takeOverlayTypeAhead();
+    if (!typed || !searchInput || !searchInput.isConnected) {
+      return;
+    }
+    const start = searchInput.selectionStart ?? searchInput.value.length;
+    const end = searchInput.selectionEnd ?? start;
+    searchInput.setRangeText(typed, start, end, 'end');
+    searchInput.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: typed }));
+  }
+
   const mountConnectionGuard = LumnoOverlayLifecycle.createMountConnectionGuard(window, {
     getMountParent(doc) {
       return doc.fullscreenElement || doc.documentElement || doc.body;
@@ -164,6 +178,7 @@ function createRevealFeature(ctx: OverlayContext, deps: RevealFeatureDeps) {
     // the command bar is visually released, instead of after the entry
     // motion has already started.
     focusOverlayInputForReveal();
+    placeTypedAhead();
     const reduceMotion = options.forceInstant ||
       shouldSkipOverlayEntryMotion();
     const revealTransform = getOverlayEnterAnimationRevealTransform();

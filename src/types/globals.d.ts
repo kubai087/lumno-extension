@@ -58,6 +58,9 @@ declare global {
     // The overlay font faces registered at document start, read as untrusted
     // (src/shared/overlay-font-faces.ts).
     earlyOverlayFontFaces?: unknown;
+    // The keys the shortcut observer held while the overlay was opening
+    // (src/content/overlay-type-ahead.ts).
+    overlayTypeAhead?: { take(): string };
   }
   var __lumnoContent: LumnoContentRegistry | undefined;
 }

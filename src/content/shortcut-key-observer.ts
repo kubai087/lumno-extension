@@ -1,12 +1,14 @@
 // Watches keys in every frame: the show-search shortcut as a fallback for
-// pages the browser command does not reach, and the release of the tab
-// switcher's modifier, which commits the switch.
+// pages the browser command does not reach, the release of the tab
+// switcher's modifier, which commits the switch, and in the top frame the
+// keys typed while the overlay opens (overlay-type-ahead.ts).
 import * as SHORTCUT_KEY_MATCHER from '../domain/shortcut-key-matcher';
 import * as OVERLAY_FONT_FACES from '../shared/overlay-font-faces';
 import type { KeyDescriptor, ShortcutSpec } from '../domain/shortcut-key-matcher';
 import type { PageReply } from '../domain/messages';
 import * as LumnoMessaging from '../platform/messaging';
-import { claimContentScript } from '../platform/content-registry';
+import { claimContentScript, isOverlayOpenState, setOverlayTypeAhead } from '../platform/content-registry';
+import { OverlayTypeAhead } from './overlay-type-ahead';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -43,6 +45,13 @@ function isFiniteNumber(value: unknown): value is number {
   let armedReleaseKeys: string[] = [];
   const recentTrustedKeydownAtByKey = new Map<string, number>();
   const recentTrustedReleaseAtByKey = new Map<string, number>();
+  // The overlay opens in the top frame only, so only it holds typed keys.
+  const overlayTypeAhead = window.top === window
+    ? new OverlayTypeAhead(window, { isOverlayOpen: isOverlayOpenState })
+    : null;
+  if (overlayTypeAhead) {
+    setOverlayTypeAhead(overlayTypeAhead);
+  }
 
   function notifyTopFrameDocumentStarted(): void {
     if (window.top !== window) {
@@ -157,6 +166,9 @@ function isFiniteNumber(value: unknown): value is number {
     }
     event.preventDefault();
     event.stopPropagation();
+    if (overlayTypeAhead) {
+      overlayTypeAhead.arm();
+    }
     try {
       LumnoMessaging.sendBackgroundMessage(chrome.runtime, {
         action: 'triggerShowSearchFromPageHotkey',
@@ -320,6 +332,16 @@ function isFiniteNumber(value: unknown): value is number {
     _sender: chrome.runtime.MessageSender,
     sendResponse: (reply: PageReply<'armTabSwitcherShortcutRelease'>) => void
   ): void => {
+      if (isRecord(request) && overlayTypeAhead &&
+          (request.action === 'armOverlayTypeAhead' || request.action === 'cancelOverlayTypeAhead')) {
+        if (request.action === 'armOverlayTypeAhead') {
+          overlayTypeAhead.arm();
+        } else {
+          overlayTypeAhead.cancel();
+        }
+        sendResponse({ ok: true });
+        return;
+      }
       if (!isRecord(request) || request.action !== 'armTabSwitcherShortcutRelease') {
         return;
       }
@@ -390,6 +412,10 @@ function isFiniteNumber(value: unknown): value is number {
   // about:blank frames included.
   if (!showSearchShortcutResolved && window.top === window) {
     refreshShowSearchShortcut();
+  }
+  // Before the relay, so the shortcut's own keydown is never held.
+  if (overlayTypeAhead) {
+    overlayTypeAhead.start();
   }
   window.addEventListener('keydown', relayShowSearchShortcut, true);
   window.addEventListener('keyup', notifyTabSwitcherShortcutModifierReleased, true);

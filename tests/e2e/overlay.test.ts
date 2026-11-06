@@ -72,6 +72,28 @@ describe('search overlay', () => {
     await web.waitFor(`!document.getElementById('${OVERLAY_HOST_ID}')`, { message: 'Escape did not close the overlay' });
   });
 
+  // Keys typed right after the shortcut, before the overlay has loaded and
+  // taken focus, go to the overlay and not to the field the page had
+  // focused (#140, a Google Sheets cell). Pressed in the page, the shortcut
+  // reaches the shortcut observer, as on browsers whose command does not.
+  flow('keeps keys typed while it opens from the field the page had focused', async ({ browser, fixtures }) => {
+    const web = await browser.openPage(fixtures.url('/page.html'));
+    await focusTab(browser, web);
+    await web.evaluate(`(() => {
+      const field = document.createElement('input');
+      field.id = 'page-field';
+      document.body.prepend(field);
+      field.focus();
+    })()`);
+    // The observer learns the configured shortcut from the worker at start.
+    await delay(500);
+    await web.press('K', { modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control', 'Shift'] });
+    await web.typeKeys('abc');
+    await web.waitForShadow(OVERLAY_HOST_ID, OVERLAY_INPUT, inputValue, (values) => values[0] === 'abc',
+      { message: 'the overlay input did not receive the keys typed while it opened' });
+    expect(await web.evaluate(`document.getElementById('page-field').value`), 'the page field took keys typed for the overlay').toBe('');
+  });
+
   // With the overlay set to open results in the current tab, Enter loads a
   // typed address in the page's own tab and Option/Alt+Enter opens a new
   // one; a pinned tab is kept and Enter opens a new tab instead.

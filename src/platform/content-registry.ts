@@ -5,7 +5,7 @@
 // outside a module: which classic content scripts already run (a script can
 // be injected into a page that already loaded it from the manifest) and
 // whether the search overlay is open (which the worker reads without loading
-// the overlay). It lives on the isolated world's global object, which the
+// the overlay), and the keys typed while it opens. It lives on the isolated world's global object, which the
 // page never sees; this module is the only code that touches it. A reloaded
 // or updated extension runs in a new isolated world, so each extension
 // context starts with an empty registry and fresh module instances.
@@ -73,6 +73,21 @@ function readEarlyOverlayFontFaces(scope: object): unknown {
   return getRegistryOf(scope).earlyOverlayFontFaces;
 }
 
+// The keys held while the overlay was opening: the shortcut observer
+// registers its holder, the overlay takes the text when its input has focus.
+function setOverlayTypeAhead(holder: { take(): string }): void {
+  getRegistry().overlayTypeAhead = holder;
+}
+
+function takeOverlayTypeAhead(): string {
+  const holder = getRegistry().overlayTypeAhead;
+  if (!holder || typeof holder.take !== 'function') {
+    return '';
+  }
+  const text: unknown = holder.take();
+  return typeof text === 'string' ? text : '';
+}
+
 function setOverlayOpenState(open: boolean): void {
   getRegistry().overlayOpen = open;
 }
@@ -88,5 +103,7 @@ export {
   readEarlyOverlayFontFaces,
   setDocumentPipActiveState,
   setEarlyOverlayFontFaces,
-  setOverlayOpenState
+  setOverlayOpenState,
+  setOverlayTypeAhead,
+  takeOverlayTypeAhead
 };

@@ -9,10 +9,12 @@ import type { OverlayToggleCommand } from '../domain/injected-commands';
 import { openBrowserNewtabFallback, openNewtabFallback, openNewtabFallbackForUrl } from './newtab-fallback';
 import {
   getRestrictedAction,
+  ignoreExpectedChromeError,
   isDocumentPipEnabled,
   logHotkeyDebug,
   whenBackgroundSettingsReady
 } from './worker-context';
+import * as LumnoMessaging from '../platform/messaging';
 import { loadSiteSearchProviders, siteSearchCache } from './search/site-search-providers';
 import {
   canOpenOverlayOnUrl,
@@ -159,6 +161,22 @@ interface OverlayOpenAttempt {
   finished: boolean;
   // A failure before the page completed is retried once it has.
   retryPreCompleteFailure: boolean;
+  // Whether the page was asked to hold the keys typed meanwhile.
+  typeAheadArmed: boolean;
+}
+
+// Asks the tab's top frame to hold the keys typed while the overlay opens,
+// or to drop them when it does not open (src/content/overlay-type-ahead.ts).
+// A page without the shortcut observer simply does not answer.
+function sendOverlayTypeAhead(tabId: number, action: 'armOverlayTypeAhead' | 'cancelOverlayTypeAhead'): void {
+  if (!chrome.tabs || typeof chrome.tabs.sendMessage !== 'function') {
+    return;
+  }
+  try {
+    LumnoMessaging.sendTabMessage(chrome.tabs, tabId, { action }, ignoreExpectedChromeError, { frameId: 0 });
+  } catch (_error) {
+    // The tab closed or cannot take messages.
+  }
 }
 
 function finishOpenAttempt(attempt: OverlayOpenAttempt, ok: boolean): void {
@@ -176,6 +194,9 @@ function finishOpenAttempt(attempt: OverlayOpenAttempt, ok: boolean): void {
   }
   if (!activeTab || typeof activeTab.id !== 'number') {
     return;
+  }
+  if (ok !== true && attempt.typeAheadArmed) {
+    sendOverlayTypeAhead(activeTab.id, 'cancelOverlayTypeAhead');
   }
   if (ok !== true && options.loadingRecovery !== true && attempt.retryPreCompleteFailure) {
     const trackedRecord = overlayLoadingRecordsByTabId.get(activeTab.id) || null;
@@ -335,7 +356,8 @@ export function openOverlayOnTab(
     startedAt: Date.now(),
     opening: null,
     finished: false,
-    retryPreCompleteFailure: false
+    retryPreCompleteFailure: false,
+    typeAheadArmed: false
   };
   if (!activeTab || typeof activeTab.id !== 'number') {
     logHotkeyDebug('no-active-tab', { source: source || '' });
@@ -367,6 +389,11 @@ export function openOverlayOnTab(
   if (!attempt.opening) {
     finishOpenAttempt(attempt, false);
     return;
+  }
+  // A reopen after a navigation is not something the user just typed for.
+  if (attempt.options.loadingRecovery !== true) {
+    attempt.typeAheadArmed = true;
+    sendOverlayTypeAhead(targetTab.id, 'armOverlayTypeAhead');
   }
   const loadingRecord = rememberOverlayLoadingRecord(targetTab, source, attempt.options);
   attempt.retryPreCompleteFailure = Boolean(loadingRecord);
