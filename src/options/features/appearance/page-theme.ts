@@ -76,6 +76,32 @@ class PageTheme {
     const mode = this.store.getSnapshot().mode;
     const resolved = mode === 'system' ? (this.darkQuery.matches ? 'dark' : 'light') : mode;
     const { doc } = this.page;
+    if (doc.body.getAttribute('data-theme') !== resolved && this.canCrossFade()) {
+      // The page cross-fades between the two themes (see options.css); the
+      // panel draws the new one before the browser takes the new picture.
+      doc.startViewTransition(() => {
+        flushSync(() => this.paintResolved(resolved));
+      });
+      return;
+    }
+    this.paintResolved(resolved);
+  }
+
+  // Only a change the reader sees animates: not the first paint of the
+  // stored mode, and not when they ask for reduced motion.
+  private canCrossFade(): boolean {
+    const { doc, win } = this.page;
+    return (
+      typeof doc.startViewTransition === 'function' &&
+      doc.documentElement.getAttribute('data-theme-ready') === 'true' &&
+      doc.documentElement.getAttribute('data-lumno-options-ready') === 'true' &&
+      doc.visibilityState === 'visible' &&
+      !win.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  }
+
+  private paintResolved(resolved: 'dark' | 'light'): void {
+    const { doc } = this.page;
     this.store.setState({ resolved });
     doc.body.setAttribute('data-theme', resolved);
     doc.documentElement.style.colorScheme = resolved;

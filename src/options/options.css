@@ -19,9 +19,12 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: clamp(64px, 11vh, 120px) 20px 40px;
+  /* The tabs sit on the banner's meadow, low enough that the wordmark and
+     the hills above them stay in view; short windows trade some of it for
+     room. */
+  padding: clamp(96px, 18vh, 160px) 20px 40px;
   padding-top: max(
-    clamp(64px, 11vh, 120px),
+    clamp(96px, 18vh, 160px),
     calc(env(safe-area-inset-top) + 24px)
   );
   padding-right: max(20px, env(safe-area-inset-right));
@@ -109,6 +112,13 @@ html:not([data-lumno-options-ready="true"]) :is(.settings-bg-light, #_x_extensio
 }
 @keyframes _xOptionsStartupRevealFallback_2026_unique_ {
   to { opacity: var(--settings-reveal-opacity, 1); }
+}
+/* Switching between light and dark cross-fades the whole page
+   (features/appearance/page-theme.ts starts the transition). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--lumno-duration-3xl);
+  animation-timing-function: ease;
 }
 /* Light mode subtle noise overlay (adjust opacity/URL for strength & tone) */
 body[data-theme="light"]::before {
