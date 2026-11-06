@@ -84,6 +84,8 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   let bookmarkContextMenuTarget: BookmarkContextTarget | null = null;
   // The menu, made the first time it opens.
   let bookmarkContextMenu: BookmarkContextMenuParts | null = null;
+  // How close the pointer has come to a menu opened from a folder menu row.
+  let pointerClosestDistance = Infinity;
 
   const BOOKMARK_CONTEXT_MENU_REMOVE_VALUE = 'remove';
   const BOOKMARK_CONTEXT_MENU_ADD_SHORTCUT_VALUE = 'add-shortcut';
@@ -91,6 +93,10 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
   const BOOKMARK_CONTEXT_MENU_MAX_WIDTH_PX = 240;
   const BOOKMARK_CONTEXT_MENU_PORTAL_Z_INDEX = 10060;
   const BOOKMARK_CONTEXT_MENU_PORTAL_OFFSET_PX = -6;
+  // A menu opened from a folder menu row closes once the pointer strays this
+  // far past its closest approach, so moving on through the folder menu
+  // drops it.
+  const BOOKMARK_CONTEXT_MENU_LEAVE_TOLERANCE_PX = 16;
 
   function getBookmarkFolderOpenCount(target: BookmarkContextTarget | null | undefined): number {
     if (!target || !target.isFolder) {
@@ -282,6 +288,38 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     closeBookmarkContextMenu();
   }
 
+  // How far the point lies outside the open menu; 0 inside it.
+  function getDistanceToBookmarkContextMenu(x: number, y: number): number | null {
+    if (!bookmarkContextMenu) {
+      return null;
+    }
+    const rect = bookmarkContextMenu.menu.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+    const dx = Math.max(rect.left - x, 0, x - rect.right);
+    const dy = Math.max(rect.top - y, 0, y - rect.bottom);
+    return Math.hypot(dx, dy);
+  }
+
+  // Heading toward the menu keeps it; moving away from it, or out of it,
+  // closes a menu opened from a folder menu row.
+  function handleBookmarkContextMenuDocumentPointerMove(event: PointerEvent): void {
+    const target = bookmarkContextMenuTarget;
+    if (!target || target.sourceKind !== 'cascade' || event.pointerType === 'touch' ||
+        !isBookmarkContextMenuOpen()) {
+      return;
+    }
+    const distance = getDistanceToBookmarkContextMenu(event.clientX, event.clientY);
+    if (distance === null) {
+      return;
+    }
+    pointerClosestDistance = Math.min(pointerClosestDistance, distance);
+    if (distance > pointerClosestDistance + BOOKMARK_CONTEXT_MENU_LEAVE_TOLERANCE_PX) {
+      closeBookmarkContextMenu();
+    }
+  }
+
   function createBookmarkContextMenu(): BookmarkContextMenuParts | null {
     if (!bookmarkContextMenuSelectController) {
       return null;
@@ -328,6 +366,7 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     });
     menu.addEventListener('click', handleBookmarkContextMenuActionClick);
     document.addEventListener('pointerdown', handleBookmarkContextMenuDocumentPointerDown, true);
+    document.addEventListener('pointermove', handleBookmarkContextMenuDocumentPointerMove, true);
     (document.body || document.documentElement).appendChild(control);
     return { control, select, trigger, menu };
   }
@@ -344,6 +383,7 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     }
     closeBookmarkContextMenu();
     bookmarkContextMenuTarget = target;
+    pointerClosestDistance = Infinity;
     setBookmarkContextMenuMark(target);
     setBookmarkContextMenuPosition(target, event);
     bookmarkContextMenuSelectController.setOptions(

@@ -718,12 +718,19 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
     return false;
   }
 
+  // While a row's context menu is open the folder menu holds still: moving
+  // onto that menu, or across rows on the way, leaves the open levels as
+  // they are.
+  function isHeldByContextMenu(): boolean {
+    return contextMenuBookmarkId !== '';
+  }
+
   function handleBookmarkCascadeDocumentPointerMove(event: PointerEvent): void {
     if (!bookmarkCascadeMenu) {
       return;
     }
     const point = updateBookmarkCascadePointer(event);
-    if (isBookmarkCascadePointInsideInteractiveArea(point)) {
+    if (isHeldByContextMenu() || isBookmarkCascadePointInsideInteractiveArea(point)) {
       cancelBookmarkCascadeDelayedClose();
       return;
     }
@@ -1109,7 +1116,7 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
 
   // The pointer entered another row (or none): the selected row and its
   // submenu give way, unless the pointer may be heading into that submenu.
-  function clearBookmarkCascadePointerActiveItem(entry: CascadeLevelEntry, nextKey: string, event: PointerEvent): void {
+  function clearBookmarkCascadePointerActiveItem(entry: CascadeLevelEntry, nextKey: string, event: PointerEvent | HoverPointer): void {
     if (!entry.activeKey || entry.activeKey === nextKey) {
       return;
     }
@@ -1358,6 +1365,47 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
     openBookmarkCascadeUrl(row.item.url, event, anchor);
   }
 
+  // The pointer came onto a row: after the hover pause it opens the row's
+  // folder or selects the site.
+  function hoverRow(
+    entry: CascadeLevelEntry,
+    key: string,
+    row: CascadeRowContent,
+    button: HTMLElement,
+    event: PointerEvent | HoverPointer
+  ): void {
+    clearBookmarkCascadePointerActiveItem(entry, key, event);
+    scheduleBookmarkCascadeHoverIntent({
+      levelIndex: entry.levelIndex,
+      key,
+      triggerElement: button,
+      run: row.isFolder
+        ? () => openNestedLevel(entry, key)
+        : () => activateLeafItem(entry, key)
+    }, event);
+  }
+
+  // Once a row's context menu closes, the row the pointer now rests on takes
+  // the hover it missed while the menu held still.
+  function resumeHoverAtPointer(): void {
+    const point = bookmarkCascadePointer;
+    if (!bookmarkCascadeMenu || !point || !documentObj || typeof documentObj.elementFromPoint !== 'function') {
+      return;
+    }
+    const hit = documentObj.elementFromPoint(point.x, point.y);
+    const button = hit ? hit.closest('.x-nt-bookmark-cascade-item') : null;
+    if (!isHtmlElement(button) || !bookmarkCascadeMenu.contains(button)) {
+      return;
+    }
+    const entry = bookmarkCascadeLevels.find((level) =>
+      Boolean(level && level.levelElement && level.levelElement.contains(button)));
+    const key = entry ? getRowKeyForButton(entry, button) : '';
+    const row = entry && key ? getRowContent(entry, key) : null;
+    if (entry && row) {
+      hoverRow(entry, key, row, button, { clientX: point.x, clientY: point.y, pointerType: 'mouse' });
+    }
+  }
+
   // Finds the row a view event came from; the menu may have changed since.
   function withRow(
     levelIndex: number,
@@ -1380,19 +1428,15 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
       }
     },
     onRowPointerEnter(levelIndex, key, event, button) {
-      withRow(levelIndex, key, (entry, row) => {
-        clearBookmarkCascadePointerActiveItem(entry, key, event);
-        scheduleBookmarkCascadeHoverIntent({
-          levelIndex,
-          key,
-          triggerElement: button,
-          run: row.isFolder
-            ? () => openNestedLevel(entry, key)
-            : () => activateLeafItem(entry, key)
-        }, event);
-      });
+      if (isHeldByContextMenu()) {
+        return;
+      }
+      withRow(levelIndex, key, (entry, row) => hoverRow(entry, key, row, button, event));
     },
     onRowPointerLeave(levelIndex, key, event, button) {
+      if (isHeldByContextMenu()) {
+        return;
+      }
       withRow(levelIndex, key, (entry, row) => {
         // Moving onto the row's copy button stays on the row.
         const rowElement = getRow(button);
@@ -1976,10 +2020,19 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
     setDragMode: setBookmarkCascadeDragMode,
     setContextMenuBookmark(id: string | null) {
       const nextId = id || '';
-      if (nextId !== contextMenuBookmarkId) {
-        contextMenuBookmarkId = nextId;
-        invalidate();
+      if (nextId === contextMenuBookmarkId) {
+        return;
       }
+      batch(() => {
+        contextMenuBookmarkId = nextId;
+        if (nextId) {
+          cancelBookmarkCascadeHoverIntent();
+          cancelBookmarkCascadeDelayedClose();
+        } else {
+          resumeHoverAtPointer();
+        }
+        invalidate();
+      });
     },
     updateDragPointer: (pointInput: PointLike | null | undefined) =>
       batch(() => updateBookmarkCascadeDragPointer(pointInput))

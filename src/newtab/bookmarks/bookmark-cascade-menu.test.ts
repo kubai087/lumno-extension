@@ -388,6 +388,55 @@ describe('New Tab bookmark folder menu: hover intent', () => {
     expect(items(levels()[1])[0].hasAttribute('data-bookmark-context-menu-open')).toBe(false);
   });
 
+  it('holds its open levels while a row\'s context menu is open', async () => {
+    const fixture = await openWithSubmenu();
+    const rootItems = items(levels()[0]);
+    const contextMenu = document.createElement('div');
+    document.body.appendChild(contextMenu);
+    act(() => fixture.runtime.setContextMenuBookmark('research'));
+    // The pointer moves off the row onto the context menu, below the levels.
+    movePointer(rootItems[0], contextMenu, { clientX: 220, clientY: 400 });
+    movePointer(null, rootItems[1], { clientX: 120, clientY: 138 });
+    act(() => {
+      document.body.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 220, clientY: 400 }));
+    });
+    fixture.clock.advance(CLOSE_PAUSE_MS);
+
+    expect(fixture.runtime.isOpen()).toBe(true);
+    expect(levels()).toHaveLength(2);
+    expect(activeLabel(levels()[0])).toBe('Research');
+
+    act(() => fixture.runtime.setContextMenuBookmark(null));
+    act(() => {
+      document.body.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 900, clientY: 650 }));
+    });
+    fixture.clock.advance(CLOSE_PAUSE_MS);
+    expect(fixture.runtime.isOpen()).toBe(false);
+  });
+
+  it('hovers the row under the pointer once the context menu closes', async () => {
+    const fixture = await openWithSubmenu();
+    const rootItems = items(levels()[0]);
+    act(() => fixture.runtime.setContextMenuBookmark('amazon'));
+    // The pointer comes to rest on Archive while the menu holds still.
+    movePointer(null, rootItems[1], { clientX: 120, clientY: 150 });
+    act(() => {
+      document.body.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 120, clientY: 150 }));
+    });
+    fixture.clock.advance(HOVER_PAUSE_MS);
+    expect(activeLabel(levels()[0])).toBe('Research');
+
+    document.elementFromPoint = () => rootItems[1];
+    try {
+      act(() => fixture.runtime.setContextMenuBookmark(null));
+      fixture.clock.advance(HOVER_PAUSE_MS);
+    } finally {
+      Reflect.deleteProperty(document, 'elementFromPoint');
+    }
+    expect(levels()).toHaveLength(1);
+    expect(activeLabel(levels()[0])).toBe('Archive');
+  });
+
   it('opens a site in the background on Ctrl+Enter and stays open', async () => {
     const fixture = await openWithSubmenu();
     const site = items(levels()[1])[0];
