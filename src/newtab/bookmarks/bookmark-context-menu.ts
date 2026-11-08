@@ -199,12 +199,18 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
     }
   }
 
-  function closeBookmarkContextMenu(): void {
+  // The row or card the menu was opened from stops being marked, however the
+  // menu closed.
+  function releaseBookmarkContextMenuTarget(): void {
     setBookmarkContextMenuMark(null);
+    bookmarkContextMenuTarget = null;
+  }
+
+  function closeBookmarkContextMenu(): void {
+    releaseBookmarkContextMenuTarget();
     if (bookmarkContextMenu && bookmarkContextMenuSelectController) {
       bookmarkContextMenuSelectController.setOpen(bookmarkContextMenu.control, false);
     }
-    bookmarkContextMenuTarget = null;
   }
 
   function getBookmarkContextMenuPoint(target: BookmarkContextTarget, event: MouseEvent | null | undefined): { x: number; y: number } {
@@ -343,7 +349,8 @@ function createBookmarkContextMenu(deps: BookmarkContextMenuDeps) {
       options: getBookmarkContextMenuOptions(),
       onAction(payload) {
         handleBookmarkContextMenuAction(payload && payload.action);
-      }
+      },
+      onClose: releaseBookmarkContextMenuTarget
     });
     if (!created) {
       return null;

@@ -9,13 +9,16 @@
 // It holds keys only in the top frame, where the overlay opens, and only for
 // a short while: the overlay that opens takes them, the worker cancels when
 // it does not open, and a click or leaving the page ends it too. Keys with
-// Ctrl, Alt or Cmd, IME composition and keys such as Enter or Escape still
-// reach the page.
+// Ctrl, Alt or Cmd, IME composition, Escape and the arrow keys still reach
+// the page.
 
 // How long one arm holds keys without the overlay taking them.
 const TYPE_AHEAD_HOLD_MS = 1500;
 // Held text older than this is dropped instead of handed over.
 const TYPE_AHEAD_MAX_AGE_MS = 5000;
+// Keys that would submit or edit what the page has focused. While holding
+// they are kept from it; they add nothing to the held text.
+const PAGE_EDITING_KEYS: ReadonlySet<string> = new Set(['Enter', 'Tab', 'Backspace', 'Delete']);
 
 interface OverlayTypeAheadOptions {
   // Whether the overlay is already open; a shortcut then closes it.
@@ -106,7 +109,7 @@ class OverlayTypeAhead {
       this.text = Array.from(this.text).slice(0, -1).join('');
     } else if (typeof event.key === 'string' && Array.from(event.key).length === 1) {
       this.text += event.key;
-    } else {
+    } else if (!PAGE_EDITING_KEYS.has(event.key)) {
       return;
     }
     event.preventDefault();

@@ -14,6 +14,7 @@ const MENU_RECT = { left: 300, top: 200, right: 460, bottom: 380, width: 160, he
 function setUp() {
   const settings = createOptionsTestSettings({ sync: {}, local: {} });
   const controller = createSelectMenuController();
+  const contextMenuBookmark = createViewStore<{ id: string | null }>({ id: null });
   const menu = createBookmarkContextMenu({
     bookmarksRuntime: createBookmarksRuntime({ chromeApi: null }),
     t: (_key, fallback) => fallback,
@@ -28,12 +29,12 @@ function setUp() {
     addBookmarkFolderToShortcuts: () => Promise.resolve(false),
     hideCursorTooltip() {},
     bookmarkContextMenuSelectController: controller,
-    bookmarkParts: { cascade: null, contextMenuBookmark: createViewStore<{ id: string | null }>({ id: null }) },
+    bookmarkParts: { cascade: null, contextMenuBookmark },
     dragSessions: { bookmark: null },
     locale: new SurfaceLocale(settings.store, async () => ({})),
     otherContextMenus: []
   });
-  return { controller, menu };
+  return { contextMenuBookmark, controller, menu };
 }
 
 function openAt(menu: ReturnType<typeof setUp>['menu'], sourceKind: 'cascade' | 'card', x: number, y: number): void {
@@ -101,5 +102,20 @@ describe('New Tab bookmark context menu: pointer leaving', () => {
     moveTo(320, 210);
     moveTo(800, 600);
     expect(isOpen()).toBe(true);
+  });
+});
+
+describe('New Tab bookmark context menu: closing on its own', () => {
+  it('stops marking the bookmark when focus moves out of the menu', () => {
+    const { contextMenuBookmark, menu } = setUp();
+    openAt(menu, 'card', 310, 190);
+    expect(contextMenuBookmark.getSnapshot().id).toBe('site');
+
+    const outside = document.body.appendChild(document.createElement('input'));
+    act(() => {
+      outside.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+    expect(isOpen()).toBe(false);
+    expect(contextMenuBookmark.getSnapshot().id).toBe(null);
   });
 });

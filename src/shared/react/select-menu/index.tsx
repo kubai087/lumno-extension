@@ -36,6 +36,8 @@ export interface SelectMenuConfig {
   menuWidth?: 'auto' | 'content' | 'trigger';
   onAction?(payload: { action: string; option: SelectMenuOption }): void;
   onCheckedChange?(value: string, checked: boolean): void;
+  /** The open menu is closing, by the owner's call or on its own (Escape, a press or focus outside). */
+  onClose?(): void;
   onValueChange?(value: string): boolean | void;
   options?: SelectMenuOption[];
   /**
@@ -393,13 +395,17 @@ function useSelectMenuState(config: SelectMenuConfig, searchable: boolean, onBef
     setSelectedValue(String(config.value ?? ''));
   }, [config.value]);
 
+  const { onClose } = config;
   const setOpen = useCallback((nextOpen: boolean) => {
     if (nextOpen && config.disabled) return;
     if (nextOpen && !openRef.current) {
       onBeforeOpen?.();
     }
+    if (!nextOpen && openRef.current) {
+      onClose?.();
+    }
     setOpenState(nextOpen);
-  }, [config.disabled, onBeforeOpen]);
+  }, [config.disabled, onBeforeOpen, onClose]);
 
   useLayoutEffect(() => {
     registerControls?.({

@@ -55,17 +55,29 @@ describe('OverlayTypeAhead', () => {
     expect(heard).toEqual(['c']);
   });
 
-  it('leaves the page its shortcuts, Enter, Escape, arrows, untrusted keys and IME composition', () => {
+  it('leaves the page its shortcuts, Escape, arrows, untrusted keys and IME composition', () => {
     const { editor, heard } = createPageEditor();
     typeAhead.arm();
     typeKeys(editor, ['c'], { metaKey: true });
     typeKeys(editor, ['v'], { ctrlKey: true });
     typeKeys(editor, ['å'], { altKey: true });
-    typeKeys(editor, ['Enter', 'Escape', 'ArrowDown', 'Backspace']);
+    typeKeys(editor, ['Escape', 'ArrowDown']);
     typeKeys(editor, ['n'], { isComposing: true });
+    typeKeys(editor, ['Enter'], { isComposing: true });
     editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', bubbles: true }));
-    expect(heard).toEqual(['c', 'v', 'å', 'Enter', 'Escape', 'ArrowDown', 'Backspace', 'n', 'z']);
+    expect(heard).toEqual(['c', 'v', 'å', 'Escape', 'ArrowDown', 'n', 'Enter', 'z']);
     expect(typeAhead.take()).toBe('');
+  });
+
+  it('keeps Enter, Tab and the deleting keys from the page without adding them to the text', () => {
+    const { editor, heard } = createPageEditor();
+    typeAhead.arm();
+    const beforeText = typeKeys(editor, ['Backspace', 'Delete', 'Enter', 'Tab']);
+    typeKeys(editor, ['a']);
+    const afterText = typeKeys(editor, ['Enter'], { shiftKey: true });
+    expect(heard).toEqual([]);
+    expect([...beforeText, ...afterText].every((event) => event.defaultPrevented)).toBe(true);
+    expect(typeAhead.take()).toBe('a');
   });
 
   it('does not arm while the overlay is open, since the shortcut then closes it', () => {

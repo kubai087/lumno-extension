@@ -60,6 +60,21 @@ afterEach(() => {
 });
 
 describe('New Tab select menu React island', () => {
+  it('reports closing when an open menu closes itself, and not when it was closed already', () => {
+    const onClose = vi.fn();
+    const { controller, instance } = createMenu({ ...baseConfig, onClose });
+    act(() => controller.setOpen(instance.wrapper, false));
+    expect(onClose).not.toHaveBeenCalled();
+
+    act(() => controller.setOpen(instance.wrapper, true));
+    const outside = document.body.appendChild(document.createElement('input'));
+    act(() => {
+      outside.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+    expect(controller.isOpen(instance.wrapper)).toBe(false);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps a disabled source selector closed', () => {
     const { controller, instance } = createMenu({ ...baseConfig, disabled: true });
     expect(instance.trigger.disabled).toBe(true);
