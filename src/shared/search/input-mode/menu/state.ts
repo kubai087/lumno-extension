@@ -54,7 +54,8 @@ function createModeMenuEntries(
     group: item.group ? String(item.group) : '',
     item,
     labelText: String(item.label),
-    searchIndex: buildSearchIndex(item)
+    // Indexing is only needed when the user filters the menu.
+    get searchIndex() { return buildSearchIndex(item); }
   }));
 }
 
