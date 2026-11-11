@@ -134,6 +134,7 @@ function createPanelFeature(ctx: OverlayContext, deps: PanelFeatureDeps) {
   } = PANEL_RESULT_ACTIVATION.createResultActivation({
     elements,
     currentTabPinned: openOptions.currentTabPinned,
+    splitViewAvailable: openOptions.splitViewAvailable,
     settings,
     removeOverlay
   });

@@ -9,17 +9,21 @@ interface SplitSourceTab {
   splitViewId?: number;
 }
 
+// Whether the browser has split views at all.
+function hasSplitViews(tabs: SplitTabsApi | null | undefined): boolean {
+  return Boolean(tabs && typeof tabs.createSplit === 'function');
+}
+
 function canSplitBeside<T extends SplitSourceTab>(
   tabs: SplitTabsApi | null | undefined,
   sourceTab: T | null | undefined
 ): sourceTab is T & { id: number } {
   return Boolean(
-    tabs &&
-    typeof tabs.createSplit === 'function' &&
+    hasSplitViews(tabs) &&
     sourceTab &&
     typeof sourceTab.id === 'number' &&
     !(typeof sourceTab.splitViewId === 'number' && sourceTab.splitViewId >= 0)
   );
 }
 
-export { canSplitBeside };
+export { canSplitBeside, hasSplitViews };

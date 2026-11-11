@@ -3,6 +3,7 @@
 // activation, site search providers and their icons, the slash commands,
 // and the site themes the results, cards and tiles are tinted with.
 import * as LumnoShortcutFaviconStore from '../../../platform/shortcut-favicon-store';
+import { hasSplitViews } from '../../../domain/split-view';
 import * as NEWTAB_SITE_SEARCH_PROVIDERS from '../../search/site-search-providers';
 import { createDefaultTheme, createUrlHighlightTheme, defaultAccentColor } from '../../../shared/favicon/favicon-theme';
 import { extractAverageColor } from '../../../shared/favicon/average-color';
@@ -92,6 +93,7 @@ function createSearchCorePart(ctx: PageContext, deps: SearchCorePartDeps) {
     source: 'newtab',
     enterAction: 'openNewTab',
     isCurrentTabDefault: () => !settings.get(newtabOpenInNewTab).search,
+    canSplitView: () => hasSplitViews(typeof chrome !== 'undefined' ? chrome.tabs : null),
     openInCurrentTab: navigateToUrl
   });
   const menuOrder = new SearchModeMenuOrder(settings);

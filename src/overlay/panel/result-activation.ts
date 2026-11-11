@@ -15,11 +15,12 @@ interface ResultActivationDeps {
   removeOverlay(overlay: HTMLElement | null): void;
   settings: OverlaySettings;
   currentTabPinned: boolean;
+  splitViewAvailable: boolean;
   elements: Pick<OverlayPanelElements, 'overlay' | 'searchInput'>;
 }
 
 function createResultActivation(deps: ResultActivationDeps) {
-  const { removeOverlay, settings, currentTabPinned, elements } = deps;
+  const { removeOverlay, settings, currentTabPinned, splitViewAvailable, elements } = deps;
 
   // A pinned tab is kept: results meant for it open in a new tab.
   function isCurrentTabDefault(): boolean {
@@ -29,6 +30,7 @@ function createResultActivation(deps: ResultActivationDeps) {
   const resultActivation = new ResultActivation(settings.store, {
     source: 'overlay',
     isCurrentTabDefault,
+    canSplitView: () => splitViewAvailable,
     openInCurrentTab: (url) => LumnoMessaging.sendBackgroundMessage(chrome.runtime, { action: 'createTab', url, disposition: 'currentTab' })
   });
 

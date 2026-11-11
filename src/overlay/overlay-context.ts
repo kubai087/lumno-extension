@@ -14,6 +14,8 @@ interface OverlayOpenOptions {
   currentTabUrl: string;
   // Results meant for the current tab open in a new one instead.
   currentTabPinned: boolean;
+  // A result can open in a split view beside the current tab.
+  splitViewAvailable: boolean;
   // When the user asked for the overlay, for the entry motion's budget.
   openedAt: number;
   documentPipEnabled: boolean;
@@ -82,6 +84,7 @@ function readOverlayOpenOptions(value: unknown, now: number): OverlayOpenOptions
     currentTabId: Number.isFinite(currentTabId) ? currentTabId : null,
     currentTabUrl: typeof context.currentTabUrl === 'string' ? context.currentTabUrl.trim() : '',
     currentTabPinned: context.currentTabPinned === true,
+    splitViewAvailable: context.splitViewAvailable === true,
     openedAt: readOpenedAt(context.openedAt, now),
     documentPipEnabled: Boolean(context.documentPipEnabled),
     siteSearchProviders,

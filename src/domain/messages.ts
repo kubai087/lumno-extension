@@ -421,6 +421,8 @@ interface OverlayOpenContext {
   currentTabUrl: string;
   // Results meant for the current tab open in a new one instead.
   currentTabPinned: boolean;
+  // A result can open in a split view beside the current tab.
+  splitViewAvailable: boolean;
   // When the user started waiting, for the entry motion's budget.
   openedAt: number;
   documentPipEnabled: boolean;

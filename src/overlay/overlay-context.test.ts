@@ -32,4 +32,11 @@ describe('Overlay open context', () => {
       expect(readOverlayOpenOptions({ currentTabPinned: value }, Date.now()).currentTabPinned).toBe(false);
     });
   });
+
+  it('offers split views only for a real true', () => {
+    expect(readOverlayOpenOptions({ splitViewAvailable: true }, Date.now()).splitViewAvailable).toBe(true);
+    [undefined, 'true', 1, null].forEach((value) => {
+      expect(readOverlayOpenOptions({ splitViewAvailable: value }, Date.now()).splitViewAvailable).toBe(false);
+    });
+  });
 });

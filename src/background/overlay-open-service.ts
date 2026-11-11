@@ -47,6 +47,7 @@ import {
   updateOverlayLoadingRecordFromInvocation
 } from './overlay-loading-service';
 import { scheduleSiteSearchProviderIconWarmup } from './favicon/site-search-icons';
+import { canSplitBeside } from '../domain/split-view';
 
 // The overlay being opened on a tab; a second open meanwhile is ignored.
 interface OverlayOpening {
@@ -258,6 +259,7 @@ function buildOverlayContext(
     currentTabId: activeTab.id,
     currentTabUrl: getResolvedTabUrl(activeTab),
     currentTabPinned: activeTab.pinned === true,
+    splitViewAvailable: canSplitBeside(chrome.tabs, activeTab),
     openedAt: attempt.startedAt,
     documentPipEnabled: isDocumentPipEnabled(),
     siteSearchProviders: Array.isArray(siteSearchCache) ? siteSearchCache : [],

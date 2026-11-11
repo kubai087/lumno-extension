@@ -50,6 +50,8 @@ export interface SurfaceOptions {
   // What the worker passes the overlay as it opens: the window's tabs and
   // more; the bundled site searches unless given.
   openContext?: Values;
+  // The browser has split views (Chrome 155 and later).
+  splitView?: boolean;
 }
 
 export type Navigation = { url: unknown } | { search: unknown } | null;
@@ -109,7 +111,11 @@ async function openOverlay(options: SurfaceOptions): Promise<Backend> {
     darkSystem: options.darkSystem,
     stylesheetsLoad: 5
   });
-  const root = await page.open({ siteSearchProviders: bundledSiteSearchProviders(), ...(options.openContext || {}) });
+  const root = await page.open({
+    siteSearchProviders: bundledSiteSearchProviders(),
+    splitViewAvailable: options.splitView === true,
+    ...(options.openContext || {})
+  });
   return {
     root: () => root,
     input: () => {
@@ -172,6 +178,9 @@ async function openNewtab(options: SurfaceOptions): Promise<Backend> {
     setTimeout(() => callback(tab), 0);
     return undefined;
   };
+  if (options.splitView) {
+    Reflect.set(browser.tabs, 'createSplit', vi.fn());
+  }
   vi.spyOn(navigator, 'platform', 'get').mockReturnValue(options.platform || 'MacIntel');
   if (options.userAgent) {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(options.userAgent);
