@@ -443,9 +443,14 @@ function createPanelKeys(deps: PanelKeysDeps) {
         return;
       }
 
+      const inputValue = input.value;
+      const autocompleteTypedQuery = suggestionInputPreview.isActive()
+        ? null
+        : searchAutocomplete.typedQueryFor(inputValue);
+      const hasCurrentResults = searchResults.isRenderedFor(autocompleteTypedQuery ?? query);
       const activeSuggestionIndex = searchResults.selectedIndex >= 0
         ? searchResults.selectedIndex
-        : getAutoHighlightIndex();
+        : (hasCurrentResults ? getAutoHighlightIndex() : -1);
       if (activeSuggestionIndex >= 0 && suggestionItems[activeSuggestionIndex]) {
         // Check if we're showing search suggestions or tab suggestions
         const activeItem = suggestionItems[activeSuggestionIndex];
@@ -542,7 +547,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
           updateSearchSuggestions([], query);
           return;
         }
-        if (searchMode.local) {
+        if (searchMode.local || searchMode.openTabs) {
           return;
         }
         const activeProvider = searchMode.site;
@@ -556,7 +561,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
             return;
           }
         }
-        const currentRawInput = (searchQuery.raw || input.value || '').trim();
+        const currentRawInput = (searchQuery.raw || inputValue || '').trim();
         const inlineSearch = searchMode.inline;
         if (inlineSearch && inlineSearch.isAuto && inlineSearch.rawInput === currentRawInput) {
           if (inlineSearch.provider && inlineSearch.query) {
@@ -575,7 +580,7 @@ function createPanelKeys(deps: PanelKeysDeps) {
           finishOverlayResultActivation(e, true);
           return;
         }
-        if (searchAutocomplete.state && searchAutocomplete.state.url) {
+        if (autocompleteTypedQuery !== null && searchAutocomplete.state && searchAutocomplete.state.url) {
           resultActivation.openUrl({
             url: searchAutocomplete.state.url,
             title: searchAutocomplete.state.title || '',

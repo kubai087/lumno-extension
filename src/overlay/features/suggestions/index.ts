@@ -287,6 +287,7 @@ function createSuggestionsFeature(ctx: OverlayContext, deps: SuggestionsFeatureD
     elements,
     defaultTheme,
     modeActions,
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,

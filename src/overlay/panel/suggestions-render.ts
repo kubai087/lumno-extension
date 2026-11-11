@@ -393,16 +393,16 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     } } });
   }
 
-  function renderTabSuggestions(tabList: OverlayTab[]): void {
+  function renderTabSuggestions(tabList: OverlayTab[], renderedQuery: string = ''): void {
     pauseOverlayAntiTranslateObserverForMutationBurst();
     const container = elements.suggestionsContainer;
     if (container) {
       container.removeAttribute('data-scope-result-enter');
     }
     suggestionItems.length = 0;
-    searchResults.show([]);
-    lastRender.clear();
     const list = Array.isArray(tabList) ? tabList.slice() : [];
+    searchResults.show([], list.length > 0 ? renderedQuery : null);
+    lastRender.clear();
     setOpenTabsResultsViewport(true, list.length);
     if (list.length === 0) {
       const emptyText = searchMode.openTabs
@@ -448,7 +448,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
     const query = typeof filterQuery === 'string'
       ? filterQuery
       : readInputQuery();
-    renderTabSuggestions(filterTabsForOverlay(overlayTabs.tabs, query));
+    renderTabSuggestions(filterTabsForOverlay(overlayTabs.tabs, query), query);
     return true;
   }
 

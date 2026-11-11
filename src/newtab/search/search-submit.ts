@@ -1,6 +1,7 @@
 // What Enter in the search box does: runs the selected or highlighted row,
 // a slash command, a site search, a keyword or an address, or searches.
 import type { Disposition } from '../../domain/navigation-disposition';
+import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SiteSearchProvider } from '../../domain/search/types';
 import * as LumnoMessaging from '../../platform/messaging';
 import type { Suggestion, SuggestionElement } from '../../shared/react/search/suggestion-list/types';
@@ -28,6 +29,7 @@ interface SearchSubmitDeps extends Pick<SearchNavigation, 'quickNavigation' | 's
   searchResults: SearchResults<Suggestion>;
   searchMode: SearchMode<SiteSearchProvider>;
   searchAutocomplete: SearchAutocomplete;
+  suggestionInputPreview: Pick<SuggestionInputPreview, 'isActive'>;
   searchQuery: SearchQuery;
   settings: Pick<SettingsStore, 'get' | 'set'>;
   resultActivation: ResultActivation;
@@ -57,6 +59,7 @@ function createSearchSubmit(deps: SearchSubmitDeps) {
     searchResults,
     searchMode,
     searchAutocomplete,
+    suggestionInputPreview,
     searchQuery,
     settings,
     resultActivation,
@@ -164,11 +167,16 @@ function createSearchSubmit(deps: SearchSubmitDeps) {
       }
       return false;
     };
+    const inputValue = searchBox.inputParts ? searchBox.inputParts.input.value : '';
+    const autocompleteTypedQuery = suggestionInputPreview.isActive()
+      ? null
+      : searchAutocomplete.typedQueryFor(inputValue);
+    const hasCurrentResults = searchResults.isRenderedFor(autocompleteTypedQuery ?? query);
     if (searchResults.selectedIndex >= 0 && searchResults.rows[searchResults.selectedIndex]) {
       if (executeSuggestion(searchResults.rows[searchResults.selectedIndex], event, searchResults.selectedIndex)) {
         return;
       }
-    } else {
+    } else if (hasCurrentResults) {
       const autoIndex = searchBox.suggestionsView ? searchBox.suggestionsView.getAutoHighlightIndex() : -1;
       if (autoIndex >= 0 && searchResults.rows[autoIndex]) {
         if (executeSuggestion(searchResults.rows[autoIndex], event, autoIndex)) {
@@ -192,7 +200,6 @@ function createSearchSubmit(deps: SearchSubmitDeps) {
         return;
       }
     }
-    const inputValue = searchBox.inputParts ? searchBox.inputParts.input.value : '';
     const currentRawInput = (searchQuery.raw || inputValue || '').trim();
     const inline = searchMode.inline;
     if (inline && inline.isAuto && inline.rawInput === currentRawInput) {
@@ -213,7 +220,7 @@ function createSearchSubmit(deps: SearchSubmitDeps) {
         return;
       }
     }
-    if (searchAutocomplete.state && searchAutocomplete.state.url) {
+    if (autocompleteTypedQuery !== null && searchAutocomplete.state && searchAutocomplete.state.url) {
       resultActivation.openUrl({
         url: searchAutocomplete.state.url,
         title: searchAutocomplete.state.title || '',

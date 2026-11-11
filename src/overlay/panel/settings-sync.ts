@@ -46,7 +46,7 @@ interface SettingsSyncDeps<Row> {
   applyOverlayFontFamily(): void;
   searchEngine: DefaultSearchEngine;
   shouldShowOpenTabsForEmptyQuery(): boolean;
-  renderTabSuggestions(tabs: OverlayTab[]): void;
+  renderTabSuggestions(tabs: OverlayTab[], renderedQuery?: string): void;
   filterTabsForOverlay(tabs: OverlayTab[], query: string): OverlayTab[];
   requestTabsAndRender(query?: string): void;
   clearDefaultOpenTabsSuggestions(): void;
@@ -112,7 +112,7 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
 
   function redrawRows(options?: { forceFullRerender?: boolean }): void {
     if (showsOpenTabs()) {
-      renderTabSuggestions(filterTabsForOverlay(overlayTabs.tabs, searchQuery.text));
+      renderTabSuggestions(filterTabsForOverlay(overlayTabs.tabs, searchQuery.text), searchQuery.text);
       return;
     }
     if (searchQuery.text) {
