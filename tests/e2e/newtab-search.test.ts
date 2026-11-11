@@ -19,6 +19,17 @@ async function searchNewtab(newtab: Session, query: string, expression: string) 
     })()`);
     await newtab.type(query);
     try {
+      // A row may exist before the results reveal has uncovered it. Wait
+      // until the list is still and the row actually receives pointer hits.
+      await newtab.waitFor(`(() => {
+        const list = document.getElementById('${CONTAINER}');
+        const element = ${expression};
+        if (!list || !element || !element.checkVisibility() ||
+            list.getAnimations().some((animation) => animation.playState === 'running' || animation.playState === 'paused')) return false;
+        const rect = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        return element.contains(hit);
+      })()`, { message: 'search result is not ready for a pointer click' });
       return await elementCenter(newtab, expression);
     } catch (error) {
       if (attempt >= 3) throw error;
@@ -27,6 +38,34 @@ async function searchNewtab(newtab: Session, query: string, expression: string) 
 }
 
 describe('New Tab search', () => {
+  flow('waits for an animating search result to become clickable', async ({ browser, fixtures }) => {
+    await browser.openPage(fixtures.url('/fixture.html'));
+    const newtab = await browser.openPage(browser.extensionUrl('newtab.html'));
+    await focusTab(browser, newtab);
+    await newtab.waitFor(`Boolean(document.getElementById('${NEWTAB_INPUT_ID}'))`);
+    await newtab.evaluate(`(() => {
+      const animate = Element.prototype.animate;
+      window.__searchMotionResumed = false;
+      Element.prototype.animate = function(...args) {
+        const animation = animate.apply(this, args);
+        if (this.id === '${CONTAINER}' && !window.__searchMotionResumed) {
+          animation.pause();
+          animation.currentTime = 0;
+          setTimeout(() => {
+            window.__searchMotionResumed = true;
+            animation.play();
+          }, 500);
+        }
+        return animation;
+      };
+    })()`);
+    const item = `Array.from(document.querySelectorAll('.x-nt-suggestion-item'))
+      .find((element) => element.innerText.includes('Lumno fixture page'))`;
+    const center = await searchNewtab(newtab, 'Lumno fixture', item);
+    expect(await newtab.evaluate(`window.__searchMotionResumed`)).toBe(true);
+    expect(await newtab.evaluate(`(${item}).contains(document.elementFromPoint(${center.x}, ${center.y}))`)).toBe(true);
+  });
+
   flow('lists an open tab and switches to it', async ({ browser, fixtures }) => {
     const fixture = await browser.openPage(fixtures.url('/fixture.html'));
     const newtab = await browser.openPage(browser.extensionUrl('newtab.html'));
