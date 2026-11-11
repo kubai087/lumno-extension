@@ -64,11 +64,16 @@ export function defineFlows(): (name: string, run: (context: FlowContext) => Pro
     it(name, async () => {
       const browser = await launchBrowser({ extensionPath: EXTENSION_PATH });
       let error: unknown = null;
+      // What the extension reported while the flow ran. Calls still pending
+      // as Chrome quits fail with "The browser is shutting down", which says
+      // nothing about the flow.
+      let failures: string[] = [];
       try {
         await run({ browser, fixtures: fixtures() });
       } catch (caught) {
         error = caught;
       } finally {
+        failures = [...browser.failures];
         await browser.close();
       }
       if (browser.notes.length) {
@@ -76,7 +81,7 @@ export function defineFlows(): (name: string, run: (context: FlowContext) => Pro
       }
       const problems = [
         ...(error ? [error instanceof Error ? error.stack || error.message : String(error)] : []),
-        ...browser.failures
+        ...failures
       ];
       if (problems.length) {
         throw new Error(problems.join('\n'));
@@ -123,9 +128,12 @@ export function activeTabUrl(browser: Browser): Promise<unknown> {
     .then(([tab]) => (tab ? tab.url : ''))`);
 }
 
-// Makes a tab the active one and gives it input focus.
+// Makes a tab the active one and gives it input focus. The tabs API learns
+// a page's address a moment after the page has it, so the tab is waited for.
 export async function focusTab(browser: Browser, page: PageSession): Promise<void> {
   const href = JSON.stringify(await page.evaluate('location.href'));
+  await browser.worker.waitFor(`chrome.tabs.query({}).then((tabs) => tabs.some((candidate) => candidate.url === ${href}))`,
+    { message: `no tab at ${href}` });
   await browser.worker.evaluate(`(async () => {
     const tab = (await chrome.tabs.query({})).find((candidate) => candidate.url === ${href});
     if (!tab) throw new Error('no tab at ' + ${href});
