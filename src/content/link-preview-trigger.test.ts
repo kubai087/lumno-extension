@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { linkPreviewEnabled, localPrimary } from '../domain/settings';
 import { loadLinkPreviewTrigger } from '../../tests/fakes/link-preview-trigger';
+import { settleWorker } from '../../tests/fakes/worker';
 
 const actions = (messages: unknown[]) => messages.map((message) => (message && typeof message === 'object' ? Reflect.get(message, 'action') : ''));
 
@@ -135,7 +136,7 @@ describe('Shift+click on a link', () => {
   it('follows the link preview switch without a reload, and the local value where settings stay local', async () => {
     const page = await loadLinkPreviewTrigger({ sync: { [linkPreviewEnabled.key]: false } });
     await vi.waitFor(() => expect(page.fake.chrome.storage.sync.get).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await settleWorker();
 
     expect(page.press('out')).toEqual([]);
     expect(page.sent()).toEqual([]);
@@ -147,7 +148,7 @@ describe('Shift+click on a link', () => {
       sync: { [linkPreviewEnabled.key]: true },
       local: { [linkPreviewEnabled.key]: false, [localPrimary.key]: true }
     });
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await settleWorker();
     expect(local.press('out')).toEqual([]);
     expect(linkPreviewEnabled.parse(undefined)).toBe(true);
   });

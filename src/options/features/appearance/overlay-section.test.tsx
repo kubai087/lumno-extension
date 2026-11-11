@@ -154,7 +154,10 @@ describe('Options Appearance webpage overlay section', () => {
   it('offers the same fonts as an optional, searchable fallback and keeps both choices out of browser sync', async () => {
     const { host, writes, settings } = await setUp();
     expect(getElement(host, `[data-select="${FALLBACK}"]`).dataset.selectSearchable).toBe('true');
-    expect(openMenu(FALLBACK).map((option) => option.textContent)).toEqual(['无', 'Inter', '苹方-简']);
+    expect(openMenu(FALLBACK).map((option) => option.textContent)).toEqual([
+      '无',
+      ...sortedFontOptions.map(([, label]) => label)
+    ]);
     pick(FONT, 'PingFangSC');
     pick(FALLBACK, 'Inter');
     await settings.settle();
