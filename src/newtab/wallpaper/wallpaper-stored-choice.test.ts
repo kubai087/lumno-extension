@@ -99,6 +99,40 @@ describe('the stored wallpaper at start-up', () => {
     expect(library.calls.getAll).toBe(0);
   });
 
+  // Chrome on Windows can fail to open IndexedDB for a moment, such as while it restores
+  // several pages at once after an update; the upload is still there on the next start.
+  it('keeps this device\'s upload chosen when its library cannot be read at start-up', async () => {
+    const id = `${CUSTOM_WALLPAPER_ID_PREFIX}kept`;
+    const browser = createBrowserFake({ local: { [STORAGE_KEYS.localWallpaper]: id } });
+    const library = installUploads([upload(id, 'data:image/webp;base64,kept', 'data:image/webp;base64,kept-thumb')], browser);
+    const failingOpen = vi.fn(() => {
+      const request: { error: Error; onerror: (() => void) | null; onsuccess: (() => void) | null; onupgradeneeded: null } = {
+        error: new Error('Internal error opening backing store for indexedDB.open.'),
+        onerror: null,
+        onsuccess: null,
+        onupgradeneeded: null
+      };
+      setTimeout(() => request.onerror?.(), 0);
+      return request;
+    });
+    vi.stubGlobal('indexedDB', { ...library.factory, open: failingOpen });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const first = await createRuntime({ browser });
+
+    await first.runtime.bootstrapInitialWallpaper();
+    await settleTasks();
+
+    expect(failingOpen).toHaveBeenCalled();
+    expect(shownWallpaperImage()).toContain('lumno-newtab-monet-coastal-white.webp');
+    expect(browser.storage.local.values[STORAGE_KEYS.localWallpaper]).toBe(id);
+
+    vi.stubGlobal('indexedDB', library.factory);
+    const second = await createRuntime({ browser });
+    await second.runtime.bootstrapInitialWallpaper();
+
+    expect(shownWallpaperImage()).toContain('data:image/webp;base64,kept');
+  });
+
   // Chrome drops a CSS custom property over 2 MB, so a stored wallpaper whose data URL is longer
   // would leave the page blank; it has to reach --x-nt-wallpaper-image as a blob URL.
   it('shows an upload whose data URL is too long for CSS through a blob URL', async () => {

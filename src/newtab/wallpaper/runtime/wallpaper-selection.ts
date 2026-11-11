@@ -251,7 +251,10 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
     if (choice.state.loaded) cacheShownWallpaperImages();
   }
 
-  function applyStoredWallpaperState(syncedValue: StoredValue, localValue: StoredValue): void {
+  // uploadsUnread: this device's uploads could not be read, so an upload the
+  // local choice names may still exist; the page shows the default for now
+  // and leaves the stored choice for the next start.
+  function applyStoredWallpaperState(syncedValue: StoredValue, localValue: StoredValue, uploadsUnread = false): void {
     const syncedResolution = resolveSyncedWallpaperValue(syncedValue.value, syncedValue.hasValue);
     const localResolution = resolveLocalWallpaperOverride(localValue.value, localValue.hasValue);
     const migrated = applyLocalWallpaperMigrations(
@@ -273,7 +276,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
       // Move online picks saved under the shared key before older versions can clear them.
       writeSyncedWallpaperValue(syncedValue.value);
     }
-    if (localResolution.shouldClear || migrated.changed) {
+    if ((localResolution.shouldClear || migrated.changed) && !uploadsUnread) {
       writeLocalWallpaperValue(buildLocalWallpaperStorageValue(
         choice.state.overrides,
         syncedResolution.prefs.sameForModes
@@ -301,6 +304,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
       const results = [mergeOnlineWallpaperValue(stored[0], stored[2]), stored[1]];
       const linksChanged = library.restoreLinks(stored[3].value);
       const linkIds = getWallpaperStorageRawIds(results[0].value).filter(isLinkWallpaperId);
+      let uploadsUnread = false;
       const customWallpaperPromise = takePreloadedCustomWallpaper().then(() => {
         const customWallpaperIds = getStoredCustomWallpaperIds(results)
           .filter((id) => !hasLoadedStoredCustomWallpaper(id));
@@ -309,7 +313,10 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
             mergeCustomWallpaperRecords(records);
           })
           : null;
-      }).catch(warnWallpaperStoreFailure('Could not read local wallpapers; showing the default.'));
+      }).catch((error: unknown) => {
+        uploadsUnread = true;
+        warnWallpaperStoreFailure('Could not read local wallpapers; showing the default.')(error);
+      });
       const remoteIds = getWallpaperStorageRawIds(results[0].value)
         .map((id) => normalizeNewtabWallpaperId(id))
         .filter((id) => REMOTE_CONTENT.wallpaperFromId(id));
@@ -330,7 +337,7 @@ function createWallpaperSelection(deps: WallpaperSelectionDeps) {
             typeof config.shouldApply === 'function' && !config.shouldApply()) {
           return false;
         }
-        applyStoredWallpaperState(results[0], results[1]);
+        applyStoredWallpaperState(results[0], results[1], uploadsUnread);
         cacheShownWallpaperImages();
         if (linksChanged && library.state.uploadsLoaded) {
           cacheListedLinkWallpapers();
