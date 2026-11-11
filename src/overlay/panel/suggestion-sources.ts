@@ -487,7 +487,7 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
       const startIndex = canAppend ? searchResults.rows.length : 0;
       pauseOverlayAntiTranslateObserverForMutationBurst();
       setOpenTabsResultsViewport(false);
-      searchResults.show(allSuggestions);
+      searchResults.show(allSuggestions, query);
       lastRender.record(query, actionContextKey);
       if (updateKind !== 'highlight') {
         favicons.warmIconCache(allSuggestions.filter((item) => (
@@ -555,8 +555,10 @@ function createSuggestionSources(deps: SuggestionSourcesDeps) {
     clearDefaultOpenTabsSuggestions();
   }
 
-  // A new mode's rows replace the ones shown.
+  // A new mode's rows replace the ones shown; leaving a mode while keeping
+  // the query marks the shown rows stale until the new mode's rows render.
   modeActions.events.on('resultsCleared', clearSearchSuggestions);
+  modeActions.events.on('resultsInvalidated', () => searchResults.invalidateRendered());
 
   return {
     quickNavigation,

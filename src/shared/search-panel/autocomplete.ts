@@ -157,6 +157,14 @@ class SearchAutocomplete {
     return this.shown;
   }
 
+  // The trimmed query the shown completion was built from while the input
+  // still holds it; null otherwise.
+  typedQueryFor(inputValue: string): string | null {
+    return this.shown && this.shown.displayText === inputValue
+      ? this.shown.rawQuery.trim()
+      : null;
+  }
+
   getCandidate(rows: readonly (AutocompleteRow | null | undefined)[] | null | undefined, rawQuery: string): AutocompleteCandidate | null {
     return getAutocompleteCandidate(rows, rawQuery, this.options.getUrlDisplay);
   }

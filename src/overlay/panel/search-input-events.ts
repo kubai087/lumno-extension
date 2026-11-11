@@ -173,6 +173,9 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       suggestionSource.cancel();
       syncLiveSearchInputFromEvent(event);
       imeKeyGuard.markCompositionStart(event);
+      if (searchResults.selectedIndex >= 0) {
+        searchResults.select(-1);
+      }
       searchAutocomplete.clear();
       clearPendingSearchTriggerHint();
     });
@@ -235,12 +238,12 @@ function createSearchInputEvents(deps: SearchInputEventsDeps) {
       if (isDelete) {
         searchQuery.markDeletion();
       }
+      if (searchResults.selectedIndex >= 0) {
+        searchResults.select(-1);
+      }
       if (imeKeyGuard.isComposing()) {
         searchQuery.set(rawValue, query);
         return;
-      }
-      if (searchResults.selectedIndex >= 0) {
-        searchResults.select(-1);
       }
       if (!query && searchMode.site) {
         searchQuery.clear();

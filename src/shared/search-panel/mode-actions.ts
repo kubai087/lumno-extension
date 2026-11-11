@@ -47,8 +47,9 @@ class SearchModeActions<Provider extends InputModeProvider> {
   private readonly options: SearchModeActionsOptions<Provider>;
   // `enteringSite`: a site search is about to start (the overlay drops a
   // pending open tabs tag). `resultsCleared`: the new mode's rows replace
-  // the ones shown; the surface clears them.
-  readonly events = createEventBus<{ enteringSite: null; resultsCleared: null }>();
+  // the ones shown; the surface clears them. `resultsInvalidated`: a mode
+  // left while keeping the query, so the shown rows belong to the old mode.
+  readonly events = createEventBus<{ enteringSite: null; resultsCleared: null; resultsInvalidated: null }>();
 
   constructor(options: SearchModeActionsOptions<Provider>) {
     this.options = options;
@@ -99,6 +100,7 @@ class SearchModeActions<Provider extends InputModeProvider> {
     this.options.mode.leaveSite();
     this.clearSiteSearchPrefix();
     this.options.autocomplete.clear();
+    this.events.emit('resultsInvalidated', null);
   };
 
   // False when no scope was active.
@@ -110,6 +112,7 @@ class SearchModeActions<Provider extends InputModeProvider> {
     this.options.mode.leaveLocal();
     this.clearSiteSearchPrefix();
     this.options.autocomplete.clear();
+    this.events.emit('resultsInvalidated', null);
     return true;
   };
 

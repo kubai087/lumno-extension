@@ -1,11 +1,13 @@
 // IME composition in the search input: holds suggestion updates while a
 // composition is open and runs them once it commits.
+import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import type { SuggestionLike } from '../../domain/search/types';
 import type { createImeKeyGuard } from '../../domain/search/ime-key-guard';
 import type { DirectNavigationSettleController } from './direct-navigation-settle';
 import type { RequestSuggestions } from './search-types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SuggestionSource } from '../../shared/search-panel/suggestion-source';
 import type { SearchBoxParts } from './search-box-parts';
 
@@ -13,6 +15,8 @@ import type { SearchBoxParts } from './search-box-parts';
 interface SearchInputCompositionDeps {
   suggestionSource: SuggestionSource;
   searchAutocomplete: SearchAutocomplete;
+  searchResults: Pick<SearchResults<unknown>, 'selectedIndex' | 'select'>;
+  suggestionInputPreview: Pick<SuggestionInputPreview, 'commit'>;
   searchQuery: SearchQuery;
   directNavigationSettleController: Pick<DirectNavigationSettleController<unknown>, 'cancel'>;
   imeKeyGuard: Pick<ReturnType<typeof createImeKeyGuard>, 'markCompositionStart' | 'markCompositionEnd' | 'markKeyUp'>;
@@ -29,6 +33,8 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
     searchBox,
     suggestionSource,
     searchAutocomplete,
+    searchResults,
+    suggestionInputPreview,
     searchQuery,
     directNavigationSettleController,
     imeKeyGuard,
@@ -48,9 +54,13 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
   const input = inputParts.input;
 
   input.addEventListener('compositionstart', function(event) {
+    suggestionInputPreview.commit();
     suggestionSource.cancel();
     directNavigationSettleController.cancel();
     imeKeyGuard.markCompositionStart(event);
+    if (searchResults.selectedIndex >= 0) {
+      searchResults.select(-1);
+    }
     searchAutocomplete.clear();
   });
 
@@ -60,6 +70,9 @@ function createSearchInputComposition(deps: SearchInputCompositionDeps): void {
     imeKeyGuard.markCompositionEnd(event);
     const rawValue = input.value;
     const query = rawValue.trim();
+    if (searchResults.selectedIndex >= 0) {
+      searchResults.select(-1);
+    }
     searchQuery.set(rawValue, query);
     searchAutocomplete.clear();
     if (!query) {

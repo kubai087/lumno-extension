@@ -671,7 +671,7 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       const canAppend = updateKind === 'append';
       const startIndex = canAppend ? searchResults.rows.length : 0;
 
-      searchResults.show(allSuggestions);
+      searchResults.show(allSuggestions, query);
       lastRenderedActionContextKey = actionContextKey;
       if (updateKind !== 'highlight') {
         warmIconCache(allSuggestions.filter((item) => (
@@ -817,8 +817,10 @@ function createSuggestionsController(deps: SuggestionsControllerDeps) {
       void renderSuggestions(searchResults.lastResponse, searchQuery.text);
     }
   });
-  // A new mode's rows replace the ones shown.
+  // A new mode's rows replace the ones shown; leaving a mode while keeping
+  // the query marks the shown rows stale until the new mode's rows render.
   modeActions.events.on('resultsCleared', () => clearSearchSuggestions());
+  modeActions.events.on('resultsInvalidated', () => searchResults.invalidateRendered());
 
   return {
     getAutoHighlightIndex,

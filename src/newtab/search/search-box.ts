@@ -420,6 +420,9 @@ function createSearchBox(deps: SearchBoxDeps) {
       if (isDelete) {
         searchQuery.markDeletion();
       }
+      if (searchResults.selectedIndex >= 0) {
+        searchResults.select(-1);
+      }
       if (imeKeyGuard.isComposing()) {
         searchQuery.set(rawValue, query);
         return;

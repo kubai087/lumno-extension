@@ -7,11 +7,13 @@ import type { Translate } from './types';
 import type { SearchQuery } from '../../shared/search-panel/search-query';
 import type { SearchAutocomplete } from '../../shared/search-panel/autocomplete';
 import type { SearchMode } from '../../shared/search-panel/search-mode';
+import type { SearchResults } from '../../shared/search-panel/search-results';
 import type { SearchModeActions } from '../../shared/search-panel/mode-actions';
 import type { OverlayPanelElements } from './panel-elements';
 
 interface SearchModesDeps {
   modeActions: SearchModeActions<InputModeProvider>;
+  searchResults: Pick<SearchResults<unknown>, 'invalidateRendered'>;
   searchMode: SearchMode<InputModeProvider>;
   searchAutocomplete: SearchAutocomplete;
   searchQuery: SearchQuery;
@@ -39,6 +41,7 @@ function createSearchModes(deps: SearchModesDeps) {
     elements,
     defaultTheme,
     modeActions,
+    searchResults,
     searchMode,
     searchAutocomplete,
     searchQuery,
@@ -108,6 +111,7 @@ function createSearchModes(deps: SearchModesDeps) {
     const prefixOptions = options || {};
     cancelPendingOpenTabsPrefixEntry();
     suggestionSource.cancel();
+    searchResults.invalidateRendered();
     searchMode.enterOpenTabs();
     searchAutocomplete.clear();
     if (prefixOptions.deferPrefixEntry === true) {
@@ -127,6 +131,7 @@ function createSearchModes(deps: SearchModesDeps) {
       return;
     }
     cancelPendingOpenTabsPrefixEntry();
+    searchResults.invalidateRendered();
     searchMode.leaveOpenTabs();
     modeActions.clearSiteSearchPrefix();
     searchAutocomplete.clear();

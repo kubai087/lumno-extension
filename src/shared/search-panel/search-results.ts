@@ -1,13 +1,17 @@
-// The results of the search panel: the rows shown, the last full answer
-// and the search engine's own part of it, the selected row, and which
-// request is the current one, so a slower answer to an older query never
-// replaces a newer one. This is their one owner.
+// The results of the search panel: the rows shown, which query they were
+// rendered for, the last full answer and the search engine's own part of it,
+// the selected row, and which request is the current one, so a slower answer
+// to an older query never replaces a newer one, and Enter while a newer query
+// is still pending never runs an older query's row. This is their one owner.
 import { createStore } from '../state/store';
 import type { Store } from '../state/store';
 
 interface SearchResultsState<Row> {
   // The rows the list shows.
   rows: Row[];
+  // The query `rows` (or the open tabs list) was rendered for; null when
+  // nothing is rendered or the mode changed since.
+  renderedQuery: string | null;
   // The last answer for the query, to show again without asking.
   lastResponse: Row[];
   // The search engine's suggestions in the last answer.
@@ -18,6 +22,7 @@ interface SearchResultsState<Row> {
 class SearchResults<Row> {
   readonly store: Store<SearchResultsState<Row>> = createStore<SearchResultsState<Row>>({
     rows: [],
+    renderedQuery: null,
     lastResponse: [],
     lastEngineResponse: [],
     selectedIndex: -1
@@ -26,6 +31,10 @@ class SearchResults<Row> {
 
   get rows(): Row[] {
     return this.store.getSnapshot().rows;
+  }
+
+  get renderedQuery(): string | null {
+    return this.store.getSnapshot().renderedQuery;
   }
 
   get lastResponse(): Row[] {
@@ -40,8 +49,18 @@ class SearchResults<Row> {
     return this.store.getSnapshot().selectedIndex;
   }
 
-  show(rows: Row[]): void {
-    this.store.setState({ rows });
+  show(rows: Row[], renderedQuery: string | null = null): void {
+    this.store.setState({ rows, renderedQuery });
+  }
+
+  // Marks the shown rows stale without clearing them, as when leaving a scope
+  // while the replacement rows are still on their way.
+  invalidateRendered(): void {
+    this.store.setState({ renderedQuery: null });
+  }
+
+  isRenderedFor(query: string): boolean {
+    return this.renderedQuery === query;
   }
 
   setLastResponse(rows: Row[]): void {
