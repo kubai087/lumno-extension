@@ -75,13 +75,17 @@ function isSearchEngineSuggestion(suggestion: SuggestionLike | null | undefined)
 // While the query's search engine suggestions are on their way: the last
 // ones shown that still start with what is typed now, so the list keeps
 // those rows instead of shrinking to the local ones and growing back on
-// every key.
+// every key. Only a query that goes on from the one they were made for
+// (`previousQuery`) keeps them: after a backspace they belong to a longer
+// query, and would show only to be replaced at once.
 function carryOverEngineSuggestions<T extends SuggestionLike>(
   previous: ReadonlyArray<T | null | undefined> | null | undefined,
-  query: unknown
+  query: unknown,
+  previousQuery: unknown
 ): T[] {
   const typed = normalizeSearchText(String(query || '').trim());
-  if (!typed) {
+  const origin = normalizeSearchText(String(previousQuery || '').trim());
+  if (!typed || !origin || !typed.startsWith(origin)) {
     return [];
   }
   return (Array.isArray(previous) ? previous : []).filter((suggestion): suggestion is T => {
@@ -91,6 +95,17 @@ function carryOverEngineSuggestions<T extends SuggestionLike>(
     const text = normalizeSearchText(String(suggestion.title || '').trim());
     return text.length > typed.length && text.startsWith(typed);
   });
+}
+
+// The carried suggestions that fit in the rows the list showed before,
+// below the search action and `localCount` local rows. More would grow the
+// list only for the query's own suggestions to shrink it back.
+function fitCarriedEngineSuggestions<T>(
+  carried: readonly T[],
+  shownRowCount: number,
+  localCount: number
+): T[] {
+  return carried.slice(0, Math.max(0, shownRowCount - localCount - 1));
 }
 
 function isSearchActionSuggestion(suggestion: SuggestionLike | null | undefined): boolean {
@@ -176,6 +191,7 @@ function getSearchEngineSuggestionPolicy(
 export {
   areOnlyKeywordSearchSuggestions,
   carryOverEngineSuggestions,
+  fitCarriedEngineSuggestions,
   getAutocompleteSearchSuggestionPool,
   getKeywordSearchSuggestionState,
   getSearchEngineSuggestionLimit,
