@@ -166,6 +166,22 @@ describe('the search entry', () => {
 });
 
 describe('the suggestions', () => {
+  it('measures the stable list box while the content is visually translated', () => {
+    const layout = createLayout();
+    const { controller, suggestionsContainer, suggestionsSurface, suggestionsOutline } = createFixture(layout);
+    layout.place(suggestionsContainer, box(180, 255, 720, 100));
+    layout.measure(suggestionsContainer, { offsetHeight: 100 });
+    controller.updateSuggestionsFloatingLayout();
+    const before = suggestionsSurface.style.height;
+    expect(before).toBe('144px');
+
+    // A reveal transform moves the painted list, not its natural layout box.
+    layout.place(suggestionsContainer, box(180, 247, 720, 100));
+    controller.updateSuggestionsFloatingLayout();
+    expect(suggestionsSurface.style.height).toBe(before);
+    expect(suggestionsOutline.style.height).toBe(before);
+  });
+
   it('commit their natural height without a tween after a render', () => {
     const layout = createLayout();
     const { controller, suggestionsContainer, suggestionsSurface, suggestionsOutline } = createFixture(layout);
