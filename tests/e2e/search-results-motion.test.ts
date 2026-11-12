@@ -70,6 +70,13 @@ flow('opens the search result layers together without replaying during typing', 
   })()`);
   expect(typeof closingHeight).toBe('number');
   expect(await page.evaluate(`getComputedStyle(document.getElementById('${list}')).pointerEvents`)).toBe('none');
+  // The backplate shrinks back onto the box without fading, and the box keeps
+  // its open look until then, so neither draws a second edge over the other.
+  expect(await page.evaluate(`[
+    document.body.dataset.ntSuggestionsOpen,
+    getComputedStyle(document.getElementById('${surface}')).opacity,
+    getComputedStyle(document.getElementById('${outline}')).opacity
+  ]`)).toEqual(['true', '1', '1']);
   await page.evaluate(`document.getElementById('${NEWTAB_INPUT_ID}').focus()`);
   await page.type('x');
   await page.waitFor(`document.getElementById('${list}').dataset.visible === 'true' && document.getElementById('${surface}').getAnimations().length > 0`, { interval: 10 });
@@ -77,6 +84,8 @@ flow('opens the search result layers together without replaying during typing', 
   expect(Math.abs(Number(resumedHeight) - Number(closingHeight))).toBeLessThan(2);
   await page.click(35, 35);
   await page.waitFor(`document.getElementById('${list}').dataset.visible === 'false'`);
+  // The box takes its own look back once the close has played.
+  await page.waitFor(`document.getElementById('${surface}').getAnimations().length === 0 && document.body.dataset.ntSuggestionsOpen === 'false'`);
   await browser.cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] }, page.sessionId);
   await page.evaluate(`document.getElementById('${NEWTAB_INPUT_ID}').focus()`);
   await page.type('a');
