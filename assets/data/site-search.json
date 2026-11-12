@@ -256,6 +256,13 @@
       "category": "searchEngine"
     },
     {
+      "key": "ybs",
+      "aliases": ["yuanbao search", "元宝搜索"],
+      "name": "Yuanbao Search",
+      "template": "https://so.qq.com/isearch?query={query}",
+      "category": "searchEngine"
+    },
+    {
       "key": "zh",
       "aliases": ["zhihu"],
       "name": "Zhihu",

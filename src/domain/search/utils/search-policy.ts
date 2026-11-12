@@ -74,6 +74,7 @@ const DEFAULT_SITE_SEARCH_PROVIDERS: readonly SiteSearchProvider[] = Object.free
   { key: 'yh', aliases: ['yahoo'], name: 'Yahoo', template: 'https://search.yahoo.com/search?p={query}', category: 'searchEngine' },
   { key: 'yx', aliases: ['yandex'], name: 'Yandex', template: 'https://yandex.com/search/?text={query}', category: 'searchEngine' },
   { key: 'sm', aliases: ['shenma', '神马'], name: 'Shenma', template: 'https://m.sm.cn/s?q={query}', category: 'searchEngine' },
+  { key: 'ybs', aliases: ['yuanbao search', '元宝搜索'], name: 'Yuanbao Search', template: 'https://so.qq.com/isearch?query={query}', category: 'searchEngine' },
   { key: 'zh', aliases: ['zhihu'], name: 'Zhihu', template: 'https://www.zhihu.com/search?q={query}' },
   { key: 'db', aliases: ['douban'], name: 'Douban', template: 'https://www.douban.com/search?q={query}' },
   { key: 'jj', aliases: ['juejin'], name: 'Juejin', template: 'https://juejin.cn/search?query={query}' },

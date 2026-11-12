@@ -32,7 +32,7 @@ describe('site search providers', () => {
   it("keeps the bundled catalog and the fallback in step, with the engines classified in their order", () => {
     const bundledSiteSearchProviders = siteSearchCatalog.items;
     expect(getDefaultSiteSearchProviders(), 'the bundled provider catalog and JavaScript fallback should stay fully synchronized').toEqual(bundledSiteSearchProviders);
-    expect(defaultSearchEngines.map((provider) => provider.key), 'built-in search engines should be explicitly classified and keep their intended order').toEqual(['bd', 'bi', 'gg', 'kg', 'ddg', 'br', 'eco', 'sg', 'yh', 'yx', 'sm']);
+    expect(defaultSearchEngines.map((provider) => provider.key), 'built-in search engines should be explicitly classified and keep their intended order').toEqual(['bd', 'bi', 'gg', 'kg', 'ddg', 'br', 'eco', 'sg', 'yh', 'yx', 'sm', 'ybs']);
     expect(findSiteSearchProvider('so', getDefaultSiteSearchProviders()), 'the retired Baidu so trigger should not match any built-in provider').toBe(null);
     expect(findSiteSearchProvider('bd', getDefaultSiteSearchProviders())?.name, 'Baidu should use bd as its short trigger').toBe('Baidu');
     expect(isAiSiteSearchProvider(
