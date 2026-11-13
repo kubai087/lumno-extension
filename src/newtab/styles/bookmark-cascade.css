@@ -106,6 +106,17 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: auto;
+  container-type: scroll-state;
+}
+/* A classic scrollbar takes its own 10px beside the 6px padding, which leaves
+   the rows far from the thumb and the thumb close to the edge. While the level
+   scrolls, the rows reach into that padding so the thumb sits between even gaps. */
+@container scroll-state(scrollable: y) {
+  :root:not([data-lumno-scrollbars="overlay"]) .x-nt-bookmark-cascade-content > * {
+    width: auto;
+    max-width: none;
+    margin-right: -4px;
+  }
 }
 /* Chrome ignores ::-webkit-scrollbar rules once scrollbar-width/color are set,
    which drops the track inset and lets the bar collide with the rounded corners.
@@ -404,6 +415,25 @@ body[data-glass-style] .x-nt-bookmark-cascade-icon[data-builtin-monochrome="true
 :root:not([data-lumno-scrollbars="overlay"]) body[data-theme="dark"] .x-nt-shortcuts-section[data-shortcuts-scrollable="true"]::-webkit-scrollbar-thumb:hover,
 :root:not([data-lumno-scrollbars="overlay"]) body[data-theme="dark"] #_x_extension_newtab_bottom_dock_scroller_2024_unique_::-webkit-scrollbar-thumb:hover {
   background-color: rgba(203, 213, 225, 0.7);
+}
+/* The cascade menu's thumb stays faint until the pointer is on it or drags it.
+   Its 4px sits off-center in the 10px bar so that, with the rows reaching into
+   the padding, the gaps to the rows and to the menu's edge are both 4px. */
+:root:not([data-lumno-scrollbars="overlay"]) body .x-nt-bookmark-cascade-content::-webkit-scrollbar-thumb {
+  border-left-width: 2px;
+  border-right-width: 4px;
+  background-color: rgba(148, 163, 184, 0.4);
+}
+:root:not([data-lumno-scrollbars="overlay"]) body .x-nt-bookmark-cascade-content::-webkit-scrollbar-thumb:hover,
+:root:not([data-lumno-scrollbars="overlay"]) body .x-nt-bookmark-cascade-content::-webkit-scrollbar-thumb:active {
+  background-color: rgba(100, 116, 139, 0.78);
+}
+:root:not([data-lumno-scrollbars="overlay"]) body[data-theme="dark"] .x-nt-bookmark-cascade-content::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.32);
+}
+:root:not([data-lumno-scrollbars="overlay"]) body[data-theme="dark"] .x-nt-bookmark-cascade-content::-webkit-scrollbar-thumb:hover,
+:root:not([data-lumno-scrollbars="overlay"]) body[data-theme="dark"] .x-nt-bookmark-cascade-content::-webkit-scrollbar-thumb:active {
+  background-color: rgba(203, 213, 225, 0.66);
 }
 /* macOS overlay bars can't be colored, but they follow color-scheme: light
    ink means a dark wallpaper under the track, so ask for a light thumb. */
