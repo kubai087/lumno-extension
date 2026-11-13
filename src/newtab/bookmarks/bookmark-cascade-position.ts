@@ -37,6 +37,8 @@ interface PlacementOptions {
   spacing?: number;
   viewportPadding?: number;
   viewportTopPadding?: number;
+  // The room kept below the menu; at least `viewportPadding`.
+  viewportBottomPadding?: number;
 }
 
 interface RootPlacement {
@@ -141,7 +143,9 @@ function getTranslateNeutralRect(rect: RectLike | null | undefined, transform: u
   };
 }
 
-function getPlacementOptions(source: PlacementOptions): { spacing: number; padding: number; topPadding: number } {
+function getPlacementOptions(
+  source: PlacementOptions
+): { spacing: number; padding: number; topPadding: number; bottomPadding: number } {
   const padding = Math.max(0, toFiniteNumber(source.viewportPadding, 8));
   return {
     spacing: toFiniteNumber(source.spacing, 8),
@@ -149,6 +153,10 @@ function getPlacementOptions(source: PlacementOptions): { spacing: number; paddi
     topPadding: Math.max(
       padding,
       toFiniteNumber(source.viewportTopPadding, padding)
+    ),
+    bottomPadding: Math.max(
+      padding,
+      toFiniteNumber(source.viewportBottomPadding, padding)
     )
   };
 }
@@ -160,9 +168,9 @@ function placeRootCascadeMenu(
   const anchor = normalizeRect(source.anchorRect);
   const menu = normalizeRect(source.menuRect);
   const viewport = normalizeViewport(source.viewport);
-  const { spacing, padding, topPadding } = getPlacementOptions(source);
+  const { spacing, padding, topPadding, bottomPadding } = getPlacementOptions(source);
   const maxLeft = viewport.width - menu.width - padding;
-  const maxTop = viewport.height - menu.height - padding;
+  const maxTop = viewport.height - menu.height - bottomPadding;
 
   let left = anchor.left;
   let horizontal: RootPlacement['horizontal'] = 'left';
@@ -173,7 +181,7 @@ function placeRootCascadeMenu(
   }
   left = clamp(left, padding, maxLeft);
 
-  const availableBelow = viewport.height - padding - anchor.bottom - spacing;
+  const availableBelow = viewport.height - bottomPadding - anchor.bottom - spacing;
   const availableAbove = anchor.top - topPadding - spacing;
   const belowTop = anchor.bottom + spacing;
   const aboveTop = anchor.top - spacing - menu.height;
@@ -192,9 +200,9 @@ function placeCascadeSubmenu(
   const trigger = normalizeRect(source.triggerRect);
   const menu = normalizeRect(source.menuRect);
   const viewport = normalizeViewport(source.viewport);
-  const { spacing, padding, topPadding } = getPlacementOptions(source);
+  const { spacing, padding, topPadding, bottomPadding } = getPlacementOptions(source);
   const maxLeft = viewport.width - menu.width - padding;
-  const maxTop = viewport.height - menu.height - padding;
+  const maxTop = viewport.height - menu.height - bottomPadding;
 
   const rightLeft = parentLevel.right + spacing;
   const leftLeft = parentLevel.left - spacing - menu.width;

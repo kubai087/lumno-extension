@@ -69,7 +69,9 @@
   z-index: 2;
   left: 8px;
   top: 8px;
-  --x-nt-bookmark-cascade-max-height: min(420px, calc(100vh - 24px));
+  /* A menu from the top bookmarks bar sets the full-height value and reaches
+     the bottom of the window, like the browser's own bookmarks bar. */
+  --x-nt-bookmark-cascade-max-height: var(--x-nt-bookmark-cascade-full-max-height, min(420px, calc(100vh - 24px)));
   max-height: var(--x-nt-bookmark-cascade-max-height);
   border-radius: var(--lumno-radius-xl);
   background: var(--x-nt-cascade-surface);

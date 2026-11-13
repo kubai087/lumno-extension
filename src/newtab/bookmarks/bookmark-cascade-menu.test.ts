@@ -665,3 +665,21 @@ describe('New Tab bookmark folder menu: keyboard, copy and toggling', () => {
     expect(document.querySelector('.x-nt-bookmark-cascade-menu')).toBe(dragMenu);
   });
 });
+
+describe('New Tab bookmark folder menu: height', () => {
+  const FULL_HEIGHT = '--x-nt-bookmark-cascade-full-max-height';
+
+  it('keeps the usual cap for menus that do not open from the top bar', async () => {
+    await openWithSubmenu();
+    expect(levels()[0].style.getPropertyValue(FULL_HEIGHT)).toBe('');
+    expect(levels()[1].style.getPropertyValue(FULL_HEIGHT)).toBe('');
+  });
+
+  it('reaches down to the bottom gap of the window from a full-height anchor', async () => {
+    // The anchor ends at 60px and the page keeps its top 40px clear; the
+    // window is 720px tall and the menu stops 24px above its bottom.
+    await openWithSubmenu({ isFullHeightAnchor: () => true, getViewportTopPadding: () => 40 });
+    expect(levels()[0].style.getPropertyValue(FULL_HEIGHT)).toBe('628px');
+    expect(levels()[1].style.getPropertyValue(FULL_HEIGHT)).toBe('656px');
+  });
+});
