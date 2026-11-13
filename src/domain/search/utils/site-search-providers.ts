@@ -100,6 +100,7 @@ const SITE_SEARCH_PROVIDER_DISPLAY_NAME_MESSAGES: Readonly<Record<string, readon
   bd: ['site_search_name_baidu', 'Baidu'],
   sg: ['site_search_name_sogou', 'Sogou'],
   sm: ['site_search_name_shenma', 'Shenma'],
+  ybs: ['site_search_name_yuanbao_search', 'Yuanbao Search'],
   zh: ['site_search_name_zhihu', 'Zhihu'],
   db: ['site_search_name_douban', 'Douban'],
   jj: ['site_search_name_juejin', 'Juejin'],
@@ -219,7 +220,8 @@ const SEARCH_ENGINE_SITE_SEARCH_PROVIDER_KEYS = new Set([
   'sg',
   'yh',
   'yx',
-  'sm'
+  'sm',
+  'ybs'
 ]);
 
 function isRetiredSearchEngineState(searchEngineState: SearchEngineState | null | undefined): boolean {

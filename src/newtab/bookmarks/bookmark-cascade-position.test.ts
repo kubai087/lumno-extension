@@ -101,6 +101,17 @@ describe('cascade submenu placement', () => {
       menuRect: { width: 210, height: 120 }, viewport, spacing, viewportTopPadding: 48
     }).top).toBe(48);
   });
+
+  it('keeps a wider bottom gap when asked, moving up instead', () => {
+    // 520px tall: a 400px submenu from a row at 100px would end at 500px,
+    // inside the 24px gap, so it moves up to end at 496px.
+    expect(placeCascadeSubmenu({
+      parentLevelRect: { left: 40, right: 250, top: 48, bottom: 496, width: 210, height: 448 },
+      triggerRect: { left: 48, right: 242, top: 100, bottom: 132, width: 194, height: 32 },
+      menuRect: { width: 210, height: 400 }, viewport, spacing,
+      viewportTopPadding: 48, viewportBottomPadding: 24
+    }).top).toBe(96);
+  });
 });
 
 describe('cascade safe triangle', () => {

@@ -6,6 +6,12 @@
 // Nothing plays while the system or Lumno's settings turn motion off, and
 // turning it off mid-way stops what is playing. An animation that is cut
 // short hands where it was drawn to the next one, which starts from there.
+//
+// The backplate and outline close without fading: they shrink back onto the
+// search box, which keeps its open look until they get there and only then
+// draws its own fill and border again. A box that showed its own while they
+// still shrank and faded over it would draw two edges, and the fading
+// backplate would wash over the box's text and icons.
 interface SuggestionsMotionLayers {
   content: HTMLElement;
   surface: HTMLElement | null;
@@ -23,20 +29,21 @@ interface SuggestionsMotionSnapshot {
   contentOpacity: string;
   contentTransform: string;
   contentClip: string;
-  surfaceOpacity: string;
 }
 
 interface SuggestionsMotion {
   // Where the playing animation has the layers now; null when none plays.
   capture(layers: SuggestionsMotionLayers): SuggestionsMotionSnapshot | null;
   cancel(): void;
-  // Opens the list from the input's height, or closes it back to it.
+  // Opens the list from the input's height, or closes it back to it. Says
+  // whether it plays; `settled` runs once when it ends or is cut short.
   play(
     open: boolean,
     layers: SuggestionsMotionLayers,
     collapsedHeight: number,
-    previous: SuggestionsMotionSnapshot | null
-  ): void;
+    previous: SuggestionsMotionSnapshot | null,
+    settled?: () => void
+  ): boolean;
   // Follows a change of the open list's height.
   resize(layers: SuggestionsMotionLayers, fromHeight: number, toHeight: number, anchorHeight: number): void;
 }
@@ -57,7 +64,8 @@ const RESIZE_TIMING: MotionTiming = { duration: 160, easing: 'cubic-bezier(0.22,
 // The rows drop in from just above, and lift a little as they leave.
 const OPEN_CONTENT_OFFSET_PX = -6;
 const CLOSE_CONTENT_OFFSET_PX = -4;
-// A closing backplate stays above the page blocks it fades over.
+// A closing backplate stays above the page blocks it shrinks over, and
+// under the search box, which is raised until the close ends.
 const CLOSING_Z_INDEX = '11';
 const MIN_RESIZE_PX = 1;
 
@@ -114,6 +122,8 @@ function createSuggestionsMotion(win: Window, doc: Document): SuggestionsMotion 
   let stopWatching: (() => void) | null = null;
   // Bumped by every cancel, so a cancelled run's finish does nothing.
   let generation = 0;
+  // What the playing open or close runs once it ends, however it ends.
+  let onSettled: (() => void) | null = null;
 
   function canPlay(layers: SuggestionsMotionLayers): layers is AnimatableLayers {
     return isMotionAllowed(win, doc) && hasAnimatableLayers(layers);
@@ -128,8 +138,7 @@ function createSuggestionsMotion(win: Window, doc: Document): SuggestionsMotion 
       height: layers.surface.getBoundingClientRect().height,
       contentOpacity: contentStyle.opacity,
       contentTransform: contentStyle.transform === 'none' ? translateY(0) : contentStyle.transform,
-      contentClip: contentStyle.clipPath === 'none' ? clipBottom('0%') : contentStyle.clipPath,
-      surfaceOpacity: win.getComputedStyle(layers.surface).opacity
+      contentClip: contentStyle.clipPath === 'none' ? clipBottom('0%') : contentStyle.clipPath
     };
   }
 
@@ -140,18 +149,28 @@ function createSuggestionsMotion(win: Window, doc: Document): SuggestionsMotion 
     stopWatching = null;
   }
 
+  function settle(): void {
+    const settled = onSettled;
+    onSettled = null;
+    if (settled) {
+      settled();
+    }
+  }
+
   function cancel(): void {
     generation += 1;
     stopWatchingPreference();
     running.forEach((animation) => animation.cancel());
     running = [];
     mode = null;
+    settle();
   }
 
   function finish(): void {
     stopWatchingPreference();
     running = [];
     mode = null;
+    settle();
   }
 
   function finishWith(animation: Animation): void {
@@ -193,11 +212,12 @@ function createSuggestionsMotion(win: Window, doc: Document): SuggestionsMotion 
     open: boolean,
     layers: SuggestionsMotionLayers,
     collapsedHeight: number,
-    previous: SuggestionsMotionSnapshot | null
-  ): void {
+    previous: SuggestionsMotionSnapshot | null,
+    settled?: () => void
+  ): boolean {
     cancel();
     if (!canPlay(layers) || collapsedHeight <= 0) {
-      return;
+      return false;
     }
     mode = 'visibility';
     try {
@@ -208,8 +228,8 @@ function createSuggestionsMotion(win: Window, doc: Document): SuggestionsMotion 
       const layering = open ? {} : { zIndex: CLOSING_Z_INDEX };
       [layers.surface, layers.outline].forEach((element) => {
         running.push(element.animate([
-          { height: px(fromHeight), opacity: previous?.surfaceOpacity || '1', visibility: 'visible', ...layering },
-          { height: px(toHeight), opacity: open ? '1' : '0', visibility: 'visible', ...layering }
+          { height: px(fromHeight), opacity: '1', visibility: 'visible', ...layering },
+          { height: px(toHeight), opacity: '1', visibility: 'visible', ...layering }
         ], timing));
       });
       const content = layers.content.animate([
@@ -232,7 +252,10 @@ function createSuggestionsMotion(win: Window, doc: Document): SuggestionsMotion 
     } catch (_error) {
       // An older engine may reject a keyframe; the list still works unanimated.
       cancel();
+      return false;
     }
+    onSettled = settled || null;
+    return true;
   }
 
   // Retargets an opening list whose height changes on the way, from where it

@@ -1087,7 +1087,11 @@ function createLayoutController(layoutOptions?: LayoutControllerOptions) {
       SUGGESTIONS_HEIGHT_LAYOUT.releaseSuggestionsHeight(suggestionsContainer, windowObj);
     }
     changingSuggestionsVisibility = visibilityChanged;
-    setSuggestionsOpenState(shouldShow);
+    // A closing list keeps the search box in its open look until the
+    // backplate has shrunk back onto it (see suggestions-motion.ts).
+    if (shouldShow || !visibilityChanged) {
+      setSuggestionsOpenState(shouldShow);
+    }
     setBooleanAttribute(suggestionsContainer, visibleAttribute, shouldShow);
     setBooleanAttribute(suggestionsSurface, visibleAttribute, shouldShow);
     setBooleanAttribute(suggestionsOutline, visibleAttribute, shouldShow);
@@ -1097,7 +1101,22 @@ function createLayoutController(layoutOptions?: LayoutControllerOptions) {
       const inputParts = getInputParts();
       const anchor = getRoot() || (inputParts ? inputParts.container : null);
       const collapsedHeight = anchor ? anchor.getBoundingClientRect().height : 0;
-      suggestionsMotion.play(shouldShow, motionLayers, collapsedHeight, interruptedMotion);
+      const settleClosed = () => {
+        // Reopened meanwhile: the open state stays.
+        if (suggestionsContainer.getAttribute(visibleAttribute) !== 'true') {
+          setSuggestionsOpenState(false);
+        }
+      };
+      const playing = suggestionsMotion.play(
+        shouldShow,
+        motionLayers,
+        collapsedHeight,
+        interruptedMotion,
+        shouldShow ? undefined : settleClosed
+      );
+      if (!shouldShow && !playing) {
+        settleClosed();
+      }
     }
     if (shouldShow) {
       if (typeof windowObj.requestAnimationFrame === 'function') {

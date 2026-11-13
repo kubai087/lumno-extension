@@ -104,6 +104,9 @@ interface BookmarkCascadeMenuOptions {
   isActivationSuppressed?(): boolean;
   shouldKeepOpenForExternalNode?(node: EventTarget | null): boolean;
   getViewportTopPadding?(): number;
+  // True for an anchor whose menu may grow to the bottom of the window, like
+  // the browser's own bookmarks bar, instead of stopping at the usual height.
+  isFullHeightAnchor?(anchor: Element): boolean;
 }
 
 // What a row shows that stays the same while its level is open.
@@ -183,7 +186,12 @@ type CascadeDropMatch =
 // two rows; 'blocked' over the menu where nothing takes the drop.
 type CascadeDragTarget = CascadeDropTarget | BlockedDropTarget;
 
+const BOOKMARK_CASCADE_ROOT_GAP_PX = 8;
 const BOOKMARK_CASCADE_SUBMENU_GAP_PX = -8;
+const BOOKMARK_CASCADE_VIEWPORT_PADDING_PX = 8;
+// The room a full-height level leaves below itself, clear of the window's
+// bottom edge and the page's corner controls.
+const BOOKMARK_CASCADE_FULL_HEIGHT_BOTTOM_GAP_PX = 24;
 const BOOKMARK_CASCADE_HOVER_DELAY_MS = 220;
 const BOOKMARK_CASCADE_CLOSE_DELAY_MS = 360;
 const BOOKMARK_CASCADE_SAFE_RECHECK_MS = 80;
@@ -246,6 +254,7 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
   const isActivationSuppressed = config.isActivationSuppressed || (() => false);
   const shouldKeepOpenForExternalNode = config.shouldKeepOpenForExternalNode || (() => false);
   const getViewportTopPadding = config.getViewportTopPadding || (() => 8);
+  const isFullHeightAnchor = config.isFullHeightAnchor || (() => false);
 
   let bookmarkCascadeMenu: HTMLElement | null = null;
   let menuView: CascadeMenuView | null = null;
@@ -893,20 +902,53 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
     }
   }
 
+  function isFullHeightCascade(): boolean {
+    return Boolean(bookmarkCascadeAnchor && isFullHeightAnchor(bookmarkCascadeAnchor));
+  }
+
+  // A level opened from a full-height anchor reaches down to the bottom gap
+  // of the window: the root from below the anchor, a submenu from below the
+  // page's top inset. Other levels keep the stylesheet's cap.
+  function applyBookmarkCascadeLevelMaxHeight(
+    entry: CascadeLevelEntry,
+    viewport: { width: number; height: number },
+    viewportTopPadding: number,
+    anchorRect: Rect | null
+  ): void {
+    const levelElement = entry.levelElement;
+    if (!levelElement) {
+      return;
+    }
+    const fullHeight = isFullHeightCascade();
+    const top = entry.levelIndex <= 0
+      ? (anchorRect ? anchorRect.bottom + BOOKMARK_CASCADE_ROOT_GAP_PX : NaN)
+      : viewportTopPadding;
+    const maxHeight = Math.floor(viewport.height - BOOKMARK_CASCADE_FULL_HEIGHT_BOTTOM_GAP_PX - top);
+    if (fullHeight && Number.isFinite(maxHeight) && maxHeight > 0) {
+      levelElement.style.setProperty('--x-nt-bookmark-cascade-full-max-height', `${maxHeight}px`);
+    } else {
+      levelElement.style.removeProperty('--x-nt-bookmark-cascade-full-max-height');
+    }
+  }
+
   function positionBookmarkCascadeLevel(entry: CascadeLevelEntry): void {
     if (!entry || !entry.levelElement || !bookmarkCascadeMenu) {
       return;
     }
+    const viewport = getBookmarkCascadeViewport();
+    const viewportTopPadding = Math.max(8, Number(getViewportTopPadding()) || 8);
+    const anchorRect = entry.levelIndex <= 0
+      ? getBookmarkCascadeElementRect(bookmarkCascadeAnchor, { ignoreElementTranslate: true })
+      : null;
+    applyBookmarkCascadeLevelMaxHeight(entry, viewport, viewportTopPadding, anchorRect);
+    const viewportBottomPadding = isFullHeightCascade()
+      ? BOOKMARK_CASCADE_FULL_HEIGHT_BOTTOM_GAP_PX
+      : BOOKMARK_CASCADE_VIEWPORT_PADDING_PX;
     const levelRect = getBookmarkCascadeElementRect(entry.levelElement);
     if (!levelRect) {
       return;
     }
-    const viewport = getBookmarkCascadeViewport();
-    const viewportTopPadding = Math.max(8, Number(getViewportTopPadding()) || 8);
     if (entry.levelIndex <= 0) {
-      const anchorRect = getBookmarkCascadeElementRect(bookmarkCascadeAnchor, {
-        ignoreElementTranslate: true
-      });
       if (!anchorRect || typeof positionUtils.placeRootCascadeMenu !== 'function') {
         return;
       }
@@ -914,9 +956,10 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
         anchorRect,
         menuRect: levelRect,
         viewport,
-        spacing: 8,
-        viewportPadding: 8,
-        viewportTopPadding
+        spacing: BOOKMARK_CASCADE_ROOT_GAP_PX,
+        viewportPadding: BOOKMARK_CASCADE_VIEWPORT_PADDING_PX,
+        viewportTopPadding,
+        viewportBottomPadding
       });
       entry.placement = placement;
       applyBookmarkCascadePlacement(entry.levelElement, placement);
@@ -934,8 +977,9 @@ function createBookmarkCascadeMenuRuntime(options?: BookmarkCascadeMenuOptions) 
       menuRect: levelRect,
       viewport,
       spacing: BOOKMARK_CASCADE_SUBMENU_GAP_PX,
-      viewportPadding: 8,
-      viewportTopPadding
+      viewportPadding: BOOKMARK_CASCADE_VIEWPORT_PADDING_PX,
+      viewportTopPadding,
+      viewportBottomPadding
     });
     entry.placement = placement;
     applyBookmarkCascadePlacement(entry.levelElement, placement);

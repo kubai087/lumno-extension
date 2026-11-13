@@ -18,7 +18,7 @@ import type { SettingPreview } from '../setting-preview';
 import { bookmarkFolderIconsVisible, bookmarkViewMode } from '../../domain/settings/bookmarks';
 import type { SettingsStore } from '../../platform/settings-store';
 import * as NEWTAB_CROSS_SURFACE_DRAG from '../cross-surface-drag';
-import { createBookmarksTopbar } from '../react/bookmarks-topbar';
+import { BOOKMARK_TOPBAR_IDS, createBookmarksTopbar } from '../react/bookmarks-topbar';
 import type { BookmarkSectionParts } from './bookmark-section-parts';
 import type { BookmarksShown } from './bookmarks-shown';
 import { isBookmarkHoverSuppressed } from '../dom/drag-hover';
@@ -226,7 +226,8 @@ function createBookmarkSection(deps: BookmarkSectionDeps) {
     onItemContextMenu: handleBookmarkItemContextMenu,
     isActivationSuppressed: isCardActivationSuppressed,
     shouldKeepOpenForExternalNode: isBookmarkContextMenuNode,
-    getViewportTopPadding: getBookmarkCascadeViewportTopPaddingPx
+    getViewportTopPadding: getBookmarkCascadeViewportTopPaddingPx,
+    isFullHeightAnchor: (anchor) => Boolean(anchor.closest(`#${BOOKMARK_TOPBAR_IDS.topbar}`))
   });
   const topbar = createBookmarksTopbar({
     documentObj: document,

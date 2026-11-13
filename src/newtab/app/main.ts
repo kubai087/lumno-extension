@@ -54,22 +54,22 @@ function startNewtab(): void {
     : Promise.resolve(true);
   shell.webAppearance.load();
   runStartup({
-    layoutPreferences: [
-      appearance.initialAppearanceReadyTask,
-      menus.initialBookmarkTopbarLayoutReady,
-      sections.followBookmarkViewMode(),
-      search.followPageModes(),
-      actionButtonVisibilityReady,
-      glassStyleReady,
-      motionPreferenceReady,
-      languageReady,
-      sectionPolicyReady,
-      shortcutsReady,
-      sources.recentSitesReadyTask,
-      fontsReady,
-      appearance.initialTimeFontReadyTask,
-      search.initialQuoteReadyTask
-    ],
+    layoutPreferences: {
+      appearance: appearance.initialAppearanceReadyTask,
+      bookmarkTopbar: menus.initialBookmarkTopbarLayoutReady,
+      bookmarkViewMode: sections.followBookmarkViewMode(),
+      pageModes: search.followPageModes(),
+      actionButtonVisibility: actionButtonVisibilityReady,
+      glassStyle: glassStyleReady,
+      motionPreference: motionPreferenceReady,
+      language: languageReady,
+      sectionPolicy: sectionPolicyReady,
+      shortcuts: shortcutsReady,
+      recentSites: sources.recentSitesReadyTask,
+      fonts: fontsReady,
+      timeFont: appearance.initialTimeFontReadyTask,
+      quote: search.initialQuoteReadyTask
+    },
     loadData: () => {
       const { recent, bookmarks } = sections.startSectionDataPass();
       const releaseSourceReads = () => sources.recentSourceReads.release();
