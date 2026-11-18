@@ -108,6 +108,46 @@
   scrollbar-gutter: auto;
   container-type: scroll-state;
 }
+@property --x-nt-bookmark-cascade-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --x-nt-bookmark-cascade-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+/* Overlay scrollbars stay hidden until the list scrolls, so a level cut off
+   between two rows looks complete. The edge that hides rows fades out instead
+   (set by the view); a mask, so it works over glass too. */
+:root[data-lumno-scrollbars="overlay"] .x-nt-bookmark-cascade-content {
+  --x-nt-bookmark-cascade-fade-start: 0px;
+  --x-nt-bookmark-cascade-fade-end: 0px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--x-nt-bookmark-cascade-fade-start),
+    #000 calc(100% - var(--x-nt-bookmark-cascade-fade-end)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--x-nt-bookmark-cascade-fade-start),
+    #000 calc(100% - var(--x-nt-bookmark-cascade-fade-end)),
+    transparent
+  );
+  transition:
+    --x-nt-bookmark-cascade-fade-start 160ms ease,
+    --x-nt-bookmark-cascade-fade-end 160ms ease;
+}
+:root[data-lumno-scrollbars="overlay"] .x-nt-bookmark-cascade-content[data-overflow-start="true"] {
+  --x-nt-bookmark-cascade-fade-start: 24px;
+}
+:root[data-lumno-scrollbars="overlay"] .x-nt-bookmark-cascade-content[data-overflow-end="true"] {
+  --x-nt-bookmark-cascade-fade-end: 36px;
+}
 /* A classic scrollbar takes its own 10px beside the 6px padding, which leaves
    the rows far from the thumb and the thumb close to the edge. While the level
    scrolls, the rows reach into that padding so the thumb sits between even gaps. */

@@ -224,8 +224,42 @@ function CascadeRow({
   );
 }
 
+// macOS hides overlay scrollbars until the list scrolls, so a level cut off
+// between two rows looks complete. Marks the edges that hide rows; the styles
+// fade them.
+function useScrollEdges(content: { current: HTMLDivElement | null }, rows: readonly CascadeRowModel[]) {
+  useLayoutEffect(() => {
+    const element = content.current;
+    if (!element) {
+      return undefined;
+    }
+    const sync = () => {
+      const { scrollTop, scrollHeight, clientHeight } = element;
+      const before = scrollTop > 1;
+      const after = clientHeight > 0 && scrollTop + clientHeight < scrollHeight - 1;
+      if (element.dataset.overflowStart !== String(before)) {
+        element.dataset.overflowStart = String(before);
+      }
+      if (element.dataset.overflowEnd !== String(after)) {
+        element.dataset.overflowEnd = String(after);
+      }
+    };
+    sync();
+    element.addEventListener('scroll', sync, { passive: true });
+    const view = element.ownerDocument.defaultView;
+    const observer = view && typeof view.ResizeObserver === 'function' ? new view.ResizeObserver(sync) : null;
+    observer?.observe(element);
+    return () => {
+      element.removeEventListener('scroll', sync);
+      observer?.disconnect();
+    };
+  }, [content, rows]);
+}
+
 function CascadeLevel({ handlers, level }: { handlers: CascadeMenuHandlers; level: CascadeLevelModel }) {
   const levelKey = level.key;
+  const contentRef = useRef<HTMLDivElement>(null);
+  useScrollEdges(contentRef, level.rows);
   const ref = useCallback(
     (element: HTMLDivElement | null) => handlers.onLevelElement(levelKey, element),
     [handlers, levelKey]
@@ -244,7 +278,7 @@ function CascadeLevel({ handlers, level }: { handlers: CascadeMenuHandlers; leve
         '--x-extension-menu-surface-max-width': `${LEVEL_MAX_WIDTH_PX}px`
       }}
     >
-      <div className="x-nt-bookmark-cascade-content" role="none">
+      <div className="x-nt-bookmark-cascade-content" ref={contentRef} role="none">
         {level.title ? (
           <div className="x-nt-bookmark-cascade-title" role="presentation" title={level.title}>
             {level.title}
