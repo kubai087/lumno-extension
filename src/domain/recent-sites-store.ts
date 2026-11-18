@@ -67,6 +67,10 @@ interface RecentSiteCollector {
 
 const DEFAULT_MAX_PINNED = 3;
 const DEFAULT_MAX_HIDDEN = 60;
+// The hidden list is one chrome.storage.sync item, which holds 8192 bytes with
+// its key. Long URLs fill it before the count cap does, and a write over it
+// fails, so the oldest entries make room instead.
+const HIDDEN_LIST_BYTE_BUDGET = 7936;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -297,6 +301,11 @@ function normalizeHiddenRecentSites(items: unknown, options?: RecentSiteOptions 
       break;
     }
   }
+  const encoder = new TextEncoder();
+  while (normalized.length > 1 &&
+      encoder.encode(JSON.stringify(normalized)).byteLength > HIDDEN_LIST_BYTE_BUDGET) {
+    normalized.pop();
+  }
   return normalized;
 }
 
@@ -316,6 +325,7 @@ function isRecentSiteHidden(item: unknown, hiddenSites: readonly (HiddenRecentSi
 export {
   DEFAULT_MAX_HIDDEN,
   DEFAULT_MAX_PINNED,
+  HIDDEN_LIST_BYTE_BUDGET,
   defaultNormalizeHost,
   getCanonicalPageUrl,
   getHostFromUrl,

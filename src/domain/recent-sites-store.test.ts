@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeHiddenRecentSites, normalizePinnedRecentSites, normalizeRecentCount } from './recent-sites-store';
+import { HIDDEN_LIST_BYTE_BUDGET, normalizeHiddenRecentSites, normalizePinnedRecentSites, normalizeRecentCount } from './recent-sites-store';
 
 const options = {
   normalizeHost: (host: string) => String(host || '').toLowerCase().replace(/^www\./, ''),
@@ -31,6 +31,20 @@ describe('recent sites store', () => {
 
     expect(hidden).toHaveLength(1);
     expect(hidden[0].lastVisitTime).toBe(12);
+  });
+
+  it('drops the oldest hidden entries once long URLs would overfill the sync item', () => {
+    const entries = Array.from({ length: 60 }, (_, index) => ({
+      url: `https://docs.example.com/projects/lumno/issues/${index}?tab=activity&filter=open&sort=updated`,
+      lastVisitTime: 1763400000000.123 + index,
+      hiddenAt: 1763400000000 + index
+    }));
+    const hidden = normalizeHiddenRecentSites(entries, options);
+
+    expect(JSON.stringify(entries).length).toBeGreaterThan(8192);
+    expect(JSON.stringify(hidden).length).toBeLessThanOrEqual(HIDDEN_LIST_BYTE_BUDGET);
+    expect(hidden.length).toBeLessThan(60);
+    expect(hidden[0].url).toBe(entries[0].url);
   });
 
   it('keeps the tracking fields only on a tracked pinned card, and drops an invalid one', () => {
