@@ -358,3 +358,12 @@ body[data-glass-style] .x-nt-recent-track.x-nt-recent-track--active[data-glass-i
     "Helvetica Neue", Arial, sans-serif;
   backdrop-filter: blur(12px);
 }
+
+.x-nt-read-later-tag {
+  flex-shrink: 0;
+  font-size: 10px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 1px 4px;
+  opacity: .7;
+}

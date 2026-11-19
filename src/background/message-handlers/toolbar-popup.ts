@@ -1,5 +1,5 @@
 // The toolbar popup's actions on the current tab.
-import { pageShortcutMenuController, popupRecentPin } from '../worker-controllers';
+import { pageShortcutMenuController, popupRecentPin, readLater } from '../worker-controllers';
 import { getResolvedTabUrl, isBrowserNewtabUrl, isLumnoNewtabUrl } from '../browser-urls-service';
 import { openDocumentPipPickerOnTab } from '../pip-service';
 import type { HandlersFor } from '../message-router';
@@ -8,7 +8,7 @@ import { triggerShowSearchForTab } from '../command-service';
 
 type PopupAction =
   | 'popupOpenDocumentPipPicker' | 'popupShowSearch' | 'popupShowPageToast' | 'popupAddPageShortcut'
-  | 'popupGetRecentPin' | 'popupToggleRecentPin';
+  | 'popupGetRecentPin' | 'popupToggleRecentPin' | 'readLaterAdd';
 
 
 // The tab a toolbar popup action works on. The popup names the tab it showed;
@@ -78,6 +78,12 @@ const POPUP_MESSAGE_HANDLERS: HandlersFor<PopupAction> = Object.freeze({
       menu.addTabPage(tab).then(sendResponse, () => {
         sendResponse({ status: 'failed', message: '', error: true });
       });
+    });
+    return true;
+  },
+  readLaterAdd(request, sender, sendResponse) {
+    getPopupTargetTab(request.tabId, (tab) => {
+      void readLater.add(getPopupPage(tab) || { url: '', title: '' }).then(sendResponse);
     });
     return true;
   },

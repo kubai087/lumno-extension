@@ -273,7 +273,13 @@ function buildActions(state: PopupState, t: Translate): PopupActionModel[] {
       iconName: 'ri-apps-2-add-line',
       disabled: !canSaveToNewTab
     }),
-    action('pin', buildPinAction(state, t, canSaveToNewTab, unavailable))
+    action('pin', buildPinAction(state, t, canSaveToNewTab, unavailable)),
+    action('readLater', {
+      label: t('read_later_add', 'Add to Read later'),
+      tooltip: canSaveToNewTab ? t('read_later_add', 'Add to Read later') : unavailable,
+      iconName: 'ri-time-line',
+      disabled: !canSaveToNewTab
+    })
   ];
   // Web clip is a Labs feature: it only shows once it is turned on.
   if (state.documentPipSupported === true && state.documentPipEnabled === true) {

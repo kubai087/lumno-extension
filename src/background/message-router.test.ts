@@ -130,7 +130,7 @@ const EXPECTED_BACKGROUND_ACTIONS = [
   'openReleasePage', 'openBookmarkManager', 'openBookmarkFolderInNewTabGroup', 'createTab', 'openNewTab',
   'openExtensionDetailsPage', 'checkGraphicsRendering', 'openGraphicsSettings', 'probeProgressSeries',
   'popupOpenDocumentPipPicker', 'popupShowSearch', 'popupAddPageShortcut', 'popupShowPageToast',
-  'popupGetRecentPin', 'popupToggleRecentPin',
+  'popupGetRecentPin', 'popupToggleRecentPin', 'readLaterAdd',
   'resolveFaviconCandidates', 'getFaviconData', 'getShortcutFaviconData', 'resolveSiteThemeColor'
 ];
 
@@ -175,7 +175,7 @@ describe("the worker's message routes", () => {
   it.each([
     'webdav', 'openBookmarkManager', 'getShortcutFaviconData', 'resolveFaviconCandidates', 'openExtensionDetailsPage',
     'swapNewtabForFocus', 'trackSearchTab', 'getFileSchemeAccessStatus', 'popupOpenDocumentPipPicker', 'popupShowSearch',
-    'popupAddPageShortcut', 'popupShowPageToast', 'popupGetRecentPin', 'popupToggleRecentPin'
+    'popupAddPageShortcut', 'popupShowPageToast', 'popupGetRecentPin', 'popupToggleRecentPin', 'readLaterAdd'
   ])('refuses %s from a web page', async (action) => {
     const fake = await bootRoutes();
 

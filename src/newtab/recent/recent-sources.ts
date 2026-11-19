@@ -33,6 +33,7 @@ function createRecentSources(deps: RecentSourcesDeps) {
 
 
   function getRecentSites(limit: number, mode: string): Promise<RecentSite[]> {
+    if (mode === 'readLater') return Promise.resolve([]);
     const safeLimit = Math.max(0, Number(limit) || 0);
     if (safeLimit > 0 && firefoxBrowserIcons) {
       // Render recent cards once Firefox's own icons are indexed.

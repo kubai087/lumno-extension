@@ -53,7 +53,7 @@ import '../shared/pip-main-world';
 import '../domain/progress-match';
 import '../domain/progress-history';
 import './popup-recent-pin';
-import { pageShortcutMenuController, startProgressTracking } from './worker-controllers';
+import { pageShortcutMenuController, startProgressTracking, startReadLater } from './worker-controllers';
 import './overlay-loading-lifecycle';
 import * as DEV_EXTENSION_STARTUP from './dev-extension-startup';
 import { loadFirefoxBrandIcon } from './tab-switcher/appearance';
@@ -343,6 +343,7 @@ const handleWebDavMessage: BackgroundHandler<'webdav'> = (message, sender, sendR
 
 // The page context menu item that adds the page to the New Tab shortcuts.
 if (pageShortcutMenuController) pageShortcutMenuController.start();
+startReadLater();
 
 // Link preview: Shift+click opens a link in a small window over the page.
 const linkPreviewService = Service.createLinkPreviewService({ chromeApi: chrome, settingsStore: workerSettings });

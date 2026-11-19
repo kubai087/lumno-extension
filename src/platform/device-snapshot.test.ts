@@ -127,3 +127,16 @@ describe('device snapshots in settings files', () => {
     await expect(torn.snapshots.capture({ wallpapers: false, icons: false })).rejects.toThrow('incomplete-shortcuts');
   });
 });
+
+
+it('exports and restores read later entries through the device snapshot only', async () => {
+  const key = '_x_extension_read_later_pages_2026_unique_';
+  const pages = [{ url: 'https://example.com/article', title: 'Read me' }];
+  const first = device({ sync: {}, local: { [key]: pages } });
+  const snapshot = await first.snapshots.capture({ wallpapers: false, icons: false });
+  const second = device({ sync: {} });
+  const parsed = await second.snapshots.parse(throughFile(snapshot));
+  await second.snapshots.apply(parsed, { payload: second.snapshots.preferences(parsed), keysToClear: [] });
+  expect(second.chromeApi.storage.local.values[key]).toEqual(pages);
+  expect(second.chromeApi.storage.sync.values[key]).toBeUndefined();
+});

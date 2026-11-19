@@ -346,3 +346,22 @@ describe('an apply interrupted on a joining device', () => {
     expect(corrupt.chrome.storage.local.values[settings.localPrimary.key]).toBeUndefined();
   });
 });
+
+
+describe('read later through WebDAV', () => {
+  it('carries saves and removals between devices without copying them to browser sync', async () => {
+    const { first, second } = await joinedPair();
+    const key = settings.readLaterPages.key;
+    const page = { url: 'https://example.com/read-me', title: 'Read me' };
+    await storageSet(first.chrome.storage.local, { [key]: [page] });
+    await first.controller.handle({ operation: 'sync' });
+    await second.controller.handle({ operation: 'sync' });
+    expect(second.chrome.storage.local.values[key]).toEqual([page]);
+    expect(second.chrome.storage.sync.values[key]).toBeUndefined();
+    await storageSet(second.chrome.storage.local, { [key]: [] });
+    await second.controller.handle({ operation: 'sync' });
+    await first.controller.handle({ operation: 'sync' });
+    expect(first.chrome.storage.local.values[key]).toEqual([]);
+    expect(first.chrome.storage.sync.values[key]).toBeUndefined();
+  });
+});

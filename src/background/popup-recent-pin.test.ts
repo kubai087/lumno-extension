@@ -45,6 +45,15 @@ describe('pinning the popup page among the recent sites', () => {
     expect(stored().map((item) => item.url)).toEqual(['https://example.com/']);
   });
 
+  it('can ensure a page is pinned without toggling an existing pin off', async () => {
+    const { pin, stored } = createPin();
+    expect(await pin.pin(page)).toMatchObject({ status: 'pinned' });
+    expect(await pin.pin(page)).toMatchObject({ status: 'pinned' });
+    expect(stored()).toHaveLength(1);
+    expect(await pin.toggle(page)).toEqual({ status: 'unpinned' });
+    expect(stored()).toHaveLength(0);
+  });
+
   it('refuses a fourth card', async () => {
     const { pin, stored } = createPin(['a', 'b', 'c'].map((name) => ({ url: `https://${name}.com/`, title: name })));
 

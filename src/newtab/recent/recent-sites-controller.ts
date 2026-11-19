@@ -119,7 +119,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   // Follows the stored lists, redrawing the cards when the sites change;
   // settles once they are read.
   function followStoredSites(): Promise<void> {
-    const sites = [RecentSiteSettings.pinnedRecentSites, RecentSiteSettings.hiddenRecentSites];
+    const sites = [RecentSiteSettings.pinnedRecentSites, RecentSiteSettings.hiddenRecentSites, RecentSiteSettings.readLaterPages];
     settings.subscribe(sites, () => {
       readStoredSiteLists();
       redrawRecentSites();
@@ -242,7 +242,10 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function removeRecentSiteFromContextMenu(item: RecentSite): Promise<void> {
-    return hideRecentSiteTemporarily(item).then((result) => {
+    const removeSaved = item._xReadLater
+      ? settings.set(RecentSiteSettings.readLaterPages, settings.get(RecentSiteSettings.readLaterPages).filter((page) => page.url !== item.url))
+      : Promise.resolve();
+    return removeSaved.then(() => hideRecentSiteTemporarily(item)).then((result) => {
       if (!result.hidden) {
         return;
       }
@@ -498,13 +501,12 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
   }
 
   function mergeRecentSitesWithPinned(items: unknown, limit: number): RecentSite[] {
+    const saved = settings.get(RecentSiteSettings.readLaterPages);
+    const source = settings.get(RecentSiteSettings.recentMode) === 'readLater' ? saved : items;
+    // Pinned cards, their limit, ordering and matching remain the original behavior.
     return RecentSitesMerge.mergeRecentSitesWithPinned(
-      items,
-      pinnedSites,
-      hiddenSites,
-      limit,
-      getRecentStoreOptions()
-    );
+      source, pinnedSites, hiddenSites, limit, getRecentStoreOptions()
+    ).map((item) => ({ ...item, _xReadLater: saved.some((page) => page.url === item.url) }));
   }
 
   function togglePinnedRecentSite(item: RecentSite): Promise<PinToggleResult> {

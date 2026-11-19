@@ -8,6 +8,8 @@ import * as LumnoProgressHistory from '../domain/progress-history';
 import * as LumnoSettings from '../domain/settings';
 import * as LumnoPageShortcutMenu from './page-shortcut-menu';
 import * as LumnoPopupRecentPin from './popup-recent-pin';
+import { createReadLaterController } from './read-later';
+import { startReadLaterMenu } from './read-later-menu';
 import {
   loadLocaleMessages,
   normalizeHost,
@@ -54,7 +56,14 @@ const popupRecentPin = LumnoPopupRecentPin.createController({
   createProgressId: LumnoProgressHistory.createProgressId
 });
 
+const readLater = createReadLaterController(workerSettings, popupRecentPin);
+function startReadLater(): void {
+  startReadLaterMenu(readLater, workerSettings, loadLocaleMessages, pageShortcutMenuController);
+}
+
 export {
+  readLater,
+  startReadLater,
   isProgressTrackingEnabled,
   pageShortcutMenuController,
   popupRecentPin,

@@ -4,7 +4,7 @@ import { queryHtmlTags } from '../../shared/dom-lookup';
 import { RemixIcon } from '../../shared/react/remix-icon';
 import type { RemixIconName } from '../../shared/ui/remix-icon';
 
-export type PopupActionId = 'clip' | 'shortcut' | 'copy' | 'search' | 'pin' | 'pip';
+export type PopupActionId = 'clip' | 'shortcut' | 'copy' | 'search' | 'pin' | 'pip' | 'readLater';
 export type PopupLinkId = 'settings' | 'shortcuts' | 'feedback' | 'release' | 'sync';
 
 export interface PopupPageModel {

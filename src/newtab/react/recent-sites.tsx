@@ -900,6 +900,7 @@ function RecentSiteCard({
               <RemixIcon name="ri-arrow-right-line" size={12} />
             </span>
           </div>
+          {item._xReadLater ? <span className="x-nt-read-later-tag">{options.t('read_later_title', 'Read later')}</span> : null}
           <span className="x-nt-recent-url-text">
             {ownExtensionDisplay
               ? ownExtensionDisplay.urlText
