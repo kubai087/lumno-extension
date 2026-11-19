@@ -62,12 +62,16 @@ export interface TopContentState {
   model: TopContentModel | null;
 }
 
+// flex-shrink: 0 keeps a short window from squeezing the area: overflow:
+// hidden would cut the clock's digits top and bottom. The shortcuts below
+// scroll instead.
 const containerStyle = `
   all: unset;
   width: 90vw;
   max-width: var(--x-nt-search-max-width, 720px);
   max-height: 74px;
   min-height: 0;
+  flex-shrink: 0;
   margin: 0 0 28px;
   display: flex;
   align-items: center;
