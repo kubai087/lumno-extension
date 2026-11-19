@@ -123,12 +123,15 @@ function createRecentSection(deps: RecentSectionDeps) {
   function renderRecentHeader(): void {
     const latest = t('recent_heading_latest', 'Recent visits');
     const most = t('recent_heading_most', 'Most visited');
+    const later = t('read_later_title', 'Read later');
+    const mode = settings.get(recentMode);
+    pageStructureRuntime.recent.grid.dataset.recentMode = mode;
     pageStructureRuntime.recent.headerStore.setState({
-      heading: settings.get(recentMode) === 'most' ? most : latest,
+      heading: mode === 'readLater' ? later : mode === 'most' ? most : latest,
       modeSwitch: {
         title: t('display_mode_title', 'Display mode'),
         value: settings.get(recentMode),
-        options: [{ value: 'latest', label: latest }, { value: 'most', label: most }],
+        options: [{ value: 'latest', label: latest }, { value: 'most', label: most }, { value: 'readLater', label: later }],
         onChange: (nextMode) => void settings.set(recentMode, recentMode.parse(nextMode)).catch(() => {})
       }
     });

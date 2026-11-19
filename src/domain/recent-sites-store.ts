@@ -16,6 +16,7 @@ interface RecentSite {
   progressId?: string;
   // Set on merged lists: the card is one of the pinned ones.
   _xPinned?: boolean;
+  _xReadLater?: boolean;
 }
 
 // A site hidden until a visit later than the one it was hidden at.

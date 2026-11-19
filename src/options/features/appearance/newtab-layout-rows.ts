@@ -39,7 +39,7 @@ interface NewtabLayoutValues {
   bookmarkColumns: number;
   folderIcons: boolean;
   recentCount: number;
-  recentMode: 'latest' | 'most';
+  recentMode: 'latest' | 'most' | 'readLater';
   feedbackButton: boolean;
   appearanceButton: boolean;
 }
@@ -275,7 +275,8 @@ function getRecentRow(t: GetMessage, values: NewtabLayoutValues): RecentSitesRow
         dataAttribute: 'data-recent-mode',
         items: [
           { value: 'latest', labelKey: 'recent_mode_latest', label: t('recent_mode_latest', '最近访问') },
-          { value: 'most', labelKey: 'recent_mode_most', label: t('recent_mode_most', '最常访问') }
+          { value: 'most', labelKey: 'recent_mode_most', label: t('recent_mode_most', '最常访问') },
+          { value: 'readLater', labelKey: 'read_later_title', label: t('read_later_title', 'Read later') }
         ],
         select: { id: '_x_extension_recent_mode_select_2024_unique_' }
       }

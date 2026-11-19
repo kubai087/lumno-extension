@@ -3850,5 +3850,14 @@
   },
   "popup_recent_unpinned": {
     "message": "固定を解除しました"
+  },
+  "read_later_title": {
+    "message": "あとで読む"
+  },
+  "read_later_add": {
+    "message": "あとで読むに追加"
+  },
+  "read_later_added": {
+    "message": "あとで読むに追加しました"
   }
 }

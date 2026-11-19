@@ -74,9 +74,9 @@ describe('Options Appearance New Tab layout section', () => {
     const modes = () => getTags(host, '#_x_extension_recent_mode_tabs_wrap_2024_unique_ button', 'button');
     // Anything but "latest" shows "most".
     await store(Settings.recentMode, 'bogus');
-    expect(modes().map((button) => button.dataset.active)).toEqual(['false', 'true']);
+    expect(modes().map((button) => button.dataset.active)).toEqual(['false', 'true', 'false']);
     await store(Settings.recentMode, 'latest');
-    expect(modes().map((button) => button.dataset.active)).toEqual(['true', 'false']);
+    expect(modes().map((button) => button.dataset.active)).toEqual(['true', 'false', 'false']);
     await store(Settings.recentMode, 'most');
     act(() => modes()[0]?.click());
     await settings.settle();

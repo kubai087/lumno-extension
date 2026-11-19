@@ -57,6 +57,8 @@ class PopupActions {
       await this.copyLink(tab);
     } else if (id === 'pin') {
       await this.togglePin(tab);
+    } else if (id === 'readLater') {
+      await this.addReadLater(tab);
     } else if (id === 'shortcut') {
       await this.addShortcut(tab);
     }
@@ -118,6 +120,16 @@ class PopupActions {
         : t('popup_recent_pinned', 'Pinned to Recent on your New Tab');
     }
     await this.announceInPage(tab, message);
+  }
+
+  private async addReadLater(tab: PopupTab): Promise<void> {
+    const result = await this.ports.sendMessage({ action: 'readLaterAdd', tabId: tab.id });
+    if (result?.status !== 'added') {
+      this.showError(result?.status === 'limit' ? this.t('recent_pin_limit_toast', 'You can pin up to 3 cards.')
+        : this.t('toast_error', 'Action failed. Try again.'));
+      return;
+    }
+    await this.announceInPage(tab, this.t('read_later_added', 'Added to Read later'));
   }
 
   private async addShortcut(tab: PopupTab): Promise<void> {

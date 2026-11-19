@@ -290,11 +290,12 @@ function createRuntime(options: SectionPanelSettingsOptions) {
         expanded: recentExpanded,
         modeLabel: displayModeLabel,
         mode: {
-          active: config.getRecentMode?.() === 'most' ? 'most' : 'latest',
+          active: config.getRecentMode?.() === 'readLater' ? 'readLater' : config.getRecentMode?.() === 'most' ? 'most' : 'latest',
           label: displayModeLabel,
           options: [
             { value: 'latest', label: t('recent_mode_latest', 'Recent') },
-            { value: 'most', label: t('recent_mode_most', 'Most visited') }
+            { value: 'most', label: t('recent_mode_most', 'Most visited') },
+            { value: 'readLater', label: t('read_later_title', 'Read later') }
           ]
         },
         rowsLabel: recentRowsLabel,

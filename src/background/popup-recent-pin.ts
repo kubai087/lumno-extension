@@ -37,6 +37,7 @@ interface RecentPinToggleResult {
 interface RecentPinController {
   getStatus(page: PopupPage | null): Promise<RecentPinStatus>;
   toggle(page: PopupPage | null): Promise<RecentPinToggleResult>;
+  pin(page: PopupPage | null): Promise<RecentPinToggleResult>;
 }
 
 function createController(options: RecentPinOptions): RecentPinController {
@@ -84,7 +85,7 @@ function createController(options: RecentPinOptions): RecentPinController {
 
   // Unpins what the popup showed as pinned, otherwise pins the page in
   // front. One toggle at a time, so two quick clicks read each other's list.
-  function toggle(page: PopupPage | null): Promise<RecentPinToggleResult> {
+  function toggle(page: PopupPage | null, pinOnly = false): Promise<RecentPinToggleResult> {
     const job = chain.catch(() => {}).then(async (): Promise<RecentPinToggleResult> => {
       const item = toItem(page);
       if (!item) return { status: 'invalid' };
@@ -95,6 +96,7 @@ function createController(options: RecentPinOptions): RecentPinController {
         return settingsStore.set(pinnedRecentSites, normalized).then(() => normalized);
       };
       if (index >= 0) {
+        if (pinOnly) return { status: 'pinned' };
         await save(pinned.filter((_, position) => position !== index));
         return { status: 'unpinned' };
       }
@@ -115,7 +117,7 @@ function createController(options: RecentPinOptions): RecentPinController {
     });
   }
 
-  return { getStatus, toggle };
+  return { getStatus, toggle, pin: (page) => toggle(page, true) };
 }
 
 export { createController };

@@ -145,21 +145,10 @@ function createSectionLoaders(deps: SectionLoadersDeps) {
       });
     recentShown.setItems(normalizedSourceItems.slice());
     const mergedItems = mergeRecentSitesWithPinned(normalizedSourceItems, getRecentLimit());
-    if (!recentShown.draw(mergedItems)) {
-      if (mergedItems.length === 0) {
-        setContentSectionVisible(recentSection, false);
-      } else {
-        setContentSectionVisible(recentSection, true);
-      }
-      updateBookmarkSectionPosition();
-      return;
-    }
-    if (mergedItems.length === 0) {
-      setContentSectionVisible(recentSection, false);
-      updateBookmarkSectionPosition();
-      return;
-    }
-    setContentSectionVisible(recentSection, true);
+    recentShown.draw(mergedItems);
+    // An empty saved list must keep its mode switch available.
+    setContentSectionVisible(recentSection, getRecentLimit() > 0 &&
+      (mergedItems.length > 0 || settings.get(recentMode) === 'readLater'));
     updateBookmarkSectionPosition();
   }
 

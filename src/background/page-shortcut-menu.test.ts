@@ -59,8 +59,8 @@ describe('the page menu item that adds a page to the shortcuts', () => {
     const fake = await bootWorker();
     await settleWorker(50);
 
-    expect(fake.chrome.contextMenus.create.mock.calls.map(([properties]) => properties.id)).toEqual([MENU_ITEM_ID]);
-    expect(fake.chrome.contextMenus.onClicked.listeners).toHaveLength(1);
+    expect(fake.chrome.contextMenus.create.mock.calls.map(([properties]) => properties.id).sort()).toEqual([MENU_ITEM_ID, 'lumno-read-later'].sort());
+    expect(fake.chrome.contextMenus.onClicked.listeners).toHaveLength(2);
   });
 
   it("follows the language picked in Lumno, not only the browser's", async () => {

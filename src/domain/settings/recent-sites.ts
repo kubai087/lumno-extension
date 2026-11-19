@@ -1,16 +1,28 @@
 // New Tab recent sites: which list shows, how many, the pinned and hidden
 // sites, and episode progress tracking.
 import { defineSetting } from './define';
+import { normalizeRecentSiteItem, type RecentSite } from '../recent-sites-store';
 import { custom, flag, opaque } from './schema';
 
-type RecentMode = 'latest' | 'most';
+type RecentMode = 'latest' | 'most' | 'readLater';
 
-// Most visited unless the person picked the latest.
+const readLaterPages = defineSetting({
+  key: '_x_extension_read_later_pages_2026_unique_',
+  area: 'device',
+  sync: 'webdav',
+  schema: custom((value): RecentSite[] => Array.isArray(value)
+    ? value.flatMap((entry: unknown) => {
+      const item = normalizeRecentSiteItem(entry, { ignoreBlacklist: true });
+      return item ? [item] : [];
+    }) : [])
+});
+
+// Most visited unless the person picked recent visits or saved pages.
 const recentMode = defineSetting({
   key: '_x_extension_recent_mode_2024_unique_',
   area: 'preferences',
   sync: 'browser',
-  schema: custom((value): RecentMode => (value === 'latest' ? 'latest' : 'most'))
+  schema: custom((value): RecentMode => (value === 'readLater' ? 'readLater' : value === 'latest' ? 'latest' : 'most'))
 });
 
 // The cards come in rows of four, up to two rows; 0 hides them.
@@ -55,5 +67,5 @@ const progressHistory = defineSetting({
   schema: opaque()
 });
 
-export { hiddenRecentSites, pinnedRecentSites, progressHistory, progressTrackingEnabled, recentCount, recentMode };
+export { readLaterPages, hiddenRecentSites, pinnedRecentSites, progressHistory, progressTrackingEnabled, recentCount, recentMode };
 export type { RecentMode };
