@@ -112,7 +112,7 @@ const TAB_MESSAGE_HANDLERS: HandlersFor<TabAction> = Object.freeze({
               };
             });
           syncTabSwitchStatsFromTabList(normalizedTabs);
-          const sortedTabs = sortTabsForOverlay(normalizedTabs);
+          const sortedTabs = sortTabsForOverlay(normalizedTabs, request.sortByRecency === true);
           const fetchSeq = nextTabOverlayFetchSeq();
           const withSeq = sortedTabs.map((tab) => createOverlayTabPayload(tab, fetchSeq));
           sendResponse({ tabs: withSeq, currentTabId: currentTabId });

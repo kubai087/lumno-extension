@@ -244,7 +244,7 @@ interface BackgroundMessages {
     reply: OkReply;
   };
   updateOverlayLoadingSession: { request: { session: OverlayLoadingSession }; reply: OkReply & { tracked: boolean } };
-  getTabsForOverlay: { request: { currentTabId?: number | null }; reply: { tabs: OverlayTab[]; currentTabId: number | null } };
+  getTabsForOverlay: { request: { currentTabId?: number | null; sortByRecency?: boolean }; reply: { tabs: OverlayTab[]; currentTabId: number | null } };
   trackSearchTab: { request: { tabId: number }; reply: OkReply };
   closeOtherTabsForOverlay: { request: NoFields; reply: OkReply & { closedCount?: number } };
   getShowSearchShortcut: { request: NoFields; reply: { shortcut: string } };
