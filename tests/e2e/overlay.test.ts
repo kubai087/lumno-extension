@@ -57,6 +57,27 @@ describe('search overlay', () => {
     await web.waitFor(`!document.getElementById('${OVERLAY_HOST_ID}')`, { message: 'Escape did not close the overlay' });
   });
 
+  flow('lists a recently opened tab above a frequently used older tab', async ({ browser, fixtures }) => {
+    const older = await browser.openPage(fixtures.url('/fixture.html'));
+    const web = await browser.openPage(fixtures.url('/page.html'));
+    // The worker coalesces repeat switches to the same tab within 450 ms.
+    await focusTab(browser, older);
+    await focusTab(browser, web);
+    await delay(500);
+    await focusTab(browser, older);
+    const recent = await browser.openPage(fixtures.url('/target.html'));
+    await focusTab(browser, recent);
+    await focusTab(browser, web);
+
+    await openOverlay(browser, web);
+    await web.waitForShadow(OVERLAY_HOST_ID, '.x-ov-suggestion-item', getText, (texts) => {
+      const rows = strings(texts);
+      const recentIndex = rows.findIndex((row) => row.includes('Lumno target page'));
+      const olderIndex = rows.findIndex((row) => row.includes('Lumno fixture page'));
+      return recentIndex >= 0 && olderIndex > recentIndex;
+    }, { message: 'a frequently used older tab ranked above the recently opened tab' });
+  });
+
   // The overlay keeps its focus and its typed keys under a page's key
   // grabber, and one Escape still closes it (#127).
   flow('keeps its focus and typed keys under a page key grabber, and closes on one Escape', async ({ browser, fixtures }) => {

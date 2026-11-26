@@ -1,7 +1,7 @@
 // Rendering suggestions: the React suggestions view, selection and
 // scrolling, activating or deleting a row, favicons in rows, the empty
 // state and the open tabs list.
-import type { OverlayTab } from '../../domain/messages';
+import type { BackgroundRequest, OverlayTab } from '../../domain/messages';
 import type { SuggestionInputPreview } from '../../domain/search/suggestion-input-preview';
 import * as LumnoMessaging from '../../platform/messaging';
 import type {
@@ -472,7 +472,7 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       clearDefaultOpenTabsSuggestions();
       return;
     }
-    const request: { action: 'getTabsForOverlay'; currentTabId?: number } = { action: 'getTabsForOverlay' };
+    const request: BackgroundRequest<'getTabsForOverlay'> = { action: 'getTabsForOverlay', sortByRecency: true };
     if (typeof overlayTabs.currentTabId === 'number') {
       request.currentTabId = overlayTabs.currentTabId;
     }

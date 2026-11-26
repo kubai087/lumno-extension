@@ -322,8 +322,8 @@ function getTabSwitchRank(tab: ListedTab | null | undefined, now: number): TabSw
   };
 }
 
-// Most switched to and most recently used first.
-export function sortTabsForOverlay<T extends ListedTab>(tabs: readonly T[]): Array<T & TabRankFields> {
+// The Command Bar uses recency; other callers keep the frequency-weighted order.
+export function sortTabsForOverlay<T extends ListedTab>(tabs: readonly T[], sortByRecency = false): Array<T & TabRankFields> {
   const list = Array.isArray(tabs) ? tabs.slice() : [];
   const now = Date.now();
   const sortAt = now;
@@ -348,10 +348,14 @@ export function sortTabsForOverlay<T extends ListedTab>(tabs: readonly T[]): Arr
         tab: ranked,
         score: rank.score + accessBoost,
         lastAccessed: lastAccessed,
+        lastUsedAt: Math.max(lastAccessed, rank.lastSwitchAt),
         index: index
       };
     })
     .sort((a, b) => {
+      if (sortByRecency) {
+        return b.lastUsedAt - a.lastUsedAt || a.index - b.index;
+      }
       if (b.score !== a.score) {
         return b.score - a.score;
       }
