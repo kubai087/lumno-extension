@@ -108,7 +108,8 @@ function checkFileSchemeAccess(callback?: (isAllowed: boolean | null) => void): 
 function buildNewtabFallbackUrl(options?: FallbackOptions | null): string {
   return LumnoExtensionRoutes.buildLumnoNewtabUrl(getChromeApi(), {
     focus: true,
-    notice: options && options.notice === 'file-access' ? 'file-access' : null
+    notice: options && options.notice === 'file-access' ? 'file-access' : null,
+    [LumnoExtensionRoutes.SEARCH_FALLBACK_PARAM]: true
   });
 }
 

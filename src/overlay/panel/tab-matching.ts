@@ -75,24 +75,15 @@ function createTabMatching(deps: TabMatchingDeps) {
     return parts.join(' ').toLowerCase();
   }
 
-  // The tabs matching every word of the query; with no query, all of them,
-  // the current tab moved to second place so another tab comes first.
+  // Match every word of a query. With no query, offer only tabs to switch to.
   function filterTabsForOverlay<T extends TabTextSource & { id?: number }>(tabList: T[], queryText: string): T[] {
     const list = Array.isArray(tabList) ? tabList : [];
     const normalized = normalizeTabSearchToken(queryText);
     if (!normalized) {
-      if (list.length < 2 || typeof overlayTabs.currentTabId !== 'number') {
-        return list.slice();
-      }
-      if (!list[0] || list[0].id !== overlayTabs.currentTabId) {
-        return list.slice();
-      }
-      const reordered = list.slice();
-      const currentTab = reordered.shift();
-      if (currentTab) {
-        reordered.splice(1, 0, currentTab);
-      }
-      return reordered;
+      const currentTabId = overlayTabs.currentTabId;
+      return typeof currentTabId === 'number'
+        ? list.filter((tab) => tab.id !== currentTabId)
+        : list.slice();
     }
     const tokens = normalized.split(/\s+/).filter(Boolean);
     if (tokens.length === 0) {

@@ -57,7 +57,7 @@ describe('search overlay', () => {
     await web.waitFor(`!document.getElementById('${OVERLAY_HOST_ID}')`, { message: 'Escape did not close the overlay' });
   });
 
-  flow('lists a recently opened tab above a frequently used older tab', async ({ browser, fixtures }) => {
+  flow('lists other open tabs by recency and omits the current page', async ({ browser, fixtures }) => {
     const older = await browser.openPage(fixtures.url('/fixture.html'));
     const web = await browser.openPage(fixtures.url('/page.html'));
     // The worker coalesces repeat switches to the same tab within 450 ms.
@@ -74,8 +74,8 @@ describe('search overlay', () => {
       const rows = strings(texts);
       const recentIndex = rows.findIndex((row) => row.includes('Lumno target page'));
       const olderIndex = rows.findIndex((row) => row.includes('Lumno fixture page'));
-      return recentIndex >= 0 && olderIndex > recentIndex;
-    }, { message: 'a frequently used older tab ranked above the recently opened tab' });
+      return recentIndex === 0 && olderIndex > recentIndex && !rows.some((row) => row.includes('Lumno web page'));
+    }, { message: 'the current page was listed or the recent tab did not come first' });
   });
 
   // The overlay keeps its focus and its typed keys under a page's key

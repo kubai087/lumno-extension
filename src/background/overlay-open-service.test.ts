@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkerFakeOptions, WorkerTab } from '../../tests/fakes/worker';
-import { browserTab, installWorkerFake, jsonResponse, settleWorker } from '../../tests/fakes/worker';
+import { browserTab, EXTENSION_ORIGIN, installWorkerFake, jsonResponse, settleWorker } from '../../tests/fakes/worker';
 import { createTabPages } from '../../tests/fakes/worker-pages';
 
 // The search shortcut on web pages, against pages that keep what was
@@ -172,6 +172,27 @@ describe('opening the overlay on a web page', () => {
     const last = session.page().invocations[session.page().invocations.length - 1];
     const providers = last.context.siteSearchProviders;
     expect(providers).toEqual([expect.objectContaining({ key: 'yt' })]);
+  });
+
+  it('does not offer temporary command-bar pages as open tabs', async () => {
+    const temporaryUrl = `${EXTENSION_ORIGIN}/newtab.html?searchFallback=1`;
+    const normalUrl = `${EXTENSION_ORIGIN}/newtab.html?focus=1`;
+    const pdfUrl = 'chrome-extension://pdf-viewer/https://page.example.test/commandbar.pdf';
+    const fake = installWorkerFake({ tabs: [
+      { id: 7, url: PAGE_URL, title: 'Commandbar page', active: true },
+      { id: 8, url: temporaryUrl, title: 'Commandbar temporary' },
+      { id: 9, url: normalUrl, title: 'Commandbar new tab' },
+      { id: 10, url: pdfUrl, title: 'Commandbar PDF' }
+    ] });
+    await import('./background');
+    const sender = { tab: browserTab({ id: 7, windowId: 1, url: PAGE_URL }), url: PAGE_URL };
+
+    const listed = await fake.sendMessage({ action: 'getTabsForOverlay', sortByRecency: true }, sender);
+    expect(listed).toMatchObject({ tabs: [{ id: 7 }, { id: 9 }, { id: 10 }], currentTabId: 7 });
+
+    const searched = await fake.sendMessage({ action: 'getSearchSuggestions', query: 'commandbar', context: 'overlay' }, sender, 2000);
+    expect(searched).toMatchObject({ suggestions: expect.arrayContaining([expect.objectContaining({ url: PAGE_URL })]) });
+    expect(searched).not.toMatchObject({ suggestions: expect.arrayContaining([expect.objectContaining({ url: temporaryUrl })]) });
   });
 
   it("offers the page only its window's ordinary tabs, without the browser's own fields", async () => {

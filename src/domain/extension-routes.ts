@@ -1,3 +1,5 @@
+const SEARCH_FALLBACK_PARAM = 'searchFallback';
+
 const ROUTE_PATHS = Object.freeze({
   newtab: 'newtab.html',
   legacyNewtab: 'src/newtab/newtab.html',
@@ -127,6 +129,7 @@ function classifyExtensionUrl(url: unknown): ExtensionPageKind {
 
 export {
   ROUTE_PATHS,
+  SEARCH_FALLBACK_PARAM,
   buildExtensionUrl,
   buildNewtabUrl,
   buildLumnoNewtabUrl,
