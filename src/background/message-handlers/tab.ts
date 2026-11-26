@@ -2,7 +2,7 @@
 import { swapNewtabForFocus } from '../newtab-fallback';
 import { focusWindowAndActivateTab } from '../tab-switcher/open';
 import { markPendingSearchTab } from '../search/pending-search';
-import { getResolvedTabUrl } from '../browser-urls-service';
+import { getResolvedTabUrl, isLumnoSearchFallbackUrl } from '../browser-urls-service';
 import {
   createOverlayTabPayload,
   ensureTabSwitchStatsLoaded,
@@ -110,7 +110,8 @@ const TAB_MESSAGE_HANDLERS: HandlersFor<TabAction> = Object.freeze({
                 favIconUrl: typeof tab.favIconUrl === 'string' ? tab.favIconUrl : '',
                 lastAccessed: Number(tab.lastAccessed) || 0
               };
-            });
+            })
+            .filter((tab) => !isLumnoSearchFallbackUrl(tab.url));
           syncTabSwitchStatsFromTabList(normalizedTabs);
           const sortedTabs = sortTabsForOverlay(normalizedTabs, request.sortByRecency === true);
           const fetchSeq = nextTabOverlayFetchSeq();

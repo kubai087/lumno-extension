@@ -2,7 +2,7 @@
 // bookmarks, open tabs), with short-lived caches the browser's own change
 // events invalidate.
 import * as BROWSER_PROFILE from '../../platform/browser-profile';
-import { getResolvedTabUrl } from '../browser-urls-service';
+import { getResolvedTabUrl, isLumnoSearchFallbackUrl } from '../browser-urls-service';
 import type { SearchPolicy } from '../../domain/search/types';
 import { withTimeout } from './timeout';
 import type { BookmarkItem, BookmarkNodeInfo, HistoryRemoval, OpenTabItem, TimedCache } from './types';
@@ -408,7 +408,7 @@ function getOpenTabSearchItems(): Promise<OpenTabItem[]> {
       const items: OpenTabItem[] = [];
       (Array.isArray(tabs) ? tabs : []).forEach((tab) => {
         const url = getResolvedTabUrl(tab);
-        if (!url || typeof tab.id !== 'number') {
+        if (!url || typeof tab.id !== 'number' || isLumnoSearchFallbackUrl(url)) {
           return;
         }
         items.push({

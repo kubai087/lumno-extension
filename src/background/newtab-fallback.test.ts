@@ -70,12 +70,12 @@ describe('New Tab fallback', () => {
     });
 
     it('opens the focused standalone New Tab, with the file-access notice for a file without access', () => {
-      expect(buildNewtabFallbackUrl({ notice: 'file-access' })).toBe(`${LUMNO_NEWTAB}?focus=1&notice=file-access`);
+      expect(buildNewtabFallbackUrl({ notice: 'file-access' })).toBe(`${LUMNO_NEWTAB}?focus=1&notice=file-access&searchFallback=1`);
       openNewtabFallbackForUrl('file:///Users/example/document.pdf');
       openNewtabFallbackForUrl('https://example.com/');
       openBrowserNewtabFallback();
 
-      expect(created.map((properties) => properties.url)).toEqual([`${LUMNO_NEWTAB}?focus=1&notice=file-access`, `${LUMNO_NEWTAB}?focus=1`, undefined]);
+      expect(created.map((properties) => properties.url)).toEqual([`${LUMNO_NEWTAB}?focus=1&notice=file-access&searchFallback=1`, `${LUMNO_NEWTAB}?focus=1&searchFallback=1`, undefined]);
     });
 
     it('lets the browser pick its New Tab when following it, except to show the file-access notice', () => {
@@ -85,7 +85,7 @@ describe('New Tab fallback', () => {
       Reflect.deleteProperty(browser.extension, 'isAllowedFileSchemeAccess');
       openNewtabFallbackForUrl('https://example.com/docs/report.pdf', { followBrowserNewtab: true });
 
-      expect(created.map((properties) => properties.url)).toEqual([`${LUMNO_NEWTAB}?focus=1&notice=file-access`, undefined, undefined]);
+      expect(created.map((properties) => properties.url)).toEqual([`${LUMNO_NEWTAB}?focus=1&notice=file-access&searchFallback=1`, undefined, undefined]);
     });
 
     it('opens in the source tab’s window and joins its group', () => {
@@ -154,7 +154,7 @@ describe('a search the page refuses', () => {
     const created = fake.chrome.tabs.create.mock.calls.map((call) => call[0]);
     expect(created).toHaveLength(1);
     if (expected === 'lumno') {
-      expect(created[0].url).toMatch(/src\/newtab\/lumno-newtab\.html\?focus=1$/);
+      expect(created[0].url).toMatch(/src\/newtab\/lumno-newtab\.html\?focus=1&searchFallback=1$/);
     } else {
       expect(created[0].url).toBeUndefined();
     }

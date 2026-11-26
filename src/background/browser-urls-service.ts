@@ -153,6 +153,17 @@ export function isLumnoNewtabUrl(url: unknown): boolean {
   return prefixes.some((prefix) => value === prefix || value.startsWith(`${prefix}?`));
 }
 
+// The search-only page stays marked after its redirect and focus cleanup.
+export function isLumnoSearchFallbackUrl(url: string): boolean {
+  if (!url.includes(EXTENSION_ROUTES.SEARCH_FALLBACK_PARAM)) {
+    return false;
+  }
+  const base = url.split(/[?#]/, 1)[0];
+  const paths = EXTENSION_ROUTES.ROUTE_PATHS;
+  return (base === chrome.runtime.getURL(paths.newtab) || base === chrome.runtime.getURL(paths.lumnoNewtab)) &&
+    new URL(url).searchParams.get(EXTENSION_ROUTES.SEARCH_FALLBACK_PARAM) === '1';
+}
+
 export function isBrowserNewtabUrl(url: unknown): boolean {
   const lower = String(url || '').toLowerCase();
   return lower === 'chrome://newtab/' ||
