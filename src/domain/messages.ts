@@ -311,6 +311,7 @@ interface BackgroundMessages {
   popupShowSearch: { request: PopupTabRequest; reply: OkReply };
   popupShowPageToast: { request: PopupTabRequest & { message: string }; reply: OkReply };
   popupAddPageShortcut: { request: PopupTabRequest; reply: PageShortcutResult };
+  readLaterAdd: { request: PopupTabRequest; reply: { status: 'added' | 'limit' | 'failed' } };
   popupGetRecentPin: { request: PopupTabRequest; reply: RecentPinStatus };
   // tracking: the pinned page's progress is followed too.
   popupToggleRecentPin: { request: PopupTabRequest; reply: { status: RecentPinToggleStatus; tracking?: boolean } };

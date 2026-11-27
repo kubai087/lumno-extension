@@ -3862,5 +3862,14 @@
   },
   "popup_recent_unpinned": {
     "message": "Unpinned from Recent"
+  },
+  "read_later_title": {
+    "message": "Read later"
+  },
+  "read_later_add": {
+    "message": "Add to Read later"
+  },
+  "read_later_added": {
+    "message": "Added to Read later"
   }
 }

@@ -3862,5 +3862,14 @@
   },
   "popup_recent_unpinned": {
     "message": "已取消置顶"
+  },
+  "read_later_title": {
+    "message": "稍后再读"
+  },
+  "read_later_add": {
+    "message": "添加到稍后再读"
+  },
+  "read_later_added": {
+    "message": "已添加到稍后再读"
   }
 }

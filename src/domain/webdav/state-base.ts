@@ -34,7 +34,7 @@ const LOCAL_WALLPAPER_KEY = settings.newtabLocalWallpaper.key;
 // Browser sync stores the link list as one item of at most 8 KB.
 const MAX_LINK_WALLPAPERS_BYTES = 8000;
 const PREFERENCE_KEYS: readonly string[] = settings.BROWSER_SYNC_KEYS.filter((key) => !SHORTCUT_KEYS.includes(key));
-const LOCAL_PREFERENCE_KEYS: readonly string[] = [LOCAL_WALLPAPER_KEY, ...settings.BOOKMARK_TOPBAR_WEBDAV_KEYS, customQuotes.key];
+const LOCAL_PREFERENCE_KEYS: readonly string[] = [LOCAL_WALLPAPER_KEY, ...settings.BOOKMARK_TOPBAR_WEBDAV_KEYS, customQuotes.key, settings.readLaterPages.key];
 // Every preference this version reads and writes. A state carries its
 // writer's list as `keys`, so a reader can tell a value the writer removed
 // from one the writer never knew: an older version drops what it does not
@@ -51,7 +51,8 @@ const KEYS_UNKNOWN_TO_LEGACY_WRITERS: readonly string[] = Object.freeze([
   settings.newtabTime12Hour.key,
   settings.searchSourceOrder.key,
   settings.bookmarkTopbarLayout.key,
-  customQuotes.key
+  customQuotes.key,
+  settings.readLaterPages.key
 ]);
 const FIELD_MERGE_KEYS: readonly string[] = [settings.newtabQuotePrefs.key,
   settings.bookmarkFolderColorRefs.key];

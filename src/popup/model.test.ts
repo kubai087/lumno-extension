@@ -65,7 +65,7 @@ describe('Popup model on a web page', () => {
   it('shows the page and every page action, web clip left out while it is off in Labs', () => {
     const model = buildModel(state(), t);
     expect(model.page).toEqual({ title: 'Kyoto walk', host: 'www.bilibili.com', iconUrl: 'icon.png', iconName: 'ri-global-line' });
-    expect(model.actions.map((each) => each.id)).toEqual(['search', 'copy', 'shortcut', 'pin', 'pip']);
+    expect(model.actions.map((each) => each.id)).toEqual(['search', 'copy', 'shortcut', 'pin', 'readLater', 'pip']);
     // Only the video action, without a video, is off.
     expect(model.actions.filter((each) => each.disabled).map((each) => each.id)).toEqual(['pip']);
     expect(model.notice).toBeNull();
@@ -111,7 +111,7 @@ describe('Popup model on a web page', () => {
 describe('Popup actions by state', () => {
   it('adds web clip as its own action once Labs turns it on and the browser has it', () => {
     const model = buildModel(state({ documentPipEnabled: true }), t);
-    expect(model.actions.map((each) => each.id)).toEqual(['search', 'copy', 'shortcut', 'pin', 'clip', 'pip']);
+    expect(model.actions.map((each) => each.id)).toEqual(['search', 'copy', 'shortcut', 'pin', 'readLater', 'clip', 'pip']);
     expect([action(model, 'clip').label, action(model, 'clip').tooltip]).toEqual(['网页剪裁', '剪下网页局部，放进置顶小窗']);
     // Tooltips fit one or two lines of the popup.
     model.actions.forEach((each) => expect(each.tooltip.length, each.id).toBeLessThanOrEqual(16));

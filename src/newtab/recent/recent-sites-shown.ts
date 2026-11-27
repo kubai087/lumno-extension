@@ -19,14 +19,14 @@ function getRecentSitesSignature(items: RecentSite[]): string {
       : '';
     const visitCount = item?.visitCount ? String(item.visitCount) : '';
     const base = `${index}::${url}::${title}::${siteName}::${lastVisitTime}::${visitCount}`;
-    return item?.progressTracking === true ? `${base}::tracking` : base;
+    return `${base}::${Boolean(item._xReadLater)}::${item?.progressTracking === true}`;
   }).join('\n');
 }
 
 
 class RecentSitesShown {
   private sourceItems: RecentSite[] = [];
-  private drawnSignature = '';
+  private drawnSignature: string | null = null;
   private loaded = false;
   // The cards the section draws.
   readonly cards = createViewStore<RecentCardsState>({ items: null });
@@ -46,7 +46,7 @@ class RecentSitesShown {
   // Draws `items` unless they are the cards drawn; true when it drew.
   draw(items: RecentSite[]): boolean {
     const signature = getRecentSitesSignature(items);
-    if (signature === this.drawnSignature) {
+    if (signature === this.drawnSignature && this.cards.getSnapshot().items !== null) {
       return false;
     }
     this.drawnSignature = signature;
@@ -61,7 +61,7 @@ class RecentSitesShown {
 
   // The next draw redraws every card.
   forgetSignature(): void {
-    this.drawnSignature = '';
+    this.drawnSignature = null;
   }
 
   markLoaded(): void {

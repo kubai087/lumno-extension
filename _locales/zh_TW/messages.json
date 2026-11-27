@@ -3862,5 +3862,14 @@
   },
   "popup_recent_unpinned": {
     "message": "已取消釘選"
+  },
+  "read_later_title": {
+    "message": "稍後再讀"
+  },
+  "read_later_add": {
+    "message": "加入稍後再讀"
+  },
+  "read_later_added": {
+    "message": "已加入稍後再讀"
   }
 }

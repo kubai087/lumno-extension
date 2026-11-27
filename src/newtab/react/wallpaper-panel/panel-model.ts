@@ -126,7 +126,7 @@ export interface RecentSettingsState {
   enabled: boolean;
   expanded: boolean;
   modeLabel: string;
-  mode: SegmentState<'latest' | 'most'>;
+  mode: SegmentState<'latest' | 'most' | 'readLater'>;
   rowsLabel: string;
   rows: SegmentState<'1' | '2'>;
 }
@@ -140,7 +140,7 @@ export interface SectionSettingsActions {
   setBookmarkTopbarLayout(layout: 'docked' | 'floating'): void;
   toggleRecentExpanded(): void;
   setRecentVisible(visible: boolean): void;
-  setRecentMode(mode: 'latest' | 'most'): void;
+  setRecentMode(mode: 'latest' | 'most' | 'readLater'): void;
   setRecentRows(rows: '1' | '2'): void;
 }
 
