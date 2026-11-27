@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "默认展示所有已打开标签页"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "已打开标签页排序"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "未输入时列出的标签页顺序，按最近使用排序时不列出当前标签页"
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "最近使用"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "最常使用"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "增强图标与主题色获取"
   },

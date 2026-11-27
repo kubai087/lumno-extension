@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "Show all open tabs by default"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "Open tabs order"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "How the tabs listed before you type are ordered. Recently used leaves out the current tab."
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "Recently used"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "Most used"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "Enhanced Icon and Theme Color Fetching"
   },

@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "開いているすべてのタブを既定で表示"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "開いているタブの並び順"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "入力前に表示するタブの順序です。最近使った順では現在のタブを表示しません。"
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "最近使った順"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "よく使う順"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "アイコンとテーマカラーの拡張取得"
   },

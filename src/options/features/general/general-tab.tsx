@@ -15,7 +15,7 @@ import {
   updateNoticeEnabled
 } from '../../../domain/settings';
 import type { Setting } from '../../../domain/settings/define';
-import { overlayOpenInCurrentTab, overlayOpenTabsDefaultVisible } from '../../../domain/settings/overlay-panel';
+import { overlayOpenInCurrentTab, overlayOpenTabsDefaultVisible, overlayOpenTabsOrder } from '../../../domain/settings/overlay-panel';
 import {
   searchFuzzyPinyinEnabled,
   searchResultDisplayLimit,
@@ -49,6 +49,7 @@ export const GENERAL_TAB_SETTINGS: readonly Setting<unknown>[] = [
   searchResultSourceTypes,
   overlayOpenInCurrentTab,
   overlayOpenTabsDefaultVisible,
+  overlayOpenTabsOrder,
   progressTrackingEnabled,
   newtabOpenInNewTab,
   restrictedAction,

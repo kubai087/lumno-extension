@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "預設顯示所有已開啟分頁"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "已開啟分頁排序"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "未輸入時列出的分頁順序，依最近使用排序時不列出目前的分頁"
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "最近使用"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "最常使用"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "增強圖示與主題色取得"
   },

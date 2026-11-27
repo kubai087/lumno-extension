@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "Mostrar todas las pestañas abiertas"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "Orden de las pestañas abiertas"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "Orden de las pestañas que se muestran antes de escribir. «Usadas recientemente» omite la pestaña actual."
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "Usadas recientemente"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "Más usadas"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "Obtención mejorada de iconos y colores de tema"
   },

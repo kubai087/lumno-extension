@@ -1,7 +1,7 @@
 import * as SearchNavigationMatching from '../../domain/search/utils/navigation-matching';
 import type { OpenTabs } from '../../shared/search-panel/open-tabs';
 import type { SuggestionLike } from '../../domain/search/types';
-import { overlayTabPriority } from '../../domain/settings/overlay-panel';
+import { overlayOpenTabsOrder, overlayTabPriority } from '../../domain/settings/overlay-panel';
 import type { OverlaySettings } from '../overlay-settings';
 
 interface TabMatchingDeps {
@@ -75,15 +75,31 @@ function createTabMatching(deps: TabMatchingDeps) {
     return parts.join(' ').toLowerCase();
   }
 
-  // Match every word of a query. With no query, offer only tabs to switch to.
+  // With no query, the tabs to switch to: by recent use, every tab but the
+  // current one; by frequency, the current tab moved to second place so
+  // another tab comes first.
+  function listTabsForEmptyQuery<T extends { id?: number }>(list: T[]): T[] {
+    const currentTabId = overlayTabs.currentTabId;
+    if (typeof currentTabId !== 'number') {
+      return list.slice();
+    }
+    if (settings.get(overlayOpenTabsOrder) === 'recent') {
+      return list.filter((tab) => tab.id !== currentTabId);
+    }
+    if (list.length < 2 || list[0].id !== currentTabId) {
+      return list.slice();
+    }
+    const [currentTab, ...others] = list;
+    return [others[0], currentTab, ...others.slice(1)];
+  }
+
+  // The tabs matching every word of the query; with no query, the tabs to
+  // switch to.
   function filterTabsForOverlay<T extends TabTextSource & { id?: number }>(tabList: T[], queryText: string): T[] {
     const list = Array.isArray(tabList) ? tabList : [];
     const normalized = normalizeTabSearchToken(queryText);
     if (!normalized) {
-      const currentTabId = overlayTabs.currentTabId;
-      return typeof currentTabId === 'number'
-        ? list.filter((tab) => tab.id !== currentTabId)
-        : list.slice();
+      return listTabsForEmptyQuery(list);
     }
     const tokens = normalized.split(/\s+/).filter(Boolean);
     if (tokens.length === 0) {

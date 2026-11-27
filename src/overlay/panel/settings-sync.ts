@@ -6,6 +6,7 @@ import {
   overlayFontFallback,
   overlayFontFamily,
   overlayOpenTabsDefaultVisible,
+  overlayOpenTabsOrder,
   overlayPageThemeAdaptationEnabled,
   overlaySizeMode,
   overlayTabPriority,
@@ -159,6 +160,13 @@ function createSettingsSync<Row>(deps: SettingsSyncDeps<Row>): Promise<void> {
       requestTabsAndRender('');
     } else {
       clearDefaultOpenTabsSuggestions();
+    }
+  });
+
+  // The listed tabs come back in the new order from the worker.
+  settings.follow(overlayOpenTabsOrder, () => {
+    if (!searchQuery.text && (searchMode.openTabs || settings.get(overlayOpenTabsDefaultVisible))) {
+      requestTabsAndRender('');
     }
   });
 

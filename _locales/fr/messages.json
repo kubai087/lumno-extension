@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "Afficher par défaut tous les onglets ouverts"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "Ordre des onglets ouverts"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "Ordre des onglets affichés avant la saisie. «\u00a0Utilisés récemment\u00a0» omet l’onglet actuel."
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "Utilisés récemment"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "Les plus utilisés"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "Récupération avancée des icônes et couleurs de thème"
   },
