@@ -13,6 +13,7 @@ import {
   overlayFontFamily,
   overlayFontLabels,
   overlayOpenTabsDefaultVisible,
+  overlayOpenTabsOrder,
   overlaySizeMode,
   overlayTabPriority
 } from './overlay-panel';
@@ -29,6 +30,13 @@ describe('Overlay page theme adaptation setting', () => {
 describe('Overlay panel settings', () => {
   it('shows the open tabs unless turned off', () => {
     expect([false, true, undefined, 'false'].map((value) => overlayOpenTabsDefaultVisible.parse(value))).toEqual([false, true, true, true]);
+  });
+
+  it('orders the open tabs by recent use unless set to frequent', () => {
+    expect(overlayOpenTabsOrder.key).toBe('_x_extension_overlay_open_tabs_order_2026_unique_');
+    expect(BROWSER_SYNC_KEYS).toContain(overlayOpenTabsOrder.key);
+    expect(['frequent', 'recent', undefined, 'other'].map((value) => overlayOpenTabsOrder.parse(value)))
+      .toEqual(['frequent', 'recent', 'recent', 'recent']);
   });
 
   it('reads a known size, standard otherwise', () => {

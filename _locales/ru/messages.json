@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "Показывать все открытые вкладки"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "Порядок открытых вкладок"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "Порядок вкладок, показанных до ввода. «Недавно использованные» не показывает текущую вкладку."
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "Недавно использованные"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "Часто используемые"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "Расширенная загрузка значков и цветов темы"
   },

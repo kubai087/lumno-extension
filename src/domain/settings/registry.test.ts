@@ -128,7 +128,8 @@ describe('settings registry', () => {
       '_x_extension_newtab_liquid_glass_tint_dark_2026_unique_',
       '_x_extension_newtab_liquid_glass_tint_light_2026_unique_',
       '_x_extension_newtab_presentation_mode_2026_unique_',
-      '_x_extension_bookmark_topbar_layout_2026_unique_'
+      '_x_extension_bookmark_topbar_layout_2026_unique_',
+      '_x_extension_overlay_open_tabs_order_2026_unique_'
     ]);
   });
 

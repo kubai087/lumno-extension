@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as Settings from '../../../domain/settings';
-import { getTag } from '../../../../tests/fakes/dom';
+import { getTag, getTags } from '../../../../tests/fakes/dom';
 import { cleanUpOptionsViews, renderOptionsView } from '../../../../tests/fakes/options-page';
 import { GeneralOverlaySection } from './overlay-section';
 
@@ -15,7 +15,7 @@ function setUp() {
 afterEach(cleanUpOptionsViews);
 
 describe('Options General webpage focus overlay section', () => {
-  it('shows both overlay settings as stored and never rewrites them on its own', async () => {
+  it('shows the overlay settings as stored and never rewrites them on its own', async () => {
     const { settings } = setUp();
     await settings.settle();
     expect(settings.writes).toEqual([]);
@@ -39,5 +39,16 @@ describe('Options General webpage focus overlay section', () => {
     act(() => getTag(host, '#_x_extension_overlay_open_tabs_default_visible_toggle_2026_unique_', 'input').click());
     await settings.settle();
     expect(writes).toEqual([{ [OPEN_TABS_KEY]: !Settings.overlayOpenTabsDefaultVisible.parse(undefined) }]);
+  });
+
+  it('orders the open tabs by recent use by default and saves the switch to frequency', async () => {
+    const { host, writes, settings } = setUp();
+    const buttons = () => getTags(host, '#_x_extension_overlay_open_tabs_order_tabs_wrap_2026_unique_ button', 'button');
+    expect(buttons().map((button) => button.dataset.active)).toEqual(['true', 'false']);
+    act(() => buttons()[1]?.click());
+    await settings.settle();
+    expect(writes).toEqual([{ [Settings.overlayOpenTabsOrder.key]: 'frequent' }]);
+    await settings.change(Settings.overlayOpenTabsOrder, 'recent');
+    expect(buttons().map((button) => button.dataset.active)).toEqual(['true', 'false']);
   });
 });

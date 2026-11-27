@@ -8,6 +8,11 @@ type OverlaySizeMode = 'compact' | 'standard' | 'large';
 
 type OverlayEnterAnimation = 'fade' | 'elastic';
 
+// How the open tabs listed before anything is typed are ordered: 'recent'
+// by when each was last used, without the current tab; 'frequent' by how
+// often each is switched to, the current tab second.
+type OverlayOpenTabsOrder = 'recent' | 'frequent';
+
 // What the search shortcut does on a page the extension cannot run on:
 // 'default' opens Lumno's New Tab, 'none' the browser's own.
 type RestrictedAction = 'default' | 'none';
@@ -82,6 +87,13 @@ const overlayOpenTabsDefaultVisible = defineSetting({
   area: 'preferences',
   sync: 'browser',
   schema: flag(true)
+});
+
+const overlayOpenTabsOrder = defineSetting({
+  key: '_x_extension_overlay_open_tabs_order_2026_unique_',
+  area: 'preferences',
+  sync: 'browser',
+  schema: custom((value): OverlayOpenTabsOrder => (value === 'frequent' ? 'frequent' : 'recent'))
 });
 
 // Results of the webpage search bar open in the current tab instead of a
@@ -216,6 +228,7 @@ export {
   overlayFontLabels,
   overlayOpenInCurrentTab,
   overlayOpenTabsDefaultVisible,
+  overlayOpenTabsOrder,
   overlayPageThemeAdaptationEnabled,
   overlaySizeMode,
   overlayTabPriority,
@@ -223,4 +236,4 @@ export {
   restrictedAction,
   restrictedActionAutoBrowserSettingDone
 };
-export type { OverlayEnterAnimation, OverlaySizeMode, OverlaySizePreset, RestrictedAction };
+export type { OverlayEnterAnimation, OverlayOpenTabsOrder, OverlaySizeMode, OverlaySizePreset, RestrictedAction };

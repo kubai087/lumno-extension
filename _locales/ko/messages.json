@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "열린 탭을 기본으로 모두 표시"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "열린 탭 정렬"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "입력 전에 표시되는 탭의 순서입니다. 최근 사용순에서는 현재 탭을 표시하지 않습니다."
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "최근 사용순"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "자주 사용순"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "아이콘 및 테마 색상 가져오기 강화"
   },

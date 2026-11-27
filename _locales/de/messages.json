@@ -380,6 +380,18 @@
   "settings_overlay_open_tabs_default_title": {
     "message": "Standardmäßig alle offenen Tabs anzeigen"
   },
+  "settings_overlay_open_tabs_order_title": {
+    "message": "Reihenfolge offener Tabs"
+  },
+  "settings_overlay_open_tabs_order_desc": {
+    "message": "Reihenfolge der Tabs, die vor der Eingabe angezeigt werden. „Zuletzt verwendet“ lässt den aktuellen Tab weg."
+  },
+  "overlay_open_tabs_order_recent": {
+    "message": "Zuletzt verwendet"
+  },
+  "overlay_open_tabs_order_frequent": {
+    "message": "Am häufigsten verwendet"
+  },
   "settings_favicon_enhanced_fetch_title": {
     "message": "Erweiterter Abruf von Symbolen und Designfarben"
   },

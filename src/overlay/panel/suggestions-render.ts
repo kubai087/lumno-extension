@@ -21,6 +21,7 @@ import { createSuggestionsView } from '../../shared/react/search/suggestions';
 import { createStore } from '../../shared/state/store';
 import * as SearchDirectNavigation from '../../domain/search/utils/direct-navigation';
 import { simpleModeEnabled } from '../../domain/settings/appearance';
+import { overlayOpenTabsOrder } from '../../domain/settings/overlay-panel';
 import { searchResultDisplayLimit, tabRankScoreDebug } from '../../domain/settings/search';
 import type { OverlaySettings } from '../overlay-settings';
 import type { OverlayFaviconRuntime } from '../dom/favicon-view';
@@ -472,7 +473,10 @@ function createSuggestionsRender(deps: SuggestionsRenderDeps) {
       clearDefaultOpenTabsSuggestions();
       return;
     }
-    const request: BackgroundRequest<'getTabsForOverlay'> = { action: 'getTabsForOverlay', sortByRecency: true };
+    const request: BackgroundRequest<'getTabsForOverlay'> = {
+      action: 'getTabsForOverlay',
+      sortByRecency: settings.get(overlayOpenTabsOrder) === 'recent'
+    };
     if (typeof overlayTabs.currentTabId === 'number') {
       request.currentTabId = overlayTabs.currentTabId;
     }

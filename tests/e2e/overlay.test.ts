@@ -78,6 +78,21 @@ describe('search overlay', () => {
     }, { message: 'the current page was listed or the recent tab did not come first' });
   });
 
+  flow('lists the current page second when the open tabs are ordered by frequency', async ({ browser, fixtures }) => {
+    await browser.worker.evaluate(`chrome.storage.sync.set(${JSON.stringify({ [SETTINGS.overlayOpenTabsOrder.key]: 'frequent' })})`);
+    const other = await browser.openPage(fixtures.url('/fixture.html'));
+    const web = await browser.openPage(fixtures.url('/page.html'));
+    await focusTab(browser, other);
+    await delay(500);
+    await focusTab(browser, web);
+
+    await openOverlay(browser, web);
+    await web.waitForShadow(OVERLAY_HOST_ID, '.x-ov-suggestion-item', getText, (texts) => {
+      const rows = strings(texts);
+      return rows.length >= 2 && rows[1].includes('Lumno web page') && !rows[0].includes('Lumno web page');
+    }, { message: 'the current page was not listed second' });
+  });
+
   // The overlay keeps its focus and its typed keys under a page's key
   // grabber, and one Escape still closes it (#127).
   flow('keeps its focus and typed keys under a page key grabber, and closes on one Escape', async ({ browser, fixtures }) => {
