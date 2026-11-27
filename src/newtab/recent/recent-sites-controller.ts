@@ -112,8 +112,14 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     hiddenSites = normalizeHiddenRecentSites(settings.get(RecentSiteSettings.hiddenRecentSites));
   }
 
+  // A redraw that fails leaves the cards as they were; it never fails the
+  // change that was already saved, so no error toast follows a saved change.
   function redrawRecentSites(): void {
-    recentEvents.emit('cardsStale', null);
+    try {
+      recentEvents.emit('cardsStale', null);
+    } catch (error) {
+      console.warn('[Lumno] Failed to redraw the recent sites', error);
+    }
   }
 
   // Follows the stored lists, redrawing the cards when the sites change;
@@ -258,7 +264,8 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
           ),
         false
       );
-    }).catch(() => {
+    }).catch((error: unknown) => {
+      console.warn('[Lumno] Failed to remove a recent site', error);
       showToast(t('toast_error', '操作失败，请重试。'), true);
     });
   }
@@ -464,7 +471,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       ? writePinnedRecentSites(nextPinnedItems)
       : Promise.resolve(pinnedSites.slice());
     return persistPinned.then(() => writeHiddenRecentSites(nextHiddenItems)).then(() => {
-      recentEvents.emit('cardsStale', null);
+      redrawRecentSites();
       return { hidden: true, wasPinned };
     });
   }
@@ -563,7 +570,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     if (existingIndex >= 0) {
       const nextItems = pinnedSites.filter((_, index) => index !== existingIndex);
       return writePinnedRecentSites(nextItems).then((savedItems) => {
-        recentEvents.emit('cardsStale', null);
+        redrawRecentSites();
         return {
           pinned: false,
           limitReached: false,
@@ -584,7 +591,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     };
     const nextItems = [pinned].concat(pinnedSites);
     return writePinnedRecentSites(nextItems).then((savedItems) => {
-      recentEvents.emit('cardsStale', null);
+      redrawRecentSites();
       if (autoTrack) {
         showToast(t('recent_progress_auto_toast', '已置顶，并开始跟踪进度。点击卡片上的雷达图标可停止。'), false);
       }
@@ -704,7 +711,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       nextItems = [tracked].concat(pinnedSites);
     }
     return writePinnedRecentSites(nextItems).then(() => {
-      recentEvents.emit('cardsStale', null);
+      redrawRecentSites();
       showToast(enabled
         ? t('recent_progress_track_toast', '已开始跟踪，看下一集或下一章时卡片会自动更新')
         : t('recent_progress_stop_toast', '已停止跟踪进度'), false);
@@ -759,7 +766,7 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
     return writeProgressHistory(restored.map).then(() => {
       return writePinnedRecentSites(nextItems);
     }).then(() => {
-      recentEvents.emit('cardsStale', null);
+      redrawRecentSites();
       return true;
     }).catch(() => {
       showToast(t('recent_history_restore_failed', '无法恢复此版本'), true);

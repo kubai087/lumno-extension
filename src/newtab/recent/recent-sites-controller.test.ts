@@ -1,11 +1,13 @@
+import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as progressHistory from '../../domain/progress-history';
 import * as progressMatch from '../../domain/progress-match';
 import type { RecentSite } from '../../domain/recent-sites-store';
-import { pinnedRecentSites, progressHistory as progressHistorySetting, progressTrackingEnabled } from '../../domain/settings/recent-sites';
+import { hiddenRecentSites, pinnedRecentSites, progressHistory as progressHistorySetting, progressTrackingEnabled } from '../../domain/settings/recent-sites';
 import { SurfaceLocale } from '../../shared/i18n/surface-locale';
 import { createOptionsTestSettings } from '../../../tests/fakes/options-settings';
 import { createSelectMenuController } from '../react/select-menu';
+import { recentEvents } from './recent-events';
 import { createRecentSitesController } from './recent-sites-controller';
 import { RecentSitesShown } from './recent-sites-shown';
 
@@ -63,6 +65,7 @@ async function setUp(pinned: unknown[], history: unknown, trackingEnabled = true
   await settings.settle();
   return {
     controller,
+    settings,
     toasts,
     pinned: () => storedCards(settings.data.sync),
     history: () => settings.data.local[HISTORY_KEY]
@@ -210,5 +213,53 @@ describe('recent site progress tracking', () => {
     expect(Array.isArray(versions) ? versions.map((version) => (isRecord(version) ? version.url : null)) : null)
       .toEqual([tracked.url, 'https://vidhub3.top/vodplay/55357-1-2.html']);
     await expect(controller.restoreProgressVersion({ cardId: 'example.com', url: '', title: '', updateHistory: [] }, null, 0)).resolves.toBe(false);
+  });
+});
+
+// Removing a card from its menu: the error toast means the removal was not
+// saved, and says nothing about the redraw after it.
+describe('removing a recent site', () => {
+  afterEach(() => {
+    recentEvents.clear();
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  async function chooseRemove(setup: Awaited<ReturnType<typeof setUp>>, item: RecentSite): Promise<void> {
+    const element = document.body.appendChild(document.createElement('div'));
+    await act(async () => {
+      setup.controller.handleRecentCardContextMenu({ event: new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }), item, element });
+    });
+    const remove = document.querySelector('.x-nt-recent-context-menu-portal [data-value="remove"]');
+    expect(remove).toBeInstanceOf(HTMLElement);
+    await act(async () => {
+      if (remove instanceof HTMLElement) remove.click();
+    });
+    await setup.settings.settle();
+  }
+
+  it('hides the site without an error when the cards fail to redraw', async () => {
+    const setup = await setUp([], {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    recentEvents.on('cardsStale', () => {
+      throw new Error('render failed');
+    });
+
+    await chooseRemove(setup, docs);
+    expect(setup.controller.isRecentSiteHidden(docs)).toBe(true);
+    expect(setup.settings.data.sync[hiddenRecentSites.key]).toEqual([expect.objectContaining({ url: docs.url })]);
+    expect(setup.toasts.map((toast) => toast.isError)).toEqual([false]);
+    expect(warn).toHaveBeenCalledWith('[Lumno] Failed to redraw the recent sites', expect.any(Error));
+  });
+
+  it('logs why a removal was not saved', async () => {
+    const setup = await setUp([], {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const refused = new Error('QUOTA_BYTES quota exceeded');
+    vi.spyOn(setup.settings.store, 'set').mockRejectedValueOnce(refused);
+
+    await chooseRemove(setup, docs);
+    expect(setup.toasts.map((toast) => toast.isError)).toEqual([true]);
+    expect(warn).toHaveBeenCalledWith('[Lumno] Failed to remove a recent site', refused);
   });
 });
