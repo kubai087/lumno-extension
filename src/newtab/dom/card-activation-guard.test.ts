@@ -16,7 +16,14 @@ function setUp() {
   return {
     guard,
     press: () => document.dispatchEvent(new Event('pointerdown')),
-    setOpen: (open: boolean) => menu.setAttribute('data-open', String(open)),
+    // A closed menu has faded out unless a test says otherwise.
+    setOpen: (open: boolean) => {
+      menu.setAttribute('data-open', String(open));
+      menu.style.opacity = open ? '1' : '0';
+    },
+    setOpacity: (opacity: number) => {
+      menu.style.opacity = String(opacity);
+    },
     advance: (ms: number) => {
       now += ms;
     }
@@ -62,6 +69,25 @@ describe('card activation guard', () => {
     press();
     expect(guard.isCardActivationSuppressed()).toBe(true);
     advance(CONTEXT_MENU_CLICK_THROUGH_GUARD_MS);
+    press();
+    expect(guard.isCardActivationSuppressed()).toBe(false);
+  });
+
+  // The menu closed on its own (focus moved), not by a press, and still
+  // shows as it fades out (#151).
+  it('gives a press on a menu still fading out after closing on its own to the menu', () => {
+    const { guard, press, setOpen, setOpacity } = setUp();
+    setOpen(true);
+    setOpen(false);
+    setOpacity(0.6);
+    press();
+    expect(guard.isCardActivationSuppressed()).toBe(true);
+  });
+
+  it('lets a press open the card once a closed menu has faded out', () => {
+    const { guard, press, setOpen } = setUp();
+    setOpen(true);
+    setOpen(false);
     press();
     expect(guard.isCardActivationSuppressed()).toBe(false);
   });

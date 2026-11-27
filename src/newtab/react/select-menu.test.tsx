@@ -188,6 +188,20 @@ describe('New Tab select menu React island', () => {
     expect(document.activeElement).toBe(input);
   });
 
+  // A context menu opened on a focused card: the window coming to the front
+  // again gives the card focus back, which must not close the menu (#151).
+  it('stays open when focus comes back to the element that held it as the menu opened', () => {
+    const { controller, instance } = createMenu();
+    const card = document.body.appendChild(document.createElement('div'));
+    card.tabIndex = 0;
+    const other = document.body.appendChild(document.createElement('input'));
+    act(() => { card.focus(); controller.setOpen(instance.wrapper, true); });
+    act(() => { card.blur(); card.focus(); });
+    expect(controller.isOpen(instance.wrapper)).toBe(true);
+    act(() => other.focus());
+    expect(controller.isOpen(instance.wrapper)).toBe(false);
+  });
+
   it('preserves the custom-select DOM and synchronous controller contract', () => {
     const { controller, instance } = createMenu();
 

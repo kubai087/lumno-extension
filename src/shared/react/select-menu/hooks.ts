@@ -94,7 +94,16 @@ function useOutsideDismiss(open: boolean, doc: Document, host: HTMLElement, menu
         triggerRef.current?.focus();
       }
     };
+    // Focus coming back to where it was when the menu opened, as when the
+    // window comes to the front again, has not left the menu. On macOS the
+    // click that brings the window forward would otherwise close the menu
+    // and land on what was under it.
+    let focusedAtOpen = doc.activeElement;
     const onFocusIn = (event: FocusEvent) => {
+      if (event.target === focusedAtOpen) {
+        return;
+      }
+      focusedAtOpen = null;
       if (isOutside(event)) {
         setOpen(false);
       }

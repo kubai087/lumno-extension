@@ -343,6 +343,14 @@ function createRecentSitesController(deps: RecentSitesControllerDeps) {
       options: getRecentContextMenuOptions(),
       onAction(payload) {
         handleRecentContextMenuAction(payload && payload.action);
+      },
+      // The menu also closes itself (focus moving away); the card it was
+      // opened on stops showing it.
+      onClose() {
+        if (recentContextMenuTarget) {
+          setRecentContextMenuSite(null);
+          recentContextMenuTarget = null;
+        }
       }
     });
     if (!created) {
